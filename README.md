@@ -5,6 +5,7 @@ React (Vite) + TypeScript + Tailwind CSS. Run `npm install`, then `npm run dev`.
 - **/** — Project dashboard (Adobe Analytics replica) with departments table and expandable row.
 - **/tasks** — Task management: add/edit/delete tasks, status workflow; stored in `localStorage`.
 - **/council** — Arbeidsmiljøråd: styre/valg, **årshjul** (mål 4 ordinære møter/år), **foreslått agenda per kvartal**, **møteforberedelse**, **revisjonslogg** (diskusjon, notater, vedtak). Ikke juridisk rådgivning.
+- **/members** — Valg av arbeidstakerrepresentanter (valgfritt **anonymt**), **50/50**-kontroll, roller (leder/nestleder/medlem), **opplæringskrav per rolle**, **valgperioder**, **revisjonslogg**. Ikke juridisk rådgivning.
 - **/hrm/employees** & **/hrm/salary** — HRM module screens (lime accent) from the second design.
 
 ## Deployment (SPA routing)

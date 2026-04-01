@@ -5,6 +5,7 @@ import { HrmSalary } from './pages/HrmSalary'
 import { NotFound } from './pages/NotFound'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { CouncilModule } from './pages/CouncilModule'
+import { MembersModule } from './pages/MembersModule'
 import { ProjectDashboard } from './pages/ProjectDashboard'
 import { TasksPage } from './pages/TasksPage'
 
@@ -21,6 +22,7 @@ function App() {
           <Route index element={<ProjectDashboard />} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="council" element={<CouncilModule />} />
+          <Route path="members" element={<MembersModule />} />
           <Route
             path="clients"
             element={<PlaceholderPage title="Clients" description="Client directory and relationships." />}
