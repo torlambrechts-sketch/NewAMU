@@ -6,6 +6,7 @@ import { NotFound } from './pages/NotFound'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { CouncilModule } from './pages/CouncilModule'
 import { MembersModule } from './pages/MembersModule'
+import { HseModule } from './pages/HseModule'
 import { OrgHealthModule } from './pages/OrgHealthModule'
 import { ProjectDashboard } from './pages/ProjectDashboard'
 import { TasksPage } from './pages/TasksPage'
@@ -25,6 +26,7 @@ function App() {
           <Route path="council" element={<CouncilModule />} />
           <Route path="members" element={<MembersModule />} />
           <Route path="org-health" element={<OrgHealthModule />} />
+          <Route path="hse" element={<HseModule />} />
           <Route
             path="clients"
             element={<PlaceholderPage title="Clients" description="Client directory and relationships." />}
