@@ -21,6 +21,12 @@ export type SafetyRound = {
 
 export type InspectionKind = 'internal' | 'external' | 'audit'
 
+export type HseProtocolSignature = {
+  signerName: string
+  signedAt: string
+  role: 'inspector' | 'management' | 'verneombud'
+}
+
 export type Inspection = {
   id: string
   kind: InspectionKind
@@ -31,6 +37,8 @@ export type Inspection = {
   followUp: string
   status: 'open' | 'closed'
   responsible: string
+  /** Signatur på inspeksjonsprotokoll */
+  protocolSignatures?: HseProtocolSignature[]
   createdAt: string
   updatedAt: string
 }

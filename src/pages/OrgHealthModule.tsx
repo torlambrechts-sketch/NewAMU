@@ -10,6 +10,7 @@ import {
   Plus,
   Send,
 } from 'lucide-react'
+import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { definitionForKey } from '../data/orgHealthMetrics'
 import { useOrgHealth } from '../hooks/useOrgHealth'
 import type { LaborMetricKey, Survey, SurveyQuestion } from '../types/orgHealth'
@@ -176,6 +177,14 @@ export function OrgHealthModule() {
             >
               AML-indikatorer
             </button>
+            <div className="mt-3 flex justify-center">
+              <AddTaskLink
+                title="Oppfølging organisasjonshelse"
+                module="org_health"
+                sourceType="manual"
+                ownerRole="HR / HMS"
+              />
+            </div>
           </div>
         </div>
       )}
@@ -459,6 +468,7 @@ export function OrgHealthModule() {
                     <th className="px-4 py-3 font-medium">Egenmelding (d)</th>
                     <th className="px-4 py-3 font-medium">Sykmelding (d)</th>
                     <th className="px-4 py-3 font-medium">Ansatte</th>
+                    <th className="px-4 py-3 font-medium">Oppgave</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
@@ -476,6 +486,19 @@ export function OrgHealthModule() {
                       <td className="px-4 py-3">{r.selfCertifiedDays ?? '—'}</td>
                       <td className="px-4 py-3">{r.documentedSickDays ?? '—'}</td>
                       <td className="px-4 py-3">{r.employeeCount ?? '—'}</td>
+                      <td className="px-4 py-3 align-top">
+                        <AddTaskLink
+                          title={`IA-oppfølging sykefravær ${r.periodLabel}`}
+                          description={r.notes?.slice(0, 200)}
+                          module="org_health"
+                          sourceType="nav_report"
+                          sourceId={r.id}
+                          sourceLabel={r.periodLabel}
+                          ownerRole="Leder / IA"
+                          requiresManagementSignOff
+                          className="text-xs"
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -610,6 +633,16 @@ export function OrgHealthModule() {
                       {m.value != null ? `${m.value} ${m.unit}` : m.textValue ?? '—'}
                     </span>
                     {m.notes ? <p className="mt-1 text-xs text-neutral-500">{m.notes}</p> : null}
+                    <div className="mt-2">
+                      <AddTaskLink
+                        title={`Tiltak: ${def?.label ?? m.metricKey}`}
+                        module="org_health"
+                        sourceType="labor_metric"
+                        sourceId={m.id}
+                        sourceLabel={def?.label}
+                        ownerRole="HMS"
+                      />
+                    </div>
                   </li>
                 )
               })}
@@ -750,6 +783,19 @@ function SurveyAdminCard({
           </button>
         </div>
       )}
+      {survey.status === 'closed' && aggregate && aggregate.count > 0 ? (
+        <div className="mt-4">
+          <AddTaskLink
+            title={`Tiltak etter undersøkelse: ${survey.title.slice(0, 60)}`}
+            module="org_health"
+            sourceType="survey"
+            sourceId={survey.id}
+            sourceLabel={survey.title}
+            ownerRole="HR / leder"
+            requiresManagementSignOff
+          />
+        </div>
+      ) : null}
       {aggregate && aggregate.count > 0 && (
         <div className="mt-4 rounded-xl bg-neutral-50 p-3 text-xs text-neutral-600">
           {survey.anonymous ? (

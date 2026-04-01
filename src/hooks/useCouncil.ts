@@ -15,6 +15,7 @@ import type {
   Election,
   ElectionCandidate,
   MeetingStatus,
+  ProtocolSignature,
   QuarterSlot,
 } from '../types/council'
 
@@ -96,6 +97,7 @@ function migrateMeeting(raw: unknown): CouncilMeeting {
     agendaItems,
     status: m.status ?? 'planned',
     minutes: m.minutes,
+    protocolSignatures: Array.isArray(m.protocolSignatures) ? m.protocolSignatures : [],
     preparationNotes: typeof m.preparationNotes === 'string' ? m.preparationNotes : '',
     preparationChecklist: prep,
     auditTrail: audit,
@@ -356,6 +358,7 @@ export function useCouncil() {
       location: input.location.trim() || 'TBD',
       agendaItems,
       status: input.status ?? 'planned',
+      protocolSignatures: [],
       preparationNotes: input.preparationNotes?.trim() ?? '',
       preparationChecklist: defaultPreparationChecklist(),
       auditTrail: [entry],
@@ -513,6 +516,37 @@ export function useCouncil() {
     setState((s) => ({ ...s, compliance: [...s.compliance, c] }))
   }, [])
 
+  const signMeetingProtocol = useCallback(
+    (meetingId: string, signerName: string, role: ProtocolSignature['role']) => {
+      const name = signerName.trim()
+      if (!name) return false
+      const sig: ProtocolSignature = {
+        signerName: name,
+        signedAt: new Date().toISOString(),
+        role,
+      }
+      setState((s) => ({
+        ...s,
+        meetings: s.meetings.map((m) =>
+          m.id === meetingId
+            ? {
+                ...m,
+                protocolSignatures: [...(m.protocolSignatures ?? []), sig],
+              }
+            : m,
+        ),
+      }))
+      appendAuditEntry(
+        meetingId,
+        'note',
+        `Protokoll signert (${role}): ${name}`,
+        name,
+      )
+      return true
+    },
+    [appendAuditEntry],
+  )
+
   const resetToDemoData = useCallback(() => {
     const next: CouncilState = {
       board: seedBoard,
@@ -542,5 +576,6 @@ export function useCouncil() {
     setComplianceNotes,
     addComplianceItem,
     resetToDemoData,
+    signMeetingProtocol,
   }
 }

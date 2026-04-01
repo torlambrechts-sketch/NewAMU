@@ -54,6 +54,12 @@ export type PrepChecklistItem = {
   done: boolean
 }
 
+export type ProtocolSignature = {
+  signerName: string
+  signedAt: string
+  role: 'chair' | 'secretary' | 'management'
+}
+
 export type CouncilMeeting = {
   id: string
   title: string
@@ -65,6 +71,8 @@ export type CouncilMeeting = {
   status: MeetingStatus
   /** Fritekst referat (kan suppleres med revisjonslogg) */
   minutes?: string
+  /** Digital signatur på protokoll (navn + tid — juridisk bindende krever ekstern løsning) */
+  protocolSignatures?: ProtocolSignature[]
   preparationNotes: string
   preparationChecklist: PrepChecklistItem[]
   auditTrail: AuditEntry[]

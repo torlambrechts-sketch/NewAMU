@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import {
   AlertTriangle,
   BookOpen,
@@ -11,7 +12,13 @@ import {
   Search,
 } from 'lucide-react'
 import { useHse } from '../hooks/useHse'
-import type { ChecklistItemStatus, Incident, Inspection, SafetyRound } from '../types/hse'
+import type {
+  ChecklistItemStatus,
+  HseProtocolSignature,
+  Incident,
+  Inspection,
+  SafetyRound,
+} from '../types/hse'
 
 const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: HardHat },
@@ -353,28 +360,7 @@ export function HseModule() {
             </div>
             <ul className="divide-y divide-neutral-100">
               {hse.inspections.map((ins) => (
-                <li key={ins.id} className="px-4 py-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <span className="font-medium text-neutral-900">{ins.title}</span>
-                      <span className="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs">{ins.kind}</span>
-                    </div>
-                    <select
-                      value={ins.status}
-                      onChange={(e) =>
-                        hse.updateInspection(ins.id, {
-                          status: e.target.value as Inspection['status'],
-                        })
-                      }
-                      className="rounded-full border border-neutral-200 px-2 py-1 text-xs"
-                    >
-                      <option value="open">Åpen</option>
-                      <option value="closed">Lukket</option>
-                    </select>
-                  </div>
-                  <p className="mt-1 text-xs text-neutral-500">{formatWhen(ins.conductedAt)}</p>
-                  <p className="mt-2 text-sm text-neutral-700">{ins.findings || '—'}</p>
-                </li>
+                <InspectionRow key={ins.id} ins={ins} hse={hse} />
               ))}
             </ul>
             {hse.inspections.length === 0 ? (
@@ -536,6 +522,18 @@ export function HseModule() {
                     {formatWhen(inc.occurredAt)} · {inc.severity} · {inc.location}
                   </p>
                   <p className="mt-2 text-sm text-neutral-800">{inc.description}</p>
+                  <div className="mt-2">
+                    <AddTaskLink
+                      title={`Oppfølging: ${inc.kind === 'near_miss' ? 'Nestenulykke' : 'Hendelse'}`}
+                      description={inc.description.slice(0, 200)}
+                      module="hse"
+                      sourceType="hse_incident"
+                      sourceId={inc.id}
+                      sourceLabel={`${inc.location} · ${inc.severity}`}
+                      ownerRole="HMS / verneombud"
+                      requiresManagementSignOff={inc.severity === 'high'}
+                    />
+                  </div>
                 </li>
               ))}
             </ul>
@@ -620,6 +618,93 @@ function StatCard({ label, value }: { label: string; value: number }) {
   )
 }
 
+function InspectionRow({
+  ins,
+  hse,
+}: {
+  ins: Inspection
+  hse: ReturnType<typeof useHse>
+}) {
+  const [name, setName] = useState('')
+  const [role, setRole] = useState<HseProtocolSignature['role']>('inspector')
+  return (
+    <li className="px-4 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <span className="font-medium text-neutral-900">{ins.title}</span>
+          <span className="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs">{ins.kind}</span>
+        </div>
+        <select
+          value={ins.status}
+          onChange={(e) =>
+            hse.updateInspection(ins.id, {
+              status: e.target.value as Inspection['status'],
+            })
+          }
+          className="rounded-full border border-neutral-200 px-2 py-1 text-xs"
+        >
+          <option value="open">Åpen</option>
+          <option value="closed">Lukket</option>
+        </select>
+      </div>
+      <p className="mt-1 text-xs text-neutral-500">{formatWhen(ins.conductedAt)}</p>
+      <p className="mt-2 text-sm text-neutral-700">{ins.findings || '—'}</p>
+      <div className="mt-3 rounded-lg bg-[#faf8f4] p-3 text-xs">
+        <span className="font-medium text-neutral-800">Signaturer:</span>
+        <ul className="mt-1 space-y-0.5 text-neutral-700">
+          {(ins.protocolSignatures ?? []).map((s, i) => (
+            <li key={`${s.signedAt}-${i}`}>
+              {s.role === 'inspector'
+                ? 'Inspektør'
+                : s.role === 'verneombud'
+                  ? 'Verneombud'
+                  : 'Ledelse'}
+              : {s.signerName} — {formatWhen(s.signedAt)}
+            </li>
+          ))}
+        </ul>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value as HseProtocolSignature['role'])}
+            className="rounded border border-neutral-200 px-2 py-1"
+          >
+            <option value="inspector">Inspektør</option>
+            <option value="verneombud">Verneombud</option>
+            <option value="management">Ledelse</option>
+          </select>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Fullt navn"
+            className="min-w-[140px] flex-1 rounded border border-neutral-200 px-2 py-1"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              if (hse.signInspectionProtocol(ins.id, name, role)) setName('')
+            }}
+            className="rounded bg-[#1a3d32] px-2 py-1 text-white"
+          >
+            Signer
+          </button>
+        </div>
+      </div>
+      <div className="mt-2">
+        <AddTaskLink
+          title={`Oppfølging inspeksjon: ${ins.title.slice(0, 60)}`}
+          description={ins.followUp || ins.findings?.slice(0, 200)}
+          module="hse"
+          sourceType="hse_inspection"
+          sourceId={ins.id}
+          sourceLabel={ins.title}
+          ownerRole={ins.responsible || 'Ansvarlig'}
+        />
+      </div>
+    </li>
+  )
+}
+
 function SafetyRoundCard({
   round,
   checklist,
@@ -629,6 +714,7 @@ function SafetyRoundCard({
   checklist: { id: string; label: string; lawRef: string }[]
   hse: ReturnType<typeof useHse>
 }) {
+  const hasIssue = Object.values(round.items).some((v) => v === 'issue')
   return (
     <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -686,6 +772,19 @@ function SafetyRoundCard({
         rows={3}
         className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
       />
+      {hasIssue ? (
+        <div className="mt-3">
+          <AddTaskLink
+            title={`Avvik fra vernerunde: ${round.title.slice(0, 50)}`}
+            description={round.notes.slice(0, 300)}
+            module="hse"
+            sourceType="hse_safety_round"
+            sourceId={round.id}
+            sourceLabel={round.title}
+            ownerRole="Verneombud"
+          />
+        </div>
+      ) : null}
     </div>
   )
 }

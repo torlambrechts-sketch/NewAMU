@@ -12,6 +12,7 @@ import {
   Users,
   Vote,
 } from 'lucide-react'
+import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { GovernanceWheel } from '../components/council/GovernanceWheel'
 import { MEETINGS_PER_YEAR, suggestedAgendaItems } from '../data/meetingGovernance'
 import { useCouncil } from '../hooks/useCouncil'
@@ -607,13 +608,27 @@ export function CouncilModule() {
                       <span className="mt-1 block text-xs text-[#1a3d32]/90">{c.lawRef}</span>
                     </span>
                   </label>
-                  <textarea
-                    placeholder="Notater (bevis, referat, ansvarlig …)"
-                    value={c.notes ?? ''}
-                    onChange={(e) => council.setComplianceNotes(c.id, e.target.value)}
-                    rows={2}
-                    className="w-full min-w-[200px] flex-1 rounded-xl border border-neutral-200 px-3 py-2 text-sm sm:max-w-md"
-                  />
+                  <div className="flex min-w-[200px] flex-1 flex-col gap-2 sm:max-w-md">
+                    <textarea
+                      placeholder="Notater (bevis, referat, ansvarlig …)"
+                      value={c.notes ?? ''}
+                      onChange={(e) => council.setComplianceNotes(c.id, e.target.value)}
+                      rows={2}
+                      className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+                    />
+                    {!c.done ? (
+                      <AddTaskLink
+                        title={`Oppfølging: ${c.title.slice(0, 80)}`}
+                        description={c.lawRef}
+                        module="council"
+                        sourceType="council_compliance"
+                        sourceId={c.id}
+                        sourceLabel={c.title}
+                        ownerRole="HMS / råd"
+                        requiresManagementSignOff={false}
+                      />
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -730,6 +745,8 @@ function MeetingDetailPanel({
     React.SetStateAction<{ kind: AuditEntryKind; text: string; author: string }>
   >
 }) {
+  const [protoName, setProtoName] = useState('')
+  const [protoRole, setProtoRole] = useState<'chair' | 'secretary' | 'management'>('chair')
   function updateAgendaItem(itemId: string, patch: Partial<AgendaItem>) {
     const next = meeting.agendaItems.map((a) => (a.id === itemId ? { ...a, ...patch } : a))
     council.setAgendaItems(meeting.id, next)
@@ -876,6 +893,63 @@ function MeetingDetailPanel({
             className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
             placeholder="Hovedinnhold i protokoll …"
           />
+          <div className="mt-4 rounded-xl border border-neutral-200 bg-[#faf8f4] p-4">
+            <h4 className="text-sm font-semibold text-neutral-900">Digital signatur på protokoll</h4>
+            <p className="mt-1 text-xs text-neutral-600">
+              Registrerer navn og tid (demonstrasjon). Juridisk signatur krever eSignatur.
+            </p>
+            <ul className="mt-2 space-y-1 text-xs text-neutral-700">
+              {(meeting.protocolSignatures ?? []).map((s, i) => (
+                <li key={`${s.signedAt}-${i}`}>
+                  {s.role === 'chair'
+                    ? 'Møteleder'
+                    : s.role === 'secretary'
+                      ? 'Referent'
+                      : 'Ledelse'}
+                  : {s.signerName} — {formatWhen(s.signedAt)}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <select
+                value={protoRole}
+                onChange={(e) =>
+                  setProtoRole(e.target.value as 'chair' | 'secretary' | 'management')
+                }
+                className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs"
+              >
+                <option value="chair">Møteleder</option>
+                <option value="secretary">Referent</option>
+                <option value="management">Ledelse</option>
+              </select>
+              <input
+                value={protoName}
+                onChange={(e) => setProtoName(e.target.value)}
+                placeholder="Fullt navn"
+                className="min-w-[160px] flex-1 rounded-lg border border-neutral-200 px-2 py-1.5 text-xs"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (council.signMeetingProtocol(meeting.id, protoName, protoRole)) setProtoName('')
+                }}
+                className="rounded-lg bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white"
+              >
+                Signer
+              </button>
+            </div>
+          </div>
+          <div className="mt-3">
+            <AddTaskLink
+              title={`Oppfølging etter møte: ${meeting.title.slice(0, 60)}`}
+              description={meeting.minutes?.slice(0, 300)}
+              module="council"
+              sourceType="council_meeting"
+              sourceId={meeting.id}
+              sourceLabel={meeting.title}
+              ownerRole="Saksbehandler"
+            />
+          </div>
         </div>
 
         <div className="mt-6 border-t border-neutral-100 pt-4">

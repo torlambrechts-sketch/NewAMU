@@ -10,6 +10,7 @@ import {
   Users,
   Vote,
 } from 'lucide-react'
+import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { REPRESENTATIVE_ROLE_REQUIREMENTS, requirementsForRole } from '../data/representativeRules'
 import { useRepresentatives } from '../hooks/useRepresentatives'
 import type { RepElection, RepresentativeMember, RepresentativeOfficeRole } from '../types/representatives'
@@ -187,6 +188,15 @@ export function MembersModule() {
             >
               Krav per rolle
             </button>
+            <div className="mt-3 flex justify-center">
+              <AddTaskLink
+                title="Oppfølging representasjon / AMU"
+                module="members"
+                sourceType="representatives"
+                ownerRole="Tillitsvalgt"
+                requiresManagementSignOff
+              />
+            </div>
           </div>
         </div>
       )}

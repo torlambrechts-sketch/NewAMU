@@ -8,6 +8,7 @@ import type {
   ChecklistItemStatus,
   HseAuditAction,
   HseAuditEntry,
+  HseProtocolSignature,
   Incident,
   Inspection,
   SafetyRound,
@@ -195,6 +196,7 @@ export function useHse() {
       const now = new Date().toISOString()
       const ins: Inspection = {
         ...partial,
+        protocolSignatures: partial.protocolSignatures ?? [],
         id: crypto.randomUUID(),
         createdAt: now,
         updatedAt: now,
@@ -212,6 +214,42 @@ export function useHse() {
         auditTrail: [...s.auditTrail, entry],
       }))
       return ins
+    },
+    [],
+  )
+
+  const signInspectionProtocol = useCallback(
+    (inspectionId: string, signerName: string, role: HseProtocolSignature['role']) => {
+      const name = signerName.trim()
+      if (!name) return false
+      const sig: HseProtocolSignature = {
+        signerName: name,
+        signedAt: new Date().toISOString(),
+        role,
+      }
+      setState((s) => {
+        const entry = auditEntry(
+          'inspection_updated',
+          'inspection',
+          inspectionId,
+          `Inspeksjonsprotokoll signert (${role}): ${name}`,
+          { role },
+        )
+        return {
+          ...s,
+          inspections: s.inspections.map((x) =>
+            x.id === inspectionId
+              ? {
+                  ...x,
+                  protocolSignatures: [...(x.protocolSignatures ?? []), sig],
+                  updatedAt: new Date().toISOString(),
+                }
+              : x,
+          ),
+          auditTrail: [...s.auditTrail, entry],
+        }
+      })
+      return true
     },
     [],
   )
@@ -323,6 +361,7 @@ export function useHse() {
     setChecklistStatus,
     createInspection,
     updateInspection,
+    signInspectionProtocol,
     createIncident,
     updateIncident,
     resetDemo,
