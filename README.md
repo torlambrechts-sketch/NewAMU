@@ -2,6 +2,7 @@
 
 React (Vite) + TypeScript + Tailwind CSS. Run `npm install`, then `npm run dev`.
 
+- **Navigation** — Two-level header: primary links (Council, Members, Org health, HSE, Tasks, E-learning, Teams, Workspaces) and a **section submenu** that switches with the route (module tabs, task list vs log, learning destinations). Home/project dashboard is via the **atics** logo.
 - **/** — Project dashboard (Adobe Analytics replica) with departments table and expandable row.
 - **/tasks** — Task management: add/edit/delete tasks, status workflow; stored in `localStorage`.
 - **/council** — Arbeidsmiljøråd: styre/valg, **årshjul** (mål 4 ordinære møter/år), **foreslått agenda per kvartal**, **møteforberedelse**, **revisjonslogg** (diskusjon, notater, vedtak). Ikke juridisk rådgivning.

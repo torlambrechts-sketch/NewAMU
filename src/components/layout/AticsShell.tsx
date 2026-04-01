@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   Clock,
   ExternalLink,
@@ -8,32 +8,160 @@ import {
   Star,
 } from 'lucide-react'
 
-const navMain = [
-  { to: '/', label: 'Home', end: true },
-  { to: '/clients', label: 'Clients' },
-  { to: '/analytics', label: 'Analytics' },
-  { to: '/marketing', label: 'Marketing' },
-  { to: '/reports', label: 'Reports' },
+type SubItem =
+  | { label: string; path: string; match: (loc: { pathname: string; search: string }) => boolean }
+
+const councilSubs: SubItem[] = [
+  {
+    label: 'Oversikt',
+    path: '/council?tab=overview',
+    match: ({ pathname, search }) =>
+      pathname === '/council' &&
+      (!new URLSearchParams(search).get('tab') ||
+        new URLSearchParams(search).get('tab') === 'overview'),
+  },
+  { label: 'Styre og valg', path: '/council?tab=board', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'board' },
+  { label: 'Møter og årshjul', path: '/council?tab=meetings', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'meetings' },
+  { label: 'Møteforberedelse', path: '/council?tab=preparation', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'preparation' },
+  { label: 'Arbeidsrett og sjekkliste', path: '/council?tab=compliance', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'compliance' },
 ]
 
-const navSub = [
-  { to: '/', label: 'Projects', end: true },
-  { to: '/learning', label: 'Learning' },
-  { to: '/council', label: 'Council' },
-  { to: '/members', label: 'Members' },
-  { to: '/org-health', label: 'Org health' },
-  { to: '/hse', label: 'HSE' },
-  { to: '/tasks', label: 'Tasks' },
-  { to: '/teams', label: 'Teams' },
-  { to: '/workspaces', label: 'Workspaces' },
+const membersSubs: SubItem[] = [
+  {
+    label: 'Oversikt',
+    path: '/members?tab=overview',
+    match: ({ pathname, search }) =>
+      pathname === '/members' &&
+      (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
+  },
+  { label: 'Valg', path: '/members?tab=election', match: ({ pathname, search }) => pathname === '/members' && new URLSearchParams(search).get('tab') === 'election' },
+  { label: 'AMU og sammensetting', path: '/members?tab=board', match: ({ pathname, search }) => pathname === '/members' && new URLSearchParams(search).get('tab') === 'board' },
+  { label: 'Krav og opplæring', path: '/members?tab=requirements', match: ({ pathname, search }) => pathname === '/members' && new URLSearchParams(search).get('tab') === 'requirements' },
+  { label: 'Perioder', path: '/members?tab=periods', match: ({ pathname, search }) => pathname === '/members' && new URLSearchParams(search).get('tab') === 'periods' },
+  { label: 'Revisjonslogg', path: '/members?tab=audit', match: ({ pathname, search }) => pathname === '/members' && new URLSearchParams(search).get('tab') === 'audit' },
 ]
+
+const orgHealthSubs: SubItem[] = [
+  {
+    label: 'Oversikt',
+    path: '/org-health?tab=overview',
+    match: ({ pathname, search }) =>
+      pathname === '/org-health' &&
+      (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
+  },
+  { label: 'Undersøkelser', path: '/org-health?tab=surveys', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'surveys' },
+  { label: 'Sykefravær (NAV)', path: '/org-health?tab=nav', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'nav' },
+  { label: 'AML-indikatorer', path: '/org-health?tab=metrics', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'metrics' },
+  { label: 'Logg', path: '/org-health?tab=audit', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'audit' },
+]
+
+const hseSubs: SubItem[] = [
+  {
+    label: 'Oversikt',
+    path: '/hse?tab=overview',
+    match: ({ pathname, search }) =>
+      pathname === '/hse' &&
+      (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
+  },
+  { label: 'Vernerunder', path: '/hse?tab=rounds', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'rounds' },
+  { label: 'Inspeksjoner', path: '/hse?tab=inspections', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'inspections' },
+  { label: 'Hendelser', path: '/hse?tab=incidents', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'incidents' },
+  { label: 'AML & verneombud', path: '/hse?tab=aml', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'aml' },
+  { label: 'Revisjonslogg', path: '/hse?tab=audit', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'audit' },
+]
+
+const tasksSubs: SubItem[] = [
+  {
+    label: 'Oppgaveliste',
+    path: '/tasks?view=list',
+    match: ({ pathname, search }) =>
+      pathname === '/tasks' &&
+      (!new URLSearchParams(search).get('view') || new URLSearchParams(search).get('view') === 'list'),
+  },
+  { label: 'Oppgavelogg', path: '/tasks?view=audit', match: ({ pathname, search }) => pathname === '/tasks' && new URLSearchParams(search).get('view') === 'audit' },
+]
+
+const teamsSubs: SubItem[] = [
+  {
+    label: 'Overview',
+    path: '/teams',
+    match: ({ pathname }) => pathname === '/teams',
+  },
+]
+
+const workspacesSubs: SubItem[] = [
+  {
+    label: 'Overview',
+    path: '/workspaces',
+    match: ({ pathname }) => pathname === '/workspaces',
+  },
+]
+
+const learningSubs: SubItem[] = [
+  {
+    label: 'Dashboard',
+    path: '/learning',
+    match: ({ pathname }) => pathname === '/learning',
+  },
+  {
+    label: 'Courses',
+    path: '/learning/courses',
+    match: ({ pathname }) => pathname === '/learning/courses' || pathname.startsWith('/learning/courses/'),
+  },
+  {
+    label: 'Certifications',
+    path: '/learning/certifications',
+    match: ({ pathname }) => pathname === '/learning/certifications',
+  },
+  {
+    label: 'Insights',
+    path: '/learning/insights',
+    match: ({ pathname }) => pathname === '/learning/insights',
+  },
+  {
+    label: 'Participants',
+    path: '/learning/participants',
+    match: ({ pathname }) => pathname === '/learning/participants',
+  },
+  {
+    label: 'Settings',
+    path: '/learning/settings',
+    match: ({ pathname }) => pathname === '/learning/settings',
+  },
+]
+
+const navMain = [
+  { to: '/council', label: 'Council', end: false },
+  { to: '/members', label: 'Members', end: false },
+  { to: '/org-health', label: 'Org health', end: false },
+  { to: '/hse', label: 'HSE', end: false },
+  { to: '/tasks', label: 'Tasks', end: false },
+  { to: '/learning', label: 'E-learning', end: true },
+  { to: '/teams', label: 'Teams', end: false },
+  { to: '/workspaces', label: 'Workspaces', end: false },
+] as const
+
+function subNavForPath(pathname: string): SubItem[] {
+  if (pathname.startsWith('/learning')) return learningSubs
+  if (pathname === '/council') return councilSubs
+  if (pathname === '/members') return membersSubs
+  if (pathname === '/org-health') return orgHealthSubs
+  if (pathname === '/hse') return hseSubs
+  if (pathname === '/tasks') return tasksSubs
+  if (pathname === '/teams') return teamsSubs
+  if (pathname === '/workspaces') return workspacesSubs
+  return []
+}
 
 export function AticsShell() {
+  const location = useLocation()
+  const subItems = subNavForPath(location.pathname)
+
   return (
     <div className="min-h-screen bg-[#f5f0e8]">
       <header className="bg-[#1a3d32] text-white">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 md:px-8">
-          <div className="flex items-center gap-2">
+          <NavLink to="/" className="flex items-center gap-2" aria-label="Home">
             <Star className="size-7 shrink-0 fill-white text-white" strokeWidth={1.2} />
             <span
               className="font-serif text-xl tracking-wide text-[#c9a227] md:text-2xl"
@@ -41,8 +169,11 @@ export function AticsShell() {
             >
               atics
             </span>
-          </div>
-          <nav className="hidden flex-1 justify-center gap-6 md:flex">
+          </NavLink>
+          <nav
+            className="flex max-w-[min(100%,52rem)] flex-1 justify-center gap-3 overflow-x-auto py-1 md:gap-6 lg:max-w-none lg:gap-6"
+            aria-label="Primary"
+          >
             {navMain.map((item) => (
               <NavLink
                 key={item.to + item.label}
@@ -56,7 +187,14 @@ export function AticsShell() {
                   }`
                 }
               >
-                {item.label}
+                {item.to === '/learning' ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <GraduationCap className="size-4 shrink-0 opacity-90" aria-hidden />
+                    {item.label}
+                  </span>
+                ) : (
+                  item.label
+                )}
               </NavLink>
             ))}
           </nav>
@@ -83,26 +221,30 @@ export function AticsShell() {
         </div>
         <div className="border-t border-white/10">
           <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-4 py-2.5 md:px-8">
-            <nav className="flex flex-wrap gap-5">
-              {navSub.map((item) => (
-                <NavLink
-                  key={item.to + item.label}
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    `flex items-center gap-1.5 text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'border-b-2 border-[#c9a227] pb-0.5 text-white'
-                        : 'text-white/75 hover:text-white'
-                    }`
-                  }
-                >
-                  {item.to === '/learning' ? (
-                    <GraduationCap className="size-4 shrink-0 opacity-90" aria-hidden />
-                  ) : null}
-                  {item.label}
-                </NavLink>
-              ))}
+            <nav className="flex min-w-0 flex-1 flex-wrap gap-x-4 gap-y-2" aria-label="Section">
+              {subItems.length > 0 ? (
+                subItems.map((item) => {
+                  const active = item.match({
+                    pathname: location.pathname,
+                    search: location.search,
+                  })
+                  return (
+                    <NavLink
+                      key={item.path + item.label}
+                      to={item.path}
+                      className={`whitespace-nowrap text-sm font-medium transition-colors ${
+                        active
+                          ? 'border-b-2 border-[#c9a227] pb-0.5 text-white'
+                          : 'text-white/75 hover:text-white'
+                      }`}
+                    >
+                      {item.label}
+                    </NavLink>
+                  )
+                })
+              ) : (
+                <span className="text-sm text-white/45">Velg en hovedmodul over (Council, Org health, …)</span>
+              )}
             </nav>
             <div className="relative min-w-[200px] flex-1 md:max-w-md">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/50" />

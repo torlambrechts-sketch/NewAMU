@@ -64,6 +64,7 @@ export function TasksPage() {
     signManagement,
   } = useTasks()
   const [searchParams, setSearchParams] = useSearchParams()
+  const taskView = searchParams.get('view') === 'audit' ? 'audit' : 'list'
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -96,7 +97,8 @@ export function TasksPage() {
       setSourceLabel(searchParams.get('sourceLabel') ?? '')
       setOwnerRole(searchParams.get('role') ?? 'Ansvarlig')
       setRequiresMgmt(searchParams.get('mgmt') === '1')
-      setSearchParams({}, { replace: true })
+      const view = searchParams.get('view')
+      setSearchParams(view ? { view } : {}, { replace: true })
     })
   }, [searchParams, setSearchParams])
 
@@ -215,6 +217,8 @@ export function TasksPage() {
         </div>
       </div>
 
+      {taskView === 'list' ? (
+        <>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <span className="text-sm text-neutral-600">Modul:</span>
         <select
@@ -318,6 +322,7 @@ export function TasksPage() {
                   <option value="hse_incident">Hendelse</option>
                   <option value="nav_report">Sykefravær/NAV</option>
                   <option value="labor_metric">AML-indikator</option>
+                  <option value="learning_course">Læringskurs</option>
                 </select>
               </div>
             </div>
@@ -530,27 +535,30 @@ export function TasksPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-neutral-900">
-              <History className="size-5" />
-              Oppgavelogg (uforanderlig tillegg)
-            </h2>
-            <p className="mt-1 text-xs text-neutral-500">
-              Nye hendelser legges til. Sletting av oppgafer logges.
-            </p>
-            <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto text-xs text-neutral-700">
-              {[...auditLog].reverse().slice(0, 80).map((a) => (
-                <li key={a.id} className="border-b border-neutral-100 py-1">
-                  <span className="text-neutral-500">
-                    {new Date(a.at).toLocaleString('no-NO')} · {a.action}
-                  </span>{' '}
-                  — {a.message}
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       </div>
+        </>
+      ) : (
+        <div className="mt-8 rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-neutral-900">
+            <History className="size-5" />
+            Oppgavelogg (uforanderlig tillegg)
+          </h2>
+          <p className="mt-1 text-xs text-neutral-500">
+            Nye hendelser legges til. Sletting av oppgafer logges.
+          </p>
+          <ul className="mt-3 max-h-[min(70vh,520px)] space-y-1 overflow-y-auto text-xs text-neutral-700">
+            {[...auditLog].reverse().slice(0, 200).map((a) => (
+              <li key={a.id} className="border-b border-neutral-100 py-1">
+                <span className="text-neutral-500">
+                  {new Date(a.at).toLocaleString('no-NO')} · {a.action}
+                </span>{' '}
+                — {a.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

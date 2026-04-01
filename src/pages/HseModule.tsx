@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import {
   AlertTriangle,
@@ -48,7 +48,11 @@ function statusLabel(s: ChecklistItemStatus) {
 
 export function HseModule() {
   const hse = useHse()
-  const [tab, setTab] = useState<(typeof tabs)[number]['id']>('overview')
+  const [searchParams] = useSearchParams()
+  type TabId = (typeof tabs)[number]['id']
+  const tabParam = searchParams.get('tab')
+  const tab: TabId =
+    tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
   const [roundForm, setRoundForm] = useState({
     title: '',
     conductedAt: '',
@@ -108,27 +112,6 @@ export function HseModule() {
             </a>
             .
           </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {tabs.map((t) => {
-            const Icon = t.icon
-            const active = tab === t.id
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium md:px-4 ${
-                  active
-                    ? 'bg-[#1a3d32] text-white shadow-sm'
-                    : 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <Icon className="size-4 shrink-0" />
-                <span className="hidden sm:inline">{t.label}</span>
-              </button>
-            )
-          })}
         </div>
       </div>
 

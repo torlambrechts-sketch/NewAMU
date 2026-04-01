@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -63,7 +63,12 @@ function formatWhen(iso: string) {
 
 export function MembersModule() {
   const rep = useRepresentatives()
-  const [tab, setTab] = useState<(typeof tabs)[number]['id']>('overview')
+  const [searchParams, setSearchParams] = useSearchParams()
+  type TabId = (typeof tabs)[number]['id']
+  const tabParam = searchParams.get('tab')
+  const tab: TabId =
+    tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
+  const setTab = (id: TabId) => setSearchParams({ tab: id }, { replace: true })
   const [electionForm, setElectionForm] = useState({
     title: '',
     description: '',
@@ -105,27 +110,6 @@ export function MembersModule() {
             </a>{' '}
             — ikke juridisk rådgivning.
           </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {tabs.map((t) => {
-            const Icon = t.icon
-            const active = tab === t.id
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors md:px-4 ${
-                  active
-                    ? 'bg-[#1a3d32] text-white shadow-sm'
-                    : 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <Icon className="size-4 shrink-0" />
-                <span className="hidden sm:inline">{t.label}</span>
-              </button>
-            )
-          })}
         </div>
       </div>
 

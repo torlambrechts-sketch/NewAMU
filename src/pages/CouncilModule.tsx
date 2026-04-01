@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Calendar,
   CheckCircle2,
@@ -57,7 +57,15 @@ function formatWhen(iso: string) {
 
 export function CouncilModule() {
   const council = useCouncil()
-  const [tab, setTab] = useState<(typeof tabs)[number]['id']>('overview')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  type TabId = (typeof tabs)[number]['id']
+  const tab: TabId =
+    tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
+
+  const setTab = (id: TabId) => {
+    setSearchParams({ tab: id }, { replace: true })
+  }
   const [wheelYear, setWheelYear] = useState(() => new Date().getFullYear())
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null)
   const [prepMeetingId, setPrepMeetingId] = useState<string | null>(null)
@@ -157,27 +165,6 @@ export function CouncilModule() {
             Styre, valg, årshjul med {MEETINGS_PER_YEAR} ordinære møter per år, agenda med forslag, forberedelse og
             revisjonslogg. Verktøyet erstatter ikke juridisk rådgivning.
           </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {tabs.map((t) => {
-            const Icon = t.icon
-            const active = tab === t.id
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                  active
-                    ? 'bg-[#1a3d32] text-white shadow-sm'
-                    : 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <Icon className="size-4 shrink-0" />
-                <span className="hidden sm:inline">{t.label}</span>
-              </button>
-            )
-          })}
         </div>
       </div>
 

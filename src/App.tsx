@@ -29,17 +29,6 @@ function App() {
         <Route path="/hrm/salary" element={<HrmSalary />} />
         <Route path="/404" element={<NotFound />} />
 
-        <Route path="/learning" element={<LearningLayout />}>
-          <Route index element={<LearningDashboard />} />
-          <Route path="courses" element={<LearningCoursesList />} />
-          <Route path="courses/:courseId" element={<LearningCourseBuilder />} />
-          <Route path="play/:courseId" element={<LearningPlayer />} />
-          <Route path="certifications" element={<LearningCertifications />} />
-          <Route path="insights" element={<LearningInsights />} />
-          <Route path="participants" element={<LearningParticipants />} />
-          <Route path="settings" element={<LearningSettings />} />
-        </Route>
-
         <Route element={<AticsShell />}>
           <Route index element={<ProjectDashboard />} />
           <Route path="tasks" element={<TasksPage />} />
@@ -47,6 +36,16 @@ function App() {
           <Route path="members" element={<MembersModule />} />
           <Route path="org-health" element={<OrgHealthModule />} />
           <Route path="hse" element={<HseModule />} />
+          <Route path="learning" element={<LearningLayout />}>
+            <Route index element={<LearningDashboard />} />
+            <Route path="courses" element={<LearningCoursesList />} />
+            <Route path="courses/:courseId" element={<LearningCourseBuilder />} />
+            <Route path="play/:courseId" element={<LearningPlayer />} />
+            <Route path="certifications" element={<LearningCertifications />} />
+            <Route path="insights" element={<LearningInsights />} />
+            <Route path="participants" element={<LearningParticipants />} />
+            <Route path="settings" element={<LearningSettings />} />
+          </Route>
           <Route
             path="clients"
             element={<PlaceholderPage title="Clients" description="Client directory and relationships." />}
