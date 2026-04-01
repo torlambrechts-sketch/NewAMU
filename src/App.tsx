@@ -10,6 +10,15 @@ import { HseModule } from './pages/HseModule'
 import { OrgHealthModule } from './pages/OrgHealthModule'
 import { ProjectDashboard } from './pages/ProjectDashboard'
 import { TasksPage } from './pages/TasksPage'
+import { LearningLayout } from './components/learning/LearningLayout'
+import { LearningDashboard } from './pages/learning/LearningDashboard'
+import { LearningCoursesList } from './pages/learning/LearningCoursesList'
+import { LearningCourseBuilder } from './pages/learning/LearningCourseBuilder'
+import { LearningPlayer } from './pages/learning/LearningPlayer'
+import { LearningCertifications } from './pages/learning/LearningCertifications'
+import { LearningInsights } from './pages/learning/LearningInsights'
+import { LearningParticipants } from './pages/learning/LearningParticipants'
+import { LearningSettings } from './pages/learning/LearningSettings'
 
 function App() {
   return (
@@ -19,6 +28,17 @@ function App() {
         <Route path="/hrm/employees" element={<HrmEmployees />} />
         <Route path="/hrm/salary" element={<HrmSalary />} />
         <Route path="/404" element={<NotFound />} />
+
+        <Route path="/learning" element={<LearningLayout />}>
+          <Route index element={<LearningDashboard />} />
+          <Route path="courses" element={<LearningCoursesList />} />
+          <Route path="courses/:courseId" element={<LearningCourseBuilder />} />
+          <Route path="play/:courseId" element={<LearningPlayer />} />
+          <Route path="certifications" element={<LearningCertifications />} />
+          <Route path="insights" element={<LearningInsights />} />
+          <Route path="participants" element={<LearningParticipants />} />
+          <Route path="settings" element={<LearningSettings />} />
+        </Route>
 
         <Route element={<AticsShell />}>
           <Route index element={<ProjectDashboard />} />
