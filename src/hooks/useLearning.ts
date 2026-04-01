@@ -8,12 +8,31 @@ import type {
   ModuleKind,
 } from '../types/learning'
 
-const STORAGE_KEY = 'atics-learning-v1'
+export const STORAGE_KEY = 'atics-learning-v1'
+
+export const LEARNING_EXPORT_VERSION = 1
+
+export type LearningExportPayload = {
+  version: typeof LEARNING_EXPORT_VERSION
+  exportedAt: string
+  courses: Course[]
+  progress: CourseProgress[]
+  certificates: Certificate[]
+}
 
 type LearningState = {
   courses: Course[]
   progress: CourseProgress[]
   certificates: Certificate[]
+}
+
+function isLearningExportPayload(raw: unknown): raw is LearningExportPayload {
+  if (!raw || typeof raw !== 'object') return false
+  const o = raw as Record<string, unknown>
+  if (o.version !== LEARNING_EXPORT_VERSION) return false
+  if (typeof o.exportedAt !== 'string') return false
+  if (!Array.isArray(o.courses) || !Array.isArray(o.progress) || !Array.isArray(o.certificates)) return false
+  return true
 }
 
 function emptyModule(kind: ModuleKind, title: string, order: number): CourseModule {
@@ -42,7 +61,7 @@ function emptyModule(kind: ModuleKind, title: string, order: number): CourseModu
       }
       break
     case 'text':
-      content = { kind: 'text', body: 'Write learning content here.' }
+      content = { kind: 'text', body: '<p>Write learning content here.</p>' }
       break
     case 'image':
       content = {
@@ -80,7 +99,7 @@ function emptyModule(kind: ModuleKind, title: string, order: number): CourseModu
       }
       break
     default:
-      content = { kind: 'other', title: 'Custom', body: 'Content' }
+      content = { kind: 'other', title: 'Custom', body: '<p>Content</p>' }
   }
   return {
     id,
@@ -356,6 +375,34 @@ export function useLearning() {
     setState(load())
   }, [])
 
+  const exportJson = useCallback((): string => {
+    const payload: LearningExportPayload = {
+      version: LEARNING_EXPORT_VERSION,
+      exportedAt: new Date().toISOString(),
+      courses: state.courses,
+      progress: state.progress,
+      certificates: state.certificates,
+    }
+    return JSON.stringify(payload, null, 2)
+  }, [state])
+
+  const importFromJson = useCallback((json: string): { ok: true } | { ok: false; error: string } => {
+    try {
+      const raw = JSON.parse(json) as unknown
+      if (!isLearningExportPayload(raw)) {
+        return { ok: false, error: 'Ugyldig fil: forventet learning export v1.' }
+      }
+      setState({
+        courses: raw.courses,
+        progress: raw.progress,
+        certificates: raw.certificates,
+      })
+      return { ok: true }
+    } catch {
+      return { ok: false, error: 'Kunne ikke parse JSON.' }
+    }
+  }, [])
+
   return {
     ...state,
     stats,
@@ -369,5 +416,7 @@ export function useLearning() {
     setModuleCompleted,
     issueCertificate,
     resetDemo,
+    exportJson,
+    importFromJson,
   }
 }

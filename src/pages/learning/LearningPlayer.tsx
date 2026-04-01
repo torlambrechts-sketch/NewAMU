@@ -4,6 +4,8 @@ import { Check, ChevronLeft, ChevronRight, Play } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import type { CourseModule } from '../../types/learning'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
+import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
+import { normalizeModuleHtml } from '../../lib/richTextDisplay'
 
 export function LearningPlayer() {
   const { courseId } = useParams<{ courseId: string }>()
@@ -336,9 +338,13 @@ function ModulePlayer({
   }
 
   if (c.kind === 'text') {
+    const html = sanitizeLearningHtml(normalizeModuleHtml(c.body))
     return (
       <div>
-        <div className="prose prose-sm max-w-none text-neutral-800 whitespace-pre-wrap">{c.body}</div>
+        <div
+          className="prose prose-sm max-w-none text-neutral-800 [&_a]:text-emerald-800 [&_a]:underline"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
         <button
           type="button"
           onClick={() => onComplete()}
@@ -467,10 +473,14 @@ function ModulePlayer({
   }
 
   if (c.kind === 'other') {
+    const otherHtml = sanitizeLearningHtml(normalizeModuleHtml(c.body))
     return (
       <div>
         <h3 className="font-medium">{c.title}</h3>
-        <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-700">{c.body}</p>
+        <div
+          className="prose prose-sm mt-2 max-w-none text-neutral-700 [&_a]:text-emerald-800 [&_a]:underline"
+          dangerouslySetInnerHTML={{ __html: otherHtml }}
+        />
         <button
           type="button"
           onClick={() => onComplete()}

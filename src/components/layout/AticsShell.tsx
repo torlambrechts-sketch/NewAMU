@@ -1,11 +1,18 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
+  Building2,
   Clock,
   ExternalLink,
   GraduationCap,
+  HardHat,
+  HeartPulse,
+  LayoutGrid,
   Search,
   Settings,
   Star,
+  Users,
+  Users2,
+  UsersRound,
 } from 'lucide-react'
 
 type SubItem =
@@ -131,14 +138,14 @@ const learningSubs: SubItem[] = [
 ]
 
 const navMain = [
-  { to: '/council', label: 'Council', end: false },
-  { to: '/members', label: 'Members', end: false },
-  { to: '/org-health', label: 'Org health', end: false },
-  { to: '/hse', label: 'HSE', end: false },
-  { to: '/tasks', label: 'Tasks', end: false },
-  { to: '/learning', label: 'E-learning', end: true },
-  { to: '/teams', label: 'Teams', end: false },
-  { to: '/workspaces', label: 'Workspaces', end: false },
+  { to: '/council', label: 'Council', end: false, icon: UsersRound },
+  { to: '/members', label: 'Members', end: false, icon: Users },
+  { to: '/org-health', label: 'Org health', end: false, icon: HeartPulse },
+  { to: '/hse', label: 'HSE', end: false, icon: HardHat },
+  { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid },
+  { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap },
+  { to: '/teams', label: 'Teams', end: false, icon: Users2 },
+  { to: '/workspaces', label: 'Workspaces', end: false, icon: Building2 },
 ] as const
 
 function subNavForPath(pathname: string): SubItem[] {
@@ -174,29 +181,26 @@ export function AticsShell() {
             className="flex max-w-[min(100%,52rem)] flex-1 justify-center gap-3 overflow-x-auto py-1 md:gap-6 lg:max-w-none lg:gap-6"
             aria-label="Primary"
           >
-            {navMain.map((item) => (
-              <NavLink
-                key={item.to + item.label}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) =>
-                  `text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'border-b-2 border-[#c9a227] pb-0.5 text-white'
-                      : 'text-white/80 hover:text-white'
-                  }`
-                }
-              >
-                {item.to === '/learning' ? (
-                  <span className="inline-flex items-center gap-1.5">
-                    <GraduationCap className="size-4 shrink-0 opacity-90" aria-hidden />
-                    {item.label}
-                  </span>
-                ) : (
-                  item.label
-                )}
-              </NavLink>
-            ))}
+            {navMain.map((item) => {
+              const Icon = item.icon
+              return (
+                <NavLink
+                  key={item.to + item.label}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    `inline-flex items-center gap-1.5 text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'border-b-2 border-[#c9a227] pb-0.5 text-white'
+                        : 'text-white/80 hover:text-white'
+                    }`
+                  }
+                >
+                  <Icon className="size-4 shrink-0 opacity-90" aria-hidden />
+                  {item.label}
+                </NavLink>
+              )
+            })}
           </nav>
           <div className="flex items-center gap-2 md:gap-3">
             <button

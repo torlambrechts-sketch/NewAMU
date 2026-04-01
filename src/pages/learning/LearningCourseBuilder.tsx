@@ -4,6 +4,7 @@ import { GripVertical, Layers, Plus, Trash2, Users, BarChart3, FileText, Award }
 import { useLearning } from '../../hooks/useLearning'
 import type { CourseModule, ModuleKind } from '../../types/learning'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
+import { RichTextEditor } from '../../components/learning/RichTextEditor'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
 
 const MODULE_KINDS: { id: ModuleKind | 'all'; label: string }[] = [
@@ -508,13 +509,11 @@ function ContentFields({
 
   if (c.kind === 'text') {
     return (
-      <textarea
+      <RichTextEditor
         value={c.body}
-        onChange={(e) =>
-          updateModule(courseId, mod.id, { content: { kind: 'text', body: e.target.value } })
+        onChange={(html) =>
+          updateModule(courseId, mod.id, { content: { kind: 'text', body: html } })
         }
-        rows={8}
-        className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
       />
     )
   }
@@ -688,13 +687,11 @@ function ContentFields({
           }
           className="mb-2 w-full rounded border px-2 py-1 text-sm font-medium"
         />
-        <textarea
+        <RichTextEditor
           value={c.body}
-          onChange={(e) =>
-            updateModule(courseId, mod.id, { content: { ...c, body: e.target.value } })
+          onChange={(html) =>
+            updateModule(courseId, mod.id, { content: { ...c, body: html } })
           }
-          rows={6}
-          className="w-full rounded border px-2 py-1 text-sm"
         />
       </div>
     )
