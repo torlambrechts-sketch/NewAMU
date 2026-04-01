@@ -19,6 +19,7 @@ const navSub = [
   { to: '/', label: 'Projects', end: true },
   { to: '/council', label: 'Council' },
   { to: '/members', label: 'Members' },
+  { to: '/org-health', label: 'Org health' },
   { to: '/tasks', label: 'Tasks' },
   { to: '/teams', label: 'Teams' },
   { to: '/workspaces', label: 'Workspaces' },
