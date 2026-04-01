@@ -30,7 +30,32 @@ function auditEntry(taskId: string, action: string, message: string): TaskAuditE
 const defaultModule: TaskModule = 'general'
 const defaultSource: TaskSourceType = 'manual'
 
+const ALL_MODULES: TaskModule[] = [
+  'general',
+  'council',
+  'members',
+  'org_health',
+  'hse',
+  'hrm',
+  'learning',
+]
+const ALL_SOURCES: TaskSourceType[] = [
+  'manual',
+  'council_meeting',
+  'council_compliance',
+  'representatives',
+  'survey',
+  'hse_safety_round',
+  'hse_inspection',
+  'hse_incident',
+  'nav_report',
+  'labor_metric',
+  'learning_course',
+]
+
 function migrateLegacyTask(raw: Record<string, unknown>): Task {
+  const mod = raw.module as TaskModule
+  const src = raw.sourceType as TaskSourceType
   return {
     id: String(raw.id),
     title: String(raw.title ?? 'Task'),
@@ -40,8 +65,8 @@ function migrateLegacyTask(raw: Record<string, unknown>): Task {
     ownerRole: String(raw.ownerRole ?? 'Ansvarlig'),
     dueDate: String(raw.dueDate ?? '—'),
     createdAt: String(raw.createdAt ?? new Date().toISOString()),
-    module: (raw.module as TaskModule) ?? defaultModule,
-    sourceType: (raw.sourceType as TaskSourceType) ?? defaultSource,
+    module: ALL_MODULES.includes(mod) ? mod : defaultModule,
+    sourceType: ALL_SOURCES.includes(src) ? src : defaultSource,
     sourceId: raw.sourceId ? String(raw.sourceId) : undefined,
     sourceLabel: raw.sourceLabel ? String(raw.sourceLabel) : undefined,
     requiresManagementSignOff: Boolean(raw.requiresManagementSignOff),

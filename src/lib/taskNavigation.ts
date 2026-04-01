@@ -7,6 +7,7 @@ export const MODULE_LABELS: Record<TaskModule, string> = {
   org_health: 'Organisasjonshelse',
   hse: 'HMS',
   hrm: 'Personal',
+  learning: 'Læring',
 }
 
 export function buildTaskPrefillQuery(params: {

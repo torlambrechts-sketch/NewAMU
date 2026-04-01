@@ -7,6 +7,7 @@ export type TaskModule =
   | 'org_health'
   | 'hse'
   | 'hrm'
+  | 'learning'
 
 export type TaskSourceType =
   | 'manual'
@@ -19,6 +20,7 @@ export type TaskSourceType =
   | 'hse_incident'
   | 'nav_report'
   | 'labor_metric'
+  | 'learning_course'
 
 export type DigitalSignature = {
   signerName: string

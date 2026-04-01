@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import {
   Clock,
   ExternalLink,
+  GraduationCap,
   Search,
   Settings,
   Star,
@@ -17,6 +18,7 @@ const navMain = [
 
 const navSub = [
   { to: '/', label: 'Projects', end: true },
+  { to: '/learning', label: 'Learning' },
   { to: '/council', label: 'Council' },
   { to: '/members', label: 'Members' },
   { to: '/org-health', label: 'Org health' },
@@ -81,20 +83,23 @@ export function AticsShell() {
         </div>
         <div className="border-t border-white/10">
           <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-4 py-2.5 md:px-8">
-            <nav className="flex gap-5">
+            <nav className="flex flex-wrap gap-5">
               {navSub.map((item) => (
                 <NavLink
                   key={item.to + item.label}
                   to={item.to}
                   end={item.end}
                   className={({ isActive }) =>
-                    `text-sm font-medium transition-colors ${
+                    `flex items-center gap-1.5 text-sm font-medium transition-colors ${
                       isActive
                         ? 'border-b-2 border-[#c9a227] pb-0.5 text-white'
                         : 'text-white/75 hover:text-white'
                     }`
                   }
                 >
+                  {item.to === '/learning' ? (
+                    <GraduationCap className="size-4 shrink-0 opacity-90" aria-hidden />
+                  ) : null}
                   {item.label}
                 </NavLink>
               ))}

@@ -9,6 +9,7 @@ React (Vite) + TypeScript + Tailwind CSS. Run `npm install`, then `npm run dev`.
 - **/org-health** — Medarbeiderundersøkelser (Likert + fritekst, valgfritt **anonymt** — fritekst lagres ikke, kun aggregat), **NAV/sykefravær** (manuell registrering), **AML-indikatorer** (ROS, varsling, HMS-timer, m.m.), **revisjonslogg**.
 - **/hse** — HMS / verneombud: **vernerunder** med AML-sjekkliste, **inspeksjoner**, **hendelser/nestenulykker**, AML-strukturoversikt, **streng revisjonslogg** (append-only).
 - **/tasks** — **Samlet oppgaveliste** på tvers av moduler (kilde, rolle, frist), **digital signatur** (utfører + valgfri ledelsesgodkjenning), **oppgavelogg**; moduler lenker hit med forutfylt skjema.
+- **/learning** — **Læringsmodul** (Pinpoint-inspirert layout: krem `#FCF8F0` + skoggrønn `#2D403A`): **kursliste**, **kursbygger** med primær-/sekundærfaner (modultyper: flashcards, quiz, tekst, bilde, video, sjekkliste, praktiske tips, on-the-job, annet), **forhåndsvisning** for deltakere (story-format flashcards, quiz m.m.), **sertifiseringer** (lokalt demo-bevis + verifikasjonskode), **innsikt** og **deltakere** (localStorage).
 - **/hrm/employees** & **/hrm/salary** — HRM module screens (lime accent) from the second design.
 
 ## Deployment (SPA routing)

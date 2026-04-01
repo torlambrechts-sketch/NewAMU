@@ -30,6 +30,7 @@ function parseModule(s: string | null): TaskModule | null {
     'org_health',
     'hse',
     'hrm',
+    'learning',
   ]
   return allowed.includes(s as TaskModule) ? (s as TaskModule) : null
 }
@@ -46,6 +47,7 @@ function parseSource(s: string | null): TaskSourceType | null {
     'hse_incident',
     'nav_report',
     'labor_metric',
+    'learning_course',
   ]
   return allowed.includes(s as TaskSourceType) ? (s as TaskSourceType) : null
 }

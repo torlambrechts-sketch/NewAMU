@@ -87,6 +87,12 @@ export function ProjectDashboard() {
             HSE
           </Link>
           <Link
+            to="/learning"
+            className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
+          >
+            Learning
+          </Link>
+          <Link
             to="/hrm/employees"
             className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
           >
