@@ -17,6 +17,7 @@ const navMain = [
 
 const navSub = [
   { to: '/', label: 'Projects', end: true },
+  { to: '/council', label: 'Council' },
   { to: '/tasks', label: 'Tasks' },
   { to: '/teams', label: 'Teams' },
   { to: '/workspaces', label: 'Workspaces' },

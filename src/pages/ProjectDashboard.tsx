@@ -61,12 +61,20 @@ export function ProjectDashboard() {
           <span className="mx-2 text-neutral-400">→</span>
           <span className="font-medium text-neutral-800">Adobe Analytics</span>
         </span>
-        <Link
-          to="/hrm/employees"
-          className="ml-auto rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
-        >
-          HRM module
-        </Link>
+        <div className="ml-auto flex flex-wrap gap-2">
+          <Link
+            to="/council"
+            className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
+          >
+            Council
+          </Link>
+          <Link
+            to="/hrm/employees"
+            className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
+          >
+            HRM module
+          </Link>
+        </div>
       </nav>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
