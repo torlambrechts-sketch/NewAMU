@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AML_VERNEOMBUD_STRUCTURE,
+  CHECKLIST_TEMPLATES,
   DEFAULT_SAFETY_ROUND_CHECKLIST,
   SAFETY_ROUND_TEMPLATE_ID,
 } from '../data/hseTemplates'
 import type {
   ChecklistItemStatus,
+  ChecklistTemplate,
   CorrectiveAction,
   HseAuditAction,
   HseAuditEntry,
@@ -13,9 +15,13 @@ import type {
   Incident,
   Inspection,
   SafetyRound,
+  SjaAnalysis,
+  SjaHazardRow,
+  SjaSignature,
   SickLeaveCase,
   SickLeaveMilestoneKind,
   SickLeaveMessage,
+  TrainingRecord,
 } from '../types/hse'
 
 const STORAGE_KEY = 'atics-hse-v2'
@@ -24,6 +30,9 @@ type HseState = {
   safetyRounds: SafetyRound[]
   inspections: Inspection[]
   incidents: Incident[]
+  sjaAnalyses: SjaAnalysis[]
+  trainingRecords: TrainingRecord[]
+  checklistTemplates: ChecklistTemplate[]
   sickLeaveCases: SickLeaveCase[]
   auditTrail: HseAuditEntry[]
 }
@@ -119,18 +128,30 @@ function load(): HseState {
         auditEntry('safety_round_created', 'safety_round', sr.id, `Vernerunde opprettet: «${sr.title}»`),
         auditEntry('sick_leave_created', 'sick_leave', demoCase.id, `Sykefraværssak opprettet: ${demoCase.employeeName}`),
       ]
-      return { safetyRounds: [sr], inspections: [], incidents: [], sickLeaveCases: [demoCase], auditTrail: initialAudit }
+      return {
+        safetyRounds: [sr],
+        inspections: [],
+        incidents: [],
+        sjaAnalyses: [],
+        trainingRecords: [],
+        checklistTemplates: CHECKLIST_TEMPLATES,
+        sickLeaveCases: [demoCase],
+        auditTrail: initialAudit,
+      }
     }
     const p = JSON.parse(raw) as HseState
     return {
       safetyRounds: Array.isArray(p.safetyRounds) ? p.safetyRounds : [],
       inspections: Array.isArray(p.inspections) ? p.inspections : [],
       incidents: Array.isArray(p.incidents) ? p.incidents : [],
+      sjaAnalyses: Array.isArray(p.sjaAnalyses) ? p.sjaAnalyses : [],
+      trainingRecords: Array.isArray(p.trainingRecords) ? p.trainingRecords : [],
+      checklistTemplates: Array.isArray(p.checklistTemplates) && p.checklistTemplates.length ? p.checklistTemplates : CHECKLIST_TEMPLATES,
       sickLeaveCases: Array.isArray(p.sickLeaveCases) ? p.sickLeaveCases : [],
       auditTrail: Array.isArray(p.auditTrail) ? p.auditTrail : [],
     }
   } catch {
-    return { safetyRounds: [], inspections: [], incidents: [], sickLeaveCases: [], auditTrail: [] }
+    return { safetyRounds: [], inspections: [], incidents: [], sjaAnalyses: [], trainingRecords: [], checklistTemplates: CHECKLIST_TEMPLATES, sickLeaveCases: [], auditTrail: [] }
   }
 }
 
@@ -274,6 +295,120 @@ export function useHse() {
     setState((s) => ({ ...s, sickLeaveCases: s.sickLeaveCases.map((x) => x.id === caseId ? { ...x, portalMessages: [...x.portalMessages, msg], updatedAt: new Date().toISOString() } : x) }))
   }, [])
 
+  // ── SJA ─────────────────────────────────────────────────────────────────────
+
+  const createSja = useCallback((partial: Omit<SjaAnalysis, 'id' | 'createdAt' | 'updatedAt' | 'signatures'>) => {
+    const now = new Date().toISOString()
+    const sja: SjaAnalysis = { ...partial, id: crypto.randomUUID(), signatures: [], createdAt: now, updatedAt: now }
+    const entry = auditEntry('sja_created', 'sja', sja.id, `SJA opprettet: «${sja.title}»`, { location: sja.location, department: sja.department })
+    setState((s) => ({ ...s, sjaAnalyses: [sja, ...s.sjaAnalyses], auditTrail: [...s.auditTrail, entry] }))
+    return sja
+  }, [])
+
+  const updateSja = useCallback((id: string, patch: Partial<SjaAnalysis>) => {
+    setState((s) => {
+      const entry = auditEntry('sja_updated', 'sja', id, 'SJA oppdatert', { status: patch.status ?? null })
+      return { ...s, sjaAnalyses: s.sjaAnalyses.map((x) => x.id === id ? { ...x, ...patch, updatedAt: new Date().toISOString() } : x), auditTrail: [...s.auditTrail, entry] }
+    })
+  }, [])
+
+  const addSjaRow = useCallback((sjaId: string, row: Omit<SjaHazardRow, 'id'>) => {
+    const newRow: SjaHazardRow = { ...row, id: crypto.randomUUID() }
+    setState((s) => ({ ...s, sjaAnalyses: s.sjaAnalyses.map((x) => x.id === sjaId ? { ...x, rows: [...x.rows, newRow], updatedAt: new Date().toISOString() } : x) }))
+  }, [])
+
+  const updateSjaRow = useCallback((sjaId: string, rowId: string, patch: Partial<SjaHazardRow>) => {
+    setState((s) => ({ ...s, sjaAnalyses: s.sjaAnalyses.map((x) => x.id === sjaId ? { ...x, rows: x.rows.map((r) => r.id === rowId ? { ...r, ...patch } : r), updatedAt: new Date().toISOString() } : x) }))
+  }, [])
+
+  const signSja = useCallback((sjaId: string, sig: Omit<SjaSignature, 'signedAt'>) => {
+    const signature: SjaSignature = { ...sig, signedAt: new Date().toISOString() }
+    setState((s) => {
+      const entry = auditEntry('sja_approved', 'sja', sjaId, `SJA signert: ${sig.signerName} (${sig.role})`)
+      return { ...s, sjaAnalyses: s.sjaAnalyses.map((x) => x.id === sjaId ? { ...x, signatures: [...x.signatures, signature], updatedAt: new Date().toISOString() } : x), auditTrail: [...s.auditTrail, entry] }
+    })
+  }, [])
+
+  // ── Checklist templates ──────────────────────────────────────────────────────
+
+  const addChecklistTemplate = useCallback((tpl: Omit<ChecklistTemplate, 'id' | 'createdAt'>) => {
+    const t: ChecklistTemplate = { ...tpl, id: crypto.randomUUID(), createdAt: new Date().toISOString() }
+    setState((s) => ({ ...s, checklistTemplates: [...s.checklistTemplates, t] }))
+    return t
+  }, [])
+
+  // ── Training register ────────────────────────────────────────────────────────
+
+  const createTrainingRecord = useCallback((partial: Omit<TrainingRecord, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = new Date().toISOString()
+    const rec: TrainingRecord = { ...partial, id: crypto.randomUUID(), createdAt: now, updatedAt: now }
+    const entry = auditEntry('training_created', 'training', rec.id, `Opplæring registrert: ${rec.employeeName} — ${rec.trainingKind}`, { kind: rec.trainingKind, department: rec.department })
+    setState((s) => ({ ...s, trainingRecords: [rec, ...s.trainingRecords], auditTrail: [...s.auditTrail, entry] }))
+    return rec
+  }, [])
+
+  const updateTrainingRecord = useCallback((id: string, patch: Partial<TrainingRecord>) => {
+    setState((s) => {
+      const entry = auditEntry('training_updated', 'training', id, 'Opplæringspost oppdatert')
+      return { ...s, trainingRecords: s.trainingRecords.map((x) => x.id === id ? { ...x, ...patch, updatedAt: new Date().toISOString() } : x), auditTrail: [...s.auditTrail, entry] }
+    })
+  }, [])
+
+  // ── GDPR: anonymise personal data ────────────────────────────────────────────
+
+  const anonymiseIncident = useCallback((id: string) => {
+    setState((s) => {
+      const inc = s.incidents.find((x) => x.id === id)
+      if (!inc) return s
+      const anonymised = {
+        ...inc,
+        reportedBy: '[anonymisert]',
+        injuredPerson: inc.injuredPerson ? '[anonymisert]' : undefined,
+        witnesses: inc.witnesses ? '[anonymisert]' : undefined,
+        experienceDetail: inc.experienceDetail ? '[anonymisert]' : undefined,
+        updatedAt: new Date().toISOString(),
+      }
+      const entry = auditEntry('incident_anonymised', 'incident', id, 'Personopplysninger anonymisert (GDPR)', { originalReportedBy: inc.reportedBy.slice(0, 20) })
+      return { ...s, incidents: s.incidents.map((x) => x.id === id ? anonymised : x), auditTrail: [...s.auditTrail, entry] }
+    })
+  }, [])
+
+  const anonymiseSickLeave = useCallback((id: string) => {
+    setState((s) => {
+      const sc = s.sickLeaveCases.find((x) => x.id === id)
+      if (!sc) return s
+      const anonymised: SickLeaveCase = {
+        ...sc,
+        employeeName: '[anonymisert]',
+        employeeId: undefined,
+        accommodationNotes: '[anonymisert — GDPR]',
+        portalMessages: [],
+        updatedAt: new Date().toISOString(),
+      }
+      const entry = auditEntry('sick_leave_anonymised', 'sick_leave', id, 'Sykefraværssak anonymisert (GDPR)', { department: sc.department })
+      return { ...s, sickLeaveCases: s.sickLeaveCases.map((x) => x.id === id ? anonymised : x), auditTrail: [...s.auditTrail, entry] }
+    })
+  }, [])
+
+  // ── JSON export (arkivverdighet) ──────────────────────────────────────────────
+
+  const exportJson = useCallback((): string => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      version: 2,
+      safetyRounds: state.safetyRounds,
+      inspections: state.inspections,
+      incidents: state.incidents,
+      sjaAnalyses: state.sjaAnalyses,
+      trainingRecords: state.trainingRecords,
+      sickLeaveCases: state.sickLeaveCases.map((sc) => ({ ...sc, portalMessages: '[redacted — GDPR]', accommodationNotes: '[redacted — GDPR]' })),
+      auditTrail: state.auditTrail,
+    }
+    const entry = auditEntry('data_exported', 'system', 'hse-export', 'Fullstendig HSE-eksport gjennomført (JSON)')
+    setState((s) => ({ ...s, auditTrail: [...s.auditTrail, entry] }))
+    return JSON.stringify(payload, null, 2)
+  }, [state])
+
   // ── Reset ───────────────────────────────────────────────────────────────────
 
   const resetDemo = useCallback(() => {
@@ -291,6 +426,7 @@ export function useHse() {
       .flatMap((c) => c.milestones)
       .filter((m) => !m.completedAt && m.dueAt < today)
       .length
+    const expiredTraining = state.trainingRecords.filter((r) => r.expiresAt && r.expiresAt < today).length
 
     return {
       rounds: state.safetyRounds.length,
@@ -298,6 +434,10 @@ export function useHse() {
       incidents: state.incidents.length,
       violence: state.incidents.filter((i) => i.kind === 'violence' || i.kind === 'threat').length,
       openInspections: state.inspections.filter((i) => i.status === 'open').length,
+      sjaCount: state.sjaAnalyses.length,
+      openSja: state.sjaAnalyses.filter((s) => s.status === 'draft').length,
+      trainingRecords: state.trainingRecords.length,
+      expiredTraining,
       activeSickLeave: state.sickLeaveCases.filter((c) => c.status === 'active' || c.status === 'partial').length,
       overdueMilestones: overdueMs,
       auditEntries: state.auditTrail.length,
@@ -321,6 +461,17 @@ export function useHse() {
     createIncident,
     updateIncident,
     addCorrectiveAction,
+    createSja,
+    updateSja,
+    addSjaRow,
+    updateSjaRow,
+    signSja,
+    addChecklistTemplate,
+    createTrainingRecord,
+    updateTrainingRecord,
+    anonymiseIncident,
+    anonymiseSickLeave,
+    exportJson,
     createSickLeaveCase,
     updateSickLeaveCase,
     completeMilestone,

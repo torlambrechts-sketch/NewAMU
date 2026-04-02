@@ -46,11 +46,12 @@ export type Inspection = {
 // ─── Incidents — expanded ─────────────────────────────────────────────────────
 
 export type IncidentKind =
-  | 'incident'      // generell ulykke / skade
-  | 'near_miss'     // nestenulykke
-  | 'violence'      // vold
-  | 'threat'        // trusler
-  | 'deviation'     // avvik fra prosedyre / rutine
+  | 'incident'        // generell ulykke / skade
+  | 'near_miss'       // nestenulykke
+  | 'dangerous_cond'  // farlige forhold (AML §2-3 (2))
+  | 'violence'        // vold
+  | 'threat'          // trusler
+  | 'deviation'       // avvik fra prosedyre / rutine
 
 export type IncidentCategory =
   | 'physical_injury'
@@ -174,6 +175,94 @@ export type SickLeaveMessage = {
   text: string
 }
 
+// ─── SJA (Sikker Jobb Analyse / Safe Job Analysis) ────────────────────────────
+// Required by IK-f §5 nr. 2 and AML §3-1 for non-routine / high-risk tasks.
+
+export type SjaHazardRow = {
+  id: string
+  /** Work step being analysed */
+  step: string
+  hazard: string
+  consequence: string
+  /** Existing control measures */
+  existingControls: string
+  /** New / additional measures required */
+  additionalMeasures: string
+  responsible: string
+}
+
+export type SjaStatus = 'draft' | 'approved' | 'closed'
+
+export type SjaSignature = {
+  signerName: string
+  role: 'foreman' | 'verneombud' | 'worker' | 'management'
+  signedAt: string
+}
+
+export type SjaAnalysis = {
+  id: string
+  title: string
+  /** Free-text work task / job description */
+  jobDescription: string
+  location: string
+  department: string
+  plannedAt: string
+  conductedBy: string
+  /** Participants who reviewed the SJA */
+  participants: string
+  rows: SjaHazardRow[]
+  status: SjaStatus
+  /** Overall conclusion / approved-by notes */
+  conclusion: string
+  signatures: SjaSignature[]
+  /** Link to related incident (if SJA triggered by an event) */
+  relatedIncidentId?: string
+  createdAt: string
+  updatedAt: string
+}
+
+// ─── Department-specific checklist templates ──────────────────────────────────
+
+export type ChecklistTemplate = {
+  id: string
+  name: string
+  /** Restricts to a specific department; undefined = applies to all */
+  department?: string
+  items: HseChecklistItem[]
+  createdAt: string
+}
+
+// ─── Training register (opplæringsoversikt) ───────────────────────────────────
+// Tracks mandatory 40-hour HMS course for verneombud/managers (AML §3-5, §6-5)
+// plus any custom training requirements.
+
+export type TrainingKind =
+  | 'hms_40hr'          // 40-timers HMS-kurs (AML §3-5 / §6-5)
+  | 'fire_warden'       // Brannvernleder
+  | 'first_aid'         // Førstehjelp
+  | 'ppe_usage'         // Verneutstyr
+  | 'chemical_handling' // Kjemikaliehåndtering
+  | 'custom'
+
+export type TrainingRecord = {
+  id: string
+  employeeName: string
+  employeeId?: string
+  department: string
+  role: string
+  trainingKind: TrainingKind
+  customLabel?: string
+  /** Completion date */
+  completedAt?: string
+  /** Expiry date (e.g. first aid every 3 years) */
+  expiresAt?: string
+  provider?: string
+  certificateRef?: string
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
 // ─── Audit ───────────────────────────────────────────────────────────────────
 
 export type HseAuditAction =
@@ -184,17 +273,25 @@ export type HseAuditAction =
   | 'inspection_updated'
   | 'incident_created'
   | 'incident_updated'
+  | 'incident_anonymised'
+  | 'sja_created'
+  | 'sja_updated'
+  | 'sja_approved'
+  | 'training_created'
+  | 'training_updated'
   | 'sick_leave_created'
   | 'sick_leave_updated'
   | 'sick_leave_milestone_completed'
+  | 'sick_leave_anonymised'
   | 'settings_note'
+  | 'data_exported'
   | 'demo_reset'
 
 export type HseAuditEntry = {
   id: string
   at: string
   action: HseAuditAction
-  entityType: 'safety_round' | 'inspection' | 'incident' | 'sick_leave' | 'system'
+  entityType: 'safety_round' | 'inspection' | 'incident' | 'sja' | 'training' | 'sick_leave' | 'system'
   entityId: string
   summary: string
   /** Immutable snapshot detail for audit (JSON-serializable) */

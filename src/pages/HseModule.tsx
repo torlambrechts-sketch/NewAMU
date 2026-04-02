@@ -7,7 +7,9 @@ import {
   Calendar,
   CheckCircle2,
   ClipboardCheck,
+  Download,
   FileWarning,
+  GraduationCap,
   HardHat,
   History,
   ListChecks,
@@ -16,9 +18,12 @@ import {
   Plus,
   Search,
   ShieldAlert,
+  ShieldCheck,
+  Trash2,
   Users,
 } from 'lucide-react'
 import { useHse } from '../hooks/useHse'
+import { TRAINING_KIND_LABELS } from '../data/hseTemplates'
 import type {
   ChecklistItemStatus,
   HseProtocolSignature,
@@ -27,8 +32,11 @@ import type {
   IncidentFormTemplate,
   Inspection,
   SafetyRound,
+  SjaAnalysis,
+  SjaHazardRow,
   SickLeaveCase,
   SickLeaveMilestoneKind,
+  TrainingKind,
 } from '../types/hse'
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
@@ -38,6 +46,8 @@ const tabs = [
   { id: 'rounds'     as const, label: 'Vernerunder',         icon: ListChecks    },
   { id: 'inspections'as const, label: 'Inspeksjoner',        icon: Search        },
   { id: 'incidents'  as const, label: 'Hendelser',           icon: ShieldAlert   },
+  { id: 'sja'        as const, label: 'SJA',                 icon: ShieldCheck   },
+  { id: 'training'   as const, label: 'Opplæring',           icon: GraduationCap },
   { id: 'sickness'   as const, label: 'Sykefravær',          icon: Users         },
   { id: 'aml'        as const, label: 'AML & verneombud',    icon: BookOpen      },
   { id: 'audit'      as const, label: 'Revisjonslogg',       icon: History       },
@@ -48,6 +58,7 @@ const tabs = [
 const KIND_LABELS: Record<Incident['kind'], string> = {
   incident: 'Ulykke / skade',
   near_miss: 'Nestenulykke',
+  dangerous_cond: 'Farlige forhold',
   violence: 'Vold',
   threat: 'Trussel',
   deviation: 'Avvik',
@@ -56,8 +67,9 @@ const KIND_LABELS: Record<Incident['kind'], string> = {
 const KIND_COLOURS: Record<Incident['kind'], string> = {
   incident: 'bg-red-100 text-red-800',
   near_miss: 'bg-amber-100 text-amber-800',
+  dangerous_cond: 'bg-orange-100 text-orange-900',
   violence: 'bg-red-200 text-red-900',
-  threat: 'bg-orange-100 text-orange-900',
+  threat: 'bg-orange-200 text-orange-950',
   deviation: 'bg-neutral-100 text-neutral-700',
 }
 
@@ -176,6 +188,18 @@ export function HseModule() {
     consentRecorded: false,
   })
 
+  // SJA form
+  const [sjaForm, setSjaForm] = useState({ title: '', jobDescription: '', location: '', department: '', plannedAt: '', conductedBy: '', participants: '' })
+  const [expandedSja, setExpandedSja] = useState<string | null>(null)
+  const [sjaRowDraft, setSjaRowDraft] = useState<Record<string, Omit<SjaHazardRow, 'id'>>>({})
+  const [sjaSignDraft, setSjaSignDraft] = useState<Record<string, { signerName: string; role: SjaAnalysis['signatures'][0]['role'] }>>({})
+
+  // Training form
+  const [trainingForm, setTrainingForm] = useState({ employeeName: '', department: '', role: '', trainingKind: 'hms_40hr' as TrainingKind, customLabel: '', completedAt: '', expiresAt: '', provider: '', certificateRef: '' })
+
+  // GDPR + export
+  const [exportMsg, setExportMsg] = useState('')
+
   // Expanded incident detail
   const [expandedInc, setExpandedInc] = useState<string | null>(null)
   // Expanded sick leave
@@ -229,6 +253,12 @@ export function HseModule() {
               {id === 'incidents' && hse.stats.violence > 0 && (
                 <span className="ml-1 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.violence}</span>
               )}
+              {id === 'sja' && hse.stats.openSja > 0 && (
+                <span className="ml-1 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.openSja}</span>
+              )}
+              {id === 'training' && hse.stats.expiredTraining > 0 && (
+                <span className="ml-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.expiredTraining}</span>
+              )}
               {id === 'sickness' && hse.stats.overdueMilestones > 0 && (
                 <span className="ml-1 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.overdueMilestones}</span>
               )}
@@ -244,14 +274,15 @@ export function HseModule() {
             <h2 className="text-lg font-semibold text-neutral-900">Hurtigstatus</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-4">
               <StatCard label="Vernerunder" value={hse.stats.rounds} />
-              <StatCard label="Inspeksjoner" value={hse.stats.inspections} />
               <StatCard label="Hendelser" value={hse.stats.incidents} colour="neutral" />
               <StatCard label="Vold / trusler" value={hse.stats.violence} colour={hse.stats.violence > 0 ? 'red' : 'neutral'} />
+              <StatCard label="Åpne SJA" value={hse.stats.openSja} colour={hse.stats.openSja > 0 ? 'amber' : 'neutral'} />
             </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div className="mt-4 grid gap-4 sm:grid-cols-4">
               <StatCard label="Aktive sykefravær" value={hse.stats.activeSickLeave} />
-              <StatCard label="Forfalte milepæler" value={hse.stats.overdueMilestones} colour={hse.stats.overdueMilestones > 0 ? 'amber' : 'neutral'} />
-              <StatCard label="Åpne inspeksjoner" value={hse.stats.openInspections} />
+              <StatCard label="Forfalte frister" value={hse.stats.overdueMilestones} colour={hse.stats.overdueMilestones > 0 ? 'amber' : 'neutral'} />
+              <StatCard label="Opplæringsrekorder" value={hse.stats.trainingRecords} />
+              <StatCard label="Utløpt opplæring" value={hse.stats.expiredTraining} colour={hse.stats.expiredTraining > 0 ? 'red' : 'neutral'} />
             </div>
           </div>
           <div className="rounded-2xl border border-amber-200/80 bg-amber-50/90 p-5 text-sm text-amber-950">
@@ -271,6 +302,18 @@ export function HseModule() {
               hse.createSafetyRound({ title: roundForm.title.trim(), conductedAt: new Date(roundForm.conductedAt).toISOString(), location: roundForm.location.trim() || '—', conductedBy: roundForm.conductedBy.trim() || '—', notes: roundForm.notes })
               setRoundForm((r) => ({ ...r, title: '', notes: '' }))
             }}>
+              {/* Checklist template selector */}
+              <div className="sm:col-span-2">
+                <label className="text-xs font-medium text-neutral-500">Sjekklistemal (avdelingsspesifikk)</label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {hse.checklistTemplates.map((tpl) => (
+                    <span key={tpl.id} className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-700">
+                      {tpl.name}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-1 text-xs text-neutral-400">Vernerunden bruker standard sjekklistemal. Egne maler per avdeling legges til i innstillingene.</p>
+              </div>
               <div className="sm:col-span-2">
                 <label className="text-xs text-neutral-500">Tittel</label>
                 <input value={roundForm.title} onChange={(e) => setRoundForm((r) => ({ ...r, title: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
@@ -414,6 +457,7 @@ export function HseModule() {
                 <select value={incForm.kind} onChange={(e) => setIncForm((i) => ({ ...i, kind: e.target.value as Incident['kind'] }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
                   <option value="incident">Ulykke / skade</option>
                   <option value="near_miss">Nestenulykke</option>
+                  <option value="dangerous_cond">Farlige forhold (AML §2-3)</option>
                   <option value="violence">Vold</option>
                   <option value="threat">Trussel</option>
                   <option value="deviation">Avvik</option>
@@ -622,7 +666,17 @@ export function HseModule() {
                         </div>
                       )}
 
-                      <div className="mt-2">
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                        {expanded && (
+                          <button
+                            type="button"
+                            onClick={() => { if (confirm('Anonymiser personopplysninger? Kan ikke angres.')) hse.anonymiseIncident(inc.id) }}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                          >
+                            <Trash2 className="size-3.5" />
+                            Anonymiser (GDPR)
+                          </button>
+                        )}
                         <AddTaskLink
                           title={`Oppfølging: ${KIND_LABELS[inc.kind]}`}
                           description={inc.description.slice(0, 200)}
@@ -638,6 +692,296 @@ export function HseModule() {
                   )
                 })}
               </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── SJA ──────────────────────────────────────────────────────────────── */}
+      {tab === 'sja' && (
+        <div className="mt-8 space-y-8">
+          <div className="rounded-2xl border border-neutral-200/90 bg-white p-4 shadow-sm">
+            <p className="text-sm text-neutral-700">
+              <strong>Sikker Jobb Analyse (SJA)</strong> er påkrevd for ikke-rutinepregede og høyrisikooperasjoner etter
+              IK-forskriften §5 nr. 2 og AML §3-1. Analysen gjennomføres med berørte arbeidstakere <em>før</em> arbeidet starter.
+            </p>
+          </div>
+
+          {/* New SJA form */}
+          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-neutral-900">Ny SJA</h2>
+            <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
+              e.preventDefault()
+              if (!sjaForm.title.trim()) return
+              const sja = hse.createSja({ title: sjaForm.title.trim(), jobDescription: sjaForm.jobDescription, location: sjaForm.location, department: sjaForm.department, plannedAt: sjaForm.plannedAt ? new Date(sjaForm.plannedAt).toISOString() : new Date().toISOString(), conductedBy: sjaForm.conductedBy, participants: sjaForm.participants, rows: [], status: 'draft', conclusion: '' })
+              setExpandedSja(sja.id)
+              setSjaForm({ title: '', jobDescription: '', location: '', department: '', plannedAt: '', conductedBy: '', participants: '' })
+            }}>
+              <div className="sm:col-span-2">
+                <label className="text-xs font-medium text-neutral-500">Arbeidsoperasjon / tittel *</label>
+                <input value={sjaForm.title} onChange={(e) => setSjaForm((s) => ({ ...s, title: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-xs font-medium text-neutral-500">Beskrivelse av jobben</label>
+                <textarea value={sjaForm.jobDescription} onChange={(e) => setSjaForm((s) => ({ ...s, jobDescription: e.target.value }))} rows={2} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Sted</label>
+                <input value={sjaForm.location} onChange={(e) => setSjaForm((s) => ({ ...s, location: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Avdeling</label>
+                <input value={sjaForm.department} onChange={(e) => setSjaForm((s) => ({ ...s, department: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Planlagt dato</label>
+                <input type="datetime-local" value={sjaForm.plannedAt} onChange={(e) => setSjaForm((s) => ({ ...s, plannedAt: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Gjennomført av / arbeidsleder</label>
+                <input value={sjaForm.conductedBy} onChange={(e) => setSjaForm((s) => ({ ...s, conductedBy: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-xs font-medium text-neutral-500">Deltakere (navn, kommaseparert)</label>
+                <input value={sjaForm.participants} onChange={(e) => setSjaForm((s) => ({ ...s, participants: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2">
+                <ShieldCheck className="size-4" />
+                Opprett SJA
+              </button>
+            </form>
+          </section>
+
+          {/* SJA list */}
+          <div className="space-y-4">
+            {hse.sjaAnalyses.length === 0 && <p className="text-center text-sm text-neutral-500 py-8">Ingen SJA-er registrert ennå.</p>}
+            {hse.sjaAnalyses.map((sja) => {
+              const expanded = expandedSja === sja.id
+              const rowDraft = sjaRowDraft[sja.id] ?? { step: '', hazard: '', consequence: '', existingControls: '', additionalMeasures: '', responsible: '' }
+              const sigDraft = sjaSignDraft[sja.id] ?? { signerName: '', role: 'foreman' as const }
+              return (
+                <div key={sja.id} className="rounded-2xl border border-neutral-200/90 bg-white shadow-sm overflow-hidden">
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-neutral-50 px-4 py-3 border-b border-neutral-100">
+                    <div>
+                      <span className="font-semibold text-neutral-900">{sja.title}</span>
+                      <span className="ml-2 text-xs text-neutral-500">{sja.location}{sja.department ? ` · ${sja.department}` : ''}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select value={sja.status} onChange={(e) => hse.updateSja(sja.id, { status: e.target.value as SjaAnalysis['status'] })} className="rounded-full border border-neutral-200 px-2 py-1 text-xs">
+                        <option value="draft">Utkast</option>
+                        <option value="approved">Godkjent</option>
+                        <option value="closed">Avsluttet</option>
+                      </select>
+                      <button type="button" onClick={() => setExpandedSja(expanded ? null : sja.id)} className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-100 text-xs">{expanded ? '▲' : '▼'}</button>
+                    </div>
+                  </div>
+
+                  {expanded && (
+                    <div className="px-4 py-4 space-y-5">
+                      {sja.jobDescription && <p className="text-sm text-neutral-700">{sja.jobDescription}</p>}
+
+                      {/* Hazard rows table */}
+                      <div>
+                        <p className="text-xs font-semibold text-neutral-600 mb-2">Fareidentifikasjon og tiltak</p>
+                        <div className="overflow-x-auto">
+                          <table className="w-full min-w-[700px] text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-neutral-50 text-neutral-500 uppercase tracking-wide">
+                                {['Arbeidssteg', 'Fare', 'Konsekvens', 'Eksist. tiltak', 'Nye tiltak', 'Ansvarlig'].map((h) => (
+                                  <th key={h} className="border border-neutral-200 px-2 py-1.5 text-left font-semibold">{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sja.rows.map((row) => (
+                                <tr key={row.id} className="border border-neutral-200">
+                                  {(['step', 'hazard', 'consequence', 'existingControls', 'additionalMeasures', 'responsible'] as const).map((field) => (
+                                    <td key={field} className="border border-neutral-200 px-2 py-1">
+                                      <input
+                                        value={row[field]}
+                                        onChange={(e) => hse.updateSjaRow(sja.id, row.id, { [field]: e.target.value })}
+                                        className="w-full min-w-[80px] bg-transparent text-xs outline-none"
+                                      />
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                              {/* Add row */}
+                              <tr className="bg-neutral-50/50">
+                                {(['step', 'hazard', 'consequence', 'existingControls', 'additionalMeasures', 'responsible'] as const).map((field) => (
+                                  <td key={field} className="border border-neutral-200 px-2 py-1">
+                                    <input
+                                      value={rowDraft[field]}
+                                      onChange={(e) => setSjaRowDraft((d) => ({ ...d, [sja.id]: { ...rowDraft, [field]: e.target.value } }))}
+                                      placeholder={field === 'step' ? '+ Nytt steg' : ''}
+                                      className="w-full min-w-[80px] bg-transparent text-xs outline-none placeholder:text-neutral-400"
+                                    />
+                                  </td>
+                                ))}
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        <button type="button" onClick={() => {
+                          if (!rowDraft.step.trim() && !rowDraft.hazard.trim()) return
+                          hse.addSjaRow(sja.id, rowDraft)
+                          setSjaRowDraft((d) => ({ ...d, [sja.id]: { step: '', hazard: '', consequence: '', existingControls: '', additionalMeasures: '', responsible: '' } }))
+                        }} className="mt-2 text-xs font-medium text-[#1a3d32] hover:underline">+ Legg til rad</button>
+                      </div>
+
+                      {/* Conclusion */}
+                      <div>
+                        <label className="text-xs font-semibold text-neutral-600">Konklusjon / godkjenning</label>
+                        <textarea value={sja.conclusion} onChange={(e) => hse.updateSja(sja.id, { conclusion: e.target.value })} rows={2} className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" placeholder="Totalvurdering og godkjenning av arbeidet …" />
+                      </div>
+
+                      {/* Signatures */}
+                      <div>
+                        <p className="text-xs font-semibold text-neutral-600 mb-2">Signaturer ({sja.signatures.length})</p>
+                        {sja.signatures.map((s, i) => (
+                          <div key={i} className="text-xs text-neutral-600">{s.signerName} ({s.role}) · {formatDate(s.signedAt)}</div>
+                        ))}
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <select value={sigDraft.role} onChange={(e) => setSjaSignDraft((d) => ({ ...d, [sja.id]: { ...sigDraft, role: e.target.value as typeof sigDraft.role } }))} className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs">
+                            <option value="foreman">Arbeidsleder</option>
+                            <option value="verneombud">Verneombud</option>
+                            <option value="worker">Arbeider</option>
+                            <option value="management">Ledelse</option>
+                          </select>
+                          <input value={sigDraft.signerName} onChange={(e) => setSjaSignDraft((d) => ({ ...d, [sja.id]: { ...sigDraft, signerName: e.target.value } }))} placeholder="Fullt navn" className="flex-1 min-w-[140px] rounded-lg border border-neutral-200 px-2 py-1.5 text-xs" />
+                          <button type="button" onClick={() => {
+                            if (!sigDraft.signerName.trim()) return
+                            hse.signSja(sja.id, sigDraft)
+                            setSjaSignDraft((d) => ({ ...d, [sja.id]: { signerName: '', role: 'worker' } }))
+                          }} className="rounded-lg bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white">Signer</button>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <AddTaskLink title={`SJA oppfølging: ${sja.title.slice(0, 60)}`} module="hse" sourceType="hse_incident" sourceId={sja.id} sourceLabel={sja.title} ownerRole="Arbeidsleder / HMS" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Training register ─────────────────────────────────────────────────── */}
+      {tab === 'training' && (
+        <div className="mt-8 space-y-8">
+          <div className="rounded-2xl border border-neutral-200/90 bg-white p-4 shadow-sm">
+            <p className="text-sm text-neutral-700">
+              Lovpålagt opplæringsoversikt. Verneombud og ledere har krav på <strong>40 timers HMS-kurs</strong> (AML §3-5 og §6-5).
+              Systemet varsler med rød badge når sertifiseringer er utløpt.
+            </p>
+          </div>
+
+          {/* New training record form */}
+          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-neutral-900">Registrer opplæring</h2>
+            <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
+              e.preventDefault()
+              if (!trainingForm.employeeName.trim()) return
+              hse.createTrainingRecord({ employeeName: trainingForm.employeeName.trim(), department: trainingForm.department, role: trainingForm.role, trainingKind: trainingForm.trainingKind, customLabel: trainingForm.customLabel || undefined, completedAt: trainingForm.completedAt || undefined, expiresAt: trainingForm.expiresAt || undefined, provider: trainingForm.provider || undefined, certificateRef: trainingForm.certificateRef || undefined })
+              setTrainingForm((f) => ({ ...f, employeeName: '', certificateRef: '' }))
+            }}>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Ansatt navn *</label>
+                <input value={trainingForm.employeeName} onChange={(e) => setTrainingForm((f) => ({ ...f, employeeName: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Avdeling</label>
+                <input value={trainingForm.department} onChange={(e) => setTrainingForm((f) => ({ ...f, department: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Rolle / stilling</label>
+                <input value={trainingForm.role} onChange={(e) => setTrainingForm((f) => ({ ...f, role: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Type opplæring</label>
+                <select value={trainingForm.trainingKind} onChange={(e) => setTrainingForm((f) => ({ ...f, trainingKind: e.target.value as TrainingKind }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
+                  {Object.entries(TRAINING_KIND_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              {trainingForm.trainingKind === 'custom' && (
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-medium text-neutral-500">Egendefinert label</label>
+                  <input value={trainingForm.customLabel} onChange={(e) => setTrainingForm((f) => ({ ...f, customLabel: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Gjennomført dato</label>
+                <input type="date" value={trainingForm.completedAt} onChange={(e) => setTrainingForm((f) => ({ ...f, completedAt: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Utløper dato</label>
+                <input type="date" value={trainingForm.expiresAt} onChange={(e) => setTrainingForm((f) => ({ ...f, expiresAt: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Leverandør / kursholder</label>
+                <input value={trainingForm.provider} onChange={(e) => setTrainingForm((f) => ({ ...f, provider: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Sertifikat / referansenr.</label>
+                <input value={trainingForm.certificateRef} onChange={(e) => setTrainingForm((f) => ({ ...f, certificateRef: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2">
+                <GraduationCap className="size-4" />
+                Registrer opplæring
+              </button>
+            </form>
+          </section>
+
+          {/* Training matrix table */}
+          <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
+            <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">
+              <h2 className="font-semibold text-neutral-900">Opplæringsmatrise</h2>
+            </div>
+            {hse.trainingRecords.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen opplæringsrekorder ennå.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[700px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-neutral-100 bg-neutral-50/80 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      <th className="px-4 py-3">Ansatt</th>
+                      <th className="px-4 py-3">Avdeling / Rolle</th>
+                      <th className="px-4 py-3">Type opplæring</th>
+                      <th className="px-4 py-3">Gjennomført</th>
+                      <th className="px-4 py-3">Utløper</th>
+                      <th className="px-4 py-3">Sertifikat</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100">
+                    {hse.trainingRecords.map((rec) => {
+                      const today = new Date().toISOString().slice(0, 10)
+                      const expired = rec.expiresAt && rec.expiresAt < today
+                      const expiringSoon = rec.expiresAt && !expired && daysUntil(rec.expiresAt) <= 30
+                      return (
+                        <tr key={rec.id} className={expired ? 'bg-red-50' : expiringSoon ? 'bg-amber-50' : ''}>
+                          <td className="px-4 py-3 font-medium text-neutral-900">{rec.employeeName}</td>
+                          <td className="px-4 py-3 text-neutral-600">{rec.department}{rec.role ? ` · ${rec.role}` : ''}</td>
+                          <td className="px-4 py-3 text-neutral-700">
+                            {rec.trainingKind === 'custom' ? rec.customLabel : TRAINING_KIND_LABELS[rec.trainingKind]}
+                          </td>
+                          <td className="px-4 py-3 text-neutral-500">{rec.completedAt ? formatDate(rec.completedAt) : '—'}</td>
+                          <td className="px-4 py-3">
+                            {rec.expiresAt ? (
+                              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${expired ? 'bg-red-100 text-red-800' : expiringSoon ? 'bg-amber-100 text-amber-800' : 'bg-neutral-100 text-neutral-600'}`}>
+                                {expired ? 'Utløpt: ' : ''}{formatDate(rec.expiresAt)}
+                              </span>
+                            ) : '—'}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs text-neutral-500">{rec.certificateRef ?? '—'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
@@ -906,7 +1250,45 @@ export function HseModule() {
 
       {/* ── Audit log ─────────────────────────────────────────────────────────── */}
       {tab === 'audit' && (
-        <div className="mt-8">
+        <div className="mt-8 space-y-6">
+
+          {/* Export + GDPR controls */}
+          <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-neutral-900">Eksport og arkivverdighet</h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              Eksporter alle HMS-data til JSON for arkivering. Sykefraværsnotes og dialogmeldinger er automatisk
+              fjernet fra eksporten (GDPR). For PDF-eksport, bruk nettleserens utskriftsfunksjon.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const json = hse.exportJson()
+                  const blob = new Blob([json], { type: 'application/json' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `hse-export-${new Date().toISOString().slice(0, 10)}.json`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                  setExportMsg('Eksport fullført — filen er lastet ned.')
+                }}
+                className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26]"
+              >
+                <Download className="size-4" />
+                Eksporter alle HSE-data (JSON)
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              >
+                Skriv ut / PDF
+              </button>
+            </div>
+            {exportMsg && <p className="mt-2 text-sm text-emerald-700">{exportMsg}</p>}
+          </div>
+
           <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-3">
               <h2 className="font-semibold text-neutral-900">Streng revisjonslogg (append-only)</h2>
@@ -936,6 +1318,7 @@ export function HseModule() {
     </div>
   )
 }
+
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
