@@ -21,6 +21,12 @@ import { LearningCertifications } from './pages/learning/LearningCertifications'
 import { LearningInsights } from './pages/learning/LearningInsights'
 import { LearningParticipants } from './pages/learning/LearningParticipants'
 import { LearningSettings } from './pages/learning/LearningSettings'
+import { DocumentLayout } from './components/documents/DocumentLayout'
+import { DocumentLibrary } from './pages/documents/DocumentLibrary'
+import { DocumentEditor } from './pages/documents/DocumentEditor'
+import { DocumentTemplates } from './pages/documents/DocumentTemplates'
+import { DocumentNew } from './pages/documents/DocumentNew'
+import { DocumentSettings } from './pages/documents/DocumentSettings'
 
 function App() {
   return (
@@ -39,6 +45,13 @@ function App() {
           <Route path="org-health" element={<OrgHealthModule />} />
           <Route path="org-health/settings" element={<OrgHealthSettings />} />
           <Route path="internal-control" element={<InternalControlModule />} />
+          <Route path="documents" element={<DocumentLayout />}>
+            <Route index element={<DocumentLibrary />} />
+            <Route path="new" element={<DocumentNew />} />
+            <Route path="templates" element={<DocumentTemplates />} />
+            <Route path="settings" element={<DocumentSettings />} />
+            <Route path=":documentId" element={<DocumentEditor />} />
+          </Route>
           <Route path="hse" element={<HseModule />} />
           <Route path="learning" element={<LearningLayout />}>
             <Route index element={<LearningDashboard />} />

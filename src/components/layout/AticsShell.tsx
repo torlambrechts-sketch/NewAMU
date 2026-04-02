@@ -3,6 +3,7 @@ import {
   ClipboardList,
   Clock,
   ExternalLink,
+  FileText,
   GraduationCap,
   HardHat,
   HeartPulse,
@@ -97,6 +98,33 @@ const tasksSubs: SubItem[] = [
   { label: 'Oppgavelogg', path: '/tasks?view=audit', match: ({ pathname, search }) => pathname === '/tasks' && new URLSearchParams(search).get('view') === 'audit' },
 ]
 
+function isDocumentsLibraryPath(pathname: string): boolean {
+  if (pathname === '/documents' || pathname === '/documents/new') return true
+  if (pathname === '/documents/templates' || pathname.startsWith('/documents/templates')) return false
+  if (pathname === '/documents/settings' || pathname.startsWith('/documents/settings')) return false
+  return pathname.startsWith('/documents/')
+}
+
+const documentsSubs: SubItem[] = [
+  {
+    label: 'Bibliotek',
+    path: '/documents',
+    match: ({ pathname }) => isDocumentsLibraryPath(pathname),
+  },
+  {
+    label: 'Maler',
+    path: '/documents/templates',
+    match: ({ pathname }) =>
+      pathname === '/documents/templates' || pathname.startsWith('/documents/templates'),
+  },
+  {
+    label: 'Innstillinger',
+    path: '/documents/settings',
+    match: ({ pathname }) =>
+      pathname === '/documents/settings' || pathname.startsWith('/documents/settings'),
+  },
+]
+
 const learningSubs: SubItem[] = [
   {
     label: 'Dashboard',
@@ -173,11 +201,13 @@ const navMainRest = [
   { to: '/org-health', label: 'Org health', end: false, icon: HeartPulse },
   { to: '/hse', label: 'HSE', end: false, icon: HardHat },
   { to: '/internal-control', label: 'Internkontroll', end: false, icon: ClipboardList },
+  { to: '/documents', label: 'Documents', end: false, icon: FileText },
   { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid },
   { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap },
 ] as const
 
 function subNavForPath(pathname: string): SubItem[] {
+  if (pathname.startsWith('/documents')) return documentsSubs
   if (pathname.startsWith('/learning')) return learningSubs
   if (pathname === '/council') return councilSubs
   if (pathname === '/members') return membersSubs
