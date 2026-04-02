@@ -91,29 +91,34 @@ export function DocumentSettings() {
         </button>
       </section>
 
+      <section className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-6">
+        <h2 className="font-semibold text-[#2D403A]">Fase 2 (levert i appen)</h2>
+        <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-neutral-800">
+          <li>
+            Wiki-lenker <code className="rounded bg-white/80 px-1">[[Dokumenttittel]]</code>, variabler <code className="rounded bg-white/80 px-1">{'{{nøkkel}}'}</code>, sjekkliste før publisering
+          </li>
+          <li>Flertrinns godkjenning (demo) og attestert publisering</li>
+          <li>Fulltekstsøk, kravmatrise, lesebekreftelse, modullenker, kommentarer</li>
+        </ul>
+      </section>
+
       <section className="rounded-xl border border-amber-200 bg-amber-50/80 p-6">
-        <h2 className="font-semibold text-[#2D403A]">Fremtidig veikart (fase 2–3)</h2>
-        <p className="mt-2 text-sm text-neutral-700">
-          Følgende er planlagt utover dagens fase 1 (bibliotek, maler, versjoner, arbeidsflyt, revisjonslogg):
-        </p>
+        <h2 className="font-semibold text-[#2D403A]">Veikart fase 3 (neste)</h2>
         <ul className="mt-4 list-inside list-disc space-y-2 text-sm text-neutral-800">
           <li>
-            <strong>Wiki</strong>: interne lenker <code className="rounded bg-white/80 px-1">[[Side]]</code>, innholdsfortegnelse, kommentarer per avsnitt, fulltekstsøk i publisert innhold.
+            <strong>BankID / avansert e-signatur</strong> og juridisk sporing utover demo-attestering
           </li>
           <li>
-            <strong>Avanserte maler</strong>: variabler (f.eks. <code className="rounded bg-white/80 px-1">{'{{virksomhet}}'}</code>), obligatoriske sjekkpunkter før publisering, bransjepakker (HMS, AMU, GDPR).
+            <strong>Automatiske påminnelser</strong> (e-post/push) for revisjonsfrist og lesebekreftelse
           </li>
           <li>
-            <strong>Godkjenning</strong>: flertrinns godkjenningsflyt, roller (HMS-leder, daglig leder), elektronisk signatur (BankID/Signicat) der påkrevd.
+            <strong>Dyp integrasjon</strong>: opprett dokument fra ROS/varsling med forhåndsutfylt kobling og tidsstempling i tredjeparts logg
           </li>
           <li>
-            <strong>Lesekvittering</strong>: «må lest innen» for roller, kobling til opplæringsmodulen.
+            <strong>Kobling til læringsmodulen</strong>: obligatorisk kurs basert på dokumentversjon
           </li>
           <li>
-            <strong>Integrasjon</strong>: stabile lenker fra internkontroll, ROS og AMU-møter til gjeldende dokumentversjon; varslingshendelser i logg.
-          </li>
-          <li>
-            <strong>Etterlevelse</strong>: kravmatrise (dokument ↔ lovkrav), årlig påminnelse om revisjon og re-godkjenning.
+            <strong>Granulære rettigheter</strong> (RBAC), tenant og SSO
           </li>
         </ul>
       </section>

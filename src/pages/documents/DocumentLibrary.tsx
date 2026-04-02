@@ -84,6 +84,18 @@ export function DocumentLibrary() {
             <FileStack className="size-4" />
             Fra mal
           </Link>
+          <Link
+            to="/documents/search"
+            className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm text-[#2D403A]"
+          >
+            Søk
+          </Link>
+          <Link
+            to="/documents/compliance"
+            className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm text-[#2D403A]"
+          >
+            Kravmatrise
+          </Link>
           <Link to="/documents/settings" className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm text-[#2D403A]">
             Innstillinger
           </Link>
@@ -102,6 +114,14 @@ export function DocumentLibrary() {
         <div>
           <span className="text-xs font-medium text-neutral-500">Til godkjenning</span>
           <p className="text-lg font-semibold text-amber-800">{stats.review}</p>
+        </div>
+        <div>
+          <span className="text-xs font-medium text-neutral-500">Revisjon forfalt</span>
+          <p className="text-lg font-semibold text-red-800">{stats.dueReview}</p>
+        </div>
+        <div>
+          <span className="text-xs font-medium text-neutral-500">Uleste bekreftelser</span>
+          <p className="text-lg font-semibold text-neutral-800">{stats.pendingReads}</p>
         </div>
       </div>
 

@@ -102,6 +102,8 @@ function isDocumentsLibraryPath(pathname: string): boolean {
   if (pathname === '/documents' || pathname === '/documents/new') return true
   if (pathname === '/documents/templates' || pathname.startsWith('/documents/templates')) return false
   if (pathname === '/documents/settings' || pathname.startsWith('/documents/settings')) return false
+  if (pathname === '/documents/search') return false
+  if (pathname === '/documents/compliance') return false
   return pathname.startsWith('/documents/')
 }
 
@@ -122,6 +124,16 @@ const documentsSubs: SubItem[] = [
     path: '/documents/settings',
     match: ({ pathname }) =>
       pathname === '/documents/settings' || pathname.startsWith('/documents/settings'),
+  },
+  {
+    label: 'Søk',
+    path: '/documents/search',
+    match: ({ pathname }) => pathname === '/documents/search',
+  },
+  {
+    label: 'Kravmatrise',
+    path: '/documents/compliance',
+    match: ({ pathname }) => pathname === '/documents/compliance',
   },
 ]
 

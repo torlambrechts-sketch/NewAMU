@@ -27,6 +27,8 @@ import { DocumentEditor } from './pages/documents/DocumentEditor'
 import { DocumentTemplates } from './pages/documents/DocumentTemplates'
 import { DocumentNew } from './pages/documents/DocumentNew'
 import { DocumentSettings } from './pages/documents/DocumentSettings'
+import { DocumentSearch } from './pages/documents/DocumentSearch'
+import { DocumentCompliance } from './pages/documents/DocumentCompliance'
 
 function App() {
   return (
@@ -50,6 +52,8 @@ function App() {
             <Route path="new" element={<DocumentNew />} />
             <Route path="templates" element={<DocumentTemplates />} />
             <Route path="settings" element={<DocumentSettings />} />
+            <Route path="search" element={<DocumentSearch />} />
+            <Route path="compliance" element={<DocumentCompliance />} />
             <Route path=":documentId" element={<DocumentEditor />} />
           </Route>
           <Route path="hse" element={<HseModule />} />
