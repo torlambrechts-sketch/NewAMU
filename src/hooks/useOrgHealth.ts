@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LABOR_METRIC_DEFINITIONS } from '../data/orgHealthMetrics'
+import {
+  buildPsykosocialQuestions,
+  PSYKOSOCIAL_SURVEY_INTRO,
+} from '../data/psykosocialSurveyTemplate'
+import { dimensionMeansForResponses, itemNormalizedMeans } from '../lib/psykosocialAggregate'
 import type {
   AmlReportKind,
   AnonymousAmlReport,
@@ -8,6 +13,7 @@ import type {
   OrgHealthAuditEntry,
   OrgHealthAuditAction,
   Survey,
+  SurveyPurpose,
   SurveyQuestion,
   SurveyResponse,
 } from '../types/orgHealth'
@@ -41,7 +47,7 @@ function auditEntry(
   }
 }
 
-const defaultQuestions: SurveyQuestion[] = [
+const defaultQuestionsGeneral: SurveyQuestion[] = [
   {
     id: 'q1',
     text: 'Hvordan vurderer du det psykososiale miljøet på arbeidsplassen?',
@@ -64,11 +70,12 @@ const defaultQuestions: SurveyQuestion[] = [
 
 const seedSurvey: Survey = {
   id: 'sv-seed',
-  title: 'Arbeidsmiljøpulse 2026',
-  description: 'Kort undersøkelse — svarene brukes til å prioritere tiltak.',
+  title: 'Psykososial kartlegging 2026',
+  description: PSYKOSOCIAL_SURVEY_INTRO,
   anonymous: true,
   status: 'open',
-  questions: defaultQuestions,
+  purpose: 'psykosocial_aml',
+  questions: buildPsykosocialQuestions(),
   createdAt: new Date().toISOString(),
   openedAt: new Date().toISOString(),
 }
@@ -89,10 +96,43 @@ const seedNav: NavSickLeaveReport[] = [
   },
 ]
 
+function inferSurveyPurpose(sv: Survey): SurveyPurpose {
+  if (sv.purpose) return sv.purpose
+  const hasDim = sv.questions.some((q) => q.dimension != null)
+  if (hasDim) return 'psykosocial_aml'
+  return 'general'
+}
+
+function normalizeSurvey(sv: Survey): Survey {
+  return { ...sv, purpose: inferSurveyPurpose(sv) }
+}
+
+/** Oppgrader gammel seed-undersøkelse til psykososial mal når ingen svar finnes (unngå å knekke eksisterende data). */
+function maybeUpgradeSeedSurvey(surveys: Survey[], responses: SurveyResponse[]): Survey[] {
+  return surveys.map((s) => {
+    if (s.id !== 'sv-seed') return s
+    const hasOldShort = s.questions.some((q) => q.id === 'q1' && !q.dimension)
+    const hasResponses = responses.some((r) => r.surveyId === 'sv-seed')
+    if (hasOldShort && !hasResponses) {
+      return {
+        ...s,
+        title: 'Psykososial kartlegging 2026',
+        description: PSYKOSOCIAL_SURVEY_INTRO,
+        purpose: 'psykosocial_aml',
+        questions: buildPsykosocialQuestions(),
+      }
+    }
+    return s
+  })
+}
+
 function migrateLegacy(parsed: Record<string, unknown>): OrgHealthState {
+  const responses = Array.isArray(parsed.responses) ? (parsed.responses as SurveyResponse[]) : []
+  const rawSurveys = Array.isArray(parsed.surveys) && (parsed.surveys as unknown[]).length ? (parsed.surveys as Survey[]) : [seedSurvey]
+  const upgraded = maybeUpgradeSeedSurvey(rawSurveys.map((s) => normalizeSurvey(s)), responses)
   return {
-    surveys: Array.isArray(parsed.surveys) && (parsed.surveys as unknown[]).length ? (parsed.surveys as Survey[]) : [seedSurvey],
-    responses: Array.isArray(parsed.responses) ? (parsed.responses as SurveyResponse[]) : [],
+    surveys: upgraded,
+    responses,
     navReports: Array.isArray(parsed.navReports) ? (parsed.navReports as NavSickLeaveReport[]) : seedNav,
     laborMetrics: Array.isArray(parsed.laborMetrics) ? (parsed.laborMetrics as LaborMetricEntry[]) : [],
     auditTrail: Array.isArray(parsed.auditTrail) ? (parsed.auditTrail as OrgHealthAuditEntry[]) : [],
@@ -134,9 +174,11 @@ function load(): OrgHealthState {
       }
     }
     const p = JSON.parse(raw) as OrgHealthState
+    const responses = Array.isArray(p.responses) ? p.responses : []
+    const surveysRaw = Array.isArray(p.surveys) && p.surveys.length ? p.surveys.map(normalizeSurvey) : [seedSurvey]
     return {
-      surveys: Array.isArray(p.surveys) && p.surveys.length ? p.surveys : [seedSurvey],
-      responses: Array.isArray(p.responses) ? p.responses : [],
+      surveys: maybeUpgradeSeedSurvey(surveysRaw, responses),
+      responses,
       navReports: Array.isArray(p.navReports) ? p.navReports : seedNav,
       laborMetrics: Array.isArray(p.laborMetrics) ? p.laborMetrics : [],
       auditTrail: Array.isArray(p.auditTrail) ? p.auditTrail : [],
@@ -188,16 +230,30 @@ export function useOrgHealth() {
   )
 
   const createSurvey = useCallback(
-    (title: string, description: string, anonymous: boolean, useDefaultQuestions: boolean) => {
-      const questions: SurveyQuestion[] = useDefaultQuestions
-        ? defaultQuestions.map((q) => ({ ...q, id: crypto.randomUUID() }))
-        : []
+    (
+      title: string,
+      description: string,
+      anonymous: boolean,
+      template: 'empty' | 'general_short' | 'psykosocial_aml',
+    ) => {
+      let questions: SurveyQuestion[] = []
+      let purpose: SurveyPurpose | undefined
+      let desc = description.trim()
+      if (template === 'general_short') {
+        questions = defaultQuestionsGeneral.map((q) => ({ ...q, id: crypto.randomUUID() }))
+        purpose = 'general'
+      } else if (template === 'psykosocial_aml') {
+        questions = buildPsykosocialQuestions()
+        purpose = 'psykosocial_aml'
+        if (!desc) desc = PSYKOSOCIAL_SURVEY_INTRO
+      }
       const s: Survey = {
         id: crypto.randomUUID(),
         title: title.trim(),
-        description: description.trim(),
+        description: desc,
         anonymous,
         status: 'draft',
+        purpose,
         questions,
         createdAt: new Date().toISOString(),
       }
@@ -205,6 +261,7 @@ export function useOrgHealth() {
       appendAudit('survey_created', `Undersøkelse opprettet: «${s.title}»`, {
         anonymous,
         surveyId: s.id,
+        purpose: purpose ?? 'empty',
       })
       return s
     },
@@ -346,10 +403,20 @@ export function useOrgHealth() {
       {
         count: number
         likertMeans: Record<string, number>
+        /** Normalisert 1–5 der høyere = bedre (snitt av alle svar) */
+        likertMeansNormalized?: Record<string, number>
         textSamples: Record<string, string[]>
         anonymousTextCount: Record<string, number>
+        dimensionMeans?: Partial<Record<string, number>>
+        psykosocialIndex?: number | null
       }
     > = {}
+
+    const responsesBySurvey: Record<string, SurveyResponse[]> = {}
+    for (const r of state.responses) {
+      if (!responsesBySurvey[r.surveyId]) responsesBySurvey[r.surveyId] = []
+      responsesBySurvey[r.surveyId].push(r)
+    }
 
     for (const r of state.responses) {
       const sv = state.surveys.find((s) => s.id === r.surveyId)
@@ -391,6 +458,15 @@ export function useOrgHealth() {
       for (const q of sv?.questions ?? []) {
         if (q.type === 'likert_5' && agg.likertMeans[q.id] !== undefined && agg.count > 0) {
           agg.likertMeans[q.id] = Math.round((agg.likertMeans[q.id] / agg.count) * 100) / 100
+        }
+      }
+      const list = responsesBySurvey[sid] ?? []
+      if (sv && list.length > 0) {
+        agg.likertMeansNormalized = itemNormalizedMeans(sv, list)
+        const dm = dimensionMeansForResponses(sv, list)
+        if (Object.keys(dm.dimensionMeans).length > 0) {
+          agg.dimensionMeans = dm.dimensionMeans as Record<string, number>
+          agg.psykosocialIndex = dm.psykosocialIndex
         }
       }
     }

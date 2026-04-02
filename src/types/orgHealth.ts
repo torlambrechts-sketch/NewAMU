@@ -1,11 +1,27 @@
 export type QuestionType = 'likert_5' | 'text'
 
+/** Dimensjoner for psykososial kartlegging (AML-orientert systematikk). */
+export type PsykosocialDimension =
+  | 'krav_tempo'
+  | 'kontroll'
+  | 'stotte'
+  | 'anerkjennelse_utvikling'
+  | 'rolle_forventninger'
+  | 'endring_informasjon'
+  | 'respekt_samarbeid'
+
 export type SurveyQuestion = {
   id: string
   text: string
   type: QuestionType
   required: boolean
+  /** Gruppering for rapportering (psykososial mal) */
+  dimension?: PsykosocialDimension
+  /** Når sann: lav Likert = «bedre» — normaliseres i analyse (6−score) */
+  reverseScored?: boolean
 }
+
+export type SurveyPurpose = 'general' | 'psykosocial_aml'
 
 export type Survey = {
   id: string
@@ -14,6 +30,8 @@ export type Survey = {
   anonymous: boolean
   status: 'draft' | 'open' | 'closed'
   questions: SurveyQuestion[]
+  /** Styrer intro, dimensjonsrapporter og anbefalt praksis */
+  purpose?: SurveyPurpose
   createdAt: string
   openedAt?: string
   closedAt?: string

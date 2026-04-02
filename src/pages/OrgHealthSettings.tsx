@@ -3,6 +3,12 @@ import { Globe, ListTree, Shield } from 'lucide-react'
 
 const roadmap = [
   {
+    title: 'Validerbare spørreskjemaer (COPSOQ / QPSNordic / egne BHT-maler)',
+    body:
+      'Integrasjon eller import av etablerte instrumenter der lisens tillater det, og statistikk med konfidensintervall og bransjenormer.',
+    status: 'Planlagt',
+  },
+  {
     title: 'Bedriftsomtale (company site)',
     body:
       'Egen informasjonsside for hele selskapet: åpen tilgang til anonym rapportering, valg og informasjon om arbeidsmiljøråd/HMS — uten innlogging i admin.',

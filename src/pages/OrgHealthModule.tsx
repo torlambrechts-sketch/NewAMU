@@ -14,8 +14,15 @@ import {
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { AML_REPORT_KINDS, labelForAmlReportKind } from '../data/amlAnonymousReporting'
 import { definitionForKey } from '../data/orgHealthMetrics'
+import {
+  LIKERT_SCALE_ANCHORS_NB,
+  MIN_RESPONSES_FOR_CONFIDENT_DETAIL,
+  PSYKOSOCIAL_DIMENSION_LABELS,
+  PSYKOSOCIAL_DIMENSION_ORDER,
+  PSYKOSOCIAL_PRIVACY_NOTICE,
+} from '../data/psykosocialSurveyTemplate'
 import { useOrgHealth } from '../hooks/useOrgHealth'
-import type { AmlReportKind, LaborMetricKey, Survey, SurveyQuestion } from '../types/orgHealth'
+import type { AmlReportKind, LaborMetricKey, PsykosocialDimension, Survey, SurveyQuestion } from '../types/orgHealth'
 
 const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: HeartPulse },
@@ -49,7 +56,7 @@ export function OrgHealthModule() {
     title: '',
     description: '',
     anonymous: true,
-    useDefault: true,
+    template: 'psykosocial_aml' as 'empty' | 'general_short' | 'psykosocial_aml',
   })
   const [respondSurveyId, setRespondSurveyId] = useState('')
   const [answers, setAnswers] = useState<Record<string, number | string>>({})
@@ -110,7 +117,8 @@ export function OrgHealthModule() {
             Organisasjonshelse
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-neutral-600">
-            Medarbeiderundersøkelser (valgfritt anonyme), aggregerte resultater, sykefravær fra NAV-rapportering
+            Medarbeiderundersøkelser med mal for <strong>psykososialt arbeidsmiljø</strong> (dimensjoner som krav,
+            kontroll, støtte — jfr. systematisk kartlegging i HMS), aggregerte resultater, sykefravær fra NAV-rapportering
             (manuell import), og AML-relaterte indikatorer. Ikke juridisk eller medisinsk rådgivning — verifiser mot{' '}
             <a href="https://lovdata.no" className="text-[#1a3d32] underline" target="_blank" rel="noreferrer">
               lovdata.no
@@ -212,12 +220,7 @@ export function OrgHealthModule() {
               onSubmit={(e) => {
                 e.preventDefault()
                 if (!surveyForm.title.trim()) return
-                oh.createSurvey(
-                  surveyForm.title,
-                  surveyForm.description,
-                  surveyForm.anonymous,
-                  surveyForm.useDefault,
-                )
+                oh.createSurvey(surveyForm.title, surveyForm.description, surveyForm.anonymous, surveyForm.template)
                 setSurveyForm((x) => ({ ...x, title: '', description: '' }))
               }}
             >
@@ -248,15 +251,29 @@ export function OrgHealthModule() {
                 />
                 <span className="text-sm">Anonyme svar (ingen identitet lagret)</span>
               </label>
-              <label className="flex items-center gap-2 md:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={surveyForm.useDefault}
-                  onChange={(e) => setSurveyForm((s) => ({ ...s, useDefault: e.target.checked }))}
-                  className="rounded border-neutral-300 text-[#1a3d32]"
-                />
-                <span className="text-sm">Start med standard spørsmål (Likert + fritekst)</span>
-              </label>
+              <div className="md:col-span-2">
+                <label className="text-xs font-medium text-neutral-500">Mal</label>
+                <select
+                  value={surveyForm.template}
+                  onChange={(e) =>
+                    setSurveyForm((s) => ({
+                      ...s,
+                      template: e.target.value as 'empty' | 'general_short' | 'psykosocial_aml',
+                    }))
+                  }
+                  className="mt-1 w-full max-w-lg rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+                >
+                  <option value="psykosocial_aml">
+                    Psykososial kartlegging (AML) — krav, kontroll, støtte, rolle, endring m.m.
+                  </option>
+                  <option value="general_short">Kort pulse (3 spørsmål)</option>
+                  <option value="empty">Tom — legg til egne spørsmål</option>
+                </select>
+                <p className="mt-2 text-xs text-neutral-500">
+                  Psykososial-mal følger vanlig praksis for systematisk kartlegging; resultater vises per dimensjon og
+                  samlet indeks (normalisert skala der høyere er bedre).
+                </p>
+              </div>
               <button
                 type="submit"
                 className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] md:col-span-2"
@@ -876,8 +893,11 @@ function SurveyAdminCard({
   aggregate?: {
     count: number
     likertMeans: Record<string, number>
+    likertMeansNormalized?: Record<string, number>
     textSamples: Record<string, string[]>
     anonymousTextCount?: Record<string, number>
+    dimensionMeans?: Partial<Record<PsykosocialDimension, number>>
+    psykosocialIndex?: number | null
   }
   onOpen: () => void
   onClose: () => void
@@ -885,6 +905,8 @@ function SurveyAdminCard({
 }) {
   const [qText, setQText] = useState('')
   const [qType, setQType] = useState<SurveyQuestion['type']>('likert_5')
+  const isPsy = survey.purpose === 'psykosocial_aml'
+  const lowN = (aggregate?.count ?? 0) > 0 && (aggregate?.count ?? 0) < MIN_RESPONSES_FOR_CONFIDENT_DETAIL
   return (
     <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -894,7 +916,17 @@ function SurveyAdminCard({
           <p className="mt-2 text-xs text-neutral-500">
             {survey.anonymous ? 'Anonym' : 'Ikke anonym'} · {survey.status} · {survey.questions.length}{' '}
             spørsmål
+            {isPsy ? (
+              <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-900">
+                Psykososial (AML-mal)
+              </span>
+            ) : null}
           </p>
+          {survey.anonymous ? (
+            <p className="mt-2 rounded-lg border border-neutral-100 bg-neutral-50/80 px-3 py-2 text-xs text-neutral-600">
+              {isPsy ? PSYKOSOCIAL_PRIVACY_NOTICE : 'Anonym modus: fritekst lagres ikke ved anonyme undersøkelser.'}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {survey.status === 'draft' ? (
@@ -918,15 +950,62 @@ function SurveyAdminCard({
           ) : null}
         </div>
       </div>
+      {isPsy && aggregate && aggregate.count > 0 && aggregate.psykosocialIndex != null ? (
+        <div className="mt-4 rounded-xl border border-emerald-200/80 bg-emerald-50/50 px-4 py-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <span className="text-sm font-semibold text-[#1a3d32]">Samlet psykososial indeks (normalisert)</span>
+            <span className="text-2xl font-bold text-[#1a3d32]">{aggregate.psykosocialIndex}</span>
+          </div>
+          <p className="mt-1 text-xs text-neutral-600">
+            Skala 1–5 der <strong>høyere er bedre</strong> (belastningsspørsmål er snudd). Brukes som oversikt — vurder
+            alltid sammen med kvalitative kilder og ROS.
+          </p>
+          {lowN ? (
+            <p className="mt-2 text-xs font-medium text-amber-900">
+              Under {MIN_RESPONSES_FOR_CONFIDENT_DETAIL} svar: tolkes forsiktig — risiko for identifisering av enkelt
+              svar eller små grupper.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {isPsy && aggregate?.dimensionMeans && Object.keys(aggregate.dimensionMeans).length > 0 ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          {PSYKOSOCIAL_DIMENSION_ORDER.filter((d) => aggregate.dimensionMeans?.[d] != null).map((d) => {
+            const meta = PSYKOSOCIAL_DIMENSION_LABELS[d]
+            const v = aggregate.dimensionMeans![d]!
+            return (
+              <div key={d} className="rounded-lg border border-neutral-100 bg-[#faf8f4] px-3 py-2 text-sm">
+                <div className="font-medium text-neutral-900">{meta.title}</div>
+                <div className="mt-1 flex items-baseline justify-between gap-2">
+                  <span className="text-xs text-neutral-600">{meta.hint}</span>
+                  <span className="shrink-0 text-lg font-semibold text-[#1a3d32]">{v}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : null}
       <ul className="mt-4 space-y-2 border-t border-neutral-100 pt-4 text-sm">
         {survey.questions.map((q) => (
           <li key={q.id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-[#faf8f4] px-3 py-2">
-            <span>{q.text}</span>
+            <span>
+              {q.text}
+              {q.dimension ? (
+                <span className="ml-2 text-xs text-neutral-400">
+                  ({PSYKOSOCIAL_DIMENSION_LABELS[q.dimension]?.title ?? q.dimension})
+                </span>
+              ) : null}
+            </span>
             <span className="text-xs text-neutral-500">
               {q.type === 'likert_5' ? 'Likert 1–5' : 'Fritekst'}
-              {aggregate?.likertMeans[q.id] != null ? (
+              {q.reverseScored ? <span className="ml-1 text-amber-800">(belastning, snudd i analyse)</span> : null}
+              {aggregate?.likertMeansNormalized?.[q.id] != null ? (
                 <span className="ml-2 font-medium text-[#1a3d32]">
-                  snitt {aggregate.likertMeans[q.id]} (n={aggregate.count})
+                  snitt {aggregate.likertMeansNormalized[q.id]} (n={aggregate.count})
+                </span>
+              ) : aggregate?.likertMeans[q.id] != null ? (
+                <span className="ml-2 font-medium text-[#1a3d32]">
+                  råsnitt {aggregate.likertMeans[q.id]} (n={aggregate.count})
                 </span>
               ) : null}
             </span>
@@ -1026,41 +1105,103 @@ function ResponseForm({
   setAnswers: React.Dispatch<React.SetStateAction<Record<string, number | string>>>
   onSubmit: () => void
 }) {
+  const isPsy = survey.purpose === 'psykosocial_aml'
+  const byDim: Partial<Record<PsykosocialDimension, SurveyQuestion[]>> = {}
+  if (isPsy) {
+    for (const q of survey.questions) {
+      if (q.type === 'likert_5' && q.dimension) {
+        if (!byDim[q.dimension]) byDim[q.dimension] = []
+        byDim[q.dimension]!.push(q)
+      }
+    }
+  }
+  const dimOrder = PSYKOSOCIAL_DIMENSION_ORDER.filter((d) => byDim[d]?.length)
+  const renderLikert = (q: SurveyQuestion) => (
+    <div key={q.id}>
+      <label className="text-sm font-medium text-neutral-900">
+        {q.text}
+        {q.required ? <span className="text-red-600"> *</span> : null}
+      </label>
+      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500">
+        <span>{LIKERT_SCALE_ANCHORS_NB.low}</span>
+        <span className="text-neutral-300">|</span>
+        <span>{LIKERT_SCALE_ANCHORS_NB.high}</span>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => setAnswers((a) => ({ ...a, [q.id]: n }))}
+            className={`size-10 rounded-full text-sm font-medium ${
+              answers[q.id] === n
+                ? 'bg-[#1a3d32] text-white'
+                : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+            }`}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
   return (
-    <div className="mt-4 space-y-4 rounded-xl border border-neutral-200 p-4">
-      {survey.questions.map((q) => (
-        <div key={q.id}>
-          <label className="text-sm font-medium text-neutral-900">
-            {q.text}
-            {q.required ? <span className="text-red-600"> *</span> : null}
-          </label>
-          {q.type === 'likert_5' ? (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setAnswers((a) => ({ ...a, [q.id]: n }))}
-                  className={`size-10 rounded-full text-sm font-medium ${
-                    answers[q.id] === n
-                      ? 'bg-[#1a3d32] text-white'
-                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
+    <div className="mt-4 space-y-6 rounded-xl border border-neutral-200 p-4">
+      {isPsy && dimOrder.length > 0 ? (
+        <>
+          {dimOrder.map((d) => (
+            <div key={d} className="space-y-3 rounded-lg border border-neutral-100 bg-white p-3">
+              <h3 className="text-sm font-semibold text-[#1a3d32]">
+                {PSYKOSOCIAL_DIMENSION_LABELS[d].title}
+              </h3>
+              <p className="text-xs text-neutral-600">{PSYKOSOCIAL_DIMENSION_LABELS[d].hint}</p>
+              {(byDim[d] ?? []).map((q) => renderLikert(q))}
             </div>
+          ))}
+          {survey.questions
+            .filter((q) => q.type === 'text')
+            .map((q) => (
+              <div key={q.id}>
+                <label className="text-sm font-medium text-neutral-900">
+                  {q.text}
+                  {q.required ? <span className="text-red-600"> *</span> : null}
+                </label>
+                <textarea
+                  value={typeof answers[q.id] === 'string' ? answers[q.id] : ''}
+                  onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
+                  rows={3}
+                  className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+                />
+                {survey.anonymous ? (
+                  <p className="mt-1 text-xs text-amber-900">
+                    Anonym modus: fritekst lagres ikke — bruk feltet om du vil gi et signal til HR om at du har mer å si
+                    (innhold slettes ved innsending).
+                  </p>
+                ) : null}
+              </div>
+            ))}
+        </>
+      ) : (
+        survey.questions.map((q) =>
+          q.type === 'likert_5' ? (
+            renderLikert(q)
           ) : (
-            <textarea
-              value={typeof answers[q.id] === 'string' ? answers[q.id] : ''}
-              onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
-              rows={3}
-              className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-            />
-          )}
-        </div>
-      ))}
+            <div key={q.id}>
+              <label className="text-sm font-medium text-neutral-900">
+                {q.text}
+                {q.required ? <span className="text-red-600"> *</span> : null}
+              </label>
+              <textarea
+                value={typeof answers[q.id] === 'string' ? answers[q.id] : ''}
+                onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
+                rows={3}
+                className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+              />
+            </div>
+          ),
+        )
+      )}
       <button
         type="button"
         onClick={onSubmit}
