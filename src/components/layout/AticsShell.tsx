@@ -119,9 +119,10 @@ const learningSubs: SubItem[] = [
   },
 ]
 
-/** Council first — main compliance hub. */
-const navMain = [
-  { to: '/council', label: 'Council', end: false, icon: UsersRound },
+/** Council is its own primary group (left); other modules follow after a divider. */
+const navMainCouncil = [{ to: '/council', label: 'Council', end: false, icon: UsersRound }] as const
+
+const navMainRest = [
   { to: '/members', label: 'Members', end: false, icon: Users },
   { to: '/org-health', label: 'Org health', end: false, icon: HeartPulse },
   { to: '/hse', label: 'HSE', end: false, icon: HardHat },
@@ -157,29 +158,57 @@ export function AticsShell() {
             </span>
           </NavLink>
           <nav
-            className="flex max-w-[min(100%,52rem)] flex-1 justify-center gap-3 overflow-x-auto py-1 md:gap-6 lg:max-w-none lg:gap-6"
+            className="flex max-w-[min(100%,56rem)] flex-1 flex-wrap items-center justify-center gap-x-2 gap-y-1 overflow-x-auto py-1 md:gap-x-4 lg:max-w-none"
             aria-label="Primary"
           >
-            {navMain.map((item) => {
-              const Icon = item.icon
-              return (
-                <NavLink
-                  key={item.to + item.label}
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    `inline-flex items-center gap-1.5 text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'border-b-2 border-[#c9a227] pb-0.5 text-white'
-                        : 'text-white/80 hover:text-white'
-                    }`
-                  }
-                >
-                  <Icon className="size-4 shrink-0 opacity-90" aria-hidden />
-                  {item.label}
-                </NavLink>
-              )
-            })}
+            <div className="flex items-center gap-2 md:gap-3" role="group" aria-label="Arbeidsmiljøråd">
+              {navMainCouncil.map((item) => {
+                const Icon = item.icon
+                return (
+                  <NavLink
+                    key={item.to + item.label}
+                    to={item.to}
+                    end={item.end}
+                    className={({ isActive }) =>
+                      `inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-semibold transition-colors md:px-3 ${
+                        isActive
+                          ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/80'
+                          : 'text-white/85 hover:bg-white/10 hover:text-white'
+                      }`
+                    }
+                  >
+                    <Icon className="size-4 shrink-0 opacity-95" aria-hidden />
+                    {item.label}
+                  </NavLink>
+                )
+              })}
+            </div>
+            <span
+              className="hidden h-6 w-px shrink-0 bg-white/25 sm:block"
+              aria-hidden
+            />
+            <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4" role="group" aria-label="Andre moduler">
+              {navMainRest.map((item) => {
+                const Icon = item.icon
+                return (
+                  <NavLink
+                    key={item.to + item.label}
+                    to={item.to}
+                    end={item.end}
+                    className={({ isActive }) =>
+                      `inline-flex items-center gap-1.5 text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'border-b-2 border-[#c9a227] pb-0.5 text-white'
+                          : 'text-white/80 hover:text-white'
+                      }`
+                    }
+                  >
+                    <Icon className="size-4 shrink-0 opacity-90" aria-hidden />
+                    {item.label}
+                  </NavLink>
+                )
+              })}
+            </div>
           </nav>
           <div className="flex items-center gap-2 md:gap-3">
             <button

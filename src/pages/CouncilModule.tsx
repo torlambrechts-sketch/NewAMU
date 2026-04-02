@@ -6,8 +6,11 @@ import {
   ClipboardList,
   FileText,
   Gavel,
+  Link2,
   ListOrdered,
+  MoreHorizontal,
   Plus,
+  Scale,
   ScrollText,
   Users,
   Vote,
@@ -16,6 +19,7 @@ import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { GovernanceWheel } from '../components/council/GovernanceWheel'
 import { MEETINGS_PER_YEAR, suggestedAgendaItems } from '../data/meetingGovernance'
 import { useCouncil } from '../hooks/useCouncil'
+import { avatarUrlFromSeed } from '../lib/avatarUrl'
 import type {
   AgendaItem,
   AuditEntryKind,
@@ -32,6 +36,30 @@ const tabs = [
   { id: 'preparation' as const, label: 'Møteforberedelse', icon: FileText },
   { id: 'compliance' as const, label: 'Arbeidsrett og sjekkliste', icon: Gavel },
 ]
+
+const tabBlurbs: Record<(typeof tabs)[number]['id'], { kicker: string; description: string }> = {
+  overview: {
+    kicker: 'Status og fremdrift',
+    description:
+      'Oversikt over styret, åpne valg og samsvar. Bruk fanene over eller sekundærmenyen for detaljer.',
+  },
+  board: {
+    kicker: 'Styre og valg',
+    description: 'Valgt arbeidsmiljøråd og interne valg til roller. Oppdateres når et valg avsluttes.',
+  },
+  meetings: {
+    kicker: 'Årshjul og møter',
+    description: 'Planlegg ordinære møter, agenda og protokoll — knyttet til kvartal og AML-forventninger.',
+  },
+  preparation: {
+    kicker: 'Forberedelse',
+    description: 'Sjekkliste og notater før neste møte — samme innhold som når møtet er valgt under «Møter».',
+  },
+  compliance: {
+    kicker: 'Samsvar og oppgaver',
+    description: 'Strukturert sjekkliste med henvisninger; legg til egne punkter og send oppfølging til oppgaver.',
+  },
+}
 
 function roleLabel(r: BoardRole) {
   switch (r) {
@@ -153,18 +181,48 @@ export function CouncilModule() {
         </span>
       </nav>
 
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-200/80 pb-6">
-        <div className="min-w-0">
-          <h1
-            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
-            Arbeidsmiljøråd
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-neutral-600">
-            Styre, valg, årshjul med {MEETINGS_PER_YEAR} ordinære møter per år, agenda med forslag, forberedelse og
-            revisjonslogg. Verktøyet erstatter ikke juridisk rådgivning.
+      <div className="flex flex-wrap items-start gap-4 border-b border-neutral-200/80 pb-6">
+        <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1a3d32] to-[#0f241d] text-[#c9a227] shadow-md ring-2 ring-[#c9a227]/30">
+          <Scale className="size-10" strokeWidth={1.5} aria-hidden />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1
+              className="text-2xl font-semibold text-neutral-900 md:text-3xl"
+              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+            >
+              Arbeidsmiljøråd
+            </h1>
+            <CheckCircle2 className="size-5 text-emerald-600" aria-hidden />
+            <button type="button" className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100">
+              <Link2 className="size-5" />
+            </button>
+            <button type="button" className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100">
+              <MoreHorizontal className="size-5" />
+            </button>
+          </div>
+          <p className="mt-1 text-sm font-medium text-[#1a3d32]/90">{tabBlurbs[tab].kicker}</p>
+          <p className="mt-1 max-w-3xl text-sm text-neutral-600">
+            Styre, valg, årshjul med {MEETINGS_PER_YEAR} ordinære møter per år, agenda, forberedelse og revisjonslogg.{' '}
+            {tabBlurbs[tab].description} Verktøyet erstatter ikke juridisk rådgivning.
           </p>
+          {council.board.length > 0 ? (
+            <div className="mt-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Styre / team</p>
+              <div className="mt-2 flex flex-wrap gap-4">
+                {council.board.map((m) => (
+                  <div key={m.id} className="flex items-center gap-2">
+                    <img
+                      src={avatarUrlFromSeed(m.id + m.name, 40)}
+                      alt=""
+                      className="size-10 rounded-full ring-2 ring-white shadow-sm"
+                    />
+                    <span className="text-sm font-medium text-neutral-800">{m.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -236,16 +294,17 @@ export function CouncilModule() {
               Ved avsluttet valg oppdateres styret med de tre kandidatene med flest stemmer (leder, nestleder,
               medlem).
             </p>
-            <ul className="mt-4 divide-y divide-neutral-100">
-              {council.board.map((m) => (
-                <li key={m.id} className="flex items-center gap-3 py-3 first:pt-0">
-                  <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#1a3d32] text-sm font-semibold text-white">
-                    {m.name
-                      .split(' ')
-                      .map((p) => p[0])
-                      .join('')
-                      .slice(0, 2)}
-                  </div>
+            <ul className="mt-4 divide-y divide-emerald-100/80">
+              {council.board.map((m, i) => (
+                <li
+                  key={m.id}
+                  className={`flex items-center gap-3 py-3 first:pt-0 ${i % 2 === 0 ? 'bg-emerald-50/40' : 'bg-white'}`}
+                >
+                  <img
+                    src={avatarUrlFromSeed(m.id + m.name, 88)}
+                    alt=""
+                    className="size-11 shrink-0 rounded-full ring-2 ring-[#1a3d32]/15 object-cover"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="font-medium text-neutral-900">{m.name}</div>
                     <div className="text-xs text-neutral-500">
@@ -435,31 +494,66 @@ export function CouncilModule() {
             </form>
 
             <div className="min-w-0 space-y-4">
-              <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-                <div className="border-b border-neutral-200 bg-neutral-50/80 px-4 py-3">
-                  <h2 className="font-semibold text-neutral-900">Alle møter</h2>
+              <div className="overflow-hidden rounded-2xl border border-[#1a3d32]/15 bg-white shadow-sm">
+                <div className="border-b border-[#1a3d32]/20 bg-gradient-to-r from-[#1a3d32] to-[#234d42] px-4 py-3">
+                  <h2 className="font-semibold text-white">Alle møter</h2>
                 </div>
-                <div className="divide-y divide-neutral-100">
+                <div className="overflow-x-auto">
                   {council.meetings.length === 0 ? (
                     <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen møter ennå.</p>
                   ) : (
-                    council.meetings.map((m) => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => setSelectedMeetingId((id) => (id === m.id ? null : m.id))}
-                        className={`flex w-full flex-col items-start gap-1 px-4 py-3 text-left text-sm transition-colors hover:bg-neutral-50 ${
-                          selectedMeetingId === m.id ? 'bg-[#1a3d32]/5' : ''
-                        }`}
-                      >
-                        <span className="font-medium text-neutral-900">{m.title}</span>
-                        <span className="text-neutral-600">{formatWhen(m.startsAt)}</span>
-                        <span className="text-xs text-neutral-500">
-                          {m.governanceYear ? `${m.governanceYear} · ` : ''}
-                          {m.quarterSlot ? `Q${m.quarterSlot}` : 'Ikke knyttet til kvartal'} · {m.status}
-                        </span>
-                      </button>
-                    ))
+                    <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-amber-200/60 bg-amber-50/90 text-xs font-semibold uppercase tracking-wide text-[#1a3d32]/90">
+                          <th className="px-4 py-2.5">Møte</th>
+                          <th className="px-4 py-2.5">Tid</th>
+                          <th className="px-4 py-2.5">År / kv.</th>
+                          <th className="px-4 py-2.5">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {council.meetings.map((m, rowIdx) => {
+                          const sel = selectedMeetingId === m.id
+                          const statusStyle =
+                            m.status === 'completed'
+                              ? 'bg-emerald-100 text-emerald-900'
+                              : m.status === 'cancelled'
+                                ? 'bg-neutral-200 text-neutral-700'
+                                : 'bg-sky-100 text-sky-900'
+                          return (
+                            <tr
+                              key={m.id}
+                              className={`border-b border-neutral-100 transition-colors hover:bg-emerald-50/70 ${
+                                sel ? 'bg-[#c9a227]/12' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#faf8f4]/90'
+                              }`}
+                            >
+                              <td className="px-4 py-2 align-top">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedMeetingId((id) => (id === m.id ? null : m.id))}
+                                  className="text-left font-medium text-[#1a3d32] underline-offset-2 hover:underline"
+                                >
+                                  {m.title}
+                                </button>
+                              </td>
+                              <td className="px-4 py-2 align-top text-neutral-700">{formatWhen(m.startsAt)}</td>
+                              <td className="px-4 py-2 align-top text-neutral-600">
+                                {m.governanceYear ?? '—'} · {m.quarterSlot ? `Q${m.quarterSlot}` : '—'}
+                              </td>
+                              <td className="px-4 py-2 align-top">
+                                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyle}`}>
+                                  {m.status === 'planned'
+                                    ? 'Planlagt'
+                                    : m.status === 'completed'
+                                      ? 'Gjennomført'
+                                      : 'Avlyst'}
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
                   )}
                 </div>
               </div>
@@ -570,55 +664,76 @@ export function CouncilModule() {
             </form>
           </section>
 
-          <section className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-            <div className="border-b border-neutral-200 bg-neutral-50/80 px-4 py-3">
-              <h2 className="font-semibold text-neutral-900">Krav og oppgaver</h2>
+          <section className="overflow-hidden rounded-2xl border border-[#1a3d32]/15 bg-white shadow-sm">
+            <div className="border-b border-[#1a3d32]/15 bg-gradient-to-r from-[#faf6ed] via-white to-emerald-50/50 px-4 py-3">
+              <h2 className="font-semibold text-[#1a3d32]">Krav og oppgaver</h2>
             </div>
-            <ul className="divide-y divide-neutral-100">
-              {council.compliance.map((c) => (
-                <li key={c.id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-start">
-                  <label className="flex cursor-pointer items-start gap-3 sm:min-w-0 sm:flex-1">
-                    <input
-                      type="checkbox"
-                      checked={c.done}
-                      onChange={() => council.toggleCompliance(c.id)}
-                      className="mt-1 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]"
-                    />
-                    <span className="min-w-0">
-                      <span className="font-medium text-neutral-900">{c.title}</span>
-                      {c.isCustom ? (
-                        <span className="ml-2 rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600">
-                          Egendefinert
-                        </span>
-                      ) : null}
-                      <span className="mt-1 block text-sm text-neutral-600">{c.description}</span>
-                      <span className="mt-1 block text-xs text-[#1a3d32]/90">{c.lawRef}</span>
-                    </span>
-                  </label>
-                  <div className="flex min-w-[200px] flex-1 flex-col gap-2 sm:max-w-md">
-                    <textarea
-                      placeholder="Notater (bevis, referat, ansvarlig …)"
-                      value={c.notes ?? ''}
-                      onChange={(e) => council.setComplianceNotes(c.id, e.target.value)}
-                      rows={2}
-                      className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                    />
-                    {!c.done ? (
-                      <AddTaskLink
-                        title={`Oppfølging: ${c.title.slice(0, 80)}`}
-                        description={c.lawRef}
-                        module="council"
-                        sourceType="council_compliance"
-                        sourceId={c.id}
-                        sourceLabel={c.title}
-                        ownerRole="HMS / råd"
-                        requiresManagementSignOff={false}
-                      />
-                    ) : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-emerald-200/70 bg-emerald-50/95 text-xs font-semibold uppercase tracking-wide text-[#1a3d32]/85">
+                    <th className="w-10 px-3 py-2.5">OK</th>
+                    <th className="min-w-[200px] px-3 py-2.5">Krav</th>
+                    <th className="min-w-[180px] px-3 py-2.5">Notater</th>
+                    <th className="px-3 py-2.5">Oppfølging</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {council.compliance.map((c, rowIdx) => (
+                    <tr
+                      key={c.id}
+                      className={`border-b border-neutral-100 ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-emerald-50/35'} ${
+                        c.done ? 'opacity-90' : ''
+                      }`}
+                    >
+                      <td className="align-top px-3 py-3">
+                        <input
+                          type="checkbox"
+                          checked={c.done}
+                          onChange={() => council.toggleCompliance(c.id)}
+                          className="mt-1 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]"
+                        />
+                      </td>
+                      <td className="align-top px-3 py-3">
+                        <span className="font-medium text-neutral-900">{c.title}</span>
+                        {c.isCustom ? (
+                          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+                            Egendefinert
+                          </span>
+                        ) : null}
+                        <p className="mt-1 text-neutral-600">{c.description}</p>
+                        <p className="mt-1 text-xs font-medium text-[#1a3d32]/90">{c.lawRef}</p>
+                      </td>
+                      <td className="align-top px-3 py-3">
+                        <textarea
+                          placeholder="Notater…"
+                          value={c.notes ?? ''}
+                          onChange={(e) => council.setComplianceNotes(c.id, e.target.value)}
+                          rows={2}
+                          className="w-full min-w-[160px] rounded-lg border border-neutral-200 bg-white/90 px-2 py-1.5 text-xs"
+                        />
+                      </td>
+                      <td className="align-top px-3 py-3">
+                        {!c.done ? (
+                          <AddTaskLink
+                            title={`Oppfølging: ${c.title.slice(0, 80)}`}
+                            description={c.lawRef}
+                            module="council"
+                            sourceType="council_compliance"
+                            sourceId={c.id}
+                            sourceLabel={c.title}
+                            ownerRole="HMS / råd"
+                            requiresManagementSignOff={false}
+                          />
+                        ) : (
+                          <span className="text-xs text-emerald-700">Fullført</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
 
           <div className="flex justify-end">
@@ -1066,13 +1181,22 @@ function ElectionCard({
           election.candidates
             .slice()
             .sort((a, b) => b.voteCount - a.voteCount)
-            .map((c) => (
+            .map((c, idx) => (
               <li
                 key={c.id}
-                className="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-neutral-100"
+                className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ring-1 ring-[#1a3d32]/10 ${
+                  idx % 2 === 0 ? 'bg-white' : 'bg-amber-50/50'
+                }`}
               >
-                <span className="font-medium text-neutral-900">{c.name}</span>
-                <span className="text-neutral-600">{c.voteCount} stemmer</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <img
+                    src={avatarUrlFromSeed(c.id + c.name, 64)}
+                    alt=""
+                    className="size-9 shrink-0 rounded-full ring-2 ring-white object-cover"
+                  />
+                  <span className="font-medium text-neutral-900">{c.name}</span>
+                </span>
+                <span className="shrink-0 text-neutral-600">{c.voteCount} stemmer</span>
                 {open ? (
                   <button
                     type="button"
@@ -1082,7 +1206,7 @@ function ElectionCard({
                     Stem
                   </button>
                 ) : election.winnerCandidateId === c.id ? (
-                  <span className="text-xs font-medium text-emerald-700">Vinner</span>
+                  <span className="shrink-0 text-xs font-medium text-emerald-700">Vinner</span>
                 ) : null}
               </li>
             ))
