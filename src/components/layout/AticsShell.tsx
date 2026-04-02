@@ -243,7 +243,7 @@ export function AticsShell() {
   }
 
   // ── Sidebar layout ──────────────────────────────────────────────────────────
-  const [railCollapsed, setRailCollapsed] = useState(false)
+  const [subNavCollapsed, setSubNavCollapsed] = useState(false)
 
   if (navMode === 'sidebar') {
     const activeModule = activeModuleForPath(location.pathname)
@@ -251,12 +251,8 @@ export function AticsShell() {
 
     return (
       <div className="flex h-screen overflow-hidden">
-        {/* ── Icon rail ───────────────────────────────────────────────────── */}
-        <aside
-          className={`relative flex shrink-0 flex-col bg-[#1a3d32] transition-all duration-200 ${
-            railCollapsed ? 'w-0 overflow-hidden' : 'w-[4.5rem]'
-          }`}
-        >
+        {/* ── Icon rail — always visible ──────────────────────────────── */}
+        <aside className="flex w-[4.5rem] shrink-0 flex-col bg-[#1a3d32]">
           {/* Logo */}
           <div className="flex h-14 shrink-0 items-center justify-center border-b border-white/10">
             <NavLink to="/" aria-label="Home" className="flex items-center justify-center rounded-lg p-1.5 hover:bg-white/10">
@@ -322,7 +318,7 @@ export function AticsShell() {
         </aside>
 
         {/* ── Sub-nav panel ───────────────────────────────────────────────── */}
-        {hasSubs && !railCollapsed && (
+        {hasSubs && !subNavCollapsed && (
           <aside className="flex w-52 shrink-0 flex-col overflow-hidden border-r border-white/5 bg-[#15302a]">
             {/* Module name header */}
             <div className="flex h-14 shrink-0 items-center border-b border-white/10 px-4">
@@ -366,13 +362,13 @@ export function AticsShell() {
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Utility bar — same colour as page background */}
           <header className="flex h-14 shrink-0 items-center gap-3 border-b border-neutral-300/40 bg-[#f5f0e8] px-4 md:px-5">
-            {/* Collapse / expand toggle */}
+            {/* Collapse / expand sub-nav toggle */}
             <button
               type="button"
-              onClick={() => setRailCollapsed((c) => !c)}
+              onClick={() => setSubNavCollapsed((c) => !c)}
               className="rounded-lg p-1.5 text-neutral-500 hover:bg-black/5 hover:text-neutral-800"
-              aria-label={railCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              title={railCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-label={subNavCollapsed ? 'Expand sub-navigation' : 'Collapse sub-navigation'}
+              title={subNavCollapsed ? 'Expand sub-navigation' : 'Collapse sub-navigation'}
             >
               <PanelLeft className="size-4" />
             </button>
