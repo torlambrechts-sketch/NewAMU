@@ -6,20 +6,25 @@ import {
 } from '../data/hseTemplates'
 import type {
   ChecklistItemStatus,
+  CorrectiveAction,
   HseAuditAction,
   HseAuditEntry,
   HseProtocolSignature,
   Incident,
   Inspection,
   SafetyRound,
+  SickLeaveCase,
+  SickLeaveMilestoneKind,
+  SickLeaveMessage,
 } from '../types/hse'
 
-const STORAGE_KEY = 'atics-hse-v1'
+const STORAGE_KEY = 'atics-hse-v2'
 
 type HseState = {
   safetyRounds: SafetyRound[]
   inspections: Inspection[]
   incidents: Incident[]
+  sickLeaveCases: SickLeaveCase[]
   auditTrail: HseAuditEntry[]
 }
 
@@ -51,6 +56,31 @@ const emptyChecklist = (): Record<string, ChecklistItemStatus> => {
   return m
 }
 
+// ─── Statutory milestone generator (AML §4-6 + NAV) ─────────────────────────
+
+const MILESTONE_DEFS: { kind: SickLeaveMilestoneKind; label: string; lawRef: string; daysOffset: number }[] = [
+  { kind: 'contact_day_4',       label: 'Kontakt med ansatt (dag 4)',              lawRef: 'AML §4-6 nr. 1, NAV-krav',                daysOffset: 4   },
+  { kind: 'followup_plan_4wk',   label: 'Oppfølgingsplan utarbeidet (4 uker)',     lawRef: 'AML §4-6 nr. 1 — frist 4 uker',           daysOffset: 28  },
+  { kind: 'dialog_meeting_7wk',  label: 'Dialogmøte 1 avholdt (7 uker)',           lawRef: 'AML §4-6 nr. 2 — frist 7 uker',           daysOffset: 49  },
+  { kind: 'nav_report_9wk',      label: 'Meldt til NAV (9 uker)',                  lawRef: 'Sykmeldingsforskriften §8, 9-ukersmelding', daysOffset: 63  },
+  { kind: 'dialog_meeting_26wk', label: 'Dialogmøte 2 (26 uker)',                  lawRef: 'AML §4-6 nr. 3 — frist 26 uker',          daysOffset: 182 },
+  { kind: 'activity_plan_1yr',   label: 'Aktivitetsplan vurdert (12 måneder)',     lawRef: 'AML §4-6 — langtidssykmelding',           daysOffset: 365 },
+]
+
+function buildMilestones(sickFrom: string): import('../types/hse').SickLeaveMilestone[] {
+  const base = new Date(sickFrom)
+  return MILESTONE_DEFS.map((def) => {
+    const due = new Date(base)
+    due.setDate(due.getDate() + def.daysOffset)
+    return {
+      kind: def.kind,
+      label: def.label,
+      lawRef: def.lawRef,
+      dueAt: due.toISOString().slice(0, 10),
+    }
+  })
+}
+
 function load(): HseState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -66,38 +96,41 @@ function load(): HseState {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
-      const initialAudit: HseAuditEntry[] = [
-        auditEntry(
-          'module_init',
-          'system',
-          'hse',
-          'HSE-modul initialisert med demonstrasjonsdata og sjekkliste.',
-          { templateVersion: SAFETY_ROUND_TEMPLATE_ID },
-        ),
-        auditEntry(
-          'safety_round_created',
-          'safety_round',
-          sr.id,
-          `Vernerunde opprettet: «${sr.title}»`,
-          { location: sr.location, conductedBy: sr.conductedBy },
-        ),
-      ]
-      return {
-        safetyRounds: [sr],
-        inspections: [],
-        incidents: [],
-        auditTrail: initialAudit,
+      const demoSickFrom = new Date()
+      demoSickFrom.setDate(demoSickFrom.getDate() - 30)
+      const demoSickFromStr = demoSickFrom.toISOString().slice(0, 10)
+      const demoCase: SickLeaveCase = {
+        id: 'demo-sl1',
+        employeeName: 'Demo Ansatt',
+        department: 'Avdeling A',
+        managerName: 'Demo Leder',
+        sickFrom: demoSickFromStr,
+        status: 'active',
+        sicknessDegree: 100,
+        accommodationNotes: '',
+        portalMessages: [],
+        milestones: buildMilestones(demoSickFromStr),
+        consentRecorded: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       }
+      const initialAudit: HseAuditEntry[] = [
+        auditEntry('module_init', 'system', 'hse', 'HSE-modul initialisert.', { templateVersion: SAFETY_ROUND_TEMPLATE_ID }),
+        auditEntry('safety_round_created', 'safety_round', sr.id, `Vernerunde opprettet: «${sr.title}»`),
+        auditEntry('sick_leave_created', 'sick_leave', demoCase.id, `Sykefraværssak opprettet: ${demoCase.employeeName}`),
+      ]
+      return { safetyRounds: [sr], inspections: [], incidents: [], sickLeaveCases: [demoCase], auditTrail: initialAudit }
     }
     const p = JSON.parse(raw) as HseState
     return {
       safetyRounds: Array.isArray(p.safetyRounds) ? p.safetyRounds : [],
       inspections: Array.isArray(p.inspections) ? p.inspections : [],
       incidents: Array.isArray(p.incidents) ? p.incidents : [],
+      sickLeaveCases: Array.isArray(p.sickLeaveCases) ? p.sickLeaveCases : [],
       auditTrail: Array.isArray(p.auditTrail) ? p.auditTrail : [],
     }
   } catch {
-    return { safetyRounds: [], inspections: [], incidents: [], auditTrail: [] }
+    return { safetyRounds: [], inspections: [], incidents: [], sickLeaveCases: [], auditTrail: [] }
   }
 }
 
@@ -108,248 +141,171 @@ function save(state: HseState) {
 export function useHse() {
   const [state, setState] = useState<HseState>(() => load())
 
-  useEffect(() => {
-    save(state)
-  }, [state])
+  useEffect(() => { save(state) }, [state])
+
+  // ── Safety rounds ───────────────────────────────────────────────────────────
 
   const createSafetyRound = useCallback(
     (partial: Omit<SafetyRound, 'id' | 'createdAt' | 'updatedAt' | 'items'>) => {
       const now = new Date().toISOString()
-      const sr: SafetyRound = {
-        ...partial,
-        id: crypto.randomUUID(),
-        items: emptyChecklist(),
-        createdAt: now,
-        updatedAt: now,
-      }
-      const entry = auditEntry(
-        'safety_round_created',
-        'safety_round',
-        sr.id,
-        `Vernerunde opprettet: «${sr.title}»`,
-        {
-          location: sr.location,
-          conductedBy: sr.conductedBy,
-          conductedAt: sr.conductedAt,
-          templateId: SAFETY_ROUND_TEMPLATE_ID,
-        },
-      )
-      setState((s) => ({
-        ...s,
-        safetyRounds: [sr, ...s.safetyRounds],
-        auditTrail: [...s.auditTrail, entry],
-      }))
+      const sr: SafetyRound = { ...partial, id: crypto.randomUUID(), items: emptyChecklist(), createdAt: now, updatedAt: now }
+      const entry = auditEntry('safety_round_created', 'safety_round', sr.id, `Vernerunde opprettet: «${sr.title}»`, { location: sr.location, conductedBy: sr.conductedBy, conductedAt: sr.conductedAt, templateId: SAFETY_ROUND_TEMPLATE_ID })
+      setState((s) => ({ ...s, safetyRounds: [sr, ...s.safetyRounds], auditTrail: [...s.auditTrail, entry] }))
       return sr
-    },
-    [],
-  )
+    }, [])
 
-  const updateSafetyRound = useCallback(
-    (id: string, patch: Partial<SafetyRound>) => {
-      setState((s) => {
-        const prev = s.safetyRounds.find((x) => x.id === id)
-        if (!prev) return s
-        const now = new Date().toISOString()
-        const merged = { ...prev, ...patch, updatedAt: now }
-        const nextRounds = s.safetyRounds.map((x) => (x.id === id ? merged : x))
-        const entry = auditEntry(
-          'safety_round_updated',
-          'safety_round',
-          id,
-          `Vernerunde oppdatert: «${merged.title}»`,
-          {
-            notesLen: merged.notes.length,
-            itemsChecked: Object.values(merged.items).filter((v) => v !== 'na').length,
-          },
-        )
-        return { ...s, safetyRounds: nextRounds, auditTrail: [...s.auditTrail, entry] }
-      })
-    },
-    [],
-  )
+  const updateSafetyRound = useCallback((id: string, patch: Partial<SafetyRound>) => {
+    setState((s) => {
+      const prev = s.safetyRounds.find((x) => x.id === id)
+      if (!prev) return s
+      const merged = { ...prev, ...patch, updatedAt: new Date().toISOString() }
+      const entry = auditEntry('safety_round_updated', 'safety_round', id, `Vernerunde oppdatert: «${merged.title}»`, { notesLen: merged.notes.length, itemsChecked: Object.values(merged.items).filter((v) => v !== 'na').length })
+      return { ...s, safetyRounds: s.safetyRounds.map((x) => (x.id === id ? merged : x)), auditTrail: [...s.auditTrail, entry] }
+    })
+  }, [])
 
-  const setChecklistStatus = useCallback(
-    (roundId: string, itemId: string, status: ChecklistItemStatus) => {
-      setState((s) => {
-        const sr = s.safetyRounds.find((x) => x.id === roundId)
-        if (!sr) return s
-        const now = new Date().toISOString()
-        const items = { ...sr.items, [itemId]: status }
-        const next = s.safetyRounds.map((x) =>
-          x.id === roundId ? { ...x, items, updatedAt: now } : x,
-        )
-        const entry = auditEntry(
-          'safety_round_updated',
-          'safety_round',
-          roundId,
-          `Sjekklistepunkt oppdatert`,
-          { itemId, status, previousStatus: sr.items[itemId] ?? 'na' },
-        )
-        return { ...s, safetyRounds: next, auditTrail: [...s.auditTrail, entry] }
-      })
-    },
-    [],
-  )
+  const setChecklistStatus = useCallback((roundId: string, itemId: string, status: ChecklistItemStatus) => {
+    setState((s) => {
+      const sr = s.safetyRounds.find((x) => x.id === roundId)
+      if (!sr) return s
+      const items = { ...sr.items, [itemId]: status }
+      const entry = auditEntry('safety_round_updated', 'safety_round', roundId, 'Sjekklistepunkt oppdatert', { itemId, status, previousStatus: sr.items[itemId] ?? 'na' })
+      return { ...s, safetyRounds: s.safetyRounds.map((x) => x.id === roundId ? { ...x, items, updatedAt: new Date().toISOString() } : x), auditTrail: [...s.auditTrail, entry] }
+    })
+  }, [])
 
-  const createInspection = useCallback(
-    (partial: Omit<Inspection, 'id' | 'createdAt' | 'updatedAt'>) => {
-      const now = new Date().toISOString()
-      const ins: Inspection = {
-        ...partial,
-        protocolSignatures: partial.protocolSignatures ?? [],
-        id: crypto.randomUUID(),
-        createdAt: now,
-        updatedAt: now,
-      }
-      const entry = auditEntry(
-        'inspection_created',
-        'inspection',
-        ins.id,
-        `Inspeksjon registrert: «${ins.title}» (${ins.kind})`,
-        { scope: ins.scope.slice(0, 200), status: ins.status },
-      )
-      setState((s) => ({
-        ...s,
-        inspections: [ins, ...s.inspections],
-        auditTrail: [...s.auditTrail, entry],
-      }))
-      return ins
-    },
-    [],
-  )
+  // ── Inspections ─────────────────────────────────────────────────────────────
 
-  const signInspectionProtocol = useCallback(
-    (inspectionId: string, signerName: string, role: HseProtocolSignature['role']) => {
-      const name = signerName.trim()
-      if (!name) return false
-      const sig: HseProtocolSignature = {
-        signerName: name,
-        signedAt: new Date().toISOString(),
-        role,
-      }
-      setState((s) => {
-        const entry = auditEntry(
-          'inspection_updated',
-          'inspection',
-          inspectionId,
-          `Inspeksjonsprotokoll signert (${role}): ${name}`,
-          { role },
-        )
-        return {
-          ...s,
-          inspections: s.inspections.map((x) =>
-            x.id === inspectionId
-              ? {
-                  ...x,
-                  protocolSignatures: [...(x.protocolSignatures ?? []), sig],
-                  updatedAt: new Date().toISOString(),
-                }
-              : x,
-          ),
-          auditTrail: [...s.auditTrail, entry],
-        }
-      })
-      return true
-    },
-    [],
-  )
+  const createInspection = useCallback((partial: Omit<Inspection, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = new Date().toISOString()
+    const ins: Inspection = { ...partial, protocolSignatures: partial.protocolSignatures ?? [], id: crypto.randomUUID(), createdAt: now, updatedAt: now }
+    const entry = auditEntry('inspection_created', 'inspection', ins.id, `Inspeksjon registrert: «${ins.title}» (${ins.kind})`, { scope: ins.scope.slice(0, 200), status: ins.status })
+    setState((s) => ({ ...s, inspections: [ins, ...s.inspections], auditTrail: [...s.auditTrail, entry] }))
+    return ins
+  }, [])
 
   const updateInspection = useCallback((id: string, patch: Partial<Inspection>) => {
     setState((s) => {
-      const now = new Date().toISOString()
-      const entry = auditEntry('inspection_updated', 'inspection', id, 'Inspeksjon oppdatert', {
-        status: patch.status ?? null,
-      })
-      return {
-        ...s,
-        inspections: s.inspections.map((x) =>
-          x.id === id ? { ...x, ...patch, updatedAt: now } : x,
-        ),
-        auditTrail: [...s.auditTrail, entry],
-      }
+      const entry = auditEntry('inspection_updated', 'inspection', id, 'Inspeksjon oppdatert', { status: patch.status ?? null })
+      return { ...s, inspections: s.inspections.map((x) => x.id === id ? { ...x, ...patch, updatedAt: new Date().toISOString() } : x), auditTrail: [...s.auditTrail, entry] }
     })
   }, [])
 
-  const createIncident = useCallback(
-    (partial: Omit<Incident, 'id' | 'createdAt' | 'updatedAt'>) => {
-      const now = new Date().toISOString()
-      const inc: Incident = {
-        ...partial,
-        id: crypto.randomUUID(),
-        createdAt: now,
-        updatedAt: now,
-      }
-      const entry = auditEntry(
-        'incident_created',
-        'incident',
-        inc.id,
-        `${inc.kind === 'near_miss' ? 'Nestenulykke' : 'Hendelse'} registrert`,
-        {
-          severity: inc.severity,
-          occurredAt: inc.occurredAt,
-          location: inc.location.slice(0, 120),
-        },
-      )
-      setState((s) => ({
-        ...s,
-        incidents: [inc, ...s.incidents],
-        auditTrail: [...s.auditTrail, entry],
-      }))
-      return inc
-    },
-    [],
-  )
+  const signInspectionProtocol = useCallback((inspectionId: string, signerName: string, role: HseProtocolSignature['role']) => {
+    const name = signerName.trim()
+    if (!name) return false
+    const sig: HseProtocolSignature = { signerName: name, signedAt: new Date().toISOString(), role }
+    setState((s) => {
+      const entry = auditEntry('inspection_updated', 'inspection', inspectionId, `Inspeksjonsprotokoll signert (${role}): ${name}`, { role })
+      return { ...s, inspections: s.inspections.map((x) => x.id === inspectionId ? { ...x, protocolSignatures: [...(x.protocolSignatures ?? []), sig], updatedAt: new Date().toISOString() } : x), auditTrail: [...s.auditTrail, entry] }
+    })
+    return true
+  }, [])
+
+  // ── Incidents ───────────────────────────────────────────────────────────────
+
+  const createIncident = useCallback((partial: Omit<Incident, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = new Date().toISOString()
+    const inc: Incident = { ...partial, id: crypto.randomUUID(), createdAt: now, updatedAt: now }
+    const kindLabels: Record<string, string> = { incident: 'Hendelse', near_miss: 'Nestenulykke', violence: 'Vold', threat: 'Trussel', deviation: 'Avvik' }
+    const entry = auditEntry('incident_created', 'incident', inc.id, `${kindLabels[inc.kind] ?? 'Hendelse'} registrert — ${inc.severity}`, { severity: inc.severity, occurredAt: inc.occurredAt, location: inc.location.slice(0, 120), kind: inc.kind })
+    setState((s) => ({ ...s, incidents: [inc, ...s.incidents], auditTrail: [...s.auditTrail, entry] }))
+    return inc
+  }, [])
 
   const updateIncident = useCallback((id: string, patch: Partial<Incident>) => {
     setState((s) => {
-      const now = new Date().toISOString()
-      const entry = auditEntry(
-        'incident_updated',
-        'incident',
-        id,
-        'Hendelse/nestenulykke oppdatert',
-        { status: patch.status ?? null },
-      )
-      return {
-        ...s,
-        incidents: s.incidents.map((x) =>
-          x.id === id ? { ...x, ...patch, updatedAt: now } : x,
-        ),
-        auditTrail: [...s.auditTrail, entry],
-      }
+      const entry = auditEntry('incident_updated', 'incident', id, 'Hendelse oppdatert', { status: patch.status ?? null })
+      return { ...s, incidents: s.incidents.map((x) => x.id === id ? { ...x, ...patch, updatedAt: new Date().toISOString() } : x), auditTrail: [...s.auditTrail, entry] }
     })
   }, [])
+
+  const addCorrectiveAction = useCallback((incidentId: string, action: Omit<CorrectiveAction, 'id'>) => {
+    setState((s) => {
+      const inc = s.incidents.find((x) => x.id === incidentId)
+      if (!inc) return s
+      const ca: CorrectiveAction = { ...action, id: crypto.randomUUID() }
+      const updated = { ...inc, correctiveActions: [...inc.correctiveActions, ca], updatedAt: new Date().toISOString() }
+      const entry = auditEntry('incident_updated', 'incident', incidentId, `Tiltak lagt til: ${ca.description.slice(0, 80)}`)
+      return { ...s, incidents: s.incidents.map((x) => x.id === incidentId ? updated : x), auditTrail: [...s.auditTrail, entry] }
+    })
+  }, [])
+
+  // ── Sick leave ──────────────────────────────────────────────────────────────
+
+  const createSickLeaveCase = useCallback((partial: Omit<SickLeaveCase, 'id' | 'createdAt' | 'updatedAt' | 'milestones' | 'portalMessages'>) => {
+    const now = new Date().toISOString()
+    const sc: SickLeaveCase = {
+      ...partial,
+      id: crypto.randomUUID(),
+      milestones: buildMilestones(partial.sickFrom),
+      portalMessages: [],
+      createdAt: now,
+      updatedAt: now,
+    }
+    const entry = auditEntry('sick_leave_created', 'sick_leave', sc.id, `Sykefraværssak opprettet: ${sc.employeeName}`, { department: sc.department, sickFrom: sc.sickFrom, degree: sc.sicknessDegree })
+    setState((s) => ({ ...s, sickLeaveCases: [sc, ...s.sickLeaveCases], auditTrail: [...s.auditTrail, entry] }))
+    return sc
+  }, [])
+
+  const updateSickLeaveCase = useCallback((id: string, patch: Partial<SickLeaveCase>) => {
+    setState((s) => {
+      const entry = auditEntry('sick_leave_updated', 'sick_leave', id, 'Sykefraværssak oppdatert', { status: patch.status ?? null })
+      return { ...s, sickLeaveCases: s.sickLeaveCases.map((x) => x.id === id ? { ...x, ...patch, updatedAt: new Date().toISOString() } : x), auditTrail: [...s.auditTrail, entry] }
+    })
+  }, [])
+
+  const completeMilestone = useCallback((caseId: string, kind: SickLeaveMilestoneKind, note?: string) => {
+    setState((s) => {
+      const sc = s.sickLeaveCases.find((x) => x.id === caseId)
+      if (!sc) return s
+      const now = new Date().toISOString()
+      const milestones = sc.milestones.map((m) =>
+        m.kind === kind ? { ...m, completedAt: now, note: note ?? m.note } : m,
+      )
+      const entry = auditEntry('sick_leave_milestone_completed', 'sick_leave', caseId, `Milepæl fullført: ${milestones.find((m) => m.kind === kind)?.label ?? kind}`, { kind, completedAt: now })
+      return { ...s, sickLeaveCases: s.sickLeaveCases.map((x) => x.id === caseId ? { ...x, milestones, updatedAt: now } : x), auditTrail: [...s.auditTrail, entry] }
+    })
+  }, [])
+
+  const addPortalMessage = useCallback((caseId: string, senderRole: SickLeaveMessage['senderRole'], senderName: string, text: string) => {
+    if (!text.trim()) return
+    const msg: SickLeaveMessage = { id: crypto.randomUUID(), sentAt: new Date().toISOString(), senderRole, senderName, text: text.trim() }
+    setState((s) => ({ ...s, sickLeaveCases: s.sickLeaveCases.map((x) => x.id === caseId ? { ...x, portalMessages: [...x.portalMessages, msg], updatedAt: new Date().toISOString() } : x) }))
+  }, [])
+
+  // ── Reset ───────────────────────────────────────────────────────────────────
 
   const resetDemo = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY)
     const next = load()
-    setState({
-      ...next,
-      auditTrail: [
-        ...next.auditTrail,
-        auditEntry(
-          'demo_reset',
-          'system',
-          'hse',
-          'Demodata tilbakestilt; revisjonslogg startet på nytt med init-hendelser.',
-        ),
-      ],
-    })
+    setState({ ...next, auditTrail: [...next.auditTrail, auditEntry('demo_reset', 'system', 'hse', 'Demodata tilbakestilt.')] })
   }, [])
 
-  const checklistTemplate = DEFAULT_SAFETY_ROUND_CHECKLIST
-  const amlStructure = AML_VERNEOMBUD_STRUCTURE
+  // ── Stats ───────────────────────────────────────────────────────────────────
 
   const stats = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    const overdueMs = state.sickLeaveCases
+      .filter((c) => c.status === 'active' || c.status === 'partial')
+      .flatMap((c) => c.milestones)
+      .filter((m) => !m.completedAt && m.dueAt < today)
+      .length
+
     return {
       rounds: state.safetyRounds.length,
       inspections: state.inspections.length,
-      incidents: state.incidents.filter((i) => i.kind === 'incident').length,
-      nearMiss: state.incidents.filter((i) => i.kind === 'near_miss').length,
+      incidents: state.incidents.length,
+      violence: state.incidents.filter((i) => i.kind === 'violence' || i.kind === 'threat').length,
       openInspections: state.inspections.filter((i) => i.status === 'open').length,
+      activeSickLeave: state.sickLeaveCases.filter((c) => c.status === 'active' || c.status === 'partial').length,
+      overdueMilestones: overdueMs,
       auditEntries: state.auditTrail.length,
     }
   }, [state])
+
+  const checklistTemplate = DEFAULT_SAFETY_ROUND_CHECKLIST
+  const amlStructure = AML_VERNEOMBUD_STRUCTURE
 
   return {
     ...state,
@@ -364,6 +320,11 @@ export function useHse() {
     signInspectionProtocol,
     createIncident,
     updateIncident,
+    addCorrectiveAction,
+    createSickLeaveCase,
+    updateSickLeaveCase,
+    completeMilestone,
+    addPortalMessage,
     resetDemo,
   }
 }

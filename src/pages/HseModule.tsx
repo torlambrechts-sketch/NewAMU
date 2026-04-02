@@ -4,117 +4,240 @@ import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import {
   AlertTriangle,
   BookOpen,
+  Calendar,
+  CheckCircle2,
   ClipboardCheck,
   FileWarning,
   HardHat,
   History,
   ListChecks,
+  Lock,
+  MessageSquare,
+  Plus,
   Search,
+  ShieldAlert,
+  Users,
 } from 'lucide-react'
 import { useHse } from '../hooks/useHse'
 import type {
   ChecklistItemStatus,
   HseProtocolSignature,
   Incident,
+  IncidentCategory,
+  IncidentFormTemplate,
   Inspection,
   SafetyRound,
+  SickLeaveCase,
+  SickLeaveMilestoneKind,
 } from '../types/hse'
 
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+
 const tabs = [
-  { id: 'overview' as const, label: 'Oversikt', icon: HardHat },
-  { id: 'rounds' as const, label: 'Vernerunder', icon: ListChecks },
-  { id: 'inspections' as const, label: 'Inspeksjoner', icon: Search },
-  { id: 'incidents' as const, label: 'Hendelser', icon: AlertTriangle },
-  { id: 'aml' as const, label: 'AML & verneombud', icon: BookOpen },
-  { id: 'audit' as const, label: 'Revisjonslogg', icon: History },
+  { id: 'overview'   as const, label: 'Oversikt',           icon: HardHat       },
+  { id: 'rounds'     as const, label: 'Vernerunder',         icon: ListChecks    },
+  { id: 'inspections'as const, label: 'Inspeksjoner',        icon: Search        },
+  { id: 'incidents'  as const, label: 'Hendelser',           icon: ShieldAlert   },
+  { id: 'sickness'   as const, label: 'Sykefravær',          icon: Users         },
+  { id: 'aml'        as const, label: 'AML & verneombud',    icon: BookOpen      },
+  { id: 'audit'      as const, label: 'Revisjonslogg',       icon: History       },
 ]
+
+// ─── Label helpers ─────────────────────────────────────────────────────────────
+
+const KIND_LABELS: Record<Incident['kind'], string> = {
+  incident: 'Ulykke / skade',
+  near_miss: 'Nestenulykke',
+  violence: 'Vold',
+  threat: 'Trussel',
+  deviation: 'Avvik',
+}
+
+const KIND_COLOURS: Record<Incident['kind'], string> = {
+  incident: 'bg-red-100 text-red-800',
+  near_miss: 'bg-amber-100 text-amber-800',
+  violence: 'bg-red-200 text-red-900',
+  threat: 'bg-orange-100 text-orange-900',
+  deviation: 'bg-neutral-100 text-neutral-700',
+}
+
+const SEVERITY_COLOURS: Record<Incident['severity'], string> = {
+  low: 'bg-emerald-100 text-emerald-800',
+  medium: 'bg-amber-100 text-amber-800',
+  high: 'bg-red-100 text-red-800',
+  critical: 'bg-red-700 text-white',
+}
+
+const SEVERITY_LABELS: Record<Incident['severity'], string> = {
+  low: 'Lav', medium: 'Middels', high: 'Høy', critical: 'Kritisk',
+}
+
+const CATEGORY_LABELS: Record<IncidentCategory, string> = {
+  physical_injury: 'Fysisk skade',
+  psychological: 'Psykisk / psykososialt',
+  property_damage: 'Materiell skade',
+  fire_explosion: 'Brann / eksplosjon',
+  chemical: 'Kjemikalier / HMSK',
+  ergonomic: 'Ergonomi',
+  other: 'Annet',
+}
+
+const STATUS_LABELS: Record<Incident['status'], string> = {
+  reported: 'Meldt',
+  investigating: 'Under utredning',
+  action_pending: 'Tiltak pågår',
+  closed: 'Lukket',
+}
+
+const SICK_STATUS_LABELS: Record<SickLeaveCase['status'], string> = {
+  active: 'Sykemeldt (100%)',
+  partial: 'Gradert sykemeldt',
+  returning: 'I retur',
+  closed: 'Avsluttet',
+}
+
+const SICK_STATUS_COLOURS: Record<SickLeaveCase['status'], string> = {
+  active: 'bg-red-100 text-red-800',
+  partial: 'bg-amber-100 text-amber-800',
+  returning: 'bg-emerald-100 text-emerald-800',
+  closed: 'bg-neutral-100 text-neutral-600',
+}
+
+// ─── Form templates — dynamic fields ─────────────────────────────────────────
+
+const FORM_TEMPLATES: { id: IncidentFormTemplate; label: string; showViolenceFields: boolean }[] = [
+  { id: 'standard',        label: 'Standard',                        showViolenceFields: false },
+  { id: 'violence_school', label: 'Vold og trusler — skole',         showViolenceFields: true  },
+  { id: 'violence_health', label: 'Vold og trusler — helse/omsorg',  showViolenceFields: true  },
+  { id: 'deviation',       label: 'Avvik fra intern rutine',         showViolenceFields: false },
+]
+
+function formatDate(iso: string) {
+  try {
+    return new Date(iso).toLocaleDateString('no-NO', { dateStyle: 'short' })
+  } catch { return iso }
+}
 
 function formatWhen(iso: string) {
   try {
-    return new Date(iso).toLocaleString('no-NO', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    })
-  } catch {
-    return iso
-  }
+    return new Date(iso).toLocaleString('no-NO', { dateStyle: 'short', timeStyle: 'short' })
+  } catch { return iso }
 }
 
-function statusLabel(s: ChecklistItemStatus) {
-  if (s === 'ok') return 'OK'
-  if (s === 'issue') return 'Avvik'
-  return 'N/A'
+function daysUntil(isoDate: string) {
+  const diff = new Date(isoDate).getTime() - Date.now()
+  return Math.ceil(diff / 86400000)
 }
+
+// ─── Module ───────────────────────────────────────────────────────────────────
 
 export function HseModule() {
   const hse = useHse()
   const [searchParams] = useSearchParams()
   type TabId = (typeof tabs)[number]['id']
   const tabParam = searchParams.get('tab')
-  const tab: TabId =
-    tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
-  const [roundForm, setRoundForm] = useState({
-    title: '',
-    conductedAt: '',
-    location: '',
-    conductedBy: '',
-    notes: '',
-  })
-  const [insForm, setInsForm] = useState({
-    kind: 'internal' as Inspection['kind'],
-    title: '',
-    conductedAt: '',
-    scope: '',
-    findings: '',
-    followUp: '',
-    responsible: '',
-    status: 'open' as Inspection['status'],
-  })
+  const tab: TabId = tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
+
+  const [roundForm, setRoundForm] = useState({ title: '', conductedAt: '', location: '', conductedBy: '', notes: '' })
+  const [insForm, setInsForm] = useState({ kind: 'internal' as Inspection['kind'], title: '', conductedAt: '', scope: '', findings: '', followUp: '', responsible: '', status: 'open' as Inspection['status'] })
+
+  // Incident form — rich
   const [incForm, setIncForm] = useState({
-    kind: 'near_miss' as Incident['kind'],
+    kind: 'incident' as Incident['kind'],
+    category: 'physical_injury' as IncidentCategory,
+    formTemplate: 'standard' as IncidentFormTemplate,
     severity: 'medium' as Incident['severity'],
     occurredAt: '',
     location: '',
+    department: '',
     description: '',
+    experienceDetail: '',
+    witnesses: '',
+    injuredPerson: '',
     immediateActions: '',
+    rootCause: '',
     reportedBy: '',
     status: 'reported' as Incident['status'],
+    arbeidstilsynetNotified: false,
+    routeManager: '',
+    routeVerneombud: false,
+    routeAMU: false,
   })
 
-  const sortedAudit = useMemo(
-    () => [...hse.auditTrail].sort((a, b) => a.at.localeCompare(b.at)),
-    [hse.auditTrail],
-  )
+  // Sick leave form
+  const [slForm, setSlForm] = useState({
+    employeeName: '',
+    department: '',
+    managerName: '',
+    sickFrom: '',
+    sicknessDegree: '100',
+    returnDate: '',
+    status: 'active' as SickLeaveCase['status'],
+    consentRecorded: false,
+  })
+
+  // Expanded incident detail
+  const [expandedInc, setExpandedInc] = useState<string | null>(null)
+  // Expanded sick leave
+  const [expandedSL, setExpandedSL] = useState<string | null>(null)
+  // Portal message drafts
+  const [msgDraft, setMsgDraft] = useState<Record<string, string>>({})
+  const [msgRole, setMsgRole] = useState<Record<string, SickLeaveCase['portalMessages'][0]['senderRole']>>({})
+  const [msgName, setMsgName] = useState<Record<string, string>>({})
+  // Corrective action draft
+  const [caDraft, setCaDraft] = useState<Record<string, { description: string; responsible: string; dueDate: string }>>({})
+
+  const sortedAudit = useMemo(() => [...hse.auditTrail].sort((a, b) => a.at.localeCompare(b.at)), [hse.auditTrail])
+
+  const activeTemplate = FORM_TEMPLATES.find((t) => t.id === incForm.formTemplate)!
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
       <nav className="mb-4 text-sm text-neutral-600">
-        <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
-          Prosjekter
-        </Link>
+        <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">Prosjekter</Link>
         <span className="mx-2 text-neutral-400">→</span>
         <span className="font-medium text-neutral-800">HMS / verneombud</span>
       </nav>
 
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-200/80 pb-6">
         <div>
-          <h1
-            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
+          <h1 className="text-2xl font-semibold text-neutral-900 md:text-3xl" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
             HMS & verneombud
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-neutral-600">
-            Vernerunder med sjekkliste, inspeksjoner, hendelser og nestenulykker, og sporbar revisjonslogg.
-            Innholdet er et <strong>støtteverktøy</strong> — tilpass til risiko og avtaler; verifiser mot{' '}
-            <a href="https://lovdata.no" className="text-[#1a3d32] underline" target="_blank" rel="noreferrer">
-              lovdata.no
-            </a>
-            .
+            Vernerunder, inspeksjoner, hendelsesregistrering (inkl. vold og trusler), sykefraværsoppfølging og
+            revisjonslogg. Støtteverktøy — verifiser mot{' '}
+            <a href="https://lovdata.no" className="text-[#1a3d32] underline" target="_blank" rel="noreferrer">lovdata.no</a>.
           </p>
         </div>
       </div>
 
+      {/* Tab bar */}
+      <div className="mt-4 flex flex-wrap gap-1 border-b border-neutral-200">
+        {tabs.map(({ id, label, icon: Icon }) => {
+          const active = tab === id
+          return (
+            <Link
+              key={id}
+              to={`?tab=${id}`}
+              className={`inline-flex items-center gap-1.5 rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                active ? 'border-b-2 border-[#1a3d32] text-[#1a3d32]' : 'text-neutral-500 hover:text-neutral-800'
+              }`}
+            >
+              <Icon className="size-4" />
+              {label}
+              {id === 'incidents' && hse.stats.violence > 0 && (
+                <span className="ml-1 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.violence}</span>
+              )}
+              {id === 'sickness' && hse.stats.overdueMilestones > 0 && (
+                <span className="ml-1 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.overdueMilestones}</span>
+              )}
+            </Link>
+          )
+        })}
+      </div>
+
+      {/* ── Overview ──────────────────────────────────────────────────────────── */}
       {tab === 'overview' && (
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
           <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm lg:col-span-2">
@@ -122,141 +245,77 @@ export function HseModule() {
             <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-4">
               <StatCard label="Vernerunder" value={hse.stats.rounds} />
               <StatCard label="Inspeksjoner" value={hse.stats.inspections} />
-              <StatCard label="Hendelser" value={hse.stats.incidents} />
-              <StatCard label="Nestenulykker" value={hse.stats.nearMiss} />
+              <StatCard label="Hendelser" value={hse.stats.incidents} colour="neutral" />
+              <StatCard label="Vold / trusler" value={hse.stats.violence} colour={hse.stats.violence > 0 ? 'red' : 'neutral'} />
             </div>
-            <p className="mt-4 text-sm text-neutral-600">
-              Åpne inspeksjoner med oppfølging: <strong>{hse.stats.openInspections}</strong> · Revisjonshendelser:{' '}
-              <strong>{hse.stats.auditEntries}</strong>
-            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              <StatCard label="Aktive sykefravær" value={hse.stats.activeSickLeave} />
+              <StatCard label="Forfalte milepæler" value={hse.stats.overdueMilestones} colour={hse.stats.overdueMilestones > 0 ? 'amber' : 'neutral'} />
+              <StatCard label="Åpne inspeksjoner" value={hse.stats.openInspections} />
+            </div>
           </div>
           <div className="rounded-2xl border border-amber-200/80 bg-amber-50/90 p-5 text-sm text-amber-950">
-            <strong>Revisjonslogg:</strong> Alle opprettelser og endringer logges med tidspunkt. Eksisterende
-            loggposter slettes ikke ved nye hendelser (append-only).
+            <strong>Revisjonslogg:</strong> Alle opprettelser og endringer logges med tidspunkt (append-only). Sykefraværsdata vises kun i sykefravær-fanen og er logget separat.
           </div>
         </div>
       )}
 
+      {/* ── Safety rounds ─────────────────────────────────────────────────────── */}
       {tab === 'rounds' && (
         <div className="mt-8 space-y-8">
           <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-neutral-900">Ny vernerunde</h2>
-            <form
-              className="mt-4 grid gap-3 sm:grid-cols-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (!roundForm.title.trim() || !roundForm.conductedAt) return
-                hse.createSafetyRound({
-                  title: roundForm.title.trim(),
-                  conductedAt: new Date(roundForm.conductedAt).toISOString(),
-                  location: roundForm.location.trim() || '—',
-                  conductedBy: roundForm.conductedBy.trim() || '—',
-                  notes: roundForm.notes,
-                })
-                setRoundForm((r) => ({ ...r, title: '', notes: '' }))
-              }}
-            >
+            <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
+              e.preventDefault()
+              if (!roundForm.title.trim() || !roundForm.conductedAt) return
+              hse.createSafetyRound({ title: roundForm.title.trim(), conductedAt: new Date(roundForm.conductedAt).toISOString(), location: roundForm.location.trim() || '—', conductedBy: roundForm.conductedBy.trim() || '—', notes: roundForm.notes })
+              setRoundForm((r) => ({ ...r, title: '', notes: '' }))
+            }}>
               <div className="sm:col-span-2">
                 <label className="text-xs text-neutral-500">Tittel</label>
-                <input
-                  value={roundForm.title}
-                  onChange={(e) => setRoundForm((r) => ({ ...r, title: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                  required
-                />
+                <input value={roundForm.title} onChange={(e) => setRoundForm((r) => ({ ...r, title: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
               </div>
               <div>
                 <label className="text-xs text-neutral-500">Gjennomført</label>
-                <input
-                  type="datetime-local"
-                  value={roundForm.conductedAt}
-                  onChange={(e) => setRoundForm((r) => ({ ...r, conductedAt: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                  required
-                />
+                <input type="datetime-local" value={roundForm.conductedAt} onChange={(e) => setRoundForm((r) => ({ ...r, conductedAt: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
               </div>
               <div>
                 <label className="text-xs text-neutral-500">Område</label>
-                <input
-                  value={roundForm.location}
-                  onChange={(e) => setRoundForm((r) => ({ ...r, location: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
+                <input value={roundForm.location} onChange={(e) => setRoundForm((r) => ({ ...r, location: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
               </div>
               <div className="sm:col-span-2">
                 <label className="text-xs text-neutral-500">Gjennomført av (f.eks. verneombud)</label>
-                <input
-                  value={roundForm.conductedBy}
-                  onChange={(e) => setRoundForm((r) => ({ ...r, conductedBy: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
+                <input value={roundForm.conductedBy} onChange={(e) => setRoundForm((r) => ({ ...r, conductedBy: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
               </div>
               <div className="sm:col-span-2">
                 <label className="text-xs text-neutral-500">Notater</label>
-                <textarea
-                  value={roundForm.notes}
-                  onChange={(e) => setRoundForm((r) => ({ ...r, notes: e.target.value }))}
-                  rows={3}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
+                <textarea value={roundForm.notes} onChange={(e) => setRoundForm((r) => ({ ...r, notes: e.target.value }))} rows={3} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
               </div>
-              <button
-                type="submit"
-                className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2"
-              >
-                <ClipboardCheck className="size-4" />
-                Opprett runde
+              <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2">
+                <ClipboardCheck className="size-4" />Opprett runde
               </button>
             </form>
           </section>
-
           <div className="space-y-6">
-            {hse.safetyRounds.map((sr) => (
-              <SafetyRoundCard key={sr.id} round={sr} checklist={hse.checklistTemplate} hse={hse} />
-            ))}
+            {hse.safetyRounds.map((sr) => <SafetyRoundCard key={sr.id} round={sr} checklist={hse.checklistTemplate} hse={hse} />)}
           </div>
         </div>
       )}
 
+      {/* ── Inspections ───────────────────────────────────────────────────────── */}
       {tab === 'inspections' && (
         <div className="mt-8 space-y-8">
           <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-neutral-900">Registrer inspeksjon</h2>
-            <form
-              className="mt-4 grid gap-3 sm:grid-cols-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (!insForm.title.trim()) return
-                hse.createInspection({
-                  kind: insForm.kind,
-                  title: insForm.title.trim(),
-                  conductedAt: insForm.conductedAt
-                    ? new Date(insForm.conductedAt).toISOString()
-                    : new Date().toISOString(),
-                  scope: insForm.scope,
-                  findings: insForm.findings,
-                  followUp: insForm.followUp,
-                  status: insForm.status,
-                  responsible: insForm.responsible,
-                })
-                setInsForm((i) => ({
-                  ...i,
-                  title: '',
-                  scope: '',
-                  findings: '',
-                  followUp: '',
-                }))
-              }}
-            >
+            <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
+              e.preventDefault()
+              if (!insForm.title.trim()) return
+              hse.createInspection({ kind: insForm.kind, title: insForm.title.trim(), conductedAt: insForm.conductedAt ? new Date(insForm.conductedAt).toISOString() : new Date().toISOString(), scope: insForm.scope, findings: insForm.findings, followUp: insForm.followUp, status: insForm.status, responsible: insForm.responsible })
+              setInsForm((i) => ({ ...i, title: '', scope: '', findings: '', followUp: '' }))
+            }}>
               <div>
                 <label className="text-xs text-neutral-500">Type</label>
-                <select
-                  value={insForm.kind}
-                  onChange={(e) =>
-                    setInsForm((i) => ({ ...i, kind: e.target.value as Inspection['kind'] }))
-                  }
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                >
+                <select value={insForm.kind} onChange={(e) => setInsForm((i) => ({ ...i, kind: e.target.value as Inspection['kind'] }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
                   <option value="internal">Intern</option>
                   <option value="external">Ekstern</option>
                   <option value="audit">Revisjon</option>
@@ -264,286 +323,579 @@ export function HseModule() {
               </div>
               <div>
                 <label className="text-xs text-neutral-500">Dato/tid</label>
-                <input
-                  type="datetime-local"
-                  value={insForm.conductedAt}
-                  onChange={(e) => setInsForm((i) => ({ ...i, conductedAt: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
+                <input type="datetime-local" value={insForm.conductedAt} onChange={(e) => setInsForm((i) => ({ ...i, conductedAt: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
               </div>
               <div className="sm:col-span-2">
                 <label className="text-xs text-neutral-500">Tittel</label>
-                <input
-                  value={insForm.title}
-                  onChange={(e) => setInsForm((i) => ({ ...i, title: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                  required
-                />
+                <input value={insForm.title} onChange={(e) => setInsForm((i) => ({ ...i, title: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
               </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs text-neutral-500">Omfang</label>
-                <textarea
-                  value={insForm.scope}
-                  onChange={(e) => setInsForm((i) => ({ ...i, scope: e.target.value }))}
-                  rows={2}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs text-neutral-500">Funn</label>
-                <textarea
-                  value={insForm.findings}
-                  onChange={(e) => setInsForm((i) => ({ ...i, findings: e.target.value }))}
-                  rows={2}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs text-neutral-500">Oppfølging</label>
-                <textarea
-                  value={insForm.followUp}
-                  onChange={(e) => setInsForm((i) => ({ ...i, followUp: e.target.value }))}
-                  rows={2}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
-              </div>
+              <div className="sm:col-span-2"><label className="text-xs text-neutral-500">Omfang</label><textarea value={insForm.scope} onChange={(e) => setInsForm((i) => ({ ...i, scope: e.target.value }))} rows={2} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" /></div>
+              <div className="sm:col-span-2"><label className="text-xs text-neutral-500">Funn</label><textarea value={insForm.findings} onChange={(e) => setInsForm((i) => ({ ...i, findings: e.target.value }))} rows={2} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" /></div>
+              <div className="sm:col-span-2"><label className="text-xs text-neutral-500">Oppfølging</label><textarea value={insForm.followUp} onChange={(e) => setInsForm((i) => ({ ...i, followUp: e.target.value }))} rows={2} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" /></div>
               <div>
                 <label className="text-xs text-neutral-500">Ansvarlig</label>
-                <input
-                  value={insForm.responsible}
-                  onChange={(e) => setInsForm((i) => ({ ...i, responsible: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
+                <input value={insForm.responsible} onChange={(e) => setInsForm((i) => ({ ...i, responsible: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
               </div>
               <div>
                 <label className="text-xs text-neutral-500">Status</label>
-                <select
-                  value={insForm.status}
-                  onChange={(e) =>
-                    setInsForm((i) => ({ ...i, status: e.target.value as Inspection['status'] }))
-                  }
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                >
+                <select value={insForm.status} onChange={(e) => setInsForm((i) => ({ ...i, status: e.target.value as Inspection['status'] }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
                   <option value="open">Åpen</option>
                   <option value="closed">Lukket</option>
                 </select>
               </div>
-              <button
-                type="submit"
-                className="rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2"
-              >
-                Lagre inspeksjon
-              </button>
+              <button type="submit" className="rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2">Lagre inspeksjon</button>
             </form>
           </section>
-
           <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-            <div className="border-b border-neutral-200 bg-neutral-50 px-4 py-3">
-              <h2 className="font-semibold text-neutral-900">Logg — inspeksjoner</h2>
-            </div>
+            <div className="border-b border-neutral-200 bg-neutral-50 px-4 py-3"><h2 className="font-semibold text-neutral-900">Logg — inspeksjoner</h2></div>
             <ul className="divide-y divide-neutral-100">
-              {hse.inspections.map((ins) => (
-                <InspectionRow key={ins.id} ins={ins} hse={hse} />
-              ))}
+              {hse.inspections.map((ins) => <InspectionRow key={ins.id} ins={ins} hse={hse} />)}
             </ul>
-            {hse.inspections.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen inspeksjoner ennå.</p>
-            ) : null}
+            {hse.inspections.length === 0 ? <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen inspeksjoner ennå.</p> : null}
           </div>
         </div>
       )}
 
+      {/* ── Incidents — expanded ──────────────────────────────────────────────── */}
       {tab === 'incidents' && (
         <div className="mt-8 space-y-8">
+
+          {/* Registration form */}
           <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Registrer hendelse eller nestenulykke</h2>
-            <form
-              className="mt-4 grid gap-3 sm:grid-cols-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (!incForm.description.trim()) return
-                hse.createIncident({
-                  kind: incForm.kind,
-                  severity: incForm.severity,
-                  occurredAt: incForm.occurredAt
-                    ? new Date(incForm.occurredAt).toISOString()
-                    : new Date().toISOString(),
-                  location: incForm.location || '—',
-                  description: incForm.description,
-                  immediateActions: incForm.immediateActions,
-                  reportedBy: incForm.reportedBy || '—',
-                  status: incForm.status,
-                })
-                setIncForm((i) => ({
-                  ...i,
-                  description: '',
-                  immediateActions: '',
-                }))
-              }}
-            >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold text-neutral-900">Registrer hendelse</h2>
+              <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">Lavterskel — mobilvennlig</span>
+            </div>
+
+            {/* Template picker */}
+            <div className="mt-4">
+              <label className="text-xs font-medium text-neutral-500">Skjemamal</label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {FORM_TEMPLATES.map((tpl) => (
+                  <button key={tpl.id} type="button" onClick={() => {
+                    setIncForm((i) => ({ ...i, formTemplate: tpl.id, kind: tpl.id === 'deviation' ? 'deviation' : tpl.showViolenceFields ? 'violence' : 'incident' }))
+                  }}
+                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${incForm.formTemplate === tpl.id ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}
+                  >
+                    {tpl.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
+              e.preventDefault()
+              if (!incForm.description.trim()) return
+              hse.createIncident({
+                kind: incForm.kind,
+                category: incForm.category,
+                formTemplate: incForm.formTemplate,
+                severity: incForm.severity,
+                occurredAt: incForm.occurredAt ? new Date(incForm.occurredAt).toISOString() : new Date().toISOString(),
+                location: incForm.location || '—',
+                department: incForm.department,
+                description: incForm.description,
+                experienceDetail: incForm.experienceDetail || undefined,
+                witnesses: incForm.witnesses || undefined,
+                injuredPerson: incForm.injuredPerson || undefined,
+                immediateActions: incForm.immediateActions,
+                rootCause: incForm.rootCause || undefined,
+                reportedBy: incForm.reportedBy || '—',
+                status: incForm.status,
+                correctiveActions: [],
+                arbeidstilsynetNotified: incForm.arbeidstilsynetNotified,
+                routing: incForm.routeManager ? { managerName: incForm.routeManager, verneombudNotified: incForm.routeVerneombud, amuCaseCreated: incForm.routeAMU, routedAt: new Date().toISOString() } : undefined,
+              })
+              setIncForm((i) => ({ ...i, description: '', immediateActions: '', experienceDetail: '', witnesses: '', injuredPerson: '', rootCause: '' }))
+            }}>
+              {/* Row 1: type + severity */}
               <div>
-                <label className="text-xs text-neutral-500">Type</label>
-                <select
-                  value={incForm.kind}
-                  onChange={(e) =>
-                    setIncForm((i) => ({ ...i, kind: e.target.value as Incident['kind'] }))
-                  }
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                >
-                  <option value="incident">Hendelse / ulykke</option>
+                <label className="text-xs font-medium text-neutral-500">Type hendelse</label>
+                <select value={incForm.kind} onChange={(e) => setIncForm((i) => ({ ...i, kind: e.target.value as Incident['kind'] }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
+                  <option value="incident">Ulykke / skade</option>
                   <option value="near_miss">Nestenulykke</option>
+                  <option value="violence">Vold</option>
+                  <option value="threat">Trussel</option>
+                  <option value="deviation">Avvik</option>
                 </select>
               </div>
               <div>
-                <label className="text-xs text-neutral-500">Alvorlighetsgrad</label>
-                <select
-                  value={incForm.severity}
-                  onChange={(e) =>
-                    setIncForm((i) => ({ ...i, severity: e.target.value as Incident['severity'] }))
-                  }
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                >
+                <label className="text-xs font-medium text-neutral-500">Alvorlighetsgrad</label>
+                <select value={incForm.severity} onChange={(e) => setIncForm((i) => ({ ...i, severity: e.target.value as Incident['severity'] }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
                   <option value="low">Lav</option>
                   <option value="medium">Middels</option>
                   <option value="high">Høy</option>
+                  <option value="critical">Kritisk (melding til Arbeidstilsynet vurderes)</option>
+                </select>
+              </div>
+
+              {/* Row 2: category + when */}
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Kategori</label>
+                <select value={incForm.category} onChange={(e) => setIncForm((i) => ({ ...i, category: e.target.value as IncidentCategory }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
+                  {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-xs text-neutral-500">Tidspunkt</label>
-                <input
-                  type="datetime-local"
-                  value={incForm.occurredAt}
-                  onChange={(e) => setIncForm((i) => ({ ...i, occurredAt: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
+                <label className="text-xs font-medium text-neutral-500">Tidspunkt</label>
+                <input type="datetime-local" value={incForm.occurredAt} onChange={(e) => setIncForm((i) => ({ ...i, occurredAt: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+
+              {/* Row 3: location + department */}
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Sted</label>
+                <input value={incForm.location} onChange={(e) => setIncForm((i) => ({ ...i, location: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
               </div>
               <div>
-                <label className="text-xs text-neutral-500">Sted</label>
-                <input
-                  value={incForm.location}
-                  onChange={(e) => setIncForm((i) => ({ ...i, location: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
+                <label className="text-xs font-medium text-neutral-500">Avdeling</label>
+                <input value={incForm.department} onChange={(e) => setIncForm((i) => ({ ...i, department: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+
+              {/* Description */}
+              <div className="sm:col-span-2">
+                <label className="text-xs font-medium text-neutral-500">Beskrivelse av hendelsen *</label>
+                <textarea value={incForm.description} onChange={(e) => setIncForm((i) => ({ ...i, description: e.target.value }))} rows={3} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
+              </div>
+
+              {/* Violence-specific fields */}
+              {activeTemplate.showViolenceFields && (
+                <>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-neutral-500">Hva opplevde du / den berørte? (beskriv adferd)</label>
+                    <textarea value={incForm.experienceDetail} onChange={(e) => setIncForm((i) => ({ ...i, experienceDetail: e.target.value }))} rows={2} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-neutral-500">Berørt person</label>
+                    <input value={incForm.injuredPerson} onChange={(e) => setIncForm((i) => ({ ...i, injuredPerson: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-neutral-500">Vitner (valgfritt)</label>
+                    <input value={incForm.witnesses} onChange={(e) => setIncForm((i) => ({ ...i, witnesses: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+                  </div>
+                </>
+              )}
+
+              {/* Immediate actions + root cause */}
+              <div className="sm:col-span-2">
+                <label className="text-xs font-medium text-neutral-500">Umiddelbare tiltak</label>
+                <textarea value={incForm.immediateActions} onChange={(e) => setIncForm((i) => ({ ...i, immediateActions: e.target.value }))} rows={2} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
               </div>
               <div className="sm:col-span-2">
-                <label className="text-xs text-neutral-500">Beskrivelse</label>
-                <textarea
-                  value={incForm.description}
-                  onChange={(e) => setIncForm((i) => ({ ...i, description: e.target.value }))}
-                  rows={3}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                  required
-                />
+                <label className="text-xs font-medium text-neutral-500">Rotårsak (kan fylles ut i etterkant)</label>
+                <input value={incForm.rootCause} onChange={(e) => setIncForm((i) => ({ ...i, rootCause: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
               </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs text-neutral-500">Umiddelbare tiltak</label>
-                <textarea
-                  value={incForm.immediateActions}
-                  onChange={(e) => setIncForm((i) => ({ ...i, immediateActions: e.target.value }))}
-                  rows={2}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
+
+              {/* Reporter + status */}
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Meldt av</label>
+                <input value={incForm.reportedBy} onChange={(e) => setIncForm((i) => ({ ...i, reportedBy: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
               </div>
               <div>
-                <label className="text-xs text-neutral-500">Meldt av</label>
-                <input
-                  value={incForm.reportedBy}
-                  onChange={(e) => setIncForm((i) => ({ ...i, reportedBy: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-neutral-500">Status</label>
-                <select
-                  value={incForm.status}
-                  onChange={(e) =>
-                    setIncForm((i) => ({ ...i, status: e.target.value as Incident['status'] }))
-                  }
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                >
+                <label className="text-xs font-medium text-neutral-500">Status</label>
+                <select value={incForm.status} onChange={(e) => setIncForm((i) => ({ ...i, status: e.target.value as Incident['status'] }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
                   <option value="reported">Meldt</option>
                   <option value="investigating">Under utredning</option>
+                  <option value="action_pending">Tiltak pågår</option>
                   <option value="closed">Lukket</option>
                 </select>
               </div>
-              <button
-                type="submit"
-                className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2"
-              >
+
+              {/* Routing */}
+              <div className="sm:col-span-2 rounded-xl border border-neutral-100 bg-neutral-50 p-3 space-y-2">
+                <p className="text-xs font-semibold text-neutral-600">Automatisk ruting</p>
+                <div>
+                  <label className="text-xs text-neutral-500">Nærmeste leder (varsles)</label>
+                  <input value={incForm.routeManager} onChange={(e) => setIncForm((i) => ({ ...i, routeManager: e.target.value }))} placeholder="Navn på nærmeste leder" className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm" />
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={incForm.routeVerneombud} onChange={(e) => setIncForm((i) => ({ ...i, routeVerneombud: e.target.checked }))} className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
+                    Varsle verneombud
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={incForm.routeAMU} onChange={(e) => setIncForm((i) => ({ ...i, routeAMU: e.target.checked }))} className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
+                    Opprett AMU-sak
+                  </label>
+                  {incForm.severity === 'critical' && (
+                    <label className="flex items-center gap-2 text-sm text-red-700">
+                      <input type="checkbox" checked={incForm.arbeidstilsynetNotified} onChange={(e) => setIncForm((i) => ({ ...i, arbeidstilsynetNotified: e.target.checked }))} className="size-4 rounded border-red-300 text-red-600 focus:ring-1 focus:ring-red-600" />
+                      Meldt til Arbeidstilsynet (AML §5-2)
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2">
                 <FileWarning className="size-4" />
-                Registrer
+                Registrer hendelse
               </button>
             </form>
           </section>
 
+          {/* Incident log */}
           <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
             <div className="border-b border-neutral-200 bg-neutral-50 px-4 py-3">
               <h2 className="font-semibold text-neutral-900">Logg — hendelser</h2>
             </div>
-            <ul className="divide-y divide-neutral-100">
-              {hse.incidents.map((inc) => (
-                <li key={inc.id} className="px-4 py-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium text-neutral-900">
-                      {inc.kind === 'near_miss' ? 'Nestenulykke' : 'Hendelse'}
-                    </span>
-                    <select
-                      value={inc.status}
-                      onChange={(e) =>
-                        hse.updateIncident(inc.id, {
-                          status: e.target.value as Incident['status'],
-                        })
-                      }
-                      className="rounded-full border border-neutral-200 px-2 py-1 text-xs"
-                    >
-                      <option value="reported">Meldt</option>
-                      <option value="investigating">Utredning</option>
-                      <option value="closed">Lukket</option>
-                    </select>
-                  </div>
-                  <p className="text-xs text-neutral-500">
-                    {formatWhen(inc.occurredAt)} · {inc.severity} · {inc.location}
-                  </p>
-                  <p className="mt-2 text-sm text-neutral-800">{inc.description}</p>
-                  <div className="mt-2">
-                    <AddTaskLink
-                      title={`Oppfølging: ${inc.kind === 'near_miss' ? 'Nestenulykke' : 'Hendelse'}`}
-                      description={inc.description.slice(0, 200)}
-                      module="hse"
-                      sourceType="hse_incident"
-                      sourceId={inc.id}
-                      sourceLabel={`${inc.location} · ${inc.severity}`}
-                      ownerRole="HMS / verneombud"
-                      requiresManagementSignOff={inc.severity === 'high'}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
             {hse.incidents.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen registreringer.</p>
-            ) : null}
+              <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen registreringer ennå.</p>
+            ) : (
+              <ul className="divide-y divide-neutral-100">
+                {hse.incidents.map((inc) => {
+                  const expanded = expandedInc === inc.id
+                  const ca = caDraft[inc.id] ?? { description: '', responsible: '', dueDate: '' }
+                  return (
+                    <li key={inc.id} className="px-4 py-4">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${KIND_COLOURS[inc.kind]}`}>{KIND_LABELS[inc.kind]}</span>
+                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${SEVERITY_COLOURS[inc.severity]}`}>{SEVERITY_LABELS[inc.severity]}</span>
+                          {inc.formTemplate !== 'standard' && (
+                            <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">{FORM_TEMPLATES.find((t) => t.id === inc.formTemplate)?.label}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <select value={inc.status} onChange={(e) => hse.updateIncident(inc.id, { status: e.target.value as Incident['status'] })} className="rounded-full border border-neutral-200 px-2 py-1 text-xs">
+                            {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                          </select>
+                          <button type="button" onClick={() => setExpandedInc(expanded ? null : inc.id)} className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 text-xs">
+                            {expanded ? '▲' : '▼'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <p className="mt-1 text-xs text-neutral-500">
+                        {formatWhen(inc.occurredAt)} · {inc.location}{inc.department ? ` · ${inc.department}` : ''}
+                        {inc.reportedBy !== '—' ? ` · Meldt av: ${inc.reportedBy}` : ''}
+                      </p>
+                      <p className="mt-2 text-sm text-neutral-800">{inc.description}</p>
+
+                      {/* Routing badge */}
+                      {inc.routing && (
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                          <span className="rounded-full bg-[#1a3d32]/10 px-2 py-0.5 text-[#1a3d32]">→ {inc.routing.managerName}</span>
+                          {inc.routing.verneombudNotified && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">Verneombud varslet</span>}
+                          {inc.routing.amuCaseCreated && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-800">AMU-sak opprettet</span>}
+                        </div>
+                      )}
+                      {inc.arbeidstilsynetNotified && (
+                        <p className="mt-1 text-xs font-medium text-red-700">⚠ Meldt til Arbeidstilsynet (AML §5-2)</p>
+                      )}
+
+                      {/* Expanded detail */}
+                      {expanded && (
+                        <div className="mt-4 space-y-3 rounded-xl border border-neutral-100 bg-neutral-50 p-4 text-sm">
+                          {inc.experienceDetail && <div><span className="font-medium text-neutral-700">Opplevelse:</span> {inc.experienceDetail}</div>}
+                          {inc.injuredPerson && <div><span className="font-medium text-neutral-700">Berørt:</span> {inc.injuredPerson}</div>}
+                          {inc.witnesses && <div><span className="font-medium text-neutral-700">Vitner:</span> {inc.witnesses}</div>}
+                          {inc.immediateActions && <div><span className="font-medium text-neutral-700">Umiddelbare tiltak:</span> {inc.immediateActions}</div>}
+                          {inc.rootCause && <div><span className="font-medium text-neutral-700">Rotårsak:</span> {inc.rootCause}</div>}
+
+                          {/* Corrective actions */}
+                          <div>
+                            <p className="font-semibold text-neutral-700 mb-2">Tiltak ({inc.correctiveActions.length})</p>
+                            {inc.correctiveActions.map((a) => (
+                              <div key={a.id} className="flex items-start gap-2 mb-1">
+                                <button type="button" onClick={() => hse.updateIncident(inc.id, { correctiveActions: inc.correctiveActions.map((x) => x.id === a.id ? { ...x, completedAt: x.completedAt ? undefined : new Date().toISOString() } : x) })} className={`mt-0.5 shrink-0 rounded-full p-0.5 ${a.completedAt ? 'text-emerald-600' : 'text-neutral-300'}`}>
+                                  <CheckCircle2 className="size-4" />
+                                </button>
+                                <div className={a.completedAt ? 'line-through text-neutral-400' : ''}>
+                                  {a.description} — <span className="text-neutral-500">{a.responsible}</span> · frist {formatDate(a.dueDate)}
+                                </div>
+                              </div>
+                            ))}
+                            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                              <input placeholder="Tiltak" value={ca.description} onChange={(e) => setCaDraft((d) => ({ ...d, [inc.id]: { ...ca, description: e.target.value } }))} className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs" />
+                              <input placeholder="Ansvarlig" value={ca.responsible} onChange={(e) => setCaDraft((d) => ({ ...d, [inc.id]: { ...ca, responsible: e.target.value } }))} className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs" />
+                              <div className="flex gap-1">
+                                <input type="date" value={ca.dueDate} onChange={(e) => setCaDraft((d) => ({ ...d, [inc.id]: { ...ca, dueDate: e.target.value } }))} className="flex-1 rounded-lg border border-neutral-200 px-2 py-1.5 text-xs" />
+                                <button type="button" onClick={() => {
+                                  if (!ca.description.trim() || !ca.dueDate) return
+                                  hse.addCorrectiveAction(inc.id, ca)
+                                  setCaDraft((d) => ({ ...d, [inc.id]: { description: '', responsible: '', dueDate: '' } }))
+                                }} className="rounded-lg bg-[#1a3d32] px-2 py-1 text-white">
+                                  <Plus className="size-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-2">
+                        <AddTaskLink
+                          title={`Oppfølging: ${KIND_LABELS[inc.kind]}`}
+                          description={inc.description.slice(0, 200)}
+                          module="hse"
+                          sourceType="hse_incident"
+                          sourceId={inc.id}
+                          sourceLabel={`${inc.location} · ${SEVERITY_LABELS[inc.severity]}`}
+                          ownerRole="HMS / verneombud"
+                          requiresManagementSignOff={inc.severity === 'high' || inc.severity === 'critical'}
+                        />
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
           </div>
         </div>
       )}
 
+      {/* ── Sykefravær ────────────────────────────────────────────────────────── */}
+      {tab === 'sickness' && (
+        <div className="mt-8 space-y-8">
+          {/* Confidentiality notice */}
+          <div className="flex items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3">
+            <Lock className="mt-0.5 size-4 shrink-0 text-sky-700" />
+            <p className="text-sm text-sky-900">
+              <strong>Taushetsbelagt sone.</strong> Sykefraværsdata og tilretteleggingsdialog er strengt
+              adskilt fra avviksregistreringen. Kun leder og HR med tilgang ser disse postene. Alle visninger logges separat.{' '}
+              <span className="text-xs">(AML §4-6, Personopplysningsloven §9)</span>
+            </p>
+          </div>
+
+          {/* Overdue milestones alert */}
+          {hse.stats.overdueMilestones > 0 && (
+            <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700" />
+              <p className="text-sm text-amber-900">
+                <strong>{hse.stats.overdueMilestones} forfalte lovpålagte milepæler</strong> — se sakene nedenfor og marker fullført.
+              </p>
+            </div>
+          )}
+
+          {/* New sick leave case form */}
+          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-neutral-900">Ny sykefraværssak</h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              Systemet genererer automatisk lovpålagte frister etter AML §4-6 og NAVs krav.
+            </p>
+            <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
+              e.preventDefault()
+              if (!slForm.employeeName.trim() || !slForm.sickFrom) return
+              hse.createSickLeaveCase({
+                employeeName: slForm.employeeName.trim(),
+                department: slForm.department,
+                managerName: slForm.managerName,
+                sickFrom: slForm.sickFrom,
+                returnDate: slForm.returnDate || undefined,
+                status: slForm.status,
+                sicknessDegree: Number(slForm.sicknessDegree) || 100,
+                accommodationNotes: '',
+                consentRecorded: slForm.consentRecorded,
+              })
+              setSlForm({ employeeName: '', department: '', managerName: '', sickFrom: '', sicknessDegree: '100', returnDate: '', status: 'active', consentRecorded: false })
+            }}>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Ansatt navn</label>
+                <input value={slForm.employeeName} onChange={(e) => setSlForm((s) => ({ ...s, employeeName: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Avdeling</label>
+                <input value={slForm.department} onChange={(e) => setSlForm((s) => ({ ...s, department: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Nærmeste leder</label>
+                <input value={slForm.managerName} onChange={(e) => setSlForm((s) => ({ ...s, managerName: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Sykemeldt fra</label>
+                <input type="date" value={slForm.sickFrom} onChange={(e) => setSlForm((s) => ({ ...s, sickFrom: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Grad (%)</label>
+                <input type="number" min={1} max={100} value={slForm.sicknessDegree} onChange={(e) => setSlForm((s) => ({ ...s, sicknessDegree: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Status</label>
+                <select value={slForm.status} onChange={(e) => setSlForm((s) => ({ ...s, status: e.target.value as SickLeaveCase['status'] }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
+                  <option value="active">Sykemeldt (100%)</option>
+                  <option value="partial">Gradert sykemeldt</option>
+                  <option value="returning">I retur</option>
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={slForm.consentRecorded} onChange={(e) => setSlForm((s) => ({ ...s, consentRecorded: e.target.checked }))} className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
+                  Samtykke til behandling av personopplysninger er registrert (GDPR)
+                </label>
+              </div>
+              <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2">
+                <Calendar className="size-4" />
+                Opprett sak og generer frister
+              </button>
+            </form>
+          </section>
+
+          {/* Active cases */}
+          <div className="space-y-6">
+            {hse.sickLeaveCases.map((sc) => {
+              const today = new Date().toISOString().slice(0, 10)
+              const expanded = expandedSL === sc.id
+              const msg = msgDraft[sc.id] ?? ''
+              const role = msgRole[sc.id] ?? 'manager'
+              const name = msgName[sc.id] ?? ''
+              const overdue = sc.milestones.filter((m) => !m.completedAt && m.dueAt < today)
+              const upcoming = sc.milestones.filter((m) => !m.completedAt && m.dueAt >= today).slice(0, 3)
+              const done = sc.milestones.filter((m) => m.completedAt)
+
+              return (
+                <div key={sc.id} className="rounded-2xl border border-neutral-200/90 bg-white shadow-sm overflow-hidden">
+                  {/* Header */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 bg-neutral-50 px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="font-semibold text-neutral-900">{sc.employeeName}</span>
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${SICK_STATUS_COLOURS[sc.status]}`}>{SICK_STATUS_LABELS[sc.status]}</span>
+                      <span className="text-xs text-neutral-500">{sc.sicknessDegree}% · {sc.department}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select value={sc.status} onChange={(e) => hse.updateSickLeaveCase(sc.id, { status: e.target.value as SickLeaveCase['status'] })} className="rounded-full border border-neutral-200 px-2 py-1 text-xs">
+                        <option value="active">Sykemeldt</option>
+                        <option value="partial">Gradert</option>
+                        <option value="returning">I retur</option>
+                        <option value="closed">Avsluttet</option>
+                      </select>
+                      <button type="button" onClick={() => setExpandedSL(expanded ? null : sc.id)} className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100">
+                        {expanded ? '▲' : '▼'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="px-4 py-3">
+                    <p className="text-xs text-neutral-500">Sykemeldt fra: {formatDate(sc.sickFrom)} · Leder: {sc.managerName}</p>
+
+                    {/* Overdue alert */}
+                    {overdue.length > 0 && (
+                      <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                        <p className="text-xs font-semibold text-amber-900 mb-1">Forfalt ({overdue.length})</p>
+                        {overdue.map((m) => (
+                          <div key={m.kind} className="flex items-center justify-between gap-2 text-xs text-amber-800">
+                            <span>{m.label}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-amber-600">Frist: {formatDate(m.dueAt)} ({Math.abs(daysUntil(m.dueAt))} dager siden)</span>
+                              <button type="button" onClick={() => hse.completeMilestone(sc.id, m.kind as SickLeaveMilestoneKind)} className="rounded bg-amber-700 px-2 py-0.5 text-white">Fullført</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Upcoming milestones */}
+                    {upcoming.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs font-semibold text-neutral-600 mb-1">Kommende frister</p>
+                        <div className="space-y-1.5">
+                          {upcoming.map((m) => {
+                            const days = daysUntil(m.dueAt)
+                            const urgent = days <= 7
+                            return (
+                              <div key={m.kind} className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${urgent ? 'bg-amber-50 border border-amber-200' : 'bg-neutral-50 border border-neutral-100'}`}>
+                                <div>
+                                  <span className="font-medium text-neutral-800">{m.label}</span>
+                                  <span className="ml-2 text-neutral-400">{m.lawRef}</span>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className={urgent ? 'font-semibold text-amber-700' : 'text-neutral-500'}>{formatDate(m.dueAt)} ({days}d)</span>
+                                  <button type="button" onClick={() => hse.completeMilestone(sc.id, m.kind as SickLeaveMilestoneKind)} className="rounded-full bg-[#1a3d32] px-2 py-0.5 text-white text-[10px]">Fullført</button>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Completed milestones */}
+                    {done.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {done.map((m) => (
+                          <span key={m.kind} className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-800">
+                            <CheckCircle2 className="size-3" />{m.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Expanded: accommodation notes + portal */}
+                  {expanded && (
+                    <div className="border-t border-neutral-100 px-4 py-4 space-y-4">
+                      {/* Accommodation notes */}
+                      <div>
+                        <label className="text-xs font-semibold text-neutral-700 flex items-center gap-1">
+                          <Lock className="size-3.5" /> Tilretteleggingsnotater (konfidensielt)
+                        </label>
+                        <textarea
+                          value={sc.accommodationNotes}
+                          onChange={(e) => hse.updateSickLeaveCase(sc.id, { accommodationNotes: e.target.value })}
+                          rows={3}
+                          placeholder="Tilretteleggingsbehov, avtaler, plan …"
+                          className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+                        />
+                      </div>
+
+                      {/* Secure portal messages */}
+                      <div>
+                        <p className="text-xs font-semibold text-neutral-700 flex items-center gap-1 mb-2">
+                          <MessageSquare className="size-3.5" /> Sikker dialog (leder ↔ ansatt)
+                        </p>
+                        <div className="max-h-48 overflow-y-auto space-y-2 mb-3">
+                          {sc.portalMessages.length === 0 ? (
+                            <p className="text-xs text-neutral-400">Ingen meldinger ennå.</p>
+                          ) : sc.portalMessages.map((m) => (
+                            <div key={m.id} className={`rounded-lg px-3 py-2 text-sm ${m.senderRole === 'manager' ? 'bg-[#1a3d32]/8 ml-4' : 'bg-neutral-100 mr-4'}`}>
+                              <div className="text-[10px] text-neutral-500 mb-1">{m.senderName} ({m.senderRole === 'manager' ? 'Leder' : 'Ansatt'}) · {formatWhen(m.sentAt)}</div>
+                              <p className="text-neutral-800">{m.text}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex gap-2">
+                            <select value={role} onChange={(e) => setMsgRole((r) => ({ ...r, [sc.id]: e.target.value as typeof role }))} className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs">
+                              <option value="manager">Leder</option>
+                              <option value="employee">Ansatt</option>
+                            </select>
+                            <input value={name} onChange={(e) => setMsgName((n) => ({ ...n, [sc.id]: e.target.value }))} placeholder="Navn" className="min-w-[120px] flex-1 rounded-lg border border-neutral-200 px-2 py-1.5 text-xs" />
+                          </div>
+                          <div className="flex gap-2">
+                            <textarea value={msg} onChange={(e) => setMsgDraft((d) => ({ ...d, [sc.id]: e.target.value }))} placeholder="Skriv melding …" rows={2} className="flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm" />
+                            <button type="button" onClick={() => {
+                              if (!msg.trim()) return
+                              hse.addPortalMessage(sc.id, role, name || (role === 'manager' ? 'Leder' : 'Ansatt'), msg)
+                              setMsgDraft((d) => ({ ...d, [sc.id]: '' }))
+                            }} className="self-end rounded-lg bg-[#1a3d32] px-3 py-2 text-sm font-medium text-white hover:bg-[#142e26]">
+                              Send
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            {hse.sickLeaveCases.length === 0 && (
+              <p className="text-center text-sm text-neutral-500 py-8">Ingen sykefraværssaker registrert.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── AML ───────────────────────────────────────────────────────────────── */}
       {tab === 'aml' && (
         <div className="mt-8 space-y-6">
           <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-neutral-900">Struktur etter arbeidsmiljøloven (oversikt)</h2>
-            <p className="mt-2 text-sm text-neutral-600">
-              Dette er en forenklet struktur for dokumentasjon og verneroller — tilpass til virksomhetens
-              risikovurdering og bransje.
-            </p>
+            <p className="mt-2 text-sm text-neutral-600">Forenklet struktur for dokumentasjon og verneroller — tilpass til virksomhetens risikovurdering og bransje.</p>
             <ul className="mt-4 space-y-4">
               {hse.amlStructure.map((block) => (
                 <li key={block.title} className="rounded-xl border border-neutral-100 bg-[#faf8f4] p-4">
                   <div className="font-medium text-neutral-900">{block.title}</div>
                   <div className="text-xs text-[#1a3d32]/90">{block.lawRef}</div>
                   <ul className="mt-2 list-inside list-disc text-sm text-neutral-700">
-                    {block.points.map((p) => (
-                      <li key={p}>{p}</li>
-                    ))}
+                    {block.points.map((p) => <li key={p}>{p}</li>)}
                   </ul>
                 </li>
               ))}
@@ -552,18 +904,13 @@ export function HseModule() {
         </div>
       )}
 
+      {/* ── Audit log ─────────────────────────────────────────────────────────── */}
       {tab === 'audit' && (
         <div className="mt-8">
           <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-3">
               <h2 className="font-semibold text-neutral-900">Streng revisjonslogg (append-only)</h2>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm('Tilbakestill HSE-demodata? Revisjonslogg regenereres.')) hse.resetDemo()
-                }}
-                className="text-xs text-neutral-500 hover:underline"
-              >
+              <button type="button" onClick={() => { if (confirm('Tilbakestill HSE-demodata? Revisjonslogg regenereres.')) hse.resetDemo() }} className="text-xs text-neutral-500 hover:underline">
                 Tilbakestill demo
               </button>
             </div>
@@ -577,11 +924,9 @@ export function HseModule() {
                     <span className="truncate font-mono text-neutral-400">{a.entityId}</span>
                   </div>
                   <p className="mt-1 font-medium text-neutral-900">{a.summary}</p>
-                  {a.detail && Object.keys(a.detail).length > 0 ? (
-                    <pre className="mt-2 max-h-24 overflow-auto rounded bg-neutral-50 p-2 text-xs text-neutral-600">
-                      {JSON.stringify(a.detail, null, 0)}
-                    </pre>
-                  ) : null}
+                  {a.detail && Object.keys(a.detail).length > 0 && (
+                    <pre className="mt-2 max-h-24 overflow-auto rounded bg-neutral-50 p-2 text-xs text-neutral-600">{JSON.stringify(a.detail, null, 0)}</pre>
+                  )}
                 </li>
               ))}
             </ul>
@@ -592,24 +937,22 @@ export function HseModule() {
   )
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+// ─── Sub-components ────────────────────────────────────────────────────────────
+
+function StatCard({ label, value, colour = 'neutral' }: { label: string; value: number; colour?: 'neutral' | 'red' | 'amber' | 'emerald' }) {
+  const cls = colour === 'red' ? 'text-red-700' : colour === 'amber' ? 'text-amber-700' : colour === 'emerald' ? 'text-emerald-700' : 'text-[#1a3d32]'
   return (
     <div className="rounded-xl bg-[#faf8f4] p-4 ring-1 ring-neutral-100">
-      <div className="text-2xl font-semibold text-[#1a3d32]">{value}</div>
+      <div className={`text-2xl font-semibold ${cls}`}>{value}</div>
       <div className="text-sm text-neutral-600">{label}</div>
     </div>
   )
 }
 
-function InspectionRow({
-  ins,
-  hse,
-}: {
-  ins: Inspection
-  hse: ReturnType<typeof useHse>
-}) {
+function InspectionRow({ ins, hse }: { ins: Inspection; hse: ReturnType<typeof useHse> }) {
   const [name, setName] = useState('')
   const [role, setRole] = useState<HseProtocolSignature['role']>('inspector')
+  function formatWhenLocal(iso: string) { try { return new Date(iso).toLocaleString('no-NO', { dateStyle: 'short', timeStyle: 'short' }) } catch { return iso } }
   return (
     <li className="px-4 py-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -617,129 +960,65 @@ function InspectionRow({
           <span className="font-medium text-neutral-900">{ins.title}</span>
           <span className="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs">{ins.kind}</span>
         </div>
-        <select
-          value={ins.status}
-          onChange={(e) =>
-            hse.updateInspection(ins.id, {
-              status: e.target.value as Inspection['status'],
-            })
-          }
-          className="rounded-full border border-neutral-200 px-2 py-1 text-xs"
-        >
+        <select value={ins.status} onChange={(e) => hse.updateInspection(ins.id, { status: e.target.value as Inspection['status'] })} className="rounded-full border border-neutral-200 px-2 py-1 text-xs">
           <option value="open">Åpen</option>
           <option value="closed">Lukket</option>
         </select>
       </div>
-      <p className="mt-1 text-xs text-neutral-500">{formatWhen(ins.conductedAt)}</p>
+      <p className="mt-1 text-xs text-neutral-500">{formatWhenLocal(ins.conductedAt)}</p>
       <p className="mt-2 text-sm text-neutral-700">{ins.findings || '—'}</p>
       <div className="mt-3 rounded-lg bg-[#faf8f4] p-3 text-xs">
         <span className="font-medium text-neutral-800">Signaturer:</span>
         <ul className="mt-1 space-y-0.5 text-neutral-700">
           {(ins.protocolSignatures ?? []).map((s, i) => (
-            <li key={`${s.signedAt}-${i}`}>
-              {s.role === 'inspector'
-                ? 'Inspektør'
-                : s.role === 'verneombud'
-                  ? 'Verneombud'
-                  : 'Ledelse'}
-              : {s.signerName} — {formatWhen(s.signedAt)}
-            </li>
+            <li key={`${s.signedAt}-${i}`}>{s.role === 'inspector' ? 'Inspektør' : s.role === 'verneombud' ? 'Verneombud' : 'Ledelse'}: {s.signerName} — {formatWhenLocal(s.signedAt)}</li>
           ))}
         </ul>
         <div className="mt-2 flex flex-wrap gap-2">
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value as HseProtocolSignature['role'])}
-            className="rounded border border-neutral-200 px-2 py-1"
-          >
+          <select value={role} onChange={(e) => setRole(e.target.value as HseProtocolSignature['role'])} className="rounded border border-neutral-200 px-2 py-1">
             <option value="inspector">Inspektør</option>
             <option value="verneombud">Verneombud</option>
             <option value="management">Ledelse</option>
           </select>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Fullt navn"
-            className="min-w-[140px] flex-1 rounded border border-neutral-200 px-2 py-1"
-          />
-          <button
-            type="button"
-            onClick={() => {
-              if (hse.signInspectionProtocol(ins.id, name, role)) setName('')
-            }}
-            className="rounded bg-[#1a3d32] px-2 py-1 text-white"
-          >
-            Signer
-          </button>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Fullt navn" className="min-w-[140px] flex-1 rounded border border-neutral-200 px-2 py-1" />
+          <button type="button" onClick={() => { if (hse.signInspectionProtocol(ins.id, name, role)) setName('') }} className="rounded bg-[#1a3d32] px-2 py-1 text-white">Signer</button>
         </div>
       </div>
       <div className="mt-2">
-        <AddTaskLink
-          title={`Oppfølging inspeksjon: ${ins.title.slice(0, 60)}`}
-          description={ins.followUp || ins.findings?.slice(0, 200)}
-          module="hse"
-          sourceType="hse_inspection"
-          sourceId={ins.id}
-          sourceLabel={ins.title}
-          ownerRole={ins.responsible || 'Ansvarlig'}
-        />
+        <AddTaskLink title={`Oppfølging inspeksjon: ${ins.title.slice(0, 60)}`} description={ins.followUp || ins.findings?.slice(0, 200)} module="hse" sourceType="hse_inspection" sourceId={ins.id} sourceLabel={ins.title} ownerRole={ins.responsible || 'Ansvarlig'} />
       </div>
     </li>
   )
 }
 
-function SafetyRoundCard({
-  round,
-  checklist,
-  hse,
-}: {
-  round: SafetyRound
-  checklist: { id: string; label: string; lawRef: string }[]
-  hse: ReturnType<typeof useHse>
-}) {
+function SafetyRoundCard({ round, checklist, hse }: { round: SafetyRound; checklist: { id: string; label: string; lawRef: string }[]; hse: ReturnType<typeof useHse> }) {
   const hasIssue = Object.values(round.items).some((v) => v === 'issue')
+  function formatWhenLocal(iso: string) { try { return new Date(iso).toLocaleString('no-NO', { dateStyle: 'short', timeStyle: 'short' }) } catch { return iso } }
+  function statusLabelLocal(s: ChecklistItemStatus) { return s === 'ok' ? 'OK' : s === 'issue' ? 'Avvik' : 'N/A' }
   return (
     <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="font-semibold text-neutral-900">{round.title}</h3>
-          <p className="text-sm text-neutral-600">
-            {round.location} · {round.conductedBy}
-          </p>
-          <p className="text-xs text-neutral-500">{formatWhen(round.conductedAt)}</p>
+          <p className="text-sm text-neutral-600">{round.location} · {round.conductedBy}</p>
+          <p className="text-xs text-neutral-500">{formatWhenLocal(round.conductedAt)}</p>
         </div>
       </div>
       <div className="mt-4 border-t border-neutral-100 pt-4">
-        <h4 className="text-sm font-semibold text-neutral-900">Sjekkliste (vernerunde)</h4>
+        <h4 className="text-sm font-semibold text-neutral-900">Sjekkliste</h4>
         <ul className="mt-2 space-y-2">
           {checklist.map((item) => {
             const st = round.items[item.id] ?? 'na'
             return (
-              <li
-                key={item.id}
-                className="flex flex-col gap-2 rounded-lg bg-[#faf8f4] px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
-              >
+              <li key={item.id} className="flex flex-col gap-2 rounded-lg bg-[#faf8f4] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <span className="text-sm text-neutral-900">{item.label}</span>
                   <span className="mt-0.5 block text-xs text-neutral-500">{item.lawRef}</span>
                 </div>
                 <div className="flex shrink-0 gap-1">
                   {(['ok', 'issue', 'na'] as const).map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => hse.setChecklistStatus(round.id, item.id, v)}
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                        st === v
-                          ? v === 'issue'
-                            ? 'bg-amber-200 text-amber-950'
-                            : v === 'ok'
-                              ? 'bg-emerald-200 text-emerald-950'
-                              : 'bg-neutral-200 text-neutral-800'
-                          : 'bg-white ring-1 ring-neutral-200 hover:bg-neutral-50'
-                      }`}
-                    >
-                      {statusLabel(v)}
+                    <button key={v} type="button" onClick={() => hse.setChecklistStatus(round.id, item.id, v)} className={`rounded-full px-2.5 py-1 text-xs font-medium ${st === v ? v === 'issue' ? 'bg-amber-200 text-amber-950' : v === 'ok' ? 'bg-emerald-200 text-emerald-950' : 'bg-neutral-200 text-neutral-800' : 'bg-white ring-1 ring-neutral-200 hover:bg-neutral-50'}`}>
+                      {statusLabelLocal(v)}
                     </button>
                   ))}
                 </div>
@@ -748,26 +1027,13 @@ function SafetyRoundCard({
           })}
         </ul>
       </div>
-      <label className="mt-4 block text-xs font-medium text-neutral-500">Notater fra runden</label>
-      <textarea
-        value={round.notes}
-        onChange={(e) => hse.updateSafetyRound(round.id, { notes: e.target.value })}
-        rows={3}
-        className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-      />
-      {hasIssue ? (
+      <label className="mt-4 block text-xs font-medium text-neutral-500">Notater</label>
+      <textarea value={round.notes} onChange={(e) => hse.updateSafetyRound(round.id, { notes: e.target.value })} rows={3} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+      {hasIssue && (
         <div className="mt-3">
-          <AddTaskLink
-            title={`Avvik fra vernerunde: ${round.title.slice(0, 50)}`}
-            description={round.notes.slice(0, 300)}
-            module="hse"
-            sourceType="hse_safety_round"
-            sourceId={round.id}
-            sourceLabel={round.title}
-            ownerRole="Verneombud"
-          />
+          <AddTaskLink title={`Avvik fra vernerunde: ${round.title.slice(0, 50)}`} description={round.notes.slice(0, 300)} module="hse" sourceType="hse_safety_round" sourceId={round.id} sourceLabel={round.title} ownerRole="Verneombud" />
         </div>
-      ) : null}
+      )}
     </div>
   )
 }

@@ -68,6 +68,7 @@ const hseSubs: SubItem[] = [
   { label: 'Vernerunder', path: '/hse?tab=rounds', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'rounds' },
   { label: 'Inspeksjoner', path: '/hse?tab=inspections', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'inspections' },
   { label: 'Hendelser', path: '/hse?tab=incidents', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'incidents' },
+  { label: 'Sykefravær', path: '/hse?tab=sickness', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'sickness' },
   { label: 'AML & verneombud', path: '/hse?tab=aml', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'aml' },
   { label: 'Revisjonslogg', path: '/hse?tab=audit', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'audit' },
 ]
