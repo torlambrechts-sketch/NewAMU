@@ -4,6 +4,9 @@ import type { DocumentTemplate, LibraryDocument } from '../types/documents'
 export type DocumentCenterValue = {
   documents: LibraryDocument[]
   templates: DocumentTemplate[]
+  /** Master documentation checklist (suggested documents) — id -> done */
+  masterChecklistProgress: Record<string, boolean>
+  setMasterChecklistItem: (itemId: string, done: boolean) => void
   stats: {
     total: number
     published: number
@@ -32,9 +35,12 @@ export type DocumentCenterValue = {
         | 'complianceLinks'
         | 'readingReceipts'
         | 'nextReviewDueAt'
+        | 'attachments'
       >
     >,
   ) => void
+  addAttachment: (documentId: string, file: File) => Promise<{ ok: true } | { ok: false; error: string }>
+  removeAttachment: (documentId: string, attachmentId: string) => void
   saveVersion: (id: string, note?: string) => void
   submitForReview: (id: string) => void
   approveStep: (documentId: string, stepId: string) => void

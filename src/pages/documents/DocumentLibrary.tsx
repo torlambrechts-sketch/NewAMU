@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { DOCUMENT_CATEGORIES } from '../../data/documentCategories'
 import { Link } from 'react-router-dom'
 import { FileStack, Plus, Search } from 'lucide-react'
 import { useDocumentCenter } from '../../hooks/useDocumentCenter'
@@ -38,10 +39,12 @@ export function DocumentLibrary() {
   const { documents, stats } = useDocumentCenter()
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<string>('all')
+  const [catFilter, setCatFilter] = useState<string>('all')
 
   const filtered = useMemo(() => {
     return documents.filter((d) => {
       if (status !== 'all' && d.workflowStatus !== status) return false
+      if (catFilter !== 'all' && d.category !== catFilter) return false
       if (!q.trim()) return true
       const t = q.toLowerCase()
       return (
@@ -51,7 +54,7 @@ export function DocumentLibrary() {
         (d.lawRef?.toLowerCase().includes(t) ?? false)
       )
     })
-  }, [documents, q, status])
+  }, [documents, q, status, catFilter])
 
   return (
     <div className="space-y-6">
@@ -95,6 +98,12 @@ export function DocumentLibrary() {
             className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm text-[#2D403A]"
           >
             Kravmatrise
+          </Link>
+          <Link
+            to="/documents/checklist"
+            className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm text-[#2D403A]"
+          >
+            Dokumentasjonsplan
           </Link>
           <Link to="/documents/settings" className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm text-[#2D403A]">
             Innstillinger
@@ -145,6 +154,18 @@ export function DocumentLibrary() {
           <option value="in_review">Til godkjenning</option>
           <option value="published">Publisert</option>
           <option value="archived">Arkivert</option>
+        </select>
+        <select
+          value={catFilter}
+          onChange={(e) => setCatFilter(e.target.value)}
+          className="rounded-full border border-neutral-200 bg-white px-3 py-2 text-sm"
+        >
+          <option value="all">Alle kategorier</option>
+          {DOCUMENT_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
         </select>
       </div>
 

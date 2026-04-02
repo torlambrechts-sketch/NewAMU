@@ -57,6 +57,20 @@ export type ExternalModuleLink = {
   id: string
   label: string
   path: string
+  /** Group for filtering, e.g. Internkontroll, HMS */
+  category?: string
+}
+
+/** Uploaded file stored as data URL (demo; size limits apply). */
+export type DocumentAttachment = {
+  id: string
+  fileName: string
+  mimeType: string
+  sizeBytes: number
+  /** base64 data URL */
+  dataUrl: string
+  uploadedAt: string
+  uploadedBy: string
 }
 
 export type ElectronicSignature = {
@@ -96,6 +110,8 @@ export type LibraryDocument = {
   complianceLinks: ComplianceLink[]
   /** Phase 2: quick links to other atics modules */
   externalLinks: ExternalModuleLink[]
+  /** Uploaded files (PDF, images, etc.) */
+  attachments: DocumentAttachment[]
   /** Phase 2: template variable values {{key}} */
   templateVariables?: Record<string, string>
   /** Copied from template: checklist before first publish */

@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useDocumentCenter } from '../../hooks/useDocumentCenter'
+import { DOCUMENT_CATEGORIES } from '../../data/documentCategories'
+import { INTERNAL_SOURCE_PRESETS } from '../../data/internalSourceLinks'
 import { RichTextEditor } from '../../components/learning/RichTextEditor'
 import { WikiHtml } from '../../components/documents/WikiHtml'
 import { slugifyTitle } from '../../lib/wikiSlug'
@@ -21,11 +23,15 @@ export function DocumentEditor() {
     addComment,
     resolveComment,
     confirmReading,
+    addAttachment,
+    removeAttachment,
   } = useDocumentCenter()
 
   const doc = documents.find((d) => d.id === documentId)
   const [compareV1, setCompareV1] = useState<string | null>(null)
   const [commentDraft, setCommentDraft] = useState('')
+  const [uploadErr, setUploadErr] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const wikiRefs = useMemo(
     () =>
@@ -171,12 +177,21 @@ export function DocumentEditor() {
       <div className="grid gap-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm md:grid-cols-2">
         <label className="text-sm">
           <span className="text-xs font-medium text-neutral-500">Kategori</span>
-          <input
+          <select
             value={doc.category}
             disabled={readOnly}
             onChange={(e) => updateDocument(doc.id, { category: e.target.value })}
             className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm disabled:bg-neutral-50"
-          />
+          >
+            {!DOCUMENT_CATEGORIES.includes(doc.category as (typeof DOCUMENT_CATEGORIES)[number]) ? (
+              <option value={doc.category}>{doc.category}</option>
+            ) : null}
+            {DOCUMENT_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="text-sm">
           <span className="text-xs font-medium text-neutral-500">Eier</span>
@@ -339,33 +354,167 @@ export function DocumentEditor() {
         </div>
       ) : null}
 
-      {!readOnly ? (
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-          <h2 className="font-semibold text-[#2D403A]">Koblinger til moduler</h2>
-          <p className="text-xs text-neutral-500">Snarveier til andre atics-sider (manuelt).</p>
-          <ul className="mt-2 space-y-2">
-            {(doc.externalLinks ?? []).map((l) => (
-              <li key={l.id} className="flex gap-2 text-sm">
-                <input
-                  value={l.label}
-                  onChange={(e) => {
-                    const next = (doc.externalLinks ?? []).map((x) =>
-                      x.id === l.id ? { ...x, label: e.target.value } : x,
-                    )
-                    updateDocument(doc.id, { externalLinks: next })
-                  }}
-                  className="flex-1 rounded border px-2 py-1"
-                />
-                <input
-                  value={l.path}
-                  onChange={(e) => {
-                    const next = (doc.externalLinks ?? []).map((x) =>
-                      x.id === l.id ? { ...x, path: e.target.value } : x,
-                    )
-                    updateDocument(doc.id, { externalLinks: next })
-                  }}
-                  className="flex-1 rounded border px-2 py-1 font-mono text-xs"
-                />
+      <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+        <h2 className="font-semibold text-[#2D403A]">Vedlegg</h2>
+        <p className="text-xs text-neutral-500">
+          PDF, bilder eller tekst (maks ca. 4 MB per fil i demo). Lagres i nettleseren.
+        </p>
+        {!readOnly ? (
+          <>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,image/*,.txt,application/pdf"
+              className="hidden"
+              onChange={async (e) => {
+                const f = e.target.files?.[0]
+                setUploadErr(null)
+                if (!f) return
+                const r = await addAttachment(doc.id, f)
+                if (!r.ok) setUploadErr(r.error)
+                e.target.value = ''
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="mt-2 rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            >
+              Last opp fil
+            </button>
+            {uploadErr ? <p className="mt-2 text-sm text-red-700">{uploadErr}</p> : null}
+          </>
+        ) : null}
+        <ul className="mt-3 space-y-2">
+          {(doc.attachments ?? []).map((a) => (
+            <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-neutral-100 bg-neutral-50 px-3 py-2 text-sm">
+              <span>
+                {a.fileName}{' '}
+                <span className="text-xs text-neutral-500">
+                  ({Math.round(a.sizeBytes / 1024)} KB)
+                </span>
+              </span>
+              <span className="flex gap-2">
+                <a
+                  href={a.dataUrl}
+                  download={a.fileName}
+                  className="text-emerald-800 underline"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Åpne / last ned
+                </a>
+                {!readOnly ? (
+                  <button type="button" className="text-red-600" onClick={() => removeAttachment(doc.id, a.id)}>
+                    Slett
+                  </button>
+                ) : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+        {(doc.attachments ?? []).length === 0 ? (
+          <p className="mt-2 text-xs text-neutral-500">Ingen vedlegg.</p>
+        ) : null}
+      </div>
+
+      <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+        <h2 className="font-semibold text-[#2D403A]">Interne kilder (atics)</h2>
+        <p className="text-xs text-neutral-500">
+          Kategoriserte snarveier til moduler. Velg forhåndsdefinert eller legg til egen sti.
+        </p>
+        {!readOnly ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            <select
+              className="max-w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+              defaultValue=""
+              onChange={(e) => {
+                const v = e.target.value
+                if (!v) return
+                const preset = INTERNAL_SOURCE_PRESETS.find((p) => `${p.path}::${p.label}` === v)
+                e.target.value = ''
+                if (!preset) return
+                updateDocument(doc.id, {
+                  externalLinks: [
+                    ...(doc.externalLinks ?? []),
+                    {
+                      id: crypto.randomUUID(),
+                      label: preset.label,
+                      path: preset.path,
+                      category: preset.category,
+                    },
+                  ],
+                })
+              }}
+            >
+              <option value="">+ Legg til intern kilde…</option>
+              {[...new Set(INTERNAL_SOURCE_PRESETS.map((p) => p.category))].map((cat) => (
+                <optgroup key={cat} label={cat}>
+                  {INTERNAL_SOURCE_PRESETS.filter((p) => p.category === cat).map((p) => (
+                    <option key={p.path + p.label} value={`${p.path}::${p.label}`}>
+                      {p.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        <ul className="mt-3 space-y-2">
+          {(doc.externalLinks ?? []).map((l) => (
+            <li key={l.id} className="flex flex-wrap items-start gap-2 rounded border border-neutral-100 px-3 py-2 text-sm">
+              <div className="min-w-0 flex-1">
+                {l.category ? (
+                  <span className="mb-1 inline-block rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600">
+                    {l.category}
+                  </span>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  {readOnly ? (
+                    <>
+                      <Link to={l.path} className="font-medium text-emerald-800 underline">
+                        {l.label}
+                      </Link>
+                      <code className="text-xs text-neutral-500">{l.path}</code>
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        value={l.label}
+                        onChange={(e) => {
+                          const next = (doc.externalLinks ?? []).map((x) =>
+                            x.id === l.id ? { ...x, label: e.target.value } : x,
+                          )
+                          updateDocument(doc.id, { externalLinks: next })
+                        }}
+                        className="min-w-[120px] flex-1 rounded border px-2 py-1"
+                      />
+                      <input
+                        value={l.path}
+                        onChange={(e) => {
+                          const next = (doc.externalLinks ?? []).map((x) =>
+                            x.id === l.id ? { ...x, path: e.target.value } : x,
+                          )
+                          updateDocument(doc.id, { externalLinks: next })
+                        }}
+                        className="min-w-[160px] flex-1 rounded border px-2 py-1 font-mono text-xs"
+                      />
+                      <input
+                        value={l.category ?? ''}
+                        placeholder="Kategori"
+                        onChange={(e) => {
+                          const next = (doc.externalLinks ?? []).map((x) =>
+                            x.id === l.id ? { ...x, category: e.target.value || undefined } : x,
+                          )
+                          updateDocument(doc.id, { externalLinks: next })
+                        }}
+                        className="w-40 rounded border px-2 py-1 text-xs"
+                      />
+                    </>
+                  )}
+                </div>
+              </div>
+              {!readOnly ? (
                 <button
                   type="button"
                   className="text-red-600"
@@ -377,9 +526,11 @@ export function DocumentEditor() {
                 >
                   ×
                 </button>
-              </li>
-            ))}
-          </ul>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+        {!readOnly ? (
           <button
             type="button"
             className="mt-2 text-sm text-emerald-800 underline"
@@ -387,15 +538,15 @@ export function DocumentEditor() {
               updateDocument(doc.id, {
                 externalLinks: [
                   ...(doc.externalLinks ?? []),
-                  { id: crypto.randomUUID(), label: 'Internkontroll', path: '/internal-control' },
+                  { id: crypto.randomUUID(), label: 'Ny lenke', path: '/', category: 'Annet' },
                 ],
               })
             }
           >
-            + Legg til lenke
+            + Tom rad (rediger sti)
           </button>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
         <h2 className="font-semibold text-[#2D403A]">Diskusjon</h2>

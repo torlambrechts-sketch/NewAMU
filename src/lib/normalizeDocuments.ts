@@ -26,6 +26,7 @@ export function normalizeLibraryDocument(raw: Partial<LibraryDocument> & { id: s
     readingReceipts: Array.isArray(raw.readingReceipts) ? raw.readingReceipts : [],
     complianceLinks: Array.isArray(raw.complianceLinks) ? raw.complianceLinks : [],
     externalLinks: Array.isArray(raw.externalLinks) ? raw.externalLinks : [],
+    attachments: Array.isArray(raw.attachments) ? raw.attachments : [],
     templateVariables:
       raw.templateVariables && typeof raw.templateVariables === 'object' ? raw.templateVariables : {},
     prePublishChecklist: Array.isArray(raw.prePublishChecklist) ? raw.prePublishChecklist : undefined,

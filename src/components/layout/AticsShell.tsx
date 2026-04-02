@@ -104,6 +104,7 @@ function isDocumentsLibraryPath(pathname: string): boolean {
   if (pathname === '/documents/settings' || pathname.startsWith('/documents/settings')) return false
   if (pathname === '/documents/search') return false
   if (pathname === '/documents/compliance') return false
+  if (pathname === '/documents/checklist') return false
   return pathname.startsWith('/documents/')
 }
 
@@ -134,6 +135,11 @@ const documentsSubs: SubItem[] = [
     label: 'Kravmatrise',
     path: '/documents/compliance',
     match: ({ pathname }) => pathname === '/documents/compliance',
+  },
+  {
+    label: 'Dok.plan',
+    path: '/documents/checklist',
+    match: ({ pathname }) => pathname === '/documents/checklist',
   },
 ]
 
