@@ -243,6 +243,8 @@ export function AticsShell() {
   }
 
   // ── Sidebar layout ──────────────────────────────────────────────────────────
+  const [railCollapsed, setRailCollapsed] = useState(false)
+
   if (navMode === 'sidebar') {
     const activeModule = activeModuleForPath(location.pathname)
     const hasSubs = activeModule.subs.length > 0
@@ -250,7 +252,11 @@ export function AticsShell() {
     return (
       <div className="flex h-screen overflow-hidden">
         {/* ── Icon rail ───────────────────────────────────────────────────── */}
-        <aside className="flex w-14 shrink-0 flex-col bg-[#1a3d32]">
+        <aside
+          className={`relative flex shrink-0 flex-col bg-[#1a3d32] transition-all duration-200 ${
+            railCollapsed ? 'w-0 overflow-hidden' : 'w-[4.5rem]'
+          }`}
+        >
           {/* Logo */}
           <div className="flex h-14 shrink-0 items-center justify-center border-b border-white/10">
             <NavLink to="/" aria-label="Home" className="flex items-center justify-center rounded-lg p-1.5 hover:bg-white/10">
@@ -258,8 +264,8 @@ export function AticsShell() {
             </NavLink>
           </div>
 
-          {/* Module icons */}
-          <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-1.5 py-3" aria-label="Primary">
+          {/* Module icons — more vertical breathing room */}
+          <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-2 py-4" aria-label="Primary">
             {allModules.map((mod) => {
               const Icon = mod.icon
               const isActive = activeModule.to === mod.to
@@ -269,7 +275,7 @@ export function AticsShell() {
                   to={mod.to}
                   end={mod.end}
                   title={mod.label}
-                  className={`flex items-center justify-center rounded-lg p-2.5 transition-colors ${
+                  className={`flex items-center justify-center rounded-lg p-3 transition-colors ${
                     isActive
                       ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/60'
                       : 'text-white/60 hover:bg-white/10 hover:text-white'
@@ -282,13 +288,13 @@ export function AticsShell() {
           </nav>
 
           {/* Bottom: settings + avatar */}
-          <div className="flex flex-col gap-0.5 border-t border-white/10 px-1.5 py-3">
+          <div className="flex flex-col gap-1.5 border-t border-white/10 px-2 py-4">
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setSettingsOpen((o) => !o)}
                 title="Settings"
-                className={`flex w-full items-center justify-center rounded-lg p-2.5 transition-colors ${
+                className={`flex w-full items-center justify-center rounded-lg p-3 transition-colors ${
                   settingsOpen ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white'
                 }`}
                 aria-label="Settings"
@@ -296,7 +302,7 @@ export function AticsShell() {
                 <Settings className="size-[1.125rem]" />
               </button>
               {settingsOpen && (
-                <div className="bottom-full left-full absolute mb-2 ml-2">
+                <div className="absolute bottom-full left-full mb-2 ml-2">
                   <NavModePanel
                     navMode={navMode}
                     onChange={handleNavModeChange}
@@ -305,7 +311,7 @@ export function AticsShell() {
                 </div>
               )}
             </div>
-            <div className="flex justify-center pt-1">
+            <div className="flex justify-center">
               <div
                 className="size-8 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-white/30"
                 role="img"
@@ -316,7 +322,7 @@ export function AticsShell() {
         </aside>
 
         {/* ── Sub-nav panel ───────────────────────────────────────────────── */}
-        {hasSubs && (
+        {hasSubs && !railCollapsed && (
           <aside className="flex w-52 shrink-0 flex-col overflow-hidden border-r border-white/5 bg-[#15302a]">
             {/* Module name header */}
             <div className="flex h-14 shrink-0 items-center border-b border-white/10 px-4">
@@ -336,18 +342,18 @@ export function AticsShell() {
                   <NavLink
                     key={item.path + item.label}
                     to={item.path}
-                    className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
                       active
                         ? 'bg-white/10 font-medium text-white'
                         : 'text-white/60 hover:bg-white/5 hover:text-white/90'
                     }`}
                   >
-                    {active && (
-                      <span className="h-3.5 w-0.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
-                    )}
-                    {!active && (
-                      <span className="h-3.5 w-0.5 shrink-0" aria-hidden />
-                    )}
+                    <span
+                      className={`h-3.5 w-0.5 shrink-0 rounded-full transition-colors ${
+                        active ? 'bg-[#c9a227]' : 'bg-transparent'
+                      }`}
+                      aria-hidden
+                    />
                     {item.label}
                   </NavLink>
                 )
@@ -358,14 +364,25 @@ export function AticsShell() {
 
         {/* ── Content area ────────────────────────────────────────────────── */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Slim utility bar */}
-          <header className="flex h-14 shrink-0 items-center gap-3 border-b border-neutral-200/80 bg-white px-4 md:px-6">
-            <div className="relative flex-1 max-w-md">
+          {/* Utility bar — same colour as page background */}
+          <header className="flex h-14 shrink-0 items-center gap-3 border-b border-neutral-300/40 bg-[#f5f0e8] px-4 md:px-5">
+            {/* Collapse / expand toggle */}
+            <button
+              type="button"
+              onClick={() => setRailCollapsed((c) => !c)}
+              className="rounded-lg p-1.5 text-neutral-500 hover:bg-black/5 hover:text-neutral-800"
+              aria-label={railCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={railCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              <PanelLeft className="size-4" />
+            </button>
+
+            <div className="relative flex-1 max-w-sm">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
               <input
                 type="search"
                 placeholder="Find anything"
-                className="w-full rounded-full border border-neutral-200 bg-neutral-50 py-1.5 pl-9 pr-4 text-sm placeholder:text-neutral-400 focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+                className="w-full rounded-full border border-neutral-300/70 bg-white/70 py-1.5 pl-9 pr-4 text-sm placeholder:text-neutral-400 focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
               />
             </div>
             <div className="ml-auto flex items-center gap-2">
@@ -378,13 +395,13 @@ export function AticsShell() {
               </button>
               <button
                 type="button"
-                className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100"
+                className="rounded-lg p-1.5 text-neutral-500 hover:bg-black/5"
                 aria-label="Open external"
               >
                 <ExternalLink className="size-4" />
               </button>
               <div
-                className="size-8 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-neutral-200"
+                className="size-8 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-neutral-300/50"
                 role="img"
                 aria-label="User profile"
               />
