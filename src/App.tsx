@@ -32,6 +32,7 @@ import { DocumentCompliance } from './pages/documents/DocumentCompliance'
 import { DocumentChecklist } from './pages/documents/DocumentChecklist'
 import { WorkflowModule } from './pages/WorkflowModule'
 import { WorkflowEditorPage } from './pages/WorkflowEditorPage'
+import { DashboardsLayout } from './pages/dashboards/DashboardsLayout'
 
 function App() {
   return (
@@ -52,6 +53,7 @@ function App() {
           <Route path="internal-control" element={<InternalControlModule />} />
           <Route path="workflows" element={<WorkflowModule />} />
           <Route path="workflows/:workflowId" element={<WorkflowEditorPage />} />
+          <Route path="dashboards" element={<DashboardsLayout />} />
           <Route path="documents" element={<DocumentLayout />}>
             <Route index element={<DocumentLibrary />} />
             <Route path="new" element={<DocumentNew />} />

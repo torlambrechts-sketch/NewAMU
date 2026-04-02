@@ -297,11 +297,36 @@ export function useInternalControl() {
 
   const stats = useMemo(() => {
     const w = state.whistleCases
+    const whistleByStatus: Record<WhistleCaseStatus, number> = {
+      received: 0,
+      triage: 0,
+      investigation: 0,
+      internal_review: 0,
+      closed: 0,
+    }
+    for (const c of w) {
+      whistleByStatus[c.status]++
+    }
+    let rosOpenRiskRows = 0
+    for (const ros of state.rosAssessments) {
+      for (const row of ros.rows) {
+        if (!row.done && row.riskScore >= 6) rosOpenRiskRows++
+      }
+    }
+    const today = new Date().toISOString().slice(0, 10)
+    const annualSorted = [...state.annualReviews].sort((a, b) => b.year - a.year)
+    const nextAnnualDue = annualSorted[0]?.nextReviewDue ?? null
+    const annualOverdue = nextAnnualDue != null && nextAnnualDue < today
+
     return {
       whistleOpen: w.filter((c) => c.status !== 'closed').length,
       whistleInReview: w.filter((c) => c.status === 'internal_review').length,
+      whistleByStatus,
       rosCount: state.rosAssessments.length,
+      rosOpenRiskRows,
       annualCount: state.annualReviews.length,
+      nextAnnualDue,
+      annualOverdue,
     }
   }, [state])
 

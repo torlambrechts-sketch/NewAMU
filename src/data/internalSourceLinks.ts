@@ -86,4 +86,9 @@ export const INTERNAL_SOURCE_PRESETS: InternalSourcePreset[] = [
     label: 'Prosessbygger',
     path: '/workflows',
   },
+  {
+    category: 'Oppfølging',
+    label: 'Samlet dashboard',
+    path: '/dashboards',
+  },
 ]

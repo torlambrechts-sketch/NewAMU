@@ -9,6 +9,7 @@ import {
   HardHat,
   HeartPulse,
   LayoutGrid,
+  LayoutDashboard,
   Search,
   Settings,
   Star,
@@ -188,6 +189,14 @@ const workflowSubs: SubItem[] = [
   },
 ]
 
+const dashboardsSubs: SubItem[] = [
+  {
+    label: 'Oversikt',
+    path: '/dashboards',
+    match: ({ pathname }) => pathname === '/dashboards',
+  },
+]
+
 const internalControlSubs: SubItem[] = [
   {
     label: 'Oversikt',
@@ -230,6 +239,7 @@ const navMainRest = [
   { to: '/internal-control', label: 'Internkontroll', end: false, icon: ClipboardList },
   { to: '/workflows', label: 'Prosesser', end: false, icon: GitBranch },
   { to: '/documents', label: 'Documents', end: false, icon: FileText },
+  { to: '/dashboards', label: 'Dashboards', end: false, icon: LayoutDashboard },
   { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid },
   { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap },
 ] as const
@@ -242,6 +252,7 @@ function subNavForPath(pathname: string): SubItem[] {
   if (pathname.startsWith('/org-health')) return orgHealthSubs
   if (pathname === '/internal-control') return internalControlSubs
   if (pathname.startsWith('/workflows')) return workflowSubs
+  if (pathname === '/dashboards') return dashboardsSubs
   if (pathname === '/hse') return hseSubs
   if (pathname === '/tasks') return tasksSubs
   return []
