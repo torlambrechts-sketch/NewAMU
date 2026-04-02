@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LABOR_METRIC_DEFINITIONS } from '../data/orgHealthMetrics'
 import type {
+  AmlReportKind,
+  AnonymousAmlReport,
   LaborMetricEntry,
   NavSickLeaveReport,
   OrgHealthAuditEntry,
@@ -10,7 +12,8 @@ import type {
   SurveyResponse,
 } from '../types/orgHealth'
 
-const STORAGE_KEY = 'atics-org-health-v1'
+const STORAGE_KEY = 'atics-org-health-v2'
+const LEGACY_KEY = 'atics-org-health-v1'
 
 type OrgHealthState = {
   surveys: Survey[]
@@ -20,6 +23,8 @@ type OrgHealthState = {
   auditTrail: OrgHealthAuditEntry[]
   /** surveyId -> response tokens for duplicate prevention */
   responseTokens: Record<string, string[]>
+  /** Anonymous AML-aligned reports (no free-text content stored) */
+  anonymousAmlReports: AnonymousAmlReport[]
 }
 
 function auditEntry(
@@ -84,10 +89,36 @@ const seedNav: NavSickLeaveReport[] = [
   },
 ]
 
+function migrateLegacy(parsed: Record<string, unknown>): OrgHealthState {
+  return {
+    surveys: Array.isArray(parsed.surveys) && (parsed.surveys as unknown[]).length ? (parsed.surveys as Survey[]) : [seedSurvey],
+    responses: Array.isArray(parsed.responses) ? (parsed.responses as SurveyResponse[]) : [],
+    navReports: Array.isArray(parsed.navReports) ? (parsed.navReports as NavSickLeaveReport[]) : seedNav,
+    laborMetrics: Array.isArray(parsed.laborMetrics) ? (parsed.laborMetrics as LaborMetricEntry[]) : [],
+    auditTrail: Array.isArray(parsed.auditTrail) ? (parsed.auditTrail as OrgHealthAuditEntry[]) : [],
+    responseTokens:
+      parsed.responseTokens && typeof parsed.responseTokens === 'object'
+        ? (parsed.responseTokens as Record<string, string[]>)
+        : {},
+    anonymousAmlReports: [],
+  }
+}
+
 function load(): OrgHealthState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
+      const legacyRaw = localStorage.getItem(LEGACY_KEY)
+      if (legacyRaw) {
+        try {
+          const parsed = JSON.parse(legacyRaw) as Record<string, unknown>
+          const migrated = migrateLegacy(parsed)
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated))
+          return migrated
+        } catch {
+          /* fall through */
+        }
+      }
       return {
         surveys: [seedSurvey],
         responses: [],
@@ -99,6 +130,7 @@ function load(): OrgHealthState {
           }),
         ],
         responseTokens: {},
+        anonymousAmlReports: [],
       }
     }
     const p = JSON.parse(raw) as OrgHealthState
@@ -109,6 +141,7 @@ function load(): OrgHealthState {
       laborMetrics: Array.isArray(p.laborMetrics) ? p.laborMetrics : [],
       auditTrail: Array.isArray(p.auditTrail) ? p.auditTrail : [],
       responseTokens: p.responseTokens && typeof p.responseTokens === 'object' ? p.responseTokens : {},
+      anonymousAmlReports: Array.isArray(p.anonymousAmlReports) ? p.anonymousAmlReports : [],
     }
   } catch {
     return {
@@ -118,6 +151,7 @@ function load(): OrgHealthState {
       laborMetrics: [],
       auditTrail: [],
       responseTokens: {},
+      anonymousAmlReports: [],
     }
   }
 }
@@ -386,15 +420,55 @@ export function useOrgHealth() {
       laborMetrics: [],
       auditTrail: [auditEntry('survey_created', 'Demodata tilbakestilt.')],
       responseTokens: {},
+      anonymousAmlReports: [],
     }
     setState(next)
     save(next)
   }, [])
 
+  const submitAnonymousAmlReport = useCallback(
+    (
+      kind: AmlReportKind,
+      options: { detailsIndicated: boolean; urgency: AnonymousAmlReport['urgency'] },
+    ): boolean => {
+      const r: AnonymousAmlReport = {
+        id: crypto.randomUUID(),
+        kind,
+        submittedAt: new Date().toISOString(),
+        detailsIndicated: options.detailsIndicated,
+        urgency: options.urgency,
+      }
+      setState((s) => ({
+        ...s,
+        anonymousAmlReports: [r, ...s.anonymousAmlReports],
+      }))
+      appendAudit('anonymous_aml_report', 'Anonym AML-henvendelse registrert (kun kategori, ikke innhold).', {
+        kind,
+        urgency: options.urgency,
+        detailsIndicated: options.detailsIndicated,
+      })
+      return true
+    },
+    [appendAudit],
+  )
+
+  const amlReportStats = useMemo(() => {
+    const byKind: Partial<Record<AmlReportKind, number>> = {}
+    for (const r of state.anonymousAmlReports) {
+      byKind[r.kind] = (byKind[r.kind] ?? 0) + 1
+    }
+    return {
+      total: state.anonymousAmlReports.length,
+      byKind,
+      lastAt: state.anonymousAmlReports[0]?.submittedAt ?? null,
+    }
+  }, [state.anonymousAmlReports])
+
   return {
     ...state,
     aggregates,
     navSummary,
+    amlReportStats,
     createSurvey,
     addQuestion,
     openSurvey,
@@ -402,6 +476,7 @@ export function useOrgHealth() {
     submitResponse,
     addNavReport,
     addLaborMetric,
+    submitAnonymousAmlReport,
     resetDemo,
     metricDefinitions: LABOR_METRIC_DEFINITIONS,
   }

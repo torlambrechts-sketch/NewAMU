@@ -9,17 +9,20 @@ import {
   History,
   Plus,
   Send,
+  ShieldAlert,
 } from 'lucide-react'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
+import { AML_REPORT_KINDS, labelForAmlReportKind } from '../data/amlAnonymousReporting'
 import { definitionForKey } from '../data/orgHealthMetrics'
 import { useOrgHealth } from '../hooks/useOrgHealth'
-import type { LaborMetricKey, Survey, SurveyQuestion } from '../types/orgHealth'
+import type { AmlReportKind, LaborMetricKey, Survey, SurveyQuestion } from '../types/orgHealth'
 
 const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: HeartPulse },
   { id: 'surveys' as const, label: 'Undersøkelser', icon: ClipboardCheck },
   { id: 'nav' as const, label: 'Sykefravær (NAV)', icon: FileSpreadsheet },
   { id: 'metrics' as const, label: 'AML-indikatorer', icon: BarChart3 },
+  { id: 'reporting' as const, label: 'Anonym rapportering', icon: ShieldAlert },
   { id: 'audit' as const, label: 'Logg', icon: History },
 ]
 
@@ -69,6 +72,10 @@ export function OrgHealthModule() {
     textValue: '',
     notes: '',
   })
+  const [reportKind, setReportKind] = useState<AmlReportKind>('psychosocial')
+  const [reportUrgency, setReportUrgency] = useState<'low' | 'medium' | 'high'>('medium')
+  const [reportDetails, setReportDetails] = useState('')
+  const [reportSubmitted, setReportSubmitted] = useState(false)
 
   const openSurveys = useMemo(
     () => oh.surveys.filter((s) => s.status === 'open'),
@@ -132,6 +139,10 @@ export function OrgHealthModule() {
                 </div>
                 <div className="text-sm text-neutral-600">Siste sykefravær (NAV-felt)</div>
               </div>
+              <div className="rounded-xl bg-amber-50/90 p-4 ring-1 ring-amber-200/80 sm:col-span-3">
+                <div className="text-2xl font-semibold text-[#1a3d32]">{oh.amlReportStats.total}</div>
+                <div className="text-sm text-neutral-600">Anonyme AML-henvendelser (totalt)</div>
+              </div>
             </div>
             <p className="mt-4 text-sm text-neutral-600">
               Gjennomsnitt sykefravær registrert:{' '}
@@ -161,6 +172,19 @@ export function OrgHealthModule() {
             >
               AML-indikatorer
             </button>
+            <button
+              type="button"
+              onClick={() => setTab('reporting')}
+              className="mt-2 w-full rounded-xl border border-amber-200/90 bg-amber-50/80 py-2.5 text-sm font-medium text-[#1a3d32] hover:bg-amber-50"
+            >
+              Anonym rapportering (AML)
+            </button>
+            <Link
+              to="/org-health/settings"
+              className="mt-2 block w-full rounded-xl border border-neutral-200 py-2.5 text-center text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
+            >
+              Veikart & planer
+            </Link>
             <div className="mt-3 flex justify-center">
               <AddTaskLink
                 title="Oppfølging organisasjonshelse"
@@ -489,6 +513,167 @@ export function OrgHealthModule() {
               </table>
             </div>
           </div>
+        </div>
+      )}
+
+      {tab === 'reporting' && (
+        <div className="mt-8 space-y-8">
+          <div className="rounded-2xl border border-amber-200/90 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+            <strong>Anonym rapportering.</strong> Fritekst du skriver nedenfor{' '}
+            <strong>lagres ikke</strong> — kun kategori, hastegrad og om du indikerte at du hadde mer å si. HR ser
+            aggregerte oppføringer for oppfølging. Henvisninger til AML er illustrative — verifiser mot{' '}
+            <a href="https://lovdata.no" className="font-medium underline" target="_blank" rel="noreferrer">
+              lovdata.no
+            </a>{' '}
+            og interne rutiner. Ved akutt fare: ring 113.
+          </div>
+
+          <section className="rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-neutral-900">Send anonym melding</h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              Velg type henvendelse i tråd med arbeidsmiljøloven (varsling, arbeidsskade, trakassering, vold, psykososialt
+              miljø m.m.).
+            </p>
+            {reportSubmitted ? (
+              <p className="mt-6 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900">
+                Takk — meldingen er registrert anonymt. Ta kontakt med verneombud eller HR etter avtalte kanaler om du
+                trenger oppfølging.
+              </p>
+            ) : (
+              <form
+                className="mt-6 space-y-4"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  const detailsIndicated = reportDetails.trim().length > 0
+                  oh.submitAnonymousAmlReport(reportKind, {
+                    detailsIndicated,
+                    urgency: reportUrgency,
+                  })
+                  setReportDetails('')
+                  setReportSubmitted(true)
+                }}
+              >
+                <div>
+                  <label className="text-xs font-medium text-neutral-500">Kategori</label>
+                  <select
+                    value={reportKind}
+                    onChange={(e) => setReportKind(e.target.value as AmlReportKind)}
+                    className="mt-1 w-full max-w-lg rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+                  >
+                    {AML_REPORT_KINDS.map((k) => (
+                      <option key={k.id} value={k.id}>
+                        {k.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-xs text-neutral-500">
+                    {AML_REPORT_KINDS.find((k) => k.id === reportKind)?.hint}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-500">Hastegrad (internt skjønn)</label>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {(
+                      [
+                        ['low', 'Lav'],
+                        ['medium', 'Middels'],
+                        ['high', 'Høy'],
+                      ] as const
+                    ).map(([v, lab]) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setReportUrgency(v)}
+                        className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+                          reportUrgency === v
+                            ? 'bg-[#1a3d32] text-white'
+                            : 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
+                        }`}
+                      >
+                        {lab}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-500">
+                    Merknad (valgfritt) — lagres <strong>ikke</strong>
+                  </label>
+                  <textarea
+                    value={reportDetails}
+                    onChange={(e) => setReportDetails(e.target.value)}
+                    rows={4}
+                    placeholder="Skriv her om du vil — innholdet slettes ved innsending og lagres ikke."
+                    className="mt-1 w-full rounded-xl border border-dashed border-amber-300/80 bg-amber-50/30 px-3 py-2 text-sm"
+                  />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Vi registrerer kun om du skrev noe (ja/nei), ikke teksten.
+                  </p>
+                </div>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#142e26]"
+                >
+                  <Send className="size-4" />
+                  Send anonymt
+                </button>
+              </form>
+            )}
+          </section>
+
+          <section className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
+            <div className="border-b border-neutral-200 bg-gradient-to-r from-[#1a3d32]/5 to-amber-50/80 px-4 py-3">
+              <h2 className="font-semibold text-neutral-900">Innsendte meldinger (HR-oversikt)</h2>
+              <p className="mt-1 text-xs text-neutral-500">
+                Ingen fritekst — kun kategori, tidspunkt, hastegrad og om merknad ble indikert.
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              {oh.anonymousAmlReports.length === 0 ? (
+                <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen meldinger ennå.</p>
+              ) : (
+                <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-neutral-200 bg-neutral-50 text-xs font-semibold uppercase tracking-wide text-neutral-600">
+                      <th className="px-4 py-3">Tid</th>
+                      <th className="px-4 py-3">Kategori</th>
+                      <th className="px-4 py-3">Hastegrad</th>
+                      <th className="px-4 py-3">Merknad indikert</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {oh.anonymousAmlReports.map((r, i) => (
+                      <tr
+                        key={r.id}
+                        className={`border-b border-neutral-100 ${
+                          i % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'
+                        }`}
+                      >
+                        <td className="px-4 py-2.5 text-neutral-700">{formatWhen(r.submittedAt)}</td>
+                        <td className="px-4 py-2.5 font-medium text-[#1a3d32]">
+                          {labelForAmlReportKind(r.kind)}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                              r.urgency === 'high'
+                                ? 'bg-red-100 text-red-900'
+                                : r.urgency === 'medium'
+                                  ? 'bg-amber-100 text-amber-900'
+                                  : 'bg-neutral-100 text-neutral-700'
+                            }`}
+                          >
+                            {r.urgency === 'high' ? 'Høy' : r.urgency === 'medium' ? 'Middels' : 'Lav'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-neutral-600">{r.detailsIndicated ? 'Ja' : 'Nei'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </section>
         </div>
       )}
 

@@ -70,6 +70,29 @@ export type LaborMetricEntry = {
   createdAt: string
 }
 
+/** AML-oriented anonymous reporting categories (illustrative — verify mot avtaler og lovdata.no). */
+export type AmlReportKind =
+  | 'work_injury_illness'
+  | 'near_miss'
+  | 'harassment_discrimination'
+  | 'violence_threat'
+  | 'psychosocial'
+  | 'whistleblowing'
+  | 'other'
+
+/**
+ * Anonymous report record: no free text persisted (privacy).
+ * HR sees kind, time, and whether the user indicated they had written details (text discarded).
+ */
+export type AnonymousAmlReport = {
+  id: string
+  kind: AmlReportKind
+  submittedAt: string
+  /** User filled the description box; content is not stored. */
+  detailsIndicated: boolean
+  urgency: 'low' | 'medium' | 'high'
+}
+
 export type OrgHealthAuditAction =
   | 'survey_created'
   | 'survey_opened'
@@ -78,6 +101,7 @@ export type OrgHealthAuditAction =
   | 'nav_report_added'
   | 'labor_metric_added'
   | 'settings_updated'
+  | 'anonymous_aml_report'
 
 export type OrgHealthAuditEntry = {
   id: string

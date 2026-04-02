@@ -57,7 +57,17 @@ const orgHealthSubs: SubItem[] = [
   { label: 'Undersøkelser', path: '/org-health?tab=surveys', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'surveys' },
   { label: 'Sykefravær (NAV)', path: '/org-health?tab=nav', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'nav' },
   { label: 'AML-indikatorer', path: '/org-health?tab=metrics', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'metrics' },
+  {
+    label: 'Anonym rapportering',
+    path: '/org-health?tab=reporting',
+    match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'reporting',
+  },
   { label: 'Logg', path: '/org-health?tab=audit', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'audit' },
+  {
+    label: 'Veikart',
+    path: '/org-health/settings',
+    match: ({ pathname }) => pathname === '/org-health/settings',
+  },
 ]
 
 const hseSubs: SubItem[] = [
@@ -134,7 +144,7 @@ function subNavForPath(pathname: string): SubItem[] {
   if (pathname.startsWith('/learning')) return learningSubs
   if (pathname === '/council') return councilSubs
   if (pathname === '/members') return membersSubs
-  if (pathname === '/org-health') return orgHealthSubs
+  if (pathname.startsWith('/org-health')) return orgHealthSubs
   if (pathname === '/hse') return hseSubs
   if (pathname === '/tasks') return tasksSubs
   return []
