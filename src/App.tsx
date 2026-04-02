@@ -30,6 +30,8 @@ import { DocumentSettings } from './pages/documents/DocumentSettings'
 import { DocumentSearch } from './pages/documents/DocumentSearch'
 import { DocumentCompliance } from './pages/documents/DocumentCompliance'
 import { DocumentChecklist } from './pages/documents/DocumentChecklist'
+import { WorkflowModule } from './pages/WorkflowModule'
+import { WorkflowEditorPage } from './pages/WorkflowEditorPage'
 
 function App() {
   return (
@@ -48,6 +50,8 @@ function App() {
           <Route path="org-health" element={<OrgHealthModule />} />
           <Route path="org-health/settings" element={<OrgHealthSettings />} />
           <Route path="internal-control" element={<InternalControlModule />} />
+          <Route path="workflows" element={<WorkflowModule />} />
+          <Route path="workflows/:workflowId" element={<WorkflowEditorPage />} />
           <Route path="documents" element={<DocumentLayout />}>
             <Route index element={<DocumentLibrary />} />
             <Route path="new" element={<DocumentNew />} />

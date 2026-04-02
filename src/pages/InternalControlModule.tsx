@@ -145,6 +145,12 @@ export function InternalControlModule() {
               >
                 Anonym rapportering
               </Link>
+              <Link
+                to="/workflows"
+                className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
+              >
+                Prosessbygger
+              </Link>
             </div>
           </div>
           <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">

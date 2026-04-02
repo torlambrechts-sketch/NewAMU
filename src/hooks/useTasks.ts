@@ -45,6 +45,7 @@ const ALL_SOURCES: TaskSourceType[] = [
   'council_compliance',
   'representatives',
   'survey',
+  'workflow_step',
   'hse_safety_round',
   'hse_inspection',
   'hse_incident',

@@ -42,6 +42,7 @@ function parseSource(s: string | null): TaskSourceType | null {
     'council_compliance',
     'representatives',
     'survey',
+    'workflow_step',
     'hse_safety_round',
     'hse_inspection',
     'hse_incident',
