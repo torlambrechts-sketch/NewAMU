@@ -11,9 +11,11 @@ import {
   HeartPulse,
   Home,
   LayoutGrid,
+  Library,
   PanelLeft,
   Search,
   Settings,
+  ShieldCheck,
   Star,
   Users,
   UsersRound,
@@ -133,6 +135,7 @@ const documentsSubs: SubItem[] = [
 type NavGroup = {
   id: string
   label: string
+  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
   modules: NavModule[]
 }
 
@@ -148,6 +151,7 @@ const navGroups: NavGroup[] = [
   {
     id: 'workspace',
     label: 'Workspace',
+    icon: Home,
     modules: [
       { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [] },
       { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, subs: tasksSubs },
@@ -156,6 +160,7 @@ const navGroups: NavGroup[] = [
   {
     id: 'compliance',
     label: 'Compliance',
+    icon: ShieldCheck,
     modules: [
       { to: '/internal-control', label: 'Internkontroll', end: false, icon: ClipboardList, subs: internalControlSubs },
       { to: '/hse', label: 'HSE / HMS', end: false, icon: HardHat, subs: hseSubs },
@@ -166,6 +171,7 @@ const navGroups: NavGroup[] = [
   {
     id: 'council',
     label: 'Worker Council',
+    icon: UsersRound,
     modules: [
       { to: '/council', label: 'Council Room', end: false, icon: UsersRound, subs: councilSubs },
       { to: '/council?tab=election', label: 'Members', end: false, icon: Users, subs: [] },
@@ -174,6 +180,7 @@ const navGroups: NavGroup[] = [
   {
     id: 'library',
     label: 'Library',
+    icon: Library,
     modules: [
       { to: '/documents', label: 'Documents', end: false, icon: FileText, subs: documentsSubs },
       { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap, subs: learningSubs },
@@ -301,14 +308,13 @@ export function AticsShell() {
   // ── Sidebar layout ──────────────────────────────────────────────────────────
   if (navMode === 'sidebar') {
     const activeModule = activeModuleForPath(location.pathname, location.search)
-    const activeGroup = navGroups.find((g) => g.modules.some((m) => m.to === activeModule.to))
-    const subItems = subNavForPath(location.pathname, location.search)
-    const hasSubs = subItems.length > 0
+    const activeGroup  = navGroups.find((g) => g.modules.some((m) => m.to === activeModule.to))
 
     return (
       <div className="flex h-screen overflow-hidden">
-        {/* ── Icon rail — always visible ───────────────────────────────────── */}
-        <aside className="flex w-[4.5rem] shrink-0 flex-col bg-[#1a3d32]">
+
+        {/* ── Rail 1: Group icons ──────────────────────────────────────────── */}
+        <aside className="flex w-[3.75rem] shrink-0 flex-col bg-[#1a3d32]">
           {/* Logo */}
           <div className="flex h-14 shrink-0 items-center justify-center border-b border-white/10">
             <NavLink to="/" aria-label="Home" className="flex items-center justify-center rounded-lg p-1.5 hover:bg-white/10">
@@ -316,36 +322,27 @@ export function AticsShell() {
             </NavLink>
           </div>
 
-          {/* Grouped module icons with subtle dividers between groups */}
-          <nav className="flex flex-1 flex-col overflow-y-auto px-2 py-3" aria-label="Primary">
-            {navGroups.map((group, gi) => (
-              <div key={group.id}>
-                {gi > 0 && (
-                  <div className="mx-auto my-2 h-px w-8 bg-white/10" aria-hidden />
-                )}
-                <div className="flex flex-col gap-1.5">
-                  {group.modules.map((mod) => {
-                    const Icon = mod.icon
-                    const isActive = activeModule.to === mod.to
-                    return (
-                      <NavLink
-                        key={mod.to}
-                        to={mod.to}
-                        end={mod.end}
-                        title={`${group.label} — ${mod.label}`}
-                        className={`flex items-center justify-center rounded-lg p-3 transition-colors ${
-                          isActive
-                            ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/60'
-                            : 'text-white/60 hover:bg-white/10 hover:text-white'
-                        }`}
-                      >
-                        <Icon className="size-[1.125rem] shrink-0" aria-hidden />
-                      </NavLink>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
+          {/* One icon per group */}
+          <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-2 py-4" aria-label="Primary">
+            {navGroups.map((group) => {
+              const GroupIcon = group.icon
+              const isActive = activeGroup?.id === group.id
+              return (
+                <NavLink
+                  key={group.id}
+                  to={group.modules[0].to}
+                  end={false}
+                  title={group.label}
+                  className={`flex items-center justify-center rounded-lg p-3 transition-colors ${
+                    isActive
+                      ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/60'
+                      : 'text-white/55 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  <GroupIcon className="size-[1.125rem] shrink-0" aria-hidden />
+                </NavLink>
+              )
+            })}
           </nav>
 
           {/* Bottom: settings + avatar */}
@@ -356,7 +353,7 @@ export function AticsShell() {
                 onClick={() => setSettingsOpen((o) => !o)}
                 title="Settings"
                 className={`flex w-full items-center justify-center rounded-lg p-3 transition-colors ${
-                  settingsOpen ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white'
+                  settingsOpen ? 'bg-white/15 text-white' : 'text-white/55 hover:bg-white/10 hover:text-white'
                 }`}
                 aria-label="Settings"
               >
@@ -374,46 +371,71 @@ export function AticsShell() {
           </div>
         </aside>
 
-        {/* ── Sub-nav panel ────────────────────────────────────────────────── */}
-        {hasSubs && !subNavCollapsed && (
-          <aside className="flex w-52 shrink-0 flex-col overflow-hidden border-r border-white/5 bg-[#15302a]">
-            {/* Group + module header */}
-            <div className="flex h-14 shrink-0 flex-col justify-center border-b border-white/10 px-4">
-              {activeGroup && (
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">
-                  {activeGroup.label}
-                </span>
-              )}
+        {/* ── Rail 2: Modules + sub-items for active group ─────────────────── */}
+        {!subNavCollapsed && activeGroup && (
+          <aside className="flex w-52 shrink-0 flex-col overflow-hidden bg-[#15302a]">
+            {/* Group name header */}
+            <div className="flex h-14 shrink-0 items-center border-b border-white/10 px-4">
               <span
-                className="text-sm font-semibold leading-tight text-white"
+                className="text-sm font-semibold text-white"
                 style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
               >
-                {activeModule.label}
+                {activeGroup.label}
               </span>
             </div>
 
-            {/* Sub-items */}
+            {/* Module list — each module can expand to show its sub-items */}
             <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Section">
-              {subItems.map((item) => {
-                const active = item.match({ pathname: location.pathname, search: location.search })
+              {activeGroup.modules.map((mod) => {
+                const ModIcon = mod.icon
+                const isActiveMod = activeModule.to === mod.to
+                const hasModSubs = mod.subs.length > 0
+
                 return (
-                  <NavLink
-                    key={item.path + item.label}
-                    to={item.path}
-                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
-                      active
-                        ? 'bg-white/10 font-medium text-white'
-                        : 'text-white/60 hover:bg-white/5 hover:text-white/90'
-                    }`}
-                  >
-                    <span
-                      className={`h-3.5 w-0.5 shrink-0 rounded-full transition-colors ${
-                        active ? 'bg-[#c9a227]' : 'bg-transparent'
+                  <div key={mod.to}>
+                    {/* Module row */}
+                    <NavLink
+                      to={mod.to}
+                      end={mod.end}
+                      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+                        isActiveMod
+                          ? 'bg-white/10 text-white'
+                          : 'text-white/65 hover:bg-white/5 hover:text-white/90'
                       }`}
-                      aria-hidden
-                    />
-                    {item.label}
-                  </NavLink>
+                    >
+                      <ModIcon className="size-4 shrink-0 opacity-80" aria-hidden />
+                      <span className="flex-1">{mod.label}</span>
+                      {isActiveMod && hasModSubs && (
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
+                      )}
+                    </NavLink>
+
+                    {/* Sub-items — expanded inline when this module is active */}
+                    {isActiveMod && hasModSubs && (
+                      <div className="mb-1 ml-4 mt-0.5 border-l border-white/10 pl-3">
+                        {mod.subs.map((item) => {
+                          const active = item.match({ pathname: location.pathname, search: location.search })
+                          return (
+                            <NavLink
+                              key={item.path + item.label}
+                              to={item.path}
+                              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors ${
+                                active
+                                  ? 'font-semibold text-white'
+                                  : 'text-white/50 hover:bg-white/5 hover:text-white/80'
+                              }`}
+                            >
+                              {active && (
+                                <span className="h-3 w-0.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
+                              )}
+                              {!active && <span className="h-3 w-0.5 shrink-0" aria-hidden />}
+                              {item.label}
+                            </NavLink>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </nav>
@@ -422,14 +444,14 @@ export function AticsShell() {
 
         {/* ── Content area ─────────────────────────────────────────────────── */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Utility bar — same colour as page */}
+          {/* Utility bar — page background colour */}
           <header className="flex h-14 shrink-0 items-center gap-3 border-b border-neutral-300/40 bg-[#f5f0e8] px-4 md:px-5">
             <button
               type="button"
               onClick={() => setSubNavCollapsed((c) => !c)}
               className="rounded-lg p-1.5 text-neutral-500 hover:bg-black/5 hover:text-neutral-800"
-              aria-label={subNavCollapsed ? 'Expand sub-navigation' : 'Collapse sub-navigation'}
-              title={subNavCollapsed ? 'Expand sub-navigation' : 'Collapse sub-navigation'}
+              aria-label={subNavCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+              title={subNavCollapsed ? 'Expand navigation' : 'Collapse navigation'}
             >
               <PanelLeft className="size-4" />
             </button>
