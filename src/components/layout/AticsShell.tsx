@@ -449,14 +449,18 @@ export function AticsShell() {
   }
 
   // ── Top-bar layout ──────────────────────────────────────────────────────────
-  const subItems = subNavForPath(location.pathname, location.search)
+  const activeModule = activeModuleForPath(location.pathname, location.search)
+  const activeGroup  = navGroups.find((g) => g.modules.some((m) => m.to === activeModule.to))
+  const subItems     = subNavForPath(location.pathname, location.search)
 
   return (
     <div className="min-h-screen bg-[#f5f0e8]">
       <header className="bg-[#1a3d32] text-white">
-        {/* Primary bar: logo + grouped nav + utilities */}
+
+        {/* ── Row 1: logo · group tabs · utilities ───────────────────────── */}
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 md:px-8">
-          <NavLink to="/" className="flex items-center gap-2" aria-label="Home">
+          {/* Logo */}
+          <NavLink to="/" className="flex shrink-0 items-center gap-2" aria-label="Home">
             <Star className="size-7 shrink-0 fill-white text-white" strokeWidth={1.2} />
             <span
               className="font-serif text-xl tracking-wide text-[#c9a227] md:text-2xl"
@@ -466,44 +470,29 @@ export function AticsShell() {
             </span>
           </NavLink>
 
-          <nav
-            className="flex max-w-[min(100%,64rem)] flex-1 flex-wrap items-center justify-center gap-x-1 gap-y-1 overflow-x-auto py-1 md:gap-x-2 lg:max-w-none"
-            aria-label="Primary"
-          >
-            {navGroups.map((group, gi) => (
-              <div key={group.id} className="flex items-center gap-x-1 md:gap-x-2">
-                {gi > 0 && (
-                  <span className="hidden h-5 w-px shrink-0 bg-white/20 sm:block" aria-hidden />
-                )}
-                {/* Group label — visible on wider screens */}
-                <span className="hidden text-[10px] font-semibold uppercase tracking-wider text-white/35 lg:block">
+          {/* Group tabs — one per group, navigates to first module in group */}
+          <nav className="flex flex-1 items-center justify-center gap-1 overflow-x-auto" aria-label="Primary">
+            {navGroups.map((group) => {
+              const isActiveGroup = activeGroup?.id === group.id
+              return (
+                <NavLink
+                  key={group.id}
+                  to={group.modules[0].to}
+                  end={false}
+                  className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                    isActiveGroup
+                      ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/70'
+                      : 'text-white/75 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
                   {group.label}
-                </span>
-                {group.modules.map((mod) => {
-                  const Icon = mod.icon
-                  return (
-                    <NavLink
-                      key={mod.to}
-                      to={mod.to}
-                      end={mod.end}
-                      className={({ isActive }) =>
-                        `inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium transition-colors md:px-2.5 ${
-                          isActive
-                            ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/70'
-                            : 'text-white/80 hover:bg-white/10 hover:text-white'
-                        }`
-                      }
-                    >
-                      <Icon className="size-3.5 shrink-0 opacity-90" aria-hidden />
-                      <span className="hidden sm:inline">{mod.label}</span>
-                    </NavLink>
-                  )
-                })}
-              </div>
-            ))}
+                </NavLink>
+              )
+            })}
           </nav>
 
-          <div className="flex items-center gap-2 md:gap-3">
+          {/* Utilities */}
+          <div className="flex shrink-0 items-center gap-2 md:gap-3">
             <button type="button" className="hidden items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] sm:flex">
               <Clock className="size-3.5" />
               Upgrade
@@ -530,41 +519,85 @@ export function AticsShell() {
           </div>
         </div>
 
-        {/* Secondary bar: sub-nav + search */}
+        {/* ── Row 2: module tabs for the active group ─────────────────────── */}
         <div className="border-t border-white/10">
-          <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-4 py-2.5 md:px-8">
-            <nav className="flex min-w-0 flex-1 flex-wrap gap-x-4 gap-y-2" aria-label="Section">
-              {subItems.length > 0 ? (
-                subItems.map((item) => {
+          <div className="mx-auto flex max-w-[1400px] items-center gap-1 overflow-x-auto px-4 py-2 md:px-8">
+            {activeGroup ? (
+              activeGroup.modules.map((mod) => {
+                const Icon = mod.icon
+                const isActiveMod = activeModule.to === mod.to
+                return (
+                  <NavLink
+                    key={mod.to}
+                    to={mod.to}
+                    end={mod.end}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      isActiveMod
+                        ? 'bg-white/10 text-white'
+                        : 'text-white/65 hover:bg-white/5 hover:text-white/90'
+                    }`}
+                  >
+                    <Icon className="size-3.5 shrink-0 opacity-80" aria-hidden />
+                    {mod.label}
+                  </NavLink>
+                )
+              })
+            ) : (
+              <span className="text-sm text-white/40">Velg en gruppe over</span>
+            )}
+          </div>
+        </div>
+
+        {/* ── Row 3: sub-item tabs for the active module + search ─────────── */}
+        {subItems.length > 0 && (
+          <div className="border-t border-white/[0.07] bg-[#132e25]">
+            <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-4 py-2 md:px-8">
+              <nav className="flex min-w-0 flex-1 flex-wrap gap-x-1 gap-y-1" aria-label="Section">
+                {subItems.map((item) => {
                   const active = item.match({ pathname: location.pathname, search: location.search })
                   return (
                     <NavLink
                       key={item.path + item.label}
                       to={item.path}
-                      className={`whitespace-nowrap text-sm font-medium transition-colors ${
+                      className={`whitespace-nowrap rounded-md px-3 py-1 text-sm transition-colors ${
                         active
-                          ? 'border-b-2 border-[#c9a227] pb-0.5 text-white'
-                          : 'text-white/75 hover:text-white'
+                          ? 'bg-white/10 font-medium text-white'
+                          : 'text-white/55 hover:bg-white/5 hover:text-white/90'
                       }`}
                     >
                       {item.label}
                     </NavLink>
                   )
-                })
-              ) : (
-                <span className="text-sm text-white/40">Velg en modul over</span>
-              )}
-            </nav>
-            <div className="relative min-w-[200px] flex-1 md:max-w-md">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/50" />
-              <input
-                type="search"
-                placeholder="Find anything"
-                className="w-full rounded-full border border-white/20 bg-white/10 py-2 pl-10 pr-4 text-sm text-white placeholder:text-white/45 focus:border-[#c9a227] focus:outline-none focus:ring-1 focus:ring-[#c9a227]"
-              />
+                })}
+              </nav>
+              <div className="relative min-w-[180px] max-w-xs flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-white/40" />
+                <input
+                  type="search"
+                  placeholder="Find anything"
+                  className="w-full rounded-full border border-white/15 bg-white/8 py-1.5 pl-9 pr-4 text-sm text-white placeholder:text-white/35 focus:border-[#c9a227] focus:outline-none focus:ring-1 focus:ring-[#c9a227]"
+                />
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Search bar on row 2 when there are no sub-items */}
+        {subItems.length === 0 && (
+          <div className="border-t border-white/[0.07] bg-[#132e25]">
+            <div className="mx-auto flex max-w-[1400px] items-center justify-end px-4 py-2 md:px-8">
+              <div className="relative min-w-[180px] max-w-xs flex-1 sm:flex-none">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-white/40" />
+                <input
+                  type="search"
+                  placeholder="Find anything"
+                  className="w-full rounded-full border border-white/15 bg-white/8 py-1.5 pl-9 pr-4 text-sm text-white placeholder:text-white/35 focus:border-[#c9a227] focus:outline-none focus:ring-1 focus:ring-[#c9a227]"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
       </header>
 
       <main>
