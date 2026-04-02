@@ -21,8 +21,15 @@ import {
   PSYKOSOCIAL_DIMENSION_ORDER,
   PSYKOSOCIAL_PRIVACY_NOTICE,
 } from '../data/psykosocialSurveyTemplate'
+import type { NpsBreakdown } from '../lib/surveyAnalytics'
 import { useOrgHealth } from '../hooks/useOrgHealth'
-import type { AmlReportKind, LaborMetricKey, PsykosocialDimension, Survey, SurveyQuestion } from '../types/orgHealth'
+import type {
+  AmlReportKind,
+  LaborMetricKey,
+  PsykosocialDimension,
+  Survey,
+  SurveyQuestion,
+} from '../types/orgHealth'
 
 const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: HeartPulse },
@@ -46,6 +53,21 @@ function formatWhen(iso: string) {
 
 export function OrgHealthModule() {
   const oh = useOrgHealth()
+  const buildFollowUpTaskDescription = (survey: Survey, agg: (typeof oh.aggregates)[string]) => {
+    const lines: string[] = []
+    if (agg?.responseRate != null) lines.push(`Svarprosent (mot estimert populasjon): ${agg.responseRate}%`)
+    if (agg?.npsByQuestionId) {
+      for (const nps of Object.values(agg.npsByQuestionId)) {
+        if (nps && nps.score != null) {
+          lines.push(
+            `NPS: ${nps.score} (promotører ${nps.promoters}, passive ${nps.passives}, detraktorer ${nps.detractors}, snitt ${nps.average ?? '—'})`,
+          )
+        }
+      }
+    }
+    if (agg?.psykosocialIndex != null) lines.push(`Psykososial indeks: ${agg.psykosocialIndex}`)
+    return oh.surveyFollowUpTaskDescription(survey, lines)
+  }
   const [searchParams, setSearchParams] = useSearchParams()
   type TabId = (typeof tabs)[number]['id']
   const tabParam = searchParams.get('tab')
@@ -56,7 +78,15 @@ export function OrgHealthModule() {
     title: '',
     description: '',
     anonymous: true,
-    template: 'psykosocial_aml' as 'empty' | 'general_short' | 'psykosocial_aml',
+    template: 'employee_engagement' as
+      | 'empty'
+      | 'general_short'
+      | 'psykosocial_aml'
+      | 'employee_engagement'
+      | 'nps_pulse',
+    targetAudienceNote: '',
+    expectedPopulation: '',
+    followUpPlan: '',
   })
   const [respondSurveyId, setRespondSurveyId] = useState('')
   const [answers, setAnswers] = useState<Record<string, number | string>>({})
@@ -220,8 +250,21 @@ export function OrgHealthModule() {
               onSubmit={(e) => {
                 e.preventDefault()
                 if (!surveyForm.title.trim()) return
-                oh.createSurvey(surveyForm.title, surveyForm.description, surveyForm.anonymous, surveyForm.template)
-                setSurveyForm((x) => ({ ...x, title: '', description: '' }))
+                oh.createSurvey(surveyForm.title, surveyForm.description, surveyForm.anonymous, surveyForm.template, {
+                  targetAudienceNote: surveyForm.targetAudienceNote || undefined,
+                  expectedPopulation: surveyForm.expectedPopulation
+                    ? Number(surveyForm.expectedPopulation)
+                    : null,
+                  followUpPlan: surveyForm.followUpPlan || undefined,
+                })
+                setSurveyForm((x) => ({
+                  ...x,
+                  title: '',
+                  description: '',
+                  targetAudienceNote: '',
+                  expectedPopulation: '',
+                  followUpPlan: '',
+                }))
               }}
             >
               <div className="md:col-span-2">
@@ -242,6 +285,36 @@ export function OrgHealthModule() {
                   className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
                 />
               </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Målgruppe (vises til svarere)</label>
+                <input
+                  value={surveyForm.targetAudienceNote}
+                  onChange={(e) => setSurveyForm((s) => ({ ...s, targetAudienceNote: e.target.value }))}
+                  placeholder="F.eks. Alle fast ansatte"
+                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Estimert antall (frivillig — svarprosent)</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={surveyForm.expectedPopulation}
+                  onChange={(e) => setSurveyForm((s) => ({ ...s, expectedPopulation: e.target.value }))}
+                  placeholder="120"
+                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-xs font-medium text-neutral-500">Planlagt oppfølging (internt)</label>
+                <textarea
+                  value={surveyForm.followUpPlan}
+                  onChange={(e) => setSurveyForm((s) => ({ ...s, followUpPlan: e.target.value }))}
+                  rows={2}
+                  placeholder="F.eks. Lederforum uke 12, tilbakemelding til alle ansatte, tiltak i internkontroll."
+                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+                />
+              </div>
               <label className="flex items-center gap-2 md:col-span-2">
                 <input
                   type="checkbox"
@@ -258,11 +331,15 @@ export function OrgHealthModule() {
                   onChange={(e) =>
                     setSurveyForm((s) => ({
                       ...s,
-                      template: e.target.value as 'empty' | 'general_short' | 'psykosocial_aml',
+                      template: e.target.value as typeof surveyForm.template,
                     }))
                   }
                   className="mt-1 w-full max-w-lg rounded-xl border border-neutral-200 px-3 py-2 text-sm"
                 >
+                  <option value="employee_engagement">
+                    Medarbeiderundersøkelse — trivsel, NPS (anbefaling), rolle, utvikling
+                  </option>
+                  <option value="nps_pulse">NPS-pulse — anbefaling + drivere + forslag</option>
                   <option value="psykosocial_aml">
                     Psykososial kartlegging (AML) — krav, kontroll, støtte, rolle, endring m.m.
                   </option>
@@ -270,8 +347,9 @@ export function OrgHealthModule() {
                   <option value="empty">Tom — legg til egne spørsmål</option>
                 </select>
                 <p className="mt-2 text-xs text-neutral-500">
-                  Psykososial-mal følger vanlig praksis for systematisk kartlegging; resultater vises per dimensjon og
-                  samlet indeks (normalisert skala der høyere er bedre).
+                  Beste praksis: tydelig målgruppe, anonymitet avklart, én innsending per person, lukk undersøkelsen
+                  før endelig tolkning, bruk <strong>oppgaver</strong> til konkret oppfølging. NPS beregnes som
+                  standard (0–10, promotører 9–10, detraktorer 0–6).
                 </p>
               </div>
               <button
@@ -292,7 +370,9 @@ export function OrgHealthModule() {
                 aggregate={oh.aggregates[s.id]}
                 onOpen={() => oh.openSurvey(s.id)}
                 onClose={() => oh.closeSurvey(s.id)}
-                onAddQuestion={(text, type, req) => oh.addQuestion(s.id, text, type, req)}
+                onAddQuestion={(text, type, req, options) => oh.addQuestion(s.id, text, type, req, options)}
+                onUpdateSurvey={(patch) => oh.updateSurvey(s.id, patch)}
+                followUpTaskDescription={buildFollowUpTaskDescription(s, oh.aggregates[s.id])}
               />
             ))}
           </div>
@@ -330,9 +410,21 @@ export function OrgHealthModule() {
                 setAnswers={setAnswers}
                 onSubmit={() => {
                   for (const q of activeRespondSurvey.questions) {
+                    if (q.type === 'section') continue
                     if (!q.required) continue
                     if (q.type === 'likert_5' && answers[q.id] == null) {
                       alert(`Besvar: ${q.text.slice(0, 80)}…`)
+                      return
+                    }
+                    if (q.type === 'nps_11' && (answers[q.id] == null || answers[q.id] === '')) {
+                      alert(`Besvar: ${q.text.slice(0, 80)}…`)
+                      return
+                    }
+                    if (
+                      q.type === 'single_choice' &&
+                      !(typeof answers[q.id] === 'string' && String(answers[q.id]).trim())
+                    ) {
+                      alert(`Velg: ${q.text.slice(0, 80)}…`)
                       return
                     }
                     if (q.type === 'text' && !(typeof answers[q.id] === 'string' && String(answers[q.id]).trim())) {
@@ -888,6 +980,8 @@ function SurveyAdminCard({
   onOpen,
   onClose,
   onAddQuestion,
+  onUpdateSurvey,
+  followUpTaskDescription,
 }: {
   survey: Survey
   aggregate?: {
@@ -898,14 +992,21 @@ function SurveyAdminCard({
     anonymousTextCount?: Record<string, number>
     dimensionMeans?: Partial<Record<PsykosocialDimension, number>>
     psykosocialIndex?: number | null
+    npsByQuestionId?: Record<string, NpsBreakdown>
+    choiceStats?: Record<string, { option: string; count: number; pct: number }[]>
+    responseRate?: number | null
   }
   onOpen: () => void
   onClose: () => void
-  onAddQuestion: (text: string, type: SurveyQuestion['type'], required: boolean) => void
+  onAddQuestion: (text: string, type: SurveyQuestion['type'], required: boolean, options?: string[]) => void
+  onUpdateSurvey: (patch: Partial<Pick<Survey, 'targetAudienceNote' | 'expectedPopulation' | 'followUpPlan'>>) => void
+  followUpTaskDescription: string
 }) {
   const [qText, setQText] = useState('')
   const [qType, setQType] = useState<SurveyQuestion['type']>('likert_5')
+  const [choiceOpts, setChoiceOpts] = useState('Alt 1, Alt 2, Alt 3')
   const isPsy = survey.purpose === 'psykosocial_aml'
+  const isNpsPurpose = survey.purpose === 'nps_pulse' || survey.purpose === 'employee_engagement'
   const lowN = (aggregate?.count ?? 0) > 0 && (aggregate?.count ?? 0) < MIN_RESPONSES_FOR_CONFIDENT_DETAIL
   return (
     <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
@@ -915,13 +1016,75 @@ function SurveyAdminCard({
           <p className="text-sm text-neutral-600">{survey.description}</p>
           <p className="mt-2 text-xs text-neutral-500">
             {survey.anonymous ? 'Anonym' : 'Ikke anonym'} · {survey.status} · {survey.questions.length}{' '}
-            spørsmål
+            elementer
             {isPsy ? (
               <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-900">
                 Psykososial (AML-mal)
               </span>
             ) : null}
+            {survey.purpose === 'employee_engagement' ? (
+              <span className="ml-2 rounded-full bg-sky-50 px-2 py-0.5 text-sky-900">Medarbeiderundersøkelse</span>
+            ) : null}
+            {survey.purpose === 'nps_pulse' ? (
+              <span className="ml-2 rounded-full bg-violet-50 px-2 py-0.5 text-violet-900">NPS-pulse</span>
+            ) : null}
           </p>
+          {(survey.targetAudienceNote || survey.followUpPlan != null || survey.expectedPopulation) && (
+            <div className="mt-3 space-y-2 rounded-lg border border-neutral-100 bg-white px-3 py-2 text-xs text-neutral-700">
+              {survey.targetAudienceNote ? (
+                <p>
+                  <strong>Målgruppe:</strong> {survey.targetAudienceNote}
+                </p>
+              ) : null}
+              {survey.expectedPopulation != null && survey.expectedPopulation > 0 ? (
+                <p>
+                  <strong>Estimert populasjon:</strong> {survey.expectedPopulation}
+                  {aggregate?.responseRate != null ? (
+                    <span className="ml-2 text-emerald-800">· Svarprosent: {aggregate.responseRate}%</span>
+                  ) : null}
+                </p>
+              ) : null}
+              {survey.followUpPlan ? (
+                <p>
+                  <strong>Planlagt oppfølging:</strong> {survey.followUpPlan}
+                </p>
+              ) : null}
+            </div>
+          )}
+          <div className="mt-3 space-y-2 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/50 px-3 py-2 text-xs">
+            <p className="font-medium text-neutral-700">Rediger plan (lagres lokalt)</p>
+            <label className="block">
+              Målgruppe
+              <input
+                value={survey.targetAudienceNote ?? ''}
+                onChange={(e) => onUpdateSurvey({ targetAudienceNote: e.target.value })}
+                className="mt-0.5 w-full rounded border border-neutral-200 px-2 py-1 text-xs"
+              />
+            </label>
+            <label className="block">
+              Estimert antall (svarprosent)
+              <input
+                type="number"
+                min={1}
+                value={survey.expectedPopulation ?? ''}
+                onChange={(e) =>
+                  onUpdateSurvey({
+                    expectedPopulation: e.target.value ? Number(e.target.value) : null,
+                  })
+                }
+                className="mt-0.5 w-full rounded border border-neutral-200 px-2 py-1 text-xs"
+              />
+            </label>
+            <label className="block">
+              Oppfølgingsplan
+              <textarea
+                value={survey.followUpPlan ?? ''}
+                onChange={(e) => onUpdateSurvey({ followUpPlan: e.target.value })}
+                rows={2}
+                className="mt-0.5 w-full rounded border border-neutral-200 px-2 py-1 text-xs"
+              />
+            </label>
+          </div>
           {survey.anonymous ? (
             <p className="mt-2 rounded-lg border border-neutral-100 bg-neutral-50/80 px-3 py-2 text-xs text-neutral-600">
               {isPsy ? PSYKOSOCIAL_PRIVACY_NOTICE : 'Anonym modus: fritekst lagres ikke ved anonyme undersøkelser.'}
@@ -968,6 +1131,57 @@ function SurveyAdminCard({
           ) : null}
         </div>
       ) : null}
+      {isNpsPurpose && aggregate?.npsByQuestionId && Object.keys(aggregate.npsByQuestionId).length > 0 ? (
+        <div className="mt-4 space-y-3">
+          {survey.questions
+            .filter((q) => q.type === 'nps_11')
+            .map((q) => {
+              const nps = aggregate.npsByQuestionId?.[q.id]
+              if (!nps || nps.score == null) return null
+              return (
+                <div key={q.id} className="rounded-xl border border-violet-200/90 bg-violet-50/60 px-4 py-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="text-sm font-semibold text-violet-950">NPS (0–10)</span>
+                    <span className="text-3xl font-bold text-violet-900">{nps.score}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-neutral-700">{q.text}</p>
+                  <p className="mt-2 text-xs text-neutral-600">
+                    Snittscore: {nps.average ?? '—'} · Promotører: {nps.promoters} · Passive: {nps.passives} ·
+                    Detraktorer: {nps.detractors} (n={aggregate.count})
+                  </p>
+                  {lowN ? (
+                    <p className="mt-2 text-xs font-medium text-amber-900">
+                      Lav n — bruk NPS som tendens, ikke som enkeltbeslutning.
+                    </p>
+                  ) : null}
+                </div>
+              )
+            })}
+        </div>
+      ) : null}
+      {aggregate?.choiceStats && Object.keys(aggregate.choiceStats).length > 0 ? (
+        <div className="mt-4 space-y-3">
+          {Object.entries(aggregate.choiceStats).map(([qid, rows]) => {
+            const qq = survey.questions.find((x) => x.id === qid)
+            if (!qq) return null
+            return (
+              <div key={qid} className="rounded-lg border border-neutral-100 bg-white px-3 py-2 text-sm">
+                <div className="font-medium text-neutral-900">{qq.text}</div>
+                <ul className="mt-2 space-y-1 text-xs text-neutral-600">
+                  {rows.map((row) => (
+                    <li key={row.option} className="flex justify-between gap-2">
+                      <span>{row.option}</span>
+                      <span>
+                        {row.count} ({row.pct}%)
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
+          })}
+        </div>
+      ) : null}
       {isPsy && aggregate?.dimensionMeans && Object.keys(aggregate.dimensionMeans).length > 0 ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           {PSYKOSOCIAL_DIMENSION_ORDER.filter((d) => aggregate.dimensionMeans?.[d] != null).map((d) => {
@@ -987,8 +1201,14 @@ function SurveyAdminCard({
       ) : null}
       <ul className="mt-4 space-y-2 border-t border-neutral-100 pt-4 text-sm">
         {survey.questions.map((q) => (
-          <li key={q.id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-[#faf8f4] px-3 py-2">
+          <li
+            key={q.id}
+            className={`flex flex-wrap justify-between gap-2 rounded-lg px-3 py-2 ${
+              q.type === 'section' ? 'bg-[#1a3d32]/10 font-semibold text-[#1a3d32]' : 'bg-[#faf8f4]'
+            }`}
+          >
             <span>
+              {q.type === 'section' ? 'Seksjon: ' : null}
               {q.text}
               {q.dimension ? (
                 <span className="ml-2 text-xs text-neutral-400">
@@ -997,13 +1217,21 @@ function SurveyAdminCard({
               ) : null}
             </span>
             <span className="text-xs text-neutral-500">
-              {q.type === 'likert_5' ? 'Likert 1–5' : 'Fritekst'}
+              {q.type === 'likert_5'
+                ? 'Likert 1–5'
+                : q.type === 'text'
+                  ? 'Fritekst'
+                  : q.type === 'nps_11'
+                    ? 'NPS 0–10'
+                    : q.type === 'single_choice'
+                      ? 'Valg (ett)'
+                      : 'Seksjon'}
               {q.reverseScored ? <span className="ml-1 text-amber-800">(belastning, snudd i analyse)</span> : null}
-              {aggregate?.likertMeansNormalized?.[q.id] != null ? (
+              {q.type === 'likert_5' && aggregate?.likertMeansNormalized?.[q.id] != null ? (
                 <span className="ml-2 font-medium text-[#1a3d32]">
                   snitt {aggregate.likertMeansNormalized[q.id]} (n={aggregate.count})
                 </span>
-              ) : aggregate?.likertMeans[q.id] != null ? (
+              ) : q.type === 'likert_5' && aggregate?.likertMeans[q.id] != null ? (
                 <span className="ml-2 font-medium text-[#1a3d32]">
                   råsnitt {aggregate.likertMeans[q.id]} (n={aggregate.count})
                 </span>
@@ -1013,45 +1241,79 @@ function SurveyAdminCard({
         ))}
       </ul>
       {survey.status === 'draft' && (
-        <div className="mt-4 flex flex-wrap gap-2 border-t border-neutral-100 pt-4">
-          <input
-            value={qText}
-            onChange={(e) => setQText(e.target.value)}
-            placeholder="Nytt spørsmål"
-            className="min-w-[200px] flex-1 rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-          />
-          <select
-            value={qType}
-            onChange={(e) => setQType(e.target.value as SurveyQuestion['type'])}
-            className="rounded-xl border border-neutral-200 px-2 py-2 text-sm"
-          >
-            <option value="likert_5">Likert 1–5</option>
-            <option value="text">Fritekst</option>
-          </select>
-          <button
-            type="button"
-            onClick={() => {
-              if (!qText.trim()) return
-              onAddQuestion(qText, qType, true)
-              setQText('')
-            }}
-            className="rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-          >
-            Legg til
-          </button>
+        <div className="mt-4 space-y-2 border-t border-neutral-100 pt-4">
+          <div className="flex flex-wrap gap-2">
+            <input
+              value={qText}
+              onChange={(e) => setQText(e.target.value)}
+              placeholder="Nytt spørsmål eller seksjonstittel"
+              className="min-w-[200px] flex-1 rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+            />
+            <select
+              value={qType}
+              onChange={(e) => setQType(e.target.value as SurveyQuestion['type'])}
+              className="rounded-xl border border-neutral-200 px-2 py-2 text-sm"
+            >
+              <option value="likert_5">Likert 1–5</option>
+              <option value="nps_11">NPS 0–10</option>
+              <option value="single_choice">Flervalg (ett svar)</option>
+              <option value="text">Fritekst</option>
+              <option value="section">Seksjonsoverskrift</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => {
+                if (qType === 'section') {
+                  if (!qText.trim()) return
+                  onAddQuestion(qText, 'section', false)
+                  setQText('')
+                  return
+                }
+                if (qType === 'single_choice') {
+                  const opts = choiceOpts
+                    .split(',')
+                    .map((x) => x.trim())
+                    .filter(Boolean)
+                  if (!qText.trim() || opts.length < 2) return
+                  onAddQuestion(qText, 'single_choice', true, opts)
+                  setQText('')
+                  return
+                }
+                if (!qText.trim()) return
+                onAddQuestion(qText, qType, qType !== 'text')
+                setQText('')
+              }}
+              className="rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+            >
+              Legg til
+            </button>
+          </div>
+          {qType === 'single_choice' ? (
+            <label className="block text-xs text-neutral-600">
+              Alternativer (kommaseparert)
+              <input
+                value={choiceOpts}
+                onChange={(e) => setChoiceOpts(e.target.value)}
+                className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+              />
+            </label>
+          ) : null}
         </div>
       )}
-      {survey.status === 'closed' && aggregate && aggregate.count > 0 ? (
-        <div className="mt-4">
+      {survey.status === 'open' || survey.status === 'closed' ? (
+        <div className="mt-4 flex flex-wrap gap-2">
           <AddTaskLink
-            title={`Tiltak etter undersøkelse: ${survey.title.slice(0, 60)}`}
+            title={`Oppfølging undersøkelse: ${survey.title.slice(0, 72)}`}
+            description={followUpTaskDescription}
             module="org_health"
             sourceType="survey"
             sourceId={survey.id}
             sourceLabel={survey.title}
             ownerRole="HR / leder"
-            requiresManagementSignOff
-          />
+            requiresManagementSignOff={aggregate != null && aggregate.count > 0}
+          >
+            Oppfølgingsoppgave → Tasks
+          </AddTaskLink>
         </div>
       ) : null}
       {aggregate && aggregate.count > 0 && (
@@ -1146,8 +1408,97 @@ function ResponseForm({
     </div>
   )
 
+  const renderNps = (q: SurveyQuestion) => (
+    <div key={q.id}>
+      <label className="text-sm font-medium text-neutral-900">
+        {q.text}
+        {q.required ? <span className="text-red-600"> *</span> : null}
+      </label>
+      <p className="mt-1 text-xs text-neutral-500">
+        {q.npsLowLabel ?? '0'} … {q.npsHighLabel ?? '10'}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {Array.from({ length: 11 }, (_, i) => i).map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => setAnswers((a) => ({ ...a, [q.id]: n }))}
+            className={`size-9 rounded-lg text-xs font-medium ${
+              answers[q.id] === n
+                ? 'bg-violet-800 text-white'
+                : 'bg-neutral-100 text-neutral-800 hover:bg-neutral-200'
+            }`}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
+  const renderChoice = (q: SurveyQuestion) => (
+    <div key={q.id}>
+      <label className="text-sm font-medium text-neutral-900">
+        {q.text}
+        {q.required ? <span className="text-red-600"> *</span> : null}
+      </label>
+      <select
+        value={typeof answers[q.id] === 'string' ? answers[q.id] : ''}
+        onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
+        className="mt-2 w-full max-w-lg rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+      >
+        <option value="">{q.required ? 'Velg…' : '(Hopp over)'}</option>
+        {(q.options ?? []).map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+
+  const renderText = (q: SurveyQuestion) => (
+    <div key={q.id}>
+      <label className="text-sm font-medium text-neutral-900">
+        {q.text}
+        {q.required ? <span className="text-red-600"> *</span> : null}
+      </label>
+      <textarea
+        value={typeof answers[q.id] === 'string' ? answers[q.id] : ''}
+        onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
+        rows={3}
+        className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+      />
+      {survey.anonymous ? (
+        <p className="mt-1 text-xs text-amber-900">
+          Anonym modus: fritekst lagres ikke — innhold slettes ved innsending.
+        </p>
+      ) : null}
+    </div>
+  )
+
+  const renderQuestion = (q: SurveyQuestion) => {
+    if (q.type === 'section') {
+      return (
+        <h3 key={q.id} className="border-t border-neutral-200 pt-4 text-base font-semibold text-[#1a3d32] first:border-0 first:pt-0">
+          {q.text}
+        </h3>
+      )
+    }
+    if (q.type === 'likert_5') return renderLikert(q)
+    if (q.type === 'nps_11') return renderNps(q)
+    if (q.type === 'single_choice') return renderChoice(q)
+    if (q.type === 'text') return renderText(q)
+    return null
+  }
+
   return (
     <div className="mt-4 space-y-6 rounded-xl border border-neutral-200 p-4">
+      {survey.targetAudienceNote ? (
+        <p className="rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-950">
+          <strong>Målgruppe:</strong> {survey.targetAudienceNote}
+        </p>
+      ) : null}
       {isPsy && dimOrder.length > 0 ? (
         <>
           {dimOrder.map((d) => (
@@ -1161,46 +1512,10 @@ function ResponseForm({
           ))}
           {survey.questions
             .filter((q) => q.type === 'text')
-            .map((q) => (
-              <div key={q.id}>
-                <label className="text-sm font-medium text-neutral-900">
-                  {q.text}
-                  {q.required ? <span className="text-red-600"> *</span> : null}
-                </label>
-                <textarea
-                  value={typeof answers[q.id] === 'string' ? answers[q.id] : ''}
-                  onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
-                  rows={3}
-                  className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
-                {survey.anonymous ? (
-                  <p className="mt-1 text-xs text-amber-900">
-                    Anonym modus: fritekst lagres ikke — bruk feltet om du vil gi et signal til HR om at du har mer å si
-                    (innhold slettes ved innsending).
-                  </p>
-                ) : null}
-              </div>
-            ))}
+            .map((q) => renderText(q))}
         </>
       ) : (
-        survey.questions.map((q) =>
-          q.type === 'likert_5' ? (
-            renderLikert(q)
-          ) : (
-            <div key={q.id}>
-              <label className="text-sm font-medium text-neutral-900">
-                {q.text}
-                {q.required ? <span className="text-red-600"> *</span> : null}
-              </label>
-              <textarea
-                value={typeof answers[q.id] === 'string' ? answers[q.id] : ''}
-                onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
-                rows={3}
-                className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-              />
-            </div>
-          ),
-        )
+        <div className="space-y-6">{survey.questions.map((q) => renderQuestion(q))}</div>
       )}
       <button
         type="button"

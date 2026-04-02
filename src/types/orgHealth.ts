@@ -1,4 +1,4 @@
-export type QuestionType = 'likert_5' | 'text'
+export type QuestionType = 'likert_5' | 'text' | 'nps_11' | 'single_choice' | 'section'
 
 /** Dimensjoner for psykososial kartlegging (AML-orientert systematikk). */
 export type PsykosocialDimension =
@@ -19,9 +19,18 @@ export type SurveyQuestion = {
   dimension?: PsykosocialDimension
   /** Når sann: lav Likert = «bedre» — normaliseres i analyse (6−score) */
   reverseScored?: boolean
+  /** single_choice */
+  options?: string[]
+  /** nps_11 — visningsetiketter */
+  npsLowLabel?: string
+  npsHighLabel?: string
 }
 
-export type SurveyPurpose = 'general' | 'psykosocial_aml'
+export type SurveyPurpose =
+  | 'general'
+  | 'psykosocial_aml'
+  | 'employee_engagement'
+  | 'nps_pulse'
 
 export type Survey = {
   id: string
@@ -32,6 +41,12 @@ export type Survey = {
   questions: SurveyQuestion[]
   /** Styrer intro, dimensjonsrapporter og anbefalt praksis */
   purpose?: SurveyPurpose
+  /** Målgruppe / populasjon (f.eks. «Alle ansatte», «Kun kontor») — informasjon til svarere */
+  targetAudienceNote?: string
+  /** Estimert populasjon for svarprosent (valgfritt) */
+  expectedPopulation?: number | null
+  /** Planlagt oppfølging — kobles til oppgaver */
+  followUpPlan?: string
   createdAt: string
   openedAt?: string
   closedAt?: string
@@ -116,6 +131,7 @@ export type OrgHealthAuditAction =
   | 'survey_opened'
   | 'survey_closed'
   | 'response_submitted'
+  | 'survey_follow_up_updated'
   | 'nav_report_added'
   | 'labor_metric_added'
   | 'settings_updated'

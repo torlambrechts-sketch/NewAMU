@@ -1,9 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LABOR_METRIC_DEFINITIONS } from '../data/orgHealthMetrics'
 import {
+  buildEmployeeEngagementQuestions,
+  buildNpsPulseQuestions,
+  E_INTRO,
+  NPS_INTRO,
+} from '../data/surveyTemplates'
+import {
   buildPsykosocialQuestions,
   PSYKOSOCIAL_SURVEY_INTRO,
 } from '../data/psykosocialSurveyTemplate'
+import {
+  choiceDistribution,
+  computeNpsBreakdown,
+  type NpsBreakdown,
+  surveyFollowUpTaskDescription,
+} from '../lib/surveyAnalytics'
 import { dimensionMeansForResponses, itemNormalizedMeans } from '../lib/psykosocialAggregate'
 import type {
   AmlReportKind,
@@ -100,11 +112,19 @@ function inferSurveyPurpose(sv: Survey): SurveyPurpose {
   if (sv.purpose) return sv.purpose
   const hasDim = sv.questions.some((q) => q.dimension != null)
   if (hasDim) return 'psykosocial_aml'
+  const hasNps = sv.questions.some((q) => q.type === 'nps_11')
+  if (hasNps && sv.questions.length <= 5) return 'nps_pulse'
   return 'general'
 }
 
 function normalizeSurvey(sv: Survey): Survey {
-  return { ...sv, purpose: inferSurveyPurpose(sv) }
+  return {
+    ...sv,
+    purpose: inferSurveyPurpose(sv),
+    targetAudienceNote: sv.targetAudienceNote,
+    expectedPopulation: sv.expectedPopulation ?? null,
+    followUpPlan: sv.followUpPlan,
+  }
 }
 
 /** Oppgrader gammel seed-undersøkelse til psykososial mal når ingen svar finnes (unngå å knekke eksisterende data). */
@@ -234,7 +254,12 @@ export function useOrgHealth() {
       title: string,
       description: string,
       anonymous: boolean,
-      template: 'empty' | 'general_short' | 'psykosocial_aml',
+      template: 'empty' | 'general_short' | 'psykosocial_aml' | 'employee_engagement' | 'nps_pulse',
+      planning?: {
+        targetAudienceNote?: string
+        expectedPopulation?: number | null
+        followUpPlan?: string
+      },
     ) => {
       let questions: SurveyQuestion[] = []
       let purpose: SurveyPurpose | undefined
@@ -246,6 +271,14 @@ export function useOrgHealth() {
         questions = buildPsykosocialQuestions()
         purpose = 'psykosocial_aml'
         if (!desc) desc = PSYKOSOCIAL_SURVEY_INTRO
+      } else if (template === 'employee_engagement') {
+        questions = buildEmployeeEngagementQuestions()
+        purpose = 'employee_engagement'
+        if (!desc) desc = E_INTRO
+      } else if (template === 'nps_pulse') {
+        questions = buildNpsPulseQuestions()
+        purpose = 'nps_pulse'
+        if (!desc) desc = NPS_INTRO
       }
       const s: Survey = {
         id: crypto.randomUUID(),
@@ -255,6 +288,12 @@ export function useOrgHealth() {
         status: 'draft',
         purpose,
         questions,
+        targetAudienceNote: planning?.targetAudienceNote?.trim() || undefined,
+        expectedPopulation:
+          planning?.expectedPopulation != null && planning.expectedPopulation > 0
+            ? planning.expectedPopulation
+            : null,
+        followUpPlan: planning?.followUpPlan?.trim() || undefined,
         createdAt: new Date().toISOString(),
       }
       setState((st) => ({ ...st, surveys: [s, ...st.surveys] }))
@@ -269,14 +308,28 @@ export function useOrgHealth() {
   )
 
   const addQuestion = useCallback(
-    (surveyId: string, text: string, type: SurveyQuestion['type'], required: boolean) => {
+    (
+      surveyId: string,
+      text: string,
+      type: SurveyQuestion['type'],
+      required: boolean,
+      options?: string[],
+    ) => {
       const q: SurveyQuestion = {
         id: crypto.randomUUID(),
         text: text.trim(),
         type,
-        required,
+        required: type === 'section' ? false : required,
+        ...(type === 'single_choice' && options?.length ? { options } : {}),
+        ...(type === 'nps_11'
+          ? {
+              npsLowLabel: '0 — ikke sannsynlig',
+              npsHighLabel: '10 — svært sannsynlig',
+            }
+          : {}),
       }
-      if (!q.text) return
+      if (!q.text && type !== 'section') return
+      if (type === 'section' && !q.text) return
       setState((s) => ({
         ...s,
         surveys: s.surveys.map((sv) =>
@@ -285,6 +338,44 @@ export function useOrgHealth() {
       }))
     },
     [],
+  )
+
+  const updateSurvey = useCallback(
+    (
+      surveyId: string,
+      patch: Partial<
+        Pick<
+          Survey,
+          | 'title'
+          | 'description'
+          | 'anonymous'
+          | 'targetAudienceNote'
+          | 'expectedPopulation'
+          | 'followUpPlan'
+          | 'questions'
+        >
+      >,
+    ) => {
+      setState((s) => {
+        const sv = s.surveys.find((x) => x.id === surveyId)
+        if (!sv) return s
+        const isDraft = sv.status === 'draft'
+        const allowed: Partial<Survey> = {}
+        if (patch.title != null) allowed.title = patch.title
+        if (patch.description != null) allowed.description = patch.description
+        if (patch.anonymous != null) allowed.anonymous = patch.anonymous
+        if (patch.targetAudienceNote !== undefined) allowed.targetAudienceNote = patch.targetAudienceNote
+        if (patch.expectedPopulation !== undefined) allowed.expectedPopulation = patch.expectedPopulation
+        if (patch.followUpPlan !== undefined) allowed.followUpPlan = patch.followUpPlan
+        if (isDraft && patch.questions != null) allowed.questions = patch.questions
+        return {
+          ...s,
+          surveys: s.surveys.map((x) => (x.id === surveyId ? { ...x, ...allowed } : x)),
+        }
+      })
+      appendAudit('survey_follow_up_updated', 'Undersøkelse oppdatert.', { surveyId })
+    },
+    [appendAudit],
   )
 
   const openSurvey = useCallback(
@@ -409,6 +500,9 @@ export function useOrgHealth() {
         anonymousTextCount: Record<string, number>
         dimensionMeans?: Partial<Record<string, number>>
         psykosocialIndex?: number | null
+        npsByQuestionId?: Record<string, NpsBreakdown>
+        choiceStats?: Record<string, { option: string; count: number; pct: number }[]>
+        responseRate?: number | null
       }
     > = {}
 
@@ -431,6 +525,7 @@ export function useOrgHealth() {
       const agg = bySurvey[r.surveyId]
       agg.count += 1
       for (const q of sv?.questions ?? []) {
+        if (q.type === 'section') continue
         const v = r.answers[q.id]
         if (q.type === 'likert_5' && typeof v === 'number') {
           if (!agg.likertMeans[q.id]) {
@@ -467,6 +562,28 @@ export function useOrgHealth() {
         if (Object.keys(dm.dimensionMeans).length > 0) {
           agg.dimensionMeans = dm.dimensionMeans as Record<string, number>
           agg.psykosocialIndex = dm.psykosocialIndex
+        }
+        const npsByQuestionId: Record<string, NpsBreakdown> = {}
+        for (const q of sv.questions) {
+          if (q.type === 'nps_11') {
+            npsByQuestionId[q.id] = computeNpsBreakdown(q.id, list)
+          }
+        }
+        if (Object.keys(npsByQuestionId).length > 0) {
+          ;(agg as { npsByQuestionId?: typeof npsByQuestionId }).npsByQuestionId = npsByQuestionId
+        }
+        const choices: Record<string, { option: string; count: number; pct: number }[]> = {}
+        for (const q of sv.questions) {
+          if (q.type === 'single_choice' && q.options?.length) {
+            choices[q.id] = choiceDistribution(q.id, q.options, list)
+          }
+        }
+        if (Object.keys(choices).length > 0) {
+          ;(agg as { choiceStats?: typeof choices }).choiceStats = choices
+        }
+        const exp = sv.expectedPopulation
+        if (typeof exp === 'number' && exp > 0) {
+          ;(agg as { responseRate?: number | null }).responseRate = Math.round((agg.count / exp) * 1000) / 10
         }
       }
     }
@@ -546,6 +663,7 @@ export function useOrgHealth() {
     navSummary,
     amlReportStats,
     createSurvey,
+    updateSurvey,
     addQuestion,
     openSurvey,
     closeSurvey,
@@ -555,5 +673,6 @@ export function useOrgHealth() {
     submitAnonymousAmlReport,
     resetDemo,
     metricDefinitions: LABOR_METRIC_DEFINITIONS,
+    surveyFollowUpTaskDescription,
   }
 }

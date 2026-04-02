@@ -3,6 +3,12 @@ import { Globe, ListTree, Shield } from 'lucide-react'
 
 const roadmap = [
   {
+    title: 'E-post/SMS-påminnelse og unike svarlenker per ansatt',
+    body:
+      'Øke svarprosent og sikre én stemme per person med autentisering og påminnelser før deadline.',
+    status: 'Planlagt',
+  },
+  {
     title: 'Validerbare spørreskjemaer (COPSOQ / QPSNordic / egne BHT-maler)',
     body:
       'Integrasjon eller import av etablerte instrumenter der lisens tillater det, og statistikk med konfidensintervall og bransjenormer.',
