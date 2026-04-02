@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { GripVertical, Layers, Plus, Trash2, Users, BarChart3, FileText, Award } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
@@ -36,7 +36,7 @@ type MainTab = 'info' | 'modules' | 'cert' | 'participants' | 'insights'
 
 export function LearningCourseBuilder() {
   const { courseId } = useParams<{ courseId: string }>()
-  const { courses, updateCourse, addModule, updateModule, deleteModule } = useLearning()
+  const { courses, updateCourse, addModule, updateModule, deleteModule, reorderModules } = useLearning()
   const course = courses.find((c) => c.id === courseId)
 
   const [mainTab, setMainTab] = useState<MainTab>('modules')
@@ -44,12 +44,32 @@ export function LearningCourseBuilder() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tagInput, setTagInput] = useState('')
 
-  const filteredModules = useMemo(() => {
+  const sortedModules = useMemo(() => {
     if (!course) return []
-    const sorted = [...course.modules].sort((a, b) => a.order - b.order)
-    if (typeFilter === 'all') return sorted
-    return sorted.filter((m) => m.kind === typeFilter)
-  }, [course, typeFilter])
+    return [...course.modules].sort((a, b) => a.order - b.order)
+  }, [course])
+
+  const filteredModules = useMemo(() => {
+    if (typeFilter === 'all') return sortedModules
+    return sortedModules.filter((m) => m.kind === typeFilter)
+  }, [sortedModules, typeFilter])
+
+  const [dragId, setDragId] = useState<string | null>(null)
+
+  const onReorderDrop = useCallback(
+    (targetId: string) => {
+      if (!course || !dragId || dragId === targetId) return
+      const ids = sortedModules.map((m) => m.id)
+      const from = ids.indexOf(dragId)
+      const to = ids.indexOf(targetId)
+      if (from < 0 || to < 0) return
+      const next = [...ids]
+      next.splice(from, 1)
+      next.splice(to, 0, dragId)
+      reorderModules(course.id, next)
+    },
+    [course, dragId, sortedModules, reorderModules],
+  )
 
   const selected = course?.modules.find((m) => m.id === selectedId) ?? null
 
@@ -154,6 +174,36 @@ export function LearningCourseBuilder() {
             rows={4}
             className="mt-1 w-full max-w-2xl rounded-lg border border-neutral-200 px-3 py-2 text-sm"
           />
+          <label className="mt-4 block text-xs font-medium text-neutral-500">
+            Learning objectives (one per line — shown to learners before module 1)
+          </label>
+          <textarea
+            value={(course.learningObjectives ?? []).join('\n')}
+            onChange={(e) =>
+              updateCourse(course.id, {
+                learningObjectives: e.target.value
+                  .split('\n')
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+              })
+            }
+            rows={5}
+            placeholder="After this course, learners will be able to…"
+            className="mt-1 w-full max-w-2xl rounded-lg border border-neutral-200 px-3 py-2 text-sm font-mono"
+          />
+          <label className="mt-4 block text-xs font-medium text-neutral-500">
+            Default quiz pass score (%)
+          </label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={course.minPassScore ?? 70}
+            onChange={(e) =>
+              updateCourse(course.id, { minPassScore: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })
+            }
+            className="mt-1 w-28 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+          />
           <div className="mt-4 flex flex-wrap gap-2">
             {course.tags.map((t) => (
               <span
@@ -242,10 +292,27 @@ export function LearningCourseBuilder() {
             <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
               <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-2 text-xs font-medium text-neutral-500">
                 Modules
+                {typeFilter !== 'all' ? (
+                  <span className="ml-2 font-normal text-neutral-400">
+                    (switch to &quot;All modules&quot; to drag-reorder)
+                  </span>
+                ) : (
+                  <span className="ml-2 font-normal text-neutral-400">— drag by the grip to reorder</span>
+                )}
               </div>
               <ul className="divide-y divide-neutral-100">
                 {filteredModules.map((m) => (
-                  <li key={m.id}>
+                  <li
+                    key={m.id}
+                    draggable={typeFilter === 'all'}
+                    onDragStart={() => setDragId(m.id)}
+                    onDragEnd={() => setDragId(null)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      onReorderDrop(m.id)
+                    }}
+                  >
                     <button
                       type="button"
                       onClick={() => setSelectedId(m.id)}
@@ -253,7 +320,10 @@ export function LearningCourseBuilder() {
                         selectedId === m.id ? 'bg-emerald-50/50' : ''
                       }`}
                     >
-                      <GripVertical className="size-4 shrink-0 text-neutral-300" />
+                      <GripVertical
+                        className={`size-4 shrink-0 ${typeFilter === 'all' ? 'cursor-grab text-neutral-400 active:cursor-grabbing' : 'text-neutral-300'}`}
+                        aria-hidden
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="font-medium text-[#2D403A]">{m.title}</div>
                         <div className="text-xs text-neutral-500">
@@ -377,6 +447,27 @@ function ModuleEditor({
         />
       </div>
 
+      {mod.kind === 'quiz' ? (
+        <div>
+          <label className="text-xs font-medium text-neutral-500">Minimum pass score (%)</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={mod.minPassScore ?? ''}
+            placeholder="Use course default"
+            onChange={(e) => {
+              const raw = e.target.value
+              updateModule(courseId, mod.id, {
+                minPassScore: raw === '' ? undefined : Math.min(100, Math.max(0, Number(raw) || 0)),
+              })
+            }}
+            className="mt-1 w-28 rounded-lg border border-neutral-200 px-2 py-1 text-sm"
+          />
+          <p className="mt-1 text-xs text-neutral-500">Leave empty to use the course default.</p>
+        </div>
+      ) : null}
+
       <ContentFields courseId={courseId} mod={mod} updateModule={updateModule} />
     </div>
   )
@@ -483,6 +574,20 @@ function ContentFields({
                 />
               </div>
             ))}
+            <label className="mt-2 block text-xs text-neutral-500">
+              Explanation (shown after learner answers)
+              <textarea
+                value={q.explanation ?? ''}
+                onChange={(e) => {
+                  const questions = c.questions.map((x) =>
+                    x.id === q.id ? { ...x, explanation: e.target.value } : x,
+                  )
+                  updateModule(courseId, mod.id, { content: { ...c, questions } })
+                }}
+                rows={2}
+                className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+              />
+            </label>
           </div>
         ))}
         <button
@@ -495,6 +600,7 @@ function ContentFields({
                 question: 'New question',
                 options: ['A', 'B', 'C'],
                 correctIndex: 0,
+                explanation: '',
               },
             ]
             updateModule(courseId, mod.id, { content: { ...c, questions } })
@@ -509,12 +615,33 @@ function ContentFields({
 
   if (c.kind === 'text') {
     return (
-      <RichTextEditor
-        value={c.body}
-        onChange={(html) =>
-          updateModule(courseId, mod.id, { content: { kind: 'text', body: html } })
-        }
-      />
+      <div className="space-y-3">
+        <RichTextEditor
+          value={c.body}
+          onChange={(html) =>
+            updateModule(courseId, mod.id, {
+              content: { kind: 'text', body: html, reflectionPrompt: c.reflectionPrompt },
+            })
+          }
+        />
+        <label className="block text-xs text-neutral-500">
+          Optional reflection prompt (learner must answer before Continue)
+          <input
+            value={c.reflectionPrompt ?? ''}
+            onChange={(e) =>
+              updateModule(courseId, mod.id, {
+                content: {
+                  kind: 'text',
+                  body: c.body,
+                  reflectionPrompt: e.target.value || undefined,
+                },
+              })
+            }
+            placeholder="e.g. What will you do differently tomorrow?"
+            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          />
+        </label>
+      </div>
     )
   }
 
@@ -601,32 +728,50 @@ function ContentFields({
 
   if (c.kind === 'tips') {
     return (
-      <ul className="space-y-2">
-        {c.items.map((tip, i) => (
-          <li key={i}>
-            <input
-              value={tip}
-              onChange={(e) => {
-                const items = [...c.items]
-                items[i] = e.target.value
-                updateModule(courseId, mod.id, { content: { ...c, items } })
-              }}
-              className="w-full rounded border border-neutral-200 px-2 py-1 text-sm"
-            />
-          </li>
-        ))}
-        <button
-          type="button"
-          onClick={() =>
-            updateModule(courseId, mod.id, {
-              content: { ...c, items: [...c.items, 'New tip'] },
-            })
-          }
-          className="text-sm text-emerald-800 hover:underline"
-        >
-          + Tip
-        </button>
-      </ul>
+      <div className="space-y-3">
+        <label className="block text-xs text-neutral-500">
+          Reflection prompt (learners pick one tip before continuing)
+          <input
+            value={c.reflectionPrompt ?? ''}
+            onChange={(e) =>
+              updateModule(courseId, mod.id, {
+                content: {
+                  ...c,
+                  reflectionPrompt: e.target.value || undefined,
+                },
+              })
+            }
+            placeholder="Which of these applies most to you?"
+            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          />
+        </label>
+        <ul className="space-y-2">
+          {c.items.map((tip, i) => (
+            <li key={i}>
+              <input
+                value={tip}
+                onChange={(e) => {
+                  const items = [...c.items]
+                  items[i] = e.target.value
+                  updateModule(courseId, mod.id, { content: { ...c, items } })
+                }}
+                className="w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+              />
+            </li>
+          ))}
+          <button
+            type="button"
+            onClick={() =>
+              updateModule(courseId, mod.id, {
+                content: { ...c, items: [...c.items, 'New tip'] },
+              })
+            }
+            className="text-sm text-emerald-800 hover:underline"
+          >
+            + Tip
+          </button>
+        </ul>
+      </div>
     )
   }
 

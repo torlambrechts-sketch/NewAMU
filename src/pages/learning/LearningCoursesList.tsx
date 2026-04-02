@@ -3,12 +3,13 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Search } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import type { CourseStatus } from '../../types/learning'
+import { countFlashcardsDue } from '../../lib/learningFlashcardDue'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
 
 export function LearningCoursesList() {
   const navigate = useNavigate()
-  const { courses, createCourse, updateCourse } = useLearning()
+  const { courses, createCourse, updateCourse, progress } = useLearning()
   const [q, setQ] = useState('')
   const [title, setTitle] = useState('')
   const [desc, setDesc] = useState('')
@@ -95,13 +96,36 @@ export function LearningCoursesList() {
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
-            {filtered.map((c) => (
+            {filtered.map((c) => {
+              const cp = progress.find((p) => p.courseId === c.id)
+              const started = Boolean(cp)
+              const nextMod = c.modules
+                .slice()
+                .sort((a, b) => a.order - b.order)
+                .find((m) => !cp?.moduleProgress[m.id]?.completed)
+              const due = countFlashcardsDue(c, cp)
+              return (
               <tr key={c.id} className="hover:bg-neutral-50/50">
                 <td className="px-4 py-3">
                   <Link to={`/learning/courses/${c.id}`} className="font-medium text-[#2D403A] hover:underline">
                     {c.title}
                   </Link>
                   <div className="text-xs text-neutral-500 line-clamp-1">{c.description}</div>
+                  {started && c.status === 'published' && nextMod ? (
+                    <div className="mt-1">
+                      <Link
+                        to={`/learning/play/${c.id}?m=${encodeURIComponent(nextMod.id)}`}
+                        className="text-xs font-medium text-emerald-800 hover:underline"
+                      >
+                        Resume → {nextMod.title.length > 40 ? `${nextMod.title.slice(0, 38)}…` : nextMod.title}
+                      </Link>
+                    </div>
+                  ) : null}
+                  {due > 0 ? (
+                    <div className="mt-1 text-xs font-medium text-amber-800">
+                      {due} flashcard{due === 1 ? '' : 's'} due for review
+                    </div>
+                  ) : null}
                 </td>
                 <td className="px-4 py-3 text-neutral-700">{c.modules.length}</td>
                 <td className="px-4 py-3">
@@ -145,7 +169,7 @@ export function LearningCoursesList() {
                   </Link>
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>

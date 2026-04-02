@@ -6,6 +6,7 @@ import type {
   CourseProgress,
   ModuleContent,
   ModuleKind,
+  ModuleProgress,
 } from '../types/learning'
 
 export const STORAGE_KEY = 'atics-learning-v1'
@@ -45,6 +46,53 @@ type LearningState = {
   courses: Course[]
   progress: CourseProgress[]
   certificates: Certificate[]
+}
+
+function normalizeQuizQuestions(
+  questions: import('../types/learning').QuizQuestion[],
+): import('../types/learning').QuizQuestion[] {
+  return questions.map((q) => ({
+    ...q,
+    explanation: q.explanation ?? '',
+  }))
+}
+
+function normalizeModuleContent(content: ModuleContent): ModuleContent {
+  switch (content.kind) {
+    case 'quiz':
+      return { ...content, questions: normalizeQuizQuestions(content.questions) }
+    case 'tips':
+      return { ...content, reflectionPrompt: content.reflectionPrompt }
+    case 'text':
+      return { ...content, reflectionPrompt: content.reflectionPrompt }
+    default:
+      return content
+  }
+}
+
+function normalizeModule(m: CourseModule): CourseModule {
+  return {
+    ...m,
+    content: normalizeModuleContent(m.content),
+    minPassScore: m.minPassScore,
+  }
+}
+
+function normalizeCourse(c: Course): Course {
+  return {
+    ...c,
+    learningObjectives: c.learningObjectives ?? [],
+    minPassScore: c.minPassScore ?? 70,
+    modules: c.modules.map(normalizeModule),
+  }
+}
+
+function normalizeState(raw: LearningState): LearningState {
+  return {
+    courses: raw.courses.map(normalizeCourse),
+    progress: raw.progress,
+    certificates: raw.certificates,
+  }
 }
 
 function isLearningExportPayload(raw: unknown): raw is LearningExportPayload {
@@ -94,6 +142,7 @@ function emptyModule(kind: ModuleKind, title: string, order: number): CourseModu
             question: 'Sample question?',
             options: ['A', 'B', 'C'],
             correctIndex: 0,
+            explanation: 'Explain why the correct answer is right — learners see this after they answer.',
           },
         ],
       }
@@ -122,7 +171,11 @@ function emptyModule(kind: ModuleKind, title: string, order: number): CourseModu
       }
       break
     case 'tips':
-      content = { kind: 'tips', items: ['Practical tip one', 'Practical tip two'] }
+      content = {
+        kind: 'tips',
+        items: ['Practical tip one', 'Practical tip two'],
+        reflectionPrompt: 'Which of these applies most to your situation right now?',
+      }
       break
     case 'on_job':
       content = {
@@ -156,6 +209,12 @@ const seedCourses: Course[] = [
     description: 'Introductory workplace safety and reporting.',
     status: 'published',
     tags: ['HMS', 'Onboarding'],
+    learningObjectives: [
+      'Recognize basic safety terms and reporting paths.',
+      'Complete a start-of-shift checklist.',
+      'Pass a short knowledge check on PPE.',
+    ],
+    minPassScore: 70,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     modules: [
@@ -184,14 +243,15 @@ const seedCourses: Course[] = [
         id: 'm-q1',
         content: {
           kind: 'quiz',
-          questions: [
-            {
-              id: 'q1',
-              question: 'PPE must be used when?',
-              options: ['Never', 'When risk requires it', 'Only on Fridays'],
-              correctIndex: 1,
-            },
-          ],
+        questions: [
+          {
+            id: 'q1',
+            question: 'PPE must be used when?',
+            options: ['Never', 'When risk requires it', 'Only on Fridays'],
+            correctIndex: 1,
+            explanation: 'Use PPE whenever the risk assessment requires it — not only on certain days.',
+          },
+        ],
         },
         durationMinutes: 5,
       },
@@ -215,16 +275,18 @@ function load(): LearningState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
-      return { courses: seedCourses, progress: [], certificates: [] }
+      return normalizeState({ courses: seedCourses, progress: [], certificates: [] })
     }
     const p = JSON.parse(raw) as LearningState
-    return {
-      courses: Array.isArray(p.courses) && p.courses.length ? p.courses : seedCourses,
+    const courses =
+      Array.isArray(p.courses) && p.courses.length ? p.courses.map(normalizeCourse) : seedCourses.map(normalizeCourse)
+    return normalizeState({
+      courses,
       progress: Array.isArray(p.progress) ? p.progress : [],
       certificates: Array.isArray(p.certificates) ? p.certificates : [],
-    }
+    })
   } catch {
-    return { courses: seedCourses, progress: [], certificates: [] }
+    return normalizeState({ courses: seedCourses, progress: [], certificates: [] })
   }
 }
 
@@ -241,16 +303,18 @@ export function useLearning() {
 
   const createCourse = useCallback((title: string, description: string) => {
     const now = new Date().toISOString()
-    const c: Course = {
+    const c: Course = normalizeCourse({
       id: crypto.randomUUID(),
       title: title.trim(),
       description: description.trim(),
       status: 'draft',
       tags: [],
       modules: [],
+      learningObjectives: [],
+      minPassScore: 70,
       createdAt: now,
       updatedAt: now,
-    }
+    })
     setState((s) => ({ ...s, courses: [c, ...s.courses] }))
     return c
   }, [])
@@ -350,16 +414,51 @@ export function useLearning() {
           ...s,
           progress: baseProgress.map((p) => {
             if (p.courseId !== courseId) return p
+            const prev = p.moduleProgress[moduleId]
             return {
               ...p,
               moduleProgress: {
                 ...p.moduleProgress,
                 [moduleId]: {
+                  ...prev,
                   moduleId,
                   completed: true,
-                  score: data?.score,
-                  lastAnswers: data?.lastAnswers,
+                  score: data?.score ?? prev?.score,
+                  lastAnswers: data?.lastAnswers ?? prev?.lastAnswers,
                 },
+              },
+            }
+          }),
+        }
+      })
+    },
+    [],
+  )
+
+  const patchModuleProgress = useCallback(
+    (courseId: string, moduleId: string, patch: Partial<ModuleProgress>) => {
+      setState((s) => {
+        const hasRow = s.progress.some((p) => p.courseId === courseId)
+        const baseProgress: CourseProgress[] = hasRow
+          ? s.progress
+          : [
+              ...s.progress,
+              {
+                courseId,
+                moduleProgress: {},
+                startedAt: new Date().toISOString(),
+              },
+            ]
+        return {
+          ...s,
+          progress: baseProgress.map((p) => {
+            if (p.courseId !== courseId) return p
+            const prev = p.moduleProgress[moduleId] ?? { moduleId, completed: false }
+            return {
+              ...p,
+              moduleProgress: {
+                ...p.moduleProgress,
+                [moduleId]: { ...prev, ...patch, moduleId },
               },
             }
           }),
@@ -484,7 +583,7 @@ export function useLearning() {
           return { ok: false, error: 'Ugyldig fil: forventet delvis export (course / progress / certificates).' }
         }
         if (raw.kind === 'course') {
-          const course = raw.course
+          const course = normalizeCourse(raw.course)
           setState((s) => ({
             ...s,
             courses: s.courses.some((c) => c.id === course.id)
@@ -532,6 +631,7 @@ export function useLearning() {
     deleteModule,
     ensureProgress,
     setModuleCompleted,
+    patchModuleProgress,
     issueCertificate,
     resetDemo,
     exportJson,
