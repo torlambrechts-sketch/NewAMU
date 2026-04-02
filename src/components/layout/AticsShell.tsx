@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
+  BookOpen,
   ClipboardList,
   Clock,
   ExternalLink,
+  FileText,
   GraduationCap,
   HardHat,
   HeartPulse,
@@ -13,10 +15,12 @@ import {
   Search,
   Settings,
   Star,
+  Users,
   UsersRound,
+  Workflow,
 } from 'lucide-react'
 
-// ─── Sub-item type ───────────────────────────────────────────────────────────
+// ─── Sub-item type ────────────────────────────────────────────────────────────
 
 type SubItem = {
   label: string
@@ -24,23 +28,46 @@ type SubItem = {
   match: (loc: { pathname: string; search: string }) => boolean
 }
 
-// ─── Sub-item lists (unchanged) ──────────────────────────────────────────────
+// ─── Sub-item lists (all paths/labels unchanged) ──────────────────────────────
 
-const councilSubs: SubItem[] = [
+const tasksSubs: SubItem[] = [
+  {
+    label: 'Oppgaveliste',
+    path: '/tasks?view=list',
+    match: ({ pathname, search }) =>
+      pathname === '/tasks' &&
+      (!new URLSearchParams(search).get('view') || new URLSearchParams(search).get('view') === 'list'),
+  },
+  { label: 'Oppgavelogg', path: '/tasks?view=audit', match: ({ pathname, search }) => pathname === '/tasks' && new URLSearchParams(search).get('view') === 'audit' },
+]
+
+const internalControlSubs: SubItem[] = [
   {
     label: 'Oversikt',
-    path: '/council?tab=overview',
+    path: '/internal-control?tab=overview',
     match: ({ pathname, search }) =>
-      pathname === '/council' &&
-      (!new URLSearchParams(search).get('tab') ||
-        new URLSearchParams(search).get('tab') === 'overview'),
+      pathname === '/internal-control' &&
+      (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
   },
-  { label: 'Styre og valg', path: '/council?tab=board', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'board' },
-  { label: 'Valg representanter', path: '/council?tab=election', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'election' },
-  { label: 'Krav og opplæring', path: '/council?tab=requirements', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'requirements' },
-  { label: 'Møter og årshjul', path: '/council?tab=meetings', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'meetings' },
-  { label: 'Møteforberedelse', path: '/council?tab=preparation', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'preparation' },
-  { label: 'Arbeidsrett og sjekkliste', path: '/council?tab=compliance', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'compliance' },
+  { label: 'Varslingssaker', path: '/internal-control?tab=whistle', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'whistle' },
+  { label: 'ROS', path: '/internal-control?tab=ros', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'ros' },
+  { label: 'Årsgjennomgang', path: '/internal-control?tab=annual', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'annual' },
+  { label: 'Logg', path: '/internal-control?tab=audit', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'audit' },
+]
+
+const hseSubs: SubItem[] = [
+  {
+    label: 'Oversikt',
+    path: '/hse?tab=overview',
+    match: ({ pathname, search }) =>
+      pathname === '/hse' &&
+      (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
+  },
+  { label: 'Vernerunder', path: '/hse?tab=rounds', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'rounds' },
+  { label: 'Inspeksjoner', path: '/hse?tab=inspections', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'inspections' },
+  { label: 'Hendelser', path: '/hse?tab=incidents', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'incidents' },
+  { label: 'AML & verneombud', path: '/hse?tab=aml', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'aml' },
+  { label: 'Revisjonslogg', path: '/hse?tab=audit', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'audit' },
 ]
 
 const orgHealthSubs: SubItem[] = [
@@ -59,30 +86,20 @@ const orgHealthSubs: SubItem[] = [
   { label: 'Veikart', path: '/org-health/settings', match: ({ pathname }) => pathname === '/org-health/settings' },
 ]
 
-const hseSubs: SubItem[] = [
+const councilSubs: SubItem[] = [
   {
     label: 'Oversikt',
-    path: '/hse?tab=overview',
+    path: '/council?tab=overview',
     match: ({ pathname, search }) =>
-      pathname === '/hse' &&
+      pathname === '/council' &&
       (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
   },
-  { label: 'Vernerunder', path: '/hse?tab=rounds', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'rounds' },
-  { label: 'Inspeksjoner', path: '/hse?tab=inspections', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'inspections' },
-  { label: 'Hendelser', path: '/hse?tab=incidents', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'incidents' },
-  { label: 'AML & verneombud', path: '/hse?tab=aml', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'aml' },
-  { label: 'Revisjonslogg', path: '/hse?tab=audit', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'audit' },
-]
-
-const tasksSubs: SubItem[] = [
-  {
-    label: 'Oppgaveliste',
-    path: '/tasks?view=list',
-    match: ({ pathname, search }) =>
-      pathname === '/tasks' &&
-      (!new URLSearchParams(search).get('view') || new URLSearchParams(search).get('view') === 'list'),
-  },
-  { label: 'Oppgavelogg', path: '/tasks?view=audit', match: ({ pathname, search }) => pathname === '/tasks' && new URLSearchParams(search).get('view') === 'audit' },
+  { label: 'Styre og valg', path: '/council?tab=board', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'board' },
+  { label: 'Valg representanter', path: '/council?tab=election', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'election' },
+  { label: 'Krav og opplæring', path: '/council?tab=requirements', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'requirements' },
+  { label: 'Møter og årshjul', path: '/council?tab=meetings', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'meetings' },
+  { label: 'Møteforberedelse', path: '/council?tab=preparation', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'preparation' },
+  { label: 'Arbeidsrett og sjekkliste', path: '/council?tab=compliance', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'compliance' },
 ]
 
 const learningSubs: SubItem[] = [
@@ -94,64 +111,92 @@ const learningSubs: SubItem[] = [
   { label: 'Settings', path: '/learning/settings', match: ({ pathname }) => pathname === '/learning/settings' },
 ]
 
-const internalControlSubs: SubItem[] = [
-  {
-    label: 'Oversikt',
-    path: '/internal-control?tab=overview',
-    match: ({ pathname, search }) =>
-      pathname === '/internal-control' &&
-      (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
-  },
-  { label: 'Varslingssaker', path: '/internal-control?tab=whistle', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'whistle' },
-  { label: 'ROS', path: '/internal-control?tab=ros', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'ros' },
-  { label: 'Årsgjennomgang', path: '/internal-control?tab=annual', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'annual' },
-  { label: 'Logg', path: '/internal-control?tab=audit', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'audit' },
-]
+// ─── Navigation groups ────────────────────────────────────────────────────────
+//
+// The four groups from the spec. Each module carries its icon, route, sub-items,
+// and the group it belongs to. The group label is shown as a section divider in
+// the sidebar sub-nav panel and as a header row in the top-bar secondary nav.
 
-// ─── Unified module list (icon rail + sub-nav panel in sidebar mode) ─────────
-
-const allModules = [
-  { to: '/', label: 'Dashboard', end: true, icon: Home, subs: [] as SubItem[] },
-  { to: '/council', label: 'Council', end: false, icon: UsersRound, subs: councilSubs },
-  { to: '/org-health', label: 'Org health', end: false, icon: HeartPulse, subs: orgHealthSubs },
-  { to: '/hse', label: 'HSE', end: false, icon: HardHat, subs: hseSubs },
-  { to: '/internal-control', label: 'Internkontroll', end: false, icon: ClipboardList, subs: internalControlSubs },
-  { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, subs: tasksSubs },
-  { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap, subs: learningSubs },
-]
-
-// ─── Top-bar mode data (original) ────────────────────────────────────────────
-
-const navMainCouncil = [{ to: '/council', label: 'Council', end: false, icon: UsersRound }] as const
-
-const navMainRest = [
-  { to: '/org-health', label: 'Org health', end: false, icon: HeartPulse },
-  { to: '/hse', label: 'HSE', end: false, icon: HardHat },
-  { to: '/internal-control', label: 'Internkontroll', end: false, icon: ClipboardList },
-  { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid },
-  { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap },
-] as const
-
-function subNavForPath(pathname: string): SubItem[] {
-  if (pathname.startsWith('/learning')) return learningSubs
-  if (pathname === '/council') return councilSubs
-  if (pathname.startsWith('/org-health')) return orgHealthSubs
-  if (pathname === '/internal-control') return internalControlSubs
-  if (pathname === '/hse') return hseSubs
-  if (pathname === '/tasks') return tasksSubs
-  return []
+type NavGroup = {
+  id: string
+  label: string
+  modules: NavModule[]
 }
 
-// ─── Sidebar helpers ──────────────────────────────────────────────────────────
+type NavModule = {
+  to: string
+  label: string
+  end: boolean
+  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
+  subs: SubItem[]
+}
 
-function activeModuleForPath(pathname: string) {
+const navGroups: NavGroup[] = [
+  {
+    id: 'workspace',
+    label: 'Workspace',
+    modules: [
+      { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [] },
+      { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, subs: tasksSubs },
+    ],
+  },
+  {
+    id: 'compliance',
+    label: 'Compliance',
+    modules: [
+      { to: '/internal-control', label: 'Internkontroll', end: false, icon: ClipboardList, subs: internalControlSubs },
+      { to: '/hse', label: 'HSE / HMS', end: false, icon: HardHat, subs: hseSubs },
+      { to: '/org-health', label: 'Org Health', end: false, icon: HeartPulse, subs: orgHealthSubs },
+      { to: '/prosesser', label: 'Prosesser', end: false, icon: Workflow, subs: [] },
+    ],
+  },
+  {
+    id: 'council',
+    label: 'Worker Council',
+    modules: [
+      { to: '/council', label: 'Council Room', end: false, icon: UsersRound, subs: councilSubs },
+      { to: '/council?tab=election', label: 'Members', end: false, icon: Users, subs: [] },
+    ],
+  },
+  {
+    id: 'library',
+    label: 'Library',
+    modules: [
+      { to: '/documents', label: 'Documents', end: false, icon: FileText, subs: [] },
+      { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap, subs: learningSubs },
+    ],
+  },
+]
+
+// Flat list for helpers that need to iterate all modules
+const allModules: NavModule[] = navGroups.flatMap((g) => g.modules)
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function activeModuleForPath(pathname: string, search: string): NavModule {
+  // Exact-match first (handles /council?tab=election vs /council)
   for (const mod of allModules) {
-    if (mod.to === '/') continue
-    if (pathname === mod.to || pathname.startsWith(mod.to + '/') || pathname.startsWith(mod.to + '?')) {
-      return mod
+    if (mod.to.includes('?')) {
+      const [p, q] = mod.to.split('?')
+      const params = new URLSearchParams(q)
+      const searchParams = new URLSearchParams(search)
+      if (pathname === p && searchParams.get('tab') === params.get('tab')) return mod
     }
   }
+  // Then prefix match
+  for (const mod of allModules) {
+    if (mod.to === '/') continue
+    const base = mod.to.split('?')[0]
+    if (pathname === base || pathname.startsWith(base + '/')) return mod
+  }
   return allModules[0]
+}
+
+function subNavForPath(pathname: string, search: string): SubItem[] {
+  const mod = activeModuleForPath(pathname, search)
+  // For Members shortcut, show council subs
+  if (mod.to === '/council?tab=election') return councilSubs
+  return mod.subs
 }
 
 // ─── Nav mode persistence ─────────────────────────────────────────────────────
@@ -170,7 +215,7 @@ function saveNavMode(mode: NavMode) {
   try { localStorage.setItem('atics-nav-mode', mode) } catch { /* ignore */ }
 }
 
-// ─── Settings panel (shared between layouts) ──────────────────────────────────
+// ─── Settings / layout-switcher panel ────────────────────────────────────────
 
 function NavModePanel({
   navMode,
@@ -183,7 +228,6 @@ function NavModePanel({
 }) {
   return (
     <>
-      {/* Invisible backdrop to close on outside click */}
       <div className="fixed inset-0 z-40" onClick={onClose} aria-hidden />
       <div className="absolute z-50 w-56 rounded-xl border border-neutral-200 bg-white p-3 shadow-xl">
         <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">
@@ -199,7 +243,6 @@ function NavModePanel({
                 : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-800'
             }`}
           >
-            {/* mini top-bar icon */}
             <span className="flex flex-col gap-0.5">
               <span className="block h-1.5 w-8 rounded-sm bg-current opacity-80" />
               <span className="block h-1 w-8 rounded-sm bg-current opacity-40" />
@@ -216,7 +259,6 @@ function NavModePanel({
                 : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-800'
             }`}
           >
-            {/* mini side-bar icon */}
             <span className="flex gap-0.5">
               <span className="block h-8 w-2 rounded-sm bg-current opacity-80" />
               <span className="block h-8 w-6 rounded-sm border border-current opacity-30" />
@@ -235,6 +277,7 @@ export function AticsShell() {
   const location = useLocation()
   const [navMode, setNavMode] = useState<NavMode>(loadNavMode)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [subNavCollapsed, setSubNavCollapsed] = useState(false)
 
   function handleNavModeChange(mode: NavMode) {
     setNavMode(mode)
@@ -243,15 +286,15 @@ export function AticsShell() {
   }
 
   // ── Sidebar layout ──────────────────────────────────────────────────────────
-  const [subNavCollapsed, setSubNavCollapsed] = useState(false)
-
   if (navMode === 'sidebar') {
-    const activeModule = activeModuleForPath(location.pathname)
-    const hasSubs = activeModule.subs.length > 0
+    const activeModule = activeModuleForPath(location.pathname, location.search)
+    const activeGroup = navGroups.find((g) => g.modules.some((m) => m.to === activeModule.to))
+    const subItems = subNavForPath(location.pathname, location.search)
+    const hasSubs = subItems.length > 0
 
     return (
       <div className="flex h-screen overflow-hidden">
-        {/* ── Icon rail — always visible ──────────────────────────────── */}
+        {/* ── Icon rail — always visible ───────────────────────────────────── */}
         <aside className="flex w-[4.5rem] shrink-0 flex-col bg-[#1a3d32]">
           {/* Logo */}
           <div className="flex h-14 shrink-0 items-center justify-center border-b border-white/10">
@@ -260,27 +303,36 @@ export function AticsShell() {
             </NavLink>
           </div>
 
-          {/* Module icons — more vertical breathing room */}
-          <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-2 py-4" aria-label="Primary">
-            {allModules.map((mod) => {
-              const Icon = mod.icon
-              const isActive = activeModule.to === mod.to
-              return (
-                <NavLink
-                  key={mod.to}
-                  to={mod.to}
-                  end={mod.end}
-                  title={mod.label}
-                  className={`flex items-center justify-center rounded-lg p-3 transition-colors ${
-                    isActive
-                      ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/60'
-                      : 'text-white/60 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  <Icon className="size-[1.125rem] shrink-0" aria-hidden />
-                </NavLink>
-              )
-            })}
+          {/* Grouped module icons with subtle dividers between groups */}
+          <nav className="flex flex-1 flex-col overflow-y-auto px-2 py-3" aria-label="Primary">
+            {navGroups.map((group, gi) => (
+              <div key={group.id}>
+                {gi > 0 && (
+                  <div className="mx-auto my-2 h-px w-8 bg-white/10" aria-hidden />
+                )}
+                <div className="flex flex-col gap-1.5">
+                  {group.modules.map((mod) => {
+                    const Icon = mod.icon
+                    const isActive = activeModule.to === mod.to
+                    return (
+                      <NavLink
+                        key={mod.to}
+                        to={mod.to}
+                        end={mod.end}
+                        title={`${group.label} — ${mod.label}`}
+                        className={`flex items-center justify-center rounded-lg p-3 transition-colors ${
+                          isActive
+                            ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/60'
+                            : 'text-white/60 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        <Icon className="size-[1.125rem] shrink-0" aria-hidden />
+                      </NavLink>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
 
           {/* Bottom: settings + avatar */}
@@ -299,31 +351,28 @@ export function AticsShell() {
               </button>
               {settingsOpen && (
                 <div className="absolute bottom-full left-full mb-2 ml-2">
-                  <NavModePanel
-                    navMode={navMode}
-                    onChange={handleNavModeChange}
-                    onClose={() => setSettingsOpen(false)}
-                  />
+                  <NavModePanel navMode={navMode} onChange={handleNavModeChange} onClose={() => setSettingsOpen(false)} />
                 </div>
               )}
             </div>
             <div className="flex justify-center">
-              <div
-                className="size-8 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-white/30"
-                role="img"
-                aria-label="User profile"
-              />
+              <div className="size-8 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-white/30" role="img" aria-label="User profile" />
             </div>
           </div>
         </aside>
 
-        {/* ── Sub-nav panel ───────────────────────────────────────────────── */}
+        {/* ── Sub-nav panel ────────────────────────────────────────────────── */}
         {hasSubs && !subNavCollapsed && (
           <aside className="flex w-52 shrink-0 flex-col overflow-hidden border-r border-white/5 bg-[#15302a]">
-            {/* Module name header */}
-            <div className="flex h-14 shrink-0 items-center border-b border-white/10 px-4">
+            {/* Group + module header */}
+            <div className="flex h-14 shrink-0 flex-col justify-center border-b border-white/10 px-4">
+              {activeGroup && (
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">
+                  {activeGroup.label}
+                </span>
+              )}
               <span
-                className="text-sm font-semibold text-white"
+                className="text-sm font-semibold leading-tight text-white"
                 style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
               >
                 {activeModule.label}
@@ -332,7 +381,7 @@ export function AticsShell() {
 
             {/* Sub-items */}
             <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Section">
-              {activeModule.subs.map((item) => {
+              {subItems.map((item) => {
                 const active = item.match({ pathname: location.pathname, search: location.search })
                 return (
                   <NavLink
@@ -358,11 +407,10 @@ export function AticsShell() {
           </aside>
         )}
 
-        {/* ── Content area ────────────────────────────────────────────────── */}
+        {/* ── Content area ─────────────────────────────────────────────────── */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Utility bar — same colour as page background */}
+          {/* Utility bar — same colour as page */}
           <header className="flex h-14 shrink-0 items-center gap-3 border-b border-neutral-300/40 bg-[#f5f0e8] px-4 md:px-5">
-            {/* Collapse / expand sub-nav toggle */}
             <button
               type="button"
               onClick={() => setSubNavCollapsed((c) => !c)}
@@ -372,7 +420,6 @@ export function AticsShell() {
             >
               <PanelLeft className="size-4" />
             </button>
-
             <div className="relative flex-1 max-w-sm">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
               <input
@@ -382,25 +429,14 @@ export function AticsShell() {
               />
             </div>
             <div className="ml-auto flex items-center gap-2">
-              <button
-                type="button"
-                className="hidden items-center gap-1.5 rounded-full bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white sm:flex"
-              >
+              <button type="button" className="hidden items-center gap-1.5 rounded-full bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white sm:flex">
                 <Clock className="size-3.5" />
                 Upgrade
               </button>
-              <button
-                type="button"
-                className="rounded-lg p-1.5 text-neutral-500 hover:bg-black/5"
-                aria-label="Open external"
-              >
+              <button type="button" className="rounded-lg p-1.5 text-neutral-500 hover:bg-black/5" aria-label="Open external">
                 <ExternalLink className="size-4" />
               </button>
-              <div
-                className="size-8 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-neutral-300/50"
-                role="img"
-                aria-label="User profile"
-              />
+              <div className="size-8 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-neutral-300/50" role="img" aria-label="User profile" />
             </div>
           </header>
 
@@ -412,12 +448,13 @@ export function AticsShell() {
     )
   }
 
-  // ── Top-bar layout (original) ───────────────────────────────────────────────
-  const subItems = subNavForPath(location.pathname)
+  // ── Top-bar layout ──────────────────────────────────────────────────────────
+  const subItems = subNavForPath(location.pathname, location.search)
 
   return (
     <div className="min-h-screen bg-[#f5f0e8]">
       <header className="bg-[#1a3d32] text-white">
+        {/* Primary bar: logo + grouped nav + utilities */}
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 md:px-8">
           <NavLink to="/" className="flex items-center gap-2" aria-label="Home">
             <Star className="size-7 shrink-0 fill-white text-white" strokeWidth={1.2} />
@@ -428,65 +465,49 @@ export function AticsShell() {
               atics
             </span>
           </NavLink>
+
           <nav
-            className="flex max-w-[min(100%,56rem)] flex-1 flex-wrap items-center justify-center gap-x-2 gap-y-1 overflow-x-auto py-1 md:gap-x-4 lg:max-w-none"
+            className="flex max-w-[min(100%,64rem)] flex-1 flex-wrap items-center justify-center gap-x-1 gap-y-1 overflow-x-auto py-1 md:gap-x-2 lg:max-w-none"
             aria-label="Primary"
           >
-            <div className="flex items-center gap-2 md:gap-3" role="group" aria-label="Arbeidsmiljøråd">
-              {navMainCouncil.map((item) => {
-                const Icon = item.icon
-                return (
-                  <NavLink
-                    key={item.to + item.label}
-                    to={item.to}
-                    end={item.end}
-                    className={({ isActive }) =>
-                      `inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-semibold transition-colors md:px-3 ${
-                        isActive
-                          ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/80'
-                          : 'text-white/85 hover:bg-white/10 hover:text-white'
-                      }`
-                    }
-                  >
-                    <Icon className="size-4 shrink-0 opacity-95" aria-hidden />
-                    {item.label}
-                  </NavLink>
-                )
-              })}
-            </div>
-            <span className="hidden h-6 w-px shrink-0 bg-white/25 sm:block" aria-hidden />
-            <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4" role="group" aria-label="Andre moduler">
-              {navMainRest.map((item) => {
-                const Icon = item.icon
-                return (
-                  <NavLink
-                    key={item.to + item.label}
-                    to={item.to}
-                    end={item.end}
-                    className={({ isActive }) =>
-                      `inline-flex items-center gap-1.5 text-sm font-medium transition-colors ${
-                        isActive
-                          ? 'border-b-2 border-[#c9a227] pb-0.5 text-white'
-                          : 'text-white/80 hover:text-white'
-                      }`
-                    }
-                  >
-                    <Icon className="size-4 shrink-0 opacity-90" aria-hidden />
-                    {item.label}
-                  </NavLink>
-                )
-              })}
-            </div>
+            {navGroups.map((group, gi) => (
+              <div key={group.id} className="flex items-center gap-x-1 md:gap-x-2">
+                {gi > 0 && (
+                  <span className="hidden h-5 w-px shrink-0 bg-white/20 sm:block" aria-hidden />
+                )}
+                {/* Group label — visible on wider screens */}
+                <span className="hidden text-[10px] font-semibold uppercase tracking-wider text-white/35 lg:block">
+                  {group.label}
+                </span>
+                {group.modules.map((mod) => {
+                  const Icon = mod.icon
+                  return (
+                    <NavLink
+                      key={mod.to}
+                      to={mod.to}
+                      end={mod.end}
+                      className={({ isActive }) =>
+                        `inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium transition-colors md:px-2.5 ${
+                          isActive
+                            ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/70'
+                            : 'text-white/80 hover:bg-white/10 hover:text-white'
+                        }`
+                      }
+                    >
+                      <Icon className="size-3.5 shrink-0 opacity-90" aria-hidden />
+                      <span className="hidden sm:inline">{mod.label}</span>
+                    </NavLink>
+                  )
+                })}
+              </div>
+            ))}
           </nav>
+
           <div className="flex items-center gap-2 md:gap-3">
-            <button
-              type="button"
-              className="hidden items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] sm:flex"
-            >
+            <button type="button" className="hidden items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] sm:flex">
               <Clock className="size-3.5" />
               Upgrade
             </button>
-            {/* Settings gear with layout switcher */}
             <div className="relative">
               <button
                 type="button"
@@ -498,33 +519,24 @@ export function AticsShell() {
               </button>
               {settingsOpen && (
                 <div className="absolute right-0 top-full mt-1">
-                  <NavModePanel
-                    navMode={navMode}
-                    onChange={handleNavModeChange}
-                    onClose={() => setSettingsOpen(false)}
-                  />
+                  <NavModePanel navMode={navMode} onChange={handleNavModeChange} onClose={() => setSettingsOpen(false)} />
                 </div>
               )}
             </div>
             <button type="button" className="rounded-lg p-2 hover:bg-white/10" aria-label="Open external">
               <ExternalLink className="size-5" />
             </button>
-            <div
-              className="size-9 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-white/30"
-              role="img"
-              aria-label="User profile"
-            />
+            <div className="size-9 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-white/30" role="img" aria-label="User profile" />
           </div>
         </div>
+
+        {/* Secondary bar: sub-nav + search */}
         <div className="border-t border-white/10">
           <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-4 py-2.5 md:px-8">
             <nav className="flex min-w-0 flex-1 flex-wrap gap-x-4 gap-y-2" aria-label="Section">
               {subItems.length > 0 ? (
                 subItems.map((item) => {
-                  const active = item.match({
-                    pathname: location.pathname,
-                    search: location.search,
-                  })
+                  const active = item.match({ pathname: location.pathname, search: location.search })
                   return (
                     <NavLink
                       key={item.path + item.label}
@@ -540,7 +552,7 @@ export function AticsShell() {
                   )
                 })
               ) : (
-                <span className="text-sm text-white/45">Velg en hovedmodul over (Council, Org health, …)</span>
+                <span className="text-sm text-white/40">Velg en modul over</span>
               )}
             </nav>
             <div className="relative min-w-[200px] flex-1 md:max-w-md">
@@ -562,5 +574,4 @@ export function AticsShell() {
   )
 }
 
-// Expose sidebar toggle icon for other components if needed
-export { PanelLeft }
+export { BookOpen, PanelLeft }

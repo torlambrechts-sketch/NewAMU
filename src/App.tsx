@@ -50,25 +50,12 @@ function App() {
             <Route path="settings" element={<LearningSettings />} />
           </Route>
           <Route
-            path="clients"
-            element={<PlaceholderPage title="Clients" description="Client directory and relationships." />}
+            path="prosesser"
+            element={<PlaceholderPage title="Prosesser" description="Aktive arbeidsflyter og dynamiske skjemaer som knytter compliance-arbeidet sammen." />}
           />
           <Route
-            path="analytics"
-            element={<PlaceholderPage title="Analytics" description="Charts and KPIs." />}
-          />
-          <Route
-            path="marketing"
-            element={<PlaceholderPage title="Marketing" description="Campaigns and content." />}
-          />
-          <Route
-            path="reports"
-            element={<PlaceholderPage title="Reports" description="Exports and scheduled reports." />}
-          />
-          <Route path="teams" element={<PlaceholderPage title="Teams" description="Team roster and roles." />} />
-          <Route
-            path="workspaces"
-            element={<PlaceholderPage title="Workspaces" description="Workspace settings." />}
+            path="documents"
+            element={<PlaceholderPage title="Documents" description="HMS-håndbøker, retningslinjer, sikkerhetsdatablad og andre styrende dokumenter." />}
           />
         </Route>
 
