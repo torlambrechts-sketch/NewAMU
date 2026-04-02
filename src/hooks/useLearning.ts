@@ -20,6 +20,27 @@ export type LearningExportPayload = {
   certificates: Certificate[]
 }
 
+/** Single-course or slice exports (import merges into existing data). */
+export type LearningPartialExportPayload =
+  | {
+      version: typeof LEARNING_EXPORT_VERSION
+      kind: 'course'
+      exportedAt: string
+      course: Course
+    }
+  | {
+      version: typeof LEARNING_EXPORT_VERSION
+      kind: 'progress_slice'
+      exportedAt: string
+      progress: CourseProgress[]
+    }
+  | {
+      version: typeof LEARNING_EXPORT_VERSION
+      kind: 'certificates_slice'
+      exportedAt: string
+      certificates: Certificate[]
+    }
+
 type LearningState = {
   courses: Course[]
   progress: CourseProgress[]
@@ -33,6 +54,23 @@ function isLearningExportPayload(raw: unknown): raw is LearningExportPayload {
   if (typeof o.exportedAt !== 'string') return false
   if (!Array.isArray(o.courses) || !Array.isArray(o.progress) || !Array.isArray(o.certificates)) return false
   return true
+}
+
+function isPartialExportPayload(raw: unknown): raw is LearningPartialExportPayload {
+  if (!raw || typeof raw !== 'object') return false
+  const o = raw as Record<string, unknown>
+  if (o.version !== LEARNING_EXPORT_VERSION) return false
+  const kind = o.kind
+  if (kind === 'course') {
+    return (
+      typeof o.course === 'object' &&
+      o.course !== null &&
+      typeof (o.course as Record<string, unknown>).id === 'string'
+    )
+  }
+  if (kind === 'progress_slice') return Array.isArray(o.progress)
+  if (kind === 'certificates_slice') return Array.isArray(o.certificates)
+  return false
 }
 
 function emptyModule(kind: ModuleKind, title: string, order: number): CourseModule {
@@ -403,6 +441,86 @@ export function useLearning() {
     }
   }, [])
 
+  const exportCourseJson = useCallback(
+    (courseId: string): string | null => {
+      const course = state.courses.find((c) => c.id === courseId)
+      if (!course) return null
+      const payload: LearningPartialExportPayload = {
+        version: LEARNING_EXPORT_VERSION,
+        kind: 'course',
+        exportedAt: new Date().toISOString(),
+        course,
+      }
+      return JSON.stringify(payload, null, 2)
+    },
+    [state.courses],
+  )
+
+  const exportProgressSliceJson = useCallback((): string => {
+    const payload: LearningPartialExportPayload = {
+      version: LEARNING_EXPORT_VERSION,
+      kind: 'progress_slice',
+      exportedAt: new Date().toISOString(),
+      progress: state.progress,
+    }
+    return JSON.stringify(payload, null, 2)
+  }, [state.progress])
+
+  const exportCertificatesSliceJson = useCallback((): string => {
+    const payload: LearningPartialExportPayload = {
+      version: LEARNING_EXPORT_VERSION,
+      kind: 'certificates_slice',
+      exportedAt: new Date().toISOString(),
+      certificates: state.certificates,
+    }
+    return JSON.stringify(payload, null, 2)
+  }, [state.certificates])
+
+  const importPartialJson = useCallback(
+    (json: string): { ok: true } | { ok: false; error: string } => {
+      try {
+        const raw = JSON.parse(json) as unknown
+        if (!isPartialExportPayload(raw)) {
+          return { ok: false, error: 'Ugyldig fil: forventet delvis export (course / progress / certificates).' }
+        }
+        if (raw.kind === 'course') {
+          const course = raw.course
+          setState((s) => ({
+            ...s,
+            courses: s.courses.some((c) => c.id === course.id)
+              ? s.courses.map((c) => (c.id === course.id ? course : c))
+              : [...s.courses, course],
+          }))
+          return { ok: true }
+        }
+        if (raw.kind === 'progress_slice') {
+          setState((s) => {
+            const byCourse = new Map(s.progress.map((p) => [p.courseId, p]))
+            for (const p of raw.progress) {
+              byCourse.set(p.courseId, p)
+            }
+            return { ...s, progress: [...byCourse.values()] }
+          })
+          return { ok: true }
+        }
+        if (raw.kind === 'certificates_slice') {
+          setState((s) => {
+            const byId = new Map(s.certificates.map((c) => [c.id, c]))
+            for (const c of raw.certificates) {
+              byId.set(c.id, c)
+            }
+            return { ...s, certificates: [...byId.values()] }
+          })
+          return { ok: true }
+        }
+        return { ok: false, error: 'Ukjent delvis export-type.' }
+      } catch {
+        return { ok: false, error: 'Kunne ikke parse JSON.' }
+      }
+    },
+    [],
+  )
+
   return {
     ...state,
     stats,
@@ -418,5 +536,9 @@ export function useLearning() {
     resetDemo,
     exportJson,
     importFromJson,
+    exportCourseJson,
+    exportProgressSliceJson,
+    exportCertificatesSliceJson,
+    importPartialJson,
   }
 }
