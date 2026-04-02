@@ -1,0 +1,33 @@
+# Optional: deploy from GitHub Actions when secrets are set.
+# Easiest path: connect this repo in the Vercel dashboard (Import Project) — deploys on every push.
+#
+# For CLI-style deploy from Actions, add secrets:
+#   VERCEL_TOKEN      — https://vercel.com/account/tokens
+#   VERCEL_ORG_ID     — .vercel/project.json after `npx vercel link`, or Team Settings
+#   VERCEL_PROJECT_ID — same
+#
+# Disable this workflow until secrets exist (or it will fail).
+
+name: Deploy to Vercel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Deploy production
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: npx vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
