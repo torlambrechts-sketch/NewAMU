@@ -5,7 +5,6 @@ import { HrmSalary } from './pages/HrmSalary'
 import { NotFound } from './pages/NotFound'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { CouncilModule } from './pages/CouncilModule'
-import { MembersModule } from './pages/MembersModule'
 import { HseModule } from './pages/HseModule'
 import { OrgHealthModule } from './pages/OrgHealthModule'
 import { OrgHealthSettings } from './pages/OrgHealthSettings'
@@ -35,7 +34,7 @@ function App() {
           <Route index element={<ProjectDashboard />} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="council" element={<CouncilModule />} />
-          <Route path="members" element={<MembersModule />} />
+          <Route path="members" element={<Navigate to="/council?tab=election" replace />} />
           <Route path="org-health" element={<OrgHealthModule />} />
           <Route path="org-health/settings" element={<OrgHealthSettings />} />
           <Route path="internal-control" element={<InternalControlModule />} />

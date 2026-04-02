@@ -10,7 +10,6 @@ import {
   Search,
   Settings,
   Star,
-  Users,
   UsersRound,
 } from 'lucide-react'
 
@@ -27,24 +26,11 @@ const councilSubs: SubItem[] = [
         new URLSearchParams(search).get('tab') === 'overview'),
   },
   { label: 'Styre og valg', path: '/council?tab=board', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'board' },
+  { label: 'Valg representanter', path: '/council?tab=election', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'election' },
+  { label: 'Krav og opplæring', path: '/council?tab=requirements', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'requirements' },
   { label: 'Møter og årshjul', path: '/council?tab=meetings', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'meetings' },
   { label: 'Møteforberedelse', path: '/council?tab=preparation', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'preparation' },
   { label: 'Arbeidsrett og sjekkliste', path: '/council?tab=compliance', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'compliance' },
-]
-
-const membersSubs: SubItem[] = [
-  {
-    label: 'Oversikt',
-    path: '/members?tab=overview',
-    match: ({ pathname, search }) =>
-      pathname === '/members' &&
-      (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
-  },
-  { label: 'Valg', path: '/members?tab=election', match: ({ pathname, search }) => pathname === '/members' && new URLSearchParams(search).get('tab') === 'election' },
-  { label: 'AMU og sammensetting', path: '/members?tab=board', match: ({ pathname, search }) => pathname === '/members' && new URLSearchParams(search).get('tab') === 'board' },
-  { label: 'Krav og opplæring', path: '/members?tab=requirements', match: ({ pathname, search }) => pathname === '/members' && new URLSearchParams(search).get('tab') === 'requirements' },
-  { label: 'Perioder', path: '/members?tab=periods', match: ({ pathname, search }) => pathname === '/members' && new URLSearchParams(search).get('tab') === 'periods' },
-  { label: 'Revisjonslogg', path: '/members?tab=audit', match: ({ pathname, search }) => pathname === '/members' && new URLSearchParams(search).get('tab') === 'audit' },
 ]
 
 const orgHealthSubs: SubItem[] = [
@@ -169,7 +155,6 @@ const internalControlSubs: SubItem[] = [
 ]
 
 const navMainRest = [
-  { to: '/members', label: 'Members', end: false, icon: Users },
   { to: '/org-health', label: 'Org health', end: false, icon: HeartPulse },
   { to: '/hse', label: 'HSE', end: false, icon: HardHat },
   { to: '/internal-control', label: 'Internkontroll', end: false, icon: ClipboardList },
@@ -180,7 +165,6 @@ const navMainRest = [
 function subNavForPath(pathname: string): SubItem[] {
   if (pathname.startsWith('/learning')) return learningSubs
   if (pathname === '/council') return councilSubs
-  if (pathname === '/members') return membersSubs
   if (pathname.startsWith('/org-health')) return orgHealthSubs
   if (pathname === '/internal-control') return internalControlSubs
   if (pathname === '/hse') return hseSubs
