@@ -20,6 +20,11 @@ import { LearningCertifications } from './pages/learning/LearningCertifications'
 import { LearningInsights } from './pages/learning/LearningInsights'
 import { LearningParticipants } from './pages/learning/LearningParticipants'
 import { LearningSettings } from './pages/learning/LearningSettings'
+import { DocumentsHome } from './pages/documents/DocumentsHome'
+import { WikiSpaceView } from './pages/documents/WikiSpaceView'
+import { WikiPageView } from './pages/documents/WikiPageView'
+import { WikiPageEditor } from './pages/documents/WikiPageEditor'
+import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 
 function App() {
   return (
@@ -53,10 +58,11 @@ function App() {
             path="prosesser"
             element={<PlaceholderPage title="Prosesser" description="Aktive arbeidsflyter og dynamiske skjemaer som knytter compliance-arbeidet sammen." />}
           />
-          <Route
-            path="documents"
-            element={<PlaceholderPage title="Documents" description="HMS-håndbøker, retningslinjer, sikkerhetsdatablad og andre styrende dokumenter." />}
-          />
+          <Route path="documents" element={<DocumentsHome />} />
+          <Route path="documents/space/:spaceId" element={<WikiSpaceView />} />
+          <Route path="documents/page/:pageId" element={<WikiPageView />} />
+          <Route path="documents/page/:pageId/edit" element={<WikiPageEditor />} />
+          <Route path="documents/compliance" element={<ComplianceDashboard />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/404" replace />} />

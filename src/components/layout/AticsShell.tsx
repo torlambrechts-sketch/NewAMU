@@ -111,6 +111,19 @@ const learningSubs: SubItem[] = [
   { label: 'Settings', path: '/learning/settings', match: ({ pathname }) => pathname === '/learning/settings' },
 ]
 
+const documentsSubs: SubItem[] = [
+  {
+    label: 'Hjem',
+    path: '/documents',
+    match: ({ pathname }) => pathname === '/documents',
+  },
+  {
+    label: 'Samsvarsstatus',
+    path: '/documents/compliance',
+    match: ({ pathname }) => pathname === '/documents/compliance',
+  },
+]
+
 // ─── Navigation groups ────────────────────────────────────────────────────────
 //
 // The four groups from the spec. Each module carries its icon, route, sub-items,
@@ -162,7 +175,7 @@ const navGroups: NavGroup[] = [
     id: 'library',
     label: 'Library',
     modules: [
-      { to: '/documents', label: 'Documents', end: false, icon: FileText, subs: [] },
+      { to: '/documents', label: 'Documents', end: false, icon: FileText, subs: documentsSubs },
       { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap, subs: learningSubs },
     ],
   },
@@ -187,7 +200,7 @@ function activeModuleForPath(pathname: string, search: string): NavModule {
   for (const mod of allModules) {
     if (mod.to === '/') continue
     const base = mod.to.split('?')[0]
-    if (pathname === base || pathname.startsWith(base + '/')) return mod
+    if (pathname === base || pathname.startsWith(base + '/') || pathname.startsWith(base + '?')) return mod
   }
   return allModules[0]
 }
