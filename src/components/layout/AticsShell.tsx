@@ -1,6 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
-  Building2,
   Clock,
   ExternalLink,
   GraduationCap,
@@ -11,7 +10,6 @@ import {
   Settings,
   Star,
   Users,
-  Users2,
   UsersRound,
 } from 'lucide-react'
 
@@ -88,22 +86,6 @@ const tasksSubs: SubItem[] = [
   { label: 'Oppgavelogg', path: '/tasks?view=audit', match: ({ pathname, search }) => pathname === '/tasks' && new URLSearchParams(search).get('view') === 'audit' },
 ]
 
-const teamsSubs: SubItem[] = [
-  {
-    label: 'Overview',
-    path: '/teams',
-    match: ({ pathname }) => pathname === '/teams',
-  },
-]
-
-const workspacesSubs: SubItem[] = [
-  {
-    label: 'Overview',
-    path: '/workspaces',
-    match: ({ pathname }) => pathname === '/workspaces',
-  },
-]
-
 const learningSubs: SubItem[] = [
   {
     label: 'Dashboard',
@@ -137,6 +119,7 @@ const learningSubs: SubItem[] = [
   },
 ]
 
+/** Council first — main compliance hub. */
 const navMain = [
   { to: '/council', label: 'Council', end: false, icon: UsersRound },
   { to: '/members', label: 'Members', end: false, icon: Users },
@@ -144,8 +127,6 @@ const navMain = [
   { to: '/hse', label: 'HSE', end: false, icon: HardHat },
   { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid },
   { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap },
-  { to: '/teams', label: 'Teams', end: false, icon: Users2 },
-  { to: '/workspaces', label: 'Workspaces', end: false, icon: Building2 },
 ] as const
 
 function subNavForPath(pathname: string): SubItem[] {
@@ -155,8 +136,6 @@ function subNavForPath(pathname: string): SubItem[] {
   if (pathname === '/org-health') return orgHealthSubs
   if (pathname === '/hse') return hseSubs
   if (pathname === '/tasks') return tasksSubs
-  if (pathname === '/teams') return teamsSubs
-  if (pathname === '/workspaces') return workspacesSubs
   return []
 }
 
