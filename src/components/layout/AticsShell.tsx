@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
+  ClipboardList,
   Clock,
   ExternalLink,
   GraduationCap,
@@ -132,10 +133,46 @@ const learningSubs: SubItem[] = [
 /** Council is its own primary group (left); other modules follow after a divider. */
 const navMainCouncil = [{ to: '/council', label: 'Council', end: false, icon: UsersRound }] as const
 
+const internalControlSubs: SubItem[] = [
+  {
+    label: 'Oversikt',
+    path: '/internal-control?tab=overview',
+    match: ({ pathname, search }) =>
+      pathname === '/internal-control' &&
+      (!new URLSearchParams(search).get('tab') ||
+        new URLSearchParams(search).get('tab') === 'overview'),
+  },
+  {
+    label: 'Varslingssaker',
+    path: '/internal-control?tab=whistle',
+    match: ({ pathname, search }) =>
+      pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'whistle',
+  },
+  {
+    label: 'ROS',
+    path: '/internal-control?tab=ros',
+    match: ({ pathname, search }) =>
+      pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'ros',
+  },
+  {
+    label: 'Årsgjennomgang',
+    path: '/internal-control?tab=annual',
+    match: ({ pathname, search }) =>
+      pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'annual',
+  },
+  {
+    label: 'Logg',
+    path: '/internal-control?tab=audit',
+    match: ({ pathname, search }) =>
+      pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'audit',
+  },
+]
+
 const navMainRest = [
   { to: '/members', label: 'Members', end: false, icon: Users },
   { to: '/org-health', label: 'Org health', end: false, icon: HeartPulse },
   { to: '/hse', label: 'HSE', end: false, icon: HardHat },
+  { to: '/internal-control', label: 'Internkontroll', end: false, icon: ClipboardList },
   { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid },
   { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap },
 ] as const
@@ -145,6 +182,7 @@ function subNavForPath(pathname: string): SubItem[] {
   if (pathname === '/council') return councilSubs
   if (pathname === '/members') return membersSubs
   if (pathname.startsWith('/org-health')) return orgHealthSubs
+  if (pathname === '/internal-control') return internalControlSubs
   if (pathname === '/hse') return hseSubs
   if (pathname === '/tasks') return tasksSubs
   return []

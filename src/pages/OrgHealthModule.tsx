@@ -185,6 +185,12 @@ export function OrgHealthModule() {
             >
               Veikart & planer
             </Link>
+            <Link
+              to="/internal-control"
+              className="mt-2 block w-full rounded-xl border border-neutral-200 py-2.5 text-center text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
+            >
+              Internkontroll & varslingssaker
+            </Link>
             <div className="mt-3 flex justify-center">
               <AddTaskLink
                 title="Oppfølging organisasjonshelse"
@@ -521,7 +527,11 @@ export function OrgHealthModule() {
           <div className="rounded-2xl border border-amber-200/90 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
             <strong>Anonym rapportering.</strong> Fritekst du skriver nedenfor{' '}
             <strong>lagres ikke</strong> — kun kategori, hastegrad og om du indikerte at du hadde mer å si. HR ser
-            aggregerte oppføringer for oppfølging. Henvisninger til AML er illustrative — verifiser mot{' '}
+            aggregerte oppføringer for oppfølging. For strukturert oppfølging med status, bruk{' '}
+            <Link to="/internal-control?tab=whistle" className="font-medium underline">
+              Internkontroll → varslingssaker
+            </Link>
+            . Henvisninger til AML er illustrative — verifiser mot{' '}
             <a href="https://lovdata.no" className="font-medium underline" target="_blank" rel="noreferrer">
               lovdata.no
             </a>{' '}

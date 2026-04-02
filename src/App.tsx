@@ -9,6 +9,7 @@ import { MembersModule } from './pages/MembersModule'
 import { HseModule } from './pages/HseModule'
 import { OrgHealthModule } from './pages/OrgHealthModule'
 import { OrgHealthSettings } from './pages/OrgHealthSettings'
+import { InternalControlModule } from './pages/InternalControlModule'
 import { ProjectDashboard } from './pages/ProjectDashboard'
 import { TasksPage } from './pages/TasksPage'
 import { LearningLayout } from './components/learning/LearningLayout'
@@ -37,6 +38,7 @@ function App() {
           <Route path="members" element={<MembersModule />} />
           <Route path="org-health" element={<OrgHealthModule />} />
           <Route path="org-health/settings" element={<OrgHealthSettings />} />
+          <Route path="internal-control" element={<InternalControlModule />} />
           <Route path="hse" element={<HseModule />} />
           <Route path="learning" element={<LearningLayout />}>
             <Route index element={<LearningDashboard />} />

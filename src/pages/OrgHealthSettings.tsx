@@ -9,6 +9,12 @@ const roadmap = [
     status: 'Planlagt',
   },
   {
+    title: 'Internkontroll (nå: demo)',
+    body:
+      'Varslingssaker med status, ROS-mal og årsgjennomgang finnes under «Internkontroll» i appen — videreutvikles med roller, eksport og integrasjon mot BHT.',
+    status: 'Pågår',
+  },
+  {
     title: 'E-post / SMS-varsler til HR',
     body: 'Automatiserte varsler ved nye anonyme henvendelser og terskel for oppfølging.',
     status: 'Planlagt',
