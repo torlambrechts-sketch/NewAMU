@@ -363,7 +363,7 @@ export function TasksPage() {
                 type="checkbox"
                 checked={requiresMgmt}
                 onChange={(e) => setRequiresMgmt(e.target.checked)}
-                className="rounded border-neutral-300 text-[#1a3d32]"
+                className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
               />
               Krever ledelses godkjenning
             </label>

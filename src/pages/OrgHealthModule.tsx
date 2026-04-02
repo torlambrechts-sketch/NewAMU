@@ -244,7 +244,7 @@ export function OrgHealthModule() {
                   type="checkbox"
                   checked={surveyForm.anonymous}
                   onChange={(e) => setSurveyForm((s) => ({ ...s, anonymous: e.target.checked }))}
-                  className="rounded border-neutral-300 text-[#1a3d32]"
+                  className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
                 />
                 <span className="text-sm">Anonyme svar (ingen identitet lagret)</span>
               </label>
@@ -253,7 +253,7 @@ export function OrgHealthModule() {
                   type="checkbox"
                   checked={surveyForm.useDefault}
                   onChange={(e) => setSurveyForm((s) => ({ ...s, useDefault: e.target.checked }))}
-                  className="rounded border-neutral-300 text-[#1a3d32]"
+                  className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
                 />
                 <span className="text-sm">Start med standard spørsmål (Likert + fritekst)</span>
               </label>

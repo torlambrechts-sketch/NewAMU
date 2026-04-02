@@ -217,7 +217,7 @@ export function ProjectDashboard() {
                 <thead>
                   <tr className="border-b border-neutral-200 bg-neutral-50/80 text-neutral-600">
                     <th className="w-10 px-3 py-3">
-                      <input type="checkbox" className="rounded border-neutral-300" aria-label="Select all" />
+                      <input type="checkbox" className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" aria-label="Select all" />
                     </th>
                     <th className="px-3 py-3 font-medium">Departments, Country</th>
                     <th className="px-3 py-3 font-medium">Hire employees</th>
@@ -238,7 +238,7 @@ export function ProjectDashboard() {
                     <Fragment key={row.id}>
                       <tr className="border-b border-neutral-100 hover:bg-neutral-50/80">
                         <td className="px-3 py-3 align-top">
-                          <input type="checkbox" className="rounded border-neutral-300" />
+                          <input type="checkbox" className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
                         </td>
                         <td className="px-3 py-3 align-top">
                           <button

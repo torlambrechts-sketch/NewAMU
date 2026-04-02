@@ -482,7 +482,7 @@ export function CouncilModule() {
                     type="checkbox"
                     checked={rep.settings.requireChairAndDeputy}
                     onChange={(e) => rep.updateSettings({ requireChairAndDeputy: e.target.checked })}
-                    className="rounded border-neutral-300 text-[#1a3d32]"
+                    className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
                   />
                   Krever leder og nestleder på begge sider
                 </label>
@@ -616,7 +616,7 @@ export function CouncilModule() {
                   type="checkbox"
                   checked={repElectionForm.anonymous}
                   onChange={(e) => setRepElectionForm((s) => ({ ...s, anonymous: e.target.checked }))}
-                  className="rounded border-neutral-300 text-[#1a3d32]"
+                  className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
                 />
                 <span className="text-sm text-neutral-800">
                   Anonym stemmegivning (navn skjult til valg er lukket)
@@ -799,7 +799,7 @@ export function CouncilModule() {
                           type="checkbox"
                           checked={m.trainingChecklist[req.id] ?? false}
                           onChange={() => rep.toggleTraining(m.id, req.id)}
-                          className="mt-0.5 size-4 rounded border-neutral-300 text-[#1a3d32]"
+                          className="mt-0.5 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
                         />
                         <span>
                           <span className="font-medium text-neutral-800">{req.title}</span>
@@ -915,7 +915,7 @@ export function CouncilModule() {
                     onChange={(e) =>
                       setMeetingForm((s) => ({ ...s, applySuggestedAgenda: e.target.checked }))
                     }
-                    className="rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]"
+                    className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
                   />
                   Bruk foreslått agenda for valgt kvartal
                 </label>
@@ -1148,7 +1148,7 @@ export function CouncilModule() {
                           type="checkbox"
                           checked={c.done}
                           onChange={() => council.toggleCompliance(c.id)}
-                          className="mt-1 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]"
+                          className="mt-1 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
                         />
                       </td>
                       <td className="align-top px-3 py-3">
@@ -1435,7 +1435,7 @@ function PreparationPanel({
                 type="checkbox"
                 checked={p.done}
                 onChange={() => council.togglePrepChecklist(meeting.id, p.id)}
-                className="mt-1 size-4 rounded border-neutral-300 text-[#1a3d32]"
+                className="mt-0.5 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
               />
               <span className={`text-sm ${p.done ? 'text-neutral-500 line-through' : 'text-neutral-800'}`}>
                 {p.label}
@@ -1625,7 +1625,7 @@ function MeetingDetailPanel({
                   type="checkbox"
                   checked={p.done}
                   onChange={() => council.togglePrepChecklist(meeting.id, p.id)}
-                  className="mt-0.5 size-4 rounded border-neutral-300 text-[#1a3d32]"
+                  className="mt-0.5 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
                 />
                 <span className={p.done ? 'text-neutral-500 line-through' : ''}>{p.label}</span>
               </li>

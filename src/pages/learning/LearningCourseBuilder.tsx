@@ -468,6 +468,7 @@ function ContentFields({
                     )
                     updateModule(courseId, mod.id, { content: { ...c, questions } })
                   }}
+                  className="size-4 border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
                 />
                 <input
                   value={opt}

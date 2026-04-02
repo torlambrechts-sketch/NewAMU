@@ -487,6 +487,7 @@ export function InternalControlModule() {
                             onChange={(e) =>
                               ic.updateRosRow(ros.id, row.id, { done: e.target.checked })
                             }
+                            className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
                           />
                         </td>
                       </tr>
