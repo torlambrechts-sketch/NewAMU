@@ -9,6 +9,7 @@ import { HseModule } from './pages/HseModule'
 import { OrgHealthModule } from './pages/OrgHealthModule'
 import { OrgHealthSettings } from './pages/OrgHealthSettings'
 import { InternalControlModule } from './pages/InternalControlModule'
+import { OrganisationPage } from './pages/OrganisationPage'
 import { ProjectDashboard } from './pages/ProjectDashboard'
 import { TasksPage } from './pages/TasksPage'
 import { LearningLayout } from './components/learning/LearningLayout'
@@ -38,6 +39,7 @@ function App() {
         <Route element={<AticsShell />}>
           <Route index element={<ProjectDashboard />} />
           <Route path="tasks" element={<TasksPage />} />
+          <Route path="organisation" element={<OrganisationPage />} />
           <Route path="council" element={<CouncilModule />} />
           <Route path="members" element={<Navigate to="/council?tab=election" replace />} />
           <Route path="org-health" element={<OrgHealthModule />} />

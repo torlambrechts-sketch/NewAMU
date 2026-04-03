@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import {
   Activity,
   BarChart3,
+  BookMarked,
   ClipboardCheck,
   FileSpreadsheet,
   HeartPulse,
@@ -10,11 +11,14 @@ import {
   Plus,
   Send,
   ShieldAlert,
+  Users,
 } from 'lucide-react'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { AML_REPORT_KINDS, labelForAmlReportKind } from '../data/amlAnonymousReporting'
 import { definitionForKey } from '../data/orgHealthMetrics'
+import { ALL_SURVEY_TEMPLATES, TEMPLATE_CATEGORIES } from '../data/surveyTemplates'
 import { useOrgHealth } from '../hooks/useOrgHealth'
+import { useOrganisation } from '../hooks/useOrganisation'
 import type { AmlReportKind, LaborMetricKey, Survey, SurveyQuestion } from '../types/orgHealth'
 
 const tabs = [
@@ -45,12 +49,6 @@ export function OrgHealthModule() {
   const tab: TabId =
     tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
   const setTab = (id: TabId) => setSearchParams({ tab: id }, { replace: true })
-  const [surveyForm, setSurveyForm] = useState({
-    title: '',
-    description: '',
-    anonymous: true,
-    useDefault: true,
-  })
   const [respondSurveyId, setRespondSurveyId] = useState('')
   const [answers, setAnswers] = useState<Record<string, number | string>>({})
   const [navForm, setNavForm] = useState({
@@ -205,67 +203,8 @@ export function OrgHealthModule() {
 
       {tab === 'surveys' && (
         <div className="mt-8 space-y-8">
-          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Ny undersøkelse</h2>
-            <form
-              className="mt-4 grid gap-3 md:grid-cols-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (!surveyForm.title.trim()) return
-                oh.createSurvey(
-                  surveyForm.title,
-                  surveyForm.description,
-                  surveyForm.anonymous,
-                  surveyForm.useDefault,
-                )
-                setSurveyForm((x) => ({ ...x, title: '', description: '' }))
-              }}
-            >
-              <div className="md:col-span-2">
-                <label className="text-xs font-medium text-neutral-500">Tittel</label>
-                <input
-                  value={surveyForm.title}
-                  onChange={(e) => setSurveyForm((s) => ({ ...s, title: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-xs font-medium text-neutral-500">Introduksjon</label>
-                <textarea
-                  value={surveyForm.description}
-                  onChange={(e) => setSurveyForm((s) => ({ ...s, description: e.target.value }))}
-                  rows={2}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <label className="flex items-center gap-2 md:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={surveyForm.anonymous}
-                  onChange={(e) => setSurveyForm((s) => ({ ...s, anonymous: e.target.checked }))}
-                  className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
-                />
-                <span className="text-sm">Anonyme svar (ingen identitet lagret)</span>
-              </label>
-              <label className="flex items-center gap-2 md:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={surveyForm.useDefault}
-                  onChange={(e) => setSurveyForm((s) => ({ ...s, useDefault: e.target.checked }))}
-                  className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
-                />
-                <span className="text-sm">Start med standard spørsmål (Likert + fritekst)</span>
-              </label>
-              <button
-                type="submit"
-                className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] md:col-span-2"
-              >
-                <Plus className="size-4" />
-                Opprett
-              </button>
-            </form>
-          </section>
+          <SurveyCreator oh={oh} />
+
 
           <div className="space-y-6">
             {oh.surveys.map((s) => (
@@ -1034,30 +973,48 @@ function ResponseForm({
             {q.text}
             {q.required ? <span className="text-red-600"> *</span> : null}
           </label>
-          {q.type === 'likert_5' ? (
-            <div className="mt-2 flex flex-wrap gap-2">
+          {(q.type === 'likert_5') && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {q.anchors && <span className="text-xs text-neutral-400">{q.anchors.low}</span>}
               {[1, 2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setAnswers((a) => ({ ...a, [q.id]: n }))}
-                  className={`size-10 rounded-full text-sm font-medium ${
-                    answers[q.id] === n
-                      ? 'bg-[#1a3d32] text-white'
-                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                  }`}
-                >
-                  {n}
-                </button>
+                <button key={n} type="button" onClick={() => setAnswers((a) => ({ ...a, [q.id]: n }))}
+                  className={`size-10 rounded-full text-sm font-medium ${answers[q.id] === n ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}>{n}</button>
+              ))}
+              {q.anchors && <span className="text-xs text-neutral-400">{q.anchors.high}</span>}
+            </div>
+          )}
+          {(q.type === 'likert_7') && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {q.anchors && <span className="text-xs text-neutral-400">{q.anchors.low}</span>}
+              {[0, 1, 2, 3, 4, 5, 6].map((n) => (
+                <button key={n} type="button" onClick={() => setAnswers((a) => ({ ...a, [q.id]: n }))}
+                  className={`size-9 rounded-full text-xs font-medium ${answers[q.id] === n ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}>{n}</button>
+              ))}
+              {q.anchors && <span className="text-xs text-neutral-400">{q.anchors.high}</span>}
+            </div>
+          )}
+          {(q.type === 'scale_10') && (
+            <div className="mt-2 space-y-1">
+              <div className="flex items-center gap-1">
+                {[0,1,2,3,4,5,6,7,8,9,10].map((n) => (
+                  <button key={n} type="button" onClick={() => setAnswers((a) => ({ ...a, [q.id]: n }))}
+                    className={`flex-1 rounded py-2 text-xs font-semibold ${answers[q.id] === n ? (n >= 9 ? 'bg-emerald-600 text-white' : n >= 7 ? 'bg-amber-400 text-white' : 'bg-red-500 text-white') : 'bg-neutral-100 hover:bg-neutral-200'}`}>{n}</button>
+                ))}
+              </div>
+              {q.anchors && <div className="flex justify-between text-xs text-neutral-400"><span>{q.anchors.low}</span><span>{q.anchors.high}</span></div>}
+            </div>
+          )}
+          {(q.type === 'yes_no') && (
+            <div className="mt-2 flex gap-3">
+              {['Ja', 'Nei'].map((v) => (
+                <button key={v} type="button" onClick={() => setAnswers((a) => ({ ...a, [q.id]: v }))}
+                  className={`rounded-full px-6 py-2 text-sm font-medium ${answers[q.id] === v ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}>{v}</button>
               ))}
             </div>
-          ) : (
-            <textarea
-              value={typeof answers[q.id] === 'string' ? answers[q.id] : ''}
-              onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
-              rows={3}
-              className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-            />
+          )}
+          {(q.type === 'text') && (
+            <textarea value={typeof answers[q.id] === 'string' ? answers[q.id] as string : ''} onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
+              rows={3} className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
           )}
         </div>
       ))}
@@ -1069,5 +1026,197 @@ function ResponseForm({
         Send svar
       </button>
     </div>
+  )
+}
+
+// ─── SurveyCreator — template picker + group selector ─────────────────────────
+
+function SurveyCreator({ oh }: { oh: ReturnType<typeof useOrgHealth> }) {
+  const org = useOrganisation()
+
+  const [mode, setMode] = useState<'template' | 'custom'>('template')
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(ALL_SURVEY_TEMPLATES[0].id)
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [anonymous, setAnonymous] = useState(true)
+  const [targetGroupId, setTargetGroupId] = useState(org.groups[0]?.id ?? '')
+
+  const filteredTemplates = categoryFilter === 'all'
+    ? ALL_SURVEY_TEMPLATES
+    : ALL_SURVEY_TEMPLATES.filter((t) => t.category === categoryFilter)
+
+  const selectedTemplate = ALL_SURVEY_TEMPLATES.find((t) => t.id === selectedTemplateId)
+
+  function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    const displayTitle = title.trim() || (selectedTemplate?.name ?? 'Egendefinert undersøkelse')
+    const group = org.groups.find((g) => g.id === targetGroupId)
+
+    if (mode === 'template' && selectedTemplate) {
+      oh.createSurveyFromTemplate(
+        selectedTemplate.id,
+        selectedTemplate.questions as SurveyQuestion[],
+        displayTitle,
+        description || selectedTemplate.description,
+        anonymous,
+        targetGroupId || undefined,
+        group ? org.getGroupLabel(group) : undefined,
+      )
+    } else {
+      oh.createSurvey(displayTitle, description, anonymous, false)
+    }
+    setTitle('')
+    setDescription('')
+  }
+
+  return (
+    <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-neutral-900">Ny undersøkelse</h2>
+        <div className="flex gap-1 rounded-full border border-neutral-200 p-1">
+          <button type="button" onClick={() => setMode('template')}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${mode === 'template' ? 'bg-[#1a3d32] text-white' : 'text-neutral-600 hover:text-neutral-900'}`}>
+            <BookMarked className="size-3.5" />
+            Fra mal
+          </button>
+          <button type="button" onClick={() => setMode('custom')}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${mode === 'custom' ? 'bg-[#1a3d32] text-white' : 'text-neutral-600 hover:text-neutral-900'}`}>
+            <Plus className="size-3.5" />
+            Egendefinert
+          </button>
+        </div>
+      </div>
+
+      <form className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]" onSubmit={handleCreate}>
+        <div className="space-y-4">
+          {mode === 'template' && (
+            <>
+              {/* Category filter */}
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Kategori</label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setCategoryFilter('all')}
+                    className={`rounded-full px-3 py-1 text-xs font-medium ${categoryFilter === 'all' ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}>
+                    Alle
+                  </button>
+                  {TEMPLATE_CATEGORIES.filter((c) => c.id !== 'custom').map((cat) => (
+                    <button key={cat.id} type="button" onClick={() => setCategoryFilter(cat.id)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${categoryFilter === cat.id ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}>
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Template cards */}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {filteredTemplates.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => { setSelectedTemplateId(tpl.id); setAnonymous(tpl.recommendAnonymous) }}
+                    className={`rounded-xl border p-4 text-left transition-all ${selectedTemplateId === tpl.id ? 'border-[#1a3d32] bg-[#1a3d32]/5 ring-1 ring-[#1a3d32]' : 'border-neutral-200 hover:border-neutral-300'}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-semibold text-sm text-neutral-900">{tpl.shortName}</span>
+                      <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] text-neutral-500">~{tpl.estimatedMinutes} min</span>
+                    </div>
+                    <p className="mt-1 text-xs text-neutral-600 line-clamp-2">{tpl.description}</p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-500">{tpl.questions.length} spørsmål</span>
+                      {tpl.recommendAnonymous && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">Anbefalt anonym</span>}
+                    </div>
+                    <p className="mt-1.5 text-[10px] text-neutral-400 italic">{tpl.source}</p>
+                  </button>
+                ))}
+              </div>
+
+              {/* Selected template scoring info */}
+              {selectedTemplate && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                  <strong>Scoringveiledning:</strong> {selectedTemplate.scoringNote}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Common fields */}
+          <div>
+            <label className="text-xs font-medium text-neutral-500">
+              Tittel {mode === 'template' ? '(valgfritt — standard: malens navn)' : '*'}
+            </label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required={mode === 'custom'}
+              placeholder={selectedTemplate?.name ?? 'Skriv tittel…'}
+              className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-neutral-500">Introduksjon / instruksjon</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              placeholder={selectedTemplate?.useCase}
+              className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Right column: settings */}
+        <div className="space-y-4">
+          {/* Target group */}
+          <div className="rounded-xl border border-neutral-200 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Users className="size-4 text-[#1a3d32]" />
+              <span className="text-sm font-semibold text-neutral-800">Målgruppe</span>
+            </div>
+            <select
+              value={targetGroupId}
+              onChange={(e) => setTargetGroupId(e.target.value)}
+              className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+            >
+              <option value="">— Ingen (åpen for alle)</option>
+              {org.groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name} ({org.getGroupLabel(g)})
+                </option>
+              ))}
+            </select>
+            <Link to="/organisation" className="block text-xs text-[#1a3d32] hover:underline">
+              + Administrer enheter og grupper →
+            </Link>
+          </div>
+
+          {/* Privacy */}
+          <div className="rounded-xl border border-neutral-200 p-4 space-y-2">
+            <span className="text-sm font-semibold text-neutral-800">Personvern</span>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={anonymous}
+                onChange={(e) => setAnonymous(e.target.checked)}
+                className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+              />
+              Anonyme svar (ingen identitet lagret)
+            </label>
+            {selectedTemplate?.recommendAnonymous && !anonymous && (
+              <p className="text-xs text-amber-700">⚠ Denne malen anbefaler anonyme svar for å sikre ærlige svar.</p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-[#1a3d32] py-3 text-sm font-medium text-white hover:bg-[#142e26]"
+          >
+            <Plus className="size-4" />
+            {mode === 'template' ? `Opprett fra «${selectedTemplate?.shortName ?? 'mal'}»` : 'Opprett egendefinert'}
+          </button>
+        </div>
+      </form>
+    </section>
   )
 }

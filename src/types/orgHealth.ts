@@ -1,10 +1,14 @@
-export type QuestionType = 'likert_5' | 'text'
+export type QuestionType = 'likert_5' | 'likert_7' | 'scale_10' | 'yes_no' | 'text'
 
 export type SurveyQuestion = {
   id: string
   text: string
   type: QuestionType
   required: boolean
+  /** Optional subscale label (used by UWES, re:Work etc.) */
+  subscale?: string
+  /** Scale anchor labels */
+  anchors?: { low: string; high: string }
 }
 
 export type Survey = {
@@ -14,6 +18,12 @@ export type Survey = {
   anonymous: boolean
   status: 'draft' | 'open' | 'closed'
   questions: SurveyQuestion[]
+  /** Which pre-built template this was created from (if any) */
+  templateId?: string
+  /** Target audience — references a UserGroup ID */
+  targetGroupId?: string
+  /** Display name of the target group (denormalised for display) */
+  targetGroupLabel?: string
   createdAt: string
   openedAt?: string
   closedAt?: string

@@ -211,6 +211,51 @@ export function useOrgHealth() {
     [appendAudit],
   )
 
+  const createSurveyFromTemplate = useCallback(
+    (
+      templateId: string,
+      templateQuestions: SurveyQuestion[],
+      title: string,
+      description: string,
+      anonymous: boolean,
+      targetGroupId?: string,
+      targetGroupLabel?: string,
+    ) => {
+      const questions = templateQuestions.map((q) => ({ ...q, id: crypto.randomUUID() }))
+      const s: Survey = {
+        id: crypto.randomUUID(),
+        title: title.trim(),
+        description: description.trim(),
+        anonymous,
+        status: 'draft',
+        questions,
+        templateId,
+        targetGroupId,
+        targetGroupLabel,
+        createdAt: new Date().toISOString(),
+      }
+      setState((st) => ({ ...st, surveys: [s, ...st.surveys] }))
+      appendAudit('survey_created', `Undersøkelse opprettet fra mal: «${s.title}»`, {
+        anonymous,
+        surveyId: s.id,
+        templateId,
+        targetGroupId: targetGroupId ?? '',
+      })
+      return s
+    },
+    [appendAudit],
+  )
+
+  const updateSurvey = useCallback(
+    (id: string, patch: Partial<Survey>) => {
+      setState((st) => ({
+        ...st,
+        surveys: st.surveys.map((s) => s.id === id ? { ...s, ...patch } : s),
+      }))
+    },
+    [],
+  )
+
   const addQuestion = useCallback(
     (surveyId: string, text: string, type: SurveyQuestion['type'], required: boolean) => {
       const q: SurveyQuestion = {
@@ -470,6 +515,8 @@ export function useOrgHealth() {
     navSummary,
     amlReportStats,
     createSurvey,
+    createSurveyFromTemplate,
+    updateSurvey,
     addQuestion,
     openSurvey,
     closeSurvey,

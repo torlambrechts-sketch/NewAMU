@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   BookOpen,
+  Building2,
   ClipboardList,
   Clock,
   ExternalLink,
@@ -158,6 +159,7 @@ const navGroups: NavGroup[] = [
     modules: [
       { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [] },
       { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, subs: tasksSubs },
+      { to: '/organisation', label: 'Organisasjon', end: false, icon: Building2, subs: [] },
     ],
   },
   {
