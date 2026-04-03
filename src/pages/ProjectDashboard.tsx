@@ -1,15 +1,21 @@
 import { Fragment, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  AlertTriangle,
   Calendar,
+  CalendarRange,
   CheckCircle2,
+  Kanban,
   Link2,
   Lock,
   MoreHorizontal,
   Search,
+  Settings2,
   SlidersHorizontal,
 } from 'lucide-react'
 import { departmentRows } from '../data/departments'
+import { useHse } from '../hooks/useHse'
+import { useCostSettings } from '../hooks/useCostSettings'
 
 const members = [
   { type: 'img' as const, src: 'https://i.pravatar.cc/80?img=1' },
@@ -45,6 +51,9 @@ export function ProjectDashboard() {
   const [region, setRegion] = useState<'all' | 'usa' | 'europe'>('all')
   const [expandedId, setExpandedId] = useState<string | null>('d2')
   const [privateOn, setPrivateOn] = useState(true)
+  const [showCostSettings, setShowCostSettings] = useState(false)
+  const hse = useHse()
+  const cost = useCostSettings()
 
   const filtered = departmentRows.filter((row) => {
     if (region === 'usa') return row.country === 'India'
@@ -104,8 +113,81 @@ export function ProjectDashboard() {
           >
             HRM module
           </Link>
+          <Link to="/action-board" className="inline-flex items-center gap-1 rounded-full border border-[#1a3d32]/20 bg-[#1a3d32]/5 px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-[#1a3d32]/10">
+            <Kanban className="size-3.5" /> Action Board
+          </Link>
+          <Link to="/aarshjul" className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900 shadow-sm hover:bg-amber-100">
+            <CalendarRange className="size-3.5" /> Årshjul
+          </Link>
         </div>
       </nav>
+
+      {/* ── Cost summary widget ───────────────────────────────────────────── */}
+      {cost.settings.enabled && (
+        <div className="mb-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-amber-500" />
+              <span className="font-semibold text-neutral-800">Estimerte kostnader — arbeidsmiljø</span>
+            </div>
+            <button type="button" onClick={() => setShowCostSettings((v) => !v)}
+              className="flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-700">
+              <Settings2 className="size-3.5" /> Innstillinger
+            </button>
+          </div>
+          {showCostSettings && (
+            <div className="mt-4 grid gap-3 rounded-xl border border-neutral-100 bg-neutral-50 p-4 sm:grid-cols-2">
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Timesats (NOK inkl. sosiale kostnader)</label>
+                <input type="number" min={100} max={5000} value={cost.settings.hourlyRateNok}
+                  onChange={(e) => cost.update({ hourlyRateNok: Number(e.target.value) || 650 })}
+                  className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Arbeidstimer per dag</label>
+                <input type="number" min={4} max={12} step={0.5} value={cost.settings.hoursPerDay}
+                  onChange={(e) => cost.update({ hoursPerDay: Number(e.target.value) || 7.5 })}
+                  className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm" />
+              </div>
+            </div>
+          )}
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            {(() => {
+              const activeSickDays = hse.sickLeaveCases
+                .filter((c) => c.status === 'active' || c.status === 'partial')
+                .reduce((acc, c) => {
+                  const days = Math.max(0, Math.ceil((Date.now() - new Date(c.sickFrom).getTime()) / 86400000))
+                  return acc + days * (c.sicknessDegree / 100)
+                }, 0)
+              const sickCost = cost.sickLeaveCost(Math.round(activeSickDays))
+              const openHighInc = hse.incidents.filter((i) => i.status !== 'closed' && (i.severity === 'high' || i.severity === 'critical')).length
+              const incCost = cost.incidentCost(openHighInc * 8)
+              return (
+                <>
+                  <div className="rounded-xl bg-orange-50 border border-orange-200 p-3">
+                    <div className="text-xl font-bold tabular-nums text-orange-800">kr {sickCost.toLocaleString('no-NO')}</div>
+                    <div className="text-xs text-neutral-600">Aktive sykefravær (~{Math.round(activeSickDays)} dagsverk)</div>
+                  </div>
+                  <div className="rounded-xl bg-red-50 border border-red-200 p-3">
+                    <div className="text-xl font-bold tabular-nums text-red-800">kr {incCost.toLocaleString('no-NO')}</div>
+                    <div className="text-xs text-neutral-600">{openHighInc} åpne alvorlige hendelser (est. 8t/stk)</div>
+                  </div>
+                  <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-3 flex items-center gap-3">
+                    <Calendar className="size-5 text-neutral-400 shrink-0" />
+                    <div>
+                      <Link to="/action-board" className="text-sm font-semibold text-[#1a3d32] hover:underline">
+                        {hse.stats.overdueMilestones + hse.stats.openInspections} forfalte punkter →
+                      </Link>
+                      <div className="text-xs text-neutral-500">Se Action Board for full oversikt</div>
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
+          </div>
+          <p className="mt-2 text-[10px] text-neutral-400">Estimat basert på kr {cost.settings.hourlyRateNok}/t × {cost.settings.hoursPerDay}t/dag. Ikke regnskapsmessig nøyaktig — kun indikativt for ledelsesformål.</p>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0">

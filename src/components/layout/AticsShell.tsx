@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   BookOpen,
   Building2,
+  CalendarRange,
   ClipboardList,
   Clock,
   ExternalLink,
@@ -11,6 +12,7 @@ import {
   HardHat,
   HeartPulse,
   Home,
+  Kanban,
   LayoutGrid,
   Library,
   PanelLeft,
@@ -159,6 +161,8 @@ const navGroups: NavGroup[] = [
     modules: [
       { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [] },
       { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, subs: tasksSubs },
+      { to: '/action-board', label: 'Action Board', end: false, icon: Kanban, subs: [] },
+      { to: '/aarshjul', label: 'Årshjul', end: false, icon: CalendarRange, subs: [] },
       { to: '/organisation', label: 'Organisasjon', end: false, icon: Building2, subs: [] },
     ],
   },
