@@ -256,6 +256,108 @@ export function useOrgHealth() {
     [],
   )
 
+  // ── Schedule helpers ────────────────────────────────────────────────────────
+
+  /** Compute the next ISO date-time after `from` for a given schedule. */
+  function computeNextRun(schedule: import('../types/orgHealth').SurveySchedule, from: string): string {
+    const base = new Date(from)
+    switch (schedule.kind) {
+      case 'once':
+        return schedule.startsAt // no next run after the first
+      case 'weekly': {
+        const d = new Date(base)
+        d.setDate(d.getDate() + 7 * (schedule.intervalN ?? 1))
+        return d.toISOString()
+      }
+      case 'monthly': {
+        const d = new Date(base)
+        d.setMonth(d.getMonth() + (schedule.intervalN ?? 1))
+        return d.toISOString()
+      }
+      case 'quarterly': {
+        const d = new Date(base)
+        d.setMonth(d.getMonth() + 3)
+        return d.toISOString()
+      }
+      case 'yearly': {
+        const d = new Date(base)
+        d.setFullYear(d.getFullYear() + 1)
+        return d.toISOString()
+      }
+      case 'custom': {
+        const d = new Date(base)
+        d.setDate(d.getDate() + (schedule.intervalN ?? 30))
+        return d.toISOString()
+      }
+      default:
+        return base.toISOString()
+    }
+  }
+
+  const setSchedule = useCallback(
+    (surveyId: string, schedule: import('../types/orgHealth').SurveySchedule | undefined) => {
+      setState((st) => ({
+        ...st,
+        surveys: st.surveys.map((sv) =>
+          sv.id !== surveyId ? sv : {
+            ...sv,
+            schedule: schedule
+              ? { ...schedule, nextRunAt: schedule.startsAt, runCount: 0 }
+              : undefined,
+          },
+        ),
+      }))
+      appendAudit('settings_updated', schedule
+        ? `Tidsplan satt for undersøkelse: ${schedule.kind}`
+        : 'Tidsplan fjernet fra undersøkelse',
+        { surveyId },
+      )
+    },
+    [appendAudit],
+  )
+
+  /**
+   * Check all enabled schedules and auto-open any survey whose nextRunAt has
+   * passed. For recurring surveys, also auto-close the previous run and reset
+   * status to draft so the next cycle starts fresh.
+   * Call this on component mount or a periodic timer.
+   */
+  const checkAndTriggerSchedules = useCallback(() => {
+    const now = new Date().toISOString()
+    setState((st) => {
+      let changed = false
+      const surveys = st.surveys.map((sv) => {
+        const sched = sv.schedule
+        if (!sched || !sched.enabled) return sv
+        if (!sched.nextRunAt || sched.nextRunAt > now) return sv
+        // Passed end date — disable
+        if (sched.endsAt && sched.endsAt < now) {
+          changed = true
+          return { ...sv, schedule: { ...sched, enabled: false } }
+        }
+        // Should open now
+        const isRecurring = sched.kind !== 'once'
+        const nextRun = isRecurring ? computeNextRun(sched, sched.nextRunAt) : undefined
+        const updatedSchedule = {
+          ...sched,
+          lastTriggeredAt: now,
+          runCount: sched.runCount + 1,
+          nextRunAt: nextRun,
+          enabled: isRecurring, // disable after once
+        }
+        changed = true
+        return {
+          ...sv,
+          status: 'open' as const,
+          openedAt: now,
+          closedAt: undefined,
+          schedule: updatedSchedule,
+        }
+      })
+      return changed ? { ...st, surveys } : st
+    })
+  }, [])
+
   const addQuestion = useCallback(
     (surveyId: string, text: string, type: SurveyQuestion['type'], required: boolean) => {
       const q: SurveyQuestion = {
@@ -520,6 +622,8 @@ export function useOrgHealth() {
     addQuestion,
     openSurvey,
     closeSurvey,
+    setSchedule,
+    checkAndTriggerSchedules,
     submitResponse,
     addNavReport,
     addLaborMetric,

@@ -4,6 +4,7 @@ import {
   Activity,
   BarChart3,
   BookMarked,
+  CalendarClock,
   ClipboardCheck,
   FileSpreadsheet,
   HeartPulse,
@@ -19,7 +20,7 @@ import { definitionForKey } from '../data/orgHealthMetrics'
 import { ALL_SURVEY_TEMPLATES, TEMPLATE_CATEGORIES } from '../data/surveyTemplates'
 import { useOrgHealth } from '../hooks/useOrgHealth'
 import { useOrganisation } from '../hooks/useOrganisation'
-import type { AmlReportKind, LaborMetricKey, Survey, SurveyQuestion } from '../types/orgHealth'
+import type { AmlReportKind, LaborMetricKey, Survey, SurveyQuestion, SurveySchedule, SurveyScheduleKind } from '../types/orgHealth'
 
 const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: HeartPulse },
@@ -44,6 +45,9 @@ function formatWhen(iso: string) {
 export function OrgHealthModule() {
   const oh = useOrgHealth()
   const [searchParams, setSearchParams] = useSearchParams()
+
+  // Check scheduled surveys on every mount
+  useMemo(() => { oh.checkAndTriggerSchedules() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   type TabId = (typeof tabs)[number]['id']
   const tabParam = searchParams.get('tab')
   const tab: TabId =
@@ -208,14 +212,15 @@ export function OrgHealthModule() {
 
           <div className="space-y-6">
             {oh.surveys.map((s) => (
-              <SurveyAdminCard
-                key={s.id}
-                survey={s}
-                aggregate={oh.aggregates[s.id]}
-                onOpen={() => oh.openSurvey(s.id)}
-                onClose={() => oh.closeSurvey(s.id)}
-                onAddQuestion={(text, type, req) => oh.addQuestion(s.id, text, type, req)}
-              />
+            <SurveyAdminCard
+              key={s.id}
+              survey={s}
+              aggregate={oh.aggregates[s.id]}
+              onOpen={() => oh.openSurvey(s.id)}
+              onClose={() => oh.closeSurvey(s.id)}
+              onAddQuestion={(text, type, req) => oh.addQuestion(s.id, text, type, req)}
+              onSetSchedule={(sched) => oh.setSchedule(s.id, sched)}
+            />
             ))}
           </div>
 
@@ -810,6 +815,7 @@ function SurveyAdminCard({
   onOpen,
   onClose,
   onAddQuestion,
+  onSetSchedule,
 }: {
   survey: Survey
   aggregate?: {
@@ -821,42 +827,86 @@ function SurveyAdminCard({
   onOpen: () => void
   onClose: () => void
   onAddQuestion: (text: string, type: SurveyQuestion['type'], required: boolean) => void
+  onSetSchedule: (s: SurveySchedule | undefined) => void
 }) {
   const [qText, setQText] = useState('')
   const [qType, setQType] = useState<SurveyQuestion['type']>('likert_5')
+  const [showScheduleEditor, setShowScheduleEditor] = useState(false)
+
+  const sched = survey.schedule
+  const now = new Date()
+  const nextRun = sched?.nextRunAt ? new Date(sched.nextRunAt) : null
+  const daysUntilNext = nextRun ? Math.ceil((nextRun.getTime() - now.getTime()) / 86400000) : null
+  const scheduleLabel = sched ? SCHEDULE_KIND_LABELS[sched.kind] : null
   return (
     <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="font-semibold text-neutral-900">{survey.title}</h3>
           <p className="text-sm text-neutral-600">{survey.description}</p>
-          <p className="mt-2 text-xs text-neutral-500">
-            {survey.anonymous ? 'Anonym' : 'Ikke anonym'} · {survey.status} · {survey.questions.length}{' '}
-            spørsmål
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+            <span>{survey.anonymous ? 'Anonym' : 'Ikke anonym'}</span>
+            <span>·</span>
+            <span className={`rounded-full px-2 py-0.5 font-medium ${survey.status === 'open' ? 'bg-emerald-100 text-emerald-800' : survey.status === 'closed' ? 'bg-neutral-200 text-neutral-600' : 'bg-amber-100 text-amber-800'}`}>
+              {survey.status === 'open' ? 'Åpen' : survey.status === 'closed' ? 'Lukket' : 'Utkast'}
+            </span>
+            <span>· {survey.questions.length} spørsmål</span>
+            {survey.targetGroupLabel && <span>· {survey.targetGroupLabel}</span>}
+          </div>
+          {/* Schedule badge */}
+          {sched && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${sched.enabled ? 'bg-sky-100 text-sky-800' : 'bg-neutral-100 text-neutral-500'}`}>
+                <CalendarClock className="size-3.5" />
+                {scheduleLabel}
+                {sched.enabled && daysUntilNext != null && (
+                  <span className="ml-1 font-normal">
+                    {daysUntilNext <= 0 ? '— kjøres nå' : `— om ${daysUntilNext}d`}
+                  </span>
+                )}
+                {!sched.enabled && ' (deaktivert)'}
+              </span>
+              {sched.runCount > 0 && (
+                <span className="text-xs text-neutral-400">Kjørt {sched.runCount} gang{sched.runCount !== 1 ? 'er' : ''}</span>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setShowScheduleEditor((v) => !v)}
+            title="Planlegg"
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${showScheduleEditor ? 'border-sky-300 bg-sky-50 text-sky-800' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'}`}
+          >
+            <CalendarClock className="inline size-3.5 mr-1" />
+            Plan
+          </button>
           {survey.status === 'draft' ? (
-            <button
-              type="button"
-              onClick={onOpen}
-              disabled={survey.questions.length === 0}
-              className="rounded-full bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
-            >
-              Åpne
+            <button type="button" onClick={onOpen} disabled={survey.questions.length === 0}
+              className="rounded-full bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40">
+              Åpne nå
             </button>
           ) : null}
           {survey.status === 'open' ? (
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full border border-neutral-300 px-3 py-1.5 text-xs font-medium"
-            >
+            <button type="button" onClick={onClose}
+              className="rounded-full border border-neutral-300 px-3 py-1.5 text-xs font-medium">
               Lukk
             </button>
           ) : null}
         </div>
       </div>
+
+      {/* Inline schedule editor */}
+      {showScheduleEditor && (
+        <div className="mt-4 border-t border-neutral-100 pt-4">
+          <ScheduleEditor
+            current={survey.schedule}
+            onSave={(s) => { onSetSchedule(s); setShowScheduleEditor(false) }}
+            onRemove={() => { onSetSchedule(undefined); setShowScheduleEditor(false) }}
+          />
+        </div>
+      )}
       <ul className="mt-4 space-y-2 border-t border-neutral-100 pt-4 text-sm">
         {survey.questions.map((q) => (
           <li key={q.id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-[#faf8f4] px-3 py-2">
@@ -1218,5 +1268,153 @@ function SurveyCreator({ oh }: { oh: ReturnType<typeof useOrgHealth> }) {
         </div>
       </form>
     </section>
+  )
+}
+
+// ─── Schedule constants + ScheduleEditor component ───────────────────────────
+
+const SCHEDULE_KIND_LABELS: Record<SurveyScheduleKind, string> = {
+  once:      'Én gang',
+  weekly:    'Ukentlig',
+  monthly:   'Månedlig',
+  quarterly: 'Kvartalsvis',
+  yearly:    'Årlig',
+  custom:    'Egendefinert intervall',
+}
+
+function ScheduleEditor({
+  current,
+  onSave,
+  onRemove,
+}: {
+  current?: SurveySchedule
+  onSave: (s: SurveySchedule) => void
+  onRemove: () => void
+}) {
+  const [kind, setKind] = useState<SurveyScheduleKind>(current?.kind ?? 'once')
+  const [startsAt, setStartsAt] = useState(
+    current?.startsAt
+      ? current.startsAt.slice(0, 16)
+      : new Date(Date.now() + 3600000).toISOString().slice(0, 16),
+  )
+  const [openForHours, setOpenForHours] = useState(current?.openForHours ?? 72)
+  const [intervalN, setIntervalN] = useState(current?.intervalN ?? 1)
+  const [endsAt, setEndsAt] = useState(current?.endsAt ? current.endsAt.slice(0, 10) : '')
+  const [enabled, setEnabled] = useState(current?.enabled ?? true)
+
+  const showInterval = kind === 'weekly' || kind === 'monthly' || kind === 'custom'
+  const intervalLabel =
+    kind === 'weekly' ? 'Hver N. uke' :
+    kind === 'monthly' ? 'Hver N. måned' :
+    'Intervall (dager)'
+
+  function handleSave() {
+    onSave({
+      kind,
+      startsAt: new Date(startsAt).toISOString(),
+      openForHours,
+      intervalN: showInterval ? intervalN : undefined,
+      endsAt: endsAt ? new Date(endsAt).toISOString() : undefined,
+      runCount: current?.runCount ?? 0,
+      enabled,
+      nextRunAt: current?.nextRunAt ?? new Date(startsAt).toISOString(),
+      lastTriggeredAt: current?.lastTriggeredAt,
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <CalendarClock className="size-4 text-sky-700" />
+        <span className="text-sm font-semibold text-neutral-800">Planlegging</span>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {/* Kind */}
+        <div>
+          <label className="text-xs font-medium text-neutral-500">Gjentakelse</label>
+          <select value={kind} onChange={(e) => setKind(e.target.value as SurveyScheduleKind)}
+            className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
+            {(Object.keys(SCHEDULE_KIND_LABELS) as SurveyScheduleKind[]).map((k) => (
+              <option key={k} value={k}>{SCHEDULE_KIND_LABELS[k]}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Interval N */}
+        {showInterval && (
+          <div>
+            <label className="text-xs font-medium text-neutral-500">{intervalLabel}</label>
+            <input type="number" min={1} max={365} value={intervalN}
+              onChange={(e) => setIntervalN(Number(e.target.value) || 1)}
+              className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+          </div>
+        )}
+
+        {/* Starts at */}
+        <div>
+          <label className="text-xs font-medium text-neutral-500">
+            {kind === 'once' ? 'Åpnes' : 'Første kjøring'}
+          </label>
+          <input type="datetime-local" value={startsAt}
+            onChange={(e) => setStartsAt(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+        </div>
+
+        {/* Open for hours */}
+        <div>
+          <label className="text-xs font-medium text-neutral-500">
+            Åpen i (timer) — 0 = manuell lukking
+          </label>
+          <input type="number" min={0} max={8760} value={openForHours}
+            onChange={(e) => setOpenForHours(Number(e.target.value))}
+            className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+        </div>
+
+        {/* Ends at — only for recurring */}
+        {kind !== 'once' && (
+          <div>
+            <label className="text-xs font-medium text-neutral-500">Slutt dato (valgfritt)</label>
+            <input type="date" value={endsAt}
+              onChange={(e) => setEndsAt(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+          </div>
+        )}
+
+        {/* Enabled */}
+        <div className="flex items-end pb-2">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={enabled}
+              onChange={(e) => setEnabled(e.target.checked)}
+              className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
+            Tidsplan aktiv
+          </label>
+        </div>
+      </div>
+
+      {/* Summary */}
+      <div className="rounded-lg bg-sky-50 border border-sky-200 px-3 py-2 text-xs text-sky-800">
+        {kind === 'once' && `Undersøkelsen åpnes automatisk ${new Date(startsAt).toLocaleString('no-NO')}${openForHours > 0 ? `, lukkes etter ${openForHours} timer` : ', lukkes manuelt'}.`}
+        {kind === 'weekly' && `Kjøres hver ${intervalN}. uke fra ${new Date(startsAt).toLocaleDateString('no-NO')}${openForHours > 0 ? `, åpen i ${openForHours} timer` : ''}${endsAt ? ` til ${endsAt}` : ''}.`}
+        {kind === 'monthly' && `Kjøres hver ${intervalN}. måned fra ${new Date(startsAt).toLocaleDateString('no-NO')}${endsAt ? ` til ${endsAt}` : ''}.`}
+        {kind === 'quarterly' && `Kjøres hvert kvartal fra ${new Date(startsAt).toLocaleDateString('no-NO')}${endsAt ? ` til ${endsAt}` : ''}.`}
+        {kind === 'yearly' && `Kjøres hvert år fra ${new Date(startsAt).toLocaleDateString('no-NO')}${endsAt ? ` til ${endsAt}` : ''}.`}
+        {kind === 'custom' && `Kjøres hver ${intervalN}. dag fra ${new Date(startsAt).toLocaleDateString('no-NO')}${endsAt ? ` til ${endsAt}` : ''}.`}
+      </div>
+
+      <div className="flex gap-2">
+        <button type="button" onClick={handleSave}
+          className="flex items-center gap-1.5 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26]">
+          <CalendarClock className="size-4" />
+          Lagre tidsplan
+        </button>
+        {current && (
+          <button type="button" onClick={onRemove}
+            className="rounded-full border border-neutral-200 px-4 py-2 text-sm text-neutral-600 hover:bg-neutral-50">
+            Fjern tidsplan
+          </button>
+        )}
+      </div>
+    </div>
   )
 }

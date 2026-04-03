@@ -11,6 +11,34 @@ export type SurveyQuestion = {
   anchors?: { low: string; high: string }
 }
 
+export type SurveyScheduleKind =
+  | 'once'       // single specific date/time
+  | 'weekly'     // every N weeks
+  | 'monthly'    // every N months (same day-of-month)
+  | 'quarterly'  // every 3 months
+  | 'yearly'     // every 12 months
+  | 'custom'     // custom interval in days
+
+export type SurveySchedule = {
+  kind: SurveyScheduleKind
+  /** ISO date-time: when the survey should open (first occurrence for recurring) */
+  startsAt: string
+  /** How long the survey stays open, in hours (0 = manual close only) */
+  openForHours: number
+  /** For weekly: every N weeks. For monthly: every N months. For custom: every N days */
+  intervalN?: number
+  /** ISO date-time: stop recurring after this date */
+  endsAt?: string
+  /** ISO date-time: when the next run is due (computed, updated after each trigger) */
+  nextRunAt?: string
+  /** ISO date-time: when the schedule was last triggered */
+  lastTriggeredAt?: string
+  /** How many times this schedule has fired */
+  runCount: number
+  /** Whether the schedule is active */
+  enabled: boolean
+}
+
 export type Survey = {
   id: string
   title: string
@@ -24,6 +52,8 @@ export type Survey = {
   targetGroupId?: string
   /** Display name of the target group (denormalised for display) */
   targetGroupLabel?: string
+  /** Optional schedule — if set, survey opens automatically */
+  schedule?: SurveySchedule
   createdAt: string
   openedAt?: string
   closedAt?: string
