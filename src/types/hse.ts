@@ -6,15 +6,49 @@ export type HseChecklistItem = {
   lawRef: string
 }
 
+/**
+ * Per-checklist-item avvik detail — only populated when status === 'issue'.
+ * Kept separate from the status map so the base record stays compact.
+ */
+export type ChecklistItemDetail = {
+  /** Free-text description of the deviation */
+  description: string
+  /** data: URI or URL for an attached photo. In production this would be a storage ref. */
+  photoUrl?: string
+  /** Who is responsible for fixing this item */
+  assignee: string
+  /** ISO date string for when this must be resolved */
+  dueDate: string
+  /** Whether this has been resolved independently of the round's overall status */
+  resolvedAt?: string
+}
+
+export type SafetyRoundStatus = 'in_progress' | 'pending_approval' | 'approved'
+
+export type SafetyRoundApproval = {
+  approverName: string
+  approvedAt: string
+  comment?: string
+}
+
 export type SafetyRound = {
   id: string
   title: string
   conductedAt: string
   location: string
   conductedBy: string
+  department?: string
   /** checklist template id -> status */
   items: Record<string, ChecklistItemStatus>
+  /** checklist item id -> avvik detail (only set when status === 'issue') */
+  itemDetails: Record<string, ChecklistItemDetail>
   notes: string
+  /** Workflow status */
+  status: SafetyRoundStatus
+  /** Set when status reaches 'pending_approval' */
+  submittedForApprovalAt?: string
+  /** Manager sign-off — locks the checklist */
+  approval?: SafetyRoundApproval
   createdAt: string
   updatedAt: string
 }

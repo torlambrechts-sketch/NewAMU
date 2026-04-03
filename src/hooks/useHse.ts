@@ -6,6 +6,7 @@ import {
   SAFETY_ROUND_TEMPLATE_ID,
 } from '../data/hseTemplates'
 import type {
+  ChecklistItemDetail,
   ChecklistItemStatus,
   ChecklistTemplate,
   CorrectiveAction,
@@ -15,6 +16,7 @@ import type {
   Incident,
   Inspection,
   SafetyRound,
+  SafetyRoundApproval,
   SjaAnalysis,
   SjaHazardRow,
   SjaSignature,
@@ -101,7 +103,9 @@ function load(): HseState {
         location: 'Produksjon, hall A',
         conductedBy: 'Verneombud (demo)',
         items: emptyChecklist(),
+        itemDetails: {},
         notes: 'Eksempelrunde. Erstatt med faktiske observasjoner.',
+        status: 'in_progress',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
@@ -141,7 +145,11 @@ function load(): HseState {
     }
     const p = JSON.parse(raw) as HseState
     return {
-      safetyRounds: Array.isArray(p.safetyRounds) ? p.safetyRounds : [],
+      safetyRounds: Array.isArray(p.safetyRounds) ? p.safetyRounds.map((sr) => ({
+        ...sr,
+        itemDetails: (sr as SafetyRound).itemDetails ?? {},
+        status: (sr as SafetyRound).status ?? ('in_progress' as const),
+      })) : [],
       inspections: Array.isArray(p.inspections) ? p.inspections : [],
       incidents: Array.isArray(p.incidents) ? p.incidents : [],
       sjaAnalyses: Array.isArray(p.sjaAnalyses) ? p.sjaAnalyses : [],
@@ -167,9 +175,9 @@ export function useHse() {
   // ── Safety rounds ───────────────────────────────────────────────────────────
 
   const createSafetyRound = useCallback(
-    (partial: Omit<SafetyRound, 'id' | 'createdAt' | 'updatedAt' | 'items'>) => {
+    (partial: Omit<SafetyRound, 'id' | 'createdAt' | 'updatedAt' | 'items' | 'itemDetails' | 'status'>) => {
       const now = new Date().toISOString()
-      const sr: SafetyRound = { ...partial, id: crypto.randomUUID(), items: emptyChecklist(), createdAt: now, updatedAt: now }
+      const sr: SafetyRound = { ...partial, id: crypto.randomUUID(), items: emptyChecklist(), itemDetails: {}, status: 'in_progress', createdAt: now, updatedAt: now }
       const entry = auditEntry('safety_round_created', 'safety_round', sr.id, `Vernerunde opprettet: «${sr.title}»`, { location: sr.location, conductedBy: sr.conductedBy, conductedAt: sr.conductedAt, templateId: SAFETY_ROUND_TEMPLATE_ID })
       setState((s) => ({ ...s, safetyRounds: [sr, ...s.safetyRounds], auditTrail: [...s.auditTrail, entry] }))
       return sr
@@ -190,8 +198,49 @@ export function useHse() {
       const sr = s.safetyRounds.find((x) => x.id === roundId)
       if (!sr) return s
       const items = { ...sr.items, [itemId]: status }
+      // Clear detail if status is no longer 'issue'
+      const itemDetails = status !== 'issue'
+        ? Object.fromEntries(Object.entries(sr.itemDetails ?? {}).filter(([k]) => k !== itemId))
+        : (sr.itemDetails ?? {})
       const entry = auditEntry('safety_round_updated', 'safety_round', roundId, 'Sjekklistepunkt oppdatert', { itemId, status, previousStatus: sr.items[itemId] ?? 'na' })
-      return { ...s, safetyRounds: s.safetyRounds.map((x) => x.id === roundId ? { ...x, items, updatedAt: new Date().toISOString() } : x), auditTrail: [...s.auditTrail, entry] }
+      return { ...s, safetyRounds: s.safetyRounds.map((x) => x.id === roundId ? { ...x, items, itemDetails, updatedAt: new Date().toISOString() } : x), auditTrail: [...s.auditTrail, entry] }
+    })
+  }, [])
+
+  const setChecklistItemDetail = useCallback((roundId: string, itemId: string, detail: Partial<ChecklistItemDetail>) => {
+    setState((s) => {
+      const sr = s.safetyRounds.find((x) => x.id === roundId)
+      if (!sr) return s
+      const existing = (sr.itemDetails ?? {})[itemId] ?? { description: '', assignee: '', dueDate: '' }
+      const itemDetails = { ...(sr.itemDetails ?? {}), [itemId]: { ...existing, ...detail } }
+      return { ...s, safetyRounds: s.safetyRounds.map((x) => x.id === roundId ? { ...x, itemDetails, updatedAt: new Date().toISOString() } : x) }
+    })
+  }, [])
+
+  const submitRoundForApproval = useCallback((roundId: string) => {
+    setState((s) => {
+      const now = new Date().toISOString()
+      const entry = auditEntry('safety_round_updated', 'safety_round', roundId, 'Vernerunde sendt til leder for godkjenning')
+      return {
+        ...s,
+        safetyRounds: s.safetyRounds.map((x) =>
+          x.id === roundId ? { ...x, status: 'pending_approval' as const, submittedForApprovalAt: now, updatedAt: now } : x,
+        ),
+        auditTrail: [...s.auditTrail, entry],
+      }
+    })
+  }, [])
+
+  const approveRound = useCallback((roundId: string, approval: SafetyRoundApproval) => {
+    setState((s) => {
+      const entry = auditEntry('safety_round_updated', 'safety_round', roundId, `Vernerunde godkjent av ${approval.approverName}`, { approverName: approval.approverName })
+      return {
+        ...s,
+        safetyRounds: s.safetyRounds.map((x) =>
+          x.id === roundId ? { ...x, status: 'approved' as const, approval, updatedAt: new Date().toISOString() } : x,
+        ),
+        auditTrail: [...s.auditTrail, entry],
+      }
     })
   }, [])
 
@@ -455,6 +504,9 @@ export function useHse() {
     createSafetyRound,
     updateSafetyRound,
     setChecklistStatus,
+    setChecklistItemDetail,
+    submitRoundForApproval,
+    approveRound,
     createInspection,
     updateInspection,
     signInspectionProtocol,

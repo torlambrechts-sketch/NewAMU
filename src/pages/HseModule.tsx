@@ -12,11 +12,13 @@ import {
   GraduationCap,
   HardHat,
   History,
+  ImagePlus,
   ListChecks,
   Lock,
   MessageSquare,
   Plus,
   Search,
+  Send,
   ShieldAlert,
   ShieldCheck,
   Trash2,
@@ -25,7 +27,6 @@ import {
 import { useHse } from '../hooks/useHse'
 import { TRAINING_KIND_LABELS } from '../data/hseTemplates'
 import type {
-  ChecklistItemStatus,
   HseProtocolSignature,
   Incident,
   IncidentCategory,
@@ -150,7 +151,7 @@ export function HseModule() {
   const tabParam = searchParams.get('tab')
   const tab: TabId = tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
 
-  const [roundForm, setRoundForm] = useState({ title: '', conductedAt: '', location: '', conductedBy: '', notes: '' })
+  const [roundForm, setRoundForm] = useState({ title: '', conductedAt: '', location: '', department: '', conductedBy: '', notes: '', templateId: 'tpl-standard' })
   const [insForm, setInsForm] = useState({ kind: 'internal' as Inspection['kind'], title: '', conductedAt: '', scope: '', findings: '', followUp: '', responsible: '', status: 'open' as Inspection['status'] })
 
   // Incident form — rich
@@ -299,20 +300,23 @@ export function HseModule() {
             <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
               e.preventDefault()
               if (!roundForm.title.trim() || !roundForm.conductedAt) return
-              hse.createSafetyRound({ title: roundForm.title.trim(), conductedAt: new Date(roundForm.conductedAt).toISOString(), location: roundForm.location.trim() || '—', conductedBy: roundForm.conductedBy.trim() || '—', notes: roundForm.notes })
+              hse.createSafetyRound({ title: roundForm.title.trim(), conductedAt: new Date(roundForm.conductedAt).toISOString(), location: roundForm.location.trim() || '—', department: roundForm.department.trim() || undefined, conductedBy: roundForm.conductedBy.trim() || '—', notes: roundForm.notes })
               setRoundForm((r) => ({ ...r, title: '', notes: '' }))
             }}>
               {/* Checklist template selector */}
               <div className="sm:col-span-2">
-                <label className="text-xs font-medium text-neutral-500">Sjekklistemal (avdelingsspesifikk)</label>
-                <div className="mt-2 flex flex-wrap gap-2">
+                <label className="text-xs font-medium text-neutral-500">Sjekklistemal</label>
+                <select
+                  value={roundForm.templateId}
+                  onChange={(e) => setRoundForm((r) => ({ ...r, templateId: e.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+                >
                   {hse.checklistTemplates.map((tpl) => (
-                    <span key={tpl.id} className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-700">
-                      {tpl.name}
-                    </span>
+                    <option key={tpl.id} value={tpl.id}>
+                      {tpl.name}{tpl.department ? ` (${tpl.department})` : ''}
+                    </option>
                   ))}
-                </div>
-                <p className="mt-1 text-xs text-neutral-400">Vernerunden bruker standard sjekklistemal. Egne maler per avdeling legges til i innstillingene.</p>
+                </select>
               </div>
               <div className="sm:col-span-2">
                 <label className="text-xs text-neutral-500">Tittel</label>
@@ -323,8 +327,12 @@ export function HseModule() {
                 <input type="datetime-local" value={roundForm.conductedAt} onChange={(e) => setRoundForm((r) => ({ ...r, conductedAt: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
               </div>
               <div>
-                <label className="text-xs text-neutral-500">Område</label>
+                <label className="text-xs text-neutral-500">Område / lokasjon</label>
                 <input value={roundForm.location} onChange={(e) => setRoundForm((r) => ({ ...r, location: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-neutral-500">Avdeling</label>
+                <input value={roundForm.department} onChange={(e) => setRoundForm((r) => ({ ...r, department: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
               </div>
               <div className="sm:col-span-2">
                 <label className="text-xs text-neutral-500">Gjennomført av (f.eks. verneombud)</label>
@@ -340,7 +348,11 @@ export function HseModule() {
             </form>
           </section>
           <div className="space-y-6">
-            {hse.safetyRounds.map((sr) => <SafetyRoundCard key={sr.id} round={sr} checklist={hse.checklistTemplate} hse={hse} />)}
+            {hse.safetyRounds.map((sr) => {
+              // Use the template items if the round has a matching template, otherwise fall back to default
+              const checklist = hse.checklistTemplate
+              return <SafetyRoundCard key={sr.id} round={sr} checklist={checklist} hse={hse} />
+            })}
           </div>
         </div>
       )}
@@ -1374,49 +1386,282 @@ function InspectionRow({ ins, hse }: { ins: Inspection; hse: ReturnType<typeof u
   )
 }
 
-function SafetyRoundCard({ round, checklist, hse }: { round: SafetyRound; checklist: { id: string; label: string; lawRef: string }[]; hse: ReturnType<typeof useHse> }) {
-  const hasIssue = Object.values(round.items).some((v) => v === 'issue')
-  function formatWhenLocal(iso: string) { try { return new Date(iso).toLocaleString('no-NO', { dateStyle: 'short', timeStyle: 'short' }) } catch { return iso } }
-  function statusLabelLocal(s: ChecklistItemStatus) { return s === 'ok' ? 'OK' : s === 'issue' ? 'Avvik' : 'N/A' }
+function SafetyRoundCard({ round, checklist, hse }: {
+  round: SafetyRound
+  checklist: { id: string; label: string; lawRef: string }[]
+  hse: ReturnType<typeof useHse>
+}) {
+  const [approvalName, setApprovalName] = useState('')
+  const [approvalComment, setApprovalComment] = useState('')
+  const isLocked = round.status === 'approved'
+  const issueItems = checklist.filter((item) => round.items[item.id] === 'issue')
+
+  function fmtDate(iso: string) {
+    try { return new Date(iso).toLocaleString('no-NO', { dateStyle: 'short', timeStyle: 'short' }) }
+    catch { return iso }
+  }
+
+  const statusBadge = {
+    in_progress:       { label: 'Pågår',              cls: 'bg-sky-100 text-sky-800' },
+    pending_approval:  { label: 'Venter på godkjenning', cls: 'bg-amber-100 text-amber-800' },
+    approved:          { label: 'Godkjent',            cls: 'bg-emerald-100 text-emerald-800' },
+  }[round.status]
+
   return (
-    <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-2">
+    <div className={`rounded-2xl border bg-white shadow-sm ${isLocked ? 'border-emerald-200' : 'border-neutral-200/90'}`}>
+      {/* ── Header ────────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-neutral-100 px-5 py-4">
         <div>
-          <h3 className="font-semibold text-neutral-900">{round.title}</h3>
-          <p className="text-sm text-neutral-600">{round.location} · {round.conductedBy}</p>
-          <p className="text-xs text-neutral-500">{formatWhenLocal(round.conductedAt)}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold text-neutral-900">{round.title}</h3>
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadge.cls}`}>{statusBadge.label}</span>
+            {isLocked && <Lock className="size-3.5 text-emerald-600" />}
+          </div>
+          <p className="mt-1 text-sm text-neutral-600">{round.location}{round.department ? ` · ${round.department}` : ''} · {round.conductedBy}</p>
+          <p className="text-xs text-neutral-400">{fmtDate(round.conductedAt)}</p>
         </div>
+        {/* Issue count badge */}
+        {issueItems.length > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+            <AlertTriangle className="size-3.5" />
+            {issueItems.length} avvik
+          </span>
+        )}
       </div>
-      <div className="mt-4 border-t border-neutral-100 pt-4">
-        <h4 className="text-sm font-semibold text-neutral-900">Sjekkliste</h4>
-        <ul className="mt-2 space-y-2">
+
+      {/* ── Checklist ─────────────────────────────────────────────────────── */}
+      <div className="px-5 py-4">
+        {/* Conceptual note for users */}
+        <div className="mb-3 rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+          <strong>Avvik i vernerunde</strong> = potensielle farer oppdaget under runden (ikke-hendelser). Meld ulykker og vold separat under fanen <strong>Hendelser</strong>.
+        </div>
+
+        <ul className="space-y-2">
           {checklist.map((item) => {
             const st = round.items[item.id] ?? 'na'
+            const detail = (round.itemDetails ?? {})[item.id]
+            const isIssue = st === 'issue'
             return (
-              <li key={item.id} className="flex flex-col gap-2 rounded-lg bg-[#faf8f4] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <span className="text-sm text-neutral-900">{item.label}</span>
-                  <span className="mt-0.5 block text-xs text-neutral-500">{item.lawRef}</span>
+              <li key={item.id} className={`rounded-xl border ${isIssue ? 'border-amber-200 bg-amber-50/50' : 'border-neutral-100 bg-[#faf8f4]'}`}>
+                {/* Status row */}
+                <div className="flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <span className="text-sm text-neutral-900">{item.label}</span>
+                    <span className="mt-0.5 block text-xs text-neutral-400">{item.lawRef}</span>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    {(['ok', 'issue', 'na'] as const).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        disabled={isLocked}
+                        onClick={() => hse.setChecklistStatus(round.id, item.id, v)}
+                        className={`rounded-full px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                          st === v
+                            ? v === 'issue' ? 'bg-amber-400 text-amber-950' : v === 'ok' ? 'bg-emerald-400 text-white' : 'bg-neutral-300 text-neutral-800'
+                            : 'bg-white ring-1 ring-neutral-200 hover:bg-neutral-50'
+                        }`}
+                      >
+                        {v === 'ok' ? 'OK' : v === 'issue' ? '⚠ Avvik' : 'N/A'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex shrink-0 gap-1">
-                  {(['ok', 'issue', 'na'] as const).map((v) => (
-                    <button key={v} type="button" onClick={() => hse.setChecklistStatus(round.id, item.id, v)} className={`rounded-full px-2.5 py-1 text-xs font-medium ${st === v ? v === 'issue' ? 'bg-amber-200 text-amber-950' : v === 'ok' ? 'bg-emerald-200 text-emerald-950' : 'bg-neutral-200 text-neutral-800' : 'bg-white ring-1 ring-neutral-200 hover:bg-neutral-50'}`}>
-                      {statusLabelLocal(v)}
-                    </button>
-                  ))}
-                </div>
+
+                {/* Inline avvik detail panel — appears only when 'Avvik' is selected */}
+                {isIssue && (
+                  <div className="border-t border-amber-200 bg-amber-50 px-3 pb-3 pt-3 space-y-3">
+                    <p className="text-xs font-semibold text-amber-900">Avviksdetaljer</p>
+
+                    {/* Description */}
+                    <div>
+                      <label className="text-xs font-medium text-neutral-600">Beskriv avviket *</label>
+                      <textarea
+                        value={detail?.description ?? ''}
+                        onChange={(e) => !isLocked && hse.setChecklistItemDetail(round.id, item.id, { description: e.target.value })}
+                        disabled={isLocked}
+                        rows={2}
+                        placeholder="Hva ble observert? Angi omfang og plassering…"
+                        className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm focus:border-amber-400 focus:outline-none disabled:opacity-60"
+                      />
+                    </div>
+
+                    {/* Photo upload */}
+                    <div>
+                      <label className="text-xs font-medium text-neutral-600">Bilde / vedlegg</label>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        {detail?.photoUrl ? (
+                          <div className="relative">
+                            <img src={detail.photoUrl} alt="Avvik" className="h-20 w-24 rounded-lg object-cover ring-1 ring-amber-200" />
+                            {!isLocked && (
+                              <button
+                                type="button"
+                                onClick={() => hse.setChecklistItemDetail(round.id, item.id, { photoUrl: undefined })}
+                                className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-red-500 text-white text-xs"
+                              >×</button>
+                            )}
+                          </div>
+                        ) : !isLocked ? (
+                          <label className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-amber-300 bg-white px-3 py-2 text-xs text-amber-700 hover:bg-amber-50">
+                            <ImagePlus className="size-4" />
+                            Legg til bilde
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (!file) return
+                                const reader = new FileReader()
+                                reader.onload = () => {
+                                  if (typeof reader.result === 'string') {
+                                    hse.setChecklistItemDetail(round.id, item.id, { photoUrl: reader.result })
+                                  }
+                                }
+                                reader.readAsDataURL(file)
+                              }}
+                            />
+                          </label>
+                        ) : <span className="text-xs text-neutral-400">Ingen bilde</span>}
+                      </div>
+                    </div>
+
+                    {/* Assignee + due date */}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="text-xs font-medium text-neutral-600">Tildel oppgave til</label>
+                        <input
+                          value={detail?.assignee ?? ''}
+                          onChange={(e) => !isLocked && hse.setChecklistItemDetail(round.id, item.id, { assignee: e.target.value })}
+                          disabled={isLocked}
+                          placeholder="Navn / rolle"
+                          className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-sm focus:border-amber-400 focus:outline-none disabled:opacity-60"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-neutral-600">Frist</label>
+                        <input
+                          type="date"
+                          value={detail?.dueDate ?? ''}
+                          onChange={(e) => !isLocked && hse.setChecklistItemDetail(round.id, item.id, { dueDate: e.target.value })}
+                          disabled={isLocked}
+                          className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-sm focus:border-amber-400 focus:outline-none disabled:opacity-60"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Per-item task link */}
+                    {!isLocked && (detail?.assignee || detail?.description) && (
+                      <AddTaskLink
+                        title={`Avvik: ${item.label.slice(0, 60)}`}
+                        description={detail?.description?.slice(0, 200)}
+                        module="hse"
+                        sourceType="hse_safety_round"
+                        sourceId={round.id}
+                        sourceLabel={`${round.title} — ${item.label}`}
+                        ownerRole={detail?.assignee || 'Verneombud'}
+                      />
+                    )}
+                  </div>
+                )}
               </li>
             )
           })}
         </ul>
-      </div>
-      <label className="mt-4 block text-xs font-medium text-neutral-500">Notater</label>
-      <textarea value={round.notes} onChange={(e) => hse.updateSafetyRound(round.id, { notes: e.target.value })} rows={3} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-      {hasIssue && (
-        <div className="mt-3">
-          <AddTaskLink title={`Avvik fra vernerunde: ${round.title.slice(0, 50)}`} description={round.notes.slice(0, 300)} module="hse" sourceType="hse_safety_round" sourceId={round.id} sourceLabel={round.title} ownerRole="Verneombud" />
+
+        {/* Global notes */}
+        <div className="mt-4">
+          <label className="text-xs font-medium text-neutral-500">Generelle notater fra runden</label>
+          <textarea
+            value={round.notes}
+            onChange={(e) => !isLocked && hse.updateSafetyRound(round.id, { notes: e.target.value })}
+            disabled={isLocked}
+            rows={3}
+            className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm disabled:opacity-60"
+          />
         </div>
-      )}
+      </div>
+
+      {/* ── Approval workflow ──────────────────────────────────────────────── */}
+      <div className="border-t border-neutral-100 px-5 py-4">
+        {round.status === 'in_progress' && (
+          <div className="flex flex-wrap items-start gap-4">
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-neutral-800">Send til leder for godkjenning</p>
+              <p className="text-xs text-neutral-500 mt-0.5">
+                Runden låses (read-only) når leder har godkjent. Loven krever at både verneombud og leder bekrefter resultatet.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={issueItems.some((i) => !round.itemDetails?.[i.id]?.description?.trim())}
+              onClick={() => hse.submitRoundForApproval(round.id)}
+              className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] disabled:opacity-40"
+              title={issueItems.some((i) => !round.itemDetails?.[i.id]?.description?.trim()) ? 'Fyll inn beskrivelse for alle avvik først' : undefined}
+            >
+              <Send className="size-4" />
+              Send til godkjenning
+            </button>
+          </div>
+        )}
+
+        {round.status === 'pending_approval' && (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-semibold text-amber-900">Venter på lederens godkjenning</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Sendt: {round.submittedForApprovalAt ? fmtDate(round.submittedForApprovalAt) : '—'}
+              </p>
+            </div>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
+              <p className="text-sm font-semibold text-emerald-900">Godkjenn som leder</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-xs font-medium text-neutral-600">Leders navn</label>
+                  <input
+                    value={approvalName}
+                    onChange={(e) => setApprovalName(e.target.value)}
+                    placeholder="Fullt navn"
+                    className="mt-1 w-full rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-600">Kommentar (valgfritt)</label>
+                  <input
+                    value={approvalComment}
+                    onChange={(e) => setApprovalComment(e.target.value)}
+                    placeholder="Merknad til vernerunden"
+                    className="mt-1 w-full rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-sm"
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={!approvalName.trim()}
+                onClick={() => {
+                  hse.approveRound(round.id, { approverName: approvalName.trim(), approvedAt: new Date().toISOString(), comment: approvalComment.trim() || undefined })
+                  setApprovalName('')
+                  setApprovalComment('')
+                }}
+                className="inline-flex items-center gap-2 rounded-full bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-40"
+              >
+                <CheckCircle2 className="size-4" />
+                Godkjenn vernerunde
+              </button>
+            </div>
+          </div>
+        )}
+
+        {round.status === 'approved' && round.approval && (
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-emerald-900">Godkjent av {round.approval.approverName}</p>
+              <p className="text-xs text-emerald-700">{fmtDate(round.approval.approvedAt)}{round.approval.comment ? ` · ${round.approval.comment}` : ''}</p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
