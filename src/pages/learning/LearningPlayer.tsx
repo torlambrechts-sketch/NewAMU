@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Check, ChevronLeft, ChevronRight, Play } from 'lucide-react'
+import { Check, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, Play } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import type { CourseModule } from '../../types/learning'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
@@ -375,27 +375,7 @@ function ModulePlayer({
   }
 
   if (c.kind === 'video') {
-    return (
-      <div>
-        <p className="text-sm text-neutral-600">{c.caption}</p>
-        <a
-          href={c.url}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-4 inline-flex items-center gap-2 rounded-full bg-neutral-100 px-4 py-2 text-sm"
-        >
-          <Play className="size-4" /> Open media
-        </a>
-        <button
-          type="button"
-          onClick={() => onComplete()}
-          className="mt-6 block w-full rounded-full py-3 text-sm font-medium text-white"
-          style={{ backgroundColor: PIN_GREEN }}
-        >
-          Mark viewed
-        </button>
-      </div>
-    )
+    return <VideoPlayer url={c.url} caption={c.caption} onComplete={onComplete} />
   }
 
   if (c.kind === 'checklist') {
@@ -495,3 +475,251 @@ function ModulePlayer({
 
   return null
 }
+
+// ─── VideoPlayer — inline embed with watch-progress tracking ─────────────────
+
+type VideoKind = 'youtube' | 'vimeo' | 'mp4' | 'external'
+
+function detectVideoKind(url: string): VideoKind {
+  if (/youtube\.com\/watch|youtu\.be\/|youtube\.com\/embed/.test(url)) return 'youtube'
+  if (/vimeo\.com/.test(url)) return 'vimeo'
+  if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url)) return 'mp4'
+  return 'external'
+}
+
+function youtubeEmbedUrl(url: string): string {
+  // Handle youtu.be/ID, youtube.com/watch?v=ID, already-embed URLs
+  const shortMatch = url.match(/youtu\.be\/([^?&]+)/)
+  if (shortMatch) return `https://www.youtube.com/embed/${shortMatch[1]}?enablejsapi=1&rel=0&modestbranding=1`
+  const longMatch = url.match(/[?&]v=([^&]+)/)
+  if (longMatch) return `https://www.youtube.com/embed/${longMatch[1]}?enablejsapi=1&rel=0&modestbranding=1`
+  if (url.includes('/embed/')) {
+    const sep = url.includes('?') ? '&' : '?'
+    return `${url}${sep}enablejsapi=1&rel=0&modestbranding=1`
+  }
+  return url
+}
+
+function vimeoEmbedUrl(url: string): string {
+  const match = url.match(/vimeo\.com\/(\d+)/)
+  if (match) return `https://player.vimeo.com/video/${match[1]}?api=1&title=0&byline=0&portrait=0`
+  return url
+}
+
+function VideoPlayer({
+  url,
+  caption,
+  onComplete,
+}: {
+  url: string
+  caption: string
+  onComplete: () => void
+}) {
+  const [watchedPct, setWatchedPct] = useState(0)
+  const [manualOverride, setManualOverride] = useState(false)
+  const [started, setStarted] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const kind = detectVideoKind(url)
+  const THRESHOLD = 80 // percent required to unlock
+
+  const unlocked = watchedPct >= THRESHOLD || manualOverride
+
+  // ── MP4 / native video tracking ─────────────────────────────────────
+  function handleTimeUpdate() {
+    const v = videoRef.current
+    if (!v || !v.duration) return
+    const pct = Math.round((v.currentTime / v.duration) * 100)
+    setWatchedPct((prev) => Math.max(prev, pct))
+    if (!started && pct > 0) setStarted(true)
+  }
+
+  // Progress ring SVG helper
+  const RING_R = 18
+  const RING_CIRC = 2 * Math.PI * RING_R
+  const ringOffset = RING_CIRC - (watchedPct / 100) * RING_CIRC
+
+  const progressColour = watchedPct >= THRESHOLD ? '#10b981' : watchedPct > 40 ? '#f59e0b' : '#6b7280'
+
+  return (
+    <div className="space-y-4">
+      {/* Caption */}
+      {caption && <p className="text-sm text-neutral-600">{caption}</p>}
+
+      {/* ── YouTube embed ──────────────────────────────────────────────── */}
+      {kind === 'youtube' && (
+        <div className="overflow-hidden rounded-2xl shadow-lg">
+          <div className="relative aspect-video w-full bg-black">
+            <iframe
+              src={youtubeEmbedUrl(url)}
+              className="absolute inset-0 h-full w-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              title="Video"
+              onLoad={() => setStarted(true)}
+            />
+          </div>
+          {/* YouTube: can't track time via iframe without YT IFrame API + postMessage;
+              show a self-report checkbox after the video has had time to load */}
+          <div className="border-t border-neutral-100 bg-neutral-50 px-4 py-3">
+            <label className="flex cursor-pointer items-center gap-3 text-sm text-neutral-700">
+              <input
+                type="checkbox"
+                checked={manualOverride}
+                onChange={(e) => setManualOverride(e.target.checked)}
+                className="size-4 rounded border-neutral-300"
+                style={{ accentColor: PIN_GREEN }}
+              />
+              <span>
+                Jeg har sett hele videoen{' '}
+                <span className="text-xs text-neutral-400">(bekreft etter visning)</span>
+              </span>
+              {manualOverride && <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />}
+            </label>
+          </div>
+        </div>
+      )}
+
+      {/* ── Vimeo embed ─────────────────────────────────────────────────── */}
+      {kind === 'vimeo' && (
+        <div className="overflow-hidden rounded-2xl shadow-lg">
+          <div className="relative aspect-video w-full bg-black">
+            <iframe
+              src={vimeoEmbedUrl(url)}
+              className="absolute inset-0 h-full w-full"
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
+              title="Video"
+              onLoad={() => setStarted(true)}
+            />
+          </div>
+          <div className="border-t border-neutral-100 bg-neutral-50 px-4 py-3">
+            <label className="flex cursor-pointer items-center gap-3 text-sm text-neutral-700">
+              <input
+                type="checkbox"
+                checked={manualOverride}
+                onChange={(e) => setManualOverride(e.target.checked)}
+                className="size-4 rounded border-neutral-300"
+                style={{ accentColor: PIN_GREEN }}
+              />
+              <span>
+                Jeg har sett hele videoen{' '}
+                <span className="text-xs text-neutral-400">(bekreft etter visning)</span>
+              </span>
+              {manualOverride && <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />}
+            </label>
+          </div>
+        </div>
+      )}
+
+      {/* ── Native MP4 — full progress tracking ─────────────────────────── */}
+      {kind === 'mp4' && (
+        <div className="overflow-hidden rounded-2xl shadow-lg bg-black">
+          <video
+            ref={videoRef}
+            src={url}
+            controls
+            className="w-full"
+            onTimeUpdate={handleTimeUpdate}
+            onPlay={() => setStarted(true)}
+            onEnded={() => setWatchedPct(100)}
+            style={{ maxHeight: '480px' }}
+          />
+          {/* Progress bar */}
+          <div className="bg-neutral-900 px-4 py-3 flex items-center gap-3">
+            {/* Ring progress */}
+            <svg width="44" height="44" className="shrink-0 -rotate-90">
+              <circle cx="22" cy="22" r={RING_R} fill="none" stroke="#374151" strokeWidth="3" />
+              <circle
+                cx="22" cy="22" r={RING_R} fill="none"
+                stroke={progressColour} strokeWidth="3"
+                strokeDasharray={RING_CIRC}
+                strokeDashoffset={ringOffset}
+                strokeLinecap="round"
+                style={{ transition: 'stroke-dashoffset 0.3s ease, stroke 0.3s ease' }}
+              />
+              <text x="22" y="26" textAnchor="middle"
+                style={{ fontSize: 10, fill: 'white', transform: 'rotate(90deg)', transformOrigin: '22px 22px' }}>
+                {watchedPct}%
+              </text>
+            </svg>
+            <div className="flex-1 min-w-0">
+              <div className="h-1.5 overflow-hidden rounded-full bg-neutral-700">
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{ width: `${watchedPct}%`, backgroundColor: progressColour }}
+                />
+              </div>
+              <p className="mt-1 text-xs text-neutral-400">
+                {watchedPct >= THRESHOLD
+                  ? '✓ Tilstrekkelig sett — kan markeres fullført'
+                  : `Se minst ${THRESHOLD}% for å låse opp fullføring (${watchedPct}% sett)`}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── External / unrecognised URL ──────────────────────────────────── */}
+      {kind === 'external' && (
+        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-neutral-200">
+              <Play className="size-5 text-neutral-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-neutral-800 text-sm">Eksternt video-innhold</p>
+              <p className="mt-0.5 text-xs text-neutral-500 break-all">{url}</p>
+              <a
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#2D403A] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                onClick={() => setStarted(true)}
+              >
+                <ExternalLink className="size-4" />
+                Åpne video i ny fane
+              </a>
+            </div>
+          </div>
+          {started && (
+            <div className="mt-4 border-t border-neutral-200 pt-3">
+              <label className="flex cursor-pointer items-center gap-3 text-sm text-neutral-700">
+                <input
+                  type="checkbox"
+                  checked={manualOverride}
+                  onChange={(e) => setManualOverride(e.target.checked)}
+                  className="size-4 rounded border-neutral-300"
+                  style={{ accentColor: PIN_GREEN }}
+                />
+                Jeg har sett hele videoen
+                {manualOverride && <CheckCircle2 className="size-4 text-emerald-600" />}
+              </label>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Complete button ─────────────────────────────────────────────── */}
+      <button
+        type="button"
+        disabled={!unlocked}
+        onClick={() => onComplete()}
+        className="w-full rounded-full py-3 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
+        style={{ backgroundColor: PIN_GREEN }}
+        title={unlocked ? undefined : `Se minst ${THRESHOLD}% av videoen for å gå videre`}
+      >
+        {unlocked ? (
+          <span className="flex items-center justify-center gap-2">
+            <CheckCircle2 className="size-4" />
+            {kind === 'mp4' ? `Fullført (${watchedPct}% sett)` : 'Fullført — fortsett'}
+          </span>
+        ) : (
+          kind === 'mp4'
+            ? `Se ${THRESHOLD - watchedPct}% til for å fortsette`
+            : 'Bekreft at du har sett videoen ovenfor'
+        )}
+      </button>
+    </div>
+  )
+}
+
