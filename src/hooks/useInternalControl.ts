@@ -6,6 +6,8 @@ import type {
   InternalControlAuditEntry,
   RosAssessment,
   RosRiskRow,
+  RosSignature,
+  RosSignatureRole,
   WhistleCase,
   WhistleCaseStatus,
 } from '../types/internalControl'
@@ -74,9 +76,11 @@ function load(): InternalControlState {
             proposedMeasures: 'Dokumenterte pauserutiner',
             responsible: 'Leder',
             dueDate: '',
-            done: false,
+            status: 'open' as const,
           },
         ],
+        signatures: [],
+        locked: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
@@ -100,7 +104,15 @@ function load(): InternalControlState {
     const p = JSON.parse(raw) as InternalControlState
     return {
       whistleCases: Array.isArray(p.whistleCases) ? p.whistleCases : [],
-      rosAssessments: Array.isArray(p.rosAssessments) ? p.rosAssessments : [],
+      rosAssessments: Array.isArray(p.rosAssessments) ? p.rosAssessments.map((r) => ({
+        ...r,
+        signatures: (r as import('../types/internalControl').RosAssessment).signatures ?? [],
+        locked: (r as import('../types/internalControl').RosAssessment).locked ?? false,
+        rows: Array.isArray(r.rows) ? r.rows.map((row: RosRiskRow) => ({
+          ...row,
+          status: (row as RosRiskRow).status ?? (row.done ? 'closed' : 'open'),
+        })) : [],
+      })) : [],
       annualReviews: Array.isArray(p.annualReviews) ? p.annualReviews : [],
       auditTrail: Array.isArray(p.auditTrail) ? p.auditTrail : [],
     }
@@ -236,6 +248,8 @@ export function useInternalControl() {
       assessedAt: new Date().toISOString().slice(0, 10),
       assessor: assessor.trim(),
       rows: [emptyRosRow()],
+      signatures: [],
+      locked: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -251,18 +265,44 @@ export function useInternalControl() {
     setState((s) => ({
       ...s,
       rosAssessments: s.rosAssessments.map((ros) => {
-        if (ros.id !== rosId) return ros
+        if (ros.id !== rosId || ros.locked) return ros
         const rows = ros.rows.map((row) => {
           if (row.id !== rowId) return row
           const next = { ...row, ...patch }
+          // Recompute gross risk score
           if (patch.severity != null || patch.likelihood != null) {
             next.riskScore = computeRiskScore(next.severity, next.likelihood)
+          }
+          // Recompute residual score
+          if (patch.residualSeverity != null || patch.residualLikelihood != null) {
+            const rs = next.residualSeverity ?? next.severity
+            const rl = next.residualLikelihood ?? next.likelihood
+            next.residualScore = computeRiskScore(rs, rl)
           }
           return next
         })
         return { ...ros, rows, updatedAt: new Date().toISOString() }
       }),
     }))
+  }, [])
+
+  const signRos = useCallback((rosId: string, role: RosSignatureRole, signerName: string) => {
+    if (!signerName.trim()) return
+    setState((s) => {
+      return {
+        ...s,
+        rosAssessments: s.rosAssessments.map((ros) => {
+          if (ros.id !== rosId) return ros
+          // Prevent duplicate role signature
+          if (ros.signatures.some((sig) => sig.role === role)) return ros
+          const sig: RosSignature = { role, signerName: signerName.trim(), signedAt: new Date().toISOString() }
+          const signatures = [...ros.signatures, sig]
+          const locked = signatures.some((s) => s.role === 'leader') && signatures.some((s) => s.role === 'verneombud')
+          return { ...ros, signatures, locked, updatedAt: new Date().toISOString() }
+        }),
+        auditTrail: [...s.auditTrail, audit('ros_signed', `ROS signert av ${signerName} (${role})`, { rosId, role })],
+      }
+    })
   }, [])
 
   const addRosRow = useCallback((rosId: string) => {
@@ -322,6 +362,7 @@ export function useInternalControl() {
     createRosAssessment,
     updateRosRow,
     addRosRow,
+    signRos,
     addAnnualReview,
     resetDemo,
   }

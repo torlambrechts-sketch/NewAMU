@@ -23,21 +23,41 @@ export type WhistleCase = {
   internalNotes: string
 }
 
+export type RosRowStatus = 'open' | 'in_progress' | 'closed'
+
 export type RosRiskRow = {
   id: string
   activity: string
   hazard: string
   existingControls: string
-  /** 1–5 illustrativ skala */
+  /** 1–5 illustrativ skala — brutto (før tiltak) */
   severity: number
-  /** 1–5 illustrativ skala */
+  /** 1–5 illustrativ skala — brutto */
   likelihood: number
-  /** beregnet sn × lk for demo */
+  /** severity × likelihood */
   riskScore: number
   proposedMeasures: string
   responsible: string
   dueDate: string
-  done: boolean
+  /** Workflow status — replaces the old done boolean */
+  status: RosRowStatus
+  // ── Restrisiko (residual risk after the measure is applied) ───────────────
+  /** Ny alvorlighetsgrad etter tiltak (1–5) */
+  residualSeverity?: number
+  /** Ny sannsynlighet etter tiltak (1–5) */
+  residualLikelihood?: number
+  /** residualSeverity × residualLikelihood (computed) */
+  residualScore?: number
+  /** Legacy field — kept for migration */
+  done?: boolean
+}
+
+export type RosSignatureRole = 'leader' | 'verneombud'
+
+export type RosSignature = {
+  role: RosSignatureRole
+  signerName: string
+  signedAt: string
 }
 
 /** ROS / risikovurdering (mal kan kopieres) */
@@ -48,6 +68,10 @@ export type RosAssessment = {
   assessedAt: string
   assessor: string
   rows: RosRiskRow[]
+  /** Electronic signatures — assessment locks when both leader and verneombud have signed */
+  signatures: RosSignature[]
+  /** True once both required signatures are present */
+  locked: boolean
   createdAt: string
   updatedAt: string
 }

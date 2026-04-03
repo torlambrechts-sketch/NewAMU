@@ -13,8 +13,24 @@ export function emptyRosRow(): RosRiskRow {
     proposedMeasures: '',
     responsible: '',
     dueDate: '',
-    done: false,
+    status: 'open',
+    residualSeverity: undefined,
+    residualLikelihood: undefined,
+    residualScore: undefined,
   }
+}
+
+/** Risk colour thresholds (standard 5×5 matrix) */
+export function riskColour(score: number): 'green' | 'yellow' | 'red' {
+  if (score <= 6) return 'green'
+  if (score <= 12) return 'yellow'
+  return 'red'
+}
+
+export const RISK_COLOUR_CLASSES: Record<'green' | 'yellow' | 'red', { bg: string; text: string; border: string; label: string }> = {
+  green:  { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300', label: 'Akseptabel' },
+  yellow: { bg: 'bg-amber-100',   text: 'text-amber-900',   border: 'border-amber-300',   label: 'Moderat' },
+  red:    { bg: 'bg-red-100',     text: 'text-red-800',     border: 'border-red-300',     label: 'Uakseptabel' },
 }
 
 export const ROS_TEMPLATE_HELP = {
