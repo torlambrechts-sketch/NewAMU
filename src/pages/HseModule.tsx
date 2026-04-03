@@ -26,6 +26,8 @@ import {
 } from 'lucide-react'
 import { useHse } from '../hooks/useHse'
 import { TRAINING_KIND_LABELS } from '../data/hseTemplates'
+import { WizardButton } from '../components/wizard/WizardButton'
+import { makeIncidentWizard, makeSickLeaveWizard, makeSjaWizard, makeSafetyRoundWizard } from '../components/wizard/wizards'
 import type {
   HseProtocolSignature,
   Incident,
@@ -296,7 +298,20 @@ export function HseModule() {
       {tab === 'rounds' && (
         <div className="mt-8 space-y-8">
           <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Ny vernerunde</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-neutral-900">Ny vernerunde</h2>
+              <WizardButton
+                label="Veiviser"
+                def={makeSafetyRoundWizard(
+                  (data) => hse.createSafetyRound({
+                    title: String(data.title), conductedAt: new Date(String(data.conductedAt)).toISOString(),
+                    location: String(data.location) || '—', department: String(data.department) || undefined,
+                    conductedBy: String(data.conductedBy) || '—', notes: String(data.notes) || '',
+                  }),
+                  hse.checklistTemplates.map((t) => ({ value: t.id, label: t.name })),
+                )}
+              />
+            </div>
             <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
               e.preventDefault()
               if (!roundForm.title.trim() || !roundForm.conductedAt) return
@@ -418,8 +433,39 @@ export function HseModule() {
           {/* Registration form */}
           <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold text-neutral-900">Registrer hendelse</h2>
-              <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">Lavterskel — mobilvennlig</span>
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold text-neutral-900">Registrer hendelse</h2>
+                <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">Lavterskel</span>
+              </div>
+              <WizardButton
+                label="Veiviser"
+                variant="solid"
+                def={makeIncidentWizard((data) => {
+                  hse.createIncident({
+                    kind: String(data.kind) as Incident['kind'],
+                    category: String(data.category) as IncidentCategory,
+                    formTemplate: String(data.formTemplate) as IncidentFormTemplate,
+                    severity: String(data.severity) as Incident['severity'],
+                    occurredAt: data.occurredAt ? new Date(String(data.occurredAt)).toISOString() : new Date().toISOString(),
+                    location: String(data.location) || '—',
+                    department: String(data.department) || '',
+                    description: String(data.description) || '',
+                    experienceDetail: data.experienceDetail ? String(data.experienceDetail) : undefined,
+                    injuredPerson: data.injuredPerson ? String(data.injuredPerson) : undefined,
+                    immediateActions: String(data.immediateActions) || '',
+                    reportedBy: String(data.reportedBy) || '—',
+                    status: String(data.status) as Incident['status'],
+                    correctiveActions: [],
+                    arbeidstilsynetNotified: Boolean(data.arbeidstilsynetNotified),
+                    routing: data.routeManager ? {
+                      managerName: String(data.routeManager),
+                      verneombudNotified: Boolean(data.routeVerneombud),
+                      amuCaseCreated: Boolean(data.routeAMU),
+                      routedAt: new Date().toISOString(),
+                    } : undefined,
+                  })
+                })}
+              />
             </div>
 
             {/* Template picker */}
@@ -721,7 +767,22 @@ export function HseModule() {
 
           {/* New SJA form */}
           <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Ny SJA</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-neutral-900">Ny SJA</h2>
+              <WizardButton
+                label="Veiviser"
+                def={makeSjaWizard((data) => {
+                  const sja = hse.createSja({
+                    title: String(data.title), jobDescription: String(data.jobDescription),
+                    location: String(data.location), department: String(data.department) || '',
+                    plannedAt: data.plannedAt ? new Date(String(data.plannedAt)).toISOString() : new Date().toISOString(),
+                    conductedBy: String(data.conductedBy), participants: String(data.participants) || '',
+                    rows: [], status: 'draft', conclusion: '',
+                  })
+                  setExpandedSja(sja.id)
+                })}
+              />
+            </div>
             <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
               e.preventDefault()
               if (!sjaForm.title.trim()) return
@@ -1024,10 +1085,25 @@ export function HseModule() {
 
           {/* New sick leave case form */}
           <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Ny sykefraværssak</h2>
-            <p className="mt-1 text-sm text-neutral-600">
-              Systemet genererer automatisk lovpålagte frister etter AML §4-6 og NAVs krav.
-            </p>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-neutral-900">Ny sykefraværssak</h2>
+                <p className="mt-0.5 text-sm text-neutral-600">Lovpålagte frister genereres automatisk (AML §4-6).</p>
+              </div>
+              <WizardButton
+                label="Veiviser"
+                def={makeSickLeaveWizard((data) => hse.createSickLeaveCase({
+                  employeeName: String(data.employeeName),
+                  department:   String(data.department) || '',
+                  managerName:  String(data.managerName),
+                  sickFrom:     String(data.sickFrom),
+                  status:       String(data.status) as SickLeaveCase['status'],
+                  sicknessDegree: Number(data.sicknessDegree) || 100,
+                  accommodationNotes: '',
+                  consentRecorded: Boolean(data.consentRecorded),
+                }))}
+              />
+            </div>
             <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
               e.preventDefault()
               if (!slForm.employeeName.trim() || !slForm.sickFrom) return

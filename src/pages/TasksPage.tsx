@@ -4,6 +4,8 @@ import { Calendar, History, Pencil, Plus, Trash2 } from 'lucide-react'
 import { MODULE_LABELS } from '../lib/taskNavigation'
 import { useTasks } from '../hooks/useTasks'
 import type { Task, TaskModule, TaskSourceType, TaskStatus } from '../types/task'
+import { WizardButton } from '../components/wizard/WizardButton'
+import { makeTaskWizard } from '../components/wizard/wizards'
 
 const statusLabels: Record<TaskStatus, string> = {
   todo: 'To do',
@@ -242,9 +244,29 @@ export function TasksPage() {
           onSubmit={handleSubmit}
           className="h-fit rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm"
         >
-          <h2 className="text-lg font-semibold text-neutral-900">
-            {editingId ? 'Rediger oppgave' : 'Ny oppgave'}
-          </h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-neutral-900">
+              {editingId ? 'Rediger oppgave' : 'Ny oppgave'}
+            </h2>
+            {!editingId && (
+              <WizardButton
+                label="Veiviser"
+                def={makeTaskWizard((data) => {
+                  addTask({
+                    title:       String(data.title),
+                    description: String(data.description) || '',
+                    assignee:    String(data.assignee) || '',
+                    ownerRole:   String(data.ownerRole) || 'Ansvarlig',
+                    dueDate:     String(data.dueDate) || '',
+                    module:      String(data.module) as TaskModule,
+                    sourceType:  'manual' as TaskSourceType,
+                    status:      'todo' as TaskStatus,
+                    requiresManagementSignOff: Boolean(data.requiresManagementSignOff),
+                  })
+                })}
+              />
+            )}
+          </div>
           <div className="mt-4 space-y-3">
             <div>
               <label htmlFor="task-title" className="text-xs font-medium text-neutral-500">
