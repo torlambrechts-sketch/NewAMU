@@ -29,10 +29,20 @@ export type OrgEmployee = {
   id: string
   name: string
   email?: string
+  phone?: string
   jobTitle?: string
-  department?: string
-  /** References OrgUnit.id */
+  /** Formal role category (e.g. "Leder", "Fagansvarlig", "Saksbehandler") */
+  role?: string
+  /** References OrgUnit.id — primary team/department */
   unitId?: string
+  /** Denormalised unit name for quick display */
+  unitName?: string
+  /** References another OrgEmployee.id — the direct manager */
+  reportsToId?: string
+  /** Denormalised manager name for quick display */
+  reportsToName?: string
+  /** Work location / office */
+  location?: string
   employmentType: EmploymentType
   /** ISO date */
   startDate?: string
@@ -55,9 +65,15 @@ export type OrgUnit = {
   /** Parent unit ID — undefined for top-level */
   parentId?: string
   description?: string
-  managerId?: string
+  /** References OrgEmployee.id — formal head of this unit */
+  headEmployeeId?: string
+  /** Denormalised head name */
+  headName?: string
+  /** Legacy field kept for display */
   managerName?: string
   memberCount?: number
+  /** Hex colour for org chart display */
+  color?: string
   createdAt: string
   updatedAt: string
 }
