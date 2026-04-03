@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
+  Bell,
   Calendar,
   CheckCircle2,
   ClipboardList,
@@ -15,6 +16,8 @@ import {
   Plus,
   Scale,
   ScrollText,
+  Send,
+  ShieldAlert,
   Users,
   Vote,
 } from 'lucide-react'
@@ -23,6 +26,8 @@ import { GovernanceWheel } from '../components/council/GovernanceWheel'
 import { MEETINGS_PER_YEAR, suggestedAgendaItems } from '../data/meetingGovernance'
 import { useCouncil } from '../hooks/useCouncil'
 import { useRepresentatives } from '../hooks/useRepresentatives'
+import { useOrganisation } from '../hooks/useOrganisation'
+import { useLearning } from '../hooks/useLearning'
 import { avatarUrlFromSeed } from '../lib/avatarUrl'
 import { REPRESENTATIVE_ROLE_REQUIREMENTS, requirementsForRole } from '../data/representativeRules'
 import type {
@@ -43,6 +48,7 @@ const tabs = [
   { id: 'meetings' as const, label: 'Møter og årshjul', icon: Calendar },
   { id: 'preparation' as const, label: 'Møteforberedelse', icon: FileText },
   { id: 'compliance' as const, label: 'Arbeidsrett og sjekkliste', icon: Gavel },
+  { id: 'decisions' as const, label: 'Vedtaksregister', icon: ScrollText },
 ]
 
 const tabBlurbs: Record<(typeof tabs)[number]['id'], { kicker: string; description: string }> = {
@@ -77,6 +83,10 @@ const tabBlurbs: Record<(typeof tabs)[number]['id'], { kicker: string; descripti
   compliance: {
     kicker: 'Samsvar og oppgaver',
     description: 'Strukturert sjekkliste med henvisninger; legg til egne punkter og send oppfølging til oppgaver.',
+  },
+  decisions: {
+    kicker: 'Vedtaksregister',
+    description: 'Alle formelle vedtak på tvers av møter — søkbart og filtrerbart.',
   },
 }
 
@@ -131,6 +141,9 @@ function formatWhen(iso: string) {
 export function CouncilModule() {
   const council = useCouncil()
   const rep = useRepresentatives()
+  const org = useOrganisation()
+  const learning = useLearning()
+  const { complianceThresholds: ct } = org
 
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get('tab')
@@ -159,6 +172,15 @@ export function CouncilModule() {
   })
   const [customItem, setCustomItem] = useState({ title: '', description: '', lawRef: '' })
   const [auditDraft, setAuditDraft] = useState({ kind: 'note' as AuditEntryKind, text: '', author: '' })
+
+  // Invitation + attendance state
+  const [inviteRecipients, setInviteRecipients] = useState<Record<string, string>>({})
+  const [attendeesInput, setAttendeesInput] = useState<Record<string, string>>({})
+  const [quorumInput, setQuorumInput] = useState<Record<string, boolean>>({})
+  // Per-agenda-item minutes state
+  const [itemMinutes, setItemMinutes] = useState<Record<string, { summary: string; decision: string }>>({})
+  // Decisions search
+  const [decisionSearch, setDecisionSearch] = useState('')
 
   // Representative / Members state
   const [repElectionForm, setRepElectionForm] = useState({
@@ -325,19 +347,38 @@ export function CouncilModule() {
               oppfylt.
             </p>
 
-            {/* AMU snapshot */}
+            {/* Org-driven threshold badges */}
             <div className="mt-6 border-t border-neutral-100 pt-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Lovpålagte terskler (AML 2024)</p>
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">{ct.totalEmployeeCount} ansatte</span>
+                {ct.requiresVerneombud
+                  ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800"><CheckCircle2 className="size-3" />Verneombud lovpålagt</span>
+                  : <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">Verneombud: &lt;5 ansatte</span>}
+                {ct.requiresAmu
+                  ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800"><CheckCircle2 className="size-3" />AMU lovpålagt (≥30)</span>
+                  : ct.mayRequestAmu
+                    ? <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800"><AlertTriangle className="size-3" />AMU kan kreves (10–29)</span>
+                    : <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">AMU: &lt;10 ansatte</span>}
+              </div>
+              {ct.totalEmployeeCount === 0 && (
+                <p className="mt-1 text-xs text-amber-700">
+                  ⚠ Antall ansatte ikke konfigurert — <a href="/organisation" className="underline">oppdater i Organisasjon-innstillinger</a>.
+                </p>
+              )}
+            </div>
+
+            {/* AMU snapshot */}
+            <div className="mt-4 border-t border-neutral-100 pt-4">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-neutral-700">AMU-sammensetting</span>
                 {rep.validation.ok ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-900">
-                    <CheckCircle2 className="size-3.5" />
-                    Krav oppfylt
+                    <CheckCircle2 className="size-3.5" />Krav oppfylt
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-950">
-                    <AlertTriangle className="size-3.5" />
-                    {rep.validation.issues.length} avvik
+                    <AlertTriangle className="size-3.5" />{rep.validation.issues.length} avvik
                   </span>
                 )}
               </div>
@@ -514,17 +555,50 @@ export function CouncilModule() {
               </dl>
             </section>
 
+            {/* Verneombud presence check */}
+            {ct.requiresVerneombud && !rep.members.some((m) => m.isVerneombud) && (
+              <div className="mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                <p className="text-sm text-amber-900">
+                  <strong>Mangler verneombud.</strong> Virksomheten har {ct.totalEmployeeCount} ansatte — verneombud er lovpålagt (AML §6-1).
+                  Merk en representant som verneombud i listen nedenfor.
+                </p>
+              </div>
+            )}
+
+            {/* Term expiry warnings */}
+            {(() => {
+              const soon = rep.members.filter((m) => {
+                if (!m.termUntil) return false
+                const days = Math.ceil((new Date(m.termUntil).getTime() - Date.now()) / 86400000)
+                return days <= 60 && days >= 0
+              })
+              if (!soon.length) return null
+              return (
+                <div className="mt-3 flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+                  <Bell className="mt-0.5 size-4 shrink-0 text-sky-600" />
+                  <p className="text-sm text-sky-900">
+                    <strong>{soon.length} verv utløper innen 60 dager:</strong>{' '}
+                    {soon.map((m) => `${m.name} (${m.termUntil})`).join(', ')}.
+                    Planlegg nyvalg.
+                  </p>
+                </div>
+              )
+            })()}
+
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
               <MemberColumn
                 title="Arbeidstakere (valgt)"
                 members={rep.members.filter((m) => m.side === 'employee')}
                 onUpdate={rep.updateMember}
+                learning={learning}
               />
               <MemberColumn
                 title="Arbeidsgiver (oppnevnt)"
                 members={rep.members.filter((m) => m.side === 'leadership')}
                 onUpdate={rep.updateMember}
                 onAdd={rep.addLeadershipPlaceholder}
+                learning={learning}
               />
             </div>
 
@@ -1021,6 +1095,14 @@ export function CouncilModule() {
                   council={council}
                   auditDraft={auditDraft}
                   setAuditDraft={setAuditDraft}
+                  inviteRecipientsDraft={inviteRecipients[selectedMeeting.id] ?? ''}
+                  setInviteRecipientsDraft={(v) => setInviteRecipients((r) => ({ ...r, [selectedMeeting.id]: v }))}
+                  attendeesDraft={attendeesInput[selectedMeeting.id] ?? ''}
+                  setAttendeesDraft={(v) => setAttendeesInput((r) => ({ ...r, [selectedMeeting.id]: v }))}
+                  quorumDraft={quorumInput[selectedMeeting.id] ?? false}
+                  setQuorumDraft={(v) => setQuorumInput((r) => ({ ...r, [selectedMeeting.id]: v }))}
+                  itemMinutesDraft={itemMinutes}
+                  setItemMinutesDraft={setItemMinutes}
                 />
               ) : (
                 <p className="text-sm text-neutral-500">Velg et møte for å se agenda, forberedelse og revisjonslogg.</p>
@@ -1206,6 +1288,63 @@ export function CouncilModule() {
           </div>
         </div>
       )}
+
+      {/* ── Vedtaksregister ───────────────────────────────────────────────── */}
+      {tab === 'decisions' && (
+        <div className="mt-8 space-y-6">
+          <div className="rounded-2xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+            Vedtaksregisteret samler alle formelle vedtak på tvers av AMU-møter (fra revisjonslogg og per-punkt-referater).
+            Bruk søkefeltet for å finne et spesifikt vedtak for tilsyn eller internkontroll.
+          </div>
+
+          <div className="relative max-w-md">
+            <input
+              value={decisionSearch}
+              onChange={(e) => setDecisionSearch(e.target.value)}
+              placeholder="Søk i vedtak…"
+              className="w-full rounded-full border border-neutral-200 bg-white py-2 pl-10 pr-4 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+            />
+            <ScrollText className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
+            <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3 flex items-center justify-between">
+              <h2 className="font-semibold text-neutral-900">Alle vedtak</h2>
+              <span className="text-xs text-neutral-500">{council.allDecisions.length} totalt</span>
+            </div>
+            {council.allDecisions.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-neutral-500">
+                Ingen vedtak ennå. Registrer vedtak under «Vedtak»-typen i revisjonsloggen, eller legg til formelt vedtak per agendapunkt under Møter.
+              </p>
+            ) : (
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-neutral-100 bg-neutral-50/80 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                    <th className="px-4 py-3">Dato</th>
+                    <th className="px-4 py-3">Møte</th>
+                    <th className="px-4 py-3">Agendapunkt</th>
+                    <th className="px-4 py-3">Vedtak</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {council.allDecisions
+                    .filter((d) => !decisionSearch || d.decision.toLowerCase().includes(decisionSearch.toLowerCase()) || d.meetingTitle.toLowerCase().includes(decisionSearch.toLowerCase()))
+                    .map((d) => (
+                      <tr key={d.id} className="hover:bg-neutral-50">
+                        <td className="px-4 py-3 text-xs text-neutral-500 whitespace-nowrap">
+                          {new Date(d.meetingDate).toLocaleDateString('no-NO', { dateStyle: 'short' })}
+                        </td>
+                        <td className="px-4 py-3 font-medium text-neutral-800">{d.meetingTitle}</td>
+                        <td className="px-4 py-3 text-xs text-neutral-500">{d.agendaItemTitle || '—'}</td>
+                        <td className="px-4 py-3 text-neutral-900">{d.decision}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1329,70 +1468,91 @@ function RepElectionCard({
 // ─── AMU member column (from former MembersModule) ──────────────────────────
 
 function MemberColumn({
-  title,
-  members,
-  onUpdate,
-  onAdd,
+  title, members, onUpdate, onAdd, learning,
 }: {
   title: string
   members: RepresentativeMember[]
   onUpdate: ReturnType<typeof useRepresentatives>['updateMember']
   onAdd?: () => void
+  learning?: ReturnType<typeof useLearning>
 }) {
   const roles: RepresentativeOfficeRole[] =
     title.includes('Arbeidsgiver')
       ? ['leadership_chair', 'leadership_deputy', 'leadership_member']
       : ['employee_chair', 'employee_deputy', 'employee_member']
 
+  const today = new Date().toISOString().slice(0, 10)
+
   return (
     <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-lg font-semibold text-neutral-900">{title}</h3>
         {onAdd ? (
-          <button
-            type="button"
-            onClick={onAdd}
-            className="text-sm font-medium text-[#1a3d32] hover:underline"
-          >
+          <button type="button" onClick={onAdd} className="text-sm font-medium text-[#1a3d32] hover:underline">
             + Legg til
           </button>
         ) : null}
       </div>
       <ul className="mt-4 space-y-4">
-        {members.map((m) => (
-          <li key={m.id} className="rounded-xl border border-neutral-100 p-3">
-            <input
-              value={m.name}
-              onChange={(e) => onUpdate(m.id, { name: e.target.value })}
-              className="w-full border-0 bg-transparent font-medium text-neutral-900 outline-none focus:ring-0"
-            />
-            <div className="mt-2 flex flex-wrap gap-2">
-              <select
-                value={m.officeRole}
-                onChange={(e) =>
-                  onUpdate(m.id, { officeRole: e.target.value as RepresentativeOfficeRole })
-                }
-                className="rounded-lg border border-neutral-200 px-2 py-1 text-xs"
-              >
-                {roles.map((r) => (
-                  <option key={r} value={r}>
-                    {officeLabel(r)}
-                  </option>
-                ))}
-              </select>
-              <span className="text-xs text-neutral-500">
-                {m.source === 'election' ? 'Valgt' : 'Oppnevnt'}
-              </span>
-            </div>
-            <label className="mt-2 block text-xs text-neutral-500">Periode slutt (valgfritt)</label>
-            <input
-              type="date"
-              value={m.termUntil ?? ''}
-              onChange={(e) => onUpdate(m.id, { termUntil: e.target.value || undefined })}
-              className="mt-1 rounded-lg border border-neutral-200 px-2 py-1 text-xs"
-            />
-          </li>
-        ))}
+        {members.map((m) => {
+          const termExpired = m.termUntil && m.termUntil < today
+          const termExpiringSoon = m.termUntil && !termExpired && Math.ceil((new Date(m.termUntil).getTime() - Date.now()) / 86400000) <= 60
+          const cert = learning?.certificates.find((c) => c.id === m.learningCertificateId)
+          return (
+            <li key={m.id} className={`rounded-xl border p-3 ${termExpired ? 'border-red-200 bg-red-50/30' : termExpiringSoon ? 'border-amber-200 bg-amber-50/20' : 'border-neutral-100'}`}>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  value={m.name}
+                  onChange={(e) => onUpdate(m.id, { name: e.target.value })}
+                  className="flex-1 border-0 bg-transparent font-medium text-neutral-900 outline-none focus:ring-0"
+                />
+                {m.isVerneombud && (
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">Verneombud</span>
+                )}
+                {termExpired && <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">Utløpt</span>}
+                {termExpiringSoon && !termExpired && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Utløper snart</span>}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <select value={m.officeRole} onChange={(e) => onUpdate(m.id, { officeRole: e.target.value as RepresentativeOfficeRole })} className="rounded-lg border border-neutral-200 px-2 py-1 text-xs">
+                  {roles.map((r) => <option key={r} value={r}>{officeLabel(r)}</option>)}
+                </select>
+                <span className="text-xs text-neutral-500">{m.source === 'election' ? 'Valgt' : 'Oppnevnt'}</span>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <div>
+                  <label className="text-xs text-neutral-500">Periode slutt</label>
+                  <input type="date" value={m.termUntil ?? ''} onChange={(e) => onUpdate(m.id, { termUntil: e.target.value || undefined })} className="ml-2 rounded-lg border border-neutral-200 px-2 py-0.5 text-xs" />
+                </div>
+                <label className="flex items-center gap-1.5 text-xs text-neutral-600 cursor-pointer">
+                  <input type="checkbox" checked={m.isVerneombud ?? false} onChange={(e) => onUpdate(m.id, { isVerneombud: e.target.checked })} className="size-3.5 rounded border-neutral-300 text-[#1a3d32]" />
+                  Verneombud
+                </label>
+              </div>
+              {m.isVerneombud && (
+                <div className="mt-2 space-y-1">
+                  <div>
+                    <label className="text-xs text-neutral-500">Verneområde</label>
+                    <input value={m.verneombudArea ?? ''} onChange={(e) => onUpdate(m.id, { verneombudArea: e.target.value || undefined })} placeholder="f.eks. Produksjon, hall A" className="mt-0.5 w-full rounded-lg border border-neutral-200 px-2 py-1 text-xs" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-500">Oppslag bekreftet (AML §6-1)</label>
+                    <input type="date" value={m.postingConfirmedAt ?? ''} onChange={(e) => onUpdate(m.id, { postingConfirmedAt: e.target.value || undefined })} className="ml-2 rounded-lg border border-neutral-200 px-2 py-0.5 text-xs" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-500">HMS-kurs sertifikat (40t)</label>
+                    <select value={m.learningCertificateId ?? ''} onChange={(e) => onUpdate(m.id, { learningCertificateId: e.target.value || undefined })} className="ml-2 rounded-lg border border-neutral-200 px-2 py-0.5 text-xs">
+                      <option value="">— Velg sertifikat —</option>
+                      {(learning?.certificates ?? []).map((c) => (
+                        <option key={c.id} value={c.id}>{c.learnerName} — {c.courseTitle}</option>
+                      ))}
+                    </select>
+                    {cert && <span className="ml-1 text-[10px] text-emerald-700">✓ {new Date(cert.issuedAt).toLocaleDateString('no-NO')}</span>}
+                  </div>
+                </div>
+              )}
+            </li>
+          )
+        })}
       </ul>
       {members.length === 0 ? (
         <p className="mt-2 text-sm text-neutral-500">Ingen — kjør valg eller legg til representanter.</p>
@@ -1485,20 +1645,30 @@ function PreparationPanel({
 }
 
 function MeetingDetailPanel({
-  meeting,
-  council,
-  auditDraft,
-  setAuditDraft,
+  meeting, council, auditDraft, setAuditDraft,
+  inviteRecipientsDraft, setInviteRecipientsDraft,
+  attendeesDraft, setAttendeesDraft,
+  quorumDraft, setQuorumDraft,
+  itemMinutesDraft, setItemMinutesDraft,
 }: {
   meeting: CouncilMeeting
   council: ReturnType<typeof useCouncil>
   auditDraft: { kind: AuditEntryKind; text: string; author: string }
-  setAuditDraft: React.Dispatch<
-    React.SetStateAction<{ kind: AuditEntryKind; text: string; author: string }>
-  >
+  setAuditDraft: React.Dispatch<React.SetStateAction<{ kind: AuditEntryKind; text: string; author: string }>>
+  inviteRecipientsDraft: string
+  setInviteRecipientsDraft: (v: string) => void
+  attendeesDraft: string
+  setAttendeesDraft: (v: string) => void
+  quorumDraft: boolean
+  setQuorumDraft: (v: boolean) => void
+  itemMinutesDraft: Record<string, { summary: string; decision: string }>
+  setItemMinutesDraft: React.Dispatch<React.SetStateAction<Record<string, { summary: string; decision: string }>>>
 }) {
   const [protoName, setProtoName] = useState('')
   const [protoRole, setProtoRole] = useState<'chair' | 'secretary' | 'management'>('chair')
+
+  // Days until meeting
+  const daysUntil = Math.ceil((new Date(meeting.startsAt).getTime() - Date.now()) / 86400000)
   function updateAgendaItem(itemId: string, patch: Partial<AgendaItem>) {
     const next = meeting.agendaItems.map((a) => (a.id === itemId ? { ...a, ...patch } : a))
     council.setAgendaItems(meeting.id, next)
@@ -1536,6 +1706,29 @@ function MeetingDetailPanel({
             <h2 className="text-lg font-semibold text-neutral-900">{meeting.title}</h2>
             <p className="text-sm text-neutral-600">{formatWhen(meeting.startsAt)}</p>
             <p className="text-sm text-neutral-500">{meeting.location}</p>
+            {/* Invitation status */}
+            {meeting.invitationSentAt ? (
+              <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
+                <Send className="size-3" />
+                Innkalling sendt {new Date(meeting.invitationSentAt).toLocaleDateString('no-NO')}
+                {daysUntil > 0 && ` (${daysUntil}d til møtet)`}
+              </span>
+            ) : (
+              <button type="button"
+                onClick={() => {
+                  const recipients = inviteRecipientsDraft.split(',').map((s) => s.trim()).filter(Boolean)
+                  council.sendInvitation(meeting.id, recipients.length ? recipients : ['AMU-medlemmer'])
+                }}
+                className="mt-1 inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-600 hover:bg-neutral-50">
+                <Send className="size-3" />
+                Send innkalling
+              </button>
+            )}
+            {!meeting.invitationSentAt && (
+              <input value={inviteRecipientsDraft} onChange={(e) => setInviteRecipientsDraft(e.target.value)}
+                placeholder="Mottakere (komma-separert)"
+                className="mt-1 block w-full rounded-lg border border-neutral-200 px-2 py-1 text-xs" />
+            )}
           </div>
           <select
             value={meeting.status}
@@ -1550,6 +1743,33 @@ function MeetingDetailPanel({
             <option value="completed">Gjennomført</option>
             <option value="cancelled">Avlyst</option>
           </select>
+        </div>
+
+        {/* Quorum + attendees */}
+        <div className="mt-5 border-t border-neutral-100 pt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="text-xs font-medium text-neutral-500">Tilstedeværende (komma-separert)</label>
+            <input value={attendeesDraft} onChange={(e) => setAttendeesDraft(e.target.value)}
+              placeholder="Ingrid Nilsen, Ole Hansen, …"
+              className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]" />
+          </div>
+          <div className="flex flex-col justify-end gap-2">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={quorumDraft} onChange={(e) => setQuorumDraft(e.target.checked)} className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
+              <span className="font-medium">Møtet er beslutningsdyktig (quorum)</span>
+            </label>
+            <button type="button" onClick={() => {
+              const attendees = attendeesDraft.split(',').map((s) => s.trim()).filter(Boolean)
+              council.setMeetingAttendance(meeting.id, attendees, quorumDraft)
+            }} className="rounded-full bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#142e26]">
+              Lagre fremmøte
+            </button>
+          </div>
+          {meeting.attendees && meeting.attendees.length > 0 && (
+            <div className="sm:col-span-2 text-xs text-neutral-500">
+              Registrert fremmøte: {meeting.attendees.join(', ')} · {meeting.quorum ? '✓ Beslutningsdyktig' : '⚠ Ikke beslutningsdyktig'}
+            </div>
+          )}
         </div>
 
         <div className="mt-6 border-t border-neutral-100 pt-4">
@@ -1576,7 +1796,7 @@ function MeetingDetailPanel({
                 .slice()
                 .sort((a, b) => a.order - b.order)
                 .map((item) => (
-                  <li key={item.id} className="rounded-xl border border-neutral-100 bg-[#faf8f4] p-3">
+                  <li key={item.id} className="rounded-xl border border-neutral-100 bg-[#faf8f4] p-3 space-y-2">
                     <input
                       value={item.title}
                       onChange={(e) => updateAgendaItem(item.id, { title: e.target.value })}
@@ -1586,13 +1806,45 @@ function MeetingDetailPanel({
                       value={item.notes}
                       onChange={(e) => updateAgendaItem(item.id, { notes: e.target.value })}
                       rows={2}
-                      className="mt-1 w-full resize-y rounded-lg border border-neutral-200/80 bg-white px-2 py-1 text-xs text-neutral-600"
-                      placeholder="Merknader til punktet"
+                      className="w-full resize-y rounded-lg border border-neutral-200/80 bg-white px-2 py-1 text-xs text-neutral-600"
+                      placeholder="Merknader / saksunderlag"
                     />
+                    {/* Per-item minutes */}
+                    <details className="group">
+                      <summary className="cursor-pointer text-xs font-medium text-[#1a3d32] hover:underline list-none">
+                        {item.minutesSummary || item.decision ? '✓ Referat/vedtak registrert' : '+ Legg til referat og vedtak'}
+                      </summary>
+                      <div className="mt-2 space-y-2 rounded-lg border border-[#1a3d32]/15 bg-white p-3">
+                        <div>
+                          <label className="text-xs font-medium text-neutral-500">Diskusjonsreferat</label>
+                          <textarea
+                            value={itemMinutesDraft[item.id]?.summary ?? item.minutesSummary ?? ''}
+                            onChange={(e) => setItemMinutesDraft((d) => ({ ...d, [item.id]: { ...d[item.id], summary: e.target.value, decision: d[item.id]?.decision ?? item.decision ?? '' } }))}
+                            rows={2} placeholder="Oppsummering av diskusjonen…"
+                            className="mt-1 w-full resize-y rounded-lg border border-neutral-200 px-2 py-1 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-neutral-500">Formelt vedtak</label>
+                          <textarea
+                            value={itemMinutesDraft[item.id]?.decision ?? item.decision ?? ''}
+                            onChange={(e) => setItemMinutesDraft((d) => ({ ...d, [item.id]: { ...d[item.id], decision: e.target.value, summary: d[item.id]?.summary ?? item.minutesSummary ?? '' } }))}
+                            rows={2} placeholder="Vedtakstekst (lagres i Vedtaksregisteret)…"
+                            className="mt-1 w-full resize-y rounded-lg border border-neutral-200 px-2 py-1 text-xs"
+                          />
+                        </div>
+                        <button type="button" onClick={() => {
+                          const draft = itemMinutesDraft[item.id]
+                          if (draft) updateAgendaItem(item.id, { minutesSummary: draft.summary, decision: draft.decision || undefined })
+                        }} className="rounded-full bg-[#1a3d32] px-3 py-1 text-xs font-medium text-white hover:bg-[#142e26]">
+                          Lagre referat
+                        </button>
+                      </div>
+                    </details>
                     <button
                       type="button"
                       onClick={() => removeAgendaItem(item.id)}
-                      className="mt-2 text-xs text-red-600 hover:underline"
+                      className="text-xs text-red-600 hover:underline"
                     >
                       Fjern punkt
                     </button>
@@ -1646,9 +1898,10 @@ function MeetingDetailPanel({
             placeholder="Hovedinnhold i protokoll …"
           />
           <div className="mt-4 rounded-xl border border-neutral-200 bg-[#faf8f4] p-4">
-            <h4 className="text-sm font-semibold text-neutral-900">Digital signatur på protokoll</h4>
+            <h4 className="text-sm font-semibold text-neutral-900">Forhåndsregistrering på protokoll</h4>
             <p className="mt-1 text-xs text-neutral-600">
-              Registrerer navn og tid (demonstrasjon). Juridisk signatur krever eSignatur.
+              Registrerer navn og tid som <strong>bekreftelse på at partene er enige</strong>.
+              Dette er <em>ikke</em> en juridisk bindende eSignatur — integrér BankID/Verified i produksjon.
             </p>
             <ul className="mt-2 space-y-1 text-xs text-neutral-700">
               {(meeting.protocolSignatures ?? []).map((s, i) => (

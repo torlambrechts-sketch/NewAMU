@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   defaultPreparationChecklist,
   suggestedAgendaItems,
@@ -558,8 +558,49 @@ export function useCouncil() {
     save(next)
   }, [])
 
+  // ── Invitation ──────────────────────────────────────────────────────────────
+
+  const sendInvitation = useCallback((meetingId: string, recipients: string[]) => {
+    const now = new Date().toISOString()
+    setState((s) => ({
+      ...s,
+      meetings: s.meetings.map((m) =>
+        m.id === meetingId ? { ...m, invitationSentAt: now, invitationRecipients: recipients } : m,
+      ),
+    }))
+    appendAuditEntry(meetingId, 'note', `Innkalling sendt til: ${recipients.join(', ')}`, '')
+  }, [appendAuditEntry])
+
+  const setMeetingAttendance = useCallback((meetingId: string, attendees: string[], quorum: boolean) => {
+    setState((s) => ({
+      ...s,
+      meetings: s.meetings.map((m) =>
+        m.id === meetingId ? { ...m, attendees, quorum } : m,
+      ),
+    }))
+  }, [])
+
+  // ── Decisions (cross-meeting computed view) ──────────────────────────────────
+
+  const allDecisions = useMemo(() => {
+    return state.meetings.flatMap((m) => [
+      // Decisions from per-item minutes
+      ...m.agendaItems.flatMap((item) =>
+        item.decision
+          ? [{ meetingId: m.id, meetingTitle: m.title, meetingDate: m.startsAt, agendaItemTitle: item.title, decision: item.decision, id: `${m.id}-${item.id}` }]
+          : [],
+      ),
+      // Decisions from audit trail
+      ...m.auditTrail.filter((e) => e.kind === 'decision').map((e) => ({
+        meetingId: m.id, meetingTitle: m.title, meetingDate: m.startsAt,
+        agendaItemTitle: '', decision: e.text, id: e.id,
+      })),
+    ]).sort((a, b) => b.meetingDate.localeCompare(a.meetingDate))
+  }, [state.meetings])
+
   return {
     ...state,
+    allDecisions,
     addElection,
     addCandidate,
     vote,
@@ -569,6 +610,8 @@ export function useCouncil() {
     setAgendaItems,
     applySuggestedAgenda,
     appendAuditEntry,
+    sendInvitation,
+    setMeetingAttendance,
     setPreparationNotes,
     togglePrepChecklist,
     addPrepChecklistItem,

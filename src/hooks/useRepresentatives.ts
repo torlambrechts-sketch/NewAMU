@@ -380,18 +380,11 @@ export function useRepresentatives() {
   )
 
   const updateMember = useCallback(
-    (id: string, patch: Partial<Pick<RepresentativeMember, 'name' | 'officeRole' | 'termUntil'>>) => {
+    (id: string, patch: Partial<RepresentativeMember>) => {
       setState((s) => ({
         ...s,
         members: s.members.map((m) =>
-          m.id === id
-            ? {
-                ...m,
-                ...(patch.name !== undefined ? { name: patch.name.trim() } : {}),
-                ...(patch.officeRole !== undefined ? { officeRole: patch.officeRole } : {}),
-                ...(patch.termUntil !== undefined ? { termUntil: patch.termUntil } : {}),
-              }
-            : m,
+          m.id === id ? { ...m, ...patch } : m,
         ),
       }))
       appendAudit('member_updated', 'Representant oppdatert (navn/rolle/periode).', { memberId: id })

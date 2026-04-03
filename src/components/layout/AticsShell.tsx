@@ -108,6 +108,7 @@ const councilSubs: SubItem[] = [
   { label: 'Møter og årshjul', path: '/council?tab=meetings', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'meetings' },
   { label: 'Møteforberedelse', path: '/council?tab=preparation', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'preparation' },
   { label: 'Arbeidsrett og sjekkliste', path: '/council?tab=compliance', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'compliance' },
+  { label: 'Vedtaksregister', path: '/council?tab=decisions', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'decisions' },
 ]
 
 const learningSubs: SubItem[] = [

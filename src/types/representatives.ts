@@ -25,6 +25,16 @@ export type RepresentativeMember = {
   fromElectionId?: string
   /** requirement id → completed */
   trainingChecklist: Record<string, boolean>
+  /** True if this member also serves as the verneombud (AML §6-1) */
+  isVerneombud?: boolean
+  /** Which area/section the verneombud covers (AML §6-1 — verneområde) */
+  verneombudArea?: string
+  /** Link to a Learning module certificate ID (proves 40-hr HMS course) */
+  learningCertificateId?: string
+  /** ISO date when the mandatory workplace posting was confirmed (AML §6-1) */
+  postingConfirmedAt?: string
+  /** References an OrgEmployee.id from the Organisation module */
+  employeeId?: string
 }
 
 export type RepElectionCandidate = {
