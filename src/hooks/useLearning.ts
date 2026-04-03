@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AML_COURSE } from '../data/amlCourse'
 import type {
   Certificate,
   Course,
@@ -150,6 +151,7 @@ function emptyModule(kind: ModuleKind, title: string, order: number): CourseModu
 }
 
 const seedCourses: Course[] = [
+  AML_COURSE,
   {
     id: 'c-demo',
     title: 'Safety 101',
@@ -218,8 +220,11 @@ function load(): LearningState {
       return { courses: seedCourses, progress: [], certificates: [] }
     }
     const p = JSON.parse(raw) as LearningState
+    const storedCourses: Course[] = Array.isArray(p.courses) && p.courses.length ? p.courses : seedCourses
+    // Always inject the AML course if it's missing (e.g. existing localStorage without it)
+    const hasAml = storedCourses.some((c) => c.id === AML_COURSE.id)
     return {
-      courses: Array.isArray(p.courses) && p.courses.length ? p.courses : seedCourses,
+      courses: hasAml ? storedCourses : [AML_COURSE, ...storedCourses],
       progress: Array.isArray(p.progress) ? p.progress : [],
       certificates: Array.isArray(p.certificates) ? p.certificates : [],
     }
