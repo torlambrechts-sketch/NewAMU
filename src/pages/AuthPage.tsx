@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2 } from 'lucide-react'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
+import { mapAuthError } from '../lib/authErrors'
 
 type Mode = 'login' | 'signup'
 
@@ -13,10 +14,13 @@ export function AuthPage({ mode }: { mode: Mode }) {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [displayName, setDisplayName] = useState('')
+  const [fullName, setFullName] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const signupHref = `/signup?redirect=${encodeURIComponent(redirect)}`
+  const loginHref = `/login?redirect=${encodeURIComponent(redirect)}`
 
   if (!supabase) {
     return (
@@ -33,24 +37,58 @@ export function AuthPage({ mode }: { mode: Mode }) {
     setBusy(true)
     try {
       if (mode === 'login') {
-        const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+        const { data, error: err } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        })
         if (err) throw err
+
+        if (!data.session) {
+          setError(
+            'Ingen aktiv sesjon etter innlogging. Dette skjer ofte hvis e-post ikke er bekreftet — sjekk innboksen for en lenke fra Supabase, eller kontakt administrator.',
+          )
+          return
+        }
+
+        const { data: verify } = await supabase.auth.getSession()
+        if (!verify.session) {
+          setError('Sesjonen ble ikke lagret. Prøv å oppdatere siden eller sjekk at informasjonskapsler er tillatt for dette domenet.')
+          return
+        }
+
         navigate(redirect, { replace: true })
       } else {
-        const { error: err } = await supabase.auth.signUp({
+        const name = fullName.trim()
+        if (!name) {
+          setError('Skriv inn fullt navn.')
+          return
+        }
+        const { data, error: err } = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
-            data: { display_name: displayName.trim() || email.split('@')[0] },
+            data: {
+              full_name: name,
+              display_name: name,
+            },
           },
         })
         if (err) throw err
+
+        if (data.session) {
+          const { data: verify } = await supabase.auth.getSession()
+          if (verify.session) {
+            navigate(redirect, { replace: true })
+            return
+          }
+        }
+
         setMessage(
-          'Konto opprettet. Sjekk e-post for bekreftelse hvis det er påkrevd, deretter logg inn.',
+          'Konto opprettet. Hvis prosjektet krever e-postbekreftelse, har vi sendt deg en lenke — åpne den før du logger inn. Deretter kan du logge inn her.',
         )
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Noe gikk galt')
+      setError(mapAuthError(err))
     } finally {
       setBusy(false)
     }
@@ -59,31 +97,42 @@ export function AuthPage({ mode }: { mode: Mode }) {
   return (
     <div className="min-h-screen bg-[#f5f0e8] px-4 py-16">
       <div className="mx-auto w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
-        <h1 className="font-serif text-2xl text-[#1a3d32]" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
+        <h1
+          className="font-serif text-2xl text-[#1a3d32]"
+          style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+        >
           {mode === 'login' ? 'Logg inn' : 'Opprett konto'}
         </h1>
         <p className="mt-2 text-sm text-neutral-600">
           {mode === 'login'
             ? 'Koble til din organisasjon etter innlogging.'
-            : 'Registrering uten organisasjon — du blir bedt om å koble til eller opprette virksomhet etterpå.'}
+            : 'Opprett bruker med fullt navn. Deretter kobler du til eller oppretter virksomhet i veiviseren.'}
         </p>
 
         <form onSubmit={(e) => void submit(e)} className="mt-6 space-y-4">
           {mode === 'signup' ? (
             <div>
-              <label className="block text-sm font-medium text-neutral-800">Visningsnavn</label>
+              <label htmlFor="full-name" className="block text-sm font-medium text-neutral-800">
+                Fullt navn <span className="text-red-600">*</span>
+              </label>
               <input
+                id="full-name"
                 type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
+                required
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
                 autoComplete="name"
+                placeholder="Fornavn Etternavn"
               />
             </div>
           ) : null}
           <div>
-            <label className="block text-sm font-medium text-neutral-800">E-post</label>
+            <label htmlFor="auth-email" className="block text-sm font-medium text-neutral-800">
+              E-post <span className="text-red-600">*</span>
+            </label>
             <input
+              id="auth-email"
               type="email"
               required
               value={email}
@@ -93,8 +142,11 @@ export function AuthPage({ mode }: { mode: Mode }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-neutral-800">Passord</label>
+            <label htmlFor="auth-password" className="block text-sm font-medium text-neutral-800">
+              Passord <span className="text-red-600">*</span>
+            </label>
             <input
+              id="auth-password"
               type="password"
               required
               value={password}
@@ -103,9 +155,29 @@ export function AuthPage({ mode }: { mode: Mode }) {
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               minLength={6}
             />
+            {mode === 'signup' ? (
+              <p className="mt-1 text-xs text-neutral-500">Minst 6 tegn (krav kan være høyere i Supabase).</p>
+            ) : null}
           </div>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
+
+          {error ? (
+            <div
+              role="alert"
+              className="flex gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-900"
+            >
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-700" aria-hidden />
+              <span>{error}</span>
+            </div>
+          ) : null}
+          {message ? (
+            <div
+              role="status"
+              className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900"
+            >
+              {message}
+            </div>
+          ) : null}
+
           <button
             type="submit"
             disabled={busy}
@@ -120,14 +192,14 @@ export function AuthPage({ mode }: { mode: Mode }) {
           {mode === 'login' ? (
             <>
               Har du ikke konto?{' '}
-              <Link to="/signup" className="font-medium text-[#1a3d32] underline">
+              <Link to={signupHref} className="font-medium text-[#1a3d32] underline">
                 Registrer deg
               </Link>
             </>
           ) : (
             <>
               Har du allerede konto?{' '}
-              <Link to="/login" className="font-medium text-[#1a3d32] underline">
+              <Link to={loginHref} className="font-medium text-[#1a3d32] underline">
                 Logg inn
               </Link>
             </>
