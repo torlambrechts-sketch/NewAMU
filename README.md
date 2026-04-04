@@ -22,3 +22,16 @@ This app uses client-side routes. The host must serve `index.html` for all paths
 - **Netlify:** `public/_redirects` sends `/*` to `/index.html` with 200.
 
 For **Cloudflare Pages**, add a `_redirects` file in the **build output** root (same rule as Netlify) or use **Pages → Settings → Functions → SPA fallback** / a `_routes.json` or **Workers** rewrite as in their docs.
+
+## Supabase (valgfritt)
+
+Denne appen er ellers **kun klient + localStorage**. For å koble til Supabase:
+
+1. **Prosjekt** i [Supabase](https://supabase.com): kopier **Project URL** og **anon public** API-nøkkel.
+2. **Vercel → Environment Variables**: enten bruk variablene Vercel fyller inn (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`) — Vite er satt opp med `envPrefix` så de blir med i bygget — eller legg til `VITE_SUPABASE_URL` og `VITE_SUPABASE_ANON_KEY` med samme verdier.
+3. **Ikke** eksponer `service_role`, `SUPABASE_SECRET_KEY`, eller Postgres-passord i frontend; de hører hjemme i server/Edge Functions.
+4. **Ny deploy** etter at variablene er satt. På **prosjektforsiden** (`/`) vises et **Supabase**-kort som sjekker `/auth/v1/health`.
+
+**Cursor MCP** til Supabase hjelper IDE/agent med database/SQL; det erstatter ikke at nettleseren får URL + anon-nøkkel ved build.
+
+Tabeller og **Row Level Security (RLS)** må settes opp i Supabase før klienten trygt kan lese/skrive data.

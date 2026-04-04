@@ -9,6 +9,7 @@ import {
   Search,
   SlidersHorizontal,
 } from 'lucide-react'
+import { SupabaseStatusCard } from '../components/SupabaseStatusCard'
 import { departmentRows } from '../data/departments'
 
 const members = [
@@ -346,6 +347,7 @@ export function ProjectDashboard() {
         </div>
 
         <aside className="h-fit rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
+          <SupabaseStatusCard />
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-base font-semibold text-neutral-900">
               Members <span className="text-neutral-400">|</span>{' '}
