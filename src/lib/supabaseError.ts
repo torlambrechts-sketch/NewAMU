@@ -20,6 +20,11 @@ export function getSupabaseErrorMessage(err: unknown): string {
   if (mapped) return mapped
 
   const lower = raw.toLowerCase()
+  if (lower.includes('infinite recursion') && lower.includes('profiles')) {
+    return (
+      'Database-policy for profiler har en konflikt (rekursjon). Administrator må kjøre migrasjon «profiles_rls_no_subquery_recursion» i Supabase SQL Editor — se README.'
+    )
+  }
   if (
     lower.includes('row-level security') ||
     lower.includes('violates row-level') ||
