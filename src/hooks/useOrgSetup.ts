@@ -80,7 +80,7 @@ export function useOrgSetup() {
     setTeams((tRes.data ?? []) as TeamRow[])
     setLocations((lRes.data ?? []) as LocationRow[])
     setMembers((mRes.data ?? []) as OrganizationMemberRow[])
-  }, [supabase, organization?.id])
+  }, [supabase, organization])
 
   useEffect(() => {
     if (!supabase) {
@@ -89,61 +89,72 @@ export function useOrgSetup() {
     }
 
     let cancelled = false
-    let unsubscribe: (() => void) | undefined
 
-    ;(async () => {
+    const ensureProfileRow = async (uid: string) => {
+      const { data: existing } = await supabase.from('profiles').select('id').eq('id', uid).maybeSingle()
+      if (existing) return
+      const { error: insErr } = await supabase.from('profiles').insert({ id: uid, display_name: 'Bruker' })
+      if (insErr?.code !== '23505' && insErr) throw insErr
+    }
+
+    const hydrateUser = async (uid: string) => {
+      await ensureProfileRow(uid)
+      await loadProfileAndOrg(uid)
+      await refreshPermissions()
+    }
+
+    queueMicrotask(() => {
       setLoadState('loading')
       setError(null)
-      try {
-        const { data: sessionData } = await supabase.auth.getSession()
-        const u = sessionData.session?.user ?? null
-        if (cancelled) return
-        setUser(u)
-        if (!u) {
-          setLoadState('ready')
+    })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (cancelled) return
+
+      const next = session?.user ?? null
+      setUser(next)
+
+      // INITIAL_SESSION: authoritative after reload (getSession in the first tick can return null).
+      if (event === 'INITIAL_SESSION') {
+        try {
+          if (next) {
+            await hydrateUser(next.id)
+          }
+        } catch (e) {
+          if (!cancelled) {
+            setError(e instanceof Error ? e.message : 'Kunne ikke laste organisasjon')
+            setLoadState('error')
+          }
           return
         }
-
-        const { data: existing } = await supabase.from('profiles').select('id').eq('id', u.id).maybeSingle()
-        if (!existing) {
-          const { error: insErr } = await supabase
-            .from('profiles')
-            .insert({ id: u.id, display_name: 'Bruker' })
-          if (insErr?.code !== '23505') {
-            if (insErr) throw insErr
-          }
-        }
-
-        await loadProfileAndOrg(u.id)
-        await refreshPermissions()
-        if (cancelled) return
-
-        const {
-          data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
-          const next = session?.user ?? null
-          setUser(next)
-          if (next) {
-            void loadProfileAndOrg(next.id).then(() => refreshPermissions())
-          } else {
-            setProfile(null)
-            setOrganization(null)
-          }
-        })
-        unsubscribe = () => subscription.unsubscribe()
-
-        setLoadState('ready')
-      } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Kunne ikke laste organisasjon')
-          setLoadState('error')
+          setLoadState('ready')
+        }
+        return
+      }
+
+      if (event === 'SIGNED_OUT') {
+        setProfile(null)
+        setOrganization(null)
+        return
+      }
+
+      if (next && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
+        try {
+          await ensureProfileRow(next.id)
+          await loadProfileAndOrg(next.id)
+          await refreshPermissions()
+        } catch {
+          /* ignore */
         }
       }
-    })()
+    })
 
     return () => {
       cancelled = true
-      unsubscribe?.()
+      subscription.unsubscribe()
     }
   }, [supabase, loadProfileAndOrg, refreshPermissions])
 
@@ -170,7 +181,7 @@ export function useOrgSetup() {
     return () => {
       cancelled = true
     }
-  }, [supabase, organization?.id, refreshChildren])
+  }, [supabase, organization, refreshChildren])
 
   const createOrganizationFromBrreg = useCallback(
     async (orgnr: string, brreg?: BrregEnhet) => {
@@ -221,7 +232,7 @@ export function useOrgSetup() {
       setDepartments((d) => [...d, data as DepartmentRow])
       return data as DepartmentRow
     },
-    [supabase, organization?.id, departments.length],
+    [supabase, organization, departments.length],
   )
 
   const addTeam = useCallback(
@@ -241,7 +252,7 @@ export function useOrgSetup() {
       setTeams((t) => [...t, data as TeamRow])
       return data as TeamRow
     },
-    [supabase, organization?.id, teams.length],
+    [supabase, organization, teams.length],
   )
 
   const addLocation = useCallback(
@@ -261,7 +272,7 @@ export function useOrgSetup() {
       setLocations((l) => [...l, data as LocationRow])
       return data as LocationRow
     },
-    [supabase, organization?.id, locations.length],
+    [supabase, organization, locations.length],
   )
 
   const addOrgMember = useCallback(
@@ -289,7 +300,7 @@ export function useOrgSetup() {
       setMembers((m) => [...m, data as OrganizationMemberRow])
       return data as OrganizationMemberRow
     },
-    [supabase, organization?.id],
+    [supabase, organization],
   )
 
   const signOut = useCallback(async () => {
@@ -311,7 +322,7 @@ export function useOrgSetup() {
       o ? { ...o, onboarding_completed_at: new Date().toISOString() } : o,
     )
     await refreshPermissions()
-  }, [supabase, organization?.id, refreshPermissions])
+  }, [supabase, organization, refreshPermissions])
 
   const needsOnboarding = useMemo(() => {
     if (!supabase) return false
