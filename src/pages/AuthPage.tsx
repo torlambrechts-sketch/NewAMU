@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useState, type FormEvent, useEffect } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertCircle, Loader2 } from 'lucide-react'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { mapAuthError } from '../lib/authErrors'
@@ -9,8 +9,10 @@ type Mode = 'login' | 'signup'
 
 export function AuthPage({ mode }: { mode: Mode }) {
   const supabase = getSupabaseBrowserClient()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const redirect = searchParams.get('redirect') || '/'
+  const reason = searchParams.get('reason')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,6 +20,14 @@ export function AuthPage({ mode }: { mode: Mode }) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (reason === 'no_session') {
+      setError(
+        'Sesjonen ble ikke gjenkjent etter forrige forsøk. Prøv å logge inn på nytt. Hvis det gjentar seg: sjekk at du er på samme domene som i Supabase (Authentication → URL Configuration) og at informasjonskapsler er tillatt.',
+      )
+    }
+  }, [reason])
 
   const signupHref = `/signup?redirect=${encodeURIComponent(redirect)}`
   const loginHref = `/login?redirect=${encodeURIComponent(redirect)}`
@@ -56,8 +66,8 @@ export function AuthPage({ mode }: { mode: Mode }) {
           return
         }
 
-        // Full page load so OrgGate sees a fresh session (avoids race: navigate → user still null → /login)
-        window.location.replace(postLoginRedirectPath(redirect))
+        // Client-side navigate + route sync in useOrgSetup picks up session (avoids full reload losing session on some hosts)
+        navigate(postLoginRedirectPath(redirect), { replace: true })
       } else {
         const name = fullName.trim()
         if (!name) {
@@ -79,7 +89,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
         if (data.session) {
           const { data: verify } = await supabase.auth.getSession()
           if (verify.session) {
-            window.location.replace(postLoginRedirectPath(redirect))
+            navigate(postLoginRedirectPath(redirect), { replace: true })
             return
           }
         }

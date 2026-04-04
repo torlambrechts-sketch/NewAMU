@@ -21,7 +21,12 @@ export function OrgGate() {
   const isInvite = path.startsWith('/invite/')
 
   if (supabaseConfigured && !user && !isPublicAuth && !isInvite) {
-    return <Navigate to={`/login?redirect=${encodeURIComponent(path + location.search)}`} replace />
+    return (
+      <Navigate
+        to={`/login?redirect=${encodeURIComponent(path + location.search)}&reason=no_session`}
+        replace
+      />
+    )
   }
 
   if (supabaseConfigured && user && needsOnboarding && path !== '/onboarding') {

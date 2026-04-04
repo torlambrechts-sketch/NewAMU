@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { usePermissions } from './usePermissions'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
@@ -16,6 +17,7 @@ import type {
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 
 export function useOrgSetup() {
+  const location = useLocation()
   const supabase = getSupabaseBrowserClient()
   const [loadState, setLoadState] = useState<LoadState>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -81,6 +83,41 @@ export function useOrgSetup() {
     setLocations((lRes.data ?? []) as LocationRow[])
     setMembers((mRes.data ?? []) as OrganizationMemberRow[])
   }, [supabase, organization])
+
+  /** Re-read session when the route changes (fixes: login → SPA navigate while user state was still null). */
+  const syncSessionForRoute = useCallback(async () => {
+    if (!supabase) return
+    const {
+      data: { session },
+      error: sessErr,
+    } = await supabase.auth.getSession()
+    if (sessErr) return
+    const u = session?.user ?? null
+    setUser(u)
+    if (u) {
+      try {
+        const { data: existing } = await supabase.from('profiles').select('id').eq('id', u.id).maybeSingle()
+        if (!existing) {
+          const { error: insErr } = await supabase
+            .from('profiles')
+            .insert({ id: u.id, display_name: 'Bruker' })
+          if (insErr?.code !== '23505' && insErr) throw insErr
+        }
+        await loadProfileAndOrg(u.id)
+        void refreshPermissions()
+      } catch {
+        /* ignore */
+      }
+    } else {
+      setProfile(null)
+      setOrganization(null)
+    }
+  }, [supabase, loadProfileAndOrg, refreshPermissions])
+
+  useEffect(() => {
+    if (!supabase) return
+    void syncSessionForRoute()
+  }, [location.pathname, supabase, syncSessionForRoute])
 
   useEffect(() => {
     if (!supabase) {
