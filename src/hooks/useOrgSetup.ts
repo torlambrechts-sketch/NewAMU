@@ -42,7 +42,12 @@ export function useOrgSetup() {
     async (uid: string) => {
       if (!supabase) return
       const { data: prof, error: pe } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle()
-      if (pe) throw pe
+      if (pe) {
+        console.warn('profiles select:', pe.message)
+        setProfile(null)
+        setOrganization(null)
+        return
+      }
       const p = prof as ProfileRow | null
       setProfile(p)
       if (!p?.organization_id) {
@@ -54,7 +59,11 @@ export function useOrgSetup() {
         .select('*')
         .eq('id', p.organization_id)
         .maybeSingle()
-      if (oe) throw oe
+      if (oe) {
+        console.warn('organizations select:', oe.message)
+        setOrganization(null)
+        return
+      }
       setOrganization(org as OrganizationRow | null)
     },
     [supabase],
@@ -99,6 +108,7 @@ export function useOrgSetup() {
       try {
         await ensureProfileRowExists(supabase, u.id)
         await loadProfileAndOrg(u.id)
+        setError(null)
         void refreshPermissions()
       } catch {
         /* ignore */
@@ -129,6 +139,7 @@ export function useOrgSetup() {
     const hydrateUser = async (uid: string) => {
       await ensureProfileRow(uid)
       await loadProfileAndOrg(uid)
+      setError(null)
       // Ikke await: RPC kan henge eller mangle migrasjon — skal ikke blokkere innlasting
       void refreshPermissions()
     }
@@ -178,10 +189,13 @@ export function useOrgSetup() {
             await hydrateUser(u.id)
           } catch (e) {
             if (!cancelled) {
-              setError(e instanceof Error ? e.message : 'Kunne ikke laste profil')
-              setLoadState('error')
+              console.warn('hydrateUser', e)
+              setError(
+                e instanceof Error
+                  ? e.message
+                  : 'Kunne ikke synkronisere profil. Du kan fortsatt fortsette oppsett — kjør SQL-migrasjon for profiles RLS hvis feilen vedvarer.',
+              )
             }
-            return
           }
         }
       } catch (e) {
