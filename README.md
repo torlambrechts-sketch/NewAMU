@@ -39,7 +39,7 @@ Tabeller og **Row Level Security (RLS)** må settes opp i Supabase før klienten
 
 ### Organisasjon og onboarding (database)
 
-1. Kjør SQL fra `supabase/migrations/20260401120000_org_structure.sql`, deretter **`20260402120000_rbac_invites.sql`** og **`20260402120100_org_creation_admin_roles.sql`**, i **Supabase → SQL Editor** (rekkefølge: org → RBAC → org creation patch).
+1. Kjør SQL fra `supabase/migrations/20260401120000_org_structure.sql`, deretter **`20260402120000_rbac_invites.sql`**, **`20260402120100_org_creation_admin_roles.sql`**, og ved **500-feil på `/profiles`** i nettleseren: **`20260405120000_fix_profiles_rls_no_recursion.sql`** (fikser RLS-rekursjon som gir PostgREST 500).
 2. **Authentication → Providers**: slå på **Email** (passord). **Anonymous** kan skrus av i produksjon når e-post/invitasjoner brukes.
 3. **Registrering og innlogging:** **`/signup`** (fullt navn + e-post + passord) og **`/login`**. Feilmeldinger er oversatt til norsk der det er mulig. Hvis Supabase krever **bekreftet e-post**, må brukeren åpne lenken i mailen før innlogging fungerer — ellers ser det ut som «tilbake til pålogging» uten tydelig årsak. Kjør også migrasjon **`20260404180000_profile_full_name_metadata.sql`** hvis du allerede har kjørt eldre SQL (oppdaterer `handle_new_user` til å bruke `full_name` fra metadata).
 4. **Roller og rettigheter:** Tillatelsesnøkler som `module.view.council`, `users.invite`, `roles.manage` m.m. — se `src/lib/permissionKeys.ts`. Funksjonen **`get_my_effective_permissions()`** brukes i klienten; **org-admin** får alle nøkler som finnes i orgens roller.

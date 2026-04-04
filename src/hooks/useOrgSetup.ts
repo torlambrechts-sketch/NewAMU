@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { usePermissions } from './usePermissions'
+import { ensureProfileRowExists } from '../lib/ensureProfile'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { fetchEnhetByOrgnr, normalizeOrgNumber } from '../lib/brreg'
 import type { BrregEnhet } from '../types/brreg'
@@ -96,13 +97,7 @@ export function useOrgSetup() {
     setUser(u)
     if (u) {
       try {
-        const { data: existing } = await supabase.from('profiles').select('id').eq('id', u.id).maybeSingle()
-        if (!existing) {
-          const { error: insErr } = await supabase
-            .from('profiles')
-            .insert({ id: u.id, display_name: 'Bruker' })
-          if (insErr?.code !== '23505' && insErr) throw insErr
-        }
+        await ensureProfileRowExists(supabase, u.id)
         await loadProfileAndOrg(u.id)
         void refreshPermissions()
       } catch {
@@ -128,10 +123,7 @@ export function useOrgSetup() {
     let cancelled = false
 
     const ensureProfileRow = async (uid: string) => {
-      const { data: existing } = await supabase.from('profiles').select('id').eq('id', uid).maybeSingle()
-      if (existing) return
-      const { error: insErr } = await supabase.from('profiles').insert({ id: uid, display_name: 'Bruker' })
-      if (insErr?.code !== '23505' && insErr) throw insErr
+      await ensureProfileRowExists(supabase, uid)
     }
 
     const hydrateUser = async (uid: string) => {
