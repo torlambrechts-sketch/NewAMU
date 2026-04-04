@@ -271,7 +271,7 @@ export function useOrgSetup() {
         .from('profiles')
         .update({ display_name: displayName.trim() })
         .eq('id', user.id)
-      if (e) throw e
+      if (e) throw new Error(getSupabaseErrorMessage(e))
       setProfile((p) => (p ? { ...p, display_name: displayName.trim() } : p))
     },
     [supabase, user],

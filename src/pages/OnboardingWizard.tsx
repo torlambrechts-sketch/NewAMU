@@ -120,7 +120,7 @@ export function OnboardingWizard() {
       await updateDisplayName(displayName.trim())
       setStep(2)
     } catch (err) {
-      setFormErr(err instanceof Error ? err.message : 'Kunne ikke lagre')
+      setFormErr(getSupabaseErrorMessage(err))
     } finally {
       setBusy(false)
     }
@@ -133,7 +133,7 @@ export function OnboardingWizard() {
       await completeOnboarding()
       navigate('/', { replace: true })
     } catch (err) {
-      setFormErr(err instanceof Error ? err.message : 'Kunne ikke fullføre')
+      setFormErr(getSupabaseErrorMessage(err))
     } finally {
       setBusy(false)
     }

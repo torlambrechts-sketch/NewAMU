@@ -18,6 +18,20 @@ export function getSupabaseErrorMessage(err: unknown): string {
 
   const mapped = mapKnownRpcMessage(raw)
   if (mapped) return mapped
+
+  const lower = raw.toLowerCase()
+  if (
+    lower.includes('row-level security') ||
+    lower.includes('violates row-level') ||
+    lower.includes('rls') ||
+    lower.includes('permission denied') ||
+    lower.includes('42501')
+  ) {
+    return (
+      'Lagring ble blokkert av databasetilganger (RLS). Be administrator kjøre migrasjon «profiles_update_rls_split» i Supabase, eller sjekk at du er innlogget.'
+    )
+  }
+
   return raw || 'Ukjent feil'
 }
 
