@@ -35,3 +35,10 @@ Denne appen er ellers **kun klient + localStorage**. For å koble til Supabase:
 **Cursor MCP** til Supabase hjelper IDE/agent med database/SQL; det erstatter ikke at nettleseren får URL + anon-nøkkel ved build.
 
 Tabeller og **Row Level Security (RLS)** må settes opp i Supabase før klienten trygt kan lese/skrive data.
+
+### Organisasjon og onboarding (database)
+
+1. Kjør SQL fra `supabase/migrations/20260401120000_org_structure.sql` i **Supabase → SQL Editor** (eller CLI).
+2. **Authentication → Providers**: slå på **Anonymous sign-ins** (midlertidig, til ekte signup finnes på plass).
+3. Etter deploy med Supabase-env: brukere uten fullført oppsett sendes til **`/onboarding`**. Veiviseren henter virksomhet fra **Brønnøysund** (`/brreg-api/...` — proxy i Vite dev og `vercel.json` i prod), oppretter rad i `organizations` via RPC `create_organization_with_brreg`, og lar deg legge inn **avdelinger**, **team**, **lokasjoner** og **personer** (katalog, ikke auth-brukere ennå).
+4. `organization_members` er HR-/org-struktur; `profiles` kobler innlogget bruker til `organizations`.

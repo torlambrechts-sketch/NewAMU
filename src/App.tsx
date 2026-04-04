@@ -1,5 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { OrgSetupProvider } from './context/OrgSetupProvider'
 import { AticsShell } from './components/layout/AticsShell'
+import { OrgGate } from './components/OrgGate'
+import { OnboardingWizard } from './pages/OnboardingWizard'
 import { HrmEmployees } from './pages/HrmEmployees'
 import { HrmSalary } from './pages/HrmSalary'
 import { NotFound } from './pages/NotFound'
@@ -25,12 +28,16 @@ import { LearningSettings } from './pages/learning/LearningSettings'
 function App() {
   return (
     <BrowserRouter>
+      <OrgSetupProvider>
       <Routes>
         <Route path="/hrm" element={<Navigate to="/hrm/employees" replace />} />
         <Route path="/hrm/employees" element={<HrmEmployees />} />
         <Route path="/hrm/salary" element={<HrmSalary />} />
         <Route path="/404" element={<NotFound />} />
 
+        <Route path="/onboarding" element={<OnboardingWizard />} />
+
+        <Route element={<OrgGate />}>
         <Route element={<AticsShell />}>
           <Route index element={<ProjectDashboard />} />
           <Route path="tasks" element={<TasksPage />} />
@@ -72,9 +79,11 @@ function App() {
             element={<PlaceholderPage title="Workspaces" description="Workspace settings." />}
           />
         </Route>
+        </Route>
 
         <Route path="*" element={<Navigate to="/404" replace />} />
       </Routes>
+      </OrgSetupProvider>
     </BrowserRouter>
   )
 }
