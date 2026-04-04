@@ -4,6 +4,7 @@ import type { User } from '@supabase/supabase-js'
 import { usePermissions } from './usePermissions'
 import { ensureProfileRowExists } from '../lib/ensureProfile'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
+import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { fetchEnhetByOrgnr, normalizeOrgNumber } from '../lib/brreg'
 import type { BrregEnhet } from '../types/brreg'
 import type {
@@ -250,7 +251,9 @@ export function useOrgSetup() {
         p_name: enhet.navn,
         p_brreg: enhet as unknown as Record<string, unknown>,
       })
-      if (rpcErr) throw rpcErr
+      if (rpcErr) {
+        throw new Error(getSupabaseErrorMessage(rpcErr))
+      }
       const id = typeof newId === 'string' ? newId : String(newId)
       await loadProfileAndOrg(user.id)
       await refreshPermissions()

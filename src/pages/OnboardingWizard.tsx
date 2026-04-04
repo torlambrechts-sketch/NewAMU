@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Building2, ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react'
+import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { formatBrregAddress } from '../lib/brreg'
 import type { BrregEnhet } from '../types/brreg'
@@ -102,7 +103,7 @@ export function OnboardingWizard() {
       await createOrganizationFromBrreg(orgnrInput, brregPreview ?? undefined)
       setStep(1)
     } catch (err) {
-      setFormErr(err instanceof Error ? err.message : 'Kunne ikke opprette organisasjon')
+      setFormErr(getSupabaseErrorMessage(err))
     } finally {
       setBusy(false)
     }
