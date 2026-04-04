@@ -30,7 +30,7 @@ Denne appen er ellers **kun klient + localStorage**. For å koble til Supabase:
 1. **Prosjekt** i [Supabase](https://supabase.com): kopier **Project URL** og **anon public** API-nøkkel.
 2. **Vercel → Environment Variables**: enten bruk variablene Vercel fyller inn (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`) — Vite er satt opp med `envPrefix` så de blir med i bygget — eller legg til `VITE_SUPABASE_URL` og **anon/publishable key** som `VITE_SUPABASE_ANON_KEY` **eller** `VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY` (samme verdi som «anon public» i Supabase).
 3. **Database schema:** kjør SQL-filene i `supabase/migrations/` i **Supabase → SQL Editor** (eller CLI mot prosjektet). Koden herfra kan ikke oppdatere din eksterne database uten dine hemmelige nøkler.
-4. **Ikke** eksponer `service_role`, `SUPABASE_SECRET_KEY`, eller Postgres-passord i frontend; de hører hjemme i server/Edge Functions.
+4. **Ikke** eksponer `service_role`, `SUPABASE_SECRET_KEY`, `POSTGRES_URL_NON_POOLING`, eller Postgres-passord i **frontend** (Vite bygger inn `VITE_*`). Disse er for **server**, **CLI** eller **CI** — ikke for nettleserappen. De løser ikke innlogging i seg selv.
 5. **Ny deploy** etter at variablene er satt. På **prosjektforsiden** (`/`) vises et **Supabase**-kort som sjekker `/auth/v1/health`.
 
 **Cursor MCP** til Supabase hjelper IDE/agent med database/SQL; det erstatter ikke at nettleseren får URL + anon-nøkkel ved build.

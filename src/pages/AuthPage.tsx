@@ -1,14 +1,14 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { AlertCircle, Loader2 } from 'lucide-react'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { mapAuthError } from '../lib/authErrors'
+import { postLoginRedirectPath } from '../lib/authRedirect'
 
 type Mode = 'login' | 'signup'
 
 export function AuthPage({ mode }: { mode: Mode }) {
   const supabase = getSupabaseBrowserClient()
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const redirect = searchParams.get('redirect') || '/'
 
@@ -56,7 +56,8 @@ export function AuthPage({ mode }: { mode: Mode }) {
           return
         }
 
-        navigate(redirect, { replace: true })
+        // Full page load so OrgGate sees a fresh session (avoids race: navigate → user still null → /login)
+        window.location.replace(postLoginRedirectPath(redirect))
       } else {
         const name = fullName.trim()
         if (!name) {
@@ -78,7 +79,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
         if (data.session) {
           const { data: verify } = await supabase.auth.getSession()
           if (verify.session) {
-            navigate(redirect, { replace: true })
+            window.location.replace(postLoginRedirectPath(redirect))
             return
           }
         }
