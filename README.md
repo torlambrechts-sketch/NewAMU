@@ -38,7 +38,12 @@ Tabeller og **Row Level Security (RLS)** må settes opp i Supabase før klienten
 
 ### Organisasjon og onboarding (database)
 
-1. Kjør SQL fra `supabase/migrations/20260401120000_org_structure.sql` i **Supabase → SQL Editor** (eller CLI).
-2. **Authentication → Providers**: slå på **Anonymous sign-ins** (midlertidig, til ekte signup finnes på plass).
-3. Etter deploy med Supabase-env: brukere uten fullført oppsett sendes til **`/onboarding`**. Veiviseren henter virksomhet fra **Brønnøysund** (`/brreg-api/...` — proxy i Vite dev og `vercel.json` i prod), oppretter rad i `organizations` via RPC `create_organization_with_brreg`, og lar deg legge inn **avdelinger**, **team**, **lokasjoner** og **personer** (katalog, ikke auth-brukere ennå).
-4. `organization_members` er HR-/org-struktur; `profiles` kobler innlogget bruker til `organizations`.
+1. Kjør SQL fra `supabase/migrations/20260401120000_org_structure.sql`, deretter **`20260402120000_rbac_invites.sql`** og **`20260402120100_org_creation_admin_roles.sql`**, i **Supabase → SQL Editor** (rekkefølge: org → RBAC → org creation patch).
+2. **Authentication → Providers**: slå på **Email** (passord). **Anonymous** kan skrus av i produksjon når e-post/invitasjoner brukes.
+3. **Registrering og innlogging:** **`/signup`** og **`/login`**. Uten sesjon med Supabase aktivert omdirigeres du til innlogging. Etter innlogging, uten fullført oppsett: **`/onboarding`** (Brønnøysund, struktur). Første bruker som oppretter org får **`is_org_admin`** og standard **roller** (admin/medlem) via oppdatert `create_organization_with_brreg`.
+4. **Roller og rettigheter:** Tillatelsesnøkler som `module.view.council`, `users.invite`, `roles.manage` m.m. — se `src/lib/permissionKeys.ts`. Funksjonen **`get_my_effective_permissions()`** brukes i klienten; **org-admin** får alle nøkler som finnes i orgens roller.
+5. **Invitasjoner:** Admin bruker **`/admin`** → RPC `create_invitation` (lenke `/invite/:token`). Mottaker registrerer seg / logger inn med **samme e-post** og åpner lenken; `accept_invitation` kobler profil til org og tildeler roller.
+6. **Delegering:** Tabell `role_delegations` — admin kan gi midlertidig samme rettigheter som en rolle til en annen bruker (styres i **Admin**-fanen).
+7. **Import/eksport:** På **`/admin`** kan brukerlisten eksporteres som JSON (Auth-brukere må fortsatt inviteres for ekte kontoer).
+
+Brønnøysund-proxy: `/brreg-api/...` (Vite + Vercel). `organization_members` er HR-katalog; `profiles` kobler innlogget bruker til `organizations`.

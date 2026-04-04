@@ -9,10 +9,12 @@ import {
   LayoutGrid,
   Search,
   Settings,
+  Shield,
   Star,
   Users,
   UsersRound,
 } from 'lucide-react'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 
 type SubItem =
   | { label: string; path: string; match: (loc: { pathname: string; search: string }) => boolean }
@@ -131,7 +133,9 @@ const learningSubs: SubItem[] = [
 ]
 
 /** Council is its own primary group (left); other modules follow after a divider. */
-const navMainCouncil = [{ to: '/council', label: 'Council', end: false, icon: UsersRound }] as const
+const navMainCouncil = [
+  { to: '/council', label: 'Council', end: false, icon: UsersRound, perm: 'module.view.council' as const },
+] as const
 
 const internalControlSubs: SubItem[] = [
   {
@@ -169,13 +173,74 @@ const internalControlSubs: SubItem[] = [
 ]
 
 const navMainRest = [
-  { to: '/members', label: 'Members', end: false, icon: Users },
-  { to: '/org-health', label: 'Org health', end: false, icon: HeartPulse },
-  { to: '/hse', label: 'HSE', end: false, icon: HardHat },
-  { to: '/internal-control', label: 'Internkontroll', end: false, icon: ClipboardList },
-  { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid },
-  { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap },
+  { to: '/members', label: 'Members', end: false, icon: Users, perm: 'module.view.members' as const },
+  { to: '/org-health', label: 'Org health', end: false, icon: HeartPulse, perm: 'module.view.org_health' as const },
+  { to: '/hse', label: 'HSE', end: false, icon: HardHat, perm: 'module.view.hse' as const },
+  { to: '/internal-control', label: 'Internkontroll', end: false, icon: ClipboardList, perm: 'module.view.internal_control' as const },
+  { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, perm: 'module.view.tasks' as const },
+  { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap, perm: 'module.view.learning' as const },
+  { to: '/admin', label: 'Admin', end: true, icon: Shield, perm: 'module.view.admin' as const },
 ] as const
+
+function HeaderUserMenu() {
+  const { supabaseConfigured, user, profile, signOut } = useOrgSetupContext()
+
+  if (!supabaseConfigured) {
+    return (
+      <div className="flex items-center gap-2 md:gap-3">
+        <button
+          type="button"
+          className="hidden items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] sm:flex"
+        >
+          <Clock className="size-3.5" />
+          Upgrade
+        </button>
+        <button type="button" className="rounded-lg p-2 hover:bg-white/10" aria-label="Settings">
+          <Settings className="size-5" />
+        </button>
+        <button type="button" className="rounded-lg p-2 hover:bg-white/10" aria-label="Open external">
+          <ExternalLink className="size-5" />
+        </button>
+        <div
+          className="size-9 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-white/30"
+          role="img"
+          aria-label="User profile"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2 md:gap-3">
+      {user ? (
+        <>
+          <span className="hidden max-w-[140px] truncate text-xs text-white/80 sm:inline" title={profile?.email ?? ''}>
+            {profile?.display_name ?? profile?.email ?? 'Bruker'}
+          </span>
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="rounded-lg px-2 py-1 text-xs font-medium text-white/90 hover:bg-white/10"
+          >
+            Logg ut
+          </button>
+        </>
+      ) : (
+        <a href="/login" className="rounded-lg px-2 py-1 text-xs font-medium text-[#c9a227] hover:underline">
+          Logg inn
+        </a>
+      )}
+      <button type="button" className="rounded-lg p-2 hover:bg-white/10" aria-label="Settings">
+        <Settings className="size-5" />
+      </button>
+      <div
+        className="size-9 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-white/30"
+        role="img"
+        aria-label="User profile"
+      />
+    </div>
+  )
+}
 
 function subNavForPath(pathname: string): SubItem[] {
   if (pathname.startsWith('/learning')) return learningSubs
@@ -191,6 +256,8 @@ function subNavForPath(pathname: string): SubItem[] {
 export function AticsShell() {
   const location = useLocation()
   const subItems = subNavForPath(location.pathname)
+  const { supabaseConfigured, can, permissionKeys } = useOrgSetupContext()
+  const gateNav = supabaseConfigured && permissionKeys.size > 0
 
   return (
     <div className="min-h-screen bg-[#f5f0e8]">
@@ -210,7 +277,7 @@ export function AticsShell() {
             aria-label="Primary"
           >
             <div className="flex items-center gap-2 md:gap-3" role="group" aria-label="Arbeidsmiljøråd">
-              {navMainCouncil.map((item) => {
+              {navMainCouncil.filter((item) => !gateNav || can(item.perm)).map((item) => {
                 const Icon = item.icon
                 return (
                   <NavLink
@@ -236,7 +303,7 @@ export function AticsShell() {
               aria-hidden
             />
             <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4" role="group" aria-label="Andre moduler">
-              {navMainRest.map((item) => {
+              {navMainRest.filter((item) => !gateNav || can(item.perm)).map((item) => {
                 const Icon = item.icon
                 return (
                   <NavLink
@@ -258,26 +325,7 @@ export function AticsShell() {
               })}
             </div>
           </nav>
-          <div className="flex items-center gap-2 md:gap-3">
-            <button
-              type="button"
-              className="hidden items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] sm:flex"
-            >
-              <Clock className="size-3.5" />
-              Upgrade
-            </button>
-            <button type="button" className="rounded-lg p-2 hover:bg-white/10" aria-label="Settings">
-              <Settings className="size-5" />
-            </button>
-            <button type="button" className="rounded-lg p-2 hover:bg-white/10" aria-label="Open external">
-              <ExternalLink className="size-5" />
-            </button>
-            <div
-              className="size-9 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-white/30"
-              role="img"
-              aria-label="User profile"
-            />
-          </div>
+          <HeaderUserMenu />
         </div>
         <div className="border-t border-white/10">
           <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-4 py-2.5 md:px-8">

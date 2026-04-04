@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
+import { usePermissions } from './usePermissions'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { fetchEnhetByOrgnr, normalizeOrgNumber } from '../lib/brreg'
 import type { BrregEnhet } from '../types/brreg'
@@ -25,6 +26,14 @@ export function useOrgSetup() {
   const [teams, setTeams] = useState<TeamRow[]>([])
   const [locations, setLocations] = useState<LocationRow[]>([])
   const [members, setMembers] = useState<OrganizationMemberRow[]>([])
+
+  const {
+    can,
+    keys: permissionKeys,
+    loading: permissionsLoading,
+    refresh: refreshPermissions,
+    isAdmin,
+  } = usePermissions(user?.id)
 
   const loadProfileAndOrg = useCallback(
     async (uid: string) => {
@@ -87,15 +96,13 @@ export function useOrgSetup() {
       setError(null)
       try {
         const { data: sessionData } = await supabase.auth.getSession()
-        let u = sessionData.session?.user ?? null
-        if (!u) {
-          const { data: anon, error: anonErr } = await supabase.auth.signInAnonymously()
-          if (anonErr) throw anonErr
-          if (!anon.user) throw new Error('Anonym innlogging returnerte ingen bruker.')
-          u = anon.user
-        }
+        const u = sessionData.session?.user ?? null
         if (cancelled) return
         setUser(u)
+        if (!u) {
+          setLoadState('ready')
+          return
+        }
 
         const { data: existing } = await supabase.from('profiles').select('id').eq('id', u.id).maybeSingle()
         if (!existing) {
@@ -108,12 +115,20 @@ export function useOrgSetup() {
         }
 
         await loadProfileAndOrg(u.id)
+        await refreshPermissions()
         if (cancelled) return
 
         const {
           data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
-          setUser(session?.user ?? null)
+          const next = session?.user ?? null
+          setUser(next)
+          if (next) {
+            void loadProfileAndOrg(next.id).then(() => refreshPermissions())
+          } else {
+            setProfile(null)
+            setOrganization(null)
+          }
         })
         unsubscribe = () => subscription.unsubscribe()
 
@@ -130,7 +145,7 @@ export function useOrgSetup() {
       cancelled = true
       unsubscribe?.()
     }
-  }, [supabase, loadProfileAndOrg])
+  }, [supabase, loadProfileAndOrg, refreshPermissions])
 
   useEffect(() => {
     if (!supabase || !organization?.id) {
@@ -169,11 +184,12 @@ export function useOrgSetup() {
       if (rpcErr) throw rpcErr
       const id = typeof newId === 'string' ? newId : String(newId)
       await loadProfileAndOrg(user.id)
+      await refreshPermissions()
       const { data: org } = await supabase.from('organizations').select('*').eq('id', id).single()
       setOrganization(org as OrganizationRow)
       return org as OrganizationRow
     },
-    [supabase, user, loadProfileAndOrg],
+    [supabase, user, loadProfileAndOrg, refreshPermissions],
   )
 
   const updateDisplayName = useCallback(
@@ -276,6 +292,14 @@ export function useOrgSetup() {
     [supabase, organization?.id],
   )
 
+  const signOut = useCallback(async () => {
+    if (!supabase) return
+    await supabase.auth.signOut()
+    setUser(null)
+    setProfile(null)
+    setOrganization(null)
+  }, [supabase])
+
   const completeOnboarding = useCallback(async () => {
     if (!supabase || !organization?.id) throw new Error('Mangler organisasjon.')
     const { error: e } = await supabase
@@ -286,23 +310,31 @@ export function useOrgSetup() {
     setOrganization((o) =>
       o ? { ...o, onboarding_completed_at: new Date().toISOString() } : o,
     )
-  }, [supabase, organization?.id])
+    await refreshPermissions()
+  }, [supabase, organization?.id, refreshPermissions])
 
   const needsOnboarding = useMemo(() => {
     if (!supabase) return false
+    if (!user) return false
     if (!profile?.organization_id) return true
     if (!organization?.onboarding_completed_at) return true
     return false
-  }, [supabase, profile?.organization_id, organization?.onboarding_completed_at])
+  }, [supabase, user, profile?.organization_id, organization?.onboarding_completed_at])
 
   const ready = loadState === 'ready' || loadState === 'idle'
 
   return {
+    supabase,
     supabaseConfigured: !!supabase,
     loadState,
     ready,
     error,
     user,
+    can,
+    permissionKeys,
+    permissionsLoading,
+    refreshPermissions,
+    isAdmin,
     profile,
     organization,
     departments,
@@ -318,6 +350,7 @@ export function useOrgSetup() {
     addLocation,
     addOrgMember,
     completeOnboarding,
+    signOut,
     fetchEnhetByOrgnr,
     normalizeOrgNumber,
   }

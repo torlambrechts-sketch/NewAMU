@@ -12,6 +12,8 @@ export type ProfileRow = {
   id: string
   organization_id: string | null
   display_name: string
+  email?: string | null
+  is_org_admin?: boolean
   created_at: string
   updated_at: string
 }

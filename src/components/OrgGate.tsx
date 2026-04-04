@@ -2,9 +2,9 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 
-/** Redirects to /onboarding when Supabase is configured but org setup is incomplete. */
+/** Auth required when Supabase is on; onboarding until org is complete. */
 export function OrgGate() {
-  const { supabaseConfigured, loadState, needsOnboarding } = useOrgSetupContext()
+  const { supabaseConfigured, loadState, needsOnboarding, user } = useOrgSetupContext()
   const location = useLocation()
 
   if (loadState === 'loading') {
@@ -16,8 +16,16 @@ export function OrgGate() {
     )
   }
 
-  if (supabaseConfigured && needsOnboarding && location.pathname !== '/onboarding') {
-    return <Navigate to="/onboarding" replace state={{ from: location.pathname }} />
+  const path = location.pathname
+  const isPublicAuth = path === '/login' || path === '/signup'
+  const isInvite = path.startsWith('/invite/')
+
+  if (supabaseConfigured && !user && !isPublicAuth && !isInvite) {
+    return <Navigate to={`/login?redirect=${encodeURIComponent(path + location.search)}`} replace />
+  }
+
+  if (supabaseConfigured && user && needsOnboarding && path !== '/onboarding') {
+    return <Navigate to="/onboarding" replace state={{ from: path }} />
   }
 
   return <Outlet />
