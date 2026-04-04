@@ -1,0 +1,374 @@
+import type { PageTemplate } from '../types/documents'
+
+/**
+ * Pre-built page templates covering mandatory content under:
+ *   - Internkontrollforskriften (IK-f) §5
+ *   - Arbeidsmiljøloven (AML) §2-1, §3-1, §6, §7
+ *   - Forskrift om organisering, ledelse og medvirkning
+ */
+export const PAGE_TEMPLATES: PageTemplate[] = [
+
+  // ── 1. HMS-mål og policy ─────────────────────────────────────────────────
+
+  {
+    id: 'tpl-hms-policy',
+    label: 'HMS-policy og mål',
+    description: 'Virksomhetens overordnede HMS-erklæring, mål og ledelsens forpliktelse.',
+    legalBasis: ['IK-f §5 nr. 1a', 'AML §3-1 (1)'],
+    category: 'hms_handbook',
+    page: {
+      title: 'HMS-policy og mål',
+      summary: 'Virksomhetens overordnede HMS-erklæring og konkrete HMS-mål.',
+      status: 'draft',
+      template: 'policy',
+      legalRefs: ['IK-f §5 nr. 1a', 'AML §3-1 (1)'],
+      requiresAcknowledgement: true,
+      blocks: [
+        { kind: 'alert', variant: 'info', text: 'IK-forskriften §5 nr. 1a krever at HMS-mål er fastsatt og skriftlig dokumentert.' },
+        { kind: 'heading', level: 1, text: 'HMS-policy' },
+        { kind: 'text', body: '<p>[Virksomhetens navn] er forpliktet til å skape et trygt, sunt og inkluderende arbeidsmiljø. Ledelsen tar ansvar for at HMS-arbeidet er systematisk, forebyggende og i samsvar med norsk regelverk.</p>' },
+        { kind: 'heading', level: 2, text: 'Våre HMS-mål' },
+        { kind: 'text', body: '<ul><li>Null ulykker og skader på arbeidsplassen</li><li>Sykefraværet skal ikke overstige 4 %</li><li>Alle ansatte skal ha gjennomført obligatorisk HMS-opplæring</li><li>Alle avvik skal behandles innen 14 dager</li></ul>' },
+        { kind: 'heading', level: 2, text: 'Ansvar' },
+        { kind: 'text', body: '<p>Daglig leder har det overordnede ansvaret. Alle ledere har HMS-ansvar i sin avdeling. Verneombudet bistår i kartlegging og oppfølging.</p>' },
+        { kind: 'module', moduleName: 'live_org_chart', params: { showVerneombud: true } },
+        { kind: 'law_ref', ref: 'AML §3-1', description: 'Krav til systematisk helse-, miljø- og sikkerhetsarbeid', url: 'https://lovdata.no/lov/2005-06-17-62/§3-1' },
+        { kind: 'law_ref', ref: 'IK-f §5 nr. 1a', description: 'HMS-mål skal fastsettes skriftlig', url: 'https://lovdata.no/forskrift/1996-12-06-1127/§5' },
+        { kind: 'module', moduleName: 'acknowledgement_footer' },
+      ],
+    },
+  },
+
+  // ── 2. Organisasjon og ansvar ────────────────────────────────────────────
+
+  {
+    id: 'tpl-org-ansvar',
+    label: 'Organisasjon og ansvarsfordeling',
+    description: 'Hvem er ansvarlig for hva i HMS-arbeidet. Påkrevd av IK-f §5 nr. 1b.',
+    legalBasis: ['IK-f §5 nr. 1b', 'AML §2-1', 'AML §3-1 (2b)'],
+    category: 'hms_handbook',
+    page: {
+      title: 'Organisasjon og ansvarsfordeling',
+      summary: 'Oversikt over HMS-ansvaret i organisasjonen — hvem gjør hva.',
+      status: 'draft',
+      template: 'standard',
+      legalRefs: ['IK-f §5 nr. 1b', 'AML §2-1'],
+      requiresAcknowledgement: false,
+      blocks: [
+        { kind: 'alert', variant: 'info', text: 'IK-forskriften §5 nr. 1b: Oversikt over organisasjon, ansvarsforhold, oppgaver og myndighet.' },
+        { kind: 'heading', level: 1, text: 'Organisasjon og HMS-ansvar' },
+        { kind: 'heading', level: 2, text: 'Ledelsens ansvar' },
+        { kind: 'text', body: '<p>Arbeidsgivers ansvar etter AML §2-1 kan ikke delegeres. Daglig leder er ansvarlig for at internkontrollsystemet etableres, gjennomføres og vedlikeholdes.</p>' },
+        { kind: 'heading', level: 2, text: 'AMU og verneorganisasjon' },
+        { kind: 'module', moduleName: 'live_org_chart', params: { showAMU: true, showVerneombud: true } },
+        { kind: 'heading', level: 2, text: 'Ansvarsmatrise' },
+        { kind: 'text', body: '<table><thead><tr><th>Rolle</th><th>HMS-ansvar</th></tr></thead><tbody><tr><td>Daglig leder</td><td>Overordnet ansvar, ressurser, rapportering</td></tr><tr><td>Avdelingsleder</td><td>HMS i egen avdeling, avviksoppfølging</td></tr><tr><td>Verneombud</td><td>Medvirkning, varsling, tilsyn</td></tr><tr><td>Alle ansatte</td><td>Melde avvik, bruke verneutstyr, delta i kartlegging</td></tr></tbody></table>' },
+        { kind: 'law_ref', ref: 'AML §2-1', description: 'Arbeidsgivers plikter', url: 'https://lovdata.no/lov/2005-06-17-62/§2-1' },
+        { kind: 'law_ref', ref: 'IK-f §5 nr. 1b', description: 'Oversikt over ansvar og myndighet', url: 'https://lovdata.no/forskrift/1996-12-06-1127/§5' },
+      ],
+    },
+  },
+
+  // ── 3. Risikovurdering – mal ─────────────────────────────────────────────
+
+  {
+    id: 'tpl-risikovurdering',
+    label: 'Risikovurdering — prosedyre og live feed',
+    description: 'Prosedyre for risikovurdering koblet til live ROS-oversikt fra systemet.',
+    legalBasis: ['IK-f §5 nr. 2', 'IK-f §5 nr. 3', 'AML §3-1 (2c)'],
+    category: 'hms_handbook',
+    page: {
+      title: 'Risikovurdering',
+      summary: 'Prosedyre for kartlegging av farer og risikovurdering, med live oversikt over aktive risikoer.',
+      status: 'draft',
+      template: 'standard',
+      legalRefs: ['IK-f §5 nr. 2', 'IK-f §5 nr. 3', 'AML §3-1 (2c)'],
+      requiresAcknowledgement: false,
+      blocks: [
+        { kind: 'alert', variant: 'warning', text: 'IK-forskriften §5 nr. 2–3 krever kartlegging av farer og risikovurdering med tilhørende handlingsplaner.' },
+        { kind: 'heading', level: 1, text: 'Risikovurdering' },
+        { kind: 'text', body: '<p>Virksomheten skal kartlegge farer og problemer, og på denne bakgrunn vurdere risiko, samt utarbeide tilhørende planer og tiltak for å redusere risikoforholdene, jf. IK-f §5 nr. 2.</p>' },
+        { kind: 'heading', level: 2, text: 'Metode' },
+        { kind: 'text', body: '<p>Vi benytter ROS-analyse (Risiko og Sårbarhetsanalyse) med sannsynlighet × konsekvens som risikoskår. Alle risikoer dokumenteres i avdelingens ROS-skjema og følges opp av leder.</p>' },
+        { kind: 'heading', level: 2, text: 'Aktive høyrisikoer — live oversikt' },
+        { kind: 'module', moduleName: 'live_risk_feed', params: { maxItems: 3, showDepartment: true } },
+        { kind: 'heading', level: 2, text: 'Prosedyre for ny risikovurdering' },
+        { kind: 'text', body: '<ol><li>Identifiser fare eller aktivitet med risikopotensial</li><li>Vurder sannsynlighet (1–5) og konsekvens (1–5)</li><li>Beregn risikoskår og klassifiser (grønn/gul/rød)</li><li>Beskriv tiltak og ansvarlig person</li><li>Dokumenter i ROS-systemet og følg opp</li></ol>' },
+        { kind: 'module', moduleName: 'action_button', params: { label: 'Opprett ny ROS-vurdering', route: '/internal-control?tab=ros', variant: 'primary' } },
+        { kind: 'law_ref', ref: 'IK-f §5 nr. 2', description: 'Kartlegging av farer og risikovurdering', url: 'https://lovdata.no/forskrift/1996-12-06-1127/§5' },
+        { kind: 'law_ref', ref: 'AML §3-1 (2c)', description: 'Kartlegging, risikovurdering, handlingsplaner', url: 'https://lovdata.no/lov/2005-06-17-62/§3-1' },
+      ],
+    },
+  },
+
+  // ── 4. Avviksbehandling ──────────────────────────────────────────────────
+
+  {
+    id: 'tpl-avvik',
+    label: 'Avviksbehandling',
+    description: 'Rutine for melding, behandling og lukking av avvik og uønskede hendelser.',
+    legalBasis: ['IK-f §5 nr. 4', 'AML §3-1 (2e)'],
+    category: 'hms_handbook',
+    page: {
+      title: 'Avviksbehandling',
+      summary: 'Rutine for å avdekke, rette opp og forebygge avvik og regelverksovertredelser.',
+      status: 'draft',
+      template: 'standard',
+      legalRefs: ['IK-f §5 nr. 4', 'AML §3-1 (2e)'],
+      requiresAcknowledgement: true,
+      blocks: [
+        { kind: 'alert', variant: 'danger', text: 'IK-forskriften §5 nr. 4: Rutiner for å avdekke, rette opp og forebygge overtredelser er lovpålagt.' },
+        { kind: 'heading', level: 1, text: 'Avviksbehandling' },
+        { kind: 'text', body: '<p>Et avvik er ethvert brudd på krav fastsatt i eller i medhold av helse-, miljø- og sikkerhetslovgivningen, eller interne krav. Uønskede hendelser, nesten-ulykker og farlige forhold skal meldes.</p>' },
+        { kind: 'heading', level: 2, text: 'Meldeplikt' },
+        { kind: 'text', body: '<p>Alle ansatte har plikt og rett til å melde avvik. Meldingen skal skje uten frykt for sanksjoner. Leder plikter å behandle og følge opp alle meldinger.</p>' },
+        { kind: 'heading', level: 2, text: 'Prosess' },
+        { kind: 'text', body: '<ol><li><strong>Meld avviket</strong> i avvikssystemet umiddelbart</li><li><strong>Ansvarlig leder</strong> vurderer alvorlighet og setter status</li><li><strong>Rotårsaksanalyse</strong> gjennomføres for alvorlige avvik</li><li><strong>Tiltak</strong> planlegges, ansvar tildeles og frist settes</li><li><strong>Lukking</strong> bekreftes av leder når tiltak er gjennomført</li><li><strong>Statistikk</strong> gjennomgås i AMU kvartalsvis</li></ol>' },
+        { kind: 'module', moduleName: 'action_button', params: { label: 'Meld HMS-avvik', route: '/hse?tab=incidents', variant: 'danger' } },
+        { kind: 'module', moduleName: 'action_button', params: { label: 'Meld varslingssak', route: '/internal-control?tab=whistle', variant: 'secondary' } },
+        { kind: 'law_ref', ref: 'IK-f §5 nr. 4', description: 'Rutiner for å avdekke og rette opp avvik', url: 'https://lovdata.no/forskrift/1996-12-06-1127/§5' },
+        { kind: 'law_ref', ref: 'AML §3-1 (2e)', description: 'Rutiner for avdekke og rette opp regelverksovertredelser', url: 'https://lovdata.no/lov/2005-06-17-62/§3-1' },
+        { kind: 'module', moduleName: 'acknowledgement_footer' },
+      ],
+    },
+  },
+
+  // ── 5. Beredskapsplan ────────────────────────────────────────────────────
+
+  {
+    id: 'tpl-beredskap',
+    label: 'Beredskapsplan',
+    description: 'Beredskapsplan for brann, ulykke og krisesituasjoner. Påkrevd av AML §4-1.',
+    legalBasis: ['AML §4-1', 'Brann- og eksplosjonsvernloven'],
+    category: 'hms_handbook',
+    page: {
+      title: 'Beredskapsplan',
+      summary: 'Prosedyrer og kontaktlister for brann, ulykker og krisehåndtering.',
+      status: 'draft',
+      template: 'wide',
+      legalRefs: ['AML §4-1', 'IK-f §5 nr. 3'],
+      requiresAcknowledgement: true,
+      blocks: [
+        { kind: 'alert', variant: 'danger', text: 'Beredskapsplanen skal være kjent av alle ansatte og oppdateres ved organisasjonsendringer.' },
+        { kind: 'heading', level: 1, text: 'Beredskapsplan' },
+        { kind: 'heading', level: 2, text: 'Nødnumre' },
+        { kind: 'text', body: '<table><thead><tr><th>Situasjon</th><th>Nummer</th></tr></thead><tbody><tr><td>Brann</td><td>110</td></tr><tr><td>Politi</td><td>112</td></tr><tr><td>Ambulanse</td><td>113</td></tr><tr><td>Bedriftshelsetjeneste</td><td>[Fyll inn]</td></tr><tr><td>Intern krisekontakt</td><td>[Fyll inn]</td></tr></tbody></table>' },
+        { kind: 'heading', level: 2, text: 'Ved brann' },
+        { kind: 'text', body: '<ol><li>Varsle umiddelbart — aktiver brannalarm</li><li>Ring 110</li><li>Evakuer alle via rømningsveier</li><li>Møt på samlingsplass: [Beskriv samlingsplass]</li><li>Avklar at alle er evakuert</li><li>Ikke gå inn igjen før brannvesen gir klarsignal</li></ol>' },
+        { kind: 'heading', level: 2, text: 'Ved personulykke' },
+        { kind: 'text', body: '<ol><li>Ring 113 ved alvorlig skade</li><li>Gi førstehjelp inntil hjelp ankommer</li><li>Varsle nærmeste leder og HMS-ansvarlig</li><li>Sikre ulykkesstedet</li><li>Fyll ut skaderapport i avvikssystemet</li></ol>' },
+        { kind: 'module', moduleName: 'action_button', params: { label: 'Registrer hendelse', route: '/hse?tab=incidents', variant: 'danger' } },
+        { kind: 'law_ref', ref: 'AML §4-1', description: 'Krav til fullt forsvarlig arbeidsmiljø', url: 'https://lovdata.no/lov/2005-06-17-62/§4-1' },
+        { kind: 'module', moduleName: 'acknowledgement_footer' },
+      ],
+    },
+  },
+
+  // ── 6. Opplæringsplan ────────────────────────────────────────────────────
+
+  {
+    id: 'tpl-opplaering',
+    label: 'HMS-opplæringsplan',
+    description: 'Plan for obligatorisk HMS-opplæring. Hjemlet i AML §3-2 og verneombudsforskriften.',
+    legalBasis: ['AML §3-2', 'IK-f §5 nr. 1c', 'Forskrift om organisering ledelse og medvirkning §3-18'],
+    category: 'hms_handbook',
+    page: {
+      title: 'HMS-opplæringsplan',
+      summary: 'Oversikt over påkrevd og anbefalt HMS-opplæring for alle roller.',
+      status: 'draft',
+      template: 'standard',
+      legalRefs: ['AML §3-2', 'IK-f §5 nr. 1c'],
+      requiresAcknowledgement: false,
+      blocks: [
+        { kind: 'alert', variant: 'info', text: 'AML §3-2 pålegger arbeidsgiver å sørge for at arbeidstakere har tilstrekkelig opplæring til å utføre arbeidet forsvarlig.' },
+        { kind: 'heading', level: 1, text: 'HMS-opplæringsplan' },
+        { kind: 'heading', level: 2, text: 'Obligatorisk opplæring for alle ansatte' },
+        { kind: 'text', body: '<table><thead><tr><th>Opplæring</th><th>Frekvens</th><th>Hjemmel</th></tr></thead><tbody><tr><td>Brannvern og evakuering</td><td>Årlig</td><td>Brannvernloven</td></tr><tr><td>HMS-introduksjon (nyansatt)</td><td>Ved ansettelse</td><td>AML §3-2</td></tr><tr><td>Avviksbehandling</td><td>Hvert 2. år</td><td>IK-f §5</td></tr><tr><td>Ergonomi og arbeidsmiljø</td><td>Hvert 2. år</td><td>AML §4-1</td></tr></tbody></table>' },
+        { kind: 'heading', level: 2, text: 'Opplæring for ledere og HMS-ansvarlige' },
+        { kind: 'text', body: '<table><thead><tr><th>Opplæring</th><th>Omfang</th><th>Hjemmel</th></tr></thead><tbody><tr><td>Systematisk HMS-arbeid (40t)</td><td>Én gang</td><td>AML §3-5</td></tr><tr><td>Arbeidsmiljølovgivning</td><td>Hvert 3. år</td><td>AML §3-2</td></tr></tbody></table>' },
+        { kind: 'heading', level: 2, text: 'Verneombudopplæring' },
+        { kind: 'text', body: '<p>Verneombudet har krav på minst 40 timers opplæring i arbeidsmiljøarbeid, jf. AML §6-5 og forskrift om organisering, ledelse og medvirkning §3-18. Arbeidsgiveren bærer kostnadene.</p>' },
+        { kind: 'module', moduleName: 'action_button', params: { label: 'Gå til E-learning', route: '/learning', variant: 'primary' } },
+        { kind: 'law_ref', ref: 'AML §3-2', description: 'Særlig plikt til opplæring', url: 'https://lovdata.no/lov/2005-06-17-62/§3-2' },
+        { kind: 'law_ref', ref: 'AML §6-5', description: 'Verneombudets opplæring og ressurser', url: 'https://lovdata.no/lov/2005-06-17-62/§6-5' },
+      ],
+    },
+  },
+
+  // ── 7. Årsgjennomgang av internkontrollen ────────────────────────────────
+
+  {
+    id: 'tpl-aarsgjennomgang',
+    label: 'Årsgjennomgang av internkontrollen',
+    description: 'Skriftlig resultat fra den årlige gjennomgangen. Lovpålagt av IK-f §5 nr. 5.',
+    legalBasis: ['IK-f §5 nr. 5', 'AML §3-1 (2h)'],
+    category: 'hms_handbook',
+    page: {
+      title: 'Årsgjennomgang av internkontrollen [ÅR]',
+      summary: 'Skriftlig resultat fra den årlige gjennomgangen av HMS-systemet.',
+      status: 'draft',
+      template: 'policy',
+      legalRefs: ['IK-f §5 nr. 5', 'AML §3-1 (2h)'],
+      requiresAcknowledgement: false,
+      blocks: [
+        { kind: 'alert', variant: 'warning', text: 'IK-forskriften §5 nr. 5 krever at den systematiske overvåkingen av HMS-arbeidet dokumenteres skriftlig.' },
+        { kind: 'heading', level: 1, text: 'Årsgjennomgang av internkontrollen' },
+        { kind: 'text', body: '<p><strong>Gjennomføringsdato:</strong> [dato]<br/><strong>Ansvarlig:</strong> [navn]<br/><strong>Deltakere:</strong> [navn]</p>' },
+        { kind: 'heading', level: 2, text: 'Status HMS-mål' },
+        { kind: 'text', body: '<p>[Beskriv grad av måloppnåelse for hvert HMS-mål.]</p>' },
+        { kind: 'heading', level: 2, text: 'Avviksstatistikk' },
+        { kind: 'text', body: '<p>[Oppsummer antall avvik meldt, behandlet og lukkede dette året.]</p>' },
+        { kind: 'heading', level: 2, text: 'Aktive høyrisikoer' },
+        { kind: 'module', moduleName: 'live_risk_feed', params: { maxItems: 5, showDepartment: true } },
+        { kind: 'heading', level: 2, text: 'Verneorganisasjonen' },
+        { kind: 'module', moduleName: 'live_org_chart', params: { showAMU: true, showVerneombud: true } },
+        { kind: 'heading', level: 2, text: 'Forbedringsområder og handlingsplan' },
+        { kind: 'text', body: '<p>[Beskriv identifiserte forbedringsområder og tiltak for neste år.]</p>' },
+        { kind: 'heading', level: 2, text: 'Konklusjon og signatur' },
+        { kind: 'text', body: '<p>Gjennomgangen er utført i samsvar med kravene i IK-forskriften §5 nr. 5.</p><p>Signert: _________________________ Dato: _____________</p>' },
+        { kind: 'law_ref', ref: 'IK-f §5 nr. 5', description: 'Systematisk gjennomgang med skriftlig resultat', url: 'https://lovdata.no/forskrift/1996-12-06-1127/§5' },
+      ],
+    },
+  },
+
+  // ── 8. AMU-årsrapport ────────────────────────────────────────────────────
+
+  {
+    id: 'tpl-amu-rapport',
+    label: 'AMU-årsrapport',
+    description: 'AMUs årsrapport om arbeidsmiljøarbeidet. Hjemlet i AML §7-2.',
+    legalBasis: ['AML §7-2', 'Forskrift om organisering ledelse og medvirkning §3-2'],
+    category: 'hms_handbook',
+    page: {
+      title: 'AMU-årsrapport [ÅR]',
+      summary: 'AMUs årsrapport til ansatte og ledelse om arbeidsmiljøarbeidet.',
+      status: 'draft',
+      template: 'policy',
+      legalRefs: ['AML §7-2', 'AML §7-4'],
+      requiresAcknowledgement: false,
+      blocks: [
+        { kind: 'heading', level: 1, text: 'AMU-årsrapport' },
+        { kind: 'heading', level: 2, text: 'AMU-sammensetning' },
+        { kind: 'module', moduleName: 'live_org_chart', params: { showAMU: true, showVerneombud: true } },
+        { kind: 'heading', level: 2, text: 'Møter og saker' },
+        { kind: 'text', body: '<p>AMU har i [ÅR] avholdt [antall] møter. Følgende saker er behandlet: [liste].</p>' },
+        { kind: 'heading', level: 2, text: 'Arbeidsmiljøstatus' },
+        { kind: 'text', body: '<p>[Beskriv det generelle arbeidsmiljøet, hendelser av betydning og gjennomførte tiltak.]</p>' },
+        { kind: 'heading', level: 2, text: 'Sykefravær' },
+        { kind: 'text', body: '<p>Sykefravær [ÅR]: [%]. Sykefraværsarbeid er gjennomført i henhold til IA-avtalen og AML §4-6.</p>' },
+        { kind: 'heading', level: 2, text: 'Anbefalinger til ledelsen' },
+        { kind: 'text', body: '<p>[AMUs anbefalinger for neste periode.]</p>' },
+        { kind: 'law_ref', ref: 'AML §7-2', description: 'AMUs oppgaver og plikter', url: 'https://lovdata.no/lov/2005-06-17-62/§7-2' },
+        { kind: 'law_ref', ref: 'AML §7-4', description: 'AMUs årsrapport', url: 'https://lovdata.no/lov/2005-06-17-62/§7-4' },
+      ],
+    },
+  },
+
+  // ── 9. Rusmiddelpolicy ───────────────────────────────────────────────────
+
+  {
+    id: 'tpl-rusmiddel',
+    label: 'Rusmidler på arbeidsplassen',
+    description: 'Policy for alkohol og rusmidler. Hjemlet i AML §8 og arbeidsreglementets krav.',
+    legalBasis: ['AML §2-3', 'AML §3-1'],
+    category: 'policy',
+    page: {
+      title: 'Rusmiddelpolicy',
+      summary: 'Virksomhetens regler for alkohol og rusmidler på arbeidsplassen.',
+      status: 'draft',
+      template: 'policy',
+      legalRefs: ['AML §2-3', 'AML §3-1'],
+      requiresAcknowledgement: true,
+      blocks: [
+        { kind: 'alert', variant: 'warning', text: 'Denne policyen skal undertegnes ved ansettelse og gjentas ved revisjoner.' },
+        { kind: 'heading', level: 1, text: 'Rusmiddelpolicy' },
+        { kind: 'text', body: '<p>[Virksomhetens navn] har nulltoleranse for bruk av alkohol og rusmidler i arbeidstiden og på arbeidsstedet.</p>' },
+        { kind: 'heading', level: 2, text: 'Regler' },
+        { kind: 'text', body: '<ul><li>Inntak av alkohol eller rusmidler i arbeidstiden er forbudt</li><li>Møte på jobb påvirket er forbudt</li><li>Unntak for sosiale arrangementer i regi av virksomheten avtales særskilt</li></ul>' },
+        { kind: 'heading', level: 2, text: 'Oppfølging' },
+        { kind: 'text', body: '<p>Brudd på policyen håndteres iht. virksomhetens personalreglement. Ansatte med rusproblemer tilbys hjelp og oppfølging.</p>' },
+        { kind: 'law_ref', ref: 'AML §2-3', description: 'Arbeidstakers medvirkningsplikt og plikt til å melde fra', url: 'https://lovdata.no/lov/2005-06-17-62/§2-3' },
+        { kind: 'module', moduleName: 'acknowledgement_footer' },
+      ],
+    },
+  },
+
+  // ── 10. Verneombudets oppgaver ───────────────────────────────────────────
+
+  {
+    id: 'tpl-verneombud',
+    label: 'Verneombudets oppgaver og rettigheter',
+    description: 'Beskrivelse av verneombudets rolle iht. AML §6-2 og §6-3.',
+    legalBasis: ['AML §6-1', 'AML §6-2', 'AML §6-3', 'AML §6-5'],
+    category: 'guide',
+    page: {
+      title: 'Verneombudets oppgaver og rettigheter',
+      summary: 'Hva verneombudet skal gjøre, hvilke rettigheter de har, og hvem som er valgt.',
+      status: 'draft',
+      template: 'standard',
+      legalRefs: ['AML §6-2', 'AML §6-3', 'AML §6-5'],
+      requiresAcknowledgement: false,
+      blocks: [
+        { kind: 'heading', level: 1, text: 'Verneombudets oppgaver og rettigheter' },
+        { kind: 'heading', level: 2, text: 'Valgt verneombud' },
+        { kind: 'module', moduleName: 'live_org_chart', params: { showVerneombud: true, showAMU: false } },
+        { kind: 'heading', level: 2, text: 'Oppgaver (AML §6-2)' },
+        { kind: 'text', body: '<ul><li>Ivareta arbeidstakernes interesser i saker som angår arbeidsmiljøet</li><li>Se til at virksomheten er innrettet og vedlikeholdt, og at arbeidet er ordnet på forsvarlig måte</li><li>Ta opp spørsmål om sikkerheten med arbeidsgiver</li><li>Melde fra til myndigheter om nødvendig</li></ul>' },
+        { kind: 'heading', level: 2, text: 'Rettigheter (AML §6-3 og §6-5)' },
+        { kind: 'text', body: '<ul><li>Rett til å stanse farlig arbeid (§6-3)</li><li>Rett til nødvendig opplæring — minst 40 timer (§6-5)</li><li>Rett til å ta opp saker uten å bli forfulgt</li><li>Arbeidsgiveren dekker kostnader til opplæring</li></ul>' },
+        { kind: 'module', moduleName: 'action_button', params: { label: 'Send AMU-sak', route: '/council?tab=meetings', variant: 'secondary' } },
+        { kind: 'law_ref', ref: 'AML §6-2', description: 'Verneombudets oppgaver', url: 'https://lovdata.no/lov/2005-06-17-62/§6-2' },
+        { kind: 'law_ref', ref: 'AML §6-3', description: 'Verneombudets rett til å stanse farlig arbeid', url: 'https://lovdata.no/lov/2005-06-17-62/§6-3' },
+        { kind: 'law_ref', ref: 'AML §6-5', description: 'Opplæring og ressurser', url: 'https://lovdata.no/lov/2005-06-17-62/§6-5' },
+      ],
+    },
+  },
+]
+
+/** Seed spaces for the HMS Handbook */
+export const SEED_SPACES = [
+  {
+    id: 'space-hms',
+    title: 'HMS-håndbok',
+    description: 'Virksomhetens samlede HMS-dokumentasjon iht. Internkontrollforskriften og Arbeidsmiljøloven.',
+    category: 'hms_handbook' as const,
+    icon: '📋',
+    status: 'active' as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'space-policy',
+    title: 'Policyer og retningslinjer',
+    description: 'Interne retningslinjer og personalpolicyer.',
+    category: 'policy' as const,
+    icon: '📜',
+    status: 'active' as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'space-guide',
+    title: 'Veiledninger',
+    description: 'Praktiske veiledninger og rollebeskrivelser.',
+    category: 'guide' as const,
+    icon: '📖',
+    status: 'active' as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+]
+
+/** Compliance coverage map — which IK-f / AML requirements each template covers */
+export const LEGAL_COVERAGE: { ref: string; label: string; templateIds: string[] }[] = [
+  { ref: 'IK-f §5 nr. 1a', label: 'HMS-mål fastsatt skriftlig', templateIds: ['tpl-hms-policy'] },
+  { ref: 'IK-f §5 nr. 1b', label: 'Organisasjon og ansvarsfordeling', templateIds: ['tpl-org-ansvar'] },
+  { ref: 'IK-f §5 nr. 1c', label: 'Kunnskap om lover og regler', templateIds: ['tpl-opplaering'] },
+  { ref: 'IK-f §5 nr. 2', label: 'Kartlegging og risikovurdering', templateIds: ['tpl-risikovurdering'] },
+  { ref: 'IK-f §5 nr. 3', label: 'Handlingsplaner', templateIds: ['tpl-risikovurdering', 'tpl-beredskap'] },
+  { ref: 'IK-f §5 nr. 4', label: 'Rutiner for avviksbehandling', templateIds: ['tpl-avvik'] },
+  { ref: 'IK-f §5 nr. 5', label: 'Systematisk gjennomgang (skriftlig)', templateIds: ['tpl-aarsgjennomgang'] },
+  { ref: 'AML §3-2', label: 'HMS-opplæring', templateIds: ['tpl-opplaering'] },
+  { ref: 'AML §6-2/§6-5', label: 'Verneombud oppgaver og opplæring', templateIds: ['tpl-verneombud', 'tpl-opplaering'] },
+  { ref: 'AML §7-2/§7-4', label: 'AMU årsrapport', templateIds: ['tpl-amu-rapport'] },
+]
