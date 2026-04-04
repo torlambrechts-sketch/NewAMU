@@ -13,6 +13,8 @@ export function getSupabasePublicConfig(): { url: string; anonKey: string } | nu
   ).trim()
   const anonKey = (
     import.meta.env.VITE_SUPABASE_ANON_KEY ||
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
     import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
     import.meta.env.SUPABASE_ANON_KEY ||
     ''
