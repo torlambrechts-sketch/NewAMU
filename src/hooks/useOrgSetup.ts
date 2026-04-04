@@ -100,7 +100,8 @@ export function useOrgSetup() {
     const hydrateUser = async (uid: string) => {
       await ensureProfileRow(uid)
       await loadProfileAndOrg(uid)
-      await refreshPermissions()
+      // Ikke await: RPC kan henge eller mangle migrasjon — skal ikke blokkere innlasting
+      void refreshPermissions()
     }
 
     queueMicrotask(() => {
@@ -110,47 +111,61 @@ export function useOrgSetup() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (cancelled) return
 
       const next = session?.user ?? null
-      setUser(next)
-
-      // INITIAL_SESSION: authoritative after reload (getSession in the first tick can return null).
-      if (event === 'INITIAL_SESSION') {
-        try {
-          if (next) {
-            await hydrateUser(next.id)
-          }
-        } catch (e) {
-          if (!cancelled) {
-            setError(e instanceof Error ? e.message : 'Kunne ikke laste organisasjon')
-            setLoadState('error')
-          }
-          return
-        }
-        if (!cancelled) {
-          setLoadState('ready')
-        }
-        return
-      }
 
       if (event === 'SIGNED_OUT') {
+        setUser(null)
         setProfile(null)
         setOrganization(null)
         return
       }
 
-      if (next && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
-        try {
-          await ensureProfileRow(next.id)
-          await loadProfileAndOrg(next.id)
-          await refreshPermissions()
-        } catch {
-          /* ignore */
-        }
+      setUser(next)
+
+      if (next && (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED')) {
+        if (event === 'TOKEN_REFRESHED') return
+        void (async () => {
+          try {
+            await hydrateUser(next.id)
+          } catch {
+            /* ignore */
+          }
+        })()
       }
     })
+
+    void (async () => {
+      try {
+        const { data: sessionData, error: sessErr } = await supabase.auth.getSession()
+        if (sessErr) throw sessErr
+        const u = sessionData.session?.user ?? null
+        if (cancelled) return
+        setUser(u)
+        if (u) {
+          try {
+            await hydrateUser(u.id)
+          } catch (e) {
+            if (!cancelled) {
+              setError(e instanceof Error ? e.message : 'Kunne ikke laste profil')
+              setLoadState('error')
+            }
+            return
+          }
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Kunne ikke laste sesjon')
+          setLoadState('error')
+        }
+        return
+      }
+      if (!cancelled) {
+        setLoadState('ready')
+      }
+    })()
 
     return () => {
       cancelled = true
