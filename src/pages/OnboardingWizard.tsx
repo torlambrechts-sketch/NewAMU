@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Building2, ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react'
+import { ModulePageIcon } from '../components/ModulePageIcon'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { formatBrregAddress } from '../lib/brreg'
@@ -144,10 +145,10 @@ export function OnboardingWizard() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
-      <div className="mb-8 flex items-center gap-3">
-        <div className="flex size-12 items-center justify-center rounded-xl bg-[#1a3d32] text-white">
-          <Building2 className="size-7" aria-hidden />
-        </div>
+      <div className="mb-8 flex items-center gap-4">
+        <ModulePageIcon className="bg-[#1a3d32] text-white">
+          <Building2 className="size-9 md:size-10" strokeWidth={1.5} aria-hidden />
+        </ModulePageIcon>
         <div>
           <h1 className="font-serif text-2xl text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
             Oppsett av virksomhet

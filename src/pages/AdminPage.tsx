@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Download, Loader2, Mail, Plus, Shield, Upload, UserCog, Users } from 'lucide-react'
+import { ModulePageIcon } from '../components/ModulePageIcon'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { PERMISSION_KEYS, PERMISSION_LABELS } from '../lib/permissionKeys'
@@ -242,15 +243,22 @@ export function AdminPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      <h1
-        className="font-serif text-2xl text-[#1a3d32]"
-        style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-      >
-        Administrasjon
-      </h1>
-      <p className="mt-1 text-sm text-neutral-600">
-        Brukere, invitasjoner, roller og delegering for {organization.name} ({organization.organization_number}).
-      </p>
+      <div className="flex flex-wrap items-start gap-4">
+        <ModulePageIcon className="bg-[#1a3d32] text-[#c9a227]">
+          <Shield className="size-9 md:size-10" strokeWidth={1.5} aria-hidden />
+        </ModulePageIcon>
+        <div className="min-w-0">
+          <h1
+            className="font-serif text-2xl text-[#1a3d32]"
+            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+          >
+            Administrasjon
+          </h1>
+          <p className="mt-1 text-sm text-neutral-600">
+            Brukere, invitasjoner, roller og delegering for {organization.name} ({organization.organization_number}).
+          </p>
+        </div>
+      </div>
 
       <div className="mt-6 flex flex-wrap gap-2 border-b border-neutral-200 pb-3">
         {tabs.map((t) => {

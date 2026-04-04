@@ -10,6 +10,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react'
 import { SupabaseStatusCard } from '../components/SupabaseStatusCard'
+import { ModulePageIcon } from '../components/ModulePageIcon'
 import { departmentRows } from '../data/departments'
 
 const members = [
@@ -111,9 +112,9 @@ export function ProjectDashboard() {
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0">
           <div className="flex flex-wrap items-start gap-4 border-b border-neutral-200/80 pb-6">
-            <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-[#e1251b] text-3xl font-bold text-white">
+            <ModulePageIcon className="bg-[#e1251b] text-3xl font-bold text-white">
               A
-            </div>
+            </ModulePageIcon>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h1

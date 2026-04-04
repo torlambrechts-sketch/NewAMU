@@ -15,6 +15,7 @@ import {
   Users,
   Vote,
 } from 'lucide-react'
+import { ModulePageIcon } from '../components/ModulePageIcon'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { GovernanceWheel } from '../components/council/GovernanceWheel'
 import { MEETINGS_PER_YEAR, suggestedAgendaItems } from '../data/meetingGovernance'
@@ -182,9 +183,9 @@ export function CouncilModule() {
       </nav>
 
       <div className="flex flex-wrap items-start gap-4 border-b border-neutral-200/80 pb-6">
-        <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1a3d32] to-[#0f241d] text-[#c9a227] shadow-md ring-2 ring-[#c9a227]/30">
-          <Scale className="size-10" strokeWidth={1.5} aria-hidden />
-        </div>
+        <ModulePageIcon className="bg-gradient-to-br from-[#1a3d32] to-[#0f241d] text-[#c9a227] shadow-md ring-2 ring-[#c9a227]/30">
+          <Scale className="size-10 md:size-11" strokeWidth={1.5} aria-hidden />
+        </ModulePageIcon>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1

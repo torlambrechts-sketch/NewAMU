@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Globe, ListTree, Shield } from 'lucide-react'
+import { ModulePageIcon } from '../components/ModulePageIcon'
 
 const roadmap = [
   {
@@ -47,10 +48,10 @@ export function OrgHealthSettings() {
       </nav>
 
       <div className="rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm">
-        <div className="flex items-start gap-3">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-[#1a3d32] text-[#c9a227]">
-            <ListTree className="size-7" />
-          </div>
+        <div className="flex items-start gap-4">
+          <ModulePageIcon className="bg-[#1a3d32] text-[#c9a227]">
+            <ListTree className="size-9 md:size-10" strokeWidth={1.5} aria-hidden />
+          </ModulePageIcon>
           <div>
             <h1
               className="text-2xl font-semibold text-neutral-900"
