@@ -9,6 +9,7 @@ export type ModuleKind =
   | 'checklist'
   | 'tips'
   | 'on_job'
+  | 'event'
   | 'other'
 
 export type FlashcardSlide = {
@@ -46,6 +47,7 @@ export type ModuleContent =
   | { kind: 'checklist'; items: ChecklistItem[] }
   | { kind: 'tips'; items: string[] }
   | { kind: 'on_job'; tasks: OnJobTask[] }
+  | { kind: 'event'; instructions: string }
   | { kind: 'other'; title: string; body: string }
 
 export type CourseModule = {
@@ -79,6 +81,10 @@ export type Course = {
   origin?: CourseOrigin
   /** True when this row is the org's editable copy of a system course */
   forkedFromSystemId?: string | null
+  /** Bumped when content changes; certificates reference this */
+  courseVersion?: number
+  /** Months until recertification (optional) */
+  recertificationMonths?: number | null
 }
 
 export type ModuleProgress = {
@@ -101,6 +107,10 @@ export type CourseProgress = {
   moduleProgress: Record<string, ModuleProgress>
   startedAt: string
   completedAt?: string
+  /** Set when progress is loaded from Supabase (org-wide for managers) */
+  userId?: string
+  /** Display name from profiles (participants table) */
+  learnerName?: string
 }
 
 export type Certificate = {
@@ -111,4 +121,6 @@ export type Certificate = {
   issuedAt: string
   /** simple verification code */
   verifyCode: string
+  /** Snapshot of course law/content version at issue time */
+  courseVersion?: number
 }

@@ -50,6 +50,7 @@ export function LearningCertifications() {
               <th className="px-4 py-3 font-medium">Course</th>
               <th className="px-4 py-3 font-medium">Learner</th>
               <th className="px-4 py-3 font-medium">Issued</th>
+              <th className="px-4 py-3 font-medium">Versjon</th>
               <th className="px-4 py-3 font-medium">Verify</th>
             </tr>
           </thead>
@@ -61,6 +62,7 @@ export function LearningCertifications() {
                 <td className="px-4 py-3 text-xs text-neutral-500">
                   {new Date(c.issuedAt).toLocaleString()}
                 </td>
+                <td className="px-4 py-3 text-xs text-neutral-600">{c.courseVersion ?? '—'}</td>
                 <td className="px-4 py-3 font-mono text-xs">{c.verifyCode}</td>
               </tr>
             ))}

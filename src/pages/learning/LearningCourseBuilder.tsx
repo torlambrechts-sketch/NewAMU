@@ -19,6 +19,7 @@ const MODULE_KINDS: { id: ModuleKind | 'all'; label: string }[] = [
   { id: 'checklist', label: 'Checklist' },
   { id: 'tips', label: 'Practical tips' },
   { id: 'on_job', label: 'On-the-job' },
+  { id: 'event', label: 'Event (ILT)' },
   { id: 'other', label: 'Other' },
 ]
 
@@ -31,6 +32,7 @@ const ADD_KINDS: { kind: ModuleKind; label: string }[] = [
   { kind: 'checklist', label: 'Checklist' },
   { kind: 'tips', label: 'Practical tips' },
   { kind: 'on_job', label: 'On-the-job' },
+  { kind: 'event', label: 'Event (ILT)' },
   { kind: 'other', label: 'Other' },
 ]
 
@@ -50,6 +52,8 @@ export function LearningCourseBuilder() {
     forkSystemCourse,
     learningLoading,
     learningError,
+    upsertIltEvent,
+    bumpCourseVersion,
   } = useLearning()
   const otherCourses = courses.filter((c) => c.id !== courseId)
   const course = courses.find((c) => c.id === courseId)
@@ -314,6 +318,45 @@ export function LearningCourseBuilder() {
               </ul>
             </div>
           ) : null}
+          <div className="mt-6 border-t border-neutral-100 pt-4">
+            <p className="text-xs font-medium text-neutral-500">Oppfriskning / sertifisering</p>
+            <p className="mt-1 text-xs text-neutral-500">
+              Antall måneder til sertifikatet utløper og må fornyes (valgfritt). Brukes for påminnelser og status.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <label className="text-sm text-neutral-700">
+                Måneder til fornyelse
+                <input
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={course.recertificationMonths ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value === '' ? null : Math.min(120, Math.max(0, Number(e.target.value)))
+                    updateCourse(course.id, { recertificationMonths: v })
+                  }}
+                  placeholder="—"
+                  className="ml-2 w-20 rounded-lg border border-neutral-200 px-2 py-1 text-sm"
+                />
+              </label>
+              <span className="text-xs text-neutral-500">
+                Kursversjon: <strong>{course.courseVersion ?? 1}</strong> (økes ved innholdsendringer for revisjon)
+              </span>
+              <button
+                type="button"
+                className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#2D403A] hover:bg-neutral-50"
+                onClick={() => {
+                  if (!confirm('Øke kursversjon? Nye fullføringer får ny versjon på sertifikatet.')) return
+                  void (async () => {
+                    const r = await bumpCourseVersion(course.id)
+                    if (!r.ok) alert(r.error)
+                  })()
+                }}
+              >
+                Øk versjon
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -403,6 +446,7 @@ export function LearningCourseBuilder() {
                   mod={selected}
                   updateModule={updateModule}
                   deleteModule={deleteModule}
+                  upsertIltEvent={upsertIltEvent}
                   onDeleted={() => setSelectedId(null)}
                 />
               ) : (
@@ -450,12 +494,14 @@ function ModuleEditor({
   mod,
   updateModule,
   deleteModule,
+  upsertIltEvent,
   onDeleted,
 }: {
   courseId: string
   mod: CourseModule
   updateModule: ReturnType<typeof useLearning>['updateModule']
   deleteModule: ReturnType<typeof useLearning>['deleteModule']
+  upsertIltEvent: ReturnType<typeof useLearning>['upsertIltEvent']
   onDeleted: () => void
 }) {
   const [title, setTitle] = useState(mod.title)
@@ -534,7 +580,126 @@ function ModuleEditor({
         </div>
       ) : null}
 
+      {mod.kind === 'event' ? (
+        <IltScheduleForm
+          courseId={courseId}
+          moduleId={mod.id}
+          defaultTitle={mod.title}
+          upsertIltEvent={upsertIltEvent}
+        />
+      ) : null}
+
       <ContentFields courseId={courseId} mod={mod} updateModule={updateModule} />
+    </div>
+  )
+}
+
+function IltScheduleForm({
+  courseId,
+  moduleId,
+  defaultTitle,
+  upsertIltEvent,
+}: {
+  courseId: string
+  moduleId: string
+  defaultTitle: string
+  upsertIltEvent: ReturnType<typeof useLearning>['upsertIltEvent']
+}) {
+  const [title, setTitle] = useState(defaultTitle)
+  const [startsAt, setStartsAt] = useState('')
+  const [endsAt, setEndsAt] = useState('')
+  const [locationText, setLocationText] = useState('')
+  const [meetingUrl, setMeetingUrl] = useState('')
+  const [instructorName, setInstructorName] = useState('')
+  const [msg, setMsg] = useState<string | null>(null)
+
+  return (
+    <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+      <p className="text-xs font-semibold text-[#2D403A]">Planlegg ILT / vILT-økt</p>
+      <p className="mt-1 text-xs text-neutral-600">
+        Én økt per modul. Deltakere kan RSVP og oppmøte registreres i spilleren.
+      </p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <label className="text-xs text-neutral-600">
+          Tittel på økt
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          />
+        </label>
+        <label className="text-xs text-neutral-600">
+          Start (lokal tid)
+          <input
+            type="datetime-local"
+            value={startsAt}
+            onChange={(e) => setStartsAt(e.target.value)}
+            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          />
+        </label>
+        <label className="text-xs text-neutral-600">
+          Slutt (valgfritt)
+          <input
+            type="datetime-local"
+            value={endsAt}
+            onChange={(e) => setEndsAt(e.target.value)}
+            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          />
+        </label>
+        <label className="text-xs text-neutral-600">
+          Sted / rom
+          <input
+            value={locationText}
+            onChange={(e) => setLocationText(e.target.value)}
+            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          />
+        </label>
+        <label className="text-xs text-neutral-600 sm:col-span-2">
+          Teams / Meet-lenke
+          <input
+            value={meetingUrl}
+            onChange={(e) => setMeetingUrl(e.target.value)}
+            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          />
+        </label>
+        <label className="text-xs text-neutral-600 sm:col-span-2">
+          Instruktør
+          <input
+            value={instructorName}
+            onChange={(e) => setInstructorName(e.target.value)}
+            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          />
+        </label>
+      </div>
+      <button
+        type="button"
+        className="mt-3 rounded-lg px-4 py-2 text-sm font-medium text-white"
+        style={{ backgroundColor: PIN_GREEN }}
+        onClick={() => {
+          if (!startsAt) {
+            setMsg('Velg starttidspunkt.')
+            return
+          }
+          const isoStart = new Date(startsAt).toISOString()
+          const isoEnd = endsAt ? new Date(endsAt).toISOString() : null
+          void (async () => {
+            const r = await upsertIltEvent({
+              courseId,
+              moduleId,
+              title: title.trim() || defaultTitle,
+              startsAt: isoStart,
+              endsAt: isoEnd,
+              locationText: locationText.trim() || null,
+              meetingUrl: meetingUrl.trim() || null,
+              instructorName: instructorName.trim() || null,
+            })
+            setMsg(r.ok ? 'Lagret økt.' : r.error)
+          })()
+        }}
+      >
+        Lagre økt
+      </button>
+      {msg ? <p className="mt-2 text-xs text-neutral-700">{msg}</p> : null}
     </div>
   )
 }
@@ -785,6 +950,15 @@ function ContentFields({
           + Tip
         </button>
       </ul>
+    )
+  }
+
+  if (c.kind === 'event') {
+    return (
+      <RichTextEditor
+        value={c.instructions}
+        onChange={(html) => updateModule(courseId, mod.id, { content: { kind: 'event', instructions: html } })}
+      />
     )
   }
 

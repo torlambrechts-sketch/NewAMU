@@ -76,6 +76,60 @@ export type LearningFlowSettings = {
   genericWebhookUrl: string | null
 }
 
+export type CertificationRenewalRow = {
+  id: string
+  courseId: string
+  certificateId: string | null
+  expiresAt: string
+  status: 'compliant' | 'expiring_soon' | 'expired' | 'renewed'
+}
+
+export type ExternalCertificateRow = {
+  id: string
+  title: string
+  issuer: string | null
+  validUntil: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  createdAt: string
+}
+
+export type IltEventRow = {
+  id: string
+  courseId: string
+  moduleId: string
+  title: string
+  startsAt: string
+  endsAt: string | null
+  locationText: string | null
+  meetingUrl: string | null
+  instructorName: string | null
+}
+
+export type IltRsvpStatus = 'going' | 'declined' | 'waitlist'
+
+export type LearningPathRow = {
+  id: string
+  name: string
+  slug: string
+  description: string
+  courseIds: string[]
+  rules: { metadataKey: string; expectedValue: unknown }[]
+}
+
+export type PathEnrollmentRow = {
+  pathId: string
+  enrolledAt: string
+}
+
+export type ComplianceMatrixCell = {
+  userId: string
+  displayName: string
+  courseId: string
+  courseTitle: string
+  cellStatus: 'not_started' | 'in_progress' | 'complete'
+  completionPct: number
+}
+
 export type SystemCourseAdminRow = {
   systemCourseId: string
   slug: string
@@ -171,6 +225,12 @@ function emptyModule(kind: ModuleKind, title: string, order: number): CourseModu
             description: 'What to do on the job',
           },
         ],
+      }
+      break
+    case 'event':
+      content = {
+        kind: 'event',
+        instructions: '<p>Instruksjoner for økt (sted, forberedelser, lenke).</p>',
       }
       break
     default:
@@ -282,6 +342,8 @@ type DbCourseRow = {
   source_system_course_id?: string | null
   catalog_locale?: string | null
   prerequisite_course_ids?: string[] | null
+  course_version?: number | null
+  recertification_months?: number | null
 }
 
 type DbOrgCourseSetting = {
@@ -324,6 +386,7 @@ type DbCertRow = {
   learner_name: string
   issued_at: string
   verify_code: string
+  course_version?: number | null
 }
 
 function moduleFromRow(m: DbModuleRow): CourseModule {
@@ -368,6 +431,8 @@ function coursesFromDb(courseRows: DbCourseRow[], moduleRows: DbModuleRow[]): Co
       catalogLocale: c.catalog_locale ?? null,
       origin,
       forkedFromSystemId: null,
+      courseVersion: c.course_version ?? 1,
+      recertificationMonths: c.recertification_months ?? null,
     }
   })
 }
@@ -442,6 +507,12 @@ export function useLearning() {
   const [pendingReviews, setPendingReviews] = useState<LearningReviewItem[]>([])
   const [departmentLeaderboard, setDepartmentLeaderboard] = useState<DeptLeaderboardRow[]>([])
   const [flowSettings, setFlowSettings] = useState<LearningFlowSettings | null>(null)
+  const [certificationRenewals, setCertificationRenewals] = useState<CertificationRenewalRow[]>([])
+  const [externalCertificates, setExternalCertificates] = useState<ExternalCertificateRow[]>([])
+  const [iltEvents, setIltEvents] = useState<IltEventRow[]>([])
+  const [learningPaths, setLearningPaths] = useState<LearningPathRow[]>([])
+  const [pathEnrollments, setPathEnrollments] = useState<PathEnrollmentRow[]>([])
+  const [complianceMatrix, setComplianceMatrix] = useState<ComplianceMatrixCell[]>([])
   const [loading, setLoading] = useState(useSupabase)
   const [error, setError] = useState<string | null>(null)
 
@@ -573,7 +644,23 @@ export function useLearning() {
           return true
         })
 
-      const progress: CourseProgress[] = ((pRes.data ?? []) as DbProgressRow[]).map((r) => ({
+      const progressRows = (pRes.data ?? []) as DbProgressRow[]
+      const progressUserIds = [...new Set(progressRows.map((r) => r.user_id))]
+      let profileNameById = new Map<string, string>()
+      if (progressUserIds.length && supabase) {
+        const { data: profRows, error: profErr } = await supabase
+          .from('profiles')
+          .select('id, display_name')
+          .in('id', progressUserIds)
+        if (profErr) console.warn('profiles for learning progress', profErr.message)
+        else
+          profileNameById = new Map(
+            ((profRows ?? []) as { id: string; display_name: string }[]).map((p) => [p.id, p.display_name]),
+          )
+      }
+      const progress: CourseProgress[] = progressRows.map((r) => ({
+        userId: r.user_id,
+        learnerName: profileNameById.get(r.user_id)?.trim() || '—',
         courseId: r.course_id,
         moduleProgress: r.module_progress ?? {},
         startedAt: r.started_at,
@@ -586,10 +673,60 @@ export function useLearning() {
         learnerName: r.learner_name,
         issuedAt: r.issued_at,
         verifyCode: r.verify_code,
+        courseVersion: r.course_version ?? 1,
       }))
       setRemoteState({ courses, progress, certificates })
 
-      const [{ data: streakRow }, { data: revRows }, lbRes, fsRes] = await Promise.all([
+      const renewQuery = supabase
+        .from('learning_certification_renewals')
+        .select('id, course_id, certificate_id, expires_at, status')
+        .eq('organization_id', orgId)
+      if (!canManage) renewQuery.eq('user_id', userId)
+
+      const extQuery = supabase
+        .from('learning_external_certificates')
+        .select('id, title, issuer, valid_until, status, created_at')
+        .eq('organization_id', orgId)
+      if (!canManage) extQuery.eq('user_id', userId)
+
+      const iltQuery = supabase
+        .from('learning_ilt_events')
+        .select('id, course_id, module_id, title, starts_at, ends_at, location_text, meeting_url, instructor_name')
+        .eq('organization_id', orgId)
+
+      const pathsQuery = supabase
+        .from('learning_paths')
+        .select(
+          `
+          id,
+          name,
+          slug,
+          description,
+          learning_path_courses ( course_id, sort_order ),
+          learning_path_rules ( metadata_key, expected_value )
+        `,
+        )
+        .eq('organization_id', orgId)
+
+      const enrollQuery = supabase
+        .from('learning_path_enrollments')
+        .select('path_id, enrolled_at')
+        .eq('user_id', userId)
+
+      const matrixPromise = canManage ? supabase.rpc('learning_compliance_matrix') : Promise.resolve({ data: null, error: null })
+
+      const [
+        { data: streakRow },
+        { data: revRows },
+        lbRes,
+        fsRes,
+        renewRes,
+        extRes,
+        iltRes,
+        pathsRes,
+        enRes,
+        matrixRes,
+      ] = await Promise.all([
         supabase.from('learning_streaks').select('streak_weeks').eq('user_id', userId).eq('organization_id', orgId).maybeSingle(),
         supabase
           .from('learning_quiz_reviews')
@@ -602,6 +739,12 @@ export function useLearning() {
           .limit(20),
         supabase.rpc('learning_department_leaderboard'),
         supabase.from('learning_flow_settings').select('*').eq('organization_id', orgId).maybeSingle(),
+        renewQuery,
+        extQuery,
+        iltQuery,
+        pathsQuery,
+        enrollQuery,
+        matrixPromise,
       ])
       setStreakWeeks(typeof streakRow?.streak_weeks === 'number' ? streakRow.streak_weeks : null)
       setPendingReviews(
@@ -639,6 +782,129 @@ export function useLearning() {
       } else {
         setFlowSettings(null)
       }
+
+      if (!renewRes.error && Array.isArray(renewRes.data)) {
+        setCertificationRenewals(
+          (renewRes.data as { id: string; course_id: string; certificate_id: string | null; expires_at: string; status: string }[]).map(
+            (r) => ({
+              id: r.id,
+              courseId: r.course_id,
+              certificateId: r.certificate_id,
+              expiresAt: r.expires_at,
+              status: r.status as CertificationRenewalRow['status'],
+            }),
+          ),
+        )
+      } else {
+        setCertificationRenewals([])
+      }
+
+      if (!extRes.error && Array.isArray(extRes.data)) {
+        setExternalCertificates(
+          (extRes.data as { id: string; title: string; issuer: string | null; valid_until: string | null; status: string; created_at: string }[]).map(
+            (r) => ({
+              id: r.id,
+              title: r.title,
+              issuer: r.issuer,
+              validUntil: r.valid_until,
+              status: r.status as ExternalCertificateRow['status'],
+              createdAt: r.created_at,
+            }),
+          ),
+        )
+      } else {
+        setExternalCertificates([])
+      }
+
+      if (!iltRes.error && Array.isArray(iltRes.data)) {
+        setIltEvents(
+          (iltRes.data as {
+            id: string
+            course_id: string
+            module_id: string
+            title: string
+            starts_at: string
+            ends_at: string | null
+            location_text: string | null
+            meeting_url: string | null
+            instructor_name: string | null
+          }[]).map((r) => ({
+            id: r.id,
+            courseId: r.course_id,
+            moduleId: r.module_id,
+            title: r.title,
+            startsAt: r.starts_at,
+            endsAt: r.ends_at,
+            locationText: r.location_text,
+            meetingUrl: r.meeting_url,
+            instructorName: r.instructor_name,
+          })),
+        )
+      } else {
+        setIltEvents([])
+      }
+
+      if (!pathsRes.error && Array.isArray(pathsRes.data)) {
+        const raw = pathsRes.data as {
+          id: string
+          name: string
+          slug: string
+          description: string | null
+          learning_path_courses?: { course_id: string; sort_order: number }[] | null
+          learning_path_rules?: { metadata_key: string; expected_value: unknown }[] | null
+        }[]
+        setLearningPaths(
+          raw.map((p) => {
+            const pcs = [...(p.learning_path_courses ?? [])].sort((a, b) => a.sort_order - b.sort_order)
+            return {
+              id: p.id,
+              name: p.name,
+              slug: p.slug,
+              description: p.description ?? '',
+              courseIds: pcs.map((x) => x.course_id),
+              rules: (p.learning_path_rules ?? []).map((r) => ({
+                metadataKey: r.metadata_key,
+                expectedValue: r.expected_value,
+              })),
+            }
+          }),
+        )
+      } else {
+        setLearningPaths([])
+      }
+
+      if (!enRes.error && Array.isArray(enRes.data)) {
+        setPathEnrollments(
+          (enRes.data as { path_id: string; enrolled_at: string }[]).map((r) => ({
+            pathId: r.path_id,
+            enrolledAt: r.enrolled_at,
+          })),
+        )
+      } else {
+        setPathEnrollments([])
+      }
+
+      if (!matrixRes.error && Array.isArray(matrixRes.data)) {
+        setComplianceMatrix(
+          (matrixRes.data as {
+            user_id: string
+            display_name: string
+            course_id: string
+            course_title: string
+            cell_status: string
+            completion_pct: number
+          }[]).map((r) => ({
+            userId: r.user_id,
+            displayName: r.display_name,
+            courseId: r.course_id,
+            courseTitle: r.course_title,
+            cellStatus: r.cell_status as ComplianceMatrixCell['cellStatus'],
+            completionPct: Number(r.completion_pct),
+          })),
+        )
+      } else {
+        setComplianceMatrix([])
+      }
     } catch (e) {
       setError(getSupabaseErrorMessage(e))
       setSystemCourseAdmin([])
@@ -646,6 +912,12 @@ export function useLearning() {
       setPendingReviews([])
       setDepartmentLeaderboard([])
       setFlowSettings(null)
+      setCertificationRenewals([])
+      setExternalCertificates([])
+      setIltEvents([])
+      setLearningPaths([])
+      setPathEnrollments([])
+      setComplianceMatrix([])
       setRemoteState({ courses: [], progress: [], certificates: [] })
     } finally {
       setLoading(false)
@@ -725,6 +997,7 @@ export function useLearning() {
         if (patch.status !== undefined) row.status = patch.status
         if (patch.tags !== undefined) row.tags = patch.tags
         if (patch.prerequisiteCourseIds !== undefined) row.prerequisite_course_ids = patch.prerequisiteCourseIds
+        if (patch.recertificationMonths !== undefined) row.recertification_months = patch.recertificationMonths
         const { error: e } = await supabase.from('learning_courses').update(row).eq('id', id).eq('organization_id', orgId)
         if (e) setError(getSupabaseErrorMessage(e))
         else await refreshLearning()
@@ -893,6 +1166,7 @@ export function useLearning() {
             courseId,
             moduleProgress: {},
             startedAt: new Date().toISOString(),
+            learnerName: 'Demo',
           }
           return { ...s, progress: [...s.progress, np] }
         })
@@ -935,6 +1209,7 @@ export function useLearning() {
                   courseId,
                   moduleProgress: {},
                   startedAt: new Date().toISOString(),
+                  learnerName: 'Demo',
                 },
               ]
           return {
@@ -1044,6 +1319,7 @@ export function useLearning() {
             learnerName: learnerName.trim(),
             issuedAt: new Date().toISOString(),
             verifyCode: crypto.randomUUID().slice(0, 8).toUpperCase(),
+            courseVersion: course.courseVersion ?? 1,
           }
           issued = cert
           return {
@@ -1071,6 +1347,7 @@ export function useLearning() {
         learner_name: string
         issued_at: string
         verify_code: string
+        course_version?: number | null
       }
       const out: Certificate = {
         id: r.id,
@@ -1079,6 +1356,7 @@ export function useLearning() {
         learnerName: r.learner_name,
         issuedAt: r.issued_at,
         verifyCode: r.verify_code,
+        courseVersion: r.course_version ?? 1,
       }
       await refreshLearning()
       void refreshPermissions()
@@ -1256,6 +1534,206 @@ export function useLearning() {
     [useSupabase, supabase, refreshLearning, catalogLocale],
   )
 
+  const bumpCourseVersion = useCallback(
+    async (courseId: string) => {
+      if (!useSupabase || !supabase || !canManage) return { ok: false as const, error: 'Krever tilgang.' }
+      const { data, error: e } = await supabase.rpc('learning_bump_course_version', { p_course_id: courseId })
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      await refreshLearning()
+      return { ok: true as const, version: data as number }
+    },
+    [useSupabase, supabase, canManage, refreshLearning],
+  )
+
+  const upsertIltEvent = useCallback(
+    async (input: {
+      courseId: string
+      moduleId: string
+      title: string
+      startsAt: string
+      endsAt?: string | null
+      locationText?: string | null
+      meetingUrl?: string | null
+      instructorName?: string | null
+    }) => {
+      if (!useSupabase || !supabase || !orgId || !canManage) return { ok: false as const, error: 'Krever tilgang.' }
+      const row = {
+        organization_id: orgId,
+        course_id: input.courseId,
+        module_id: input.moduleId,
+        title: input.title.trim(),
+        starts_at: input.startsAt,
+        ends_at: input.endsAt ?? null,
+        location_text: input.locationText ?? null,
+        meeting_url: input.meetingUrl ?? null,
+        instructor_name: input.instructorName ?? null,
+      }
+      const { error: e } = await supabase.from('learning_ilt_events').upsert(row, {
+        onConflict: 'course_id,module_id',
+      })
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      await refreshLearning()
+      return { ok: true as const }
+    },
+    [useSupabase, supabase, orgId, canManage, refreshLearning],
+  )
+
+  const setIltRsvp = useCallback(
+    async (eventId: string, status: IltRsvpStatus) => {
+      if (!useSupabase || !supabase || !userId) return { ok: false as const, error: 'Ikke innlogget.' }
+      const { error: e } = await supabase.from('learning_ilt_rsvps').upsert(
+        {
+          event_id: eventId,
+          user_id: userId,
+          status,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'event_id,user_id' },
+      )
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      await refreshLearning()
+      return { ok: true as const }
+    },
+    [useSupabase, supabase, userId, refreshLearning],
+  )
+
+  const setIltAttendance = useCallback(
+    async (eventId: string, attendeeUserId: string, present: boolean) => {
+      if (!useSupabase || !supabase || !userId || !canManage) return { ok: false as const, error: 'Krever tilgang.' }
+      const { error: e } = await supabase.from('learning_ilt_attendance').upsert(
+        {
+          event_id: eventId,
+          user_id: attendeeUserId,
+          present,
+          marked_by: userId,
+          marked_at: new Date().toISOString(),
+        },
+        { onConflict: 'event_id,user_id' },
+      )
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      await refreshLearning()
+      return { ok: true as const }
+    },
+    [useSupabase, supabase, userId, canManage, refreshLearning],
+  )
+
+  const submitExternalCertificate = useCallback(
+    async (input: { title: string; issuer?: string; validUntil?: string | null; file: File }) => {
+      if (!useSupabase || !supabase || !orgId || !userId) return { ok: false as const, error: 'Ikke innlogget.' }
+      const ext = input.file.name.split('.').pop()?.toLowerCase() ?? 'bin'
+      const safeExt = ext.length <= 8 ? ext : 'bin'
+      const path = `${userId}/${crypto.randomUUID()}.${safeExt}`
+      const { error: upErr } = await supabase.storage.from('learning_external_certs').upload(path, input.file, {
+        cacheControl: '3600',
+        upsert: false,
+      })
+      if (upErr) return { ok: false as const, error: getSupabaseErrorMessage(upErr) }
+      const { error: insErr } = await supabase.from('learning_external_certificates').insert({
+        organization_id: orgId,
+        user_id: userId,
+        title: input.title.trim(),
+        issuer: input.issuer?.trim() || null,
+        valid_until: input.validUntil || null,
+        storage_path: path,
+      })
+      if (insErr) return { ok: false as const, error: getSupabaseErrorMessage(insErr) }
+      await refreshLearning()
+      return { ok: true as const }
+    },
+    [useSupabase, supabase, orgId, userId, refreshLearning],
+  )
+
+  const approveExternalCertificate = useCallback(
+    async (id: string, approve: boolean, note?: string) => {
+      if (!useSupabase || !supabase || !canManage) return { ok: false as const, error: 'Krever tilgang.' }
+      const { error: e } = await supabase.rpc('learning_approve_external_certificate', {
+        p_id: id,
+        p_approve: approve,
+        p_note: note ?? null,
+      })
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      await refreshLearning()
+      return { ok: true as const }
+    },
+    [useSupabase, supabase, canManage, refreshLearning],
+  )
+
+  const saveLearningPath = useCallback(
+    async (input: {
+      id?: string
+      name: string
+      slug: string
+      description: string
+      courseIds: string[]
+      rules: { metadataKey: string; expectedValue: unknown }[]
+    }) => {
+      if (!useSupabase || !supabase || !orgId || !canManage) return { ok: false as const, error: 'Krever tilgang.' }
+      const slug = input.slug.trim().toLowerCase().replace(/\s+/g, '-')
+      let pathId = input.id
+      if (!pathId) {
+        const { data: ins, error: ie } = await supabase
+          .from('learning_paths')
+          .insert({
+            organization_id: orgId,
+            name: input.name.trim(),
+            slug,
+            description: input.description.trim(),
+          })
+          .select('id')
+          .single()
+        if (ie) return { ok: false as const, error: getSupabaseErrorMessage(ie) }
+        pathId = (ins as { id: string }).id
+      } else {
+        const { error: ue } = await supabase
+          .from('learning_paths')
+          .update({
+            name: input.name.trim(),
+            slug,
+            description: input.description.trim(),
+          })
+          .eq('id', pathId)
+          .eq('organization_id', orgId)
+        if (ue) return { ok: false as const, error: getSupabaseErrorMessage(ue) }
+        await supabase.from('learning_path_courses').delete().eq('path_id', pathId)
+        await supabase.from('learning_path_rules').delete().eq('path_id', pathId)
+      }
+      const courseRows = input.courseIds.map((course_id, sort_order) => ({
+        path_id: pathId!,
+        course_id,
+        sort_order,
+      }))
+      if (courseRows.length) {
+        const { error: ce } = await supabase.from('learning_path_courses').insert(courseRows)
+        if (ce) return { ok: false as const, error: getSupabaseErrorMessage(ce) }
+      }
+      const ruleRows = input.rules.map((r) => ({
+        path_id: pathId!,
+        metadata_key: r.metadataKey,
+        expected_value: r.expectedValue as never,
+      }))
+      if (ruleRows.length) {
+        const { error: re } = await supabase.from('learning_path_rules').insert(ruleRows)
+        if (re) return { ok: false as const, error: getSupabaseErrorMessage(re) }
+      }
+      const { error: rpcErr } = await supabase.rpc('learning_refresh_path_enrollments_for_user')
+      if (rpcErr) console.warn('learning_refresh_path_enrollments_for_user', rpcErr.message)
+      await refreshLearning()
+      return { ok: true as const, pathId: pathId! }
+    },
+    [useSupabase, supabase, orgId, canManage, refreshLearning],
+  )
+
+  const deleteLearningPath = useCallback(
+    async (pathId: string) => {
+      if (!useSupabase || !supabase || !orgId || !canManage) return { ok: false as const, error: 'Krever tilgang.' }
+      const { error: e } = await supabase.from('learning_paths').delete().eq('id', pathId).eq('organization_id', orgId)
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      await refreshLearning()
+      return { ok: true as const }
+    },
+    [useSupabase, supabase, orgId, canManage, refreshLearning],
+  )
+
   const importPartialJson = useCallback(
     (json: string): { ok: true } | { ok: false; error: string } => {
       if (useSupabase) {
@@ -1337,5 +1815,19 @@ export function useLearning() {
     isCourseUnlocked,
     dismissReview,
     saveFlowSettings,
+    certificationRenewals: useSupabase ? certificationRenewals : [],
+    externalCertificates: useSupabase ? externalCertificates : [],
+    iltEvents: useSupabase ? iltEvents : [],
+    learningPaths: useSupabase ? learningPaths : [],
+    pathEnrollments: useSupabase ? pathEnrollments : [],
+    complianceMatrix: useSupabase && canManage ? complianceMatrix : [],
+    bumpCourseVersion,
+    upsertIltEvent,
+    setIltRsvp,
+    setIltAttendance,
+    submitExternalCertificate,
+    approveExternalCertificate,
+    saveLearningPath,
+    deleteLearningPath,
   }
 }

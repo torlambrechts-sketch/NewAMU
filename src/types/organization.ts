@@ -18,6 +18,8 @@ export type ProfileRow = {
   locale?: string | null
   /** Optional link for department-level learning stats */
   department_id?: string | null
+  /** Flags for learning paths (e.g. is_safety_rep) — synced with `profiles.learning_metadata` */
+  learning_metadata?: Record<string, unknown> | null
   created_at: string
   updated_at: string
 }

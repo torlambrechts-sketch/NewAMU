@@ -17,10 +17,12 @@ export function ProfilePage() {
     updateLocale,
     departments,
     updateDepartmentId,
+    updateLearningMetadata,
   } = useOrgSetupContext()
   const [name, setName] = useState('')
   const [loc, setLoc] = useState<AppLocale>('nb')
   const [deptId, setDeptId] = useState<string>('')
+  const [safetyRep, setSafetyRep] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -31,6 +33,8 @@ export function ProfilePage() {
       const l = profile.locale
       setLoc(l === 'en' || l === 'nb' ? l : ctxLocale)
       setDeptId(profile.department_id ?? '')
+      const lm = profile.learning_metadata as Record<string, unknown> | null | undefined
+      setSafetyRep(lm?.is_safety_rep === true)
     }
   }, [profile, ctxLocale])
 
@@ -62,6 +66,7 @@ export function ProfilePage() {
       await updateDisplayName(name.trim() || profile?.display_name || 'Bruker')
       await updateLocale(loc)
       await updateDepartmentId(deptId || null)
+      await updateLearningMetadata({ is_safety_rep: safetyRep })
       setMsg(t('profile.saved'))
     } catch (e) {
       setErr(getSupabaseErrorMessage(e))
@@ -131,6 +136,23 @@ export function ProfilePage() {
             </p>
           </div>
         ) : null}
+        <div>
+          <label className="flex cursor-pointer items-start gap-3 text-sm font-medium text-neutral-800">
+            <input
+              type="checkbox"
+              checked={safetyRep}
+              onChange={(e) => setSafetyRep(e.target.checked)}
+              className="mt-1 rounded border-neutral-300"
+            />
+            <span>
+              HMS-representant / sikkerhetsrolle
+              <span className="mt-0.5 block text-xs font-normal text-neutral-500">
+                Kan brukes til å automatisk melde deg inn i læringsløp (f.eks. sikkerhetsrepresentant-kurset) når
+                organisasjonen har satt opp regler.
+              </span>
+            </span>
+          </label>
+        </div>
         {err ? <p className="text-sm text-red-700">{err}</p> : null}
         {msg ? <p className="text-sm text-emerald-800">{msg}</p> : null}
         <div className="flex flex-wrap gap-3 pt-2">

@@ -34,6 +34,9 @@ import { LearningInsights } from './pages/learning/LearningInsights'
 import { LearningParticipants } from './pages/learning/LearningParticipants'
 import { LearningSettings } from './pages/learning/LearningSettings'
 import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
+import { LearningComplianceMatrix } from './pages/learning/LearningComplianceMatrix'
+import { LearningPathsPage } from './pages/learning/LearningPathsPage'
+import { LearningExternalTraining } from './pages/learning/LearningExternalTraining'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
 import { WikiSpaceView } from './pages/documents/WikiSpaceView'
 import { WikiPageView } from './pages/documents/WikiPageView'
@@ -81,6 +84,9 @@ function App() {
                     <Route path="certifications" element={<LearningCertifications />} />
                     <Route path="insights" element={<LearningInsights />} />
                     <Route path="participants" element={<LearningParticipants />} />
+                    <Route path="compliance" element={<LearningComplianceMatrix />} />
+                    <Route path="paths" element={<LearningPathsPage />} />
+                    <Route path="external" element={<LearningExternalTraining />} />
                     <Route path="settings" element={<LearningSettings />} />
                   </Route>
                   <Route
