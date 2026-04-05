@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   defaultPreparationChecklist,
   suggestedAgendaItems,
 } from '../data/meetingGovernance'
 import { defaultComplianceItems } from '../data/norwegianLabourCompliance'
+import { getSupabaseErrorMessage } from '../lib/supabaseError'
+import { useOrgSetupContext } from './useOrgSetupContext'
 import type {
   AgendaItem,
   AuditEntry,
@@ -20,6 +23,7 @@ import type {
 } from '../types/council'
 
 const STORAGE_KEY = 'atics-council-v1'
+const snapKey = (orgId: string, userId: string) => `atics-council-snap:${orgId}:${userId}`
 
 type CouncilState = {
   board: BoardMember[]
@@ -103,6 +107,10 @@ function migrateMeeting(raw: unknown): CouncilMeeting {
     auditTrail: audit,
     quarterSlot: m.quarterSlot,
     governanceYear: m.governanceYear,
+    invitationSentAt: m.invitationSentAt,
+    invitationRecipients: m.invitationRecipients,
+    quorum: m.quorum,
+    attendees: m.attendees,
     createdAt: m.createdAt,
   }
 }
@@ -173,7 +181,7 @@ function complianceSeed(): ComplianceItem[] {
   }))
 }
 
-function load(): CouncilState {
+function loadLocal(): CouncilState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
@@ -190,7 +198,7 @@ function load(): CouncilState {
     return {
       board: Array.isArray(parsed.board) ? parsed.board : seedBoard,
       elections: Array.isArray(parsed.elections) ? parsed.elections : [seedElection],
-      meetings: meetingsRaw.map(migrateMeeting),
+      meetings: meetingsRaw.map((m) => migrateMeeting(m)),
       compliance: Array.isArray(parsed.compliance) && parsed.compliance.length
         ? parsed.compliance
         : complianceSeed(),
@@ -205,8 +213,139 @@ function load(): CouncilState {
   }
 }
 
-function save(state: CouncilState) {
+function saveLocal(state: CouncilState) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+}
+
+function emptyRemoteState(): CouncilState {
+  return { board: [], elections: [], meetings: [], compliance: [] }
+}
+
+function readSnap(orgId: string, userId: string): CouncilState | null {
+  try {
+    const raw = sessionStorage.getItem(snapKey(orgId, userId))
+    if (!raw) return null
+    return JSON.parse(raw) as CouncilState
+  } catch {
+    return null
+  }
+}
+
+function writeSnap(orgId: string, userId: string, state: CouncilState) {
+  try {
+    sessionStorage.setItem(snapKey(orgId, userId), JSON.stringify(state))
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearSnap(orgId: string, userId: string) {
+  try {
+    sessionStorage.removeItem(snapKey(orgId, userId))
+  } catch {
+    /* ignore */
+  }
+}
+
+function mapBoardRow(r: {
+  id: string
+  name: string
+  role: string
+  elected_at: string
+  term_until: string | null
+  from_election_id: string | null
+}): BoardMember {
+  return {
+    id: r.id,
+    name: r.name,
+    role: r.role as BoardRole,
+    electedAt: r.elected_at,
+    termUntil: r.term_until ?? undefined,
+    fromElectionId: r.from_election_id ?? undefined,
+  }
+}
+
+function mapElectionRow(r: {
+  id: string
+  title: string
+  status: string
+  candidates: unknown
+  created_at: string
+  closed_at: string | null
+  winner_candidate_id: string | null
+}): Election {
+  return {
+    id: r.id,
+    title: r.title,
+    status: r.status as Election['status'],
+    candidates: Array.isArray(r.candidates) ? (r.candidates as ElectionCandidate[]) : [],
+    createdAt: r.created_at,
+    closedAt: r.closed_at ?? undefined,
+    winnerCandidateId: r.winner_candidate_id ?? undefined,
+  }
+}
+
+function mapComplianceRow(r: {
+  id: string
+  title: string
+  description: string
+  law_ref: string
+  done: boolean
+  notes: string
+  is_custom: boolean
+}): ComplianceItem {
+  return {
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    lawRef: r.law_ref,
+    done: r.done,
+    notes: r.notes,
+    isCustom: r.is_custom,
+  }
+}
+
+async function fetchCouncilState(
+  supabase: SupabaseClient,
+  orgId: string,
+): Promise<CouncilState> {
+  const [bRes, eRes, mRes, cRes] = await Promise.all([
+    supabase.from('council_board_members').select('*').eq('organization_id', orgId).order('role'),
+    supabase.from('council_elections').select('*').eq('organization_id', orgId).order('created_at', { ascending: false }),
+    supabase.from('council_meetings').select('id, payload').eq('organization_id', orgId),
+    supabase.from('council_compliance_items').select('*').eq('organization_id', orgId).order('sort_order'),
+  ])
+  if (bRes.error) throw bRes.error
+  if (eRes.error) throw eRes.error
+  if (mRes.error) throw mRes.error
+  if (cRes.error) throw cRes.error
+
+  const meetings = (mRes.data ?? [])
+    .map((row) => migrateMeeting(row.payload))
+    .sort((a, b) => b.startsAt.localeCompare(a.startsAt))
+
+  return {
+    board: (bRes.data ?? []).map(mapBoardRow),
+    elections: (eRes.data ?? []).map(mapElectionRow),
+    meetings,
+    compliance: (cRes.data ?? []).map(mapComplianceRow),
+  }
+}
+
+async function upsertMeeting(
+  supabase: SupabaseClient,
+  orgId: string,
+  m: CouncilMeeting,
+) {
+  const { error } = await supabase.from('council_meetings').upsert(
+    {
+      id: m.id,
+      organization_id: orgId,
+      payload: m as unknown as Record<string, unknown>,
+    },
+    { onConflict: 'id' },
+  )
+  if (error) throw error
 }
 
 const roleOrder: BoardRole[] = ['leader', 'deputy', 'member']
@@ -216,7 +355,6 @@ export type AddMeetingInput = {
   startsAt: string
   location: string
   agendaItems?: AgendaItem[]
-  /** Legacy single text — converted to one or more items if agendaItems omitted */
   agendaText?: string
   status?: MeetingStatus
   quarterSlot?: QuarterSlot
@@ -225,9 +363,7 @@ export type AddMeetingInput = {
   applySuggestedAgenda?: boolean
 }
 
-function buildAgendaItems(
-  input: AddMeetingInput,
-): AgendaItem[] {
+function buildAgendaItems(input: AddMeetingInput): AgendaItem[] {
   if (input.agendaItems?.length) {
     return input.agendaItems.map((a, i) => ({ ...a, order: a.order ?? i }))
   }
@@ -257,175 +393,360 @@ function buildAgendaItems(
 }
 
 export function useCouncil() {
-  const [state, setState] = useState<CouncilState>(() => load())
+  const { supabase, organization, user } = useOrgSetupContext()
+  const orgId = organization?.id
+  const userId = user?.id
+  const useRemote = !!(supabase && orgId && userId)
+
+  const initialSnap = useRemote && orgId && userId ? readSnap(orgId, userId) : null
+  const [localState, setLocalState] = useState<CouncilState>(() => loadLocal())
+  const [remoteState, setRemoteState] = useState<CouncilState>(() => initialSnap ?? emptyRemoteState())
+  const [loading, setLoading] = useState(useRemote)
+  const [error, setError] = useState<string | null>(null)
+
+  const state = useRemote ? remoteState : localState
+  const setState = useRemote ? setRemoteState : setLocalState
+
+  const refreshCouncil = useCallback(async () => {
+    if (!supabase || !orgId || !userId) return
+    setLoading(true)
+    setError(null)
+    try {
+      await supabase.rpc('council_ensure_org_defaults')
+      const data = await fetchCouncilState(supabase, orgId)
+      setRemoteState(data)
+      writeSnap(orgId, userId, data)
+    } catch (e) {
+      setError(getSupabaseErrorMessage(e))
+      clearSnap(orgId, userId)
+      setRemoteState(emptyRemoteState())
+    } finally {
+      setLoading(false)
+    }
+  }, [supabase, orgId, userId])
 
   useEffect(() => {
-    save(state)
-  }, [state])
-
-  const addElection = useCallback((title: string) => {
-    const e: Election = {
-      id: crypto.randomUUID(),
-      title,
-      status: 'open',
-      candidates: [],
-      createdAt: new Date().toISOString(),
+    if (!useRemote) {
+      setLoading(false)
+      return
     }
-    setState((s) => ({ ...s, elections: [e, ...s.elections] }))
-    return e
-  }, [])
+    void refreshCouncil()
+  }, [useRemote, refreshCouncil])
 
-  const addCandidate = useCallback((electionId: string, name: string) => {
-    const cand: ElectionCandidate = {
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      voteCount: 0,
+  useEffect(() => {
+    if (!useRemote) {
+      saveLocal(localState)
     }
-    if (!cand.name) return
-    setState((s) => ({
-      ...s,
-      elections: s.elections.map((el) =>
-        el.id === electionId
-          ? { ...el, candidates: [...el.candidates, cand] }
-          : el,
-      ),
-    }))
-  }, [])
+  }, [useRemote, localState])
 
-  const vote = useCallback((electionId: string, candidateId: string) => {
-    setState((s) => ({
-      ...s,
-      elections: s.elections.map((el) =>
-        el.id === electionId && el.status === 'open'
-          ? {
-              ...el,
-              candidates: el.candidates.map((c) =>
-                c.id === candidateId ? { ...c, voteCount: c.voteCount + 1 } : c,
-              ),
-            }
-          : el,
-      ),
-    }))
-  }, [])
-
-  const closeElection = useCallback((electionId: string) => {
-    setState((s) => {
-      const el = s.elections.find((x) => x.id === electionId)
-      if (!el || el.status !== 'open' || el.candidates.length === 0) return s
-
-      const sorted = [...el.candidates].sort((a, b) => b.voteCount - a.voteCount)
-      const top = sorted.slice(0, 3)
-      const winner = top[0]
-      const newBoard: BoardMember[] = top.map((c, i) => ({
+  const addElection = useCallback(
+    async (title: string) => {
+      const e: Election = {
         id: crypto.randomUUID(),
-        name: c.name,
-        role: roleOrder[i] ?? 'member',
-        electedAt: new Date().toISOString().slice(0, 10),
-        termUntil: undefined,
-        fromElectionId: electionId,
-      }))
-
-      return {
-        ...s,
-        board: newBoard.length ? newBoard : s.board,
-        elections: s.elections.map((e) =>
-          e.id === electionId
-            ? {
-                ...e,
-                status: 'closed' as const,
-                closedAt: new Date().toISOString(),
-                winnerCandidateId: winner?.id,
-              }
-            : e,
-        ),
+        title,
+        status: 'open',
+        candidates: [],
+        createdAt: new Date().toISOString(),
       }
-    })
-  }, [])
+      if (useRemote && supabase && orgId) {
+        const { error: err } = await supabase.from('council_elections').insert({
+          id: e.id,
+          organization_id: orgId,
+          title: e.title,
+          status: e.status,
+          candidates: e.candidates,
+          created_at: e.createdAt,
+        })
+        if (err) throw err
+        await refreshCouncil()
+        return e
+      }
+      setState((s) => ({ ...s, elections: [e, ...s.elections] }))
+      return e
+    },
+    [useRemote, supabase, orgId, refreshCouncil, setState],
+  )
 
-  const addMeeting = useCallback((input: AddMeetingInput) => {
-    const agendaItems = buildAgendaItems(input)
-    const entry: AuditEntry = {
-      id: crypto.randomUUID(),
-      at: new Date().toISOString(),
-      kind: 'note',
-      text: `Møte opprettet: «${input.title.trim()}».`,
-      author: 'System',
-    }
-    const m: CouncilMeeting = {
-      id: crypto.randomUUID(),
-      title: input.title.trim(),
-      startsAt: new Date(input.startsAt).toISOString(),
-      location: input.location.trim() || 'TBD',
-      agendaItems,
-      status: input.status ?? 'planned',
-      protocolSignatures: [],
-      preparationNotes: input.preparationNotes?.trim() ?? '',
-      preparationChecklist: defaultPreparationChecklist(),
-      auditTrail: [entry],
-      quarterSlot: input.quarterSlot,
-      governanceYear: input.governanceYear,
-      createdAt: new Date().toISOString(),
-    }
-    setState((s) => ({
-      ...s,
-      meetings: [m, ...s.meetings].sort((a, b) => b.startsAt.localeCompare(a.startsAt)),
-    }))
-    return m
-  }, [])
+  const addCandidate = useCallback(
+    async (electionId: string, name: string) => {
+      const cand: ElectionCandidate = {
+        id: crypto.randomUUID(),
+        name: name.trim(),
+        voteCount: 0,
+      }
+      if (!cand.name) return
+      if (useRemote && supabase && orgId) {
+        const el = remoteState.elections.find((x) => x.id === electionId)
+        if (!el || el.status !== 'open') return
+        const nextCandidates = [...el.candidates, cand]
+        const { error: err } = await supabase
+          .from('council_elections')
+          .update({ candidates: nextCandidates })
+          .eq('id', electionId)
+          .eq('organization_id', orgId)
+        if (err) throw err
+        await refreshCouncil()
+        return
+      }
+      setState((s) => ({
+        ...s,
+        elections: s.elections.map((el) =>
+          el.id === electionId ? { ...el, candidates: [...el.candidates, cand] } : el,
+        ),
+      }))
+    },
+    [useRemote, supabase, orgId, remoteState.elections, refreshCouncil, setState],
+  )
 
-  const updateMeeting = useCallback((id: string, patch: Partial<CouncilMeeting>) => {
-    setState((s) => ({
-      ...s,
-      meetings: s.meetings.map((m) => (m.id === id ? { ...m, ...patch } : m)),
-    }))
-  }, [])
+  const vote = useCallback(
+    async (electionId: string, candidateId: string) => {
+      if (useRemote && supabase && orgId) {
+        const el = remoteState.elections.find((x) => x.id === electionId)
+        if (!el || el.status !== 'open') return
+        const nextCandidates = el.candidates.map((c) =>
+          c.id === candidateId ? { ...c, voteCount: c.voteCount + 1 } : c,
+        )
+        const { error: err } = await supabase
+          .from('council_elections')
+          .update({ candidates: nextCandidates })
+          .eq('id', electionId)
+          .eq('organization_id', orgId)
+        if (err) throw err
+        await refreshCouncil()
+        return
+      }
+      setState((s) => ({
+        ...s,
+        elections: s.elections.map((el) =>
+          el.id === electionId && el.status === 'open'
+            ? {
+                ...el,
+                candidates: el.candidates.map((c) =>
+                  c.id === candidateId ? { ...c, voteCount: c.voteCount + 1 } : c,
+                ),
+              }
+            : el,
+        ),
+      }))
+    },
+    [useRemote, supabase, orgId, remoteState.elections, refreshCouncil, setState],
+  )
 
-  const setAgendaItems = useCallback((meetingId: string, agendaItems: AgendaItem[]) => {
-    setState((s) => ({
-      ...s,
-      meetings: s.meetings.map((m) =>
-        m.id === meetingId
-          ? {
-              ...m,
-              agendaItems: agendaItems.map((a, i) => ({ ...a, order: i })),
-            }
-          : m,
-      ),
-    }))
-  }, [])
+  const closeElection = useCallback(
+    async (electionId: string) => {
+      if (useRemote && supabase && orgId) {
+        const el = remoteState.elections.find((x) => x.id === electionId)
+        if (!el || el.status !== 'open' || el.candidates.length === 0) return
 
-  const applySuggestedAgenda = useCallback((meetingId: string, quarter: QuarterSlot) => {
-    const sug = suggestedAgendaItems(quarter)
-    const items: AgendaItem[] = sug.map((s, i) => ({
-      id: crypto.randomUUID(),
-      title: s.title,
-      notes: s.notes,
-      order: i,
-    }))
-    const entry: AuditEntry = {
-      id: crypto.randomUUID(),
-      at: new Date().toISOString(),
-      kind: 'note',
-      text: `Standardagenda for ${quarter}. kvartal ble lagt inn (forslag).`,
-      author: 'System',
-    }
-    setState((s) => ({
-      ...s,
-      meetings: s.meetings.map((m) =>
-        m.id === meetingId
-          ? {
-              ...m,
-              agendaItems: items,
-              quarterSlot: quarter,
-              auditTrail: [...m.auditTrail, entry],
-            }
-          : m,
-      ),
-    }))
-  }, [])
+        const sorted = [...el.candidates].sort((a, b) => b.voteCount - a.voteCount)
+        const top = sorted.slice(0, 3)
+        const winner = top[0]
+
+        await supabase.from('council_board_members').delete().eq('organization_id', orgId)
+
+        for (let i = 0; i < top.length; i += 1) {
+          const c = top[i]
+          const bm: BoardMember = {
+            id: crypto.randomUUID(),
+            name: c.name,
+            role: roleOrder[i] ?? 'member',
+            electedAt: new Date().toISOString().slice(0, 10),
+            fromElectionId: electionId,
+          }
+          const { error: be } = await supabase.from('council_board_members').insert({
+            id: bm.id,
+            organization_id: orgId,
+            name: bm.name,
+            role: bm.role,
+            elected_at: bm.electedAt,
+            term_until: bm.termUntil ?? null,
+            from_election_id: electionId,
+          })
+          if (be) throw be
+        }
+
+        const { error: ue } = await supabase
+          .from('council_elections')
+          .update({
+            status: 'closed',
+            closed_at: new Date().toISOString(),
+            winner_candidate_id: winner?.id ?? null,
+          })
+          .eq('id', electionId)
+          .eq('organization_id', orgId)
+        if (ue) throw ue
+        await refreshCouncil()
+        return
+      }
+
+      setState((s) => {
+        const el = s.elections.find((x) => x.id === electionId)
+        if (!el || el.status !== 'open' || el.candidates.length === 0) return s
+
+        const sorted = [...el.candidates].sort((a, b) => b.voteCount - a.voteCount)
+        const top = sorted.slice(0, 3)
+        const winner = top[0]
+        const newBoard: BoardMember[] = top.map((c, i) => ({
+          id: crypto.randomUUID(),
+          name: c.name,
+          role: roleOrder[i] ?? 'member',
+          electedAt: new Date().toISOString().slice(0, 10),
+          fromElectionId: electionId,
+        }))
+
+        return {
+          ...s,
+          board: newBoard.length ? newBoard : s.board,
+          elections: s.elections.map((e) =>
+            e.id === electionId
+              ? {
+                  ...e,
+                  status: 'closed' as const,
+                  closedAt: new Date().toISOString(),
+                  winnerCandidateId: winner?.id,
+                }
+              : e,
+          ),
+        }
+      })
+    },
+    [useRemote, supabase, orgId, remoteState.elections, refreshCouncil, setState],
+  )
+
+  const addMeeting = useCallback(
+    async (input: AddMeetingInput) => {
+      const agendaItems = buildAgendaItems(input)
+      const entry: AuditEntry = {
+        id: crypto.randomUUID(),
+        at: new Date().toISOString(),
+        kind: 'note',
+        text: `Møte opprettet: «${input.title.trim()}».`,
+        author: 'System',
+      }
+      const m: CouncilMeeting = {
+        id: crypto.randomUUID(),
+        title: input.title.trim(),
+        startsAt: new Date(input.startsAt).toISOString(),
+        location: input.location.trim() || 'TBD',
+        agendaItems,
+        status: input.status ?? 'planned',
+        protocolSignatures: [],
+        preparationNotes: input.preparationNotes?.trim() ?? '',
+        preparationChecklist: defaultPreparationChecklist(),
+        auditTrail: [entry],
+        quarterSlot: input.quarterSlot,
+        governanceYear: input.governanceYear,
+        createdAt: new Date().toISOString(),
+      }
+
+      if (useRemote && supabase && orgId) {
+        await upsertMeeting(supabase, orgId, m)
+        await refreshCouncil()
+        return m
+      }
+
+      setState((s) => ({
+        ...s,
+        meetings: [m, ...s.meetings].sort((a, b) => b.startsAt.localeCompare(a.startsAt)),
+      }))
+      return m
+    },
+    [useRemote, supabase, orgId, refreshCouncil, setState],
+  )
+
+  const updateMeeting = useCallback(
+    async (id: string, patch: Partial<CouncilMeeting>) => {
+      if (useRemote && supabase && orgId) {
+        const cur = remoteState.meetings.find((x) => x.id === id)
+        if (!cur) return
+        const next = { ...cur, ...patch }
+        await upsertMeeting(supabase, orgId, next)
+        await refreshCouncil()
+        return
+      }
+      setState((s) => ({
+        ...s,
+        meetings: s.meetings.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+      }))
+    },
+    [useRemote, supabase, orgId, remoteState.meetings, refreshCouncil, setState],
+  )
+
+  const setAgendaItems = useCallback(
+    async (meetingId: string, agendaItems: AgendaItem[]) => {
+      if (useRemote && supabase && orgId) {
+        const cur = remoteState.meetings.find((x) => x.id === meetingId)
+        if (!cur) return
+        const next = {
+          ...cur,
+          agendaItems: agendaItems.map((a, i) => ({ ...a, order: i })),
+        }
+        await upsertMeeting(supabase, orgId, next)
+        await refreshCouncil()
+        return
+      }
+      setState((s) => ({
+        ...s,
+        meetings: s.meetings.map((m) =>
+          m.id === meetingId
+            ? { ...m, agendaItems: agendaItems.map((a, i) => ({ ...a, order: i })) }
+            : m,
+        ),
+      }))
+    },
+    [useRemote, supabase, orgId, remoteState.meetings, refreshCouncil, setState],
+  )
+
+  const applySuggestedAgenda = useCallback(
+    async (meetingId: string, quarter: QuarterSlot) => {
+      const sug = suggestedAgendaItems(quarter)
+      const items: AgendaItem[] = sug.map((s, i) => ({
+        id: crypto.randomUUID(),
+        title: s.title,
+        notes: s.notes,
+        order: i,
+      }))
+      const entry: AuditEntry = {
+        id: crypto.randomUUID(),
+        at: new Date().toISOString(),
+        kind: 'note',
+        text: `Standardagenda for ${quarter}. kvartal ble lagt inn (forslag).`,
+        author: 'System',
+      }
+
+      if (useRemote && supabase && orgId) {
+        const cur = remoteState.meetings.find((x) => x.id === meetingId)
+        if (!cur) return
+        const next = {
+          ...cur,
+          agendaItems: items,
+          quarterSlot: quarter,
+          auditTrail: [...cur.auditTrail, entry],
+        }
+        await upsertMeeting(supabase, orgId, next)
+        await refreshCouncil()
+        return
+      }
+
+      setState((s) => ({
+        ...s,
+        meetings: s.meetings.map((m) =>
+          m.id === meetingId
+            ? {
+                ...m,
+                agendaItems: items,
+                quarterSlot: quarter,
+                auditTrail: [...m.auditTrail, entry],
+              }
+            : m,
+        ),
+      }))
+    },
+    [useRemote, supabase, orgId, remoteState.meetings, refreshCouncil, setState],
+  )
 
   const appendAuditEntry = useCallback(
-    (meetingId: string, kind: AuditEntryKind, text: string, author?: string) => {
+    async (meetingId: string, kind: AuditEntryKind, text: string, author?: string) => {
       const t = text.trim()
       if (!t) return
       const entry: AuditEntry = {
@@ -435,6 +756,16 @@ export function useCouncil() {
         text: t,
         author: author?.trim() || undefined,
       }
+
+      if (useRemote && supabase && orgId) {
+        const cur = remoteState.meetings.find((x) => x.id === meetingId)
+        if (!cur) return
+        const next = { ...cur, auditTrail: [...cur.auditTrail, entry] }
+        await upsertMeeting(supabase, orgId, next)
+        await refreshCouncil()
+        return
+      }
+
       setState((s) => ({
         ...s,
         meetings: s.meetings.map((m) =>
@@ -442,88 +773,68 @@ export function useCouncil() {
         ),
       }))
     },
-    [],
+    [useRemote, supabase, orgId, remoteState.meetings, refreshCouncil, setState],
   )
 
-  const setPreparationNotes = useCallback((meetingId: string, notes: string) => {
-    setState((s) => ({
-      ...s,
-      meetings: s.meetings.map((m) =>
-        m.id === meetingId ? { ...m, preparationNotes: notes } : m,
-      ),
-    }))
-  }, [])
+  const setPreparationNotes = useCallback(
+    async (meetingId: string, notes: string) => {
+      if (useRemote && supabase && orgId) {
+        const cur = remoteState.meetings.find((x) => x.id === meetingId)
+        if (!cur) return
+        await upsertMeeting(supabase, orgId, { ...cur, preparationNotes: notes })
+        await refreshCouncil()
+        return
+      }
+      setState((s) => ({
+        ...s,
+        meetings: s.meetings.map((m) =>
+          m.id === meetingId ? { ...m, preparationNotes: notes } : m,
+        ),
+      }))
+    },
+    [useRemote, supabase, orgId, remoteState.meetings, refreshCouncil, setState],
+  )
 
-  const togglePrepChecklist = useCallback((meetingId: string, itemId: string) => {
-    setState((s) => ({
-      ...s,
-      meetings: s.meetings.map((m) => {
-        if (m.id !== meetingId) return m
-        const preparationChecklist = m.preparationChecklist.map((p) =>
+  const togglePrepChecklist = useCallback(
+    async (meetingId: string, itemId: string) => {
+      if (useRemote && supabase && orgId) {
+        const cur = remoteState.meetings.find((x) => x.id === meetingId)
+        if (!cur) return
+        const preparationChecklist = cur.preparationChecklist.map((p) =>
           p.id === itemId ? { ...p, done: !p.done } : p,
         )
-        return { ...m, preparationChecklist }
-      }),
-    }))
-  }, [])
+        await upsertMeeting(supabase, orgId, { ...cur, preparationChecklist })
+        await refreshCouncil()
+        return
+      }
+      setState((s) => ({
+        ...s,
+        meetings: s.meetings.map((m) => {
+          if (m.id !== meetingId) return m
+          const preparationChecklist = m.preparationChecklist.map((p) =>
+            p.id === itemId ? { ...p, done: !p.done } : p,
+          )
+          return { ...m, preparationChecklist }
+        }),
+      }))
+    },
+    [useRemote, supabase, orgId, remoteState.meetings, refreshCouncil, setState],
+  )
 
-  const addPrepChecklistItem = useCallback((meetingId: string, label: string) => {
-    const l = label.trim()
-    if (!l) return
-    setState((s) => ({
-      ...s,
-      meetings: s.meetings.map((m) =>
-        m.id === meetingId
-          ? {
-              ...m,
-              preparationChecklist: [
-                ...m.preparationChecklist,
-                { id: crypto.randomUUID(), label: l, done: false },
-              ],
-            }
-          : m,
-      ),
-    }))
-  }, [])
-
-  const toggleCompliance = useCallback((id: string) => {
-    setState((s) => ({
-      ...s,
-      compliance: s.compliance.map((c) =>
-        c.id === id ? { ...c, done: !c.done } : c,
-      ),
-    }))
-  }, [])
-
-  const setComplianceNotes = useCallback((id: string, notes: string) => {
-    setState((s) => ({
-      ...s,
-      compliance: s.compliance.map((c) => (c.id === id ? { ...c, notes } : c)),
-    }))
-  }, [])
-
-  const addComplianceItem = useCallback((title: string, description: string, lawRef: string) => {
-    const c: ComplianceItem = {
-      id: crypto.randomUUID(),
-      title: title.trim(),
-      description: description.trim(),
-      lawRef: lawRef.trim() || 'Intern',
-      done: false,
-      notes: '',
-      isCustom: true,
-    }
-    if (!c.title) return
-    setState((s) => ({ ...s, compliance: [...s.compliance, c] }))
-  }, [])
-
-  const signMeetingProtocol = useCallback(
-    (meetingId: string, signerName: string, role: ProtocolSignature['role']) => {
-      const name = signerName.trim()
-      if (!name) return false
-      const sig: ProtocolSignature = {
-        signerName: name,
-        signedAt: new Date().toISOString(),
-        role,
+  const addPrepChecklistItem = useCallback(
+    async (meetingId: string, label: string) => {
+      const l = label.trim()
+      if (!l) return
+      if (useRemote && supabase && orgId) {
+        const cur = remoteState.meetings.find((x) => x.id === meetingId)
+        if (!cur) return
+        const preparationChecklist = [
+          ...cur.preparationChecklist,
+          { id: crypto.randomUUID(), label: l, done: false },
+        ]
+        await upsertMeeting(supabase, orgId, { ...cur, preparationChecklist })
+        await refreshCouncil()
+        return
       }
       setState((s) => ({
         ...s,
@@ -531,75 +842,244 @@ export function useCouncil() {
           m.id === meetingId
             ? {
                 ...m,
-                protocolSignatures: [...(m.protocolSignatures ?? []), sig],
+                preparationChecklist: [
+                  ...m.preparationChecklist,
+                  { id: crypto.randomUUID(), label: l, done: false },
+                ],
               }
             : m,
         ),
       }))
-      appendAuditEntry(
-        meetingId,
-        'note',
-        `Protokoll signert (${role}): ${name}`,
-        name,
-      )
-      return true
     },
-    [appendAuditEntry],
+    [useRemote, supabase, orgId, remoteState.meetings, refreshCouncil, setState],
   )
 
-  const resetToDemoData = useCallback(() => {
+  const toggleCompliance = useCallback(
+    async (id: string) => {
+      if (useRemote && supabase && orgId) {
+        const row = remoteState.compliance.find((c) => c.id === id)
+        if (!row) return
+        const { error: err } = await supabase
+          .from('council_compliance_items')
+          .update({ done: !row.done })
+          .eq('organization_id', orgId)
+          .eq('id', id)
+        if (err) throw err
+        await refreshCouncil()
+        return
+      }
+      setState((s) => ({
+        ...s,
+        compliance: s.compliance.map((c) => (c.id === id ? { ...c, done: !c.done } : c)),
+      }))
+    },
+    [useRemote, supabase, orgId, remoteState.compliance, refreshCouncil, setState],
+  )
+
+  const setComplianceNotes = useCallback(
+    async (id: string, notes: string) => {
+      if (useRemote && supabase && orgId) {
+        const { error: err } = await supabase
+          .from('council_compliance_items')
+          .update({ notes })
+          .eq('organization_id', orgId)
+          .eq('id', id)
+        if (err) throw err
+        await refreshCouncil()
+        return
+      }
+      setState((s) => ({
+        ...s,
+        compliance: s.compliance.map((c) => (c.id === id ? { ...c, notes } : c)),
+      }))
+    },
+    [useRemote, supabase, orgId, refreshCouncil, setState],
+  )
+
+  const addComplianceItem = useCallback(
+    async (title: string, description: string, lawRef: string) => {
+      const c: ComplianceItem = {
+        id: crypto.randomUUID(),
+        title: title.trim(),
+        description: description.trim(),
+        lawRef: lawRef.trim() || 'Intern',
+        done: false,
+        notes: '',
+        isCustom: true,
+      }
+      if (!c.title) return
+
+      if (useRemote && supabase && orgId) {
+        const { error: err } = await supabase.from('council_compliance_items').insert({
+          organization_id: orgId,
+          id: c.id,
+          title: c.title,
+          description: c.description,
+          law_ref: c.lawRef,
+          done: false,
+          notes: '',
+          is_custom: true,
+          sort_order: 999,
+        })
+        if (err) throw err
+        await refreshCouncil()
+        return
+      }
+      setState((s) => ({ ...s, compliance: [...s.compliance, c] }))
+    },
+    [useRemote, supabase, orgId, refreshCouncil, setState],
+  )
+
+  const signMeetingProtocol = useCallback(
+    async (meetingId: string, signerName: string, role: ProtocolSignature['role']) => {
+      const name = signerName.trim()
+      if (!name) return false
+      const sig: ProtocolSignature = {
+        signerName: name,
+        signedAt: new Date().toISOString(),
+        role,
+      }
+      const auditLine = `Protokoll signert (${role}): ${name}`
+      const entry: AuditEntry = {
+        id: crypto.randomUUID(),
+        at: new Date().toISOString(),
+        kind: 'note',
+        text: auditLine,
+        author: name,
+      }
+
+      if (useRemote && supabase && orgId) {
+        const cur = remoteState.meetings.find((x) => x.id === meetingId)
+        if (!cur) return false
+        const next: CouncilMeeting = {
+          ...cur,
+          protocolSignatures: [...(cur.protocolSignatures ?? []), sig],
+          auditTrail: [...cur.auditTrail, entry],
+        }
+        await upsertMeeting(supabase, orgId, next)
+        await refreshCouncil()
+        return true
+      }
+
+      setState((s) => ({
+        ...s,
+        meetings: s.meetings.map((m) =>
+          m.id === meetingId
+            ? {
+                ...m,
+                protocolSignatures: [...(m.protocolSignatures ?? []), sig],
+                auditTrail: [...m.auditTrail, entry],
+              }
+            : m,
+        ),
+      }))
+      return true
+    },
+    [useRemote, supabase, orgId, remoteState.meetings, refreshCouncil, setState],
+  )
+
+  const resetToDemoData = useCallback(async () => {
+    if (useRemote && supabase && orgId) {
+      await supabase.from('council_meetings').delete().eq('organization_id', orgId)
+      await supabase.from('council_elections').delete().eq('organization_id', orgId)
+      await supabase.from('council_board_members').delete().eq('organization_id', orgId)
+      await supabase.from('council_compliance_items').delete().eq('organization_id', orgId)
+      await supabase.rpc('council_ensure_org_defaults')
+      await refreshCouncil()
+      return
+    }
     const next: CouncilState = {
       board: seedBoard,
       elections: [seedElection],
       meetings: seedMeetings,
       compliance: complianceSeed(),
     }
-    setState(next)
-    save(next)
-  }, [])
+    setLocalState(next)
+    saveLocal(next)
+  }, [useRemote, supabase, orgId, refreshCouncil])
 
-  // ── Invitation ──────────────────────────────────────────────────────────────
+  const sendInvitation = useCallback(
+    async (meetingId: string, recipients: string[]) => {
+      const now = new Date().toISOString()
+      if (useRemote && supabase && orgId) {
+        const cur = remoteState.meetings.find((x) => x.id === meetingId)
+        if (!cur) return
+        const next = { ...cur, invitationSentAt: now, invitationRecipients: recipients }
+        await upsertMeeting(supabase, orgId, next)
+        const entry: AuditEntry = {
+          id: crypto.randomUUID(),
+          at: now,
+          kind: 'note',
+          text: `Innkalling sendt til: ${recipients.join(', ')}`,
+          author: undefined,
+        }
+        await upsertMeeting(supabase, orgId, { ...next, auditTrail: [...next.auditTrail, entry] })
+        await refreshCouncil()
+        return
+      }
+      setState((s) => ({
+        ...s,
+        meetings: s.meetings.map((m) =>
+          m.id === meetingId ? { ...m, invitationSentAt: now, invitationRecipients: recipients } : m,
+        ),
+      }))
+    },
+    [useRemote, supabase, orgId, remoteState.meetings, refreshCouncil, setState],
+  )
 
-  const sendInvitation = useCallback((meetingId: string, recipients: string[]) => {
-    const now = new Date().toISOString()
-    setState((s) => ({
-      ...s,
-      meetings: s.meetings.map((m) =>
-        m.id === meetingId ? { ...m, invitationSentAt: now, invitationRecipients: recipients } : m,
-      ),
-    }))
-    appendAuditEntry(meetingId, 'note', `Innkalling sendt til: ${recipients.join(', ')}`, '')
-  }, [appendAuditEntry])
-
-  const setMeetingAttendance = useCallback((meetingId: string, attendees: string[], quorum: boolean) => {
-    setState((s) => ({
-      ...s,
-      meetings: s.meetings.map((m) =>
-        m.id === meetingId ? { ...m, attendees, quorum } : m,
-      ),
-    }))
-  }, [])
-
-  // ── Decisions (cross-meeting computed view) ──────────────────────────────────
+  const setMeetingAttendance = useCallback(
+    async (meetingId: string, attendees: string[], quorum: boolean) => {
+      if (useRemote && supabase && orgId) {
+        const cur = remoteState.meetings.find((x) => x.id === meetingId)
+        if (!cur) return
+        await upsertMeeting(supabase, orgId, { ...cur, attendees, quorum })
+        await refreshCouncil()
+        return
+      }
+      setState((s) => ({
+        ...s,
+        meetings: s.meetings.map((m) =>
+          m.id === meetingId ? { ...m, attendees, quorum } : m,
+        ),
+      }))
+    },
+    [useRemote, supabase, orgId, remoteState.meetings, refreshCouncil, setState],
+  )
 
   const allDecisions = useMemo(() => {
     return state.meetings.flatMap((m) => [
-      // Decisions from per-item minutes
       ...m.agendaItems.flatMap((item) =>
         item.decision
-          ? [{ meetingId: m.id, meetingTitle: m.title, meetingDate: m.startsAt, agendaItemTitle: item.title, decision: item.decision, id: `${m.id}-${item.id}` }]
+          ? [{
+              meetingId: m.id,
+              meetingTitle: m.title,
+              meetingDate: m.startsAt,
+              agendaItemTitle: item.title,
+              decision: item.decision,
+              id: `${m.id}-${item.id}`,
+            }]
           : [],
       ),
-      // Decisions from audit trail
       ...m.auditTrail.filter((e) => e.kind === 'decision').map((e) => ({
-        meetingId: m.id, meetingTitle: m.title, meetingDate: m.startsAt,
-        agendaItemTitle: '', decision: e.text, id: e.id,
+        meetingId: m.id,
+        meetingTitle: m.title,
+        meetingDate: m.startsAt,
+        agendaItemTitle: '',
+        decision: e.text,
+        id: e.id,
       })),
     ]).sort((a, b) => b.meetingDate.localeCompare(a.meetingDate))
   }, [state.meetings])
 
   return {
-    ...state,
+    backend: useRemote ? ('supabase' as const) : ('local' as const),
+    loading: useRemote && loading,
+    error,
+    refreshCouncil,
+    board: state.board,
+    elections: state.elections,
+    meetings: state.meetings,
+    compliance: state.compliance,
     allDecisions,
     addElection,
     addCandidate,

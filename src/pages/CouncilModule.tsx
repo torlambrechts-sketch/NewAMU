@@ -25,6 +25,7 @@ import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { GovernanceWheel } from '../components/council/GovernanceWheel'
 import { MEETINGS_PER_YEAR, suggestedAgendaItems } from '../data/meetingGovernance'
 import { useCouncil } from '../hooks/useCouncil'
+import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useRepresentatives } from '../hooks/useRepresentatives'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useLearning } from '../hooks/useLearning'
@@ -140,6 +141,7 @@ function formatWhen(iso: string) {
 
 export function CouncilModule() {
   const council = useCouncil()
+  const { supabaseConfigured } = useOrgSetupContext()
   const rep = useRepresentatives()
   const org = useOrganisation()
   const learning = useLearning()
@@ -223,32 +225,40 @@ export function CouncilModule() {
     return next ?? null
   }, [council.meetings, prepMeetingId])
 
-  function handleNewElection(e: React.FormEvent) {
+  async function handleNewElection(e: React.FormEvent) {
     e.preventDefault()
     if (!newElectionTitle.trim()) return
-    council.addElection(newElectionTitle.trim())
-    setNewElectionTitle('')
+    try {
+      await council.addElection(newElectionTitle.trim())
+      setNewElectionTitle('')
+    } catch (err) {
+      console.error(err)
+    }
   }
 
-  function handleAddMeeting(e: React.FormEvent) {
+  async function handleAddMeeting(e: React.FormEvent) {
     e.preventDefault()
     if (!meetingForm.title.trim() || !meetingForm.startsAt) return
-    council.addMeeting({
-      title: meetingForm.title.trim(),
-      startsAt: new Date(meetingForm.startsAt).toISOString(),
-      location: meetingForm.location.trim() || 'TBD',
-      governanceYear: meetingForm.governanceYear,
-      quarterSlot: meetingForm.quarterSlot,
-      applySuggestedAgenda: meetingForm.applySuggestedAgenda,
-      agendaText: meetingForm.applySuggestedAgenda ? undefined : meetingForm.agendaText,
-    })
-    setMeetingForm((s) => ({
-      ...s,
-      title: '',
-      startsAt: '',
-      location: '',
-      agendaText: '',
-    }))
+    try {
+      await council.addMeeting({
+        title: meetingForm.title.trim(),
+        startsAt: new Date(meetingForm.startsAt).toISOString(),
+        location: meetingForm.location.trim() || 'TBD',
+        governanceYear: meetingForm.governanceYear,
+        quarterSlot: meetingForm.quarterSlot,
+        applySuggestedAgenda: meetingForm.applySuggestedAgenda,
+        agendaText: meetingForm.applySuggestedAgenda ? undefined : meetingForm.agendaText,
+      })
+      setMeetingForm((s) => ({
+        ...s,
+        title: '',
+        startsAt: '',
+        location: '',
+        agendaText: '',
+      }))
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   const selectedMeeting = selectedMeetingId
@@ -266,6 +276,13 @@ export function CouncilModule() {
           <span className="font-medium text-neutral-800">Arbeidsmiljøråd</span>
         </span>
       </nav>
+
+      {council.error && (
+        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{council.error}</p>
+      )}
+      {council.loading && supabaseConfigured && (
+        <p className="mb-4 text-sm text-neutral-500">Laster rådsdata…</p>
+      )}
 
       <div className="flex flex-wrap items-start gap-4 border-b border-neutral-200/80 pb-6">
         <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1a3d32] to-[#0f241d] text-[#c9a227] shadow-md ring-2 ring-[#c9a227]/30">
@@ -1938,7 +1955,10 @@ function MeetingDetailPanel({
               <button
                 type="button"
                 onClick={() => {
-                  if (council.signMeetingProtocol(meeting.id, protoName, protoRole)) setProtoName('')
+                  void (async () => {
+                    const ok = await council.signMeetingProtocol(meeting.id, protoName, protoRole)
+                    if (ok) setProtoName('')
+                  })()
                 }}
                 className="rounded-lg bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white"
               >
