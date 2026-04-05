@@ -147,7 +147,7 @@ export function OnboardingWizard() {
     <div className="mx-auto max-w-2xl px-4 py-10">
       <div className="mb-8 flex items-center gap-4">
         <ModulePageIcon className="bg-[#1a3d32] text-white">
-          <Building2 className="size-9 md:size-10" strokeWidth={1.5} aria-hidden />
+          <Building2 className="size-11 md:size-12" strokeWidth={1.35} aria-hidden />
         </ModulePageIcon>
         <div>
           <h1 className="font-serif text-2xl text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
@@ -271,7 +271,9 @@ export function OnboardingWizard() {
 
         {step === 2 && (
           <div className="space-y-4">
-            <p className="text-sm text-neutral-600">Legg til minst én avdeling (du kan legge til flere senere).</p>
+            <p className="text-sm text-neutral-600">
+              Avdelinger er valgfrie — du kan legge dem til nå eller senere. Du kan også hoppe over.
+            </p>
             <ul className="space-y-1 text-sm">
               {departments.map((d) => (
                 <li key={d.id} className="rounded border border-neutral-100 bg-neutral-50 px-2 py-1">
@@ -279,28 +281,32 @@ export function OnboardingWizard() {
                 </li>
               ))}
             </ul>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <input
                 value={deptName}
                 onChange={(e) => setDeptName(e.target.value)}
                 placeholder="Avdelingsnavn"
-                className="flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                className="min-w-0 flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
               />
               <button
                 type="button"
                 onClick={() => {
                   void (async () => {
                     if (!deptName.trim()) return
+                    setFormErr(null)
                     setBusy(true)
                     try {
                       await addDepartment(deptName)
                       setDeptName('')
+                    } catch (err) {
+                      setFormErr(getSupabaseErrorMessage(err))
                     } finally {
                       setBusy(false)
                     }
                   })()
                 }}
-                className="rounded-lg bg-neutral-800 px-3 py-2 text-sm text-white"
+                disabled={busy}
+                className="shrink-0 rounded-lg bg-neutral-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 Legg til
               </button>
@@ -311,7 +317,10 @@ export function OnboardingWizard() {
               </button>
               <button
                 type="button"
-                onClick={() => (departments.length ? next() : setFormErr('Legg til minst én avdeling.'))}
+                onClick={() => {
+                  setFormErr(null)
+                  next()
+                }}
                 className="rounded-lg bg-[#1a3d32] px-4 py-2 text-sm text-white"
               >
                 Neste
@@ -323,7 +332,9 @@ export function OnboardingWizard() {
 
         {step === 3 && (
           <div className="space-y-4">
-            <p className="text-sm text-neutral-600">Team kan knyttes til en avdeling (valgfritt).</p>
+            <p className="text-sm text-neutral-600">
+              Team er valgfrie — du kan legge dem til nå eller senere. Knytt gjerne til avdeling.
+            </p>
             <ul className="space-y-1 text-sm">
               {teams.map((t) => (
                 <li key={t.id} className="rounded border border-neutral-100 bg-neutral-50 px-2 py-1">
@@ -359,17 +370,21 @@ export function OnboardingWizard() {
               onClick={() => {
                 void (async () => {
                   if (!teamName.trim()) return
+                  setFormErr(null)
                   setBusy(true)
                   try {
                     await addTeam(teamName, teamDeptId || null)
                     setTeamName('')
                     setTeamDeptId('')
+                  } catch (err) {
+                    setFormErr(getSupabaseErrorMessage(err))
                   } finally {
                     setBusy(false)
                   }
                 })()
               }}
-              className="rounded-lg bg-neutral-800 px-3 py-2 text-sm text-white"
+              disabled={busy}
+              className="rounded-lg bg-neutral-800 px-3 py-2 text-sm text-white disabled:opacity-50"
             >
               Legg til team
             </button>
@@ -377,16 +392,26 @@ export function OnboardingWizard() {
               <button type="button" onClick={back} className="rounded-lg border border-neutral-200 px-4 py-2 text-sm">
                 Tilbake
               </button>
-              <button type="button" onClick={next} className="rounded-lg bg-[#1a3d32] px-4 py-2 text-sm text-white">
+              <button
+                type="button"
+                onClick={() => {
+                  setFormErr(null)
+                  next()
+                }}
+                className="rounded-lg bg-[#1a3d32] px-4 py-2 text-sm text-white"
+              >
                 Neste
               </button>
             </div>
+            {formErr && step === 3 ? <p className="text-sm text-red-600">{formErr}</p> : null}
           </div>
         )}
 
         {step === 4 && (
           <div className="space-y-4">
-            <p className="text-sm text-neutral-600">Arbeidssteder / lokasjoner.</p>
+            <p className="text-sm text-neutral-600">
+              Lokasjoner er valgfrie — du kan legge dem til nå eller senere.
+            </p>
             <ul className="space-y-1 text-sm">
               {locations.map((l) => (
                 <li key={l.id} className="rounded border border-neutral-100 bg-neutral-50 px-2 py-1">
@@ -414,17 +439,21 @@ export function OnboardingWizard() {
               onClick={() => {
                 void (async () => {
                   if (!locName.trim()) return
+                  setFormErr(null)
                   setBusy(true)
                   try {
                     await addLocation(locName, locAddr)
                     setLocName('')
                     setLocAddr('')
+                  } catch (err) {
+                    setFormErr(getSupabaseErrorMessage(err))
                   } finally {
                     setBusy(false)
                   }
                 })()
               }}
-              className="rounded-lg bg-neutral-800 px-3 py-2 text-sm text-white"
+              disabled={busy}
+              className="rounded-lg bg-neutral-800 px-3 py-2 text-sm text-white disabled:opacity-50"
             >
               Legg til lokasjon
             </button>
@@ -434,7 +463,10 @@ export function OnboardingWizard() {
               </button>
               <button
                 type="button"
-                onClick={() => (locations.length ? next() : setFormErr('Legg til minst én lokasjon.'))}
+                onClick={() => {
+                  setFormErr(null)
+                  next()
+                }}
                 className="rounded-lg bg-[#1a3d32] px-4 py-2 text-sm text-white"
               >
                 Neste
@@ -447,7 +479,7 @@ export function OnboardingWizard() {
         {step === 5 && (
           <div className="space-y-4">
             <p className="text-sm text-neutral-600">
-              Katalog over personer (ikke innlogging — kun struktur). Minst én rad.
+              Katalog over personer (ikke innlogging — kun struktur). Valgfritt; du kan hoppe over.
             </p>
             <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">
               {members.map((m) => (
@@ -512,6 +544,7 @@ export function OnboardingWizard() {
               onClick={() => {
                 void (async () => {
                   if (!memName.trim()) return
+                  setFormErr(null)
                   setBusy(true)
                   try {
                     await addOrgMember({
@@ -526,12 +559,15 @@ export function OnboardingWizard() {
                     setMemDept('')
                     setMemTeam('')
                     setMemLoc('')
+                  } catch (err) {
+                    setFormErr(getSupabaseErrorMessage(err))
                   } finally {
                     setBusy(false)
                   }
                 })()
               }}
-              className="rounded-lg bg-neutral-800 px-3 py-2 text-sm text-white"
+              disabled={busy}
+              className="rounded-lg bg-neutral-800 px-3 py-2 text-sm text-white disabled:opacity-50"
             >
               Legg til person
             </button>
@@ -541,7 +577,10 @@ export function OnboardingWizard() {
               </button>
               <button
                 type="button"
-                onClick={() => (members.length ? next() : setFormErr('Legg til minst én person.'))}
+                onClick={() => {
+                  setFormErr(null)
+                  next()
+                }}
                 className="rounded-lg bg-[#1a3d32] px-4 py-2 text-sm text-white"
               >
                 Neste
@@ -554,7 +593,8 @@ export function OnboardingWizard() {
         {step === 6 && (
           <div className="space-y-4 text-center">
             <p className="text-neutral-700">
-              Du har registrert <strong>{organization?.name}</strong> med avdelinger, team, lokasjoner og katalog.
+              Du har registrert <strong>{organization?.name}</strong>. Struktur (avdelinger, team, lokasjoner, katalog)
+              kan du legge inn senere.
             </p>
             <p className="text-sm text-neutral-500">
               Du kan endre strukturen senere i en dedikert organisasjonsinnstilling (kommer).
@@ -575,7 +615,7 @@ export function OnboardingWizard() {
           </div>
         )}
 
-        {formErr && step !== 2 && step !== 4 && step !== 5 ? (
+        {formErr && step !== 2 && step !== 3 && step !== 4 && step !== 5 ? (
           <p className="mt-4 text-sm text-red-600">{formErr}</p>
         ) : null}
       </div>

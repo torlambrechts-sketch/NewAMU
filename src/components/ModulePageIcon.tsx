@@ -13,7 +13,7 @@ type Props = {
 export function ModulePageIcon({ children, className = '' }: Props) {
   return (
     <div
-      className={`flex h-16 w-28 shrink-0 items-center justify-center rounded-2xl shadow-sm md:h-20 md:w-36 ${className}`}
+      className={`flex h-20 w-36 shrink-0 items-center justify-center rounded-2xl shadow-md md:h-24 md:w-44 ${className}`}
     >
       {children}
     </div>
