@@ -132,7 +132,7 @@ export function OnboardingWizard() {
     setBusy(true)
     try {
       await completeOnboarding()
-      navigate('/', { replace: true })
+      navigate('/?setup=1', { replace: true })
     } catch (err) {
       setFormErr(getSupabaseErrorMessage(err))
     } finally {

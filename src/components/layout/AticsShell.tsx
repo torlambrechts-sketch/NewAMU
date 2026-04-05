@@ -14,6 +14,8 @@ import {
   Users,
   UsersRound,
 } from 'lucide-react'
+import { LanguageSwitcher } from '../LanguageSwitcher'
+import { useI18n } from '../../hooks/useI18n'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 
 type SubItem =
@@ -134,7 +136,7 @@ const learningSubs: SubItem[] = [
 
 /** Council is its own primary group (left); other modules follow after a divider. */
 const navMainCouncil = [
-  { to: '/council', label: 'Council', end: false, icon: UsersRound, perm: 'module.view.council' as const },
+  { to: '/council', labelKey: 'nav.council', end: false, icon: UsersRound, perm: 'module.view.council' as const },
 ] as const
 
 const internalControlSubs: SubItem[] = [
@@ -173,38 +175,44 @@ const internalControlSubs: SubItem[] = [
 ]
 
 const navMainRest = [
-  { to: '/members', label: 'Members', end: false, icon: Users, perm: 'module.view.members' as const },
-  { to: '/org-health', label: 'Org health', end: false, icon: HeartPulse, perm: 'module.view.org_health' as const },
-  { to: '/hse', label: 'HSE', end: false, icon: HardHat, perm: 'module.view.hse' as const },
-  { to: '/internal-control', label: 'Internkontroll', end: false, icon: ClipboardList, perm: 'module.view.internal_control' as const },
-  { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, perm: 'module.view.tasks' as const },
-  { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap, perm: 'module.view.learning' as const },
-  { to: '/admin', label: 'Admin', end: true, icon: Shield, perm: 'module.view.admin' as const },
+  { to: '/members', labelKey: 'nav.members', end: false, icon: Users, perm: 'module.view.members' as const },
+  { to: '/org-health', labelKey: 'nav.orgHealth', end: false, icon: HeartPulse, perm: 'module.view.org_health' as const },
+  { to: '/hse', labelKey: 'nav.hse', end: false, icon: HardHat, perm: 'module.view.hse' as const },
+  { to: '/internal-control', labelKey: 'nav.internalControl', end: false, icon: ClipboardList, perm: 'module.view.internal_control' as const },
+  { to: '/tasks', labelKey: 'nav.tasks', end: false, icon: LayoutGrid, perm: 'module.view.tasks' as const },
+  { to: '/learning', labelKey: 'nav.learning', end: true, icon: GraduationCap, perm: 'module.view.learning' as const },
+  { to: '/admin', labelKey: 'nav.admin', end: true, icon: Shield, perm: 'module.view.admin' as const },
 ] as const
 
 function HeaderUserMenu() {
   const { supabaseConfigured, user, profile, signOut } = useOrgSetupContext()
+  const { t } = useI18n()
 
   if (!supabaseConfigured) {
     return (
       <div className="flex items-center gap-2 md:gap-3">
+        <LanguageSwitcher />
         <button
           type="button"
           className="hidden items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] sm:flex"
         >
           <Clock className="size-3.5" />
-          Upgrade
+          {t('shell.upgrade')}
         </button>
-        <button type="button" className="rounded-lg p-2 hover:bg-white/10" aria-label="Settings">
+        <NavLink
+          to="/profile"
+          className="rounded-lg p-2 hover:bg-white/10"
+          aria-label={t('shell.settingsAria')}
+        >
           <Settings className="size-5" />
-        </button>
-        <button type="button" className="rounded-lg p-2 hover:bg-white/10" aria-label="Open external">
+        </NavLink>
+        <button type="button" className="rounded-lg p-2 hover:bg-white/10" aria-label={t('shell.externalAria')}>
           <ExternalLink className="size-5" />
         </button>
         <div
           className="size-9 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-white/30"
           role="img"
-          aria-label="User profile"
+          aria-label={t('shell.userProfileAria')}
         />
       </div>
     )
@@ -212,6 +220,7 @@ function HeaderUserMenu() {
 
   return (
     <div className="flex items-center gap-2 md:gap-3">
+      <LanguageSwitcher />
       {user ? (
         <>
           <span className="hidden max-w-[140px] truncate text-xs text-white/80 sm:inline" title={profile?.email ?? ''}>
@@ -222,21 +231,27 @@ function HeaderUserMenu() {
             onClick={() => void signOut()}
             className="rounded-lg px-2 py-1 text-xs font-medium text-white/90 hover:bg-white/10"
           >
-            Logg ut
+            {t('shell.logOut')}
           </button>
         </>
       ) : (
         <a href="/login" className="rounded-lg px-2 py-1 text-xs font-medium text-[#c9a227] hover:underline">
-          Logg inn
+          {t('shell.logIn')}
         </a>
       )}
-      <button type="button" className="rounded-lg p-2 hover:bg-white/10" aria-label="Settings">
+      <NavLink
+        to="/profile"
+        className={({ isActive }) =>
+          `rounded-lg p-2 hover:bg-white/10 ${isActive ? 'bg-white/10 ring-1 ring-[#c9a227]/50' : ''}`
+        }
+        aria-label={t('shell.settingsAria')}
+      >
         <Settings className="size-5" />
-      </button>
+      </NavLink>
       <div
         className="size-9 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-white/30"
         role="img"
-        aria-label="User profile"
+        aria-label={t('shell.userProfileAria')}
       />
     </div>
   )
@@ -257,6 +272,7 @@ export function AticsShell() {
   const location = useLocation()
   const subItems = subNavForPath(location.pathname)
   const { supabaseConfigured, can, permissionKeys } = useOrgSetupContext()
+  const { t } = useI18n()
   const gateNav = supabaseConfigured && permissionKeys.size > 0
 
   return (
@@ -281,7 +297,7 @@ export function AticsShell() {
                 const Icon = item.icon
                 return (
                   <NavLink
-                    key={item.to + item.label}
+                    key={item.to + item.labelKey}
                     to={item.to}
                     end={item.end}
                     className={({ isActive }) =>
@@ -293,7 +309,7 @@ export function AticsShell() {
                     }
                   >
                     <Icon className="size-4 shrink-0 opacity-95" aria-hidden />
-                    {item.label}
+                    {t(item.labelKey)}
                   </NavLink>
                 )
               })}
@@ -307,7 +323,7 @@ export function AticsShell() {
                 const Icon = item.icon
                 return (
                   <NavLink
-                    key={item.to + item.label}
+                    key={item.to + item.labelKey}
                     to={item.to}
                     end={item.end}
                     className={({ isActive }) =>
@@ -319,7 +335,7 @@ export function AticsShell() {
                     }
                   >
                     <Icon className="size-4 shrink-0 opacity-90" aria-hidden />
-                    {item.label}
+                    {t(item.labelKey)}
                   </NavLink>
                 )
               })}
@@ -351,14 +367,14 @@ export function AticsShell() {
                   )
                 })
               ) : (
-                <span className="text-sm text-white/45">Velg en hovedmodul over (Council, Org health, …)</span>
+                <span className="text-sm text-white/45">{t('shell.subnavHint')}</span>
               )}
             </nav>
             <div className="relative min-w-[200px] flex-1 md:max-w-md">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/50" />
               <input
                 type="search"
-                placeholder="Find anything"
+                placeholder={t('shell.findAnything')}
                 className="w-full rounded-full border border-white/20 bg-white/10 py-2 pl-10 pr-4 text-sm text-white placeholder:text-white/45 focus:border-[#c9a227] focus:outline-none focus:ring-1 focus:ring-[#c9a227]"
               />
             </div>

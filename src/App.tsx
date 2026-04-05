@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { OrgSetupProvider } from './context/OrgSetupProvider'
+import { I18nProvider } from './context/I18nProvider'
 import { AticsShell } from './components/layout/AticsShell'
 import { OrgGate } from './components/OrgGate'
 import { PermissionGate } from './components/PermissionGate'
@@ -7,6 +8,7 @@ import { OnboardingWizard } from './pages/OnboardingWizard'
 import { AuthPage } from './pages/AuthPage'
 import { InviteAcceptPage } from './pages/InviteAcceptPage'
 import { AdminPage } from './pages/AdminPage'
+import { ProfilePage } from './pages/ProfilePage'
 import { HrmEmployees } from './pages/HrmEmployees'
 import { HrmSalary } from './pages/HrmSalary'
 import { NotFound } from './pages/NotFound'
@@ -33,6 +35,7 @@ function App() {
   return (
     <BrowserRouter>
       <OrgSetupProvider>
+      <I18nProvider>
       <Routes>
         <Route path="/hrm" element={<Navigate to="/hrm/employees" replace />} />
         <Route path="/hrm/employees" element={<HrmEmployees />} />
@@ -56,6 +59,7 @@ function App() {
               <Route path="internal-control" element={<InternalControlModule />} />
               <Route path="hse" element={<HseModule />} />
               <Route path="admin" element={<AdminPage />} />
+              <Route path="profile" element={<ProfilePage />} />
               <Route path="learning" element={<LearningLayout />}>
                 <Route index element={<LearningDashboard />} />
                 <Route path="courses" element={<LearningCoursesList />} />
@@ -93,6 +97,7 @@ function App() {
 
         <Route path="*" element={<Navigate to="/404" replace />} />
       </Routes>
+      </I18nProvider>
       </OrgSetupProvider>
     </BrowserRouter>
   )

@@ -7,6 +7,7 @@ import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { fetchEnhetByOrgnr, normalizeOrgNumber } from '../lib/brreg'
 import type { BrregEnhet } from '../types/brreg'
+import type { AppLocale } from '../i18n/strings'
 import type {
   DepartmentRow,
   LocationRow,
@@ -277,6 +278,16 @@ export function useOrgSetup() {
     [supabase, user],
   )
 
+  const updateLocale = useCallback(
+    async (locale: AppLocale) => {
+      if (!supabase || !user) throw new Error('Ikke innlogget.')
+      const { error: e } = await supabase.from('profiles').update({ locale }).eq('id', user.id)
+      if (e) throw new Error(getSupabaseErrorMessage(e))
+      setProfile((p) => (p ? { ...p, locale } : p))
+    },
+    [supabase, user],
+  )
+
   const addDepartment = useCallback(
     async (name: string) => {
       if (!supabase || !organization?.id) throw new Error('Mangler organisasjon.')
@@ -417,6 +428,7 @@ export function useOrgSetup() {
     refreshChildren,
     createOrganizationFromBrreg,
     updateDisplayName,
+    updateLocale,
     addDepartment,
     addTeam,
     addLocation,

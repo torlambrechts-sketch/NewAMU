@@ -14,6 +14,8 @@ export type ProfileRow = {
   display_name: string
   email?: string | null
   is_org_admin?: boolean
+  /** UI locale: nb | en (requires DB migration profiles_locale). */
+  locale?: string | null
   created_at: string
   updated_at: string
 }

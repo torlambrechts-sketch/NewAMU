@@ -48,6 +48,8 @@ npm run db:migrate
 **GitHub Actions:** Workflow **Apply Supabase migrations** (`workflow_dispatch`) kjører samme skript. Legg inn repository secret **`DATABASE_URL`** eller **`POSTGRES_URL_NON_POOLING`** (full `postgresql://...`-streng).
 
 **Agenter / Cursor:** En agent kan bare kjøre SQL mot databasen din hvis **det kjørende miljøet** har en slik variabel satt (f.eks. lokal `.env` som ikke committes, eller CI-secrets). Uten det er det ikke teknisk mulig å «koble seg på» Postgres bare fra repoet alene.
+
+**Språk (profil):** Kjør migrasjon **`20260406120000_profiles_locale.sql`** for kolonnen `profiles.locale` (`nb` / `en`). Brukerens valg lagres i databasen og styres fra **`/profile`**; språkvelger finnes også i toppfeltet.
 5. **Ny deploy** etter at variablene er satt. På **prosjektforsiden** (`/`) vises et **Supabase**-kort som sjekker `/auth/v1/health`.
 
 **Cursor MCP** til Supabase hjelper IDE/agent med database/SQL; det erstatter ikke at nettleseren får URL + anon-nøkkel ved build.

@@ -48,7 +48,7 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
 export const DASHBOARD_PERMISSION: PermissionKey = 'module.view.dashboard'
 
 export function permissionForPath(pathname: string): PermissionKey {
-  if (pathname === '/' || pathname === '') return DASHBOARD_PERMISSION
+  if (pathname === '/' || pathname === '' || pathname === '/profile') return DASHBOARD_PERMISSION
   const hit = ROUTE_PERMISSION.find((r) => pathname === r.pathPrefix || pathname.startsWith(`${r.pathPrefix}/`))
   return hit?.permission ?? DASHBOARD_PERMISSION
 }

@@ -242,7 +242,7 @@ export function AdminPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    <div className="mx-auto max-w-[1400px] px-4 py-8 md:px-8">
       <div className="flex flex-wrap items-start gap-4">
         <ModulePageIcon className="bg-[#1a3d32] text-[#c9a227]">
           <Shield className="size-9 md:size-10" strokeWidth={1.5} aria-hidden />

@@ -1,5 +1,5 @@
-import { Fragment, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Fragment, useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Calendar,
   CheckCircle2,
@@ -12,6 +12,8 @@ import {
 import { SupabaseStatusCard } from '../components/SupabaseStatusCard'
 import { ModulePageIcon } from '../components/ModulePageIcon'
 import { departmentRows } from '../data/departments'
+import { useI18n } from '../hooks/useI18n'
+import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 
 const members = [
   { type: 'img' as const, src: 'https://i.pravatar.cc/80?img=1' },
@@ -44,9 +46,67 @@ function StatusBadge({ status }: { status: 'Success' | 'Processing' }) {
 }
 
 export function ProjectDashboard() {
+  const { t } = useI18n()
+  const { needsOnboarding, supabaseConfigured } = useOrgSetupContext()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [region, setRegion] = useState<'all' | 'usa' | 'europe'>('all')
   const [expandedId, setExpandedId] = useState<string | null>('d2')
   const [privateOn, setPrivateOn] = useState(true)
+  /** Persisted layout controls — survives navigation within the SPA session */
+  const [setupOpen, setSetupOpen] = useState(() => {
+    try {
+      return sessionStorage.getItem('atics-dashboard-setup-open') === '1'
+    } catch {
+      return false
+    }
+  })
+  const [tableCompact, setTableCompact] = useState(() => {
+    try {
+      return localStorage.getItem('atics-dashboard-table-compact') === '1'
+    } catch {
+      return false
+    }
+  })
+
+  const persistSetupOpen = (open: boolean) => {
+    setSetupOpen(open)
+    try {
+      sessionStorage.setItem('atics-dashboard-setup-open', open ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const setCompact = (compact: boolean) => {
+    setTableCompact(compact)
+    try {
+      localStorage.setItem('atics-dashboard-table-compact', compact ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }
+
+  useEffect(() => {
+    if (searchParams.get('setup') !== '1') return
+    queueMicrotask(() => {
+      setSetupOpen(true)
+      try {
+        sessionStorage.setItem('atics-dashboard-setup-open', '1')
+      } catch {
+        /* ignore */
+      }
+    })
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('setup')
+        return next
+      },
+      { replace: true },
+    )
+  }, [searchParams, setSearchParams])
+
+  const cellPad = tableCompact ? 'px-2 py-2' : 'px-3 py-3'
 
   const filtered = departmentRows.filter((row) => {
     if (region === 'usa') return row.country === 'India'
@@ -68,37 +128,37 @@ export function ProjectDashboard() {
             to="/council"
             className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
           >
-            Council
+            {t('nav.council')}
           </Link>
           <Link
             to="/members"
             className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
           >
-            Members
+            {t('nav.members')}
           </Link>
           <Link
             to="/org-health"
             className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
           >
-            Org health
+            {t('nav.orgHealth')}
           </Link>
           <Link
             to="/hse"
             className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
           >
-            HSE
+            {t('nav.hse')}
           </Link>
           <Link
             to="/internal-control"
             className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
           >
-            Internkontroll
+            {t('nav.internalControl')}
           </Link>
           <Link
             to="/learning"
             className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
           >
-            Learning
+            {t('nav.learning')}
           </Link>
           <Link
             to="/hrm/employees"
@@ -164,15 +224,75 @@ export function ProjectDashboard() {
             </div>
           </div>
 
+          <section id="dashboard-setup" className="mt-6 rounded-2xl border border-neutral-200/90 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-neutral-900">{t('dashboard.setup.title')}</h2>
+                <p className="mt-1 text-sm text-neutral-600">{t('dashboard.setup.hint')}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => persistSetupOpen(!setupOpen)}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium shadow-sm ${
+                    setupOpen
+                      ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                      : 'border-neutral-200 bg-white text-neutral-800 hover:bg-neutral-50'
+                  }`}
+                >
+                  <SlidersHorizontal className="size-4" />
+                  {t('dashboard.setup.open')}
+                </button>
+              </div>
+            </div>
+            {setupOpen ? (
+              <div className="mt-4 space-y-4 border-t border-neutral-100 pt-4">
+                <div>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
+                    {t('dashboard.setup.density')}
+                  </p>
+                  <div className="inline-flex rounded-full bg-neutral-200/80 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setCompact(false)}
+                      className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                        !tableCompact ? 'bg-[#1a3d32] text-white' : 'text-neutral-600 hover:text-neutral-900'
+                      }`}
+                    >
+                      {t('dashboard.setup.comfortable')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCompact(true)}
+                      className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                        tableCompact ? 'bg-[#1a3d32] text-white' : 'text-neutral-600 hover:text-neutral-900'
+                      }`}
+                    >
+                      {t('dashboard.setup.compact')}
+                    </button>
+                  </div>
+                </div>
+                {supabaseConfigured ? (
+                  <Link
+                    to={needsOnboarding ? '/onboarding' : '/profile'}
+                    className="inline-flex text-sm font-medium text-[#1a3d32] underline-offset-2 hover:underline"
+                  >
+                    {needsOnboarding ? t('dashboard.setup.orgLinkOnboarding') : t('dashboard.setup.orgLinkProfile')}
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+
           <section className="mt-8">
             <h2 className="text-lg font-semibold text-neutral-900">Departments</h2>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <div className="inline-flex rounded-full bg-neutral-200/80 p-1">
                 {(
                   [
-                    ['all', 'All'],
-                    ['usa', 'USA'],
-                    ['europe', 'Europe'],
+                    ['all', t('dashboard.setup.regionAll')],
+                    ['usa', t('dashboard.setup.regionUsa')],
+                    ['europe', t('dashboard.setup.regionEurope')],
                   ] as const
                 ).map(([key, label]) => (
                   <button
@@ -206,24 +326,32 @@ export function ProjectDashboard() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => {
+                    persistSetupOpen(true)
+                    queueMicrotask(() =>
+                      document.getElementById('dashboard-setup')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+                    )
+                  }}
                   className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50"
                 >
                   <SlidersHorizontal className="size-4" />
-                  Filters
+                  {t('dashboard.filters')}
                 </button>
               </div>
             </div>
 
             <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-              <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+              <table
+                className={`w-full min-w-[640px] border-collapse text-left ${tableCompact ? 'text-xs' : 'text-sm'}`}
+              >
                 <thead>
                   <tr className="border-b border-neutral-200 bg-neutral-50/80 text-neutral-600">
-                    <th className="w-10 px-3 py-3">
+                    <th className={`w-10 ${cellPad}`}>
                       <input type="checkbox" className="rounded border-neutral-300" aria-label="Select all" />
                     </th>
-                    <th className="px-3 py-3 font-medium">Departments, Country</th>
-                    <th className="px-3 py-3 font-medium">Hire employees</th>
-                    <th className="px-3 py-3 font-medium">
+                    <th className={`${cellPad} font-medium`}>Departments, Country</th>
+                    <th className={`${cellPad} font-medium`}>Hire employees</th>
+                    <th className={`${cellPad} font-medium`}>
                       <span className="inline-flex items-center gap-1">
                         Deadline
                         <span className="text-neutral-400" aria-hidden>
@@ -231,18 +359,18 @@ export function ProjectDashboard() {
                         </span>
                       </span>
                     </th>
-                    <th className="px-3 py-3 font-medium">Status</th>
-                    <th className="px-3 py-3 font-medium">Recruiter</th>
+                    <th className={`${cellPad} font-medium`}>Status</th>
+                    <th className={`${cellPad} font-medium`}>Recruiter</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((row) => (
                     <Fragment key={row.id}>
                       <tr className="border-b border-neutral-100 hover:bg-neutral-50/80">
-                        <td className="px-3 py-3 align-top">
+                        <td className={`${cellPad} align-top`}>
                           <input type="checkbox" className="rounded border-neutral-300" />
                         </td>
-                        <td className="px-3 py-3 align-top">
+                        <td className={`${cellPad} align-top`}>
                           <button
                             type="button"
                             className="text-left"
@@ -254,14 +382,14 @@ export function ProjectDashboard() {
                             <div className="text-neutral-500">{row.country}</div>
                           </button>
                         </td>
-                        <td className="px-3 py-3 align-top text-neutral-800">
+                        <td className={`${cellPad} align-top text-neutral-800`}>
                           {row.hireEmployees.toLocaleString()}
                         </td>
-                        <td className="px-3 py-3 align-top text-neutral-700">{row.deadline}</td>
-                        <td className="px-3 py-3 align-top">
+                        <td className={`${cellPad} align-top text-neutral-700`}>{row.deadline}</td>
+                        <td className={`${cellPad} align-top`}>
                           <StatusBadge status={row.status} />
                         </td>
-                        <td className="px-3 py-3 align-top">
+                        <td className={`${cellPad} align-top`}>
                           <div className="flex items-center gap-2">
                             {row.recruiter.initials ? (
                               <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-300 text-xs font-semibold text-neutral-800">
