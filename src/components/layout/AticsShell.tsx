@@ -123,6 +123,9 @@ const learningSubs: SubItem[] = [
   { label: 'Certifications', path: '/learning/certifications', match: ({ pathname }) => pathname === '/learning/certifications' },
   { label: 'Insights', path: '/learning/insights', match: ({ pathname }) => pathname === '/learning/insights' },
   { label: 'Participants', path: '/learning/participants', match: ({ pathname }) => pathname === '/learning/participants' },
+  { label: 'Team heatmap', path: '/learning/compliance', match: ({ pathname }) => pathname === '/learning/compliance' },
+  { label: 'Paths', path: '/learning/paths', match: ({ pathname }) => pathname === '/learning/paths' },
+  { label: 'External training', path: '/learning/external', match: ({ pathname }) => pathname === '/learning/external' },
   { label: 'Settings', path: '/learning/settings', match: ({ pathname }) => pathname === '/learning/settings' },
 ]
 

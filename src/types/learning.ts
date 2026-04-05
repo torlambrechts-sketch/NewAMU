@@ -9,6 +9,7 @@ export type ModuleKind =
   | 'checklist'
   | 'tips'
   | 'on_job'
+  | 'event'
   | 'other'
 
 export type FlashcardSlide = {
@@ -46,6 +47,7 @@ export type ModuleContent =
   | { kind: 'checklist'; items: ChecklistItem[] }
   | { kind: 'tips'; items: string[] }
   | { kind: 'on_job'; tasks: OnJobTask[] }
+  | { kind: 'event'; instructions: string }
   | { kind: 'other'; title: string; body: string }
 
 export type CourseModule = {
@@ -58,6 +60,9 @@ export type CourseModule = {
   durationMinutes: number
 }
 
+/** system = shared catalog row; org = created in org; fork = copied from system for editing */
+export type CourseOrigin = 'system' | 'org' | 'fork'
+
 export type Course = {
   id: string
   title: string
@@ -65,8 +70,21 @@ export type Course = {
   status: CourseStatus
   tags: string[]
   modules: CourseModule[]
+  /** Course IDs that must be completed before this course is available */
+  prerequisiteCourseIds?: string[]
   createdAt: string
   updatedAt: string
+  /** When set, module content may be loaded from learning_system_course_locales */
+  sourceSystemCourseId?: string | null
+  /** Locale used for catalog resolution (nb | en) */
+  catalogLocale?: string | null
+  origin?: CourseOrigin
+  /** True when this row is the org's editable copy of a system course */
+  forkedFromSystemId?: string | null
+  /** Bumped when content changes; certificates reference this */
+  courseVersion?: number
+  /** Months until recertification (optional) */
+  recertificationMonths?: number | null
 }
 
 export type ModuleProgress = {
@@ -75,6 +93,13 @@ export type ModuleProgress = {
   score?: number
   /** quiz: last attempt */
   lastAnswers?: Record<string, number>
+}
+
+/** Optional metadata when completing a quiz (spaced repetition) */
+export type ModuleCompleteMeta = {
+  score?: number
+  lastAnswers?: Record<string, number>
+  quizQuestions?: { id: string; correctIndex: number }[]
 }
 
 export type CourseProgress = {
@@ -92,4 +117,6 @@ export type Certificate = {
   issuedAt: string
   /** simple verification code */
   verifyCode: string
+  /** Snapshot of course law/content version at issue time */
+  courseVersion?: number
 }

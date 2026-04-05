@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { learningFlowEntryUrl, qrCodeImageUrl } from '../../lib/learningDeepLink'
 import { GripVertical, Layers, Plus, Trash2, Users, BarChart3, FileText, Award } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
@@ -18,6 +19,7 @@ const MODULE_KINDS: { id: ModuleKind | 'all'; label: string }[] = [
   { id: 'checklist', label: 'Checklist' },
   { id: 'tips', label: 'Practical tips' },
   { id: 'on_job', label: 'On-the-job' },
+  { id: 'event', label: 'Event (ILT)' },
   { id: 'other', label: 'Other' },
 ]
 
@@ -30,18 +32,33 @@ const ADD_KINDS: { kind: ModuleKind; label: string }[] = [
   { kind: 'checklist', label: 'Checklist' },
   { kind: 'tips', label: 'Practical tips' },
   { kind: 'on_job', label: 'On-the-job' },
+  { kind: 'event', label: 'Event (ILT)' },
   { kind: 'other', label: 'Other' },
 ]
 
 type MainTab = 'info' | 'modules' | 'cert' | 'participants' | 'insights'
 
 export function LearningCourseBuilder() {
+  const navigate = useNavigate()
   const { courseId } = useParams<{ courseId: string }>()
   const { can } = useOrgSetupContext()
   const canManage = can('learning.manage')
-  const { courses, updateCourse, addModule, updateModule, deleteModule, learningLoading, learningError } =
-    useLearning()
+  const {
+    courses,
+    updateCourse,
+    addModule,
+    updateModule,
+    deleteModule,
+    forkSystemCourse,
+    learningLoading,
+    learningError,
+    upsertIltEvent,
+    bumpCourseVersion,
+  } = useLearning()
+  const otherCourses = courses.filter((c) => c.id !== courseId)
   const course = courses.find((c) => c.id === courseId)
+  const isSystemCatalog =
+    course && course.origin === 'system' && course.sourceSystemCourseId && course.modules.length > 0
 
   const [mainTab, setMainTab] = useState<MainTab>('modules')
   const [typeFilter, setTypeFilter] = useState<ModuleKind | 'all'>('all')
@@ -66,6 +83,52 @@ export function LearningCourseBuilder() {
       <p className="text-neutral-600">
         Course not found. <Link to="/learning/courses" className="text-emerald-800 underline">Back</Link>
       </p>
+    )
+  }
+
+  if (canManage && isSystemCatalog && course?.sourceSystemCourseId) {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <nav className="text-sm text-neutral-600">
+          <Link to="/learning/courses" className="hover:text-[#2D403A]">
+            Courses
+          </Link>
+          <span className="mx-2 text-neutral-300">›</span>
+          <span className="font-medium text-[#2D403A]">{course.title}</span>
+        </nav>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-6">
+          <h1 className="font-serif text-2xl font-semibold text-[#2D403A]">Systemkurs</h1>
+          <p className="mt-2 text-sm text-neutral-700">
+            Dette kurset leveres fra felles katalog og kan ikke redigeres direkte. Kopier det til din organisasjon for å
+            tilpasse innhold, rekkefølge og publisering.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-white"
+              style={{ backgroundColor: PIN_GREEN }}
+              onClick={() => {
+                void (async () => {
+                  const r = await forkSystemCourse(course.sourceSystemCourseId!)
+                  if (r.ok && r.newCourseId) {
+                    navigate(`/learning/courses/${r.newCourseId}`)
+                  } else if (!r.ok) {
+                    alert(r.error)
+                  }
+                })()
+              }}
+            >
+              Kopier og tilpass (mal)
+            </button>
+            <Link
+              to={`/learning/play/${course.id}`}
+              className="inline-flex items-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-[#2D403A] hover:bg-neutral-50"
+            >
+              Forhåndsvisning
+            </Link>
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -220,6 +283,80 @@ export function LearningCourseBuilder() {
               className="w-32 rounded-full border border-dashed border-neutral-300 px-2 py-0.5 text-xs"
             />
           </div>
+          {otherCourses.length > 0 ? (
+            <div className="mt-6 border-t border-neutral-100 pt-4">
+              <p className="text-xs font-medium text-neutral-500">Forutsetninger (lås opp dette kurset)</p>
+              <p className="mt-1 text-xs text-neutral-500">
+                Velg kurs som må fullføres før dette blir tilgjengelig for deltakere.
+              </p>
+              <ul className="mt-3 max-h-40 space-y-2 overflow-y-auto">
+                {otherCourses.map((oc) => {
+                  const selected = course.prerequisiteCourseIds?.includes(oc.id) ?? false
+                  return (
+                    <li key={oc.id}>
+                      <label className="flex cursor-pointer items-start gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={(e) => {
+                            const cur = course.prerequisiteCourseIds ?? []
+                            const next = e.target.checked
+                              ? [...cur, oc.id]
+                              : cur.filter((x) => x !== oc.id)
+                            updateCourse(course.id, { prerequisiteCourseIds: next })
+                          }}
+                          className="mt-0.5 rounded border-neutral-300"
+                        />
+                        <span>
+                          <span className="font-medium text-[#2D403A]">{oc.title}</span>
+                          <span className="ml-2 text-xs text-neutral-500">({oc.status})</span>
+                        </span>
+                      </label>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ) : null}
+          <div className="mt-6 border-t border-neutral-100 pt-4">
+            <p className="text-xs font-medium text-neutral-500">Oppfriskning / sertifisering</p>
+            <p className="mt-1 text-xs text-neutral-500">
+              Antall måneder til sertifikatet utløper og må fornyes (valgfritt). Brukes for påminnelser og status.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <label className="text-sm text-neutral-700">
+                Måneder til fornyelse
+                <input
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={course.recertificationMonths ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value === '' ? null : Math.min(120, Math.max(0, Number(e.target.value)))
+                    updateCourse(course.id, { recertificationMonths: v })
+                  }}
+                  placeholder="—"
+                  className="ml-2 w-20 rounded-lg border border-neutral-200 px-2 py-1 text-sm"
+                />
+              </label>
+              <span className="text-xs text-neutral-500">
+                Kursversjon: <strong>{course.courseVersion ?? 1}</strong> (økes ved innholdsendringer for revisjon)
+              </span>
+              <button
+                type="button"
+                className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#2D403A] hover:bg-neutral-50"
+                onClick={() => {
+                  if (!confirm('Øke kursversjon? Nye fullføringer får ny versjon på sertifikatet.')) return
+                  void (async () => {
+                    const r = await bumpCourseVersion(course.id)
+                    if (!r.ok) alert(r.error)
+                  })()
+                }}
+              >
+                Øk versjon
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -309,6 +446,7 @@ export function LearningCourseBuilder() {
                   mod={selected}
                   updateModule={updateModule}
                   deleteModule={deleteModule}
+                  upsertIltEvent={upsertIltEvent}
                   onDeleted={() => setSelectedId(null)}
                 />
               ) : (
@@ -356,12 +494,14 @@ function ModuleEditor({
   mod,
   updateModule,
   deleteModule,
+  upsertIltEvent,
   onDeleted,
 }: {
   courseId: string
   mod: CourseModule
   updateModule: ReturnType<typeof useLearning>['updateModule']
   deleteModule: ReturnType<typeof useLearning>['deleteModule']
+  upsertIltEvent: ReturnType<typeof useLearning>['upsertIltEvent']
   onDeleted: () => void
 }) {
   const [title, setTitle] = useState(mod.title)
@@ -399,17 +539,167 @@ function ModuleEditor({
         <input
           type="number"
           min={1}
+          max={15}
           value={dur}
           onChange={(e) => {
-            const v = Number(e.target.value) || 1
+            const v = Math.min(15, Math.max(1, Number(e.target.value) || 1))
             setDur(v)
             updateModule(courseId, mod.id, { durationMinutes: v })
           }}
           className="mt-1 w-24 rounded-lg border border-neutral-200 px-2 py-1 text-sm"
         />
+        <p className="mt-1 text-[11px] text-neutral-500">Mikrolæring: anbefalt maks ~3 min lesing/seing per modul.</p>
       </div>
 
+      {mod.kind === 'on_job' ? (
+        <div className="rounded-lg border border-dashed border-emerald-300 bg-emerald-50/50 p-4">
+          <p className="text-xs font-semibold text-[#2D403A]">QR for stedet (flow-of-work)</p>
+          <p className="mt-1 text-xs text-neutral-600">
+            Skriv ut og fest på f.eks. førstehjelpskasse eller truck. Skanning åpner modulen direkte uten å navigere i
+            kursbiblioteket.
+          </p>
+          <div className="mt-3 flex flex-wrap items-start gap-4">
+            <img
+              src={qrCodeImageUrl(learningFlowEntryUrl(courseId, mod.id))}
+              alt=""
+              className="size-36 rounded-lg border border-white bg-white p-1 shadow"
+            />
+            <div className="min-w-0 flex-1 space-y-2">
+              <label className="text-[10px] font-medium uppercase text-neutral-500">Dypelenke (flow)</label>
+              <input
+                readOnly
+                value={`${typeof window !== 'undefined' ? window.location.origin : ''}/learning/flow?course=${encodeURIComponent(courseId)}&module=${encodeURIComponent(mod.id)}`}
+                className="w-full rounded border border-neutral-200 bg-white px-2 py-1.5 font-mono text-[11px]"
+                onFocus={(e) => e.target.select()}
+              />
+              <p className="text-[10px] text-neutral-500">
+                Bruk denne i HMS-hendelser eller automasjon; tildeling lagres i <code>learning_module_assignments</code>.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {mod.kind === 'event' ? (
+        <IltScheduleForm
+          courseId={courseId}
+          moduleId={mod.id}
+          defaultTitle={mod.title}
+          upsertIltEvent={upsertIltEvent}
+        />
+      ) : null}
+
       <ContentFields courseId={courseId} mod={mod} updateModule={updateModule} />
+    </div>
+  )
+}
+
+function IltScheduleForm({
+  courseId,
+  moduleId,
+  defaultTitle,
+  upsertIltEvent,
+}: {
+  courseId: string
+  moduleId: string
+  defaultTitle: string
+  upsertIltEvent: ReturnType<typeof useLearning>['upsertIltEvent']
+}) {
+  const [title, setTitle] = useState(defaultTitle)
+  const [startsAt, setStartsAt] = useState('')
+  const [endsAt, setEndsAt] = useState('')
+  const [locationText, setLocationText] = useState('')
+  const [meetingUrl, setMeetingUrl] = useState('')
+  const [instructorName, setInstructorName] = useState('')
+  const [msg, setMsg] = useState<string | null>(null)
+
+  return (
+    <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+      <p className="text-xs font-semibold text-[#2D403A]">Planlegg ILT / vILT-økt</p>
+      <p className="mt-1 text-xs text-neutral-600">
+        Én økt per modul. Deltakere kan RSVP og oppmøte registreres i spilleren.
+      </p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <label className="text-xs text-neutral-600">
+          Tittel på økt
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          />
+        </label>
+        <label className="text-xs text-neutral-600">
+          Start (lokal tid)
+          <input
+            type="datetime-local"
+            value={startsAt}
+            onChange={(e) => setStartsAt(e.target.value)}
+            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          />
+        </label>
+        <label className="text-xs text-neutral-600">
+          Slutt (valgfritt)
+          <input
+            type="datetime-local"
+            value={endsAt}
+            onChange={(e) => setEndsAt(e.target.value)}
+            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          />
+        </label>
+        <label className="text-xs text-neutral-600">
+          Sted / rom
+          <input
+            value={locationText}
+            onChange={(e) => setLocationText(e.target.value)}
+            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          />
+        </label>
+        <label className="text-xs text-neutral-600 sm:col-span-2">
+          Teams / Meet-lenke
+          <input
+            value={meetingUrl}
+            onChange={(e) => setMeetingUrl(e.target.value)}
+            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          />
+        </label>
+        <label className="text-xs text-neutral-600 sm:col-span-2">
+          Instruktør
+          <input
+            value={instructorName}
+            onChange={(e) => setInstructorName(e.target.value)}
+            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          />
+        </label>
+      </div>
+      <button
+        type="button"
+        className="mt-3 rounded-lg px-4 py-2 text-sm font-medium text-white"
+        style={{ backgroundColor: PIN_GREEN }}
+        onClick={() => {
+          if (!startsAt) {
+            setMsg('Velg starttidspunkt.')
+            return
+          }
+          const isoStart = new Date(startsAt).toISOString()
+          const isoEnd = endsAt ? new Date(endsAt).toISOString() : null
+          void (async () => {
+            const r = await upsertIltEvent({
+              courseId,
+              moduleId,
+              title: title.trim() || defaultTitle,
+              startsAt: isoStart,
+              endsAt: isoEnd,
+              locationText: locationText.trim() || null,
+              meetingUrl: meetingUrl.trim() || null,
+              instructorName: instructorName.trim() || null,
+            })
+            setMsg(r.ok ? 'Lagret økt.' : r.error)
+          })()
+        }}
+      >
+        Lagre økt
+      </button>
+      {msg ? <p className="mt-2 text-xs text-neutral-700">{msg}</p> : null}
     </div>
   )
 }
@@ -660,6 +950,15 @@ function ContentFields({
           + Tip
         </button>
       </ul>
+    )
+  }
+
+  if (c.kind === 'event') {
+    return (
+      <RichTextEditor
+        value={c.instructions}
+        onChange={(html) => updateModule(courseId, mod.id, { content: { kind: 'event', instructions: html } })}
+      />
     )
   }
 

@@ -288,6 +288,35 @@ export function useOrgSetup() {
     [supabase, user],
   )
 
+  const updateDepartmentId = useCallback(
+    async (departmentId: string | null) => {
+      if (!supabase || !user) throw new Error('Ikke innlogget.')
+      const { error: e } = await supabase.from('profiles').update({ department_id: departmentId }).eq('id', user.id)
+      if (e) throw new Error(getSupabaseErrorMessage(e))
+      setProfile((p) => (p ? { ...p, department_id: departmentId } : p))
+    },
+    [supabase, user],
+  )
+
+  const updateLearningMetadata = useCallback(
+    async (patch: Record<string, unknown>) => {
+      if (!supabase || !user) throw new Error('Ikke innlogget.')
+      const base = (profile?.learning_metadata as Record<string, unknown> | undefined) ?? {}
+      const next = { ...base, ...patch }
+      const { error: e } = await supabase
+        .from('profiles')
+        .update({ learning_metadata: next })
+        .eq('id', user.id)
+      if (e) throw new Error(getSupabaseErrorMessage(e))
+      setProfile((p) => (p ? { ...p, learning_metadata: next } : p))
+      const { error: rpcErr } = await supabase.rpc('learning_refresh_path_enrollments_for_user', {
+        p_user_id: user.id,
+      })
+      if (rpcErr) console.warn('learning_refresh_path_enrollments_for_user', rpcErr.message)
+    },
+    [supabase, user, profile?.learning_metadata],
+  )
+
   const addDepartment = useCallback(
     async (name: string) => {
       if (!supabase || !organization?.id) throw new Error('Mangler organisasjon.')
@@ -429,6 +458,8 @@ export function useOrgSetup() {
     createOrganizationFromBrreg,
     updateDisplayName,
     updateLocale,
+    updateDepartmentId,
+    updateLearningMetadata,
     addDepartment,
     addTeam,
     addLocation,

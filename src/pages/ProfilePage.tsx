@@ -9,9 +9,20 @@ import { getSupabaseErrorMessage } from '../lib/supabaseError'
 
 export function ProfilePage() {
   const { t, locale: ctxLocale } = useI18n()
-  const { user, profile, supabaseConfigured, updateDisplayName, updateLocale } = useOrgSetupContext()
+  const {
+    user,
+    profile,
+    supabaseConfigured,
+    updateDisplayName,
+    updateLocale,
+    departments,
+    updateDepartmentId,
+    updateLearningMetadata,
+  } = useOrgSetupContext()
   const [name, setName] = useState('')
   const [loc, setLoc] = useState<AppLocale>('nb')
+  const [deptId, setDeptId] = useState<string>('')
+  const [safetyRep, setSafetyRep] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -21,6 +32,9 @@ export function ProfilePage() {
       setName(profile.display_name ?? '')
       const l = profile.locale
       setLoc(l === 'en' || l === 'nb' ? l : ctxLocale)
+      setDeptId(profile.department_id ?? '')
+      const lm = profile.learning_metadata as Record<string, unknown> | null | undefined
+      setSafetyRep(lm?.is_safety_rep === true)
     }
   }, [profile, ctxLocale])
 
@@ -51,6 +65,8 @@ export function ProfilePage() {
     try {
       await updateDisplayName(name.trim() || profile?.display_name || 'Bruker')
       await updateLocale(loc)
+      await updateDepartmentId(deptId || null)
+      await updateLearningMetadata({ is_safety_rep: safetyRep })
       setMsg(t('profile.saved'))
     } catch (e) {
       setErr(getSupabaseErrorMessage(e))
@@ -99,6 +115,43 @@ export function ProfilePage() {
               </option>
             ))}
           </select>
+        </div>
+        {departments.length > 0 ? (
+          <div>
+            <label className="block text-sm font-medium text-neutral-800">Avdeling (e-læring / statistikk)</label>
+            <select
+              value={deptId}
+              onChange={(e) => setDeptId(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+            >
+              <option value="">— Ikke valgt —</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-neutral-500">
+              Brukes til avdelingsbasert tavle i E-læring (ingen individuell rangering).
+            </p>
+          </div>
+        ) : null}
+        <div>
+          <label className="flex cursor-pointer items-start gap-3 text-sm font-medium text-neutral-800">
+            <input
+              type="checkbox"
+              checked={safetyRep}
+              onChange={(e) => setSafetyRep(e.target.checked)}
+              className="mt-1 rounded border-neutral-300"
+            />
+            <span>
+              HMS-representant / sikkerhetsrolle
+              <span className="mt-0.5 block text-xs font-normal text-neutral-500">
+                Kan brukes til å automatisk melde deg inn i læringsløp (f.eks. sikkerhetsrepresentant-kurset) når
+                organisasjonen har satt opp regler.
+              </span>
+            </span>
+          </label>
         </div>
         {err ? <p className="text-sm text-red-700">{err}</p> : null}
         {msg ? <p className="text-sm text-emerald-800">{msg}</p> : null}
