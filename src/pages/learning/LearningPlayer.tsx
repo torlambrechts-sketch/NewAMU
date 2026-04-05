@@ -407,7 +407,7 @@ function EventModuleSection({
   return (
     <div className="space-y-6">
       <div
-        className="prose prose-sm mx-auto max-w-[65ch] text-neutral-800 [&_a]:text-emerald-800 [&_a]:underline [&_li]:my-1"
+        className="prose prose-sm w-full max-w-none text-neutral-800 [&_a]:text-emerald-800 [&_a]:underline [&_li]:my-1"
         dangerouslySetInnerHTML={{ __html: instructionsHtml }}
       />
 
@@ -484,7 +484,7 @@ function EventModuleSection({
       <button
         type="button"
         onClick={() => onComplete()}
-        className="w-full max-w-[65ch] rounded-full py-3 text-sm font-medium text-white"
+        className="w-full rounded-full py-3 text-sm font-medium text-white"
         style={{ backgroundColor: PIN_GREEN }}
       >
         Fullfør modul
@@ -682,13 +682,13 @@ function ModulePlayer({
           </p>
         ) : null}
         <div
-          className="prose prose-sm mx-auto max-w-[65ch] text-neutral-800 [&_a]:text-emerald-800 [&_a]:underline [&_li]:my-1"
+          className="prose prose-sm w-full max-w-none text-neutral-800 [&_a]:text-emerald-800 [&_a]:underline [&_li]:my-1"
           dangerouslySetInnerHTML={{ __html: html }}
         />
         <button
           type="button"
           onClick={() => onComplete()}
-          className="mt-6 w-full max-w-[65ch] rounded-full py-3 text-sm font-medium text-white"
+          className="mt-6 w-full rounded-full py-3 text-sm font-medium text-white"
           style={{ backgroundColor: PIN_GREEN }}
         >
           Continue

@@ -18,6 +18,9 @@ export const STORAGE_KEY = 'atics-learning-v1'
 
 export const LEARNING_EXPORT_VERSION = 1
 
+/** One successful learning fetch per org+user session — avoids toggling loading on every navigation/remount when data already exists. */
+const learningSessionHydrated = new Map<string, boolean>()
+
 export type LearningBackend = 'local' | 'supabase'
 
 export type LearningExportPayload = {
@@ -518,7 +521,9 @@ export function useLearning() {
 
   const refreshLearning = useCallback(async () => {
     if (!supabase || !orgId || !userId) return
-    setLoading(true)
+    const sessionKey = `${orgId}:${userId}`
+    const alreadyHydrated = learningSessionHydrated.get(sessionKey) === true
+    if (!alreadyHydrated) setLoading(true)
     setError(null)
     try {
       const { error: rpcErr } = await supabase.rpc('learning_ensure_system_course_rows', {
@@ -905,7 +910,10 @@ export function useLearning() {
       } else {
         setComplianceMatrix([])
       }
+
+      learningSessionHydrated.set(sessionKey, true)
     } catch (e) {
+      learningSessionHydrated.set(sessionKey, true)
       setError(getSupabaseErrorMessage(e))
       setSystemCourseAdmin([])
       setStreakWeeks(null)
@@ -923,6 +931,11 @@ export function useLearning() {
       setLoading(false)
     }
   }, [supabase, orgId, userId, canManage, catalogLocale])
+
+  useEffect(() => {
+    if (!orgId || !userId) return
+    learningSessionHydrated.delete(`${orgId}:${userId}`)
+  }, [orgId, userId])
 
   useEffect(() => {
     if (!useSupabase) return
@@ -1782,11 +1795,15 @@ export function useLearning() {
     [useSupabase],
   )
 
+  const learningSessionKey = orgId && userId ? `${orgId}:${userId}` : ''
+  const learningDataReady = !useSupabase || (learningSessionKey !== '' && learningSessionHydrated.get(learningSessionKey) === true)
+
   return {
     ...state,
     stats,
     learningBackend: (useSupabase ? 'supabase' : 'local') as LearningBackend,
-    learningLoading: useSupabase && loading,
+    learningLoading: useSupabase && loading && !learningDataReady,
+    learningDataReady,
     learningError: error,
     systemCourseSettings: useSupabase ? systemCourseAdmin : [],
     refreshLearning,
