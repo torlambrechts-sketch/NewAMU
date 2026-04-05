@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -13,26 +13,36 @@ import {
   Settings2,
   SlidersHorizontal,
 } from 'lucide-react'
-import { departmentRows } from '../data/departments'
+import type { DepartmentRow } from '../data/departments'
 import { useHse } from '../hooks/useHse'
 import { useCostSettings } from '../hooks/useCostSettings'
 import { useI18n } from '../hooks/useI18n'
+import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { useWorkspacePrefs } from '../hooks/useWorkspacePrefs'
 
-const members = [
-  { type: 'img' as const, src: 'https://i.pravatar.cc/80?img=1' },
-  { type: 'img' as const, src: 'https://i.pravatar.cc/80?img=5' },
-  { type: 'initials' as const, text: 'HS', bg: 'bg-[#d4a84b]' },
-  { type: 'img' as const, src: 'https://i.pravatar.cc/80?img=8' },
-  { type: 'initials' as const, text: 'PA', bg: 'bg-neutral-400' },
-  { type: 'initials' as const, text: 'AS', bg: 'bg-orange-400' },
-  { type: 'initials' as const, text: 'LO', bg: 'bg-[#e8dcc8]' },
-  { type: 'initials' as const, text: 'DV', bg: 'bg-emerald-600' },
-  { type: 'initials' as const, text: 'GF', bg: 'bg-[#e8dcc8]' },
-  { type: 'initials' as const, text: 'FD', bg: 'bg-neutral-500' },
-  { type: 'img' as const, src: 'https://i.pravatar.cc/80?img=12' },
-  { type: 'img' as const, src: 'https://i.pravatar.cc/80?img=14' },
-]
+const AVATAR_BG = ['bg-[#d4a84b]', 'bg-neutral-400', 'bg-orange-400', 'bg-[#e8dcc8]', 'bg-emerald-600', 'bg-neutral-500']
+
+function buildDepartmentRowsFromOrg(org: ReturnType<typeof useOrganisation>): DepartmentRow[] {
+  const units = org.units.filter((u) => u.kind === 'department' || u.kind === 'team')
+  if (units.length === 0) return []
+  return units.map((u, i) => {
+    const inUnit = org.activeEmployees.filter((e) => e.unitId === u.id)
+    const head = inUnit[0]
+    const count = inUnit.length || u.memberCount || 0
+    return {
+      id: u.id,
+      department: u.name,
+      country: head?.location ?? '—',
+      hireEmployees: Math.max(count, 1),
+      deadline: '—',
+      status: i % 2 === 0 ? ('Success' as const) : ('Processing' as const),
+      recruiter: head
+        ? { name: head.name, email: head.email ?? '', initials: org.initials(head.name) }
+        : { name: '—', email: '', initials: '—' },
+    }
+  })
+}
 
 function StatusBadge({ status }: { status: 'Success' | 'Processing' }) {
   if (status === 'Success') {
@@ -51,56 +61,47 @@ function StatusBadge({ status }: { status: 'Success' | 'Processing' }) {
 
 export function ProjectDashboard() {
   const { t } = useI18n()
-  const { needsOnboarding, supabaseConfigured } = useOrgSetupContext()
+  const { needsOnboarding, supabaseConfigured, organization, members: orgMembers } = useOrgSetupContext()
+  const org = useOrganisation()
+  const {
+    prefs: workspace,
+    setSetupOpen: persistSetupOpen,
+    setTableCompact: setCompact,
+    error: workspacePrefsError,
+  } = useWorkspacePrefs()
+  const setupOpen = workspace.setupOpen
+  const tableCompact = workspace.tableCompact
   const [searchParams, setSearchParams] = useSearchParams()
   const [region, setRegion] = useState<'all' | 'usa' | 'europe'>('all')
-  const [expandedId, setExpandedId] = useState<string | null>('d2')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [privateOn, setPrivateOn] = useState(true)
   const [showCostSettings, setShowCostSettings] = useState(false)
-  const [setupOpen, setSetupOpen] = useState(() => {
-    try {
-      return sessionStorage.getItem('atics-dashboard-setup-open') === '1'
-    } catch {
-      return false
-    }
-  })
-  const [tableCompact, setTableCompact] = useState(() => {
-    try {
-      return localStorage.getItem('atics-dashboard-table-compact') === '1'
-    } catch {
-      return false
-    }
-  })
   const hse = useHse()
   const cost = useCostSettings()
 
-  const persistSetupOpen = (open: boolean) => {
-    setSetupOpen(open)
-    try {
-      sessionStorage.setItem('atics-dashboard-setup-open', open ? '1' : '0')
-    } catch {
-      /* ignore */
-    }
-  }
+  const orgDisplayName = organization?.name ?? org.settings.orgName ?? 'Arbeidsområde'
 
-  const setCompact = (compact: boolean) => {
-    setTableCompact(compact)
-    try {
-      localStorage.setItem('atics-dashboard-table-compact', compact ? '1' : '0')
-    } catch {
-      /* ignore */
-    }
-  }
+  const departmentRows = useMemo(() => buildDepartmentRowsFromOrg(org), [org])
+
+  const memberAvatars = useMemo(() => {
+    const list = orgMembers.slice(0, 12)
+    return list.map((m, i) => ({
+      type: 'initials' as const,
+      text:
+        m.display_name
+          .split(' ')
+          .map((w) => w[0])
+          .join('')
+          .slice(0, 2)
+          .toUpperCase() || '?',
+      bg: AVATAR_BG[i % AVATAR_BG.length],
+    }))
+  }, [orgMembers])
 
   useEffect(() => {
     if (searchParams.get('setup') !== '1') return
     queueMicrotask(() => {
-      setSetupOpen(true)
-      try {
-        sessionStorage.setItem('atics-dashboard-setup-open', '1')
-      } catch {
-        /* ignore */
-      }
+      persistSetupOpen(true)
     })
     setSearchParams(
       (prev) => {
@@ -110,14 +111,14 @@ export function ProjectDashboard() {
       },
       { replace: true },
     )
-  }, [searchParams, setSearchParams])
+  }, [searchParams, setSearchParams, persistSetupOpen])
 
   const cellPad = tableCompact ? 'px-2 py-2' : 'px-3 py-3'
 
   const filtered = departmentRows.filter((row) => {
     if (region === 'usa') return row.country === 'India'
     if (region === 'europe')
-      return ['The Netherlands', 'Poland'].includes(row.country)
+      return ['The Netherlands', 'Poland', 'Norge', 'Norway'].includes(row.country)
     return true
   })
 
@@ -125,9 +126,9 @@ export function ProjectDashboard() {
     <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
       <nav className="mb-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
         <span>
-          <span className="text-neutral-500">Projects</span>
+          <span className="text-neutral-500">Workspace</span>
           <span className="mx-2 text-neutral-400">→</span>
-          <span className="font-medium text-neutral-800">Adobe Analytics</span>
+          <span className="font-medium text-neutral-800">{orgDisplayName}</span>
         </span>
         <div className="ml-auto flex flex-wrap gap-2">
           <Link
@@ -182,6 +183,23 @@ export function ProjectDashboard() {
       </nav>
 
       {/* ── Cost summary widget ───────────────────────────────────────────── */}
+      {(cost.error || org.error || workspacePrefsError || hse.error) && (
+        <div className="mb-4 space-y-2">
+          {cost.error && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{cost.error}</p>
+          )}
+          {org.error && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{org.error}</p>
+          )}
+          {workspacePrefsError && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{workspacePrefsError}</p>
+          )}
+          {hse.error && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{hse.error}</p>
+          )}
+        </div>
+      )}
+
       {cost.settings.enabled && (
         <div className="mb-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -251,8 +269,8 @@ export function ProjectDashboard() {
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0">
           <div className="flex flex-wrap items-start gap-4 border-b border-neutral-200/80 pb-6">
-            <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-[#e1251b] text-3xl font-bold text-white">
-              A
+            <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-[#1a3d32] text-2xl font-bold text-[#c9a227]">
+              {orgDisplayName.slice(0, 2).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -260,7 +278,7 @@ export function ProjectDashboard() {
                   className="text-2xl font-semibold text-neutral-900 md:text-3xl"
                   style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
                 >
-                  Adobe Analytics
+                  {orgDisplayName}
                 </h1>
                 <CheckCircle2 className="size-5 text-neutral-400" aria-hidden />
                 <button type="button" className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100">
@@ -271,33 +289,33 @@ export function ProjectDashboard() {
                 </button>
               </div>
               <p className="mt-1 text-sm text-neutral-500">
-                5,321 Employees | Digital Product
+                {org.activeEmployees.length} aktive i org.kart · {org.totalEmployeeCount} i innstillinger
               </p>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-600">
-                Adobe Analytics helps you create a holistic view of your business by turning
-                customer interactions into actionable insights.
+                Oversikt over arbeidsmiljø og aktivitet for {orgDisplayName}. Koblinger til Council, HSE, internkontroll og
+                opplæring ligger i menyen.
               </p>
               <div className="mt-5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                  Project Managers
+                  Medlemmer (org.)
                 </p>
                 <div className="mt-2 flex flex-wrap gap-6">
-                  <div className="flex items-center gap-2">
-                    <img
-                      src="https://i.pravatar.cc/48?img=33"
-                      alt=""
-                      className="size-10 rounded-full ring-2 ring-white"
-                    />
-                    <span className="text-sm font-medium text-neutral-800">Kyle O.</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <img
-                      src="https://i.pravatar.cc/48?img=47"
-                      alt=""
-                      className="size-10 rounded-full ring-2 ring-white"
-                    />
-                    <span className="text-sm font-medium text-neutral-800">Jannies P.</span>
-                  </div>
+                  {orgMembers.slice(0, 4).map((m) => (
+                    <div key={m.id} className="flex items-center gap-2">
+                      <div
+                        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#1a3d32]/10 text-xs font-semibold text-[#1a3d32]"
+                        aria-hidden
+                      >
+                        {m.display_name
+                          .split(' ')
+                          .map((w) => w[0])
+                          .join('')
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </div>
+                      <span className="text-sm font-medium text-neutral-800">{m.display_name}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -486,7 +504,7 @@ export function ProjectDashboard() {
                           </div>
                         </td>
                       </tr>
-                      {expandedId === row.id && row.id === 'd2' && (
+                      {expandedId === row.id && (
                         <tr className="bg-[#faf8f4]">
                           <td colSpan={6} className="px-4 py-5">
                             <div className="rounded-xl border border-neutral-200/80 bg-white p-4 shadow-sm">
@@ -555,8 +573,8 @@ export function ProjectDashboard() {
         <aside className="h-fit rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-base font-semibold text-neutral-900">
-              Members <span className="text-neutral-400">|</span>{' '}
-              <span className="font-normal text-neutral-600">15</span>
+              Medlemmer <span className="text-neutral-400">|</span>{' '}
+              <span className="font-normal text-neutral-600">{orgMembers.length}</span>
             </h3>
             <button
               type="button"
@@ -566,22 +584,17 @@ export function ProjectDashboard() {
             </button>
           </div>
           <div className="mt-4 grid grid-cols-4 gap-2">
-            {members.map((m, i) =>
-              m.type === 'img' ? (
-                <img
-                  key={i}
-                  src={m.src}
-                  alt=""
-                  className="aspect-square w-full rounded-full object-cover ring-1 ring-neutral-100"
-                />
-              ) : (
+            {memberAvatars.length > 0 ? (
+              memberAvatars.map((m, i) => (
                 <div
                   key={i}
                   className={`flex aspect-square w-full items-center justify-center rounded-full text-xs font-semibold text-white ${m.bg}`}
                 >
                   {m.text}
                 </div>
-              ),
+              ))
+            ) : (
+              <p className="col-span-4 text-xs text-neutral-500">Ingen org.medlemmer ennå.</p>
             )}
           </div>
           <div className="mt-5 space-y-3 border-t border-neutral-100 pt-4">

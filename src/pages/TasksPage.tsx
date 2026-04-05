@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Calendar, History, Pencil, Plus, Trash2 } from 'lucide-react'
 import { MODULE_LABELS } from '../lib/taskNavigation'
 import { useTasks } from '../hooks/useTasks'
+import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import type { Task, TaskModule, TaskSourceType, TaskStatus } from '../types/task'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeTaskWizard } from '../components/wizard/wizards'
@@ -55,6 +56,7 @@ function parseSource(s: string | null): TaskSourceType | null {
 }
 
 export function TasksPage() {
+  const { supabaseConfigured } = useOrgSetupContext()
   const {
     tasks,
     auditLog,
@@ -64,6 +66,8 @@ export function TasksPage() {
     setStatus,
     signAsAssignee,
     signManagement,
+    loading,
+    error,
   } = useTasks()
   const [searchParams, setSearchParams] = useSearchParams()
   const taskView = searchParams.get('view') === 'audit' ? 'audit' : 'list'
@@ -189,6 +193,13 @@ export function TasksPage() {
         <span className="mx-2 text-neutral-400">→</span>
         <span className="font-medium text-neutral-800">Tasks</span>
       </nav>
+
+      {error && (
+        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>
+      )}
+      {loading && supabaseConfigured && (
+        <p className="mb-4 text-sm text-neutral-500">Laster oppgaver…</p>
+      )}
 
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-neutral-200/80 pb-6">
         <div>

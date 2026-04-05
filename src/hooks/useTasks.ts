@@ -1,8 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DigitalSignature, Task, TaskModule, TaskSourceType, TaskStatus } from '../types/task'
+import { getSupabaseErrorMessage } from '../lib/supabaseError'
+import {
+  clearOrgModuleSnap,
+  fetchOrgModulePayload,
+  readOrgModuleSnap,
+  upsertOrgModulePayload,
+  writeOrgModuleSnap,
+  type OrgModulePayloadKey,
+} from '../lib/orgModulePayload'
+import { useOrgSetupContext } from './useOrgSetupContext'
 
+const MODULE_KEY: OrgModulePayloadKey = 'tasks'
 const STORAGE_KEY_V2 = 'atics-tasks-v2'
 const LEGACY_KEY = 'atics-tasks-v1'
+const PERSIST_DEBOUNCE_MS = 450
 
 export type TaskAuditEntry = {
   id: string
@@ -117,16 +129,24 @@ const seedTasks: Task[] = [
   },
 ]
 
-function load(): TaskStore {
+function normalizeStore(p: TaskStore): TaskStore {
+  return {
+    tasks: Array.isArray(p.tasks) ? p.tasks.map((t) => migrateLegacyTask(t as unknown as Record<string, unknown>)) : [],
+    auditLog: Array.isArray(p.auditLog) ? p.auditLog : [],
+  }
+}
+
+function emptyRemote(): TaskStore {
+  return { tasks: [], auditLog: [] }
+}
+
+function loadLocal(): TaskStore {
   try {
     const rawV2 = localStorage.getItem(STORAGE_KEY_V2)
     if (rawV2) {
       const p = JSON.parse(rawV2) as TaskStore
       if (p && Array.isArray(p.tasks)) {
-        return {
-          tasks: p.tasks.map((t) => migrateLegacyTask(t as unknown as Record<string, unknown>)),
-          auditLog: Array.isArray(p.auditLog) ? p.auditLog : [],
-        }
+        return normalizeStore(p)
       }
     }
     const rawLegacy = localStorage.getItem(LEGACY_KEY)
@@ -138,7 +158,7 @@ function load(): TaskStore {
           tasks,
           auditLog: [auditEntry('system', 'migrate', 'Oppgave migrert fra v1 til v2 med modul og signaturfelt.')],
         }
-        save(store)
+        localStorage.setItem(STORAGE_KEY_V2, JSON.stringify(store))
         return store
       }
     }
@@ -148,28 +168,91 @@ function load(): TaskStore {
   }
 }
 
-function save(store: TaskStore) {
+function saveLocal(store: TaskStore) {
   localStorage.setItem(STORAGE_KEY_V2, JSON.stringify(store))
 }
 
 export type AddTaskInput = Omit<Task, 'id' | 'createdAt'> & Partial<Pick<Task, 'id' | 'createdAt'>>
 
 export function useTasks() {
-  const [store, setStore] = useState<TaskStore>(() => load())
+  const { supabase, organization, user } = useOrgSetupContext()
+  const orgId = organization?.id
+  const userId = user?.id
+  const useRemote = !!(supabase && orgId && userId)
+
+  const initialRemote =
+    useRemote && orgId && userId ? readOrgModuleSnap<TaskStore>(MODULE_KEY, orgId, userId) : null
+  const [localStore, setLocalStore] = useState<TaskStore>(() => loadLocal())
+  const [remoteStore, setRemoteStore] = useState<TaskStore>(() => initialRemote ?? emptyRemote())
+  const [loading, setLoading] = useState(useRemote)
+  const [error, setError] = useState<string | null>(null)
+  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const store = useRemote ? remoteStore : localStore
+  const setStore = useRemote ? setRemoteStore : setLocalStore
+
+  const refreshTasks = useCallback(async () => {
+    if (!supabase || !orgId || !userId) return
+    setLoading(true)
+    setError(null)
+    try {
+      const payload = await fetchOrgModulePayload<TaskStore>(supabase, orgId, MODULE_KEY)
+      const next = payload ? normalizeStore(payload) : emptyRemote()
+      setRemoteStore(next)
+      writeOrgModuleSnap(MODULE_KEY, orgId, userId, next)
+    } catch (e) {
+      setError(getSupabaseErrorMessage(e))
+      clearOrgModuleSnap(MODULE_KEY, orgId, userId)
+      setRemoteStore(emptyRemote())
+    } finally {
+      setLoading(false)
+    }
+  }, [supabase, orgId, userId])
 
   useEffect(() => {
-    save(store)
-  }, [store])
+    if (!useRemote) {
+      setLoading(false)
+      return
+    }
+    void refreshTasks()
+  }, [useRemote, refreshTasks])
+
+  useEffect(() => {
+    if (!useRemote) {
+      saveLocal(localStore)
+    }
+  }, [useRemote, localStore])
+
+  useEffect(() => {
+    if (!useRemote || !supabase || !orgId) return
+    if (persistTimer.current) clearTimeout(persistTimer.current)
+    persistTimer.current = setTimeout(() => {
+      void (async () => {
+        try {
+          await upsertOrgModulePayload(supabase, orgId, MODULE_KEY, remoteStore)
+          if (userId) writeOrgModuleSnap(MODULE_KEY, orgId, userId, remoteStore)
+        } catch (e) {
+          setError(getSupabaseErrorMessage(e))
+        }
+      })()
+    }, PERSIST_DEBOUNCE_MS)
+    return () => {
+      if (persistTimer.current) clearTimeout(persistTimer.current)
+    }
+  }, [useRemote, supabase, orgId, userId, remoteStore])
 
   const tasks = store.tasks
   const auditLog = store.auditLog
 
-  const appendAudit = useCallback((taskId: string, action: string, message: string) => {
-    setStore((s) => ({
-      ...s,
-      auditLog: [...s.auditLog, auditEntry(taskId, action, message)],
-    }))
-  }, [])
+  const appendAudit = useCallback(
+    (taskId: string, action: string, message: string) => {
+      setStore((s) => ({
+        ...s,
+        auditLog: [...s.auditLog, auditEntry(taskId, action, message)],
+      }))
+    },
+    [setStore],
+  )
 
   const addTask = useCallback(
     (partial: AddTaskInput) => {
@@ -197,7 +280,7 @@ export function useTasks() {
       }))
       return t
     },
-    [],
+    [setStore],
   )
 
   const updateTask = useCallback(
@@ -208,16 +291,19 @@ export function useTasks() {
       }))
       appendAudit(id, 'task_updated', 'Oppgave oppdatert')
     },
-    [appendAudit],
+    [appendAudit, setStore],
   )
 
-  const deleteTask = useCallback((id: string) => {
-    setStore((s) => ({
-      ...s,
-      tasks: s.tasks.filter((t) => t.id !== id),
-      auditLog: [...s.auditLog, auditEntry(id, 'task_deleted', 'Oppgave slettet')],
-    }))
-  }, [])
+  const deleteTask = useCallback(
+    (id: string) => {
+      setStore((s) => ({
+        ...s,
+        tasks: s.tasks.filter((t) => t.id !== id),
+        auditLog: [...s.auditLog, auditEntry(id, 'task_deleted', 'Oppgave slettet')],
+      }))
+    },
+    [setStore],
+  )
 
   const setStatus = useCallback(
     (id: string, status: TaskStatus) => {
@@ -238,7 +324,7 @@ export function useTasks() {
       }))
       return true
     },
-    [],
+    [setStore],
   )
 
   const signManagement = useCallback(
@@ -253,17 +339,39 @@ export function useTasks() {
       }))
       return true
     },
-    [],
+    [setStore],
   )
+
+  const resetDemo = useCallback(async () => {
+    const next: TaskStore = { tasks: seedTasks, auditLog: [] }
+    if (useRemote && supabase && orgId) {
+      try {
+        setError(null)
+        await upsertOrgModulePayload(supabase, orgId, MODULE_KEY, next)
+        setRemoteStore(next)
+        if (userId) writeOrgModuleSnap(MODULE_KEY, orgId, userId, next)
+      } catch (e) {
+        setError(getSupabaseErrorMessage(e))
+      }
+      return
+    }
+    localStorage.removeItem(STORAGE_KEY_V2)
+    localStorage.removeItem(LEGACY_KEY)
+    setLocalStore(loadLocal())
+  }, [useRemote, supabase, orgId, userId])
 
   return {
     tasks,
     auditLog,
+    loading: useRemote ? loading : false,
+    error: useRemote ? error : null,
+    backend: useRemote ? ('supabase' as const) : ('local' as const),
     addTask,
     updateTask,
     deleteTask,
     setStatus,
     signAsAssignee,
     signManagement,
+    resetDemo,
   }
 }

@@ -1,7 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { getSupabaseErrorMessage } from '../lib/supabaseError'
+import {
+  clearOrgModuleSnap,
+  fetchOrgModulePayload,
+  readOrgModuleSnap,
+  upsertOrgModulePayload,
+  writeOrgModuleSnap,
+  type OrgModulePayloadKey,
+} from '../lib/orgModulePayload'
+import { useOrgSetupContext } from './useOrgSetupContext'
 import type { OrgEmployee, OrgSettings, OrgUnit, OrgUnitKind, UserGroup } from '../types/organisation'
 
+const MODULE_KEY: OrgModulePayloadKey = 'organisation'
 const STORAGE_KEY = 'atics-organisation-v2'
+const PERSIST_DEBOUNCE_MS = 450
 
 const KIND_ORDER: OrgUnitKind[] = ['division', 'department', 'team', 'location']
 
@@ -20,7 +32,6 @@ const SEED_SETTINGS: OrgSettings = {
   hasCollectiveAgreement: false,
 }
 
-// Seed with a realistic hierarchy
 const SEED_UNITS: OrgUnit[] = [
   { id: 'u-all', name: 'Hele organisasjonen', kind: 'division', color: '#1a3d32', createdAt: now, updatedAt: now },
   { id: 'u-tech', name: 'Teknologi', kind: 'department', parentId: 'u-all', color: '#0284c7', createdAt: now, updatedAt: now },
@@ -47,110 +58,251 @@ const SEED_GROUPS: UserGroup[] = [
   { id: 'g-hms', name: 'HMS-team', scope: { kind: 'units', unitIds: ['u-people'] }, createdAt: now, updatedAt: now },
 ]
 
-function load(): OrgState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { settings: SEED_SETTINGS, employees: SEED_EMPLOYEES, units: SEED_UNITS, groups: SEED_GROUPS }
-    const p = JSON.parse(raw) as OrgState
-    return {
-      settings: p.settings ?? SEED_SETTINGS,
-      employees: Array.isArray(p.employees) ? p.employees : SEED_EMPLOYEES,
-      units: Array.isArray(p.units) && p.units.length ? p.units : SEED_UNITS,
-      groups: Array.isArray(p.groups) && p.groups.length ? p.groups : SEED_GROUPS,
-    }
-  } catch {
-    return { settings: SEED_SETTINGS, employees: SEED_EMPLOYEES, units: SEED_UNITS, groups: SEED_GROUPS }
+function normalizeParsed(p: OrgState): OrgState {
+  return {
+    settings: p.settings ?? SEED_SETTINGS,
+    employees: Array.isArray(p.employees) ? p.employees : [],
+    units: Array.isArray(p.units) ? p.units : [],
+    groups: Array.isArray(p.groups) ? p.groups : [],
   }
 }
 
-function save(state: OrgState) {
+function seedDemoLocal(): OrgState {
+  return { settings: SEED_SETTINGS, employees: SEED_EMPLOYEES, units: SEED_UNITS, groups: SEED_GROUPS }
+}
+
+function emptyRemoteState(orgName: string): OrgState {
+  return {
+    settings: { ...SEED_SETTINGS, orgName },
+    employees: [],
+    units: [],
+    groups: [],
+  }
+}
+
+function loadLocal(): OrgState {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return seedDemoLocal()
+    const p = JSON.parse(raw) as OrgState
+    return normalizeParsed(p)
+  } catch {
+    return seedDemoLocal()
+  }
+}
+
+function saveLocal(state: OrgState) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
 }
 
 export function useOrganisation() {
-  const [state, setState] = useState<OrgState>(load)
-  useEffect(() => { save(state) }, [state])
+  const { supabase, organization, user } = useOrgSetupContext()
+  const orgId = organization?.id
+  const userId = user?.id
+  const useRemote = !!(supabase && orgId && userId)
 
-  // ── Settings ────────────────────────────────────────────────────────────────
+  const initialRemote =
+    useRemote && orgId && userId ? readOrgModuleSnap<OrgState>(MODULE_KEY, orgId, userId) : null
+  const [localState, setLocalState] = useState<OrgState>(() => loadLocal())
+  const [remoteState, setRemoteState] = useState<OrgState>(() => {
+    if (initialRemote) return normalizeParsed(initialRemote)
+    if (organization?.name) return emptyRemoteState(organization.name)
+    return emptyRemoteState(SEED_SETTINGS.orgName)
+  })
+  const [loading, setLoading] = useState(useRemote)
+  const [error, setError] = useState<string | null>(null)
+  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const updateSettings = useCallback((patch: Partial<OrgSettings>) => {
-    setState((s) => ({ ...s, settings: { ...s.settings, ...patch } }))
-  }, [])
+  const state = useRemote ? remoteState : localState
+  const setState = useRemote ? setRemoteState : setLocalState
 
-  // ── Employees ───────────────────────────────────────────────────────────────
+  const refreshOrganisation = useCallback(async () => {
+    if (!supabase || !orgId || !userId) return
+    setLoading(true)
+    setError(null)
+    try {
+      const payload = await fetchOrgModulePayload<OrgState>(supabase, orgId, MODULE_KEY)
+      const orgName = organization?.name ?? SEED_SETTINGS.orgName
+      const next = payload
+        ? normalizeParsed(payload)
+        : emptyRemoteState(orgName)
+      if (!payload && organization?.name) {
+        next.settings = { ...next.settings, orgName: organization.name }
+      }
+      setRemoteState(next)
+      writeOrgModuleSnap(MODULE_KEY, orgId, userId, next)
+    } catch (e) {
+      setError(getSupabaseErrorMessage(e))
+      clearOrgModuleSnap(MODULE_KEY, orgId, userId)
+      setRemoteState(emptyRemoteState(organization?.name ?? SEED_SETTINGS.orgName))
+    } finally {
+      setLoading(false)
+    }
+  }, [supabase, orgId, userId, organization?.name])
 
-  const createEmployee = useCallback((partial: Omit<OrgEmployee, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const n = new Date().toISOString()
-    const emp: OrgEmployee = { ...partial, id: crypto.randomUUID(), createdAt: n, updatedAt: n }
-    setState((s) => ({ ...s, employees: [...s.employees, emp] }))
-    return emp
-  }, [])
+  useEffect(() => {
+    if (!useRemote) {
+      setLoading(false)
+      return
+    }
+    void refreshOrganisation()
+  }, [useRemote, refreshOrganisation])
 
-  const updateEmployee = useCallback((id: string, patch: Partial<OrgEmployee>) => {
-    setState((s) => ({
-      ...s,
-      employees: s.employees.map((e) => e.id === id ? { ...e, ...patch, updatedAt: new Date().toISOString() } : e),
-    }))
-  }, [])
+  useEffect(() => {
+    if (!useRemote || !organization?.name) return
+    setRemoteState((s) =>
+      s.settings.orgName === organization.name ? s : { ...s, settings: { ...s.settings, orgName: organization.name } },
+    )
+  }, [useRemote, organization?.name])
 
-  const deactivateEmployee = useCallback((id: string) => {
-    setState((s) => ({
-      ...s,
-      employees: s.employees.map((e) =>
-        e.id === id ? { ...e, active: false, endDate: new Date().toISOString().slice(0, 10), updatedAt: new Date().toISOString() } : e,
-      ),
-    }))
-  }, [])
+  useEffect(() => {
+    if (!useRemote) {
+      saveLocal(localState)
+    }
+  }, [useRemote, localState])
 
-  // ── Units ───────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!useRemote || !supabase || !orgId) return
+    if (persistTimer.current) clearTimeout(persistTimer.current)
+    persistTimer.current = setTimeout(() => {
+      void (async () => {
+        try {
+          await upsertOrgModulePayload(supabase, orgId, MODULE_KEY, remoteState)
+          if (userId) writeOrgModuleSnap(MODULE_KEY, orgId, userId, remoteState)
+        } catch (e) {
+          setError(getSupabaseErrorMessage(e))
+        }
+      })()
+    }, PERSIST_DEBOUNCE_MS)
+    return () => {
+      if (persistTimer.current) clearTimeout(persistTimer.current)
+    }
+  }, [useRemote, supabase, orgId, userId, remoteState])
 
-  const createUnit = useCallback((
-    name: string,
-    kind: OrgUnitKind,
-    parentId?: string,
-    opts?: Partial<Pick<OrgUnit, 'description' | 'headName' | 'memberCount' | 'color'>>,
-  ) => {
-    const n = new Date().toISOString()
-    const unit: OrgUnit = { id: crypto.randomUUID(), name: name.trim(), kind, parentId, ...opts, createdAt: n, updatedAt: n }
-    setState((s) => ({ ...s, units: [...s.units, unit] }))
-    return unit
-  }, [])
+  const updateSettings = useCallback(
+    (patch: Partial<OrgSettings>) => {
+      setState((s) => ({ ...s, settings: { ...s.settings, ...patch } }))
+    },
+    [setState],
+  )
 
-  const updateUnit = useCallback((id: string, patch: Partial<OrgUnit>) => {
-    setState((s) => ({
-      ...s,
-      units: s.units.map((u) => u.id === id ? { ...u, ...patch, updatedAt: new Date().toISOString() } : u),
-    }))
-  }, [])
+  const createEmployee = useCallback(
+    (partial: Omit<OrgEmployee, 'id' | 'createdAt' | 'updatedAt'>) => {
+      const n = new Date().toISOString()
+      const emp: OrgEmployee = { ...partial, id: crypto.randomUUID(), createdAt: n, updatedAt: n }
+      setState((s) => ({ ...s, employees: [...s.employees, emp] }))
+      return emp
+    },
+    [setState],
+  )
 
-  const deleteUnit = useCallback((id: string) => {
-    setState((s) => ({
-      ...s,
-      units: s.units.filter((u) => u.id !== id && u.parentId !== id),
-    }))
-  }, [])
+  const updateEmployee = useCallback(
+    (id: string, patch: Partial<OrgEmployee>) => {
+      setState((s) => ({
+        ...s,
+        employees: s.employees.map((e) =>
+          e.id === id ? { ...e, ...patch, updatedAt: new Date().toISOString() } : e,
+        ),
+      }))
+    },
+    [setState],
+  )
 
-  // ── User groups ─────────────────────────────────────────────────────────────
+  const deactivateEmployee = useCallback(
+    (id: string) => {
+      setState((s) => ({
+        ...s,
+        employees: s.employees.map((e) =>
+          e.id === id
+            ? {
+                ...e,
+                active: false,
+                endDate: new Date().toISOString().slice(0, 10),
+                updatedAt: new Date().toISOString(),
+              }
+            : e,
+        ),
+      }))
+    },
+    [setState],
+  )
 
-  const createGroup = useCallback((name: string, description: string, scope: UserGroup['scope']) => {
-    const n = new Date().toISOString()
-    const group: UserGroup = { id: crypto.randomUUID(), name: name.trim(), description: description.trim() || undefined, scope, createdAt: n, updatedAt: n }
-    setState((s) => ({ ...s, groups: [...s.groups, group] }))
-    return group
-  }, [])
+  const createUnit = useCallback(
+    (
+      name: string,
+      kind: OrgUnitKind,
+      parentId?: string,
+      opts?: Partial<Pick<OrgUnit, 'description' | 'headName' | 'memberCount' | 'color'>>,
+    ) => {
+      const n = new Date().toISOString()
+      const unit: OrgUnit = {
+        id: crypto.randomUUID(),
+        name: name.trim(),
+        kind,
+        parentId,
+        ...opts,
+        createdAt: n,
+        updatedAt: n,
+      }
+      setState((s) => ({ ...s, units: [...s.units, unit] }))
+      return unit
+    },
+    [setState],
+  )
 
-  const updateGroup = useCallback((id: string, patch: Partial<UserGroup>) => {
-    setState((s) => ({
-      ...s,
-      groups: s.groups.map((g) => g.id === id ? { ...g, ...patch, updatedAt: new Date().toISOString() } : g),
-    }))
-  }, [])
+  const updateUnit = useCallback(
+    (id: string, patch: Partial<OrgUnit>) => {
+      setState((s) => ({
+        ...s,
+        units: s.units.map((u) => (u.id === id ? { ...u, ...patch, updatedAt: new Date().toISOString() } : u)),
+      }))
+    },
+    [setState],
+  )
 
-  const deleteGroup = useCallback((id: string) => {
-    setState((s) => ({ ...s, groups: s.groups.filter((g) => g.id !== id) }))
-  }, [])
+  const deleteUnit = useCallback(
+    (id: string) => {
+      setState((s) => ({
+        ...s,
+        units: s.units.filter((u) => u.id !== id && u.parentId !== id),
+      }))
+    },
+    [setState],
+  )
 
-  // ── Derived ─────────────────────────────────────────────────────────────────
+  const createGroup = useCallback(
+    (name: string, description: string, scope: UserGroup['scope']) => {
+      const n = new Date().toISOString()
+      const group: UserGroup = {
+        id: crypto.randomUUID(),
+        name: name.trim(),
+        description: description.trim() || undefined,
+        scope,
+        createdAt: n,
+        updatedAt: n,
+      }
+      setState((s) => ({ ...s, groups: [...s.groups, group] }))
+      return group
+    },
+    [setState],
+  )
+
+  const updateGroup = useCallback(
+    (id: string, patch: Partial<UserGroup>) => {
+      setState((s) => ({
+        ...s,
+        groups: s.groups.map((g) => (g.id === id ? { ...g, ...patch, updatedAt: new Date().toISOString() } : g)),
+      }))
+    },
+    [setState],
+  )
+
+  const deleteGroup = useCallback(
+    (id: string) => {
+      setState((s) => ({ ...s, groups: s.groups.filter((g) => g.id !== id) }))
+    },
+    [setState],
+  )
 
   const tree = useMemo(
     () => [...state.units].sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind)),
@@ -177,10 +329,6 @@ export function useOrganisation() {
     }
   }, [totalEmployeeCount])
 
-  /**
-   * Build a manager→reports-to tree for the org chart.
-   * Returns a map: managerId (or '__root__') → direct reports.
-   */
   const reportingTree = useMemo(() => {
     const map = new Map<string, OrgEmployee[]>()
     for (const emp of activeEmployees) {
@@ -200,10 +348,31 @@ export function useOrganisation() {
     return '—'
   }
 
-  /** Initials from name */
   function initials(name: string): string {
-    return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+    return name
+      .split(' ')
+      .map((w) => w[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase()
   }
+
+  const resetDemo = useCallback(async () => {
+    const next = seedDemoLocal()
+    if (useRemote && supabase && orgId) {
+      try {
+        setError(null)
+        await upsertOrgModulePayload(supabase, orgId, MODULE_KEY, next)
+        setRemoteState(next)
+        if (userId) writeOrgModuleSnap(MODULE_KEY, orgId, userId, next)
+      } catch (e) {
+        setError(getSupabaseErrorMessage(e))
+      }
+      return
+    }
+    localStorage.removeItem(STORAGE_KEY)
+    setLocalState(loadLocal())
+  }, [useRemote, supabase, orgId, userId])
 
   return {
     settings: state.settings,
@@ -219,6 +388,9 @@ export function useOrganisation() {
     reportingTree,
     getGroupLabel,
     initials,
+    loading: useRemote ? loading : false,
+    error: useRemote ? error : null,
+    backend: useRemote ? ('supabase' as const) : ('local' as const),
     updateSettings,
     createEmployee,
     updateEmployee,
@@ -229,5 +401,6 @@ export function useOrganisation() {
     createGroup,
     updateGroup,
     deleteGroup,
+    resetDemo,
   }
 }

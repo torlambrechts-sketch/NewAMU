@@ -33,6 +33,7 @@ import { useHse } from '../../hooks/useHse'
 import { useInternalControl } from '../../hooks/useInternalControl'
 import { useTasks } from '../../hooks/useTasks'
 import { useCostSettings } from '../../hooks/useCostSettings'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { Task, TaskStatus } from '../../types/task'
 
 // ─── Board item — unified shape across all sources ─────────────────────────────
@@ -104,11 +105,18 @@ function formatDate(iso: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ActionBoardPage() {
+  const { supabaseConfigured } = useOrgSetupContext()
   const tasks = useTasks()
   const hse = useHse()
   const ic = useInternalControl()
   const council = useCouncil()
   const cost = useCostSettings()
+
+  const boardError =
+    [tasks.error, hse.error, ic.error, council.error, cost.error].filter(Boolean).join(' ') || null
+  const boardLoading =
+    supabaseConfigured &&
+    (tasks.loading || hse.loading || ic.loading || council.loading || cost.loading)
 
   const [filterSource, setFilterSource] = useState<BoardSource | 'all'>('all')
   const [dragId, setDragId] = useState<string | null>(null)
@@ -323,6 +331,13 @@ export function ActionBoardPage() {
         <ChevronRight className="size-3.5" />
         <span className="font-medium text-neutral-800">Action Board</span>
       </nav>
+
+      {boardError && (
+        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{boardError}</p>
+      )}
+      {boardLoading && (
+        <p className="mb-4 text-sm text-neutral-500">Laster tavledata…</p>
+      )}
 
       <div className="flex flex-wrap items-start justify-between gap-4 pb-4">
         <div>

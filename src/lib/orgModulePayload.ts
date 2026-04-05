@@ -5,6 +5,10 @@ export type OrgModulePayloadKey =
   | 'hse'
   | 'org_health'
   | 'representatives'
+  | 'tasks'
+  | 'organisation'
+  | 'cost_settings'
+  | 'workspace'
 
 export function orgModuleSnapKey(moduleKey: OrgModulePayloadKey, orgId: string, userId: string) {
   return `atics-org-mod:${moduleKey}:${orgId}:${userId}`
