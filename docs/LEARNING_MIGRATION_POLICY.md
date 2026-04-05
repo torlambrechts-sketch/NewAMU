@@ -19,8 +19,10 @@ This document describes how the E-learning feature moves from **browser `localSt
 
 | Table | Purpose |
 |-------|---------|
-| `learning_courses` | Course metadata, `status`, `tags`, timestamps |
-| `learning_modules` | Per-module `kind`, `content` (jsonb), `sort_order`, `duration_minutes` |
+| `learning_system_courses` / `learning_system_course_locales` | Global catalog (e.g. AML); `modules` jsonb per locale (`nb`, `en`) |
+| `learning_org_course_settings` | Per org: enable/disable system course; optional `forked_course_id` |
+| `learning_courses` | Org row; may reference `source_system_course_id` + `catalog_locale` for catalog-backed modules |
+| `learning_modules` | Org-owned module rows (used for custom and forked courses) |
 | `learning_course_progress` | Per-user `module_progress` (jsonb), `started_at`, `completed_at` |
 | `learning_certificates` | Issued certificates; `verify_code` for display |
 

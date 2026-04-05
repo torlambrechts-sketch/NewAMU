@@ -7,6 +7,21 @@ import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
 import { normalizeModuleHtml } from '../../lib/richTextDisplay'
 
+function ProgressBar({ value, label }: { value: number; label?: string }) {
+  const pct = Math.round(Math.min(100, Math.max(0, value * 100)))
+  return (
+    <div className="space-y-1">
+      {label ? <div className="text-xs font-medium text-neutral-600">{label}</div> : null}
+      <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-200">
+        <div
+          className="h-full rounded-full transition-all duration-300"
+          style={{ width: `${pct}%`, backgroundColor: PIN_GREEN }}
+        />
+      </div>
+    </div>
+  )
+}
+
 export function LearningPlayer() {
   const { courseId } = useParams<{ courseId: string }>()
   const {
@@ -55,19 +70,32 @@ export function LearningPlayer() {
     ? certificates.some((c) => c.courseId === course.id)
     : false
 
+  const totalDuration = useMemo(
+    () => modules.reduce((acc, m) => acc + (m.durationMinutes || 0), 0),
+    [modules],
+  )
+
+  const overallProgress = useMemo(() => {
+    if (!course || modules.length === 0) return 0
+    const done = modules.filter((m) => courseProgress?.moduleProgress[m.id]?.completed).length
+    return done / modules.length
+  }, [course, modules, courseProgress?.moduleProgress])
+
   if (!course || course.status !== 'published') {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
-        {course ? (
-          <>
-            This course is not published.{' '}
-            <Link to={`/learning/courses/${course.id}`} className="underline">
-              Open builder
-            </Link>
-          </>
-        ) : (
-          'Course not found.'
-        )}
+      <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
+          {course ? (
+            <>
+              This course is not published.{' '}
+              <Link to={`/learning/courses/${course.id}`} className="underline">
+                Open builder
+              </Link>
+            </>
+          ) : (
+            'Course not found.'
+          )}
+        </div>
       </div>
     )
   }
@@ -81,109 +109,164 @@ export function LearningPlayer() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
       <nav className="text-sm">
         <Link to="/learning/courses" className="text-emerald-800 hover:underline">
           ← Courses
         </Link>
       </nav>
-      <div>
-        <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">{activeCourse.title}</h1>
-        <p className="mt-2 text-sm text-neutral-600">{activeCourse.description}</p>
-      </div>
 
-      <div className="flex flex-wrap gap-2">
-        {modules.map((m, i) => (
-          <button
-            key={m.id}
-            type="button"
-            onClick={() => setIdx(i)}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
-              i === idx ? 'text-white' : 'bg-neutral-100 text-neutral-700'
-            }`}
-            style={i === idx ? { backgroundColor: PIN_GREEN } : {}}
-          >
-            {i + 1}. {m.kind}
-          </button>
-        ))}
-      </div>
+      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(220px,280px)_1fr] lg:items-start">
+        <aside className="space-y-4 lg:sticky lg:top-6">
+          <div>
+            <h1 className="font-serif text-xl font-semibold leading-snug text-[#2D403A]">{activeCourse.title}</h1>
+            <p className="mt-2 text-xs text-neutral-600 line-clamp-4">{activeCourse.description}</p>
+            {totalDuration > 0 ? (
+              <p className="mt-2 text-xs text-neutral-500">~{totalDuration} min totalt</p>
+            ) : null}
+          </div>
 
-      {current && (
-        <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-lg">
-          <h2 className="font-serif text-xl font-semibold text-[#2D403A]">{current.title}</h2>
-          <p className="text-xs text-neutral-500">~{current.durationMinutes} min · {current.kind}</p>
-          <div className="mt-6">
-            <ModulePlayer
-              mod={current}
-              flashFlipped={flashFlipped}
-              setFlashFlipped={setFlashFlipped}
-              flashIdx={flashIdx}
-              setFlashIdx={setFlashIdx}
-              quizAnswers={quizAnswers}
-              setQuizAnswers={setQuizAnswers}
-              checkDone={checkDone}
-              setCheckDone={setCheckDone}
-              onComplete={completeCurrent}
-            />
+          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Fremdrift</p>
+            <div className="mt-3">
+              <ProgressBar value={overallProgress} label="Hele kurset" />
+            </div>
+          </div>
+
+          <nav aria-label="Innhold" className="rounded-xl border border-neutral-200 bg-white p-3 shadow-sm">
+            <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Innhold</p>
+            <ol className="max-h-[min(60vh,520px)] space-y-1 overflow-y-auto pr-1">
+              {modules.map((m, i) => {
+                const done = !!courseProgress?.moduleProgress[m.id]?.completed
+                const isActive = i === idx
+                return (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      onClick={() => setIdx(i)}
+                      className={`flex w-full flex-col gap-1 rounded-lg px-2 py-2 text-left text-sm transition-colors ${
+                        isActive ? 'bg-emerald-50 text-[#2D403A]' : 'text-neutral-700 hover:bg-neutral-50'
+                      }`}
+                    >
+                      <span className="flex items-start gap-2">
+                        <span className="mt-0.5 shrink-0 text-xs text-neutral-400">{i + 1}.</span>
+                        <span className="min-w-0 flex-1 font-medium leading-snug">{m.title}</span>
+                        {done ? (
+                          <CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-label="Fullført" />
+                        ) : null}
+                      </span>
+                      <div className="pl-7">
+                        <div className="h-1 w-full overflow-hidden rounded-full bg-neutral-100">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${done ? 100 : isActive ? 40 : 0}%`,
+                              backgroundColor: PIN_GREEN,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </button>
+                  </li>
+                )
+              })}
+            </ol>
+          </nav>
+        </aside>
+
+        <div className="min-w-0 space-y-6">
+          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm md:p-5">
+            <ProgressBar value={overallProgress} label="Total fremdrift" />
+          </div>
+
+          {current && (
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-lg md:p-8">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="font-serif text-2xl font-semibold text-[#2D403A]">{current.title}</h2>
+                <span className="text-xs text-neutral-500">
+                  ~{current.durationMinutes} min · {current.kind}
+                </span>
+              </div>
+              <div className="mt-3">
+                <ProgressBar
+                  value={courseProgress?.moduleProgress[current.id]?.completed ? 1 : 0}
+                  label="Denne seksjonen"
+                />
+              </div>
+              <div className="mt-6">
+                <ModulePlayer
+                  mod={current}
+                  flashFlipped={flashFlipped}
+                  setFlashFlipped={setFlashFlipped}
+                  flashIdx={flashIdx}
+                  setFlashIdx={setFlashIdx}
+                  quizAnswers={quizAnswers}
+                  setQuizAnswers={setQuizAnswers}
+                  checkDone={checkDone}
+                  setCheckDone={setCheckDone}
+                  onComplete={completeCurrent}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-between">
+            <button
+              type="button"
+              disabled={idx <= 0}
+              onClick={() => setIdx((i) => Math.max(0, i - 1))}
+              className="rounded-full border border-neutral-200 px-4 py-2 text-sm disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              disabled={idx >= modules.length - 1}
+              onClick={() => setIdx((i) => Math.min(modules.length - 1, i + 1))}
+              className="rounded-full border border-neutral-200 px-4 py-2 text-sm disabled:opacity-40"
+            >
+              Next module
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-5">
+            <h3 className="font-semibold text-[#2D403A]">Complete course & certificate</h3>
+            <p className="mt-1 text-sm text-neutral-600">
+              Mark each module complete with the button inside the module. When finished, enter your name for a demo
+              certificate.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <input
+                value={learnerName}
+                onChange={(e) => setLearnerName(e.target.value)}
+                placeholder="Your full name"
+                className="min-w-[200px] flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                disabled={!modulesComplete || hasCert}
+                onClick={() => {
+                  if (!learnerName.trim()) return
+                  void (async () => {
+                    const cert = await issueCertificate(activeCourse.id, learnerName)
+                    if (cert !== null) alert(`Certificate issued! Code: ${cert.verifyCode}`)
+                  })()
+                }}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+                style={{ backgroundColor: PIN_GREEN }}
+              >
+                {hasCert ? 'Certificate issued' : 'Issue certificate'}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-neutral-500">
+              {!modulesComplete
+                ? 'Complete every module to unlock certificate issuance.'
+                : hasCert
+                  ? 'A certificate is already on file for this course in this browser.'
+                  : 'You can issue your demo certificate now.'}
+            </p>
           </div>
         </div>
-      )}
-
-      <div className="flex justify-between">
-        <button
-          type="button"
-          disabled={idx <= 0}
-          onClick={() => setIdx((i) => Math.max(0, i - 1))}
-          className="rounded-full border border-neutral-200 px-4 py-2 text-sm disabled:opacity-40"
-        >
-          Previous
-        </button>
-        <button
-          type="button"
-          disabled={idx >= modules.length - 1}
-          onClick={() => setIdx((i) => Math.min(modules.length - 1, i + 1))}
-          className="rounded-full border border-neutral-200 px-4 py-2 text-sm disabled:opacity-40"
-        >
-          Next module
-        </button>
-      </div>
-
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-5">
-        <h3 className="font-semibold text-[#2D403A]">Complete course & certificate</h3>
-        <p className="mt-1 text-sm text-neutral-600">
-          Mark each module complete with the button inside the module. When finished, enter your name for a demo
-          certificate.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <input
-            value={learnerName}
-            onChange={(e) => setLearnerName(e.target.value)}
-            placeholder="Your full name"
-            className="min-w-[200px] flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-          />
-          <button
-            type="button"
-            disabled={!modulesComplete || hasCert}
-            onClick={() => {
-              if (!learnerName.trim()) return
-              void (async () => {
-                const cert = await issueCertificate(activeCourse.id, learnerName)
-                if (cert !== null) alert(`Certificate issued! Code: ${cert.verifyCode}`)
-              })()
-            }}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-            style={{ backgroundColor: PIN_GREEN }}
-          >
-            {hasCert ? 'Certificate issued' : 'Issue certificate'}
-          </button>
-        </div>
-        <p className="mt-2 text-xs text-neutral-500">
-          {!modulesComplete
-            ? 'Complete every module to unlock certificate issuance.'
-            : hasCert
-              ? 'A certificate is already on file for this course in this browser.'
-              : 'You can issue your demo certificate now.'}
-        </p>
       </div>
     </div>
   )

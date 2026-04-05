@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AML_COURSE } from '../data/amlCourse'
 import { useOrgSetupContext } from './useOrgSetupContext'
+import { useI18n } from './useI18n'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import type {
   Certificate,
@@ -10,6 +10,7 @@ import type {
   ModuleContent,
   ModuleKind,
   ModuleProgress,
+  CourseOrigin,
 } from '../types/learning'
 
 export const STORAGE_KEY = 'atics-learning-v1'
@@ -51,6 +52,14 @@ type LearningState = {
   courses: Course[]
   progress: CourseProgress[]
   certificates: Certificate[]
+}
+
+export type SystemCourseAdminRow = {
+  systemCourseId: string
+  slug: string
+  title: string
+  enabled: boolean
+  forkedCourseId: string | null
 }
 
 function isLearningExportPayload(raw: unknown): raw is LearningExportPayload {
@@ -156,7 +165,6 @@ function emptyModule(kind: ModuleKind, title: string, order: number): CourseModu
 }
 
 const seedCourses: Course[] = [
-  AML_COURSE,
   {
     id: 'c-demo',
     title: 'Safety 101',
@@ -226,9 +234,8 @@ function load(): LearningState {
     }
     const p = JSON.parse(raw) as LearningState
     const storedCourses: Course[] = Array.isArray(p.courses) && p.courses.length ? p.courses : seedCourses
-    const hasAml = storedCourses.some((c) => c.id === AML_COURSE.id)
     return {
-      courses: hasAml ? storedCourses : [AML_COURSE, ...storedCourses],
+      courses: storedCourses,
       progress: Array.isArray(p.progress) ? p.progress : [],
       certificates: Array.isArray(p.certificates) ? p.certificates : [],
     }
@@ -250,6 +257,23 @@ type DbCourseRow = {
   tags: string[] | null
   created_at: string
   updated_at: string
+  source_system_course_id?: string | null
+  catalog_locale?: string | null
+}
+
+type DbOrgCourseSetting = {
+  organization_id: string
+  system_course_id: string
+  enabled: boolean
+  forked_course_id: string | null
+}
+
+type CatalogLocaleRow = {
+  system_course_id: string
+  locale: string
+  title: string
+  description: string
+  modules: unknown
 }
 
 type DbModuleRow = {
@@ -300,63 +324,88 @@ function coursesFromDb(courseRows: DbCourseRow[], moduleRows: DbModuleRow[]): Co
   for (const [, mods] of byCourse) {
     mods.sort((a, b) => a.order - b.order)
   }
-  return courseRows.map((c) => ({
-    id: c.id,
-    title: c.title,
-    description: c.description ?? '',
-    status: c.status as Course['status'],
-    tags: c.tags ?? [],
-    modules: byCourse.get(c.id) ?? [],
-    createdAt: c.created_at,
-    updatedAt: c.updated_at,
-  }))
+  return courseRows.map((c) => {
+    const tags = c.tags ?? []
+    const origin: CourseOrigin = c.source_system_course_id
+      ? tags.includes('fork') || tags.includes('forked')
+        ? 'fork'
+        : 'system'
+      : 'org'
+    return {
+      id: c.id,
+      title: c.title,
+      description: c.description ?? '',
+      status: c.status as Course['status'],
+      tags,
+      modules: byCourse.get(c.id) ?? [],
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+      sourceSystemCourseId: c.source_system_course_id ?? null,
+      catalogLocale: c.catalog_locale ?? null,
+      origin,
+      forkedFromSystemId: null,
+    }
+  })
 }
 
-async function seedOrgCoursesIfEmpty(
-  supabase: NonNullable<ReturnType<typeof import('../lib/supabaseClient').getSupabaseBrowserClient>>,
-  organizationId: string,
-): Promise<void> {
-  const { count, error: cErr } = await supabase
-    .from('learning_courses')
-    .select('*', { count: 'exact', head: true })
-    .eq('organization_id', organizationId)
-  if (cErr) throw cErr
-  if ((count ?? 0) > 0) return
-
-  for (const course of seedCourses) {
-    const { error: ic } = await supabase.from('learning_courses').insert({
-      id: course.id,
-      organization_id: organizationId,
-      title: course.title,
-      description: course.description,
-      status: course.status,
-      tags: course.tags,
-      created_at: course.createdAt,
-      updated_at: course.updatedAt,
-    })
-    if (ic) throw ic
-    for (const mod of course.modules) {
-      const { error: im } = await supabase.from('learning_modules').insert({
-        id: mod.id,
-        organization_id: organizationId,
-        course_id: course.id,
-        title: mod.title,
-        sort_order: mod.order,
-        kind: mod.kind,
-        content: mod.content as unknown as Record<string, unknown>,
-        duration_minutes: mod.durationMinutes,
-      })
-      if (im) throw im
-    }
+function moduleFromCatalogJson(raw: Record<string, unknown>): CourseModule | null {
+  if (typeof raw.id !== 'string' || typeof raw.title !== 'string') return null
+  const order = typeof raw.order === 'number' ? raw.order : 0
+  const kind = raw.kind as ModuleKind
+  const content = raw.content as ModuleContent
+  const durationMinutes = typeof raw.durationMinutes === 'number' ? raw.durationMinutes : 5
+  if (!content || typeof content !== 'object') return null
+  return {
+    id: raw.id,
+    title: raw.title,
+    order,
+    kind,
+    content,
+    durationMinutes,
   }
+}
+
+function mergeCatalogIntoCourses(
+  courses: Course[],
+  moduleRows: DbModuleRow[],
+  catalogRows: CatalogLocaleRow[],
+  appLocale: 'nb' | 'en',
+): Course[] {
+  const hasDbModules = new Set(moduleRows.map((m) => m.course_id))
+  const catalogByKey = new Map<string, CatalogLocaleRow>()
+  for (const row of catalogRows) {
+    catalogByKey.set(`${row.system_course_id}:${row.locale}`, row)
+  }
+
+  return courses.map((c) => {
+    const sid = c.sourceSystemCourseId
+    if (!sid || hasDbModules.has(c.id)) return c
+    const loc = (c.catalogLocale === 'en' || c.catalogLocale === 'nb' ? c.catalogLocale : null) ?? appLocale
+    const row =
+      catalogByKey.get(`${sid}:${loc}`) ?? catalogByKey.get(`${sid}:nb`) ?? catalogByKey.get(`${sid}:en`)
+    if (!row?.modules || !Array.isArray(row.modules)) return { ...c, modules: [], catalogLocale: loc }
+    const modules = (row.modules as Record<string, unknown>[])
+      .map(moduleFromCatalogJson)
+      .filter(Boolean) as CourseModule[]
+    modules.sort((a, b) => a.order - b.order)
+    return {
+      ...c,
+      title: row.title || c.title,
+      description: row.description ?? c.description,
+      modules,
+      catalogLocale: loc,
+    }
+  })
 }
 
 export function useLearning() {
   const { supabase, organization, user, can, refreshPermissions } = useOrgSetupContext()
+  const { locale: appLocale } = useI18n()
   const orgId = organization?.id
   const userId = user?.id
   const useSupabase = !!(supabase && orgId && userId)
   const canManage = can('learning.manage')
+  const catalogLocale: 'nb' | 'en' = appLocale === 'en' ? 'en' : 'nb'
 
   const [localState, setLocalState] = useState<LearningState>(() => load())
   const [remoteState, setRemoteState] = useState<LearningState>({
@@ -364,6 +413,7 @@ export function useLearning() {
     progress: [],
     certificates: [],
   })
+  const [systemCourseAdmin, setSystemCourseAdmin] = useState<SystemCourseAdminRow[]>([])
   const [loading, setLoading] = useState(useSupabase)
   const [error, setError] = useState<string | null>(null)
 
@@ -372,9 +422,11 @@ export function useLearning() {
     setLoading(true)
     setError(null)
     try {
-      if (canManage) {
-        await seedOrgCoursesIfEmpty(supabase, orgId)
-      }
+      const { error: rpcErr } = await supabase.rpc('learning_ensure_system_course_rows', {
+        p_locale: catalogLocale,
+      })
+      if (rpcErr) console.warn('learning_ensure_system_course_rows', rpcErr.message)
+
       const progressQuery = supabase
         .from('learning_course_progress')
         .select('*')
@@ -386,18 +438,113 @@ export function useLearning() {
       if (!canManage) {
         certQuery.eq('user_id', userId)
       }
-      const [cRes, mRes, pRes, certRes] = await Promise.all([
+      const [cRes, mRes, setRes, sysRes, pRes, certRes] = await Promise.all([
         supabase.from('learning_courses').select('*').eq('organization_id', orgId),
         supabase.from('learning_modules').select('*').eq('organization_id', orgId),
+        supabase.from('learning_org_course_settings').select('*').eq('organization_id', orgId),
+        supabase.from('learning_system_courses').select('id, slug, default_locale'),
         progressQuery,
         certQuery,
       ])
       if (cRes.error) throw cRes.error
       if (mRes.error) throw mRes.error
+      if (setRes.error) throw setRes.error
+      if (sysRes.error) throw sysRes.error
       if (pRes.error) throw pRes.error
       if (certRes.error) throw certRes.error
 
-      const courses = coursesFromDb((cRes.data ?? []) as DbCourseRow[], (mRes.data ?? []) as DbModuleRow[])
+      const courseRows = (cRes.data ?? []) as DbCourseRow[]
+      const moduleRows = (mRes.data ?? []) as DbModuleRow[]
+      const settingsRows = (setRes.data ?? []) as DbOrgCourseSetting[]
+      const settingsBySystem = new Map(settingsRows.map((r) => [r.system_course_id, r]))
+      const systemCourseIds = ((sysRes.data ?? []) as { id: string; slug: string; default_locale: string }[]).map(
+        (s) => s.id,
+      )
+      let adminRows: SystemCourseAdminRow[] = []
+      if (systemCourseIds.length) {
+        const { data: titleData, error: titleErr } = await supabase
+          .from('learning_system_course_locales')
+          .select('system_course_id, locale, title')
+          .in('system_course_id', systemCourseIds)
+          .in('locale', ['nb', 'en'])
+        if (titleErr) throw titleErr
+        const titleByCourse = new Map<string, string>()
+        for (const row of (titleData ?? []) as { system_course_id: string; locale: string; title: string }[]) {
+          const k = row.system_course_id
+          const cur = titleByCourse.get(k)
+          if (!cur || row.locale === catalogLocale) {
+            titleByCourse.set(k, row.title)
+          }
+        }
+        const sysList = (sysRes.data ?? []) as { id: string; slug: string; default_locale: string }[]
+        adminRows = sysList.map((s) => {
+          const st = settingsBySystem.get(s.id)
+          return {
+            systemCourseId: s.id,
+            slug: s.slug,
+            title: titleByCourse.get(s.id) ?? s.slug,
+            enabled: st?.enabled !== false,
+            forkedCourseId: st?.forked_course_id ?? null,
+          }
+        })
+      }
+      setSystemCourseAdmin(adminRows)
+
+      let courses = coursesFromDb(courseRows, moduleRows)
+
+      const systemIds = [
+        ...new Set(
+          courseRows.filter((c) => c.source_system_course_id).map((c) => c.source_system_course_id as string),
+        ),
+      ]
+      let catalogRows: CatalogLocaleRow[] = []
+      if (systemIds.length) {
+        const { data: locData, error: locErr } = await supabase
+          .from('learning_system_course_locales')
+          .select('system_course_id, locale, title, description, modules')
+          .in('system_course_id', systemIds)
+          .in('locale', ['nb', 'en'])
+        if (locErr) throw locErr
+        catalogRows = (locData ?? []) as CatalogLocaleRow[]
+      }
+
+      courses = mergeCatalogIntoCourses(courses, moduleRows, catalogRows, catalogLocale)
+
+      const forkTargetIds = new Set(
+        settingsRows.map((s) => s.forked_course_id).filter((x): x is string => !!x),
+      )
+
+      courses = courses
+        .map((c) => {
+          const sid = c.sourceSystemCourseId
+          if (!sid) return c
+          const st = settingsBySystem.get(sid)
+          const forkId = st?.forked_course_id
+          if (!forkId) return c
+          const forkRow = courseRows.find((row) => row.id === forkId)
+          const forkMods = moduleRows.filter((m) => m.course_id === forkId)
+          if (!forkRow || forkMods.length === 0) return c
+          const merged = coursesFromDb([forkRow], forkMods)[0]
+          return {
+            ...c,
+            title: merged.title,
+            description: merged.description,
+            status: merged.status,
+            modules: merged.modules,
+            tags: merged.tags,
+            origin: 'fork' as const,
+            forkedFromSystemId: sid,
+          }
+        })
+        .filter((c) => {
+          if (forkTargetIds.has(c.id)) return false
+          const sid = c.sourceSystemCourseId
+          if (!sid) return true
+          const st = settingsBySystem.get(sid)
+          if (st && st.enabled === false) return false
+          return true
+        })
+
       const progress: CourseProgress[] = ((pRes.data ?? []) as DbProgressRow[]).map((r) => ({
         courseId: r.course_id,
         moduleProgress: r.module_progress ?? {},
@@ -415,11 +562,12 @@ export function useLearning() {
       setRemoteState({ courses, progress, certificates })
     } catch (e) {
       setError(getSupabaseErrorMessage(e))
+      setSystemCourseAdmin([])
       setRemoteState({ courses: [], progress: [], certificates: [] })
     } finally {
       setLoading(false)
     }
-  }, [supabase, orgId, userId, canManage])
+  }, [supabase, orgId, userId, canManage, catalogLocale])
 
   useEffect(() => {
     if (!useSupabase) return
@@ -913,6 +1061,34 @@ export function useLearning() {
     return JSON.stringify(payload, null, 2)
   }, [state.certificates])
 
+  const setSystemCourseEnabled = useCallback(
+    async (systemCourseId: string, enabled: boolean) => {
+      if (!useSupabase || !supabase) return { ok: false as const, error: 'Krever innlogget organisasjon.' }
+      const { error: e } = await supabase.rpc('learning_set_system_course_enabled', {
+        p_system_course_id: systemCourseId,
+        p_enabled: enabled,
+      })
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      await refreshLearning()
+      return { ok: true as const }
+    },
+    [useSupabase, supabase, refreshLearning],
+  )
+
+  const forkSystemCourse = useCallback(
+    async (systemCourseId: string) => {
+      if (!useSupabase || !supabase) return { ok: false as const, error: 'Krever innlogget organisasjon.' }
+      const { data, error: e } = await supabase.rpc('learning_fork_system_course', {
+        p_system_course_id: systemCourseId,
+        p_locale: catalogLocale,
+      })
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      await refreshLearning()
+      return { ok: true as const, newCourseId: data as string }
+    },
+    [useSupabase, supabase, refreshLearning, catalogLocale],
+  )
+
   const importPartialJson = useCallback(
     (json: string): { ok: true } | { ok: false; error: string } => {
       if (useSupabase) {
@@ -967,6 +1143,7 @@ export function useLearning() {
     learningBackend: (useSupabase ? 'supabase' : 'local') as LearningBackend,
     learningLoading: useSupabase && loading,
     learningError: error,
+    systemCourseSettings: useSupabase ? systemCourseAdmin : [],
     refreshLearning,
     createCourse,
     updateCourse,
@@ -984,5 +1161,7 @@ export function useLearning() {
     exportProgressSliceJson,
     exportCertificatesSliceJson,
     importPartialJson,
+    setSystemCourseEnabled,
+    forkSystemCourse,
   }
 }

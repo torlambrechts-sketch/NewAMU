@@ -58,6 +58,9 @@ export type CourseModule = {
   durationMinutes: number
 }
 
+/** system = shared catalog row; org = created in org; fork = copied from system for editing */
+export type CourseOrigin = 'system' | 'org' | 'fork'
+
 export type Course = {
   id: string
   title: string
@@ -67,6 +70,13 @@ export type Course = {
   modules: CourseModule[]
   createdAt: string
   updatedAt: string
+  /** When set, module content may be loaded from learning_system_course_locales */
+  sourceSystemCourseId?: string | null
+  /** Locale used for catalog resolution (nb | en) */
+  catalogLocale?: string | null
+  origin?: CourseOrigin
+  /** True when this row is the org's editable copy of a system course */
+  forkedFromSystemId?: string | null
 }
 
 export type ModuleProgress = {

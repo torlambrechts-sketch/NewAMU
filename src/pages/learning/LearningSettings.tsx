@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { ChevronDown, Download, Upload } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
@@ -23,7 +24,9 @@ function slugTitle(title: string) {
 }
 
 export function LearningSettings() {
-  const { supabaseConfigured, organization } = useOrgSetupContext()
+  const navigate = useNavigate()
+  const { supabaseConfigured, organization, can } = useOrgSetupContext()
+  const canManage = can('learning.manage')
   const {
     resetDemo,
     exportJson,
@@ -33,6 +36,9 @@ export function LearningSettings() {
     exportProgressSliceJson,
     exportCertificatesSliceJson,
     importPartialJson,
+    systemCourseSettings,
+    setSystemCourseEnabled,
+    forkSystemCourse,
   } = useLearning()
   const fileRefFull = useRef<HTMLInputElement>(null)
   const fileRefPartial = useRef<HTMLInputElement>(null)
@@ -89,6 +95,74 @@ export function LearningSettings() {
             : 'Uten innlogget organisasjon lagres e-læringsdata lokalt i nettleseren (demo).'}
         </p>
       </div>
+
+      {supabaseConfigured && organization && canManage && systemCourseSettings.length > 0 ? (
+        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+          <h2 className="font-semibold text-[#2D403A]">Systemkurs for organisasjonen</h2>
+          <p className="mt-2 text-sm text-neutral-600">
+            Slå av kurs du ikke vil tilby. «Kopier som mal» lager et eget utkast du kan redigere og publisere.
+          </p>
+          <ul className="mt-4 space-y-3">
+            {systemCourseSettings.map((s) => (
+              <li
+                key={s.systemCourseId}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-100 bg-[#FCF8F0]/80 px-3 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium text-[#2D403A]">{s.title}</p>
+                  <p className="text-xs text-neutral-500">{s.slug}</p>
+                  {s.forkedCourseId ? (
+                    <Link
+                      to={`/learning/courses/${s.forkedCourseId}`}
+                      className="mt-1 inline-block text-xs font-medium text-emerald-800 underline"
+                    >
+                      Åpne tilpasset kurs (utkast)
+                    </Link>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
+                    <input
+                      type="checkbox"
+                      checked={s.enabled}
+                      onChange={(e) => {
+                        void (async () => {
+                          const r = await setSystemCourseEnabled(s.systemCourseId, e.target.checked)
+                          if (!r.ok) alert(r.error)
+                        })()
+                      }}
+                      className="rounded border-neutral-300"
+                    />
+                    Aktiv
+                  </label>
+                  <button
+                    type="button"
+                    className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#2D403A] hover:bg-neutral-50"
+                    onClick={() => {
+                      void (async () => {
+                        const r = await forkSystemCourse(s.systemCourseId)
+                        if (r.ok && r.newCourseId) {
+                          navigate(`/learning/courses/${r.newCourseId}`)
+                        } else if (!r.ok) {
+                          alert(r.error)
+                        }
+                      })()
+                    }}
+                  >
+                    Kopier som mal
+                  </button>
+                  <Link
+                    to={`/learning/courses/${s.systemCourseId}`}
+                    className="text-xs font-medium text-emerald-800 underline"
+                  >
+                    Systemkurs
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
         <h2 className="font-semibold text-[#2D403A]">Export / import (JSON)</h2>

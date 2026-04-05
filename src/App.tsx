@@ -71,11 +71,11 @@ function App() {
                   <Route path="hse" element={<HseModule />} />
                   <Route path="admin" element={<AdminPage />} />
                   <Route path="profile" element={<ProfilePage />} />
+                  <Route path="learning/play/:courseId" element={<LearningPlayer />} />
                   <Route path="learning" element={<LearningLayout />}>
                     <Route index element={<LearningDashboard />} />
                     <Route path="courses" element={<LearningCoursesList />} />
                     <Route path="courses/:courseId" element={<LearningCourseBuilder />} />
-                    <Route path="play/:courseId" element={<LearningPlayer />} />
                     <Route path="certifications" element={<LearningCertifications />} />
                     <Route path="insights" element={<LearningInsights />} />
                     <Route path="participants" element={<LearningParticipants />} />

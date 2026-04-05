@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { GripVertical, Layers, Plus, Trash2, Users, BarChart3, FileText, Award } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
@@ -36,12 +36,23 @@ const ADD_KINDS: { kind: ModuleKind; label: string }[] = [
 type MainTab = 'info' | 'modules' | 'cert' | 'participants' | 'insights'
 
 export function LearningCourseBuilder() {
+  const navigate = useNavigate()
   const { courseId } = useParams<{ courseId: string }>()
   const { can } = useOrgSetupContext()
   const canManage = can('learning.manage')
-  const { courses, updateCourse, addModule, updateModule, deleteModule, learningLoading, learningError } =
-    useLearning()
+  const {
+    courses,
+    updateCourse,
+    addModule,
+    updateModule,
+    deleteModule,
+    forkSystemCourse,
+    learningLoading,
+    learningError,
+  } = useLearning()
   const course = courses.find((c) => c.id === courseId)
+  const isSystemCatalog =
+    course && course.origin === 'system' && course.sourceSystemCourseId && course.modules.length > 0
 
   const [mainTab, setMainTab] = useState<MainTab>('modules')
   const [typeFilter, setTypeFilter] = useState<ModuleKind | 'all'>('all')
@@ -66,6 +77,52 @@ export function LearningCourseBuilder() {
       <p className="text-neutral-600">
         Course not found. <Link to="/learning/courses" className="text-emerald-800 underline">Back</Link>
       </p>
+    )
+  }
+
+  if (canManage && isSystemCatalog && course?.sourceSystemCourseId) {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <nav className="text-sm text-neutral-600">
+          <Link to="/learning/courses" className="hover:text-[#2D403A]">
+            Courses
+          </Link>
+          <span className="mx-2 text-neutral-300">›</span>
+          <span className="font-medium text-[#2D403A]">{course.title}</span>
+        </nav>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-6">
+          <h1 className="font-serif text-2xl font-semibold text-[#2D403A]">Systemkurs</h1>
+          <p className="mt-2 text-sm text-neutral-700">
+            Dette kurset leveres fra felles katalog og kan ikke redigeres direkte. Kopier det til din organisasjon for å
+            tilpasse innhold, rekkefølge og publisering.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-white"
+              style={{ backgroundColor: PIN_GREEN }}
+              onClick={() => {
+                void (async () => {
+                  const r = await forkSystemCourse(course.sourceSystemCourseId!)
+                  if (r.ok && r.newCourseId) {
+                    navigate(`/learning/courses/${r.newCourseId}`)
+                  } else if (!r.ok) {
+                    alert(r.error)
+                  }
+                })()
+              }}
+            >
+              Kopier og tilpass (mal)
+            </button>
+            <Link
+              to={`/learning/play/${course.id}`}
+              className="inline-flex items-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-[#2D403A] hover:bg-neutral-50"
+            >
+              Forhåndsvisning
+            </Link>
+          </div>
+        </div>
+      </div>
     )
   }
 
