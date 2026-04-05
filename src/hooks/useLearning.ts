@@ -141,6 +141,74 @@ export type SystemCourseAdminRow = {
   forkedCourseId: string | null
 }
 
+const LEARNING_SNAPSHOT_VERSION = 1 as const
+
+type LearningRemoteSnapshotV1 = {
+  v: typeof LEARNING_SNAPSHOT_VERSION
+  remoteState: LearningState
+  systemCourseAdmin: SystemCourseAdminRow[]
+  streakWeeks: number | null
+  pendingReviews: LearningReviewItem[]
+  departmentLeaderboard: DeptLeaderboardRow[]
+  flowSettings: LearningFlowSettings | null
+  certificationRenewals: CertificationRenewalRow[]
+  externalCertificates: ExternalCertificateRow[]
+  iltEvents: IltEventRow[]
+  learningPaths: LearningPathRow[]
+  pathEnrollments: PathEnrollmentRow[]
+  complianceMatrix: ComplianceMatrixCell[]
+}
+
+const learningSnapshotMemory = new Map<string, LearningRemoteSnapshotV1>()
+
+function learningSnapshotStorageKey(sessionKey: string) {
+  return `atics-learning-snapshot-v1:${sessionKey}`
+}
+
+function parseLearningSnapshot(raw: string): LearningRemoteSnapshotV1 | null {
+  try {
+    const o = JSON.parse(raw) as LearningRemoteSnapshotV1
+    if (o.v !== LEARNING_SNAPSHOT_VERSION) return null
+    if (!o.remoteState || !Array.isArray(o.remoteState.courses)) return null
+    return o
+  } catch {
+    return null
+  }
+}
+
+function readLearningSnapshot(sessionKey: string): LearningRemoteSnapshotV1 | null {
+  if (!sessionKey) return null
+  const mem = learningSnapshotMemory.get(sessionKey)
+  if (mem) return mem
+  try {
+    const raw = sessionStorage.getItem(learningSnapshotStorageKey(sessionKey))
+    if (!raw) return null
+    const p = parseLearningSnapshot(raw)
+    if (p) learningSnapshotMemory.set(sessionKey, p)
+    return p
+  } catch {
+    return null
+  }
+}
+
+function writeLearningSnapshot(sessionKey: string, snap: LearningRemoteSnapshotV1) {
+  learningSnapshotMemory.set(sessionKey, snap)
+  try {
+    sessionStorage.setItem(learningSnapshotStorageKey(sessionKey), JSON.stringify(snap))
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+function clearLearningSnapshot(sessionKey: string) {
+  learningSnapshotMemory.delete(sessionKey)
+  try {
+    sessionStorage.removeItem(learningSnapshotStorageKey(sessionKey))
+  } catch {
+    /* ignore */
+  }
+}
+
 function isLearningExportPayload(raw: unknown): raw is LearningExportPayload {
   if (!raw || typeof raw !== 'object') return false
   const o = raw as Record<string, unknown>
@@ -499,23 +567,42 @@ export function useLearning() {
   const canManage = can('learning.manage')
   const catalogLocale: 'nb' | 'en' = appLocale === 'en' ? 'en' : 'nb'
 
+  const learningSessionKey = orgId && userId ? `${orgId}:${userId}` : ''
+  const initialSnap = learningSessionKey ? readLearningSnapshot(learningSessionKey) : null
+
   const [localState, setLocalState] = useState<LearningState>(() => load())
-  const [remoteState, setRemoteState] = useState<LearningState>({
-    courses: [],
-    progress: [],
-    certificates: [],
-  })
-  const [systemCourseAdmin, setSystemCourseAdmin] = useState<SystemCourseAdminRow[]>([])
-  const [streakWeeks, setStreakWeeks] = useState<number | null>(null)
-  const [pendingReviews, setPendingReviews] = useState<LearningReviewItem[]>([])
-  const [departmentLeaderboard, setDepartmentLeaderboard] = useState<DeptLeaderboardRow[]>([])
-  const [flowSettings, setFlowSettings] = useState<LearningFlowSettings | null>(null)
-  const [certificationRenewals, setCertificationRenewals] = useState<CertificationRenewalRow[]>([])
-  const [externalCertificates, setExternalCertificates] = useState<ExternalCertificateRow[]>([])
-  const [iltEvents, setIltEvents] = useState<IltEventRow[]>([])
-  const [learningPaths, setLearningPaths] = useState<LearningPathRow[]>([])
-  const [pathEnrollments, setPathEnrollments] = useState<PathEnrollmentRow[]>([])
-  const [complianceMatrix, setComplianceMatrix] = useState<ComplianceMatrixCell[]>([])
+  const [remoteState, setRemoteState] = useState<LearningState>(
+    () => initialSnap?.remoteState ?? { courses: [], progress: [], certificates: [] },
+  )
+  const [systemCourseAdmin, setSystemCourseAdmin] = useState<SystemCourseAdminRow[]>(
+    () => initialSnap?.systemCourseAdmin ?? [],
+  )
+  const [streakWeeks, setStreakWeeks] = useState<number | null>(() => initialSnap?.streakWeeks ?? null)
+  const [pendingReviews, setPendingReviews] = useState<LearningReviewItem[]>(
+    () => initialSnap?.pendingReviews ?? [],
+  )
+  const [departmentLeaderboard, setDepartmentLeaderboard] = useState<DeptLeaderboardRow[]>(
+    () => initialSnap?.departmentLeaderboard ?? [],
+  )
+  const [flowSettings, setFlowSettings] = useState<LearningFlowSettings | null>(
+    () => initialSnap?.flowSettings ?? null,
+  )
+  const [certificationRenewals, setCertificationRenewals] = useState<CertificationRenewalRow[]>(
+    () => initialSnap?.certificationRenewals ?? [],
+  )
+  const [externalCertificates, setExternalCertificates] = useState<ExternalCertificateRow[]>(
+    () => initialSnap?.externalCertificates ?? [],
+  )
+  const [iltEvents, setIltEvents] = useState<IltEventRow[]>(() => initialSnap?.iltEvents ?? [])
+  const [learningPaths, setLearningPaths] = useState<LearningPathRow[]>(
+    () => initialSnap?.learningPaths ?? [],
+  )
+  const [pathEnrollments, setPathEnrollments] = useState<PathEnrollmentRow[]>(
+    () => initialSnap?.pathEnrollments ?? [],
+  )
+  const [complianceMatrix, setComplianceMatrix] = useState<ComplianceMatrixCell[]>(
+    () => initialSnap?.complianceMatrix ?? [],
+  )
   const [loading, setLoading] = useState(useSupabase)
   const [error, setError] = useState<string | null>(null)
 
@@ -680,7 +767,7 @@ export function useLearning() {
         verifyCode: r.verify_code,
         courseVersion: r.course_version ?? 1,
       }))
-      setRemoteState({ courses, progress, certificates })
+      const nextRemoteState: LearningState = { courses, progress, certificates }
 
       const renewQuery = supabase
         .from('learning_certification_renewals')
@@ -751,46 +838,38 @@ export function useLearning() {
         enrollQuery,
         matrixPromise,
       ])
-      setStreakWeeks(typeof streakRow?.streak_weeks === 'number' ? streakRow.streak_weeks : null)
-      setPendingReviews(
-        ((revRows ?? []) as { id: string; course_id: string; module_id: string; question_id: string; review_at: string }[]).map(
-          (r) => ({
-            id: r.id,
-            courseId: r.course_id,
-            moduleId: r.module_id,
-            questionId: r.question_id,
-            reviewAt: r.review_at,
-          }),
-        ),
-      )
-      if (!lbRes.error && Array.isArray(lbRes.data)) {
-        setDepartmentLeaderboard(
-          (lbRes.data as { department_id: string; department_name: string; member_count: number; avg_completion_pct: number }[]).map(
+      const nextStreakWeeks = typeof streakRow?.streak_weeks === 'number' ? streakRow.streak_weeks : null
+      const nextPendingReviews = (
+        (revRows ?? []) as { id: string; course_id: string; module_id: string; question_id: string; review_at: string }[]
+      ).map((r) => ({
+        id: r.id,
+        courseId: r.course_id,
+        moduleId: r.module_id,
+        questionId: r.question_id,
+        reviewAt: r.review_at,
+      }))
+      const nextDepartmentLeaderboard = !lbRes.error && Array.isArray(lbRes.data)
+        ? (lbRes.data as { department_id: string; department_name: string; member_count: number; avg_completion_pct: number }[]).map(
             (r) => ({
               departmentId: r.department_id,
               departmentName: r.department_name,
               memberCount: r.member_count,
               avgCompletionPct: Number(r.avg_completion_pct),
             }),
-          ),
-        )
-      } else {
-        setDepartmentLeaderboard([])
-      }
+          )
+        : []
       const fs = fsRes.data as { teams_webhook_url?: string | null; slack_webhook_url?: string | null; generic_webhook_url?: string | null } | null
-      if (!fsRes.error && fs) {
-        setFlowSettings({
-          teamsWebhookUrl: fs.teams_webhook_url ?? null,
-          slackWebhookUrl: fs.slack_webhook_url ?? null,
-          genericWebhookUrl: fs.generic_webhook_url ?? null,
-        })
-      } else {
-        setFlowSettings(null)
-      }
+      const nextFlowSettings: LearningFlowSettings | null =
+        !fsRes.error && fs
+          ? {
+              teamsWebhookUrl: fs.teams_webhook_url ?? null,
+              slackWebhookUrl: fs.slack_webhook_url ?? null,
+              genericWebhookUrl: fs.generic_webhook_url ?? null,
+            }
+          : null
 
-      if (!renewRes.error && Array.isArray(renewRes.data)) {
-        setCertificationRenewals(
-          (renewRes.data as { id: string; course_id: string; certificate_id: string | null; expires_at: string; status: string }[]).map(
+      const nextCertificationRenewals = !renewRes.error && Array.isArray(renewRes.data)
+        ? (renewRes.data as { id: string; course_id: string; certificate_id: string | null; expires_at: string; status: string }[]).map(
             (r) => ({
               id: r.id,
               courseId: r.course_id,
@@ -798,15 +877,11 @@ export function useLearning() {
               expiresAt: r.expires_at,
               status: r.status as CertificationRenewalRow['status'],
             }),
-          ),
-        )
-      } else {
-        setCertificationRenewals([])
-      }
+          )
+        : []
 
-      if (!extRes.error && Array.isArray(extRes.data)) {
-        setExternalCertificates(
-          (extRes.data as { id: string; title: string; issuer: string | null; valid_until: string | null; status: string; created_at: string }[]).map(
+      const nextExternalCertificates = !extRes.error && Array.isArray(extRes.data)
+        ? (extRes.data as { id: string; title: string; issuer: string | null; valid_until: string | null; status: string; created_at: string }[]).map(
             (r) => ({
               id: r.id,
               title: r.title,
@@ -815,15 +890,11 @@ export function useLearning() {
               status: r.status as ExternalCertificateRow['status'],
               createdAt: r.created_at,
             }),
-          ),
-        )
-      } else {
-        setExternalCertificates([])
-      }
+          )
+        : []
 
-      if (!iltRes.error && Array.isArray(iltRes.data)) {
-        setIltEvents(
-          (iltRes.data as {
+      const nextIltEvents = !iltRes.error && Array.isArray(iltRes.data)
+        ? (iltRes.data as {
             id: string
             course_id: string
             module_id: string
@@ -843,23 +914,18 @@ export function useLearning() {
             locationText: r.location_text,
             meetingUrl: r.meeting_url,
             instructorName: r.instructor_name,
-          })),
-        )
-      } else {
-        setIltEvents([])
-      }
+          }))
+        : []
 
-      if (!pathsRes.error && Array.isArray(pathsRes.data)) {
-        const raw = pathsRes.data as {
-          id: string
-          name: string
-          slug: string
-          description: string | null
-          learning_path_courses?: { course_id: string; sort_order: number }[] | null
-          learning_path_rules?: { metadata_key: string; expected_value: unknown }[] | null
-        }[]
-        setLearningPaths(
-          raw.map((p) => {
+      const nextLearningPaths = !pathsRes.error && Array.isArray(pathsRes.data)
+        ? (pathsRes.data as {
+            id: string
+            name: string
+            slug: string
+            description: string | null
+            learning_path_courses?: { course_id: string; sort_order: number }[] | null
+            learning_path_rules?: { metadata_key: string; expected_value: unknown }[] | null
+          }[]).map((p) => {
             const pcs = [...(p.learning_path_courses ?? [])].sort((a, b) => a.sort_order - b.sort_order)
             return {
               id: p.id,
@@ -872,26 +938,18 @@ export function useLearning() {
                 expectedValue: r.expected_value,
               })),
             }
-          }),
-        )
-      } else {
-        setLearningPaths([])
-      }
+          })
+        : []
 
-      if (!enRes.error && Array.isArray(enRes.data)) {
-        setPathEnrollments(
-          (enRes.data as { path_id: string; enrolled_at: string }[]).map((r) => ({
+      const nextPathEnrollments = !enRes.error && Array.isArray(enRes.data)
+        ? (enRes.data as { path_id: string; enrolled_at: string }[]).map((r) => ({
             pathId: r.path_id,
             enrolledAt: r.enrolled_at,
-          })),
-        )
-      } else {
-        setPathEnrollments([])
-      }
+          }))
+        : []
 
-      if (!matrixRes.error && Array.isArray(matrixRes.data)) {
-        setComplianceMatrix(
-          (matrixRes.data as {
+      const nextComplianceMatrix = !matrixRes.error && Array.isArray(matrixRes.data)
+        ? (matrixRes.data as {
             user_id: string
             display_name: string
             course_id: string
@@ -905,15 +963,41 @@ export function useLearning() {
             courseTitle: r.course_title,
             cellStatus: r.cell_status as ComplianceMatrixCell['cellStatus'],
             completionPct: Number(r.completion_pct),
-          })),
-        )
-      } else {
-        setComplianceMatrix([])
-      }
+          }))
+        : []
+
+      writeLearningSnapshot(sessionKey, {
+        v: LEARNING_SNAPSHOT_VERSION,
+        remoteState: nextRemoteState,
+        systemCourseAdmin: adminRows,
+        streakWeeks: nextStreakWeeks,
+        pendingReviews: nextPendingReviews,
+        departmentLeaderboard: nextDepartmentLeaderboard,
+        flowSettings: nextFlowSettings,
+        certificationRenewals: nextCertificationRenewals,
+        externalCertificates: nextExternalCertificates,
+        iltEvents: nextIltEvents,
+        learningPaths: nextLearningPaths,
+        pathEnrollments: nextPathEnrollments,
+        complianceMatrix: nextComplianceMatrix,
+      })
+
+      setRemoteState(nextRemoteState)
+      setStreakWeeks(nextStreakWeeks)
+      setPendingReviews(nextPendingReviews)
+      setDepartmentLeaderboard(nextDepartmentLeaderboard)
+      setFlowSettings(nextFlowSettings)
+      setCertificationRenewals(nextCertificationRenewals)
+      setExternalCertificates(nextExternalCertificates)
+      setIltEvents(nextIltEvents)
+      setLearningPaths(nextLearningPaths)
+      setPathEnrollments(nextPathEnrollments)
+      setComplianceMatrix(nextComplianceMatrix)
 
       learningSessionHydrated.set(sessionKey, true)
     } catch (e) {
       learningSessionHydrated.set(sessionKey, true)
+      clearLearningSnapshot(sessionKey)
       setError(getSupabaseErrorMessage(e))
       setSystemCourseAdmin([])
       setStreakWeeks(null)
@@ -1795,8 +1879,8 @@ export function useLearning() {
     [useSupabase],
   )
 
-  const learningSessionKey = orgId && userId ? `${orgId}:${userId}` : ''
-  const learningDataReady = !useSupabase || (learningSessionKey !== '' && learningSessionHydrated.get(learningSessionKey) === true)
+  const learningDataReady =
+    !useSupabase || (learningSessionKey !== '' && learningSessionHydrated.get(learningSessionKey) === true)
 
   return {
     ...state,
