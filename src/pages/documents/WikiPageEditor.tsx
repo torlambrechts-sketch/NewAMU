@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle, CheckCircle2, ChevronDown, ChevronUp,
-  Eye, GripVertical, Save, Trash2,
+  Eye, GripVertical, Loader2, Save, Trash2,
 } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
@@ -48,10 +48,14 @@ export function WikiPageEditor() {
   const original = docs.pages.find((p) => p.id === pageId)
   const space = original ? docs.spaces.find((s) => s.id === original.spaceId) : null
 
+  const hydratedKeyRef = useRef<string | null>(null)
+
   const [title, setTitle] = useState(() => original?.title ?? '')
   const [summary, setSummary] = useState(() => original?.summary ?? '')
   const [blocks, setBlocks] = useState<ContentBlock[]>(() => original?.blocks ?? [])
-  const [legalRefs, setLegalRefs] = useState(() => original?.legalRefs.join(', ') ?? '')
+  const [legalRefs, setLegalRefs] = useState(() =>
+    (Array.isArray(original?.legalRefs) ? original.legalRefs : []).join(', '),
+  )
   const [requiresAck, setRequiresAck] = useState(() => original?.requiresAcknowledgement ?? false)
   const [ackAudience, setAckAudience] = useState<AcknowledgementAudience>(
     () => original?.acknowledgementAudience ?? 'all_employees',
@@ -66,11 +70,59 @@ export function WikiPageEditor() {
   const [savedMsg, setSavedMsg] = useState(false)
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
 
-  if (!original) return (
-    <div className="mx-auto max-w-[1400px] px-4 py-12 text-center text-neutral-500">
-      Side ikke funnet. <Link to="/documents" className="text-[#1a3d32] underline">← Tilbake</Link>
-    </div>
-  )
+  // useState initializers only run once; when `original` loads after the first render (async fetch),
+  // we must hydrate form state or the editor stays blank.
+  useLayoutEffect(() => {
+    if (!pageId || !original) return
+    const key = `${pageId}:${original.id}`
+    if (hydratedKeyRef.current === key) return
+    hydratedKeyRef.current = key
+    setTitle(original.title ?? '')
+    setSummary(original.summary ?? '')
+    setBlocks(Array.isArray(original.blocks) ? original.blocks : [])
+    setLegalRefs((Array.isArray(original.legalRefs) ? original.legalRefs : []).join(', '))
+    setRequiresAck(original.requiresAcknowledgement ?? false)
+    setAckAudience(original.acknowledgementAudience ?? 'all_employees')
+    setAckDeptId(original.acknowledgementDepartmentId ?? '')
+    setRevisionMonths(String(original.revisionIntervalMonths ?? 12))
+    setNextRevision(original.nextRevisionDueAt ? original.nextRevisionDueAt.slice(0, 10) : '')
+    setTemplate(
+      original.template === 'wide' || original.template === 'policy' || original.template === 'standard'
+        ? original.template
+        : 'standard',
+    )
+    setDirty(false)
+    setSavedMsg(false)
+    setSelectedIdx(null)
+  }, [pageId, original])
+
+  if (docs.loading && !original) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-4 text-neutral-600">
+        <Loader2 className="size-8 animate-spin text-[#1a3d32]" aria-hidden />
+        <p className="text-sm">Laster redigeringsdata…</p>
+      </div>
+    )
+  }
+
+  if (docs.error && !original) {
+    return (
+      <div className="mx-auto max-w-[1400px] px-4 py-12 text-center">
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{docs.error}</p>
+        <Link to="/documents" className="mt-4 inline-block text-[#1a3d32] underline">
+          ← Tilbake til dokumenter
+        </Link>
+      </div>
+    )
+  }
+
+  if (!original) {
+    return (
+      <div className="mx-auto max-w-[1400px] px-4 py-12 text-center text-neutral-500">
+        Side ikke funnet. <Link to="/documents" className="text-[#1a3d32] underline">← Tilbake</Link>
+      </div>
+    )
+  }
 
   function markDirty() { setDirty(true); setSavedMsg(false) }
 

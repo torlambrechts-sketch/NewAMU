@@ -21,20 +21,32 @@ const alertStyles = {
 
 const alertIcons = { info: 'ℹ️', warning: '⚠️', danger: '🚨', tip: '💡' }
 
+function isAlertVariant(v: unknown): v is keyof typeof alertStyles {
+  return v === 'info' || v === 'warning' || v === 'danger' || v === 'tip'
+}
+
 export function WikiBlockRenderer({ blocks, pageId, pageVersion }: Props) {
   return (
     <div className="space-y-4">
       {blocks.map((block, i) => {
+        if (!block || typeof block !== 'object' || !('kind' in block)) {
+          return (
+            <p key={i} className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Ugyldig innholdsblokk (mangler type).
+            </p>
+          )
+        }
         switch (block.kind) {
           case 'heading': {
-            const Tag = `h${block.level}` as 'h1' | 'h2' | 'h3'
+            const level = block.level === 1 || block.level === 2 || block.level === 3 ? block.level : 2
+            const Tag = `h${level}` as 'h1' | 'h2' | 'h3'
             const cls =
-              block.level === 1
+              level === 1
                 ? 'text-2xl font-bold text-neutral-900 mt-6 mb-2'
-                : block.level === 2
+                : level === 2
                   ? 'text-lg font-semibold text-neutral-800 mt-5 mb-1'
                   : 'text-base font-semibold text-neutral-700 mt-4 mb-1'
-            return <Tag key={i} className={cls}>{block.text}</Tag>
+            return <Tag key={i} className={cls}>{typeof block.text === 'string' ? block.text : ''}</Tag>
           }
 
           case 'text':
@@ -42,16 +54,18 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion }: Props) {
               <div
                 key={i}
                 className="prose prose-sm max-w-none text-neutral-800 [&_a]:text-[#1a3d32] [&_a]:underline [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-neutral-200 [&_td]:px-3 [&_td]:py-1.5 [&_td]:text-sm [&_th]:border [&_th]:border-neutral-200 [&_th]:bg-neutral-50 [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-neutral-500"
-                dangerouslySetInnerHTML={{ __html: sanitizeLearningHtml(block.body) }}
+                dangerouslySetInnerHTML={{ __html: sanitizeLearningHtml(typeof block.body === 'string' ? block.body : '') }}
               />
             )
 
-          case 'alert':
+          case 'alert': {
+            const variant = isAlertVariant(block.variant) ? block.variant : 'info'
             return (
-              <div key={i} className={`rounded-lg border px-4 py-3 text-sm ${alertStyles[block.variant]}`}>
-                {alertIcons[block.variant]} {block.text}
+              <div key={i} className={`rounded-lg border px-4 py-3 text-sm ${alertStyles[variant]}`}>
+                {alertIcons[variant]} {typeof block.text === 'string' ? block.text : ''}
               </div>
             )
+          }
 
           case 'divider':
             return <hr key={i} className="my-4 border-neutral-200" />
@@ -118,12 +132,32 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion }: Props) {
                   />
                 )
               default:
-                return null
+                return (
+                  <div
+                    key={i}
+                    className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+                  >
+                    Ukjent dynamisk modul:{' '}
+                    <code className="rounded bg-white px-1 font-mono text-xs">
+                      {typeof block.moduleName === 'string' ? block.moduleName : '(mangler navn)'}
+                    </code>
+                  </div>
+                )
             }
           }
 
           default:
-            return null
+            return (
+              <div
+                key={i}
+                className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+              >
+                Ukjent blokktype:{' '}
+                <code className="rounded bg-white px-1 font-mono text-xs">
+                  {String((block as { kind?: unknown }).kind)}
+                </code>
+              </div>
+            )
         }
       })}
     </div>

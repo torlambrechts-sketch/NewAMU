@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { CheckCircle2, Clock, History, Pencil } from 'lucide-react'
+import { CheckCircle2, Clock, History, Loader2, Pencil } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { WikiBlockRenderer } from './WikiBlockRenderer'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
@@ -28,11 +28,39 @@ export function WikiPageView() {
   const page = docs.pages.find((p) => p.id === pageId)
   const space = page ? docs.spaces.find((s) => s.id === page.spaceId) : null
 
-  if (!page) return (
-    <div className="mx-auto max-w-[1400px] px-4 py-12 text-center text-neutral-500">
-      Side ikke funnet. <Link to="/documents" className="text-[#1a3d32] underline">← Tilbake</Link>
-    </div>
-  )
+  if (docs.loading && !page) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-4 text-neutral-600">
+        <Loader2 className="size-8 animate-spin text-[#1a3d32]" aria-hidden />
+        <p className="text-sm">Laster dokument…</p>
+      </div>
+    )
+  }
+
+  if (docs.error && !page) {
+    return (
+      <div className="mx-auto max-w-[1400px] px-4 py-12 text-center">
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{docs.error}</p>
+        <Link to="/documents" className="mt-4 inline-block text-[#1a3d32] underline">
+          ← Tilbake til dokumenter
+        </Link>
+      </div>
+    )
+  }
+
+  if (!page) {
+    return (
+      <div className="mx-auto max-w-[1400px] px-4 py-12 text-center text-neutral-500">
+        Side ikke funnet. <Link to="/documents" className="text-[#1a3d32] underline">← Tilbake</Link>
+      </div>
+    )
+  }
+
+  const legalRefs = Array.isArray(page.legalRefs) ? page.legalRefs : []
+  const templateKey: keyof typeof TEMPLATE_CLASS =
+    page.template === 'wide' || page.template === 'policy' || page.template === 'standard'
+      ? page.template
+      : 'standard'
 
   const alreadySigned = docs.hasAcknowledged(page.id, page.version)
   const showSignBadge =
@@ -59,7 +87,7 @@ export function WikiPageView() {
         <span className="text-neutral-800">{page.title}</span>
       </nav>
 
-      <div className={`${TEMPLATE_CLASS[page.template]} mx-auto`}>
+      <div className={`${TEMPLATE_CLASS[templateKey]} mx-auto`}>
         {/* Page header */}
         <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div className="flex-1">
@@ -103,7 +131,7 @@ export function WikiPageView() {
                   Neste revisjon: {new Date(page.nextRevisionDueAt).toLocaleDateString('no-NO')}
                 </span>
               )}
-              {page.legalRefs.map((r) => (
+              {legalRefs.map((r) => (
                 <span key={r} className="rounded bg-[#1a3d32]/8 px-1.5 py-0.5 font-mono text-[#1a3d32]">{r}</span>
               ))}
             </div>
@@ -133,7 +161,7 @@ export function WikiPageView() {
         </div>
 
         {/* Content */}
-        <WikiBlockRenderer blocks={page.blocks} pageId={page.id} pageVersion={page.version} />
+        <WikiBlockRenderer blocks={Array.isArray(page.blocks) ? page.blocks : []} pageId={page.id} pageVersion={page.version} />
 
         {versions.length > 0 && (
           <div className="mt-10 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
