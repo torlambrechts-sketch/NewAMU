@@ -111,7 +111,7 @@ export function useOrgSetup() {
         await ensureProfileRowExists(supabase, u.id)
         await loadProfileAndOrg(u.id)
         setError(null)
-        void refreshPermissions()
+        /* Permissions refresh only on auth events — avoid full-screen flicker on every navigation */
       } catch {
         /* ignore */
       }
@@ -119,7 +119,7 @@ export function useOrgSetup() {
       setProfile(null)
       setOrganization(null)
     }
-  }, [supabase, loadProfileAndOrg, refreshPermissions])
+  }, [supabase, loadProfileAndOrg])
 
   useEffect(() => {
     if (!supabase) return
