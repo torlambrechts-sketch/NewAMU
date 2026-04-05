@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BookOpen, CheckCircle2, FileText, Plus, Settings2, ShieldCheck } from 'lucide-react'
+import { BookOpen, CheckCircle2, Clock, FileText, Plus, Settings2, ShieldCheck } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PageTemplate, WikiSpace } from '../../types/documents'
+import { PIN_GREEN } from '../../components/learning/LearningLayout'
 
 const CATEGORY_LABELS: Record<WikiSpace['category'], string> = {
   hms_handbook: 'HMS-håndbok',
@@ -155,7 +156,7 @@ export function DocumentsHome() {
       {/* Spaces grid */}
       <div className="mt-8">
         <h2 className="mb-4 text-base font-semibold text-neutral-700">Mapper</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {activeSpaces.map((space) => {
             const pagesInSpace = docs.pages.filter((p) => p.spaceId === space.id)
             const published = pagesInSpace.filter((p) => p.status === 'published').length
@@ -163,21 +164,30 @@ export function DocumentsHome() {
               <Link
                 key={space.id}
                 to={`/documents/space/${space.id}`}
-                className="group flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+                className="group flex flex-col overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm transition-shadow hover:shadow-md"
               >
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">{space.icon}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-neutral-900 group-hover:text-[#1a3d32]">{space.title}</div>
-                    <div className="mt-0.5 text-xs text-neutral-500">{CATEGORY_LABELS[space.category]}</div>
-                  </div>
+                <div className="relative flex h-32 shrink-0 items-end bg-gradient-to-br from-[#1a3d32] via-[#234d3f] to-[#2f6b52] px-4 pb-3">
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#1a3d32]/95 to-[#143528] opacity-95" />
+                  <span className="relative text-3xl drop-shadow">{space.icon}</span>
+                  <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#1a3d32]">
+                    {CATEGORY_LABELS[space.category]}
+                  </span>
                 </div>
-                <p className="text-sm text-neutral-600 line-clamp-2">{space.description}</p>
-                <div className="flex items-center gap-3 text-xs text-neutral-500">
-                  <span>{pagesInSpace.length} sider</span>
-                  {published > 0 && (
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">{published} publisert</span>
-                  )}
+                <div className="flex flex-1 flex-col p-4">
+                  <div className="font-serif text-lg font-semibold leading-snug text-[#1a3d32] group-hover:underline">
+                    {space.title}
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-sm text-neutral-600">{space.description}</p>
+                  <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-neutral-600">
+                    <span className="inline-flex items-center gap-1.5">
+                      <BookOpen className="size-3.5 shrink-0" style={{ color: PIN_GREEN }} />
+                      {pagesInSpace.length} {pagesInSpace.length === 1 ? 'side' : 'sider'}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock className="size-3.5 shrink-0" style={{ color: PIN_GREEN }} />
+                      {published} publisert
+                    </span>
+                  </div>
                 </div>
               </Link>
             )

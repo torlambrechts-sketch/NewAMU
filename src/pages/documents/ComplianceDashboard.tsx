@@ -12,7 +12,11 @@ export function ComplianceDashboard() {
           docs.pageTemplates.find((t) => t.id === tid)?.page.legalRefs.some((r) => p.legalRefs.includes(r)),
         ),
     )
-    return { ...item, coveredBy, covered: coveredBy.length > 0 }
+    const stale = coveredBy.some((p) => {
+      if (!p.nextRevisionDueAt) return false
+      return new Date(p.nextRevisionDueAt).getTime() < Date.now()
+    })
+    return { ...item, coveredBy, covered: coveredBy.length > 0, stale }
   })
 
   const total = coverage.length
@@ -62,22 +66,42 @@ export function ComplianceDashboard() {
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Hjemmel</th>
               <th className="px-4 py-3">Krav</th>
+              <th className="px-4 py-3">Neste revideringsdato</th>
               <th className="px-4 py-3">Dekket av</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
             {coverage.map((c) => (
-              <tr key={c.ref} className={c.covered ? '' : 'bg-amber-50/40'}>
+              <tr key={c.ref} className={c.covered && !c.stale ? '' : 'bg-amber-50/40'}>
                 <td className="px-4 py-3">
-                  {c.covered
+                  {c.covered && !c.stale
                     ? <CheckCircle2 className="size-5 text-emerald-600" />
-                    : <Circle className="size-5 text-amber-400" />
+                    : c.covered && c.stale
+                      ? <span className="text-xs font-medium text-amber-800" title="Dokument funnet, men revisjonsfrist passert">⚠</span>
+                      : <Circle className="size-5 text-amber-400" />
                   }
                 </td>
                 <td className="px-4 py-3">
                   <span className="rounded bg-[#1a3d32]/10 px-1.5 py-0.5 font-mono text-xs text-[#1a3d32]">{c.ref}</span>
                 </td>
                 <td className="px-4 py-3 text-neutral-700">{c.label}</td>
+                <td className="px-4 py-3 text-xs text-neutral-600">
+                  {c.coveredBy.length === 0 ? (
+                    <span className="text-amber-700">—</span>
+                  ) : (
+                    <ul className="space-y-1">
+                      {c.coveredBy.map((p) => (
+                        <li key={p.id}>
+                          {p.nextRevisionDueAt
+                            ? new Date(p.nextRevisionDueAt).toLocaleDateString('no-NO')
+                            : <span className="text-neutral-400">Ikke satt</span>}
+                          {' '}
+                          <span className="text-neutral-400">({p.title})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   {c.coveredBy.length > 0 ? (
                     <div className="flex flex-wrap gap-1">

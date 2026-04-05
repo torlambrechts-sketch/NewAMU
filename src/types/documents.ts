@@ -59,6 +59,9 @@ export type ContentBlock = TextBlock | HeadingBlock | AlertBlock | DividerBlock 
 
 export type PageStatus = 'draft' | 'published' | 'archived'
 
+/** Who must acknowledge when requiresAcknowledgement is true */
+export type AcknowledgementAudience = 'all_employees' | 'leaders_only' | 'safety_reps_only' | 'department'
+
 export type WikiPage = {
   id: string
   spaceId: string
@@ -72,11 +75,37 @@ export type WikiPage = {
   legalRefs: string[]
   /** True → acknowledgement_footer module activates for this page */
   requiresAcknowledgement: boolean
+  /** Defaults to all_employees when omitted (legacy templates) */
+  acknowledgementAudience?: AcknowledgementAudience
+  /** When audience is department */
+  acknowledgementDepartmentId?: string | null
+  /** Next mandatory review (IK-f §5 — systematic review) */
+  nextRevisionDueAt?: string | null
+  revisionIntervalMonths?: number
   blocks: ContentBlock[]
   version: number
   createdAt: string
   updatedAt: string
   authorId: string
+}
+
+/** Immutable snapshot when a version was published (audit) */
+export type WikiPageVersionSnapshot = {
+  id: string
+  pageId: string
+  version: number
+  title: string
+  summary: string
+  status: string
+  template: string
+  legalRefs: string[]
+  requiresAcknowledgement: boolean
+  acknowledgementAudience: AcknowledgementAudience
+  acknowledgementDepartmentId: string | null
+  blocks: ContentBlock[]
+  nextRevisionDueAt: string | null
+  revisionIntervalMonths: number
+  frozenAt: string
 }
 
 // ─── Space ────────────────────────────────────────────────────────────────────
@@ -93,6 +122,22 @@ export type WikiSpace = {
   status: 'active' | 'archived'
   createdAt: string
   updatedAt: string
+}
+
+/** Files and external links attached to a folder (space) */
+export type WikiSpaceItemKind = 'file' | 'url'
+
+export type WikiSpaceItem = {
+  id: string
+  spaceId: string
+  kind: WikiSpaceItemKind
+  title: string
+  filePath: string | null
+  fileName: string | null
+  mimeType: string | null
+  fileSize: number | null
+  url: string | null
+  createdAt: string
 }
 
 // ─── Audit ledger (immutable) ─────────────────────────────────────────────────

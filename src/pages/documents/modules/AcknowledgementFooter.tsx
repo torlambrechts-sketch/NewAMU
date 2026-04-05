@@ -12,6 +12,7 @@ export function AcknowledgementFooter({ pageId, pageVersion }: Props) {
   const { acknowledge, hasAcknowledged, receipts, backend } = useDocuments()
   const { profile } = useOrgSetupContext()
   const [name, setName] = useState('')
+
   const alreadySigned = hasAcknowledged(pageId, pageVersion)
   const receipt = receipts.find(
     (r) => r.pageId === pageId && r.pageVersion === pageVersion,

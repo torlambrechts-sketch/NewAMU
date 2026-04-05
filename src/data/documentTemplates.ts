@@ -368,7 +368,11 @@ export const LEGAL_COVERAGE: { ref: string; label: string; templateIds: string[]
   { ref: 'IK-f §5 nr. 3', label: 'Handlingsplaner', templateIds: ['tpl-risikovurdering', 'tpl-beredskap'] },
   { ref: 'IK-f §5 nr. 4', label: 'Rutiner for avviksbehandling', templateIds: ['tpl-avvik'] },
   { ref: 'IK-f §5 nr. 5', label: 'Systematisk gjennomgang (skriftlig)', templateIds: ['tpl-aarsgjennomgang'] },
+  { ref: 'IK-f §5 nr. 8', label: 'Årlig gjennomgang av HMS-systemet', templateIds: ['tpl-aarsgjennomgang'] },
   { ref: 'AML §3-2', label: 'HMS-opplæring', templateIds: ['tpl-opplaering'] },
   { ref: 'AML §6-2/§6-5', label: 'Verneombud oppgaver og opplæring', templateIds: ['tpl-verneombud', 'tpl-opplaering'] },
   { ref: 'AML §7-2/§7-4', label: 'AMU årsrapport', templateIds: ['tpl-amu-rapport'] },
+  { ref: 'AML kap. 4 / §4-6', label: 'Individuell tilrettelegging', templateIds: ['tpl-tilrettelegging'] },
+  { ref: 'Inkluderingsloven', label: 'Likestilling og ikke-diskriminering', templateIds: ['tpl-likestilling-mangfold'] },
+  { ref: 'Livsfase / seniorpolitikk', label: 'Seniorpolitikk og livsfaser', templateIds: ['tpl-seniorpolitikk'] },
 ]

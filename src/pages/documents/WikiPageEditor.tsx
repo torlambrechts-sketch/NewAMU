@@ -5,8 +5,9 @@ import {
   Eye, GripVertical, Save, Trash2,
 } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { RichTextEditor } from '../../components/learning/RichTextEditor'
-import type { ContentBlock, ModuleBlock } from '../../types/documents'
+import type { AcknowledgementAudience, ContentBlock, ModuleBlock } from '../../types/documents'
 
 type AddKind = ContentBlock['kind']
 
@@ -16,7 +17,7 @@ const ADD_BLOCKS: { kind: AddKind; label: string; icon: string }[] = [
   { kind: 'alert', label: 'Varselboks', icon: '⚠' },
   { kind: 'divider', label: 'Skillelinje', icon: '—' },
   { kind: 'law_ref', label: 'Lovhenvisning', icon: '§' },
-  { kind: 'module', label: 'Dynamisk modul', icon: '⚡' },
+  { kind: 'module', label: 'Dynamisk widget', icon: '⚡' },
 ]
 
 const MODULE_OPTIONS: { name: ModuleBlock['moduleName']; label: string }[] = [
@@ -42,6 +43,7 @@ export function WikiPageEditor() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
   const docs = useDocuments()
+  const { departments } = useOrgSetupContext()
 
   const original = docs.pages.find((p) => p.id === pageId)
   const space = original ? docs.spaces.find((s) => s.id === original.spaceId) : null
@@ -51,6 +53,14 @@ export function WikiPageEditor() {
   const [blocks, setBlocks] = useState<ContentBlock[]>(() => original?.blocks ?? [])
   const [legalRefs, setLegalRefs] = useState(() => original?.legalRefs.join(', ') ?? '')
   const [requiresAck, setRequiresAck] = useState(() => original?.requiresAcknowledgement ?? false)
+  const [ackAudience, setAckAudience] = useState<AcknowledgementAudience>(
+    () => original?.acknowledgementAudience ?? 'all_employees',
+  )
+  const [ackDeptId, setAckDeptId] = useState(() => original?.acknowledgementDepartmentId ?? '')
+  const [revisionMonths, setRevisionMonths] = useState(() => String(original?.revisionIntervalMonths ?? 12))
+  const [nextRevision, setNextRevision] = useState(() =>
+    original?.nextRevisionDueAt ? original.nextRevisionDueAt.slice(0, 10) : '',
+  )
   const [template, setTemplate] = useState<'standard' | 'wide' | 'policy'>(() => original?.template ?? 'standard')
   const [dirty, setDirty] = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
@@ -94,6 +104,7 @@ export function WikiPageEditor() {
 
   async function handleSave() {
     if (!original) return
+    const months = Math.max(1, parseInt(revisionMonths, 10) || 12)
     await docs.updatePage(original.id, {
       title: title.trim() || original.title,
       summary,
@@ -101,6 +112,10 @@ export function WikiPageEditor() {
       legalRefs: legalRefs.split(',').map((s) => s.trim()).filter(Boolean),
       requiresAcknowledgement: requiresAck,
       template,
+      acknowledgementAudience: ackAudience,
+      acknowledgementDepartmentId: ackAudience === 'department' ? (ackDeptId || null) : null,
+      revisionIntervalMonths: months,
+      nextRevisionDueAt: nextRevision ? new Date(`${nextRevision}T12:00:00`).toISOString() : null,
     })
     setDirty(false)
     setSavedMsg(true)
@@ -218,7 +233,82 @@ export function WikiPageEditor() {
                 />
                 Krever «Lest og forstått»-signatur
               </label>
+              {requiresAck && (
+                <div className="space-y-2 pt-1">
+                  <div>
+                    <label className="text-xs font-medium text-neutral-500">Hvem skal signere?</label>
+                    <select
+                      value={ackAudience}
+                      onChange={(e) => {
+                        setAckAudience(e.target.value as AcknowledgementAudience)
+                        markDirty()
+                      }}
+                      className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                    >
+                      <option value="all_employees">Alle ansatte</option>
+                      <option value="leaders_only">Kun ledere (org.admin)</option>
+                      <option value="safety_reps_only">Kun verneombud / HMS-representant</option>
+                      <option value="department">Spesifikk avdeling</option>
+                    </select>
+                  </div>
+                  {ackAudience === 'department' && (
+                    <div>
+                      <label className="text-xs font-medium text-neutral-500">Avdeling</label>
+                      <select
+                        value={ackDeptId}
+                        onChange={(e) => { setAckDeptId(e.target.value); markDirty() }}
+                        className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                      >
+                        <option value="">Velg avdeling…</option>
+                        {departments.map((d) => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="pt-2">
+                <label className="text-xs font-medium text-neutral-500">Revisjonsintervall (måneder)</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={revisionMonths}
+                  onChange={(e) => { setRevisionMonths(e.target.value); markDirty() }}
+                  className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Neste revideringsdato (valgfri)</label>
+                <input
+                  type="date"
+                  value={nextRevision}
+                  onChange={(e) => { setNextRevision(e.target.value); markDirty() }}
+                  className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                />
+                <p className="mt-1 text-[11px] text-neutral-400">
+                  Ved publisering settes neste frist automatisk ut fra intervall (IK-f §5 — systematisk gjennomgang).
+                </p>
+              </div>
             </div>
+          </div>
+
+          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <h3 className="mb-2 text-sm font-semibold text-neutral-700">Versjonshistorikk</h3>
+            <p className="text-xs text-neutral-500">
+              Hver gang du publiserer, lagres gjeldende versjon som et fryst arkiv før versjonsnummer økes.
+            </p>
+            {docs.versionsForPage(original.id).length === 0 ? (
+              <p className="mt-2 text-xs text-neutral-400">Ingen arkiverte versjoner ennå (første publisering oppretter v1 i arkivet).</p>
+            ) : (
+              <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-xs text-neutral-600">
+                {docs.versionsForPage(original.id).map((v) => (
+                  <li key={v.id}>
+                    v{v.version} · {new Date(v.frozenAt).toLocaleDateString('no-NO')}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -275,7 +365,7 @@ function BlockItem({
 }) {
   const kindLabel: Record<ContentBlock['kind'], string> = {
     heading: 'Overskrift', text: 'Tekst', alert: 'Varselboks',
-    divider: 'Skillelinje', law_ref: 'Lovhenvisning', module: 'Modul',
+    divider: 'Skillelinje', law_ref: 'Lovhenvisning', module: 'Dynamisk widget',
   }
 
   return (
