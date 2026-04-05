@@ -37,6 +37,17 @@ type SubItem = {
   label: string
   path: string
   match: (loc: { pathname: string; search: string }) => boolean
+  /** When RBAC is active, hide this sub-link unless the user has the permission. */
+  requirePerm?: PermissionKey
+}
+
+function visibleSubs(
+  subs: SubItem[],
+  gateNav: boolean,
+  can: (k: PermissionKey) => boolean,
+): SubItem[] {
+  if (!gateNav) return subs
+  return subs.filter((s) => !s.requirePerm || can(s.requirePerm))
 }
 
 // ─── Sub-item lists (all paths/labels unchanged) ──────────────────────────────
@@ -144,6 +155,7 @@ const documentsSubs: SubItem[] = [
     label: 'Malinnstillinger',
     path: '/documents/templates',
     match: ({ pathname }) => pathname === '/documents/templates',
+    requirePerm: 'documents.manage',
   },
 ]
 
@@ -447,7 +459,8 @@ export function AticsShell() {
               {activeGroup.modules.map((mod) => {
                 const ModIcon = mod.icon
                 const isActiveMod = activeModule.to === mod.to
-                const hasModSubs = mod.subs.length > 0
+                const modSubs = visibleSubs(mod.subs, gateNav, can)
+                const hasModSubs = modSubs.length > 0
 
                 return (
                   <div key={mod.to}>
@@ -471,7 +484,7 @@ export function AticsShell() {
                     {/* Sub-items — expanded inline when this module is active */}
                     {isActiveMod && hasModSubs && (
                       <div className="mb-1 ml-4 mt-0.5 border-l border-white/10 pl-3">
-                        {mod.subs.map((item) => {
+                        {modSubs.map((item) => {
                           const active = item.match({ pathname: location.pathname, search: location.search })
                           return (
                             <NavLink
@@ -574,7 +587,11 @@ export function AticsShell() {
   // ── Top-bar layout ──────────────────────────────────────────────────────────
   const activeModule = activeModuleForPath(visibleModules, location.pathname, location.search)
   const activeGroup = visibleGroups.find((g) => g.modules.some((m) => m.to === activeModule.to))
-  const subItems = subNavForPath(visibleModules, location.pathname, location.search)
+  const subItems = visibleSubs(
+    subNavForPath(visibleModules, location.pathname, location.search),
+    gateNav,
+    can,
+  )
 
   return (
     <div className="min-h-screen bg-[#f5f0e8]">
