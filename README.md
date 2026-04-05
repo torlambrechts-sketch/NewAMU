@@ -29,8 +29,25 @@ Denne appen er ellers **kun klient + localStorage**. For å koble til Supabase:
 
 1. **Prosjekt** i [Supabase](https://supabase.com): kopier **Project URL** og **anon public** API-nøkkel.
 2. **Vercel → Environment Variables**: enten bruk variablene Vercel fyller inn (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`) — Vite er satt opp med `envPrefix` så de blir med i bygget — eller legg til `VITE_SUPABASE_URL` og **anon/publishable key** som `VITE_SUPABASE_ANON_KEY` **eller** `VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY` (samme verdi som «anon public» i Supabase).
-3. **Database schema:** kjør SQL-filene i `supabase/migrations/` i **Supabase → SQL Editor** (eller CLI mot prosjektet). Koden herfra kan ikke oppdatere din eksterne database uten dine hemmelige nøkler.
+3. **Database schema:** kjør SQL-filene i `supabase/migrations/` i **Supabase → SQL Editor**, eller bruk **direkte Postgres** (se under). Koden i repoet kan ikke oppdatere databasen din uten at **du** gir en tilkoblingsstreng i miljøet ditt (lokalt, CI eller agent med tilgang til hemmeligheter).
 4. **Ikke** eksponer `service_role`, `SUPABASE_SECRET_KEY`, `POSTGRES_URL_NON_POOLING`, eller Postgres-passord i **frontend** (Vite bygger inn `VITE_*`). Disse er for **server**, **CLI** eller **CI** — ikke for nettleserappen. De løser ikke innlogging i seg selv.
+
+### Migrasjoner med `psql` (lokalt eller CI)
+
+For å kjøre alle `.sql`-filer i `supabase/migrations/` i **filnavn-rekkefølge** trenger du:
+
+1. **Postgres-URL** fra Supabase (**Settings → Database**): bruk f.eks. **Session mode** / non-pooling-URL eller connection string med passord — samme type som `POSTGRES_URL_NON_POOLING` i Vercel.
+2. **`psql`** installert (`postgresql-client` på Linux, `libpq` på macOS).
+3. Eksporter én av: `DATABASE_URL`, `POSTGRES_URL_NON_POOLING`, `DIRECT_URL` eller `POSTGRES_URL`, deretter:
+
+```bash
+npm run db:migrate
+# eller: bash scripts/apply-migrations.sh
+```
+
+**GitHub Actions:** Workflow **Apply Supabase migrations** (`workflow_dispatch`) kjører samme skript. Legg inn repository secret **`DATABASE_URL`** eller **`POSTGRES_URL_NON_POOLING`** (full `postgresql://...`-streng).
+
+**Agenter / Cursor:** En agent kan bare kjøre SQL mot databasen din hvis **det kjørende miljøet** har en slik variabel satt (f.eks. lokal `.env` som ikke committes, eller CI-secrets). Uten det er det ikke teknisk mulig å «koble seg på» Postgres bare fra repoet alene.
 5. **Ny deploy** etter at variablene er satt. På **prosjektforsiden** (`/`) vises et **Supabase**-kort som sjekker `/auth/v1/health`.
 
 **Cursor MCP** til Supabase hjelper IDE/agent med database/SQL; det erstatter ikke at nettleseren får URL + anon-nøkkel ved build.
