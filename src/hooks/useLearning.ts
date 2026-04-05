@@ -644,7 +644,23 @@ export function useLearning() {
           return true
         })
 
-      const progress: CourseProgress[] = ((pRes.data ?? []) as DbProgressRow[]).map((r) => ({
+      const progressRows = (pRes.data ?? []) as DbProgressRow[]
+      const progressUserIds = [...new Set(progressRows.map((r) => r.user_id))]
+      let profileNameById = new Map<string, string>()
+      if (progressUserIds.length && supabase) {
+        const { data: profRows, error: profErr } = await supabase
+          .from('profiles')
+          .select('id, display_name')
+          .in('id', progressUserIds)
+        if (profErr) console.warn('profiles for learning progress', profErr.message)
+        else
+          profileNameById = new Map(
+            ((profRows ?? []) as { id: string; display_name: string }[]).map((p) => [p.id, p.display_name]),
+          )
+      }
+      const progress: CourseProgress[] = progressRows.map((r) => ({
+        userId: r.user_id,
+        learnerName: profileNameById.get(r.user_id)?.trim() || '—',
         courseId: r.course_id,
         moduleProgress: r.module_progress ?? {},
         startedAt: r.started_at,
@@ -1150,6 +1166,7 @@ export function useLearning() {
             courseId,
             moduleProgress: {},
             startedAt: new Date().toISOString(),
+            learnerName: 'Demo',
           }
           return { ...s, progress: [...s.progress, np] }
         })
@@ -1192,6 +1209,7 @@ export function useLearning() {
                   courseId,
                   moduleProgress: {},
                   startedAt: new Date().toISOString(),
+                  learnerName: 'Demo',
                 },
               ]
           return {

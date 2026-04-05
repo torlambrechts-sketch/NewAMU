@@ -107,6 +107,10 @@ export type CourseProgress = {
   moduleProgress: Record<string, ModuleProgress>
   startedAt: string
   completedAt?: string
+  /** Set when progress is loaded from Supabase (org-wide for managers) */
+  userId?: string
+  /** Display name from profiles (participants table) */
+  learnerName?: string
 }
 
 export type Certificate = {
