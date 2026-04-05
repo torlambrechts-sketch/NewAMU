@@ -288,6 +288,16 @@ export function useOrgSetup() {
     [supabase, user],
   )
 
+  const updateDepartmentId = useCallback(
+    async (departmentId: string | null) => {
+      if (!supabase || !user) throw new Error('Ikke innlogget.')
+      const { error: e } = await supabase.from('profiles').update({ department_id: departmentId }).eq('id', user.id)
+      if (e) throw new Error(getSupabaseErrorMessage(e))
+      setProfile((p) => (p ? { ...p, department_id: departmentId } : p))
+    },
+    [supabase, user],
+  )
+
   const addDepartment = useCallback(
     async (name: string) => {
       if (!supabase || !organization?.id) throw new Error('Mangler organisasjon.')
@@ -429,6 +439,7 @@ export function useOrgSetup() {
     createOrganizationFromBrreg,
     updateDisplayName,
     updateLocale,
+    updateDepartmentId,
     addDepartment,
     addTeam,
     addLocation,

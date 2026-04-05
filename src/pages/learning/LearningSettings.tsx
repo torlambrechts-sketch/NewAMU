@@ -39,10 +39,20 @@ export function LearningSettings() {
     systemCourseSettings,
     setSystemCourseEnabled,
     forkSystemCourse,
+    flowSettings,
+    saveFlowSettings,
   } = useLearning()
   const fileRefFull = useRef<HTMLInputElement>(null)
   const fileRefPartial = useRef<HTMLInputElement>(null)
   const [importMsg, setImportMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const [teamsUrl, setTeamsUrl] = useState<string | null>(null)
+  const [slackUrl, setSlackUrl] = useState<string | null>(null)
+  const [genericUrl, setGenericUrl] = useState<string | null>(null)
+  const [flowMsg, setFlowMsg] = useState<string | null>(null)
+
+  const teamsDisplay = teamsUrl ?? flowSettings?.teamsWebhookUrl ?? ''
+  const slackDisplay = slackUrl ?? flowSettings?.slackWebhookUrl ?? ''
+  const genericDisplay = genericUrl ?? flowSettings?.genericWebhookUrl ?? ''
 
   function handleExportFull() {
     const json = exportJson()
@@ -161,6 +171,69 @@ export function LearningSettings() {
               </li>
             ))}
           </ul>
+        </div>
+      ) : null}
+
+      {supabaseConfigured && organization && canManage ? (
+        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+          <h2 className="font-semibold text-[#2D403A]">Flow-of-work & kanaler</h2>
+          <p className="mt-2 text-sm text-neutral-600">
+            Legg inn innkommende webhooks for Microsoft Teams eller Slack. En planlagt jobb (eller Edge Function) kan
+            sende ett mikromodul-utdrag i uken — URL lagres kryptert i produksjon anbefales.
+          </p>
+          <div className="mt-4 space-y-3">
+            <div>
+              <label className="text-xs font-medium text-neutral-500">Teams (incoming webhook)</label>
+              <input
+                value={teamsDisplay}
+                onChange={(e) => setTeamsUrl(e.target.value)}
+                placeholder="https://..."
+                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 font-mono text-xs"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-neutral-500">Slack (incoming webhook)</label>
+              <input
+                value={slackDisplay}
+                onChange={(e) => setSlackUrl(e.target.value)}
+                placeholder="https://hooks.slack.com/..."
+                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 font-mono text-xs"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-neutral-500">Generisk HTTPS-endpoint</label>
+              <input
+                value={genericDisplay}
+                onChange={(e) => setGenericUrl(e.target.value)}
+                placeholder="https://..."
+                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 font-mono text-xs"
+              />
+            </div>
+          </div>
+          {flowMsg ? <p className="mt-2 text-sm text-emerald-800">{flowMsg}</p> : null}
+          <button
+            type="button"
+            className="mt-4 rounded-lg px-4 py-2 text-sm font-medium text-white"
+            style={{ backgroundColor: PIN_GREEN }}
+            onClick={() => {
+              void (async () => {
+                setFlowMsg(null)
+                const r = await saveFlowSettings({
+                  teamsWebhookUrl: teamsDisplay.trim() || null,
+                  slackWebhookUrl: slackDisplay.trim() || null,
+                  genericWebhookUrl: genericDisplay.trim() || null,
+                })
+                if (r.ok) setFlowMsg('Lagret.')
+                else alert(r.error)
+              })()
+            }}
+          >
+            Lagre webhooks
+          </button>
+          <p className="mt-3 text-xs text-neutral-500">
+            Automatiske tildelinger fra HMS bruker RPC <code className="rounded bg-neutral-100 px-1">learning_assign_module</code>{' '}
+            og tabellen <code className="rounded bg-neutral-100 px-1">learning_module_assignments</code>.
+          </p>
         </div>
       ) : null}
 

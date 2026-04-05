@@ -68,6 +68,8 @@ export type Course = {
   status: CourseStatus
   tags: string[]
   modules: CourseModule[]
+  /** Course IDs that must be completed before this course is available */
+  prerequisiteCourseIds?: string[]
   createdAt: string
   updatedAt: string
   /** When set, module content may be loaded from learning_system_course_locales */
@@ -85,6 +87,13 @@ export type ModuleProgress = {
   score?: number
   /** quiz: last attempt */
   lastAnswers?: Record<string, number>
+}
+
+/** Optional metadata when completing a quiz (spaced repetition) */
+export type ModuleCompleteMeta = {
+  score?: number
+  lastAnswers?: Record<string, number>
+  quizQuestions?: { id: string; correctIndex: number }[]
 }
 
 export type CourseProgress = {

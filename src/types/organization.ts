@@ -16,6 +16,8 @@ export type ProfileRow = {
   is_org_admin?: boolean
   /** UI locale: nb | en (requires DB migration profiles_locale). */
   locale?: string | null
+  /** Optional link for department-level learning stats */
+  department_id?: string | null
   created_at: string
   updated_at: string
 }

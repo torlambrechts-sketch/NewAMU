@@ -11,6 +11,7 @@ import type {
   ModuleKind,
   ModuleProgress,
   CourseOrigin,
+  ModuleCompleteMeta,
 } from '../types/learning'
 
 export const STORAGE_KEY = 'atics-learning-v1'
@@ -52,6 +53,27 @@ type LearningState = {
   courses: Course[]
   progress: CourseProgress[]
   certificates: Certificate[]
+}
+
+export type LearningReviewItem = {
+  id: string
+  courseId: string
+  moduleId: string
+  questionId: string
+  reviewAt: string
+}
+
+export type DeptLeaderboardRow = {
+  departmentId: string
+  departmentName: string
+  memberCount: number
+  avgCompletionPct: number
+}
+
+export type LearningFlowSettings = {
+  teamsWebhookUrl: string | null
+  slackWebhookUrl: string | null
+  genericWebhookUrl: string | null
 }
 
 export type SystemCourseAdminRow = {
@@ -259,6 +281,7 @@ type DbCourseRow = {
   updated_at: string
   source_system_course_id?: string | null
   catalog_locale?: string | null
+  prerequisite_course_ids?: string[] | null
 }
 
 type DbOrgCourseSetting = {
@@ -338,6 +361,7 @@ function coursesFromDb(courseRows: DbCourseRow[], moduleRows: DbModuleRow[]): Co
       status: c.status as Course['status'],
       tags,
       modules: byCourse.get(c.id) ?? [],
+      prerequisiteCourseIds: c.prerequisite_course_ids ?? [],
       createdAt: c.created_at,
       updatedAt: c.updated_at,
       sourceSystemCourseId: c.source_system_course_id ?? null,
@@ -414,6 +438,10 @@ export function useLearning() {
     certificates: [],
   })
   const [systemCourseAdmin, setSystemCourseAdmin] = useState<SystemCourseAdminRow[]>([])
+  const [streakWeeks, setStreakWeeks] = useState<number | null>(null)
+  const [pendingReviews, setPendingReviews] = useState<LearningReviewItem[]>([])
+  const [departmentLeaderboard, setDepartmentLeaderboard] = useState<DeptLeaderboardRow[]>([])
+  const [flowSettings, setFlowSettings] = useState<LearningFlowSettings | null>(null)
   const [loading, setLoading] = useState(useSupabase)
   const [error, setError] = useState<string | null>(null)
 
@@ -560,9 +588,64 @@ export function useLearning() {
         verifyCode: r.verify_code,
       }))
       setRemoteState({ courses, progress, certificates })
+
+      const [{ data: streakRow }, { data: revRows }, lbRes, fsRes] = await Promise.all([
+        supabase.from('learning_streaks').select('streak_weeks').eq('user_id', userId).eq('organization_id', orgId).maybeSingle(),
+        supabase
+          .from('learning_quiz_reviews')
+          .select('id, course_id, module_id, question_id, review_at')
+          .eq('user_id', userId)
+          .eq('organization_id', orgId)
+          .is('dismissed_at', null)
+          .lte('review_at', new Date().toISOString())
+          .order('review_at', { ascending: true })
+          .limit(20),
+        supabase.rpc('learning_department_leaderboard'),
+        supabase.from('learning_flow_settings').select('*').eq('organization_id', orgId).maybeSingle(),
+      ])
+      setStreakWeeks(typeof streakRow?.streak_weeks === 'number' ? streakRow.streak_weeks : null)
+      setPendingReviews(
+        ((revRows ?? []) as { id: string; course_id: string; module_id: string; question_id: string; review_at: string }[]).map(
+          (r) => ({
+            id: r.id,
+            courseId: r.course_id,
+            moduleId: r.module_id,
+            questionId: r.question_id,
+            reviewAt: r.review_at,
+          }),
+        ),
+      )
+      if (!lbRes.error && Array.isArray(lbRes.data)) {
+        setDepartmentLeaderboard(
+          (lbRes.data as { department_id: string; department_name: string; member_count: number; avg_completion_pct: number }[]).map(
+            (r) => ({
+              departmentId: r.department_id,
+              departmentName: r.department_name,
+              memberCount: r.member_count,
+              avgCompletionPct: Number(r.avg_completion_pct),
+            }),
+          ),
+        )
+      } else {
+        setDepartmentLeaderboard([])
+      }
+      const fs = fsRes.data as { teams_webhook_url?: string | null; slack_webhook_url?: string | null; generic_webhook_url?: string | null } | null
+      if (!fsRes.error && fs) {
+        setFlowSettings({
+          teamsWebhookUrl: fs.teams_webhook_url ?? null,
+          slackWebhookUrl: fs.slack_webhook_url ?? null,
+          genericWebhookUrl: fs.generic_webhook_url ?? null,
+        })
+      } else {
+        setFlowSettings(null)
+      }
     } catch (e) {
       setError(getSupabaseErrorMessage(e))
       setSystemCourseAdmin([])
+      setStreakWeeks(null)
+      setPendingReviews([])
+      setDepartmentLeaderboard([])
+      setFlowSettings(null)
       setRemoteState({ courses: [], progress: [], certificates: [] })
     } finally {
       setLoading(false)
@@ -593,6 +676,7 @@ export function useLearning() {
         status: 'draft',
         tags: [],
         modules: [],
+        prerequisiteCourseIds: [],
         createdAt: now,
         updatedAt: now,
       }
@@ -608,6 +692,7 @@ export function useLearning() {
           description: c.description,
           status: c.status,
           tags: c.tags,
+          prerequisite_course_ids: c.prerequisiteCourseIds ?? [],
           created_at: c.createdAt,
           updated_at: c.updatedAt,
         })
@@ -639,6 +724,7 @@ export function useLearning() {
         if (patch.description !== undefined) row.description = patch.description
         if (patch.status !== undefined) row.status = patch.status
         if (patch.tags !== undefined) row.tags = patch.tags
+        if (patch.prerequisiteCourseIds !== undefined) row.prerequisite_course_ids = patch.prerequisiteCourseIds
         const { error: e } = await supabase.from('learning_courses').update(row).eq('id', id).eq('organization_id', orgId)
         if (e) setError(getSupabaseErrorMessage(e))
         else await refreshLearning()
@@ -799,7 +885,7 @@ export function useLearning() {
   )
 
   const ensureProgress = useCallback(
-    (courseId: string) => {
+    async (courseId: string): Promise<void> => {
       if (!useSupabase || !supabase || !orgId || !userId) {
         setState((s) => {
           if (s.progress.some((p) => p.courseId === courseId)) return s
@@ -812,34 +898,32 @@ export function useLearning() {
         })
         return
       }
-      void (async () => {
-        const { data: existing } = await supabase
-          .from('learning_course_progress')
-          .select('course_id')
-          .eq('organization_id', orgId)
-          .eq('user_id', userId)
-          .eq('course_id', courseId)
-          .maybeSingle()
-        if (existing) {
-          await refreshLearning()
-          return
-        }
-        const { error: e } = await supabase.from('learning_course_progress').insert({
-          user_id: userId,
-          organization_id: orgId,
-          course_id: courseId,
-          module_progress: {},
-          started_at: new Date().toISOString(),
-        })
-        if (e) setError(getSupabaseErrorMessage(e))
-        else await refreshLearning()
-      })()
+      const { data: existing } = await supabase
+        .from('learning_course_progress')
+        .select('course_id')
+        .eq('organization_id', orgId)
+        .eq('user_id', userId)
+        .eq('course_id', courseId)
+        .maybeSingle()
+      if (existing) {
+        await refreshLearning()
+        return
+      }
+      const { error: e } = await supabase.from('learning_course_progress').insert({
+        user_id: userId,
+        organization_id: orgId,
+        course_id: courseId,
+        module_progress: {},
+        started_at: new Date().toISOString(),
+      })
+      if (e) setError(getSupabaseErrorMessage(e))
+      else await refreshLearning()
     },
     [useSupabase, supabase, orgId, userId, setState, refreshLearning],
   )
 
   const setModuleCompleted = useCallback(
-    (courseId: string, moduleId: string, data?: { score?: number; lastAnswers?: Record<string, number> }) => {
+    (courseId: string, moduleId: string, data?: ModuleCompleteMeta) => {
       if (!useSupabase || !supabase || !orgId || !userId) {
         setState((s) => {
           const hasRow = s.progress.some((p) => p.courseId === courseId)
@@ -905,8 +989,36 @@ export function useLearning() {
           },
           { onConflict: 'user_id,course_id' },
         )
-        if (upErr) setError(getSupabaseErrorMessage(upErr))
-        else await refreshLearning()
+        if (upErr) {
+          setError(getSupabaseErrorMessage(upErr))
+          return
+        }
+
+        const { error: streakErr } = await supabase.rpc('learning_record_activity')
+        if (streakErr) console.warn('learning_record_activity', streakErr.message)
+
+        if (data?.lastAnswers && data.quizQuestions?.length) {
+          const reviewAt = new Date()
+          reviewAt.setDate(reviewAt.getDate() + 7)
+          const iso = reviewAt.toISOString()
+          for (const q of data.quizQuestions) {
+            const sel = data.lastAnswers[q.id]
+            if (sel === undefined || sel === q.correctIndex) continue
+            await supabase.from('learning_quiz_reviews').upsert(
+              {
+                organization_id: orgId,
+                user_id: userId,
+                course_id: courseId,
+                module_id: moduleId,
+                question_id: q.id,
+                review_at: iso,
+              },
+              { onConflict: 'user_id,course_id,module_id,question_id' },
+            )
+          }
+        }
+
+        await refreshLearning()
       })()
     },
     [useSupabase, supabase, orgId, userId, setState, refreshLearning],
@@ -982,6 +1094,61 @@ export function useLearning() {
     const enrolled = state.progress.length
     return { published, drafts, certs, enrolled, totalCourses: state.courses.length }
   }, [state])
+
+  const isCourseUnlocked = useCallback(
+    (courseId: string) => {
+      const c = state.courses.find((x) => x.id === courseId)
+      if (!c?.prerequisiteCourseIds?.length) return true
+      for (const pre of c.prerequisiteCourseIds) {
+        const preCourse = state.courses.find((x) => x.id === pre)
+        if (!preCourse?.modules.length) return false
+        const prog = state.progress.find((p) => p.courseId === pre)
+        const done = preCourse.modules.every((m) => prog?.moduleProgress[m.id]?.completed)
+        if (!done) return false
+      }
+      return true
+    },
+    [state.courses, state.progress],
+  )
+
+  const dismissReview = useCallback(
+    async (reviewId: string) => {
+      if (!useSupabase || !supabase || !userId) return
+      const { error: e } = await supabase
+        .from('learning_quiz_reviews')
+        .update({ dismissed_at: new Date().toISOString() })
+        .eq('id', reviewId)
+        .eq('user_id', userId)
+      if (e) setError(getSupabaseErrorMessage(e))
+      else await refreshLearning()
+    },
+    [useSupabase, supabase, userId, refreshLearning],
+  )
+
+  const saveFlowSettings = useCallback(
+    async (patch: Partial<LearningFlowSettings>) => {
+      if (!useSupabase || !supabase || !orgId || !canManage) {
+        return { ok: false as const, error: 'Krever tilgang.' }
+      }
+      const base = flowSettings ?? {
+        teamsWebhookUrl: null as string | null,
+        slackWebhookUrl: null as string | null,
+        genericWebhookUrl: null as string | null,
+      }
+      const row = {
+        organization_id: orgId,
+        teams_webhook_url: patch.teamsWebhookUrl ?? base.teamsWebhookUrl,
+        slack_webhook_url: patch.slackWebhookUrl ?? base.slackWebhookUrl,
+        generic_webhook_url: patch.genericWebhookUrl ?? base.genericWebhookUrl,
+        updated_at: new Date().toISOString(),
+      }
+      const { error: e } = await supabase.from('learning_flow_settings').upsert(row, { onConflict: 'organization_id' })
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      await refreshLearning()
+      return { ok: true as const }
+    },
+    [useSupabase, supabase, orgId, canManage, flowSettings, refreshLearning],
+  )
 
   const resetDemo = useCallback(() => {
     if (useSupabase) {
@@ -1163,5 +1330,12 @@ export function useLearning() {
     importPartialJson,
     setSystemCourseEnabled,
     forkSystemCourse,
+    streakWeeks: useSupabase ? streakWeeks : null,
+    pendingReviews: useSupabase ? pendingReviews : [],
+    departmentLeaderboard: useSupabase ? departmentLeaderboard : [],
+    flowSettings: useSupabase ? flowSettings : null,
+    isCourseUnlocked,
+    dismissReview,
+    saveFlowSettings,
   }
 }

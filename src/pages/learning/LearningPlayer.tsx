@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { Check, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, Play } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
-import type { CourseModule } from '../../types/learning'
+import type { CourseModule, ModuleCompleteMeta } from '../../types/learning'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
 import { normalizeModuleHtml } from '../../lib/richTextDisplay'
@@ -24,6 +24,7 @@ function ProgressBar({ value, label }: { value: number; label?: string }) {
 
 export function LearningPlayer() {
   const { courseId } = useParams<{ courseId: string }>()
+  const [searchParams] = useSearchParams()
   const {
     courses,
     certificates,
@@ -31,6 +32,7 @@ export function LearningPlayer() {
     ensureProgress,
     setModuleCompleted,
     issueCertificate,
+    isCourseUnlocked,
   } = useLearning()
   const course = courses.find((c) => c.id === courseId)
 
@@ -50,7 +52,30 @@ export function LearningPlayer() {
     return [...course.modules].sort((a, b) => a.order - b.order)
   }, [course])
 
+  const chapters = useMemo(() => {
+    const chunk = 5
+    const out: { title: string; startIdx: number; endIdx: number }[] = []
+    for (let i = 0; i < modules.length; i += chunk) {
+      const level = out.length + 1
+      out.push({
+        title: `Level ${level}`,
+        startIdx: i,
+        endIdx: Math.min(i + chunk - 1, modules.length - 1),
+      })
+    }
+    return out
+  }, [modules.length])
+
   const current = modules[idx]
+
+  useEffect(() => {
+    const mid = searchParams.get('module')
+    if (!mid || modules.length === 0) return
+    const i = modules.findIndex((m) => m.id === mid)
+    if (i >= 0) {
+      queueMicrotask(() => setIdx(i))
+    }
+  }, [searchParams, modules])
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -100,9 +125,25 @@ export function LearningPlayer() {
     )
   }
 
+  if (!isCourseUnlocked(course.id)) {
+    return (
+      <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
+        <div className="rounded-xl border border-neutral-200 bg-white p-6 text-sm text-neutral-800 shadow-sm">
+          <p className="font-medium text-[#2D403A]">Dette kurset er låst</p>
+          <p className="mt-2 text-neutral-600">
+            Fullfør forutsetningskursene som er valgt for dette kurset, eller kontakt kursansvarlig.
+          </p>
+          <Link to="/learning/courses" className="mt-4 inline-block text-emerald-800 underline">
+            Tilbake til kurslisten
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   const activeCourse = course
 
-  function completeCurrent(extra?: { score?: number; lastAnswers?: Record<string, number> }) {
+  function completeCurrent(extra?: ModuleCompleteMeta) {
     if (!current) return
     setModuleCompleted(activeCourse.id, current.id, extra)
     if (idx < modules.length - 1) setIdx(idx + 1)
@@ -135,42 +176,55 @@ export function LearningPlayer() {
 
           <nav aria-label="Innhold" className="rounded-xl border border-neutral-200 bg-white p-3 shadow-sm">
             <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Innhold</p>
-            <ol className="max-h-[min(60vh,520px)] space-y-1 overflow-y-auto pr-1">
-              {modules.map((m, i) => {
-                const done = !!courseProgress?.moduleProgress[m.id]?.completed
-                const isActive = i === idx
-                return (
-                  <li key={m.id}>
-                    <button
-                      type="button"
-                      onClick={() => setIdx(i)}
-                      className={`flex w-full flex-col gap-1 rounded-lg px-2 py-2 text-left text-sm transition-colors ${
-                        isActive ? 'bg-emerald-50 text-[#2D403A]' : 'text-neutral-700 hover:bg-neutral-50'
-                      }`}
-                    >
-                      <span className="flex items-start gap-2">
-                        <span className="mt-0.5 shrink-0 text-xs text-neutral-400">{i + 1}.</span>
-                        <span className="min-w-0 flex-1 font-medium leading-snug">{m.title}</span>
-                        {done ? (
-                          <CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-label="Fullført" />
-                        ) : null}
-                      </span>
-                      <div className="pl-7">
-                        <div className="h-1 w-full overflow-hidden rounded-full bg-neutral-100">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${done ? 100 : isActive ? 40 : 0}%`,
-                              backgroundColor: PIN_GREEN,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </button>
-                  </li>
-                )
-              })}
-            </ol>
+            <div className="max-h-[min(60vh,520px)] space-y-4 overflow-y-auto pr-1">
+              {chapters.map((ch) => (
+                <div key={ch.title}>
+                  <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                    {ch.title}{' '}
+                    <span className="font-normal text-neutral-400">
+                      ({ch.startIdx + 1}–{ch.endIdx + 1})
+                    </span>
+                  </p>
+                  <ol className="space-y-1">
+                    {modules.slice(ch.startIdx, ch.endIdx + 1).map((m, j) => {
+                      const i = ch.startIdx + j
+                      const done = !!courseProgress?.moduleProgress[m.id]?.completed
+                      const isActive = i === idx
+                      return (
+                        <li key={m.id}>
+                          <button
+                            type="button"
+                            onClick={() => setIdx(i)}
+                            className={`flex w-full flex-col gap-1 rounded-lg px-2 py-2 text-left text-sm transition-colors ${
+                              isActive ? 'bg-emerald-50 text-[#2D403A]' : 'text-neutral-700 hover:bg-neutral-50'
+                            }`}
+                          >
+                            <span className="flex items-start gap-2">
+                              <span className="mt-0.5 shrink-0 text-xs text-neutral-400">{i + 1}.</span>
+                              <span className="min-w-0 flex-1 font-medium leading-snug">{m.title}</span>
+                              {done ? (
+                                <CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-label="Fullført" />
+                              ) : null}
+                            </span>
+                            <div className="pl-7">
+                              <div className="h-1 w-full overflow-hidden rounded-full bg-neutral-100">
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{
+                                    width: `${done ? 100 : isActive ? 40 : 0}%`,
+                                    backgroundColor: PIN_GREEN,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ol>
+                </div>
+              ))}
+            </div>
           </nav>
         </aside>
 
@@ -196,6 +250,8 @@ export function LearningPlayer() {
               <div className="mt-6">
                 <ModulePlayer
                   mod={current}
+                  moduleIndex={idx}
+                  prevKind={idx > 0 ? modules[idx - 1]?.kind : undefined}
                   flashFlipped={flashFlipped}
                   setFlashFlipped={setFlashFlipped}
                   flashIdx={flashIdx}
@@ -274,6 +330,8 @@ export function LearningPlayer() {
 
 function ModulePlayer({
   mod,
+  moduleIndex,
+  prevKind,
   flashFlipped,
   setFlashFlipped,
   flashIdx,
@@ -285,6 +343,8 @@ function ModulePlayer({
   onComplete,
 }: {
   mod: CourseModule
+  moduleIndex: number
+  prevKind?: string
   flashFlipped: boolean
   setFlashFlipped: (v: boolean) => void
   flashIdx: number
@@ -293,7 +353,7 @@ function ModulePlayer({
   setQuizAnswers: Dispatch<SetStateAction<Record<string, number>>>
   checkDone: Record<string, boolean>
   setCheckDone: Dispatch<SetStateAction<Record<string, boolean>>>
-  onComplete: (extra?: { score?: number; lastAnswers?: Record<string, number> }) => void
+  onComplete: (extra?: ModuleCompleteMeta) => void
 }) {
   const c = mod.content
 
@@ -412,7 +472,13 @@ function ModulePlayer({
         <button
           type="button"
           disabled={!answered}
-          onClick={() => onComplete({ score: scorePct, lastAnswers })}
+          onClick={() =>
+            onComplete({
+              score: scorePct,
+              lastAnswers,
+              quizQuestions: c.questions.map((q) => ({ id: q.id, correctIndex: q.correctIndex })),
+            })
+          }
           className="w-full rounded-full py-3 text-sm font-medium text-white disabled:opacity-40"
           style={{ backgroundColor: PIN_GREEN }}
         >
@@ -424,16 +490,28 @@ function ModulePlayer({
 
   if (c.kind === 'text') {
     const html = sanitizeLearningHtml(normalizeModuleHtml(c.body))
+    const longRead = mod.durationMinutes > 3
+    const backToBackText = moduleIndex > 0 && prevKind === 'text'
     return (
       <div>
+        {backToBackText ? (
+          <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+            Tips: Veksle tekst med quiz eller flashcards for bedre læring (ikke flere tekstbolker på rad).
+          </p>
+        ) : null}
+        {longRead ? (
+          <p className="mb-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700">
+            Mikrolæring: vurder å dele opp innhold over ~3 min i flere kortere moduler.
+          </p>
+        ) : null}
         <div
-          className="prose prose-sm max-w-none text-neutral-800 [&_a]:text-emerald-800 [&_a]:underline"
+          className="prose prose-sm mx-auto max-w-[65ch] text-neutral-800 [&_a]:text-emerald-800 [&_a]:underline [&_li]:my-1"
           dangerouslySetInnerHTML={{ __html: html }}
         />
         <button
           type="button"
           onClick={() => onComplete()}
-          className="mt-6 w-full rounded-full py-3 text-sm font-medium text-white"
+          className="mt-6 w-full max-w-[65ch] rounded-full py-3 text-sm font-medium text-white"
           style={{ backgroundColor: PIN_GREEN }}
         >
           Continue

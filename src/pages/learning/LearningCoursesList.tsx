@@ -11,7 +11,7 @@ export function LearningCoursesList() {
   const navigate = useNavigate()
   const { can } = useOrgSetupContext()
   const canManage = can('learning.manage')
-  const { courses, createCourse, updateCourse, learningLoading, learningError } = useLearning()
+  const { courses, createCourse, updateCourse, learningLoading, learningError, isCourseUnlocked } = useLearning()
   const [q, setQ] = useState('')
   const [title, setTitle] = useState('')
   const [desc, setDesc] = useState('')
@@ -110,13 +110,22 @@ export function LearningCoursesList() {
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
-            {filtered.map((c) => (
-              <tr key={c.id} className="hover:bg-neutral-50/50">
+            {filtered.map((c) => {
+              const unlocked = isCourseUnlocked(c.id)
+              return (
+              <tr key={c.id} className={`hover:bg-neutral-50/50 ${!unlocked ? 'bg-neutral-50/40' : ''}`}>
                 <td className="px-4 py-3">
-                  <Link to={`/learning/courses/${c.id}`} className="font-medium text-[#2D403A] hover:underline">
-                    {c.title}
-                  </Link>
+                  {unlocked ? (
+                    <Link to={`/learning/courses/${c.id}`} className="font-medium text-[#2D403A] hover:underline">
+                      {c.title}
+                    </Link>
+                  ) : (
+                    <span className="font-medium text-neutral-500">{c.title}</span>
+                  )}
                   <div className="text-xs text-neutral-500 line-clamp-1">{c.description}</div>
+                  {!unlocked ? (
+                    <div className="mt-1 text-[11px] font-medium text-amber-800">Låst — fullfør forutsetninger</div>
+                  ) : null}
                 </td>
                 <td className="px-4 py-3 text-neutral-700">{c.modules.length}</td>
                 <td className="px-4 py-3">
@@ -150,12 +159,16 @@ export function LearningCoursesList() {
                   >
                     Task
                   </AddTaskLink>
-                  <Link
-                    to={`/learning/play/${c.id}`}
-                    className="mr-2 text-xs font-medium text-emerald-800 hover:underline"
-                  >
-                    Preview
-                  </Link>
+                  {unlocked ? (
+                    <Link
+                      to={`/learning/play/${c.id}`}
+                      className="mr-2 text-xs font-medium text-emerald-800 hover:underline"
+                    >
+                      Preview
+                    </Link>
+                  ) : (
+                    <span className="mr-2 text-xs text-neutral-400">Preview</span>
+                  )}
                   {canManage ? (
                     <Link
                       to={`/learning/courses/${c.id}`}
@@ -166,7 +179,8 @@ export function LearningCoursesList() {
                   ) : null}
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>
