@@ -251,7 +251,8 @@ export function LearningSettings() {
       <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
         <h2 className="font-semibold text-[#2D403A]">Reset demo data</h2>
         <p className="mt-2 text-sm text-neutral-600">
-          Clears courses, progress, and certificates and restores the seed &quot;Safety 101&quot; course.
+          Clears courses, progress, and certificates and restores the innebygde demo-kursene (bl.a. «Safety 101» og
+          «Sikkerhet for ledere»).
         </p>
         <button
           type="button"

@@ -209,7 +209,69 @@ const seedCourses: Course[] = [
       },
     ],
   },
+  {
+    id: 'c-leaders-safety',
+    title: 'Sikkerhet for ledere',
+    description:
+      'Arbeidsmiljøansvar, risiko og oppfølging — kort opplæring for ledere (AML-kontekst, ikke juridisk rådgivning).',
+    status: 'published',
+    tags: ['HMS', 'Leder', 'AML'],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    modules: [
+      {
+        ...emptyModule('text', 'Ansvar og roller', 0),
+        id: 'm-ls-text',
+        content: {
+          kind: 'text',
+          body:
+            '<p><strong>Lederens ansvar</strong> inkluderer å sikre at arbeidet planlegges og gjennomføres trygt, at avvik følges opp og at medvirkning fra verneombud og ansatte ivaretas.</p><p>Bruk dette kurset som oversikt — tilpass til egen virksomhet og interne rutiner.</p>',
+        },
+        durationMinutes: 4,
+      },
+      {
+        ...emptyModule('flashcard', 'Nøkkelbegreper', 1),
+        id: 'm-ls-fc',
+        content: {
+          kind: 'flashcard',
+          slides: [
+            {
+              id: 'lsf1',
+              front: 'Hva er systematisk HMS-arbeid?',
+              back: 'Planlegging, kartlegging, risikovurdering, tiltak og evaluering — kontinuerlig forbedring.',
+            },
+            {
+              id: 'lsf2',
+              front: 'Når bør leder involvere verneombud?',
+              back: 'Ved endringer som kan påvirke arbeidsmiljøet, ved avvik og ved planlegging av tiltak.',
+            },
+          ],
+        },
+        durationMinutes: 3,
+      },
+      {
+        ...emptyModule('checklist', 'Daglig oppfølging', 2),
+        id: 'm-ls-cl',
+        content: {
+          kind: 'checklist',
+          items: [
+            { id: 'ls1', label: 'Risiko vurdert før nye arbeidsmåter eller utstyr' },
+            { id: 'ls2', label: 'Avvik og nestenulykker er meldt og fulgt opp' },
+            { id: 'ls3', label: 'Verneutstyr og orden er kontrollert der det trengs' },
+          ],
+        },
+        durationMinutes: 3,
+      },
+    ],
+  },
 ]
+
+/** Ensures built-in seed courses exist when users already have localStorage data. */
+function mergeSeedCourses(courses: Course[]): Course[] {
+  const ids = new Set(courses.map((c) => c.id))
+  const missing = seedCourses.filter((s) => !ids.has(s.id))
+  return missing.length ? [...courses, ...missing] : courses
+}
 
 function load(): LearningState {
   try {
@@ -218,8 +280,10 @@ function load(): LearningState {
       return { courses: seedCourses, progress: [], certificates: [] }
     }
     const p = JSON.parse(raw) as LearningState
+    const base =
+      Array.isArray(p.courses) && p.courses.length ? mergeSeedCourses(p.courses) : seedCourses
     return {
-      courses: Array.isArray(p.courses) && p.courses.length ? p.courses : seedCourses,
+      courses: base,
       progress: Array.isArray(p.progress) ? p.progress : [],
       certificates: Array.isArray(p.certificates) ? p.certificates : [],
     }
