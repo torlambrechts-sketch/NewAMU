@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CheckCircle2, ShieldCheck } from 'lucide-react'
 import { useDocuments, DEMO_USER_NAME } from '../../../hooks/useDocuments'
+import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 
 type Props = {
   pageId: string
@@ -8,7 +9,8 @@ type Props = {
 }
 
 export function AcknowledgementFooter({ pageId, pageVersion }: Props) {
-  const { acknowledge, hasAcknowledged, receipts } = useDocuments()
+  const { acknowledge, hasAcknowledged, receipts, backend } = useDocuments()
+  const { profile } = useOrgSetupContext()
   const [name, setName] = useState('')
   const alreadySigned = hasAcknowledged(pageId, pageVersion)
   const receipt = receipts.find(
@@ -30,7 +32,7 @@ export function AcknowledgementFooter({ pageId, pageVersion }: Props) {
             <div className="mt-4 flex items-center gap-2 text-emerald-700">
               <CheckCircle2 className="size-5" />
               <span className="text-sm font-medium">
-                Signert av {receipt?.userName ?? DEMO_USER_NAME} ·{' '}
+                Signert av {receipt?.userName ?? profile?.display_name ?? DEMO_USER_NAME} ·{' '}
                 {receipt ? new Date(receipt.acknowledgedAt).toLocaleString('no-NO') : ''}
                 {' '}· Versjon {pageVersion}
               </span>
@@ -45,8 +47,8 @@ export function AcknowledgementFooter({ pageId, pageVersion }: Props) {
               />
               <button
                 type="button"
-                disabled={!name.trim()}
-                onClick={() => acknowledge(pageId, name)}
+                disabled={!name.trim() && !profile?.display_name?.trim()}
+                onClick={() => void acknowledge(pageId, name || (profile?.display_name ?? ''))}
                 className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-5 py-2 text-sm font-medium text-white disabled:opacity-40 hover:bg-[#142e26]"
               >
                 <ShieldCheck className="size-4" />
@@ -55,7 +57,8 @@ export function AcknowledgementFooter({ pageId, pageVersion }: Props) {
             </div>
           )}
           <p className="mt-2 text-xs text-neutral-400">
-            Versjon {pageVersion} · Compliance receipt lagres lokalt i denne demoen.
+            Versjon {pageVersion}
+            {backend === 'local' ? ' · Lagret lokalt (demo uten organisasjon).' : ' · Registrert i organisasjonens database.'}
           </p>
         </div>
       </div>

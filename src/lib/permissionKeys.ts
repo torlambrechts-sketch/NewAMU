@@ -14,6 +14,8 @@ export const PERMISSION_KEYS = [
   'module.view.learning',
   /** Create/edit/publish courses; view org-wide learning progress in admin views */
   'learning.manage',
+  /** Documents & wiki — folders, pages, compliance, template settings */
+  'documents.manage',
   'module.view.admin',
 ] as const
 
@@ -33,6 +35,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'module.view.tasks': 'Tasks',
   'module.view.learning': 'E-learning',
   'learning.manage': 'E-learning — opprette og redigere kurs',
+  'documents.manage': 'Documents & wiki — redigere innhold og maler',
   'module.view.admin': 'Admin (brukere & roller)',
 }
 

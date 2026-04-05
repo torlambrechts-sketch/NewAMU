@@ -29,10 +29,10 @@ export function WikiSpaceView() {
     </div>
   )
 
-  function handleCreate(e: React.FormEvent) {
+  async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     if (!newTitle.trim() || !spaceId) return
-    const page = docs.createPage(spaceId, newTitle)
+    const page = await docs.createPage(spaceId, newTitle)
     setNewTitle('')
     navigate(`/documents/page/${page.id}/edit`)
   }
@@ -135,7 +135,7 @@ export function WikiSpaceView() {
                       {p.status === 'draft' && (
                         <button
                           type="button"
-                          onClick={() => docs.publishPage(p.id)}
+                          onClick={() => void docs.publishPage(p.id)}
                           title="Publiser"
                           className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50"
                         >
@@ -151,7 +151,7 @@ export function WikiSpaceView() {
                       {p.status !== 'archived' && (
                         <button
                           type="button"
-                          onClick={() => docs.archivePage(p.id)}
+                          onClick={() => void docs.archivePage(p.id)}
                           title="Arkiver"
                           className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100"
                         >
@@ -160,7 +160,7 @@ export function WikiSpaceView() {
                       )}
                       <button
                         type="button"
-                        onClick={() => { if (confirm('Slett siden?')) docs.deletePage(p.id) }}
+                        onClick={() => { if (confirm('Slett siden?')) void docs.deletePage(p.id) }}
                         title="Slett"
                         className="rounded-lg p-1.5 text-red-400 hover:bg-red-50"
                       >

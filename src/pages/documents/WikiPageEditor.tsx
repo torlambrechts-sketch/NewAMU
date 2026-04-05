@@ -92,9 +92,9 @@ export function WikiPageEditor() {
     markDirty()
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!original) return
-    docs.updatePage(original.id, {
+    await docs.updatePage(original.id, {
       title: title.trim() || original.title,
       summary,
       blocks,
@@ -106,10 +106,10 @@ export function WikiPageEditor() {
     setSavedMsg(true)
   }
 
-  function handlePublish() {
+  async function handlePublish() {
     if (!original) return
-    handleSave()
-    docs.publishPage(original.id)
+    await handleSave()
+    await docs.publishPage(original.id)
     navigate(`/documents/page/${original.id}`)
   }
 
@@ -224,7 +224,7 @@ export function WikiPageEditor() {
           <div className="space-y-2">
             <button
               type="button"
-              onClick={handleSave}
+              onClick={() => void handleSave()}
               disabled={!dirty}
               className="flex w-full items-center justify-center gap-2 rounded-full bg-[#1a3d32] py-2.5 text-sm font-medium text-white disabled:opacity-40 hover:bg-[#142e26]"
             >
@@ -233,7 +233,7 @@ export function WikiPageEditor() {
             </button>
             <button
               type="button"
-              onClick={handlePublish}
+              onClick={() => void handlePublish()}
               className="flex w-full items-center justify-center gap-2 rounded-full border border-emerald-600 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
             >
               <CheckCircle2 className="size-4" />

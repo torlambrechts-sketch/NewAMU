@@ -1,16 +1,15 @@
 import { Link } from 'react-router-dom'
 import { CheckCircle2, Circle, ExternalLink } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
-import { LEGAL_COVERAGE, PAGE_TEMPLATES } from '../../data/documentTemplates'
 
 export function ComplianceDashboard() {
   const docs = useDocuments()
 
-  const coverage = LEGAL_COVERAGE.map((item) => {
+  const coverage = docs.legalCoverage.map((item) => {
     const coveredBy = docs.pages.filter(
       (p) => p.status === 'published' &&
         item.templateIds.some((tid) =>
-          PAGE_TEMPLATES.find((t) => t.id === tid)?.page.legalRefs.some((r) => p.legalRefs.includes(r)),
+          docs.pageTemplates.find((t) => t.id === tid)?.page.legalRefs.some((r) => p.legalRefs.includes(r)),
         ),
     )
     return { ...item, coveredBy, covered: coveredBy.length > 0 }

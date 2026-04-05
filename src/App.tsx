@@ -42,6 +42,7 @@ import { WikiSpaceView } from './pages/documents/WikiSpaceView'
 import { WikiPageView } from './pages/documents/WikiPageView'
 import { WikiPageEditor } from './pages/documents/WikiPageEditor'
 import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
+import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
 
 function App() {
   return (
@@ -103,6 +104,7 @@ function App() {
                   <Route path="documents/page/:pageId" element={<WikiPageView />} />
                   <Route path="documents/page/:pageId/edit" element={<WikiPageEditor />} />
                   <Route path="documents/compliance" element={<ComplianceDashboard />} />
+                  <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
                 </Route>
               </Route>
             </Route>

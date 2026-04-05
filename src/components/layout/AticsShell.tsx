@@ -140,6 +140,11 @@ const documentsSubs: SubItem[] = [
     path: '/documents/compliance',
     match: ({ pathname }) => pathname === '/documents/compliance',
   },
+  {
+    label: 'Malinnstillinger',
+    path: '/documents/templates',
+    match: ({ pathname }) => pathname === '/documents/templates',
+  },
 ]
 
 // ─── Navigation groups ────────────────────────────────────────────────────────

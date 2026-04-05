@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { BookOpen, CheckCircle2, FileText, Plus, ShieldCheck } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { BookOpen, CheckCircle2, FileText, Plus, Settings2, ShieldCheck } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
-import { PAGE_TEMPLATES, LEGAL_COVERAGE } from '../../data/documentTemplates'
-import type { WikiSpace } from '../../types/documents'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import type { PageTemplate, WikiSpace } from '../../types/documents'
 
 const CATEGORY_LABELS: Record<WikiSpace['category'], string> = {
   hms_handbook: 'HMS-håndbok',
@@ -23,24 +23,32 @@ const CATEGORY_ICONS: Record<WikiSpace['category'], string> = {
 
 export function DocumentsHome() {
   const docs = useDocuments()
+  const navigate = useNavigate()
+  const { can } = useOrgSetupContext()
+  const canManageTemplates = can('documents.manage')
+
   const [showNewSpace, setShowNewSpace] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [newCategory, setNewCategory] = useState<WikiSpace['category']>('hms_handbook')
+  const [savingSpace, setSavingSpace] = useState(false)
 
   const activeSpaces = docs.spaces.filter((s) => s.status === 'active')
-  const totalCovered = LEGAL_COVERAGE.filter(() =>
-    docs.pages.some((p) => p.status === 'published'),
-  ).length
-  void totalCovered
 
-  function handleCreateSpace(e: React.FormEvent) {
+  async function handleCreateSpace(e: React.FormEvent) {
     e.preventDefault()
     if (!newTitle.trim()) return
-    docs.createSpace(newTitle, newDesc, newCategory, CATEGORY_ICONS[newCategory])
-    setNewTitle('')
-    setNewDesc('')
-    setShowNewSpace(false)
+    setSavingSpace(true)
+    try {
+      await docs.createSpace(newTitle, newDesc, newCategory, CATEGORY_ICONS[newCategory])
+      setNewTitle('')
+      setNewDesc('')
+      setShowNewSpace(false)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSavingSpace(false)
+    }
   }
 
   return (
@@ -59,7 +67,16 @@ export function DocumentsHome() {
             <strong>Internkontrollforskriften §5</strong> og <strong>Arbeidsmiljøloven §3-1</strong>.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {canManageTemplates && (
+            <Link
+              to="/documents/templates"
+              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            >
+              <Settings2 className="size-4 text-[#1a3d32]" />
+              Malinnstillinger
+            </Link>
+          )}
           <Link
             to="/documents/compliance"
             className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
@@ -78,6 +95,12 @@ export function DocumentsHome() {
         </div>
       </div>
 
+      {docs.error && (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {docs.error}
+        </div>
+      )}
+
       {/* Stats row */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Publiserte sider" value={docs.stats.published} icon={<FileText className="size-5 text-emerald-600" />} />
@@ -88,7 +111,7 @@ export function DocumentsHome() {
 
       {/* New space form */}
       {showNewSpace && (
-        <form onSubmit={handleCreateSpace} className="mt-6 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+        <form onSubmit={(e) => void handleCreateSpace(e)} className="mt-6 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold text-neutral-800">Ny dokumentmappe</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <input
@@ -115,8 +138,12 @@ export function DocumentsHome() {
             />
           </div>
           <div className="mt-3 flex gap-2">
-            <button type="submit" className="rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26]">
-              Opprett
+            <button
+              type="submit"
+              disabled={savingSpace}
+              className="rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] disabled:opacity-50"
+            >
+              {savingSpace ? 'Oppretter…' : 'Opprett'}
             </button>
             <button type="button" onClick={() => setShowNewSpace(false)} className="rounded-full border border-neutral-200 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50">
               Avbryt
@@ -162,20 +189,27 @@ export function DocumentsHome() {
       <div className="mt-10">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold text-neutral-700">Malbibliotek</h2>
-          <span className="text-xs text-neutral-500">{PAGE_TEMPLATES.length} forhåndsbygde maler</span>
+          <span className="text-xs text-neutral-500">
+            {docs.pageTemplates.length} {docs.backend === 'supabase' ? 'tilgjengelige maler' : 'mal(er) (demo lokalt)'}
+          </span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {PAGE_TEMPLATES.map((tpl) => (
-            <TemplateCard key={tpl.id} tpl={tpl} spaces={activeSpaces} onUse={(spaceId) => {
-              const page = docs.createPage(
-                spaceId,
-                tpl.page.title,
-                tpl.page.template,
-                tpl.page.blocks,
-                { legalRefs: tpl.page.legalRefs, requiresAcknowledgement: tpl.page.requiresAcknowledgement, summary: tpl.page.summary },
-              )
-              window.location.href = `/documents/page/${page.id}/edit`
-            }} />
+          {docs.pageTemplates.map((tpl) => (
+            <TemplateCard
+              key={tpl.id}
+              tpl={tpl}
+              spaces={activeSpaces}
+              onUse={async (spaceId) => {
+                const page = await docs.createPage(
+                  spaceId,
+                  tpl.page.title,
+                  tpl.page.template,
+                  tpl.page.blocks,
+                  { legalRefs: tpl.page.legalRefs, requiresAcknowledgement: tpl.page.requiresAcknowledgement, summary: tpl.page.summary },
+                )
+                navigate(`/documents/page/${page.id}/edit`)
+              }}
+            />
           ))}
         </div>
       </div>
@@ -202,12 +236,13 @@ function TemplateCard({
   spaces,
   onUse,
 }: {
-  tpl: typeof PAGE_TEMPLATES[0]
+  tpl: PageTemplate
   spaces: WikiSpace[]
-  onUse: (spaceId: string) => void
+  onUse: (spaceId: string) => void | Promise<void>
 }) {
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState(spaces[0]?.id ?? '')
+  const [busy, setBusy] = useState(false)
   return (
     <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
       <div className="font-medium text-neutral-900">{tpl.label}</div>
@@ -232,10 +267,17 @@ function TemplateCard({
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => onUse(selected)}
-              className="flex-1 rounded-lg bg-[#1a3d32] py-1.5 text-xs font-medium text-white hover:bg-[#142e26]"
+              disabled={busy || !selected}
+              onClick={() => {
+                setBusy(true)
+                void Promise.resolve(onUse(selected)).finally(() => {
+                  setBusy(false)
+                  setOpen(false)
+                })
+              }}
+              className="flex-1 rounded-lg bg-[#1a3d32] py-1.5 text-xs font-medium text-white hover:bg-[#142e26] disabled:opacity-50"
             >
-              Bruk mal
+              {busy ? '…' : 'Bruk mal'}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50">
               Avbryt
@@ -246,7 +288,8 @@ function TemplateCard({
         <button
           type="button"
           onClick={() => { setSelected(spaces[0]?.id ?? ''); setOpen(true) }}
-          className="mt-3 w-full rounded-lg border border-neutral-200 py-1.5 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
+          disabled={spaces.length === 0}
+          className="mt-3 w-full rounded-lg border border-neutral-200 py-1.5 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
         >
           + Bruk mal
         </button>
