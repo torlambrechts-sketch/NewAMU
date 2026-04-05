@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CheckCircle2, Clock, History, Loader2, Pencil } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
@@ -23,12 +23,28 @@ export function WikiPageView() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
   const docs = useDocuments()
+  const { ensurePageLoaded, pageHydrateLoading, pageHydrateError } = docs
   const timeNow = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
 
   const page = docs.pages.find((p) => p.id === pageId)
   const space = page ? docs.spaces.find((s) => s.id === page.spaceId) : null
 
-  if (docs.loading && !page) {
+  useEffect(() => {
+    void ensurePageLoaded(pageId)
+  }, [ensurePageLoaded, pageId])
+
+  if (pageHydrateError && !page) {
+    return (
+      <div className="mx-auto max-w-[1400px] px-4 py-12 text-center">
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{pageHydrateError}</p>
+        <Link to="/documents" className="mt-4 inline-block text-[#1a3d32] underline">
+          ← Tilbake til dokumenter
+        </Link>
+      </div>
+    )
+  }
+
+  if ((docs.loading || pageHydrateLoading) && !page) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-4 text-neutral-600">
         <Loader2 className="size-8 animate-spin text-[#1a3d32]" aria-hidden />

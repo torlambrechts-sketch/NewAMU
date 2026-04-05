@@ -351,10 +351,47 @@ export function useDocuments() {
   const [orgCustomTemplates, setOrgCustomTemplates] = useState<OrgCustomTemplate[]>([])
   const [loading, setLoading] = useState(useRemote)
   const [error, setError] = useState<string | null>(null)
+  /** Deep-link / stale cache: fetch one page by id when missing from state */
+  const [pageHydrate, setPageHydrate] = useState<{ loading: boolean; error: string | null }>({
+    loading: false,
+    error: null,
+  })
 
   const state = useRemote ? remoteState : localState
 
   const isOrgAdmin = profile?.is_org_admin === true || isOrgAdminFromPerms
+
+  const ensurePageLoaded = useCallback(
+    async (pageId: string | undefined) => {
+      if (!pageId) return
+      if (!useRemote || !supabase || !orgId || !userId) return
+      setPageHydrate({ loading: true, error: null })
+      try {
+        const { data, error: qe } = await supabase
+          .from('wiki_pages')
+          .select('*')
+          .eq('id', pageId)
+          .eq('organization_id', orgId)
+          .maybeSingle()
+        if (qe) throw qe
+        if (!data) {
+          setPageHydrate({ loading: false, error: null })
+          return
+        }
+        const mapped = mapPage(data as Parameters<typeof mapPage>[0], authorFallback)
+        setRemoteState((s) => {
+          if (s.pages.some((p) => p.id === mapped.id)) return s
+          const next = { ...s, pages: [...s.pages, mapped] }
+          writeSnap(orgId, userId, next)
+          return next
+        })
+        setPageHydrate({ loading: false, error: null })
+      } catch (e) {
+        setPageHydrate({ loading: false, error: getSupabaseErrorMessage(e) })
+      }
+    },
+    [useRemote, supabase, orgId, userId, authorFallback],
+  )
 
   const refreshDocuments = useCallback(async () => {
     if (!supabase || !orgId || !userId) return
@@ -1087,6 +1124,9 @@ export function useDocuments() {
     backend: useRemote ? ('supabase' as const) : ('local' as const),
     loading: useRemote && loading,
     error,
+    pageHydrateLoading: pageHydrate.loading,
+    pageHydrateError: pageHydrate.error,
+    ensurePageLoaded,
     spaces: state.spaces,
     pages: state.pages,
     auditLedger: state.auditLedger,

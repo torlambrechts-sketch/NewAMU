@@ -43,6 +43,7 @@ import { WikiPageView } from './pages/documents/WikiPageView'
 import { WikiPageEditor } from './pages/documents/WikiPageEditor'
 import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
+import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 
 function App() {
   return (
@@ -101,8 +102,22 @@ function App() {
                   />
                   <Route path="documents" element={<DocumentsHome />} />
                   <Route path="documents/space/:spaceId" element={<WikiSpaceView />} />
-                  <Route path="documents/page/:pageId" element={<WikiPageView />} />
-                  <Route path="documents/page/:pageId/edit" element={<WikiPageEditor />} />
+                  <Route
+                    path="documents/page/:pageId"
+                    element={
+                      <RouteErrorBoundary title="Kunne ikke vise dokumentet">
+                        <WikiPageView />
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="documents/page/:pageId/edit"
+                    element={
+                      <RouteErrorBoundary title="Kunne ikke åpne redigering">
+                        <WikiPageEditor />
+                      </RouteErrorBoundary>
+                    }
+                  />
                   <Route path="documents/compliance" element={<ComplianceDashboard />} />
                   <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
                 </Route>

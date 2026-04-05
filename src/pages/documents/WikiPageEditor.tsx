@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle, CheckCircle2, ChevronDown, ChevronUp,
@@ -43,6 +43,7 @@ export function WikiPageEditor() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
   const docs = useDocuments()
+  const { ensurePageLoaded, pageHydrateLoading, pageHydrateError } = docs
   const { departments } = useOrgSetupContext()
 
   const original = docs.pages.find((p) => p.id === pageId)
@@ -77,26 +78,44 @@ export function WikiPageEditor() {
     const key = `${pageId}:${original.id}`
     if (hydratedKeyRef.current === key) return
     hydratedKeyRef.current = key
-    setTitle(original.title ?? '')
-    setSummary(original.summary ?? '')
-    setBlocks(Array.isArray(original.blocks) ? original.blocks : [])
-    setLegalRefs((Array.isArray(original.legalRefs) ? original.legalRefs : []).join(', '))
-    setRequiresAck(original.requiresAcknowledgement ?? false)
-    setAckAudience(original.acknowledgementAudience ?? 'all_employees')
-    setAckDeptId(original.acknowledgementDepartmentId ?? '')
-    setRevisionMonths(String(original.revisionIntervalMonths ?? 12))
-    setNextRevision(original.nextRevisionDueAt ? original.nextRevisionDueAt.slice(0, 10) : '')
-    setTemplate(
-      original.template === 'wide' || original.template === 'policy' || original.template === 'standard'
-        ? original.template
-        : 'standard',
-    )
-    setDirty(false)
-    setSavedMsg(false)
-    setSelectedIdx(null)
+    const o = original
+    queueMicrotask(() => {
+      setTitle(o.title ?? '')
+      setSummary(o.summary ?? '')
+      setBlocks(Array.isArray(o.blocks) ? o.blocks : [])
+      setLegalRefs((Array.isArray(o.legalRefs) ? o.legalRefs : []).join(', '))
+      setRequiresAck(o.requiresAcknowledgement ?? false)
+      setAckAudience(o.acknowledgementAudience ?? 'all_employees')
+      setAckDeptId(o.acknowledgementDepartmentId ?? '')
+      setRevisionMonths(String(o.revisionIntervalMonths ?? 12))
+      setNextRevision(o.nextRevisionDueAt ? o.nextRevisionDueAt.slice(0, 10) : '')
+      setTemplate(
+        o.template === 'wide' || o.template === 'policy' || o.template === 'standard'
+          ? o.template
+          : 'standard',
+      )
+      setDirty(false)
+      setSavedMsg(false)
+      setSelectedIdx(null)
+    })
   }, [pageId, original])
 
-  if (docs.loading && !original) {
+  useEffect(() => {
+    void ensurePageLoaded(pageId)
+  }, [ensurePageLoaded, pageId])
+
+  if (pageHydrateError && !original) {
+    return (
+      <div className="mx-auto max-w-[1400px] px-4 py-12 text-center">
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{pageHydrateError}</p>
+        <Link to="/documents" className="mt-4 inline-block text-[#1a3d32] underline">
+          ← Tilbake til dokumenter
+        </Link>
+      </div>
+    )
+  }
+
+  if ((docs.loading || pageHydrateLoading) && !original) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-4 text-neutral-600">
         <Loader2 className="size-8 animate-spin text-[#1a3d32]" aria-hidden />
