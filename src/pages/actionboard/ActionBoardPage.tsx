@@ -288,6 +288,7 @@ export function ActionBoardPage() {
       .filter((c) => c.status === 'active' || c.status === 'partial')
       .reduce((acc, c) => {
         const from = new Date(c.sickFrom)
+        // eslint-disable-next-line react-hooks/purity -- rolling estimate of active sick days
         const diff = Math.max(0, Math.ceil((Date.now() - from.getTime()) / 86400000))
         return acc + diff * (c.sicknessDegree / 100)
       }, 0)

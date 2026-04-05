@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   BookOpen,
@@ -16,14 +16,20 @@ import {
   LayoutGrid,
   Library,
   PanelLeft,
+  PanelsTopLeft,
   Search,
   Settings,
+  Shield,
   ShieldCheck,
   Star,
   Users,
   UsersRound,
   Workflow,
 } from 'lucide-react'
+import { LanguageSwitcher } from '../LanguageSwitcher'
+import { useI18n } from '../../hooks/useI18n'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import type { PermissionKey } from '../../lib/permissionKeys'
 
 // ─── Sub-item type ────────────────────────────────────────────────────────────
 
@@ -152,6 +158,8 @@ type NavModule = {
   end: boolean
   icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
   subs: SubItem[]
+  /** When set and RBAC is active, module is hidden if user lacks this permission. */
+  perm?: PermissionKey
 }
 
 const navGroups: NavGroup[] = [
@@ -160,11 +168,12 @@ const navGroups: NavGroup[] = [
     label: 'Workspace',
     icon: Home,
     modules: [
-      { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [] },
-      { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, subs: tasksSubs },
-      { to: '/action-board', label: 'Action Board', end: false, icon: Kanban, subs: [] },
-      { to: '/aarshjul', label: 'Årshjul', end: false, icon: CalendarRange, subs: [] },
-      { to: '/organisation', label: 'Organisasjon', end: false, icon: Building2, subs: [] },
+      { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [], perm: 'module.view.dashboard' },
+      { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, subs: tasksSubs, perm: 'module.view.tasks' },
+      { to: '/action-board', label: 'Action Board', end: false, icon: Kanban, subs: [], perm: 'module.view.dashboard' },
+      { to: '/aarshjul', label: 'Årshjul', end: false, icon: CalendarRange, subs: [], perm: 'module.view.dashboard' },
+      { to: '/organisation', label: 'Organisasjon', end: false, icon: Building2, subs: [], perm: 'module.view.dashboard' },
+      { to: '/admin', label: 'Admin', end: true, icon: Shield, subs: [], perm: 'module.view.admin' },
     ],
   },
   {
@@ -172,10 +181,17 @@ const navGroups: NavGroup[] = [
     label: 'Compliance',
     icon: ShieldCheck,
     modules: [
-      { to: '/internal-control', label: 'Internkontroll', end: false, icon: ClipboardList, subs: internalControlSubs },
-      { to: '/hse', label: 'HSE / HMS', end: false, icon: HardHat, subs: hseSubs },
-      { to: '/org-health', label: 'Org Health', end: false, icon: HeartPulse, subs: orgHealthSubs },
-      { to: '/prosesser', label: 'Prosesser', end: false, icon: Workflow, subs: [] },
+      {
+        to: '/internal-control',
+        label: 'Internkontroll',
+        end: false,
+        icon: ClipboardList,
+        subs: internalControlSubs,
+        perm: 'module.view.internal_control',
+      },
+      { to: '/hse', label: 'HSE / HMS', end: false, icon: HardHat, subs: hseSubs, perm: 'module.view.hse' },
+      { to: '/org-health', label: 'Org Health', end: false, icon: HeartPulse, subs: orgHealthSubs, perm: 'module.view.org_health' },
+      { to: '/prosesser', label: 'Prosesser', end: false, icon: Workflow, subs: [], perm: 'module.view.dashboard' },
     ],
   },
   {
@@ -183,8 +199,8 @@ const navGroups: NavGroup[] = [
     label: 'Worker Council',
     icon: UsersRound,
     modules: [
-      { to: '/council', label: 'Council Room', end: false, icon: UsersRound, subs: councilSubs },
-      { to: '/council?tab=election', label: 'Members', end: false, icon: Users, subs: [] },
+      { to: '/council', label: 'Council Room', end: false, icon: UsersRound, subs: councilSubs, perm: 'module.view.council' },
+      { to: '/council?tab=election', label: 'Members', end: false, icon: Users, subs: [], perm: 'module.view.members' },
     ],
   },
   {
@@ -192,20 +208,38 @@ const navGroups: NavGroup[] = [
     label: 'Library',
     icon: Library,
     modules: [
-      { to: '/documents', label: 'Documents', end: false, icon: FileText, subs: documentsSubs },
-      { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap, subs: learningSubs },
+      { to: '/documents', label: 'Documents', end: false, icon: FileText, subs: documentsSubs, perm: 'module.view.dashboard' },
+      { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap, subs: learningSubs, perm: 'module.view.learning' },
     ],
   },
 ]
 
-// Flat list for helpers that need to iterate all modules
-const allModules: NavModule[] = navGroups.flatMap((g) => g.modules)
+function filterNavGroups(
+  groups: NavGroup[],
+  gateNav: boolean,
+  can: (k: PermissionKey) => boolean,
+): NavGroup[] {
+  if (!gateNav) return groups
+  return groups
+    .map((g) => ({
+      ...g,
+      modules: g.modules.filter((m) => !m.perm || can(m.perm)),
+    }))
+    .filter((g) => g.modules.length > 0)
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function activeModuleForPath(pathname: string, search: string): NavModule {
+function allModulesFrom(groups: NavGroup[]): NavModule[] {
+  return groups.flatMap((g) => g.modules)
+}
+
+function activeModuleForPath(modules: NavModule[], pathname: string, search: string): NavModule {
+  if (modules.length === 0) {
+    return { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [] }
+  }
   // Exact-match first (handles /council?tab=election vs /council)
-  for (const mod of allModules) {
+  for (const mod of modules) {
     if (mod.to.includes('?')) {
       const [p, q] = mod.to.split('?')
       const params = new URLSearchParams(q)
@@ -214,16 +248,16 @@ function activeModuleForPath(pathname: string, search: string): NavModule {
     }
   }
   // Then prefix match
-  for (const mod of allModules) {
+  for (const mod of modules) {
     if (mod.to === '/') continue
     const base = mod.to.split('?')[0]
     if (pathname === base || pathname.startsWith(base + '/') || pathname.startsWith(base + '?')) return mod
   }
-  return allModules[0]
+  return modules[0]
 }
 
-function subNavForPath(pathname: string, search: string): SubItem[] {
-  const mod = activeModuleForPath(pathname, search)
+function subNavForPath(modules: NavModule[], pathname: string, search: string): SubItem[] {
+  const mod = activeModuleForPath(modules, pathname, search)
   // For Members shortcut, show council subs
   if (mod.to === '/council?tab=election') return councilSubs
   return mod.subs
@@ -305,6 +339,15 @@ function NavModePanel({
 
 export function AticsShell() {
   const location = useLocation()
+  const { supabaseConfigured, can, permissionKeys, user, profile, signOut } = useOrgSetupContext()
+  const { t } = useI18n()
+  const gateNav = supabaseConfigured && permissionKeys.size > 0
+  const visibleGroups = useMemo(
+    () => filterNavGroups(navGroups, gateNav, can),
+    [gateNav, can],
+  )
+  const visibleModules = useMemo(() => allModulesFrom(visibleGroups), [visibleGroups])
+
   const [navMode, setNavMode] = useState<NavMode>(loadNavMode)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [subNavCollapsed, setSubNavCollapsed] = useState(false)
@@ -317,8 +360,8 @@ export function AticsShell() {
 
   // ── Sidebar layout ──────────────────────────────────────────────────────────
   if (navMode === 'sidebar') {
-    const activeModule = activeModuleForPath(location.pathname, location.search)
-    const activeGroup  = navGroups.find((g) => g.modules.some((m) => m.to === activeModule.to))
+    const activeModule = activeModuleForPath(visibleModules, location.pathname, location.search)
+    const activeGroup = visibleGroups.find((g) => g.modules.some((m) => m.to === activeModule.to))
 
     return (
       <div className="flex h-screen overflow-hidden">
@@ -334,7 +377,7 @@ export function AticsShell() {
 
           {/* One icon per group */}
           <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-2 py-4" aria-label="Primary">
-            {navGroups.map((group) => {
+            {visibleGroups.map((group) => {
               const GroupIcon = group.icon
               const isActive = activeGroup?.id === group.id
               return (
@@ -355,28 +398,25 @@ export function AticsShell() {
             })}
           </nav>
 
-          {/* Bottom: settings + avatar */}
+          {/* Bottom: layout switcher */}
           <div className="flex flex-col gap-1.5 border-t border-white/10 px-2 py-4">
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setSettingsOpen((o) => !o)}
-                title="Settings"
+                title="Layout"
                 className={`flex w-full items-center justify-center rounded-lg p-3 transition-colors ${
                   settingsOpen ? 'bg-white/15 text-white' : 'text-white/55 hover:bg-white/10 hover:text-white'
                 }`}
-                aria-label="Settings"
+                aria-label="Navigation layout"
               >
-                <Settings className="size-[1.125rem]" />
+                <PanelsTopLeft className="size-[1.125rem]" />
               </button>
               {settingsOpen && (
                 <div className="absolute bottom-full left-full mb-2 ml-2">
                   <NavModePanel navMode={navMode} onChange={handleNavModeChange} onClose={() => setSettingsOpen(false)} />
                 </div>
               )}
-            </div>
-            <div className="flex justify-center">
-              <div className="size-8 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-white/30" role="img" aria-label="User profile" />
             </div>
           </div>
         </aside>
@@ -473,15 +513,45 @@ export function AticsShell() {
                 className="w-full rounded-full border border-neutral-300/70 bg-white/70 py-1.5 pl-9 pr-4 text-sm placeholder:text-neutral-400 focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
               />
             </div>
-            <div className="ml-auto flex items-center gap-2">
-              <button type="button" className="hidden items-center gap-1.5 rounded-full bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white sm:flex">
-                <Clock className="size-3.5" />
-                Upgrade
-              </button>
-              <button type="button" className="rounded-lg p-1.5 text-neutral-500 hover:bg-black/5" aria-label="Open external">
+            <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+              <LanguageSwitcher className="[&_span]:text-neutral-600 [&_select]:max-w-[7rem] [&_select]:border-neutral-300 [&_select]:bg-white [&_select]:text-neutral-900" />
+              {supabaseConfigured ? (
+                <>
+                  {user ? (
+                    <span
+                      className="hidden max-w-[100px] truncate text-xs text-neutral-600 sm:inline"
+                      title={profile?.email ?? ''}
+                    >
+                      {profile?.display_name ?? profile?.email ?? 'Bruker'}
+                    </span>
+                  ) : null}
+                  {user ? (
+                    <button
+                      type="button"
+                      onClick={() => void signOut()}
+                      className="rounded-lg px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-black/5"
+                    >
+                      {t('shell.logOut')}
+                    </button>
+                  ) : (
+                    <a href="/login" className="rounded-lg px-2 py-1 text-xs font-medium text-[#1a3d32] hover:underline">
+                      {t('shell.logIn')}
+                    </a>
+                  )}
+                  <NavLink
+                    to="/profile"
+                    className={({ isActive }) =>
+                      `rounded-lg p-1.5 text-neutral-500 hover:bg-black/5 ${isActive ? 'bg-black/5 ring-1 ring-[#c9a227]/40' : ''}`
+                    }
+                    aria-label={t('shell.settingsAria')}
+                  >
+                    <Settings className="size-4" />
+                  </NavLink>
+                </>
+              ) : null}
+              <button type="button" className="rounded-lg p-1.5 text-neutral-500 hover:bg-black/5" aria-label={t('shell.externalAria')}>
                 <ExternalLink className="size-4" />
               </button>
-              <div className="size-8 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-neutral-300/50" role="img" aria-label="User profile" />
             </div>
           </header>
 
@@ -494,9 +564,9 @@ export function AticsShell() {
   }
 
   // ── Top-bar layout ──────────────────────────────────────────────────────────
-  const activeModule = activeModuleForPath(location.pathname, location.search)
-  const activeGroup  = navGroups.find((g) => g.modules.some((m) => m.to === activeModule.to))
-  const subItems     = subNavForPath(location.pathname, location.search)
+  const activeModule = activeModuleForPath(visibleModules, location.pathname, location.search)
+  const activeGroup = visibleGroups.find((g) => g.modules.some((m) => m.to === activeModule.to))
+  const subItems = subNavForPath(visibleModules, location.pathname, location.search)
 
   return (
     <div className="min-h-screen bg-[#f5f0e8]">
@@ -517,7 +587,7 @@ export function AticsShell() {
 
           {/* Group tabs — one per group, navigates to first module in group */}
           <nav className="flex flex-1 items-center justify-center gap-1 overflow-x-auto" aria-label="Primary">
-            {navGroups.map((group) => {
+            {visibleGroups.map((group) => {
               const isActiveGroup = activeGroup?.id === group.id
               return (
                 <NavLink
@@ -540,16 +610,18 @@ export function AticsShell() {
           <div className="flex shrink-0 items-center gap-2 md:gap-3">
             <button type="button" className="hidden items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] sm:flex">
               <Clock className="size-3.5" />
-              Upgrade
+              {t('shell.upgrade')}
             </button>
+            <LanguageSwitcher />
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setSettingsOpen((o) => !o)}
                 className={`rounded-lg p-2 transition-colors ${settingsOpen ? 'bg-white/15' : 'hover:bg-white/10'}`}
-                aria-label="Settings"
+                aria-label="Navigation layout"
+                title="Layout"
               >
-                <Settings className="size-5" />
+                <PanelsTopLeft className="size-5" />
               </button>
               {settingsOpen && (
                 <div className="absolute right-0 top-full mt-1">
@@ -557,10 +629,37 @@ export function AticsShell() {
                 </div>
               )}
             </div>
-            <button type="button" className="rounded-lg p-2 hover:bg-white/10" aria-label="Open external">
+            {supabaseConfigured && user ? (
+              <>
+                <span className="hidden max-w-[120px] truncate text-xs text-white/80 lg:inline" title={profile?.email ?? ''}>
+                  {profile?.display_name ?? profile?.email ?? 'Bruker'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void signOut()}
+                  className="rounded-lg px-2 py-1 text-xs font-medium text-white/90 hover:bg-white/10"
+                >
+                  {t('shell.logOut')}
+                </button>
+              </>
+            ) : supabaseConfigured ? (
+              <a href="/login" className="rounded-lg px-2 py-1 text-xs font-medium text-[#c9a227] hover:underline">
+                {t('shell.logIn')}
+              </a>
+            ) : null}
+            <NavLink
+              to="/profile"
+              className={({ isActive }) =>
+                `rounded-lg p-2 hover:bg-white/10 ${isActive ? 'bg-white/10 ring-1 ring-[#c9a227]/50' : ''}`
+              }
+              aria-label={t('shell.settingsAria')}
+            >
+              <Settings className="size-5" />
+            </NavLink>
+            <button type="button" className="rounded-lg p-2 hover:bg-white/10" aria-label={t('shell.externalAria')}>
               <ExternalLink className="size-5" />
             </button>
-            <div className="size-9 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-white/30" role="img" aria-label="User profile" />
+            <div className="size-9 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-white/30" role="img" aria-label={t('shell.userProfileAria')} />
           </div>
         </div>
 

@@ -1,0 +1,30 @@
+# Kjør database-migrasjoner med psql når du utløser workflow manuelt.
+#
+# Forutsetning: GitHub repository secret POSTGRES_URL_NON_POOLING (eller DATABASE_URL)
+# med full postgres://-streng til Supabase (samme som i Supabase → Settings → Database).
+# Ikke bruk anon-nøkkel — dette er direkte Postgres-tilgang.
+
+name: Apply Supabase migrations
+
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          POSTGRES_URL_NON_POOLING: ${{ secrets.POSTGRES_URL_NON_POOLING }}
+        run: |
+          if [ -z "$DATABASE_URL" ] && [ -z "$POSTGRES_URL_NON_POOLING" ]; then
+            echo "Set repository secret DATABASE_URL or POSTGRES_URL_NON_POOLING (Postgres connection string)."
+            exit 1
+          fi
+          bash scripts/apply-migrations.sh

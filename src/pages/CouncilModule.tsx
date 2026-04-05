@@ -1496,6 +1496,7 @@ function MemberColumn({
       <ul className="mt-4 space-y-4">
         {members.map((m) => {
           const termExpired = m.termUntil && m.termUntil < today
+          // eslint-disable-next-line react-hooks/purity -- relative "days until" for UI badge
           const termExpiringSoon = m.termUntil && !termExpired && Math.ceil((new Date(m.termUntil).getTime() - Date.now()) / 86400000) <= 60
           const cert = learning?.certificates.find((c) => c.id === m.learningCertificateId)
           return (
@@ -1668,6 +1669,7 @@ function MeetingDetailPanel({
   const [protoRole, setProtoRole] = useState<'chair' | 'secretary' | 'management'>('chair')
 
   // Days until meeting
+  // eslint-disable-next-line react-hooks/purity -- display-only relative offset
   const daysUntil = Math.ceil((new Date(meeting.startsAt).getTime() - Date.now()) / 86400000)
   function updateAgendaItem(itemId: string, patch: Partial<AgendaItem>) {
     const next = meeting.agendaItems.map((a) => (a.id === itemId ? { ...a, ...patch } : a))

@@ -1295,7 +1295,8 @@ function ScheduleEditor({
   const [startsAt, setStartsAt] = useState(
     current?.startsAt
       ? current.startsAt.slice(0, 16)
-      : new Date(Date.now() + 3600000).toISOString().slice(0, 16),
+      : // eslint-disable-next-line react-hooks/purity -- default start time for new schedule
+        new Date(Date.now() + 3600000).toISOString().slice(0, 16),
   )
   const [openForHours, setOpenForHours] = useState(current?.openForHours ?? 72)
   const [intervalN, setIntervalN] = useState(current?.intervalN ?? 1)
