@@ -1,17 +1,26 @@
 import { Users } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 
 export function LearningParticipants() {
-  const { progress, courses } = useLearning()
+  const { can } = useOrgSetupContext()
+  const canManage = can('learning.manage')
+  const { progress, courses, learningLoading, learningError } = useLearning()
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Participants</h1>
         <p className="mt-2 text-sm text-neutral-600">
-          Local enrolment records (one per browser). Enterprise LMS would sync users and SSO here.
+          {canManage
+            ? 'Fremdrift for alle brukere i organisasjonen (synlig for kursansvarlige).'
+            : 'Din egen fremdrift på tvers av kurs.'}
         </p>
       </div>
+      {learningError ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
+      ) : null}
+      {learningLoading ? <p className="text-sm text-neutral-500">Laster…</p> : null}
       <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
           <thead>
@@ -47,7 +56,7 @@ export function LearningParticipants() {
         {progress.length === 0 ? (
           <p className="flex items-center justify-center gap-2 px-4 py-12 text-sm text-neutral-500">
             <Users className="size-4" />
-            No enrolments yet — open a course preview to start.
+            Ingen registreringer ennå — åpne et kurs i forhåndsvisning for å starte.
           </p>
         ) : null}
       </div>

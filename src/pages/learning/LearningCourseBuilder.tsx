@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { GripVertical, Layers, Plus, Trash2, Users, BarChart3, FileText, Award } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { CourseModule, ModuleKind } from '../../types/learning'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { RichTextEditor } from '../../components/learning/RichTextEditor'
@@ -36,7 +37,10 @@ type MainTab = 'info' | 'modules' | 'cert' | 'participants' | 'insights'
 
 export function LearningCourseBuilder() {
   const { courseId } = useParams<{ courseId: string }>()
-  const { courses, updateCourse, addModule, updateModule, deleteModule } = useLearning()
+  const { can } = useOrgSetupContext()
+  const canManage = can('learning.manage')
+  const { courses, updateCourse, addModule, updateModule, deleteModule, learningLoading, learningError } =
+    useLearning()
   const course = courses.find((c) => c.id === courseId)
 
   const [mainTab, setMainTab] = useState<MainTab>('modules')
@@ -53,6 +57,10 @@ export function LearningCourseBuilder() {
 
   const selected = course?.modules.find((m) => m.id === selectedId) ?? null
 
+  if (learningLoading && courseId && !course) {
+    return <p className="text-sm text-neutral-600">Laster kurs…</p>
+  }
+
   if (!course) {
     return (
       <p className="text-neutral-600">
@@ -61,8 +69,32 @@ export function LearningCourseBuilder() {
     )
   }
 
+  if (!canManage) {
+    return (
+      <div className="space-y-4">
+        <nav className="text-sm text-neutral-600">
+          <Link to="/learning/courses" className="hover:text-[#2D403A]">
+            Courses
+          </Link>
+          <span className="mx-2 text-neutral-300">›</span>
+          <span className="font-medium text-[#2D403A]">{course.title}</span>
+        </nav>
+        <p className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-neutral-800">
+          Du har ikke tilgang til kursbyggeren. Bruk <Link to={`/learning/play/${course.id}`} className="font-medium text-emerald-800 underline">forhåndsvisning</Link> for å ta kurset, eller be om rettigheten «E-learning — opprette og redigere kurs».
+        </p>
+        <Link to="/learning/courses" className="text-sm font-medium text-[#2D403A] hover:underline">
+          ← Tilbake til kurslisten
+        </Link>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
+      {learningError ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
+      ) : null}
+      {learningLoading ? <p className="text-sm text-neutral-500">Laster…</p> : null}
       <nav className="text-sm text-neutral-600">
         <Link to="/learning/courses" className="hover:text-[#2D403A]">
           Courses

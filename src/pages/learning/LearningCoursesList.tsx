@@ -2,13 +2,16 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Search } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { CourseStatus } from '../../types/learning'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
 
 export function LearningCoursesList() {
   const navigate = useNavigate()
-  const { courses, createCourse, updateCourse } = useLearning()
+  const { can } = useOrgSetupContext()
+  const canManage = can('learning.manage')
+  const { courses, createCourse, updateCourse, learningLoading, learningError } = useLearning()
   const [q, setQ] = useState('')
   const [title, setTitle] = useState('')
   const [desc, setDesc] = useState('')
@@ -28,42 +31,54 @@ export function LearningCoursesList() {
         </div>
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (!title.trim()) return
-          const c = createCourse(title, desc)
-          setTitle('')
-          setDesc('')
-          navigate(`/learning/courses/${c.id}`)
-        }}
-        className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm"
-      >
-        <h2 className="text-sm font-semibold text-[#2D403A]">New course</h2>
-        <div className="mt-3 flex flex-wrap gap-3">
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Course title"
-            className="min-w-[200px] flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-            required
-          />
-          <input
-            value={desc}
-            onChange={(e) => setDesc(e.target.value)}
-            placeholder="Short description"
-            className="min-w-[200px] flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-          />
-          <button
-            type="submit"
-            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white"
-            style={{ backgroundColor: PIN_GREEN }}
-          >
-            <Plus className="size-4" />
-            Create
-          </button>
-        </div>
-      </form>
+      {learningError ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
+      ) : null}
+      {learningLoading ? <p className="text-sm text-neutral-500">Laster kurs…</p> : null}
+
+      {canManage ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!title.trim()) return
+            const c = createCourse(title, desc)
+            setTitle('')
+            setDesc('')
+            navigate(`/learning/courses/${c.id}`)
+          }}
+          className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm"
+        >
+          <h2 className="text-sm font-semibold text-[#2D403A]">New course</h2>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Course title"
+              className="min-w-[200px] flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+              required
+            />
+            <input
+              value={desc}
+              onChange={(e) => setDesc(e.target.value)}
+              placeholder="Short description"
+              className="min-w-[200px] flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+            />
+            <button
+              type="submit"
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white"
+              style={{ backgroundColor: PIN_GREEN }}
+            >
+              <Plus className="size-4" />
+              Create
+            </button>
+          </div>
+        </form>
+      ) : (
+        <p className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-600 shadow-sm">
+          Du har ikke tilgang til å opprette kurs. Be en administrator om rettigheten «E-learning — opprette og redigere
+          kurs» (<code className="rounded bg-neutral-100 px-1">learning.manage</code>).
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[200px] flex-1">
@@ -105,17 +120,21 @@ export function LearningCoursesList() {
                 </td>
                 <td className="px-4 py-3 text-neutral-700">{c.modules.length}</td>
                 <td className="px-4 py-3">
-                  <select
-                    value={c.status}
-                    onChange={(e) =>
-                      updateCourse(c.id, { status: e.target.value as CourseStatus })
-                    }
-                    className="rounded-full border border-neutral-200 bg-white px-2 py-1 text-xs"
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="published">Published</option>
-                    <option value="archived">Archived</option>
-                  </select>
+                  {canManage ? (
+                    <select
+                      value={c.status}
+                      onChange={(e) =>
+                        updateCourse(c.id, { status: e.target.value as CourseStatus })
+                      }
+                      className="rounded-full border border-neutral-200 bg-white px-2 py-1 text-xs"
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="published">Published</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  ) : (
+                    <span className="text-xs capitalize text-neutral-700">{c.status}</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-xs text-neutral-500">
                   {new Date(c.updatedAt).toLocaleDateString()}
@@ -137,12 +156,14 @@ export function LearningCoursesList() {
                   >
                     Preview
                   </Link>
-                  <Link
-                    to={`/learning/courses/${c.id}`}
-                    className="text-xs font-medium text-[#2D403A] hover:underline"
-                  >
-                    Builder
-                  </Link>
+                  {canManage ? (
+                    <Link
+                      to={`/learning/courses/${c.id}`}
+                      className="text-xs font-medium text-[#2D403A] hover:underline"
+                    >
+                      Builder
+                    </Link>
+                  ) : null}
                 </td>
               </tr>
             ))}

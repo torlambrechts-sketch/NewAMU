@@ -166,8 +166,10 @@ export function LearningPlayer() {
             disabled={!modulesComplete || hasCert}
             onClick={() => {
               if (!learnerName.trim()) return
-              const cert = issueCertificate(activeCourse.id, learnerName)
-              if (cert !== null) alert(`Certificate issued! Code: ${cert.verifyCode}`)
+              void (async () => {
+                const cert = await issueCertificate(activeCourse.id, learnerName)
+                if (cert !== null) alert(`Certificate issued! Code: ${cert.verifyCode}`)
+              })()
             }}
             className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
             style={{ backgroundColor: PIN_GREEN }}

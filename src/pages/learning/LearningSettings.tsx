@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { ChevronDown, Download, Upload } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 
 function downloadJson(filename: string, json: string) {
@@ -22,6 +23,7 @@ function slugTitle(title: string) {
 }
 
 export function LearningSettings() {
+  const { supabaseConfigured, organization } = useOrgSetupContext()
   const {
     resetDemo,
     exportJson,
@@ -81,7 +83,11 @@ export function LearningSettings() {
     <div className="max-w-2xl space-y-6">
       <div>
         <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Settings</h1>
-        <p className="mt-2 text-sm text-neutral-600">Learning data is stored in localStorage for this demo.</p>
+        <p className="mt-2 text-sm text-neutral-600">
+          {supabaseConfigured && organization
+            ? 'Kurs, fremdrift og sertifikater lagres i databasen for organisasjonen din.'
+            : 'Uten innlogget organisasjon lagres e-læringsdata lokalt i nettleseren (demo).'}
+        </p>
       </div>
 
       <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
