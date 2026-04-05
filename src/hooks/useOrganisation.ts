@@ -9,6 +9,7 @@ import {
   type OrgModulePayloadKey,
 } from '../lib/orgModulePayload'
 import { useOrgSetupContext } from './useOrgSetupContext'
+import type { OrganizationMemberRow } from '../types/organization'
 import type { OrgEmployee, OrgSettings, OrgUnit, OrgUnitKind, UserGroup } from '../types/organisation'
 
 const MODULE_KEY: OrgModulePayloadKey = 'organisation'
@@ -95,8 +96,67 @@ function saveLocal(state: OrgState) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
 }
 
+function mergeMembersIntoEmployees(
+  employees: OrgEmployee[],
+  members: OrganizationMemberRow[],
+  departments: { id: string; name: string }[],
+): OrgEmployee[] {
+  if (members.length === 0) return employees
+  const deptName = (id: string | null | undefined) => departments.find((d) => d.id === id)?.name
+  const byEmail = new Map(
+    employees.filter((e) => e.email?.trim()).map((e) => [e.email!.trim().toLowerCase(), e]),
+  )
+  const memberEmails = new Set(
+    members.map((m) => m.email?.trim().toLowerCase()).filter((x): x is string => !!x),
+  )
+  const out: OrgEmployee[] = []
+
+  for (const m of members) {
+    const emailKey = m.email?.trim().toLowerCase()
+    const existing = emailKey ? byEmail.get(emailKey) : undefined
+    const unitLabel = deptName(m.department_id)
+    if (existing) {
+      out.push({
+        ...existing,
+        name: m.display_name.trim() || existing.name,
+        unitId: m.department_id ?? existing.unitId,
+        unitName: unitLabel ?? existing.unitName,
+        email: m.email ?? existing.email,
+        updatedAt: new Date().toISOString(),
+      })
+      continue
+    }
+    const n = new Date().toISOString()
+    out.push({
+      id: `m-${m.id}`,
+      name: m.display_name.trim() || 'Medlem',
+      email: m.email ?? undefined,
+      jobTitle: undefined,
+      role: undefined,
+      unitId: m.department_id ?? undefined,
+      unitName: unitLabel,
+      reportsToId: undefined,
+      reportsToName: undefined,
+      location: undefined,
+      employmentType: 'permanent',
+      startDate: undefined,
+      active: true,
+      createdAt: n,
+      updatedAt: n,
+    })
+  }
+
+  for (const e of employees) {
+    const ek = e.email?.trim().toLowerCase()
+    if (ek && memberEmails.has(ek)) continue
+    out.push(e)
+  }
+
+  return out
+}
+
 export function useOrganisation() {
-  const { supabase, organization, user } = useOrgSetupContext()
+  const { supabase, organization, user, members: orgMembers, departments } = useOrgSetupContext()
   const orgId = organization?.id
   const userId = user?.id
   const useRemote = !!(supabase && orgId && userId)
@@ -115,6 +175,12 @@ export function useOrganisation() {
 
   const state = useRemote ? remoteState : localState
   const setState = useRemote ? setRemoteState : setLocalState
+
+  /** Prefer Supabase organization_members (+ departments) so the org view matches the signed-in tenant. */
+  const displayEmployees = useMemo(() => {
+    if (!useRemote || orgMembers.length === 0) return state.employees
+    return mergeMembersIntoEmployees(state.employees, orgMembers, departments)
+  }, [useRemote, orgMembers, departments, state.employees])
 
   const refreshOrganisation = useCallback(async () => {
     if (!supabase || !orgId || !userId) return
@@ -312,7 +378,10 @@ export function useOrganisation() {
   const unitById = useMemo(() => new Map(state.units.map((u) => [u.id, u])), [state.units])
   const employeeById = useMemo(() => new Map(state.employees.map((e) => [e.id, e])), [state.employees])
 
-  const activeEmployees = useMemo(() => state.employees.filter((e) => e.active), [state.employees])
+  const activeEmployees = useMemo(
+    () => displayEmployees.filter((e) => e.active),
+    [displayEmployees],
+  )
 
   const totalEmployeeCount = useMemo(() => {
     const n = activeEmployees.length
@@ -377,6 +446,8 @@ export function useOrganisation() {
   return {
     settings: state.settings,
     employees: state.employees,
+    /** Employees merged with `organization_members` when using Supabase (for display). */
+    displayEmployees,
     activeEmployees,
     units: state.units,
     groups: state.groups,
