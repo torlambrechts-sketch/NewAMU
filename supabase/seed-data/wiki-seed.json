@@ -8,8 +8,8 @@
       "category": "hms_handbook",
       "icon": "📋",
       "status": "active",
-      "createdAt": "2026-04-05T14:21:31.343Z",
-      "updatedAt": "2026-04-05T14:21:31.343Z"
+      "createdAt": "2026-04-05T15:36:26.455Z",
+      "updatedAt": "2026-04-05T15:36:26.455Z"
     },
     {
       "id": "space-policy",
@@ -18,8 +18,8 @@
       "category": "policy",
       "icon": "📜",
       "status": "active",
-      "createdAt": "2026-04-05T14:21:31.343Z",
-      "updatedAt": "2026-04-05T14:21:31.343Z"
+      "createdAt": "2026-04-05T15:36:26.455Z",
+      "updatedAt": "2026-04-05T15:36:26.455Z"
     },
     {
       "id": "space-guide",
@@ -28,8 +28,8 @@
       "category": "guide",
       "icon": "📖",
       "status": "active",
-      "createdAt": "2026-04-05T14:21:31.343Z",
-      "updatedAt": "2026-04-05T14:21:31.343Z"
+      "createdAt": "2026-04-05T15:36:26.455Z",
+      "updatedAt": "2026-04-05T15:36:26.455Z"
     }
   ],
   "pageTemplates": [
@@ -930,6 +930,13 @@
       ]
     },
     {
+      "ref": "IK-f §5 nr. 8",
+      "label": "Årlig gjennomgang av HMS-systemet",
+      "templateIds": [
+        "tpl-aarsgjennomgang"
+      ]
+    },
+    {
       "ref": "AML §3-2",
       "label": "HMS-opplæring",
       "templateIds": [
@@ -949,6 +956,27 @@
       "label": "AMU årsrapport",
       "templateIds": [
         "tpl-amu-rapport"
+      ]
+    },
+    {
+      "ref": "AML kap. 4 / §4-6",
+      "label": "Individuell tilrettelegging",
+      "templateIds": [
+        "tpl-tilrettelegging"
+      ]
+    },
+    {
+      "ref": "Inkluderingsloven",
+      "label": "Likestilling og ikke-diskriminering",
+      "templateIds": [
+        "tpl-likestilling-mangfold"
+      ]
+    },
+    {
+      "ref": "Livsfase / seniorpolitikk",
+      "label": "Seniorpolitikk og livsfaser",
+      "templateIds": [
+        "tpl-seniorpolitikk"
       ]
     }
   ]
