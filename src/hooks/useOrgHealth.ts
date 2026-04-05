@@ -1,5 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LABOR_METRIC_DEFINITIONS } from '../data/orgHealthMetrics'
+import { getSupabaseErrorMessage } from '../lib/supabaseError'
+import {
+  clearOrgModuleSnap,
+  fetchOrgModulePayload,
+  readOrgModuleSnap,
+  upsertOrgModulePayload,
+  writeOrgModuleSnap,
+} from '../lib/orgModulePayload'
+import { useOrgSetupContext } from './useOrgSetupContext'
 import type {
   AmlReportKind,
   AnonymousAmlReport,
@@ -14,6 +23,8 @@ import type {
 
 const STORAGE_KEY = 'atics-org-health-v2'
 const LEGACY_KEY = 'atics-org-health-v1'
+const MODULE_KEY = 'org_health' as const
+const PERSIST_DEBOUNCE_MS = 450
 
 type OrgHealthState = {
   surveys: Survey[]
@@ -21,9 +32,7 @@ type OrgHealthState = {
   navReports: NavSickLeaveReport[]
   laborMetrics: LaborMetricEntry[]
   auditTrail: OrgHealthAuditEntry[]
-  /** surveyId -> response tokens for duplicate prevention */
   responseTokens: Record<string, string[]>
-  /** Anonymous AML-aligned reports (no free-text content stored) */
   anonymousAmlReports: AnonymousAmlReport[]
 }
 
@@ -89,8 +98,20 @@ const seedNav: NavSickLeaveReport[] = [
   },
 ]
 
-function migrateLegacy(parsed: Record<string, unknown>): OrgHealthState {
+function normalizeParsed(p: OrgHealthState): OrgHealthState {
   return {
+    surveys: Array.isArray(p.surveys) ? p.surveys : [],
+    responses: Array.isArray(p.responses) ? p.responses : [],
+    navReports: Array.isArray(p.navReports) ? p.navReports : [],
+    laborMetrics: Array.isArray(p.laborMetrics) ? p.laborMetrics : [],
+    auditTrail: Array.isArray(p.auditTrail) ? p.auditTrail : [],
+    responseTokens: p.responseTokens && typeof p.responseTokens === 'object' ? p.responseTokens : {},
+    anonymousAmlReports: Array.isArray(p.anonymousAmlReports) ? p.anonymousAmlReports : [],
+  }
+}
+
+function migrateLegacy(parsed: Record<string, unknown>): OrgHealthState {
+  return normalizeParsed({
     surveys: Array.isArray(parsed.surveys) && (parsed.surveys as unknown[]).length ? (parsed.surveys as Survey[]) : [seedSurvey],
     responses: Array.isArray(parsed.responses) ? (parsed.responses as SurveyResponse[]) : [],
     navReports: Array.isArray(parsed.navReports) ? (parsed.navReports as NavSickLeaveReport[]) : seedNav,
@@ -101,10 +122,38 @@ function migrateLegacy(parsed: Record<string, unknown>): OrgHealthState {
         ? (parsed.responseTokens as Record<string, string[]>)
         : {},
     anonymousAmlReports: [],
+  })
+}
+
+function seedDemoLocal(): OrgHealthState {
+  return {
+    surveys: [seedSurvey],
+    responses: [],
+    navReports: seedNav,
+    laborMetrics: [],
+    auditTrail: [
+      auditEntry('survey_created', 'Organisasjonshelse-modul initialisert med eksempelundersøkelse.', {
+        demo: true,
+      }),
+    ],
+    responseTokens: {},
+    anonymousAmlReports: [],
   }
 }
 
-function load(): OrgHealthState {
+function emptyRemoteState(): OrgHealthState {
+  return {
+    surveys: [],
+    responses: [],
+    navReports: [],
+    laborMetrics: [],
+    auditTrail: [],
+    responseTokens: {},
+    anonymousAmlReports: [],
+  }
+}
+
+function loadLocal(): OrgHealthState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
@@ -119,49 +168,26 @@ function load(): OrgHealthState {
           /* fall through */
         }
       }
-      return {
-        surveys: [seedSurvey],
-        responses: [],
-        navReports: seedNav,
-        laborMetrics: [],
-        auditTrail: [
-          auditEntry('survey_created', 'Organisasjonshelse-modul initialisert med eksempelundersøkelse.', {
-            demo: true,
-          }),
-        ],
-        responseTokens: {},
-        anonymousAmlReports: [],
-      }
+      return seedDemoLocal()
     }
     const p = JSON.parse(raw) as OrgHealthState
+    const n = normalizeParsed(p)
     return {
-      surveys: Array.isArray(p.surveys) && p.surveys.length ? p.surveys : [seedSurvey],
-      responses: Array.isArray(p.responses) ? p.responses : [],
-      navReports: Array.isArray(p.navReports) ? p.navReports : seedNav,
-      laborMetrics: Array.isArray(p.laborMetrics) ? p.laborMetrics : [],
-      auditTrail: Array.isArray(p.auditTrail) ? p.auditTrail : [],
-      responseTokens: p.responseTokens && typeof p.responseTokens === 'object' ? p.responseTokens : {},
-      anonymousAmlReports: Array.isArray(p.anonymousAmlReports) ? p.anonymousAmlReports : [],
+      ...n,
+      surveys: n.surveys.length ? n.surveys : [seedSurvey],
+      navReports: n.navReports.length ? n.navReports : seedNav,
     }
   } catch {
-    return {
-      surveys: [seedSurvey],
-      responses: [],
-      navReports: seedNav,
-      laborMetrics: [],
-      auditTrail: [],
-      responseTokens: {},
-      anonymousAmlReports: [],
-    }
+    return seedDemoLocal()
   }
 }
 
-function save(state: OrgHealthState) {
+function saveLocal(state: OrgHealthState) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
 }
 
-function getResponseToken(): string {
-  const k = 'atics-orghealth-responder'
+function getResponseToken(orgScopedKey: string | null) {
+  const k = orgScopedKey ? `atics-orghealth-responder:${orgScopedKey}` : 'atics-orghealth-responder'
   let t = sessionStorage.getItem(k)
   if (!t) {
     t = crypto.randomUUID()
@@ -170,12 +196,108 @@ function getResponseToken(): string {
   return t
 }
 
+function computeNextRun(schedule: import('../types/orgHealth').SurveySchedule, from: string): string {
+  const base = new Date(from)
+  switch (schedule.kind) {
+    case 'once':
+      return schedule.startsAt
+    case 'weekly': {
+      const d = new Date(base)
+      d.setDate(d.getDate() + 7 * (schedule.intervalN ?? 1))
+      return d.toISOString()
+    }
+    case 'monthly': {
+      const d = new Date(base)
+      d.setMonth(d.getMonth() + (schedule.intervalN ?? 1))
+      return d.toISOString()
+    }
+    case 'quarterly': {
+      const d = new Date(base)
+      d.setMonth(d.getMonth() + 3)
+      return d.toISOString()
+    }
+    case 'yearly': {
+      const d = new Date(base)
+      d.setFullYear(d.getFullYear() + 1)
+      return d.toISOString()
+    }
+    case 'custom': {
+      const d = new Date(base)
+      d.setDate(d.getDate() + (schedule.intervalN ?? 30))
+      return d.toISOString()
+    }
+    default:
+      return base.toISOString()
+  }
+}
+
 export function useOrgHealth() {
-  const [state, setState] = useState<OrgHealthState>(() => load())
+  const { supabase, organization, user } = useOrgSetupContext()
+  const orgId = organization?.id
+  const userId = user?.id
+  const useRemote = !!(supabase && orgId && userId)
+  const responseTokenScope = useRemote ? orgId : null
+
+  const initialRemote =
+    useRemote && orgId && userId ? readOrgModuleSnap<OrgHealthState>(MODULE_KEY, orgId, userId) : null
+  const [localState, setLocalState] = useState<OrgHealthState>(() => loadLocal())
+  const [remoteState, setRemoteState] = useState<OrgHealthState>(() => initialRemote ?? emptyRemoteState())
+  const [loading, setLoading] = useState(useRemote)
+  const [error, setError] = useState<string | null>(null)
+  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const state = useRemote ? remoteState : localState
+  const setState = useRemote ? setRemoteState : setLocalState
+
+  const refreshOrgHealth = useCallback(async () => {
+    if (!supabase || !orgId || !userId) return
+    setLoading(true)
+    setError(null)
+    try {
+      const payload = await fetchOrgModulePayload<OrgHealthState>(supabase, orgId, MODULE_KEY)
+      const next = payload ? normalizeParsed(payload) : emptyRemoteState()
+      setRemoteState(next)
+      writeOrgModuleSnap(MODULE_KEY, orgId, userId, next)
+    } catch (e) {
+      setError(getSupabaseErrorMessage(e))
+      clearOrgModuleSnap(MODULE_KEY, orgId, userId)
+      setRemoteState(emptyRemoteState())
+    } finally {
+      setLoading(false)
+    }
+  }, [supabase, orgId, userId])
 
   useEffect(() => {
-    save(state)
-  }, [state])
+    if (!useRemote) {
+      setLoading(false)
+      return
+    }
+    void refreshOrgHealth()
+  }, [useRemote, refreshOrgHealth])
+
+  useEffect(() => {
+    if (!useRemote) {
+      saveLocal(localState)
+    }
+  }, [useRemote, localState])
+
+  useEffect(() => {
+    if (!useRemote || !supabase || !orgId) return
+    if (persistTimer.current) clearTimeout(persistTimer.current)
+    persistTimer.current = setTimeout(() => {
+      void (async () => {
+        try {
+          await upsertOrgModulePayload(supabase, orgId, MODULE_KEY, remoteState)
+          if (userId) writeOrgModuleSnap(MODULE_KEY, orgId, userId, remoteState)
+        } catch (e) {
+          setError(getSupabaseErrorMessage(e))
+        }
+      })()
+    }, PERSIST_DEBOUNCE_MS)
+    return () => {
+      if (persistTimer.current) clearTimeout(persistTimer.current)
+    }
+  }, [useRemote, supabase, orgId, userId, remoteState])
 
   const appendAudit = useCallback(
     (action: OrgHealthAuditAction, message: string, meta?: Record<string, string | number | boolean>) => {
@@ -184,7 +306,7 @@ export function useOrgHealth() {
         auditTrail: [...s.auditTrail, auditEntry(action, message, meta)],
       }))
     },
-    [],
+    [setState],
   )
 
   const createSurvey = useCallback(
@@ -208,7 +330,7 @@ export function useOrgHealth() {
       })
       return s
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
 
   const createSurveyFromTemplate = useCallback(
@@ -243,85 +365,41 @@ export function useOrgHealth() {
       })
       return s
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
 
   const updateSurvey = useCallback(
     (id: string, patch: Partial<Survey>) => {
       setState((st) => ({
         ...st,
-        surveys: st.surveys.map((s) => s.id === id ? { ...s, ...patch } : s),
+        surveys: st.surveys.map((s) => (s.id === id ? { ...s, ...patch } : s)),
       }))
     },
-    [],
+    [setState],
   )
-
-  // ── Schedule helpers ────────────────────────────────────────────────────────
-
-  /** Compute the next ISO date-time after `from` for a given schedule. */
-  function computeNextRun(schedule: import('../types/orgHealth').SurveySchedule, from: string): string {
-    const base = new Date(from)
-    switch (schedule.kind) {
-      case 'once':
-        return schedule.startsAt // no next run after the first
-      case 'weekly': {
-        const d = new Date(base)
-        d.setDate(d.getDate() + 7 * (schedule.intervalN ?? 1))
-        return d.toISOString()
-      }
-      case 'monthly': {
-        const d = new Date(base)
-        d.setMonth(d.getMonth() + (schedule.intervalN ?? 1))
-        return d.toISOString()
-      }
-      case 'quarterly': {
-        const d = new Date(base)
-        d.setMonth(d.getMonth() + 3)
-        return d.toISOString()
-      }
-      case 'yearly': {
-        const d = new Date(base)
-        d.setFullYear(d.getFullYear() + 1)
-        return d.toISOString()
-      }
-      case 'custom': {
-        const d = new Date(base)
-        d.setDate(d.getDate() + (schedule.intervalN ?? 30))
-        return d.toISOString()
-      }
-      default:
-        return base.toISOString()
-    }
-  }
 
   const setSchedule = useCallback(
     (surveyId: string, schedule: import('../types/orgHealth').SurveySchedule | undefined) => {
       setState((st) => ({
         ...st,
         surveys: st.surveys.map((sv) =>
-          sv.id !== surveyId ? sv : {
-            ...sv,
-            schedule: schedule
-              ? { ...schedule, nextRunAt: schedule.startsAt, runCount: 0 }
-              : undefined,
-          },
+          sv.id !== surveyId
+            ? sv
+            : {
+                ...sv,
+                schedule: schedule ? { ...schedule, nextRunAt: schedule.startsAt, runCount: 0 } : undefined,
+              },
         ),
       }))
-      appendAudit('settings_updated', schedule
-        ? `Tidsplan satt for undersøkelse: ${schedule.kind}`
-        : 'Tidsplan fjernet fra undersøkelse',
+      appendAudit(
+        'settings_updated',
+        schedule ? `Tidsplan satt for undersøkelse: ${schedule.kind}` : 'Tidsplan fjernet fra undersøkelse',
         { surveyId },
       )
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
 
-  /**
-   * Check all enabled schedules and auto-open any survey whose nextRunAt has
-   * passed. For recurring surveys, also auto-close the previous run and reset
-   * status to draft so the next cycle starts fresh.
-   * Call this on component mount or a periodic timer.
-   */
   const checkAndTriggerSchedules = useCallback(() => {
     const now = new Date().toISOString()
     setState((st) => {
@@ -330,12 +408,10 @@ export function useOrgHealth() {
         const sched = sv.schedule
         if (!sched || !sched.enabled) return sv
         if (!sched.nextRunAt || sched.nextRunAt > now) return sv
-        // Passed end date — disable
         if (sched.endsAt && sched.endsAt < now) {
           changed = true
           return { ...sv, schedule: { ...sched, enabled: false } }
         }
-        // Should open now
         const isRecurring = sched.kind !== 'once'
         const nextRun = isRecurring ? computeNextRun(sched, sched.nextRunAt) : undefined
         const updatedSchedule = {
@@ -343,7 +419,7 @@ export function useOrgHealth() {
           lastTriggeredAt: now,
           runCount: sched.runCount + 1,
           nextRunAt: nextRun,
-          enabled: isRecurring, // disable after once
+          enabled: isRecurring,
         }
         changed = true
         return {
@@ -356,7 +432,7 @@ export function useOrgHealth() {
       })
       return changed ? { ...st, surveys } : st
     })
-  }, [])
+  }, [setState])
 
   const addQuestion = useCallback(
     (surveyId: string, text: string, type: SurveyQuestion['type'], required: boolean) => {
@@ -369,12 +445,10 @@ export function useOrgHealth() {
       if (!q.text) return
       setState((s) => ({
         ...s,
-        surveys: s.surveys.map((sv) =>
-          sv.id === surveyId ? { ...sv, questions: [...sv.questions, q] } : sv,
-        ),
+        surveys: s.surveys.map((sv) => (sv.id === surveyId ? { ...sv, questions: [...sv.questions, q] } : sv)),
       }))
     },
-    [],
+    [setState],
   )
 
   const openSurvey = useCallback(
@@ -382,15 +456,13 @@ export function useOrgHealth() {
       setState((s) => ({
         ...s,
         surveys: s.surveys.map((sv) =>
-          sv.id === surveyId
-            ? { ...sv, status: 'open' as const, openedAt: new Date().toISOString() }
-            : sv,
+          sv.id === surveyId ? { ...sv, status: 'open' as const, openedAt: new Date().toISOString() } : sv,
         ),
         responseTokens: { ...s.responseTokens, [surveyId]: s.responseTokens[surveyId] ?? [] },
       }))
       appendAudit('survey_opened', 'Undersøkelse åpnet for svar.', { surveyId })
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
 
   const closeSurvey = useCallback(
@@ -398,19 +470,17 @@ export function useOrgHealth() {
       setState((s) => ({
         ...s,
         surveys: s.surveys.map((sv) =>
-          sv.id === surveyId
-            ? { ...sv, status: 'closed' as const, closedAt: new Date().toISOString() }
-            : sv,
+          sv.id === surveyId ? { ...sv, status: 'closed' as const, closedAt: new Date().toISOString() } : sv,
         ),
       }))
       appendAudit('survey_closed', 'Undersøkelse lukket.', { surveyId })
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
 
   const submitResponse = useCallback(
     (surveyId: string, answers: Record<string, number | string>) => {
-      const token = getResponseToken()
+      const token = getResponseToken(responseTokenScope)
       let added = false
       let anonymous = false
       setState((s) => {
@@ -425,8 +495,7 @@ export function useOrgHealth() {
           for (const q of sv.questions) {
             if (q.type === 'text') {
               const raw = answers[q.id]
-              anonymousTextProvided[q.id] =
-                typeof raw === 'string' && raw.trim().length > 0
+              anonymousTextProvided[q.id] = typeof raw === 'string' && raw.trim().length > 0
               delete storedAnswers[q.id]
             }
           }
@@ -454,7 +523,7 @@ export function useOrgHealth() {
       }
       return added
     },
-    [appendAudit],
+    [appendAudit, setState, responseTokenScope],
   )
 
   const addNavReport = useCallback(
@@ -469,7 +538,7 @@ export function useOrgHealth() {
         period: r.periodLabel,
       })
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
 
   const addLaborMetric = useCallback(
@@ -484,7 +553,7 @@ export function useOrgHealth() {
         metricKey: partial.metricKey,
       })
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
 
   const aggregates = useMemo(() => {
@@ -552,14 +621,12 @@ export function useOrgHealth() {
     const latest = withPct[0]?.sickLeavePercent ?? null
     const avg =
       withPct.length > 0
-        ? Math.round(
-            (withPct.reduce((a, b) => a + (b.sickLeavePercent ?? 0), 0) / withPct.length) * 100,
-          ) / 100
+        ? Math.round((withPct.reduce((a, b) => a + (b.sickLeavePercent ?? 0), 0) / withPct.length) * 100) / 100
         : null
     return { latestPercent: latest, avgPercent: avg }
   }, [state.navReports])
 
-  const resetDemo = useCallback(() => {
+  const resetDemo = useCallback(async () => {
     const next: OrgHealthState = {
       surveys: [seedSurvey],
       responses: [],
@@ -569,15 +636,23 @@ export function useOrgHealth() {
       responseTokens: {},
       anonymousAmlReports: [],
     }
-    setState(next)
-    save(next)
-  }, [])
+    if (useRemote && supabase && orgId) {
+      try {
+        setError(null)
+        await upsertOrgModulePayload(supabase, orgId, MODULE_KEY, next)
+        setRemoteState(next)
+        if (userId) writeOrgModuleSnap(MODULE_KEY, orgId, userId, next)
+      } catch (e) {
+        setError(getSupabaseErrorMessage(e))
+      }
+      return
+    }
+    setLocalState(next)
+    saveLocal(next)
+  }, [useRemote, supabase, orgId, userId])
 
   const submitAnonymousAmlReport = useCallback(
-    (
-      kind: AmlReportKind,
-      options: { detailsIndicated: boolean; urgency: AnonymousAmlReport['urgency'] },
-    ): boolean => {
+    (kind: AmlReportKind, options: { detailsIndicated: boolean; urgency: AnonymousAmlReport['urgency'] }): boolean => {
       const r: AnonymousAmlReport = {
         id: crypto.randomUUID(),
         kind,
@@ -596,7 +671,7 @@ export function useOrgHealth() {
       })
       return true
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
 
   const amlReportStats = useMemo(() => {
@@ -616,6 +691,9 @@ export function useOrgHealth() {
     aggregates,
     navSummary,
     amlReportStats,
+    loading: useRemote ? loading : false,
+    error: useRemote ? error : null,
+    backend: useRemote ? ('supabase' as const) : ('local' as const),
     createSurvey,
     createSurveyFromTemplate,
     updateSurvey,

@@ -20,6 +20,7 @@ import { definitionForKey } from '../data/orgHealthMetrics'
 import { ALL_SURVEY_TEMPLATES, TEMPLATE_CATEGORIES } from '../data/surveyTemplates'
 import { useOrgHealth } from '../hooks/useOrgHealth'
 import { useOrganisation } from '../hooks/useOrganisation'
+import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import type { AmlReportKind, LaborMetricKey, Survey, SurveyQuestion, SurveySchedule, SurveyScheduleKind } from '../types/orgHealth'
 
 const tabs = [
@@ -44,6 +45,7 @@ function formatWhen(iso: string) {
 
 export function OrgHealthModule() {
   const oh = useOrgHealth()
+  const { supabaseConfigured } = useOrgSetupContext()
   const [searchParams, setSearchParams] = useSearchParams()
 
   // Check scheduled surveys on every mount
@@ -102,6 +104,13 @@ export function OrgHealthModule() {
         <span className="mx-2 text-neutral-400">→</span>
         <span className="font-medium text-neutral-800">Organisasjonshelse</span>
       </nav>
+
+      {oh.error && (
+        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{oh.error}</p>
+      )}
+      {oh.loading && supabaseConfigured && (
+        <p className="mb-4 text-sm text-neutral-500">Laster organisasjonshelse-data…</p>
+      )}
 
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-200/80 pb-6">
         <div>

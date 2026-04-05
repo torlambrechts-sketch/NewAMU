@@ -16,6 +16,7 @@ import { ROS_TEMPLATE_HELP, RISK_COLOUR_CLASSES, computeRiskScore, riskColour } 
 import { labelForAmlReportKind } from '../data/amlAnonymousReporting'
 import { useInternalControl } from '../hooks/useInternalControl'
 import { useOrgHealth } from '../hooks/useOrgHealth'
+import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import type { WhistleCaseStatus } from '../types/internalControl'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { WizardButton } from '../components/wizard/WizardButton'
@@ -48,6 +49,7 @@ const statusOrder: WhistleCaseStatus[] = [
 export function InternalControlModule() {
   const ic = useInternalControl()
   const oh = useOrgHealth()
+  const { supabaseConfigured } = useOrgSetupContext()
   const [searchParams, setSearchParams] = useSearchParams()
   type TabId = (typeof tabs)[number]['id']
   const tabParam = searchParams.get('tab')
@@ -90,6 +92,13 @@ export function InternalControlModule() {
       </nav>
 
       <LegalDisclaimer />
+
+      {ic.error && (
+        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{ic.error}</p>
+      )}
+      {ic.loading && supabaseConfigured && (
+        <p className="mt-4 text-sm text-neutral-500">Laster internkontrolldata…</p>
+      )}
 
       <div className="mt-6 flex flex-wrap items-start justify-between gap-4 border-b border-neutral-200/80 pb-6">
         <div>

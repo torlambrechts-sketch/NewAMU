@@ -25,6 +25,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useHse } from '../hooks/useHse'
+import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { TRAINING_KIND_LABELS } from '../data/hseTemplates'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeIncidentWizard, makeSickLeaveWizard, makeSjaWizard, makeSafetyRoundWizard } from '../components/wizard/wizards'
@@ -148,6 +149,7 @@ function daysUntil(isoDate: string) {
 
 export function HseModule() {
   const hse = useHse()
+  const { supabaseConfigured } = useOrgSetupContext()
   const [searchParams] = useSearchParams()
   type TabId = (typeof tabs)[number]['id']
   const tabParam = searchParams.get('tab')
@@ -225,6 +227,13 @@ export function HseModule() {
         <span className="mx-2 text-neutral-400">→</span>
         <span className="font-medium text-neutral-800">HMS / verneombud</span>
       </nav>
+
+      {hse.error && (
+        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{hse.error}</p>
+      )}
+      {hse.loading && supabaseConfigured && (
+        <p className="mb-4 text-sm text-neutral-500">Laster HMS-data…</p>
+      )}
 
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-200/80 pb-6">
         <div>

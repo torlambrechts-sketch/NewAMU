@@ -1,5 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { computeRiskScore, emptyRosRow } from '../data/rosTemplate'
+import { getSupabaseErrorMessage } from '../lib/supabaseError'
+import {
+  clearOrgModuleSnap,
+  fetchOrgModulePayload,
+  readOrgModuleSnap,
+  upsertOrgModulePayload,
+  writeOrgModuleSnap,
+} from '../lib/orgModulePayload'
+import { useOrgSetupContext } from './useOrgSetupContext'
 import type { AmlReportKind } from '../types/orgHealth'
 import type {
   AnnualReview,
@@ -13,6 +22,7 @@ import type {
 } from '../types/internalControl'
 
 const STORAGE_KEY = 'atics-internal-control-v1'
+const MODULE_KEY = 'internal_control' as const
 
 type InternalControlState = {
   whistleCases: WhistleCase[]
@@ -43,94 +53,168 @@ const statusLabels: Record<WhistleCaseStatus, string> = {
   closed: 'Avsluttet',
 }
 
-function load(): InternalControlState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) {
-      const demoCase: WhistleCase = {
-        id: 'demo-w1',
-        title: 'Eksempel: Oppfølging anonym henvendelse',
-        categoryKind: 'psychosocial',
-        status: 'triage',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        assignee: 'HR / HMS',
-        internalNotes: 'Demo-sak — erstatt med reell prosess.',
-      }
-      const demoRos: RosAssessment = {
-        id: 'demo-ros1',
-        title: 'ROS — Kontor og møterom (mal)',
-        department: 'Administrasjon',
-        assessedAt: new Date().toISOString().slice(0, 10),
-        assessor: 'HMS-koordinator (demo)',
-        rows: [
-          {
-            ...emptyRosRow(),
-            id: 'r1',
-            activity: 'Skjermarbeid',
-            hazard: 'Belastningsskader, øye',
-            existingControls: 'Justerbar stol, pauser',
-            severity: 3,
-            likelihood: 3,
-            riskScore: 9,
-            proposedMeasures: 'Dokumenterte pauserutiner',
-            responsible: 'Leder',
-            dueDate: '',
-            status: 'open' as const,
-          },
-        ],
-        signatures: [],
-        locked: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-      const demoAnnual: AnnualReview = {
-        id: 'demo-ar1',
-        year: new Date().getFullYear(),
-        reviewedAt: new Date().toISOString().slice(0, 10),
-        reviewer: 'Ledergruppe (demo)',
-        summary: 'Årlig gjennomgang av internkontrollen er dokumentert (eksempel).',
-        nextReviewDue: `${new Date().getFullYear() + 1}-12-31`,
-      }
-      return {
-        whistleCases: [demoCase],
-        rosAssessments: [demoRos],
-        annualReviews: [demoAnnual],
-        auditTrail: [
-          audit('init', 'Internkontroll-modul initialisert med demo.', { demo: true }),
-        ],
-      }
-    }
-    const p = JSON.parse(raw) as InternalControlState
-    return {
-      whistleCases: Array.isArray(p.whistleCases) ? p.whistleCases : [],
-      rosAssessments: Array.isArray(p.rosAssessments) ? p.rosAssessments.map((r) => ({
-        ...r,
-        signatures: (r as import('../types/internalControl').RosAssessment).signatures ?? [],
-        locked: (r as import('../types/internalControl').RosAssessment).locked ?? false,
-        rows: Array.isArray(r.rows) ? r.rows.map((row: RosRiskRow) => ({
-          ...row,
-          status: (row as RosRiskRow).status ?? (row.done ? 'closed' : 'open'),
-        })) : [],
-      })) : [],
-      annualReviews: Array.isArray(p.annualReviews) ? p.annualReviews : [],
-      auditTrail: Array.isArray(p.auditTrail) ? p.auditTrail : [],
-    }
-  } catch {
-    return { whistleCases: [], rosAssessments: [], annualReviews: [], auditTrail: [] }
+function normalizeParsed(p: InternalControlState): InternalControlState {
+  return {
+    whistleCases: Array.isArray(p.whistleCases) ? p.whistleCases : [],
+    rosAssessments: Array.isArray(p.rosAssessments)
+      ? p.rosAssessments.map((r) => ({
+          ...r,
+          signatures: (r as RosAssessment).signatures ?? [],
+          locked: (r as RosAssessment).locked ?? false,
+          rows: Array.isArray(r.rows)
+            ? r.rows.map((row: RosRiskRow) => ({
+                ...row,
+                status: (row as RosRiskRow).status ?? (row.done ? 'closed' : 'open'),
+              }))
+            : [],
+        }))
+      : [],
+    annualReviews: Array.isArray(p.annualReviews) ? p.annualReviews : [],
+    auditTrail: Array.isArray(p.auditTrail) ? p.auditTrail : [],
   }
 }
 
-function save(s: InternalControlState) {
+function seedDemoInternalControl(): InternalControlState {
+  const demoCase: WhistleCase = {
+    id: 'demo-w1',
+    title: 'Eksempel: Oppfølging anonym henvendelse',
+    categoryKind: 'psychosocial',
+    status: 'triage',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    assignee: 'HR / HMS',
+    internalNotes: 'Demo-sak — erstatt med reell prosess.',
+  }
+  const demoRos: RosAssessment = {
+    id: 'demo-ros1',
+    title: 'ROS — Kontor og møterom (mal)',
+    department: 'Administrasjon',
+    assessedAt: new Date().toISOString().slice(0, 10),
+    assessor: 'HMS-koordinator (demo)',
+    rows: [
+      {
+        ...emptyRosRow(),
+        id: 'r1',
+        activity: 'Skjermarbeid',
+        hazard: 'Belastningsskader, øye',
+        existingControls: 'Justerbar stol, pauser',
+        severity: 3,
+        likelihood: 3,
+        riskScore: 9,
+        proposedMeasures: 'Dokumenterte pauserutiner',
+        responsible: 'Leder',
+        dueDate: '',
+        status: 'open' as const,
+      },
+    ],
+    signatures: [],
+    locked: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const demoAnnual: AnnualReview = {
+    id: 'demo-ar1',
+    year: new Date().getFullYear(),
+    reviewedAt: new Date().toISOString().slice(0, 10),
+    reviewer: 'Ledergruppe (demo)',
+    summary: 'Årlig gjennomgang av internkontrollen er dokumentert (eksempel).',
+    nextReviewDue: `${new Date().getFullYear() + 1}-12-31`,
+  }
+  return {
+    whistleCases: [demoCase],
+    rosAssessments: [demoRos],
+    annualReviews: [demoAnnual],
+    auditTrail: [audit('init', 'Internkontroll-modul initialisert med demo.', { demo: true })],
+  }
+}
+
+function emptyRemoteState(): InternalControlState {
+  return { whistleCases: [], rosAssessments: [], annualReviews: [], auditTrail: [] }
+}
+
+function loadLocal(): InternalControlState {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return seedDemoInternalControl()
+    const p = JSON.parse(raw) as InternalControlState
+    return normalizeParsed(p)
+  } catch {
+    return emptyRemoteState()
+  }
+}
+
+function saveLocal(s: InternalControlState) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
 }
 
+const PERSIST_DEBOUNCE_MS = 450
+
 export function useInternalControl() {
-  const [state, setState] = useState<InternalControlState>(() => load())
+  const { supabase, organization, user } = useOrgSetupContext()
+  const orgId = organization?.id
+  const userId = user?.id
+  const useRemote = !!(supabase && orgId && userId)
+
+  const initialRemote =
+    useRemote && orgId && userId ? readOrgModuleSnap<InternalControlState>(MODULE_KEY, orgId, userId) : null
+  const [localState, setLocalState] = useState<InternalControlState>(() => loadLocal())
+  const [remoteState, setRemoteState] = useState<InternalControlState>(() => initialRemote ?? emptyRemoteState())
+  const [loading, setLoading] = useState(useRemote)
+  const [error, setError] = useState<string | null>(null)
+  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const state = useRemote ? remoteState : localState
+  const setState = useRemote ? setRemoteState : setLocalState
+
+  const refreshInternalControl = useCallback(async () => {
+    if (!supabase || !orgId || !userId) return
+    setLoading(true)
+    setError(null)
+    try {
+      const payload = await fetchOrgModulePayload<InternalControlState>(supabase, orgId, MODULE_KEY)
+      const next = payload ? normalizeParsed(payload) : emptyRemoteState()
+      setRemoteState(next)
+      writeOrgModuleSnap(MODULE_KEY, orgId, userId, next)
+    } catch (e) {
+      setError(getSupabaseErrorMessage(e))
+      clearOrgModuleSnap(MODULE_KEY, orgId, userId)
+      setRemoteState(emptyRemoteState())
+    } finally {
+      setLoading(false)
+    }
+  }, [supabase, orgId, userId])
 
   useEffect(() => {
-    save(state)
-  }, [state])
+    if (!useRemote) {
+      setLoading(false)
+      return
+    }
+    void refreshInternalControl()
+  }, [useRemote, refreshInternalControl])
+
+  useEffect(() => {
+    if (!useRemote) {
+      saveLocal(localState)
+    }
+  }, [useRemote, localState])
+
+  useEffect(() => {
+    if (!useRemote || !supabase || !orgId) return
+    if (persistTimer.current) clearTimeout(persistTimer.current)
+    persistTimer.current = setTimeout(() => {
+      void (async () => {
+        try {
+          await upsertOrgModulePayload(supabase, orgId, MODULE_KEY, remoteState)
+          if (userId) writeOrgModuleSnap(MODULE_KEY, orgId, userId, remoteState)
+        } catch (e) {
+          setError(getSupabaseErrorMessage(e))
+        }
+      })()
+    }, PERSIST_DEBOUNCE_MS)
+    return () => {
+      if (persistTimer.current) clearTimeout(persistTimer.current)
+    }
+  }, [useRemote, supabase, orgId, userId, remoteState])
 
   const createWhistleCase = useCallback(
     (input: {
@@ -160,10 +244,9 @@ export function useInternalControl() {
       }))
       return c
     },
-    [],
+    [setState],
   )
 
-  /** Opprett sak fra anonym melding (kobling via ID). */
   const createCaseFromAnonymousReport = useCallback(
     (report: { id: string; kind: AmlReportKind; submittedAt: string; urgency: string }) => {
       let created: WhistleCase | null = null
@@ -187,42 +270,42 @@ export function useInternalControl() {
           whistleCases: [c, ...s.whistleCases],
           auditTrail: [
             ...s.auditTrail,
-            audit(
-              'whistle_from_anonymous',
-              'Varslingssak opprettet fra anonym AML-melding.',
-              { caseId: c.id, reportId: report.id },
-            ),
+            audit('whistle_from_anonymous', 'Varslingssak opprettet fra anonym AML-melding.', {
+              caseId: c.id,
+              reportId: report.id,
+            }),
           ],
         }
       })
       return created
     },
-    [],
+    [setState],
   )
 
-  const updateWhistleStatus = useCallback((caseId: string, status: WhistleCaseStatus) => {
-    setState((s) => {
-      const extra =
-        status === 'internal_review'
-          ? audit(
-              'whistle_internal_review',
-              'Sak satt til intern revisjon (etter virksomhetens rutine).',
-              { caseId },
-            )
-          : null
-      return {
-        ...s,
-        whistleCases: s.whistleCases.map((c) =>
-          c.id === caseId ? { ...c, status, updatedAt: new Date().toISOString() } : c,
-        ),
-        auditTrail: [
-          ...s.auditTrail,
-          audit('whistle_status', `Status endret til ${statusLabels[status]}`, { caseId, status }),
-          ...(extra ? [extra] : []),
-        ],
-      }
-    })
-  }, [])
+  const updateWhistleStatus = useCallback(
+    (caseId: string, status: WhistleCaseStatus) => {
+      setState((s) => {
+        const extra =
+          status === 'internal_review'
+            ? audit('whistle_internal_review', 'Sak satt til intern revisjon (etter virksomhetens rutine).', {
+                caseId,
+              })
+            : null
+        return {
+          ...s,
+          whistleCases: s.whistleCases.map((c) =>
+            c.id === caseId ? { ...c, status, updatedAt: new Date().toISOString() } : c,
+          ),
+          auditTrail: [
+            ...s.auditTrail,
+            audit('whistle_status', `Status endret til ${statusLabels[status]}`, { caseId, status }),
+            ...(extra ? [extra] : []),
+          ],
+        }
+      })
+    },
+    [setState],
+  )
 
   const sendToInternalReview = useCallback(
     (caseId: string) => {
@@ -231,90 +314,101 @@ export function useInternalControl() {
     [updateWhistleStatus],
   )
 
-  const updateWhistleNotes = useCallback((caseId: string, internalNotes: string) => {
-    setState((s) => ({
-      ...s,
-      whistleCases: s.whistleCases.map((c) =>
-        c.id === caseId ? { ...c, internalNotes, updatedAt: new Date().toISOString() } : c,
-      ),
-    }))
-  }, [])
+  const updateWhistleNotes = useCallback(
+    (caseId: string, internalNotes: string) => {
+      setState((s) => ({
+        ...s,
+        whistleCases: s.whistleCases.map((c) =>
+          c.id === caseId ? { ...c, internalNotes, updatedAt: new Date().toISOString() } : c,
+        ),
+      }))
+    },
+    [setState],
+  )
 
-  const createRosAssessment = useCallback((title: string, department: string, assessor: string) => {
-    const r: RosAssessment = {
-      id: crypto.randomUUID(),
-      title: title.trim(),
-      department: department.trim(),
-      assessedAt: new Date().toISOString().slice(0, 10),
-      assessor: assessor.trim(),
-      rows: [emptyRosRow()],
-      signatures: [],
-      locked: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-    setState((s) => ({
-      ...s,
-      rosAssessments: [r, ...s.rosAssessments],
-      auditTrail: [...s.auditTrail, audit('ros_created', `ROS opprettet: ${r.title}`, { rosId: r.id })],
-    }))
-    return r
-  }, [])
+  const createRosAssessment = useCallback(
+    (title: string, department: string, assessor: string) => {
+      const r: RosAssessment = {
+        id: crypto.randomUUID(),
+        title: title.trim(),
+        department: department.trim(),
+        assessedAt: new Date().toISOString().slice(0, 10),
+        assessor: assessor.trim(),
+        rows: [emptyRosRow()],
+        signatures: [],
+        locked: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      setState((s) => ({
+        ...s,
+        rosAssessments: [r, ...s.rosAssessments],
+        auditTrail: [...s.auditTrail, audit('ros_created', `ROS opprettet: ${r.title}`, { rosId: r.id })],
+      }))
+      return r
+    },
+    [setState],
+  )
 
-  const updateRosRow = useCallback((rosId: string, rowId: string, patch: Partial<RosRiskRow>) => {
-    setState((s) => ({
-      ...s,
-      rosAssessments: s.rosAssessments.map((ros) => {
-        if (ros.id !== rosId || ros.locked) return ros
-        const rows = ros.rows.map((row) => {
-          if (row.id !== rowId) return row
-          const next = { ...row, ...patch }
-          // Recompute gross risk score
-          if (patch.severity != null || patch.likelihood != null) {
-            next.riskScore = computeRiskScore(next.severity, next.likelihood)
-          }
-          // Recompute residual score
-          if (patch.residualSeverity != null || patch.residualLikelihood != null) {
-            const rs = next.residualSeverity ?? next.severity
-            const rl = next.residualLikelihood ?? next.likelihood
-            next.residualScore = computeRiskScore(rs, rl)
-          }
-          return next
-        })
-        return { ...ros, rows, updatedAt: new Date().toISOString() }
-      }),
-    }))
-  }, [])
+  const updateRosRow = useCallback(
+    (rosId: string, rowId: string, patch: Partial<RosRiskRow>) => {
+      setState((s) => ({
+        ...s,
+        rosAssessments: s.rosAssessments.map((ros) => {
+          if (ros.id !== rosId || ros.locked) return ros
+          const rows = ros.rows.map((row) => {
+            if (row.id !== rowId) return row
+            const next = { ...row, ...patch }
+            if (patch.severity != null || patch.likelihood != null) {
+              next.riskScore = computeRiskScore(next.severity, next.likelihood)
+            }
+            if (patch.residualSeverity != null || patch.residualLikelihood != null) {
+              const rs = next.residualSeverity ?? next.severity
+              const rl = next.residualLikelihood ?? next.likelihood
+              next.residualScore = computeRiskScore(rs, rl)
+            }
+            return next
+          })
+          return { ...ros, rows, updatedAt: new Date().toISOString() }
+        }),
+      }))
+    },
+    [setState],
+  )
 
-  const signRos = useCallback((rosId: string, role: RosSignatureRole, signerName: string) => {
-    if (!signerName.trim()) return
-    setState((s) => {
-      return {
+  const signRos = useCallback(
+    (rosId: string, role: RosSignatureRole, signerName: string) => {
+      if (!signerName.trim()) return
+      setState((s) => ({
         ...s,
         rosAssessments: s.rosAssessments.map((ros) => {
           if (ros.id !== rosId) return ros
-          // Prevent duplicate role signature
           if (ros.signatures.some((sig) => sig.role === role)) return ros
           const sig: RosSignature = { role, signerName: signerName.trim(), signedAt: new Date().toISOString() }
           const signatures = [...ros.signatures, sig]
-          const locked = signatures.some((s) => s.role === 'leader') && signatures.some((s) => s.role === 'verneombud')
+          const locked =
+            signatures.some((x) => x.role === 'leader') && signatures.some((x) => x.role === 'verneombud')
           return { ...ros, signatures, locked, updatedAt: new Date().toISOString() }
         }),
         auditTrail: [...s.auditTrail, audit('ros_signed', `ROS signert av ${signerName} (${role})`, { rosId, role })],
-      }
-    })
-  }, [])
+      }))
+    },
+    [setState],
+  )
 
-  const addRosRow = useCallback((rosId: string) => {
-    setState((s) => ({
-      ...s,
-      rosAssessments: s.rosAssessments.map((ros) =>
-        ros.id === rosId
-          ? { ...ros, rows: [...ros.rows, emptyRosRow()], updatedAt: new Date().toISOString() }
-          : ros,
-      ),
-    }))
-  }, [])
+  const addRosRow = useCallback(
+    (rosId: string) => {
+      setState((s) => ({
+        ...s,
+        rosAssessments: s.rosAssessments.map((ros) =>
+          ros.id === rosId
+            ? { ...ros, rows: [...ros.rows, emptyRosRow()], updatedAt: new Date().toISOString() }
+            : ros,
+        ),
+      }))
+    },
+    [setState],
+  )
 
   const addAnnualReview = useCallback(
     (input: Omit<AnnualReview, 'id'>) => {
@@ -325,14 +419,11 @@ export function useInternalControl() {
       setState((s) => ({
         ...s,
         annualReviews: [a, ...s.annualReviews],
-        auditTrail: [
-          ...s.auditTrail,
-          audit('annual_review', `Årsgjennomgang ${a.year} registrert.`, { year: a.year }),
-        ],
+        auditTrail: [...s.auditTrail, audit('annual_review', `Årsgjennomgang ${a.year} registrert.`, { year: a.year })],
       }))
       return a
     },
-    [],
+    [setState],
   )
 
   const stats = useMemo(() => {
@@ -345,15 +436,30 @@ export function useInternalControl() {
     }
   }, [state])
 
-  const resetDemo = useCallback(() => {
+  const resetDemo = useCallback(async () => {
+    const next = seedDemoInternalControl()
+    if (useRemote && supabase && orgId) {
+      try {
+        setError(null)
+        await upsertOrgModulePayload(supabase, orgId, MODULE_KEY, next)
+        setRemoteState(next)
+        if (userId) writeOrgModuleSnap(MODULE_KEY, orgId, userId, next)
+      } catch (e) {
+        setError(getSupabaseErrorMessage(e))
+      }
+      return
+    }
     localStorage.removeItem(STORAGE_KEY)
-    setState(load())
-  }, [])
+    setLocalState(loadLocal())
+  }, [useRemote, supabase, orgId, userId])
 
   return {
     ...state,
     stats,
     statusLabels,
+    loading: useRemote ? loading : false,
+    error: useRemote ? error : null,
+    backend: useRemote ? ('supabase' as const) : ('local' as const),
     createWhistleCase,
     createCaseFromAnonymousReport,
     updateWhistleStatus,

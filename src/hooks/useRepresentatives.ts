@@ -1,5 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { REPRESENTATIVE_ROLE_REQUIREMENTS } from '../data/representativeRules'
+import { getSupabaseErrorMessage } from '../lib/supabaseError'
+import {
+  clearOrgModuleSnap,
+  fetchOrgModulePayload,
+  readOrgModuleSnap,
+  upsertOrgModulePayload,
+  writeOrgModuleSnap,
+} from '../lib/orgModulePayload'
+import { useOrgSetupContext } from './useOrgSetupContext'
 import type {
   RepElection,
   RepElectionCandidate,
@@ -12,6 +21,8 @@ import type {
 } from '../types/representatives'
 
 const STORAGE_KEY = 'atics-representatives-v1'
+const MODULE_KEY = 'representatives' as const
+const PERSIST_DEBOUNCE_MS = 450
 
 type RepState = {
   settings: RepresentativesSettings
@@ -19,7 +30,6 @@ type RepState = {
   members: RepresentativeMember[]
   periods: RepresentativePeriod[]
   auditTrail: RepresentativesAuditEntry[]
-  /** electionId -> Set of opaque voter tokens (browser session) to prevent double vote in demo */
   voterTokens: Record<string, string[]>
 }
 
@@ -115,32 +125,49 @@ function normalizeMembers(members: RepresentativeMember[]): RepresentativeMember
   }))
 }
 
-function load(): RepState {
+function normalizeParsed(p: RepState): RepState {
+  return {
+    settings: p.settings ?? defaultSettings,
+    elections: Array.isArray(p.elections) ? p.elections : [],
+    members: normalizeMembers(Array.isArray(p.members) ? p.members : []),
+    periods: Array.isArray(p.periods) ? p.periods : [],
+    auditTrail: Array.isArray(p.auditTrail) ? p.auditTrail : [],
+    voterTokens: p.voterTokens && typeof p.voterTokens === 'object' ? p.voterTokens : {},
+  }
+}
+
+function seedDemoLocal(): RepState {
+  return {
+    settings: defaultSettings,
+    elections: [],
+    members: normalizeMembers(seedLeadership),
+    periods: seedPeriods,
+    auditTrail: [
+      auditEntry('election_created', 'Representasjonsmodul initialisert med illustrativ ledergruppe.', {
+        demo: true,
+      }),
+    ],
+    voterTokens: {},
+  }
+}
+
+function emptyRemoteState(): RepState {
+  return {
+    settings: defaultSettings,
+    elections: [],
+    members: [],
+    periods: [],
+    auditTrail: [],
+    voterTokens: {},
+  }
+}
+
+function loadLocal(): RepState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) {
-      return {
-        settings: defaultSettings,
-        elections: [],
-        members: normalizeMembers(seedLeadership),
-        periods: seedPeriods,
-        auditTrail: [
-          auditEntry('election_created', 'Representasjonsmodul initialisert med illustrativ ledergruppe.', {
-            demo: true,
-          }),
-        ],
-        voterTokens: {},
-      }
-    }
+    if (!raw) return seedDemoLocal()
     const p = JSON.parse(raw) as RepState
-    return {
-      settings: p.settings ?? defaultSettings,
-      elections: Array.isArray(p.elections) ? p.elections : [],
-      members: normalizeMembers(Array.isArray(p.members) ? p.members : seedLeadership),
-      periods: Array.isArray(p.periods) ? p.periods : seedPeriods,
-      auditTrail: Array.isArray(p.auditTrail) ? p.auditTrail : [],
-      voterTokens: p.voterTokens && typeof p.voterTokens === 'object' ? p.voterTokens : {},
-    }
+    return normalizeParsed(p)
   } catch {
     return {
       settings: defaultSettings,
@@ -153,8 +180,18 @@ function load(): RepState {
   }
 }
 
-function save(state: RepState) {
+function saveLocal(state: RepState) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+}
+
+function getVoterToken(orgScopedKey: string | null) {
+  const k = orgScopedKey ? `atics-rep-voter:${orgScopedKey}` : 'atics-rep-voter'
+  let t = sessionStorage.getItem(k)
+  if (!t) {
+    t = crypto.randomUUID()
+    sessionStorage.setItem(k, t)
+  }
+  return t
 }
 
 function mapVotesToRoles(
@@ -169,11 +206,72 @@ function mapVotesToRoles(
 }
 
 export function useRepresentatives() {
-  const [state, setState] = useState<RepState>(() => load())
+  const { supabase, organization, user } = useOrgSetupContext()
+  const orgId = organization?.id
+  const userId = user?.id
+  const useRemote = !!(supabase && orgId && userId)
+  const voterTokenScope = useRemote ? orgId : null
+
+  const initialRemote =
+    useRemote && orgId && userId ? readOrgModuleSnap<RepState>(MODULE_KEY, orgId, userId) : null
+  const [localState, setLocalState] = useState<RepState>(() => loadLocal())
+  const [remoteState, setRemoteState] = useState<RepState>(() => initialRemote ?? emptyRemoteState())
+  const [loading, setLoading] = useState(useRemote)
+  const [error, setError] = useState<string | null>(null)
+  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const state = useRemote ? remoteState : localState
+  const setState = useRemote ? setRemoteState : setLocalState
+
+  const refreshRepresentatives = useCallback(async () => {
+    if (!supabase || !orgId || !userId) return
+    setLoading(true)
+    setError(null)
+    try {
+      const payload = await fetchOrgModulePayload<RepState>(supabase, orgId, MODULE_KEY)
+      const next = payload ? normalizeParsed(payload) : emptyRemoteState()
+      setRemoteState(next)
+      writeOrgModuleSnap(MODULE_KEY, orgId, userId, next)
+    } catch (e) {
+      setError(getSupabaseErrorMessage(e))
+      clearOrgModuleSnap(MODULE_KEY, orgId, userId)
+      setRemoteState(emptyRemoteState())
+    } finally {
+      setLoading(false)
+    }
+  }, [supabase, orgId, userId])
 
   useEffect(() => {
-    save(state)
-  }, [state])
+    if (!useRemote) {
+      setLoading(false)
+      return
+    }
+    void refreshRepresentatives()
+  }, [useRemote, refreshRepresentatives])
+
+  useEffect(() => {
+    if (!useRemote) {
+      saveLocal(localState)
+    }
+  }, [useRemote, localState])
+
+  useEffect(() => {
+    if (!useRemote || !supabase || !orgId) return
+    if (persistTimer.current) clearTimeout(persistTimer.current)
+    persistTimer.current = setTimeout(() => {
+      void (async () => {
+        try {
+          await upsertOrgModulePayload(supabase, orgId, MODULE_KEY, remoteState)
+          if (userId) writeOrgModuleSnap(MODULE_KEY, orgId, userId, remoteState)
+        } catch (e) {
+          setError(getSupabaseErrorMessage(e))
+        }
+      })()
+    }, PERSIST_DEBOUNCE_MS)
+    return () => {
+      if (persistTimer.current) clearTimeout(persistTimer.current)
+    }
+  }, [useRemote, supabase, orgId, userId, remoteState])
 
   const appendAudit = useCallback(
     (action: RepElectionAuditAction, message: string, meta?: Record<string, string | number | boolean>) => {
@@ -182,7 +280,7 @@ export function useRepresentatives() {
         auditTrail: [...s.auditTrail, auditEntry(action, message, meta)],
       }))
     },
-    [],
+    [setState],
   )
 
   const updateSettings = useCallback(
@@ -193,7 +291,7 @@ export function useRepresentatives() {
       }))
       appendAudit('settings_updated', 'Innstillinger for seter og krav oppdatert.', patch as Record<string, string | number | boolean>)
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
 
   const createElection = useCallback(
@@ -220,7 +318,7 @@ export function useRepresentatives() {
       })
       return e
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
 
   const addCandidate = useCallback(
@@ -231,9 +329,7 @@ export function useRepresentatives() {
       setState((s) => ({
         ...s,
         elections: s.elections.map((el) =>
-          el.id === electionId && el.status !== 'closed'
-            ? { ...el, candidates: [...el.candidates, c] }
-            : el,
+          el.id === electionId && el.status !== 'closed' ? { ...el, candidates: [...el.candidates, c] } : el,
         ),
       }))
       appendAudit('candidate_added', `Kandidat registrert i valg.`, {
@@ -241,7 +337,7 @@ export function useRepresentatives() {
         candidateId: c.id,
       })
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
 
   const openElection = useCallback(
@@ -249,30 +345,18 @@ export function useRepresentatives() {
       setState((s) => ({
         ...s,
         elections: s.elections.map((el) =>
-          el.id === electionId
-            ? { ...el, status: 'open' as const, openedAt: new Date().toISOString() }
-            : el,
+          el.id === electionId ? { ...el, status: 'open' as const, openedAt: new Date().toISOString() } : el,
         ),
         voterTokens: { ...s.voterTokens, [electionId]: s.voterTokens[electionId] ?? [] },
       }))
       appendAudit('election_opened', `Valg åpnet for stemmegivning.`, { electionId })
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
-
-  const getVoterToken = useCallback(() => {
-    const k = 'atics-rep-voter'
-    let t = sessionStorage.getItem(k)
-    if (!t) {
-      t = crypto.randomUUID()
-      sessionStorage.setItem(k, t)
-    }
-    return t
-  }, [])
 
   const vote = useCallback(
     (electionId: string, candidateId: string) => {
-      const token = getVoterToken()
+      const token = getVoterToken(voterTokenScope)
       let voted = false
       let anonymous = false
       setState((s) => {
@@ -308,7 +392,7 @@ export function useRepresentatives() {
         })
       }
     },
-    [appendAudit, getVoterToken],
+    [appendAudit, setState, voterTokenScope],
   )
 
   const closeElectionAndSync = useCallback(
@@ -334,9 +418,7 @@ export function useRepresentatives() {
           trainingChecklist: emptyTrainingChecklist(),
         }))
 
-        const withoutOldElected = s.members.filter(
-          (m) => !(m.side === 'employee' && m.source === 'election'),
-        )
+        const withoutOldElected = s.members.filter((m) => !(m.side === 'employee' && m.source === 'election'))
 
         const closedElection: RepElection = {
           ...el,
@@ -355,7 +437,7 @@ export function useRepresentatives() {
       })
       appendAudit('board_synced', 'AMU-sammensetting oppdatert etter valg.', { electionId })
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
 
   const toggleTraining = useCallback(
@@ -376,20 +458,18 @@ export function useRepresentatives() {
       }))
       appendAudit('training_updated', 'Opplæringsstatus endret.', { memberId, requirementId })
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
 
   const updateMember = useCallback(
     (id: string, patch: Partial<RepresentativeMember>) => {
       setState((s) => ({
         ...s,
-        members: s.members.map((m) =>
-          m.id === id ? { ...m, ...patch } : m,
-        ),
+        members: s.members.map((m) => (m.id === id ? { ...m, ...patch } : m)),
       }))
       appendAudit('member_updated', 'Representant oppdatert (navn/rolle/periode).', { memberId: id })
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
 
   const addLeadershipPlaceholder = useCallback(() => {
@@ -404,7 +484,7 @@ export function useRepresentatives() {
     }
     setState((s) => ({ ...s, members: [...s.members, m] }))
     appendAudit('member_updated', 'Lederrepresentant lagt til (juster rolle og navn).', { memberId: m.id })
-  }, [appendAudit])
+  }, [appendAudit, setState])
 
   const addPeriod = useCallback(
     (label: string, startDate: string, endDate: string) => {
@@ -417,7 +497,7 @@ export function useRepresentatives() {
       setState((s) => ({ ...s, periods: [...s.periods, p] }))
       appendAudit('election_created', `Periode registrert: ${p.label}`, { periodId: p.id })
     },
-    [appendAudit],
+    [appendAudit, setState],
   )
 
   const validation = useMemo(() => {
@@ -435,14 +515,10 @@ export function useRepresentatives() {
 
     const issues: string[] = []
     if (empCount !== seatsPerSide) {
-      issues.push(
-        `Arbeidstakersiden skal ha nøyaktig ${seatsPerSide} representanter (nå: ${empCount}).`,
-      )
+      issues.push(`Arbeidstakersiden skal ha nøyaktig ${seatsPerSide} representanter (nå: ${empCount}).`)
     }
     if (leadCount !== seatsPerSide) {
-      issues.push(
-        `Arbeidsgiversiden skal ha nøyaktig ${seatsPerSide} representanter (nå: ${leadCount}).`,
-      )
+      issues.push(`Arbeidsgiversiden skal ha nøyaktig ${seatsPerSide} representanter (nå: ${leadCount}).`)
     }
     if (!balanced && empCount !== leadCount) {
       issues.push('Lik representasjon (50/50) er ikke oppfylt — juster antall på begge sider.')
@@ -471,7 +547,7 @@ export function useRepresentatives() {
 
   const periodCount = state.periods.length
 
-  const resetDemo = useCallback(() => {
+  const resetDemo = useCallback(async () => {
     const next: RepState = {
       settings: defaultSettings,
       elections: [],
@@ -480,14 +556,28 @@ export function useRepresentatives() {
       auditTrail: [auditEntry('election_created', 'Demodata tilbakestilt.')],
       voterTokens: {},
     }
-    setState(next)
-    save(next)
-  }, [])
+    if (useRemote && supabase && orgId) {
+      try {
+        setError(null)
+        await upsertOrgModulePayload(supabase, orgId, MODULE_KEY, next)
+        setRemoteState(next)
+        if (userId) writeOrgModuleSnap(MODULE_KEY, orgId, userId, next)
+      } catch (e) {
+        setError(getSupabaseErrorMessage(e))
+      }
+      return
+    }
+    setLocalState(next)
+    saveLocal(next)
+  }, [useRemote, supabase, orgId, userId])
 
   return {
     ...state,
     validation,
     periodCount,
+    loading: useRemote ? loading : false,
+    error: useRemote ? error : null,
+    backend: useRemote ? ('supabase' as const) : ('local' as const),
     updateSettings,
     createElection,
     addCandidate,

@@ -283,6 +283,12 @@ export function CouncilModule() {
       {council.loading && supabaseConfigured && (
         <p className="mb-4 text-sm text-neutral-500">Laster rådsdata…</p>
       )}
+      {rep.error && (
+        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{rep.error}</p>
+      )}
+      {rep.loading && supabaseConfigured && (
+        <p className="mb-4 text-sm text-neutral-500">Laster representasjonsdata…</p>
+      )}
 
       <div className="flex flex-wrap items-start gap-4 border-b border-neutral-200/80 pb-6">
         <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1a3d32] to-[#0f241d] text-[#c9a227] shadow-md ring-2 ring-[#c9a227]/30">
