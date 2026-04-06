@@ -37,7 +37,8 @@ const EMPLOYMENT_LABELS: Record<EmploymentType, string> = {
 const ROLE_OPTIONS = ['Leder', 'Fagansvarlig', 'Fagmedarbeider', 'Saksbehandler', 'Verneombud', 'Tillitsvalgt', 'Konsulent', 'Annet']
 
 const BASE_INPUT = 'mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]'
-const SHELL_BG = '#f5f0e8'
+/** Matches ProjectDashboard, Documents, wiki — shell content column */
+const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const NAV_GREEN = '#1a3d32'
 
 /** Deterministic 0–1 for demo “scores” in employee cards */
@@ -560,14 +561,14 @@ export function OrganisationPage() {
   ]
 
   return (
-    <div className="-mx-4 -mt-0 flex min-h-full flex-col md:-mx-5" style={{ backgroundColor: SHELL_BG }}>
+    <div className={PAGE_WRAP}>
       {org.error && (
-        <p className="mx-4 mb-0 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 md:mx-5 mt-4">
+        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {org.error}
         </p>
       )}
       {org.loading && supabaseConfigured && (
-        <p className="mx-4 mt-4 text-sm text-neutral-500 md:mx-5">Laster organisasjonsdata…</p>
+        <p className="mb-4 text-sm text-neutral-500">Laster organisasjonsdata…</p>
       )}
       {/* Employee modal */}
       {empModal && (
@@ -592,8 +593,8 @@ export function OrganisationPage() {
         />
       )}
 
-      {/* Page header — full width */}
-      <div className="border-b border-neutral-300/40 bg-[#f5f0e8] px-4 pb-4 pt-5 md:px-8">
+      {/* Page header */}
+      <div className="border-b border-neutral-300/40 pb-4">
         <nav className="mb-3 flex items-center gap-1 text-sm text-neutral-500">
           <Link to="/" className="hover:text-[#1a3d32]">Prosjekter</Link>
           <ChevronRight className="mx-1 inline size-3.5" />
@@ -651,9 +652,9 @@ export function OrganisationPage() {
         </div>
       </div>
 
-      {/* In-page nav — full bleed green bar (matches sidebar) */}
-      <div className="w-full border-b border-black/10" style={{ backgroundColor: NAV_GREEN }}>
-        <div className="flex min-h-[3rem] flex-wrap items-stretch gap-0 px-2 md:px-4">
+      {/* In-page nav — green bar (matches sidebar), same column width as rest of app */}
+      <div className="mt-4 w-full border-b border-black/10" style={{ backgroundColor: NAV_GREEN }}>
+        <div className="flex min-h-[3rem] flex-wrap items-stretch gap-0">
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = tab === id
             return (
@@ -684,7 +685,7 @@ export function OrganisationPage() {
         </div>
       </div>
 
-      <div className="flex-1 px-4 py-6 md:px-8">
+      <div className="mt-6">
       {/* ── Org chart ─────────────────────────────────────────────────────── */}
       {tab === 'orgchart' && (
         <div className="mt-0">
