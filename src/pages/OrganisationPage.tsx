@@ -401,7 +401,8 @@ function storedForEdit(emp: OrgEmployee, employees: OrgEmployee[]): OrgEmployee 
 
 export function OrganisationPage() {
   const org = useOrganisation()
-  const { supabaseConfigured, organization: orgRow, members: orgMembers, profile, user } = useOrgSetupContext()
+  const { supabaseConfigured, organization: orgRow, members: orgMembers, profile, user, isDemoMode } =
+    useOrgSetupContext()
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = useMemo(() => tabFromSearch(searchParams.get('tab')), [searchParams])
   const setTab = useCallback(
@@ -486,6 +487,16 @@ export function OrganisationPage() {
 
   return (
     <div className={PAGE_WRAP}>
+      {isDemoMode && (
+        <div className="mb-4 rounded-2xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+          <strong className="font-semibold">Demomodus</strong> — du er koblet til en anonym sesjon med forhåndsutfylt
+          data i databasen. Endringer lagres i demoområdet. For å bruke egen organisasjon,{' '}
+          <Link to="/login" className="font-medium text-[#1a3d32] underline underline-offset-2">
+            logg inn
+          </Link>
+          .
+        </div>
+      )}
       {org.error && (
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {org.error}
@@ -546,7 +557,8 @@ export function OrganisationPage() {
           </p>
           {supabaseConfigured && user && (
             <p className="mt-2 text-xs text-neutral-500">
-              Innlogget som {profile?.display_name ?? profile?.email ?? user.email ?? 'bruker'}
+              {isDemoMode ? 'Demo-besøkende (anonym sesjon)' : 'Innlogget som'}{' '}
+              {!isDemoMode && (profile?.display_name ?? profile?.email ?? user.email ?? 'bruker')}
             </p>
           )}
           <div className="mt-5 flex flex-wrap gap-2">

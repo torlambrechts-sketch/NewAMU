@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { usePermissions } from './usePermissions'
 import { ensureProfileRowExists } from '../lib/ensureProfile'
+import {
+  DEMO_ORGANIZATION_ID,
+  isDemoRouteSearch,
+  persistDemoSessionFlag,
+  readDemoSessionFlag,
+} from '../lib/demoOrg'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { fetchEnhetByOrgnr, normalizeOrgNumber } from '../lib/brreg'
@@ -19,6 +26,7 @@ import type {
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 
 export function useOrgSetup() {
+  const location = useLocation()
   const supabase = getSupabaseBrowserClient()
   const [loadState, setLoadState] = useState<LoadState>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -37,6 +45,16 @@ export function useOrgSetup() {
     refresh: refreshPermissions,
     isAdmin,
   } = usePermissions(user?.id)
+
+  const wantsDemoSession = useCallback(() => {
+    return isDemoRouteSearch(location.search) || readDemoSessionFlag()
+  }, [location.search])
+
+  const attachDemoTenantIfNeeded = useCallback(async () => {
+    if (!supabase || !wantsDemoSession()) return
+    const { error } = await supabase.rpc('ensure_demo_org_profile_for_anonymous')
+    if (error) console.warn('ensure_demo_org_profile_for_anonymous', error.message)
+  }, [supabase, wantsDemoSession])
 
   const loadProfileAndOrg = useCallback(
     async (uid: string) => {
@@ -97,15 +115,24 @@ export function useOrgSetup() {
   /** Re-read session when the route changes (fixes: login → SPA navigate while user state was still null). */
   const syncSessionForRoute = useCallback(async () => {
     if (!supabase) return
-    const {
-      data: { session },
-      error: sessErr,
-    } = await supabase.auth.getSession()
-    if (sessErr) return
+    const first = await supabase.auth.getSession()
+    if (first.error) return
+    let session = first.data.session
+    if (!session?.user && wantsDemoSession()) {
+      const { error: anonErr } = await supabase.auth.signInAnonymously()
+      if (!anonErr) {
+        const next = await supabase.auth.getSession()
+        if (!next.error) session = next.data.session
+      }
+    }
     const u = session?.user ?? null
     setUser(u)
     if (u) {
       try {
+        if (wantsDemoSession()) {
+          persistDemoSessionFlag(true)
+          await attachDemoTenantIfNeeded()
+        }
         await ensureProfileRowExists(supabase, u.id)
         await loadProfileAndOrg(u.id)
         setError(null)
@@ -117,7 +144,7 @@ export function useOrgSetup() {
       setProfile(null)
       setOrganization(null)
     }
-  }, [supabase, loadProfileAndOrg])
+  }, [supabase, loadProfileAndOrg, wantsDemoSession, attachDemoTenantIfNeeded])
 
   /* Do not depend on location.pathname — re-reading session on every navigation caused flicker. */
   useEffect(() => {
@@ -138,6 +165,10 @@ export function useOrgSetup() {
     }
 
     const hydrateUser = async (uid: string) => {
+      if (wantsDemoSession()) {
+        persistDemoSessionFlag(true)
+        await attachDemoTenantIfNeeded()
+      }
       await ensureProfileRow(uid)
       await loadProfileAndOrg(uid)
       setError(null)
@@ -180,9 +211,21 @@ export function useOrgSetup() {
 
     void (async () => {
       try {
-        const { data: sessionData, error: sessErr } = await supabase.auth.getSession()
-        if (sessErr) throw sessErr
-        const u = sessionData.session?.user ?? null
+        const initial = await supabase.auth.getSession()
+        if (initial.error) throw initial.error
+        let sessionData = initial.data
+        let u = sessionData.session?.user ?? null
+        if (!u && wantsDemoSession()) {
+          const { error: anonErr } = await supabase.auth.signInAnonymously()
+          if (anonErr) {
+            console.warn('signInAnonymously', anonErr.message)
+          } else {
+            const next = await supabase.auth.getSession()
+            if (next.error) throw next.error
+            sessionData = next.data
+            u = sessionData.session?.user ?? null
+          }
+        }
         if (cancelled) return
         setUser(u)
         if (u) {
@@ -215,7 +258,7 @@ export function useOrgSetup() {
       cancelled = true
       subscription.unsubscribe()
     }
-  }, [supabase, loadProfileAndOrg, refreshPermissions])
+  }, [supabase, loadProfileAndOrg, refreshPermissions, wantsDemoSession, attachDemoTenantIfNeeded])
 
   useEffect(() => {
     if (!supabase || !organization?.id) {
@@ -445,6 +488,7 @@ export function useOrgSetup() {
 
   const signOut = useCallback(async () => {
     if (!supabase) return
+    persistDemoSessionFlag(false)
     await supabase.auth.signOut()
     setUser(null)
     setProfile(null)
@@ -467,6 +511,7 @@ export function useOrgSetup() {
   const needsOnboarding = useMemo(() => {
     if (!supabase) return false
     if (!user) return false
+    if (profile?.organization_id === DEMO_ORGANIZATION_ID) return false
     if (!profile?.organization_id) return true
     if (!organization?.onboarding_completed_at) return true
     return false
@@ -474,12 +519,18 @@ export function useOrgSetup() {
 
   const ready = loadState === 'ready' || loadState === 'idle'
 
+  const isDemoMode = useMemo(
+    () => profile?.organization_id === DEMO_ORGANIZATION_ID && user?.is_anonymous === true,
+    [profile?.organization_id, user?.is_anonymous],
+  )
+
   return {
     supabase,
     supabaseConfigured: !!supabase,
     loadState,
     ready,
     error,
+    isDemoMode,
     user,
     can,
     permissionKeys,
