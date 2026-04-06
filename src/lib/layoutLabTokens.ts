@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
-import type { LayoutLabPayload } from '../types/layoutLab'
-import { DEFAULT_LAYOUT_LAB } from '../types/layoutLab'
+import type { LayoutLabPayload, SidebarBox1Settings } from '../types/layoutLab'
+import { DEFAULT_LAYOUT_LAB, DEFAULT_SIDEBAR_BOX_1 } from '../types/layoutLab'
 
 /** Shared Tailwind token helpers — used by Layout-lab and Platform UI Advanced. */
 export function layoutRadiusClass(r: LayoutLabPayload['radius']): string {
@@ -107,5 +107,91 @@ export function layoutCardStyleObject(payload: LayoutLabPayload): CSSProperties 
 }
 
 export function mergeLayoutPayload(partial: Partial<LayoutLabPayload>): LayoutLabPayload {
-  return { ...DEFAULT_LAYOUT_LAB, ...partial, version: 1 }
+  const sb = partial.sidebar_box_1
+    ? { ...DEFAULT_SIDEBAR_BOX_1, ...partial.sidebar_box_1 }
+    : DEFAULT_SIDEBAR_BOX_1
+  return { ...DEFAULT_LAYOUT_LAB, ...partial, sidebar_box_1: sb, version: 1 }
+}
+
+function sidebarBox1SurfaceClass(s: SidebarBox1Settings['surface']): string {
+  switch (s) {
+    case 'muted':
+      return 'bg-neutral-100'
+    case 'cream':
+      return 'bg-[#faf8f4]'
+    default:
+      return 'bg-white'
+  }
+}
+
+function sidebarBox1ShadowClass(s: SidebarBox1Settings['shadow']): string {
+  switch (s) {
+    case 'none':
+      return 'shadow-none'
+    case 'md':
+      return 'shadow-md'
+    default:
+      return 'shadow-sm'
+  }
+}
+
+function sidebarBox1PaddingClass(p: SidebarBox1Settings['padding']): string {
+  return p === 'compact' ? 'p-4' : 'p-6'
+}
+
+function sidebarBox1HeadingClass(size: SidebarBox1Settings['headingSize']): string {
+  switch (size) {
+    case 'sm':
+      return 'text-sm font-semibold text-neutral-900'
+    case 'lg':
+      return 'text-lg font-semibold text-neutral-900'
+    default:
+      return 'text-base font-semibold text-neutral-900'
+  }
+}
+
+/** Shell classes for sidebar_box_1 (border uses global radius from payload) */
+export function sidebarBox1ShellClass(payload: LayoutLabPayload): string {
+  const s = payload.sidebar_box_1 ?? DEFAULT_SIDEBAR_BOX_1
+  const r = layoutRadiusClass(payload.radius)
+  const surf = sidebarBox1SurfaceClass(s.surface)
+  const sh = sidebarBox1ShadowClass(s.shadow)
+  return `h-fit border border-neutral-200/90 ${r} ${surf} ${sh}`
+}
+
+export function sidebarBox1Padding(payload: LayoutLabPayload): string {
+  return sidebarBox1PaddingClass(payload.sidebar_box_1?.padding ?? DEFAULT_SIDEBAR_BOX_1.padding)
+}
+
+export function sidebarBox1HeadingClassFromPayload(payload: LayoutLabPayload): string {
+  return sidebarBox1HeadingClass(payload.sidebar_box_1?.headingSize ?? DEFAULT_SIDEBAR_BOX_1.headingSize)
+}
+
+/** Primary CTA inside sidebar_box_1 */
+export function sidebarBox1ButtonClass(payload: LayoutLabPayload): string {
+  const style = payload.sidebar_box_1?.buttonStyle ?? DEFAULT_SIDEBAR_BOX_1.buttonStyle
+  const base =
+    'flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-medium transition-colors'
+  if (style === 'outline') {
+    return `${base} border-2 bg-transparent hover:bg-neutral-50`
+  }
+  if (style === 'soft') {
+    return `${base} text-neutral-900 hover:opacity-90`
+  }
+  return `${base} text-white shadow-sm hover:opacity-95`
+}
+
+export function sidebarBox1ButtonStyleObject(payload: LayoutLabPayload): CSSProperties | undefined {
+  const style = payload.sidebar_box_1?.buttonStyle ?? DEFAULT_SIDEBAR_BOX_1.buttonStyle
+  const accent = payload.accent || DEFAULT_LAYOUT_LAB.accent
+  if (style === 'solid') {
+    return { backgroundColor: accent }
+  }
+  if (style === 'soft') {
+    return { backgroundColor: `${accent}18`, color: accent }
+  }
+  if (style === 'outline') {
+    return { borderColor: accent, color: accent }
+  }
+  return undefined
 }

@@ -21,6 +21,7 @@ import {
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { OrganisationHeaderIllustration } from '../components/organisation/OrganisationHeaderIllustration'
+import { SidebarBox1 } from '../components/layout/SidebarBox1'
 import type { EmploymentType, OrgEmployee, OrgUnitKind, UserGroup } from '../types/organisation'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -810,9 +811,16 @@ export function OrganisationPage() {
               {org.units.length === 0 && <p className="text-sm text-neutral-500">Ingen enheter ennå.</p>}
             </div>
           </div>
-          <div className="h-fit rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm">
-            <h2 className="text-base font-semibold text-neutral-900">Ny enhet</h2>
-            <form className="mt-4 space-y-3" onSubmit={handleCreateUnit}>
+          <SidebarBox1
+            heading="Ny enhet"
+            primaryAction={({ className, style }) => (
+              <button type="submit" form="org-sidebar-new-unit" className={className} style={style}>
+                <Plus className="size-4" />
+                Opprett enhet
+              </button>
+            )}
+          >
+            <form id="org-sidebar-new-unit" className="space-y-3" onSubmit={handleCreateUnit}>
               <div><label className="text-xs font-medium text-neutral-500">Navn *</label>
                 <input value={unitForm.name} onChange={(e) => setUnitForm((f) => ({ ...f, name: e.target.value }))} required className={BASE_INPUT} /></div>
               <div><label className="text-xs font-medium text-neutral-500">Type</label>
@@ -833,11 +841,8 @@ export function OrganisationPage() {
                   <span className="text-xs text-neutral-400">{unitForm.color}</span>
                 </div>
               </div>
-              <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-full bg-[#1a3d32] py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#142e26]">
-                <Plus className="size-4" />Opprett enhet
-              </button>
             </form>
-          </div>
+          </SidebarBox1>
         </div>
       )}
 
@@ -863,9 +868,16 @@ export function OrganisationPage() {
               )}
             </div>
           </div>
-          <div className="h-fit rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm">
-            <h2 className="text-base font-semibold text-neutral-900">Ny brukergruppe</h2>
-            <form className="mt-4 space-y-3" onSubmit={handleCreateGroup}>
+          <SidebarBox1
+            heading="Ny brukergruppe"
+            primaryAction={({ className, style }) => (
+              <button type="submit" form="org-sidebar-new-group" className={className} style={style}>
+                <Plus className="size-4" />
+                Opprett gruppe
+              </button>
+            )}
+          >
+            <form id="org-sidebar-new-group" className="space-y-3" onSubmit={handleCreateGroup}>
               <div><label className="text-xs font-medium text-neutral-500">Gruppenavn *</label><input value={groupForm.name} onChange={(e) => setGroupForm((f) => ({ ...f, name: e.target.value }))} required className={BASE_INPUT} /></div>
               <div><label className="text-xs font-medium text-neutral-500">Beskrivelse</label><input value={groupForm.description} onChange={(e) => setGroupForm((f) => ({ ...f, description: e.target.value }))} className={BASE_INPUT} /></div>
               <div><label className="text-xs font-medium text-neutral-500">Omfang</label>
@@ -897,9 +909,8 @@ export function OrganisationPage() {
                     ))}
                   </div></div>
               )}
-              <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-full bg-[#1a3d32] py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#142e26]"><Plus className="size-4" />Opprett gruppe</button>
             </form>
-          </div>
+          </SidebarBox1>
         </div>
       )}
 
@@ -977,10 +988,11 @@ export function OrganisationPage() {
             </div>
           </div>
 
-          <div className="h-fit rounded-2xl border border-neutral-200/90 bg-[#faf8f4] p-6 shadow-sm">
-            <h3 className="text-base font-semibold text-neutral-900">Beregnede terskler (AML 2024)</h3>
-            <p className="mt-1 text-xs text-neutral-500">Oppdateres ut fra antall ansatte og innstillinger.</p>
-            <div className="mt-4 space-y-3 text-sm">
+          <SidebarBox1
+            heading="Beregnede terskler (AML 2024)"
+            subheading="Oppdateres ut fra antall ansatte og innstillinger."
+          >
+            <div className="space-y-3 text-sm">
               {[
                 { label: 'Antall ansatte', value: `${org.totalEmployeeCount}`, ok: undefined },
                 { label: 'Verneombud lovpålagt (AML §6-1)', value: ct.requiresVerneombud ? 'Ja (≥5)' : 'Nei', ok: ct.requiresVerneombud },
@@ -1000,7 +1012,7 @@ export function OrganisationPage() {
                 </div>
               ))}
             </div>
-          </div>
+          </SidebarBox1>
         </div>
       )}
       </div>

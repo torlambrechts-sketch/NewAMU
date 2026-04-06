@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Download, Loader2, Radio, Save, Trash2 } from 'lucide-react'
+import { Download, Loader2, Plus, Radio, Save, Trash2 } from 'lucide-react'
 import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 import {
@@ -15,7 +15,9 @@ import {
   layoutRadiusClass,
   layoutSurfaceClass,
   layoutTableRowClass,
+  mergeLayoutPayload,
 } from '../../lib/layoutLabTokens'
+import { SidebarBox1 } from '../../components/layout/SidebarBox1'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { useUiTheme } from '../../hooks/useUiTheme'
 
@@ -43,7 +45,7 @@ export function LayoutLabPage() {
       const raw = localStorage.getItem(LAYOUT_LAB_STORAGE_KEY)
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<LayoutLabPayload>
-        setSettings({ ...DEFAULT_LAYOUT_LAB, ...parsed, version: 1 })
+        setSettings(mergeLayoutPayload(parsed))
       }
     } catch {
       /* ignore */
@@ -51,9 +53,9 @@ export function LayoutLabPage() {
   }, [])
 
   const persistLocal = useCallback((next: LayoutLabPayload) => {
-    setSettings(next)
+    setSettings(mergeLayoutPayload(next))
     try {
-      localStorage.setItem(LAYOUT_LAB_STORAGE_KEY, JSON.stringify(next))
+      localStorage.setItem(LAYOUT_LAB_STORAGE_KEY, JSON.stringify(mergeLayoutPayload(next)))
     } catch {
       /* ignore */
     }
@@ -329,6 +331,115 @@ export function LayoutLabPage() {
             </select>
           </label>
 
+          <div className="border-t border-white/10 pt-3">
+            <p className="text-xs font-semibold text-white">Sidebar-boks (sidebar_box_1)</p>
+            <p className="mt-0.5 text-[10px] text-neutral-500">Organisasjon → enheter, brukergrupper, terskler.</p>
+          </div>
+
+          <label className="block text-xs text-neutral-400">
+            Sidetittel (hoved)
+            <select
+              value={settings.sidebar_box_1.headingSize}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  sidebar_box_1: {
+                    ...settings.sidebar_box_1,
+                    headingSize: e.target.value as LayoutLabPayload['sidebar_box_1']['headingSize'],
+                  },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="sm">Liten</option>
+              <option value="md">Medium</option>
+              <option value="lg">Stor</option>
+            </select>
+          </label>
+
+          <label className="block text-xs text-neutral-400">
+            Primærknapp
+            <select
+              value={settings.sidebar_box_1.buttonStyle}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  sidebar_box_1: {
+                    ...settings.sidebar_box_1,
+                    buttonStyle: e.target.value as LayoutLabPayload['sidebar_box_1']['buttonStyle'],
+                  },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="solid">Fylt (aksent)</option>
+              <option value="outline">Omriss</option>
+              <option value="soft">Myk</option>
+            </select>
+          </label>
+
+          <label className="block text-xs text-neutral-400">
+            Padding
+            <select
+              value={settings.sidebar_box_1.padding}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  sidebar_box_1: {
+                    ...settings.sidebar_box_1,
+                    padding: e.target.value as LayoutLabPayload['sidebar_box_1']['padding'],
+                  },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="comfortable">Luftig</option>
+              <option value="compact">Kompakt</option>
+            </select>
+          </label>
+
+          <label className="block text-xs text-neutral-400">
+            Boks bakgrunn
+            <select
+              value={settings.sidebar_box_1.surface}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  sidebar_box_1: {
+                    ...settings.sidebar_box_1,
+                    surface: e.target.value as LayoutLabPayload['sidebar_box_1']['surface'],
+                  },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="white">Hvit</option>
+              <option value="cream">Krem</option>
+              <option value="muted">Nøytral</option>
+            </select>
+          </label>
+
+          <label className="block text-xs text-neutral-400">
+            Skygge
+            <select
+              value={settings.sidebar_box_1.shadow}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  sidebar_box_1: {
+                    ...settings.sidebar_box_1,
+                    shadow: e.target.value as LayoutLabPayload['sidebar_box_1']['shadow'],
+                  },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="none">Ingen</option>
+              <option value="sm">Liten</option>
+              <option value="md">Medium</option>
+            </select>
+          </label>
+
           <div className="border-t border-white/10 pt-4">
             <p className="text-xs text-neutral-500">Lagres automatisk i nettleseren. Sky-lagring krever navn.</p>
             <button
@@ -376,7 +487,7 @@ export function LayoutLabPage() {
                   <button
                     type="button"
                     className="truncate text-left text-amber-300/90 hover:underline"
-                    onClick={() => persistLocal({ ...DEFAULT_LAYOUT_LAB, ...p.payload, version: 1 })}
+                    onClick={() => persistLocal(mergeLayoutPayload(p.payload as Partial<LayoutLabPayload>))}
                   >
                     {p.name}
                   </button>
@@ -456,6 +567,23 @@ export function LayoutLabPage() {
                 </ul>
               </div>
             ))}
+          </div>
+
+          <div className="mt-8 max-w-sm">
+            <p className="mb-2 text-xs font-medium text-neutral-500">Forhåndsvisning: sidebar_box_1</p>
+            <SidebarBox1
+              heading="Ny enhet"
+              subheading="Eksempel — samme komponent som på Organisasjon."
+              payloadOverride={settings}
+              primaryAction={({ className, style }) => (
+                <button type="button" className={className} style={style}>
+                  <Plus className="size-4" />
+                  Opprett enhet
+                </button>
+              )}
+            >
+              <p className="text-sm text-neutral-600">Skjemafelt vises her i appen.</p>
+            </SidebarBox1>
           </div>
         </div>
       </div>
