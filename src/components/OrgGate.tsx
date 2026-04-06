@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { DEMO_QUERY_PARAM, isDemoRouteSearch } from '../lib/demoOrg'
 
 /** Auth required when Supabase is on; onboarding until org is complete. */
 export function OrgGate() {
@@ -21,9 +22,10 @@ export function OrgGate() {
   const isInvite = path.startsWith('/invite/')
   if (supabaseConfigured && !user && !isPublicAuth && !isInvite) {
     const isPlatformAdminArea = path.startsWith('/platform-admin')
+    const wantsDemo = isDemoRouteSearch(location.search)
     const loginTarget = isPlatformAdminArea
       ? `/platform-admin/login?redirect=${encodeURIComponent(path + location.search)}`
-      : `/login?redirect=${encodeURIComponent(path + location.search)}&reason=no_session`
+      : `/login?redirect=${encodeURIComponent(path + location.search)}&reason=no_session${wantsDemo ? `&${DEMO_QUERY_PARAM}=1` : ''}`
     return <Navigate to={loginTarget} replace />
   }
 

@@ -1,10 +1,10 @@
-import { useState, type FormEvent, useEffect } from 'react'
+import { useState, type FormEvent, useEffect, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertCircle, Loader2, Sparkles } from 'lucide-react'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { mapAuthError } from '../lib/authErrors'
 import { postLoginRedirectPath } from '../lib/authRedirect'
-import { DEMO_QUERY_PARAM } from '../lib/demoOrg'
+import { DEMO_QUERY_PARAM, persistDemoSessionFlag } from '../lib/demoOrg'
 
 type Mode = 'login' | 'signup'
 
@@ -14,12 +14,50 @@ export function AuthPage({ mode }: { mode: Mode }) {
   const [searchParams] = useSearchParams()
   const redirect = searchParams.get('redirect') || '/'
   const reason = searchParams.get('reason')
+  const demoParam = searchParams.get(DEMO_QUERY_PARAM)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [demoStarting, setDemoStarting] = useState(false)
+  const [demoError, setDemoError] = useState<string | null>(null)
+  const demoAutoStarted = useRef(false)
+
+  /** Auto anonymous sign-in when opening /login?demo=1 — demo does not use email/password. */
+  useEffect(() => {
+    if (mode !== 'login' || !supabase) return
+    if (demoParam !== '1') return
+    if (demoAutoStarted.current) return
+    demoAutoStarted.current = true
+    let cancelled = false
+    void (async () => {
+      setDemoStarting(true)
+      setDemoError(null)
+      const { error: anonErr } = await supabase.auth.signInAnonymously()
+      if (cancelled) return
+      if (anonErr) {
+        setDemoError(
+          `${anonErr.message} — Sjekk Supabase → Authentication → Providers at «Anonymous sign-ins» er på. Legg også Vercel-URL i Authentication → URL Configuration → Redirect URLs / Site URL.`,
+        )
+        setDemoStarting(false)
+        demoAutoStarted.current = false
+        return
+      }
+      persistDemoSessionFlag(true)
+      const base = postLoginRedirectPath(redirect)
+      const withDemo =
+        base.includes(`${DEMO_QUERY_PARAM}=`) || base.includes(`${DEMO_QUERY_PARAM}=1`)
+          ? base
+          : `${base}${base.includes('?') ? '&' : '?'}${DEMO_QUERY_PARAM}=1`
+      navigate(withDemo, { replace: true })
+      setDemoStarting(false)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [mode, supabase, demoParam, redirect, navigate])
 
   useEffect(() => {
     if (reason === 'no_session') {
@@ -120,6 +158,17 @@ export function AuthPage({ mode }: { mode: Mode }) {
             : 'Opprett bruker med fullt navn. Deretter kobler du til eller oppretter virksomhet i veiviseren.'}
         </p>
 
+        {demoStarting && (
+          <p className="mt-4 flex items-center gap-2 text-sm text-neutral-600">
+            <Loader2 className="size-4 animate-spin" /> Starter demo (anonym innlogging)…
+          </p>
+        )}
+        {demoError && (
+          <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-900">
+            {demoError}
+          </div>
+        )}
+
         <form onSubmit={(e) => void submit(e)} className="mt-6 space-y-4">
           {mode === 'signup' ? (
             <div>
@@ -206,21 +255,27 @@ export function AuthPage({ mode }: { mode: Mode }) {
               <div>
                 <p className="font-medium text-amber-950">Demo uten passord</p>
                 <p className="mt-1 text-xs text-amber-900/90">
-                  Krever <strong>Anonymous</strong> slått på i Supabase (Authentication → Providers). Åpner demovirksomhet
-                  med forhåndsdata — inkl. tilgang til Rapporter når migrasjon for demo-tilganger er kjørt.
+                  <strong>Ikke bruk e-postfeltet over</strong> — demo er en anonym Supabase-bruker, ikke en e-postkonto.
+                  Krever <strong>Anonymous</strong> i Supabase (Authentication → Providers) og at migrasjonen for
+                  demo-org er kjørt.
                 </p>
-                <Link
-                  to={`/?${DEMO_QUERY_PARAM}=1`}
-                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#1a3d32] px-3 py-2 text-xs font-semibold text-white hover:bg-[#142e26]"
-                >
-                  Start demo
-                </Link>
-                <p className="mt-2 text-[11px] text-amber-800/80">
-                  Deretter: gå til <strong>Rapporter</strong> i menyen, eller åpne{' '}
-                  <Link to={`/reports?${DEMO_QUERY_PARAM}=1`} className="font-medium underline">
-                    /reports?{DEMO_QUERY_PARAM}=1
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Link
+                    to={`/?${DEMO_QUERY_PARAM}=1`}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a3d32] px-3 py-2 text-xs font-semibold text-white hover:bg-[#142e26]"
+                  >
+                    Start demo (forside)
                   </Link>
-                  .
+                  <Link
+                    to={`/login?${DEMO_QUERY_PARAM}=1&redirect=${encodeURIComponent('/reports')}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-700/40 bg-white/80 px-3 py-2 text-xs font-semibold text-amber-950 hover:bg-white"
+                  >
+                    Demo → Rapporter
+                  </Link>
+                </div>
+                <p className="mt-2 text-[11px] text-amber-800/80">
+                  Legg Vercel-domenet inn under Authentication → URL Configuration (Site URL / Redirect URLs), ellers
+                  blir ikke sesjonen lagret.
                 </p>
               </div>
             </div>
