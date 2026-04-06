@@ -1,9 +1,10 @@
 import { useState, type FormEvent, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2, Sparkles } from 'lucide-react'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { mapAuthError } from '../lib/authErrors'
 import { postLoginRedirectPath } from '../lib/authRedirect'
+import { DEMO_QUERY_PARAM } from '../lib/demoOrg'
 
 type Mode = 'login' | 'signup'
 
@@ -13,7 +14,6 @@ export function AuthPage({ mode }: { mode: Mode }) {
   const [searchParams] = useSearchParams()
   const redirect = searchParams.get('redirect') || '/'
   const reason = searchParams.get('reason')
-
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
@@ -198,6 +198,34 @@ export function AuthPage({ mode }: { mode: Mode }) {
             {mode === 'login' ? 'Logg inn' : 'Registrer'}
           </button>
         </form>
+
+        {mode === 'login' && (
+          <div className="mt-6 rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+            <div className="flex items-start gap-2">
+              <Sparkles className="mt-0.5 size-4 shrink-0 text-amber-700" />
+              <div>
+                <p className="font-medium text-amber-950">Demo uten passord</p>
+                <p className="mt-1 text-xs text-amber-900/90">
+                  Krever <strong>Anonymous</strong> slått på i Supabase (Authentication → Providers). Åpner demovirksomhet
+                  med forhåndsdata — inkl. tilgang til Rapporter når migrasjon for demo-tilganger er kjørt.
+                </p>
+                <Link
+                  to={`/?${DEMO_QUERY_PARAM}=1`}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#1a3d32] px-3 py-2 text-xs font-semibold text-white hover:bg-[#142e26]"
+                >
+                  Start demo
+                </Link>
+                <p className="mt-2 text-[11px] text-amber-800/80">
+                  Deretter: gå til <strong>Rapporter</strong> i menyen, eller åpne{' '}
+                  <Link to={`/reports?${DEMO_QUERY_PARAM}=1`} className="font-medium underline">
+                    /reports?{DEMO_QUERY_PARAM}=1
+                  </Link>
+                  .
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <p className="mt-6 text-center text-sm text-neutral-600">
           {mode === 'login' ? (

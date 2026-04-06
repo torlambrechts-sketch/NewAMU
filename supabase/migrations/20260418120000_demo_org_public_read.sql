@@ -44,6 +44,10 @@ cross join (
     ('module.view.internal_control'),
     ('module.view.tasks'),
     ('module.view.learning'),
+    ('module.view.reports'),
+    ('module.view.workflow'),
+    ('module.view.hr_compliance'),
+    ('documents.manage'),
     ('module.view.admin')
 ) as p(permission_key)
 where rd.organization_id = '00000000-0000-4000-a000-000000000001'
@@ -62,7 +66,10 @@ cross join (
     ('module.view.hse'),
     ('module.view.internal_control'),
     ('module.view.tasks'),
-    ('module.view.learning')
+    ('module.view.learning'),
+    ('module.view.reports'),
+    ('module.view.workflow'),
+    ('module.view.hr_compliance')
 ) as p(permission_key)
 where rd.organization_id = '00000000-0000-4000-a000-000000000001'
   and rd.slug = 'member'
