@@ -884,50 +884,102 @@ export function OrganisationPage() {
         </div>
       )}
 
-      {/* ── Settings ──────────────────────────────────────────────────────── */}
+      {/* ── Settings — samme layout som Brukergrupper (liste/skjema venstre, boks høyre) ─ */}
       {tab === 'settings' && (
-        <div className="max-w-xl space-y-6">
-          <div className="rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm space-y-4">
-            <h2 className="text-base font-semibold text-neutral-900">Virksomhetsinnstillinger</h2>
-            <p className="text-xs text-neutral-500">Disse verdiene driver AMU/verneombud-terskler og vises i Council-modulen.</p>
-            <div><label className="text-xs font-medium text-neutral-500">Virksomhetsnavn</label>
-              <input value={org.settings.orgName} onChange={(e) => org.updateSettings({ orgName: e.target.value })} className={BASE_INPUT} /></div>
-            <div><label className="text-xs font-medium text-neutral-500">Organisasjonsnummer</label>
-              <input value={org.settings.orgNumber ?? ''} onChange={(e) => org.updateSettings({ orgNumber: e.target.value || undefined })} placeholder="9 siffer" className={BASE_INPUT} /></div>
-            <div>
-              <label className="text-xs font-medium text-neutral-500">
-                Antall ansatte (manuelt — overstyres av ansattlisten)
-              </label>
-              <input type="number" min={0} value={org.settings.employeeCount} onChange={(e) => org.updateSettings({ employeeCount: Number(e.target.value) || 0 })} className={BASE_INPUT} />
-              <p className="mt-1 text-xs text-neutral-400">Aktive i ansattlisten: {org.activeEmployees.length}</p>
-            </div>
-            <div><label className="text-xs font-medium text-neutral-500">Bransje / sektor</label>
-              <input value={org.settings.industrySector ?? ''} onChange={(e) => org.updateSettings({ industrySector: e.target.value || undefined })} placeholder="f.eks. Helse og omsorg" className={BASE_INPUT} /></div>
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-200 p-3.5">
-              <input type="checkbox" checked={org.settings.hasCollectiveAgreement} onChange={(e) => org.updateSettings({ hasCollectiveAgreement: e.target.checked })} className="mt-0.5 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
-              <div>
-                <span className="text-sm font-medium text-neutral-900">Tariffavtale gjelder</span>
-                <p className="text-xs text-neutral-500">Kan fravike noen AML-regler.</p>
+        <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:gap-10">
+          <div>
+            <h2 className="mb-4 text-lg font-semibold text-neutral-900">Virksomhetsinnstillinger</h2>
+            <div className="rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm">
+              <p className="text-sm text-neutral-600">
+                Disse verdiene driver AMU/verneombud-terskler og vises i Council-modulen.
+              </p>
+              <div className="mt-5 space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-neutral-500">Virksomhetsnavn</label>
+                  <input
+                    value={org.settings.orgName}
+                    onChange={(e) => org.updateSettings({ orgName: e.target.value })}
+                    className={BASE_INPUT}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-500">Organisasjonsnummer</label>
+                  <input
+                    value={org.settings.orgNumber ?? ''}
+                    onChange={(e) => org.updateSettings({ orgNumber: e.target.value || undefined })}
+                    placeholder="9 siffer"
+                    className={BASE_INPUT}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-500">
+                    Antall ansatte (manuelt — overstyres av ansattlisten)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={org.settings.employeeCount}
+                    onChange={(e) => org.updateSettings({ employeeCount: Number(e.target.value) || 0 })}
+                    className={BASE_INPUT}
+                  />
+                  <p className="mt-1 text-xs text-neutral-400">Aktive i ansattlisten: {org.activeEmployees.length}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-500">Bransje / sektor</label>
+                  <input
+                    value={org.settings.industrySector ?? ''}
+                    onChange={(e) => org.updateSettings({ industrySector: e.target.value || undefined })}
+                    placeholder="f.eks. Helse og omsorg"
+                    className={BASE_INPUT}
+                  />
+                </div>
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-200 p-3.5">
+                  <input
+                    type="checkbox"
+                    checked={org.settings.hasCollectiveAgreement}
+                    onChange={(e) => org.updateSettings({ hasCollectiveAgreement: e.target.checked })}
+                    className="mt-0.5 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-neutral-900">Tariffavtale gjelder</span>
+                    <p className="text-xs text-neutral-500">Kan fravike noen AML-regler.</p>
+                  </div>
+                </label>
+                {org.settings.hasCollectiveAgreement && (
+                  <div>
+                    <label className="text-xs font-medium text-neutral-500">Tariffavtalens navn</label>
+                    <input
+                      value={org.settings.collectiveAgreementName ?? ''}
+                      onChange={(e) => org.updateSettings({ collectiveAgreementName: e.target.value || undefined })}
+                      placeholder="f.eks. Hovedavtalen LO-NHO"
+                      className={BASE_INPUT}
+                    />
+                  </div>
+                )}
               </div>
-            </label>
-            {org.settings.hasCollectiveAgreement && (
-              <div><label className="text-xs font-medium text-neutral-500">Tariffavtalens navn</label>
-                <input value={org.settings.collectiveAgreementName ?? ''} onChange={(e) => org.updateSettings({ collectiveAgreementName: e.target.value || undefined })} placeholder="f.eks. Hovedavtalen LO-NHO" className={BASE_INPUT} /></div>
-            )}
+            </div>
           </div>
 
-          <div className="rounded-2xl border border-neutral-200/90 bg-[#faf8f4] p-6">
-            <h3 className="text-sm font-semibold text-neutral-800 mb-3">Beregnede terskler (AML 2024)</h3>
-            <div className="space-y-2 text-sm">
+          <div className="h-fit rounded-2xl border border-neutral-200/90 bg-[#faf8f4] p-6 shadow-sm">
+            <h3 className="text-base font-semibold text-neutral-900">Beregnede terskler (AML 2024)</h3>
+            <p className="mt-1 text-xs text-neutral-500">Oppdateres ut fra antall ansatte og innstillinger.</p>
+            <div className="mt-4 space-y-3 text-sm">
               {[
                 { label: 'Antall ansatte', value: `${org.totalEmployeeCount}`, ok: undefined },
                 { label: 'Verneombud lovpålagt (AML §6-1)', value: ct.requiresVerneombud ? 'Ja (≥5)' : 'Nei', ok: ct.requiresVerneombud },
                 { label: 'AMU kan kreves (10–29)', value: ct.mayRequestAmu ? 'Ja' : 'Nei', ok: ct.mayRequestAmu },
                 { label: 'AMU lovpålagt (AML §7-1)', value: ct.requiresAmu ? 'Ja (≥30)' : 'Nei', ok: ct.requiresAmu },
               ].map(({ label, value, ok }) => (
-                <div key={label} className="flex items-center justify-between gap-3">
+                <div
+                  key={label}
+                  className="flex items-center justify-between gap-3 border-b border-neutral-200/80 pb-3 last:border-0 last:pb-0"
+                >
                   <span className="text-neutral-600">{label}</span>
-                  <span className={`font-medium ${ok === true ? 'text-emerald-700' : ok === false ? 'text-neutral-400' : 'text-neutral-700'}`}>{value}</span>
+                  <span
+                    className={`shrink-0 font-medium ${ok === true ? 'text-emerald-700' : ok === false ? 'text-neutral-400' : 'text-neutral-700'}`}
+                  >
+                    {value}
+                  </span>
                 </div>
               ))}
             </div>
