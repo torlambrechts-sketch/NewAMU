@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { OrganisationHeaderIllustration } from '../components/organisation/OrganisationHeaderIllustration'
 import type { EmploymentType, OrgEmployee, OrgUnitKind, UserGroup } from '../types/organisation'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -41,6 +42,12 @@ const BASE_INPUT =
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const NAV_GREEN = '#1a3d32'
 const TABLE_CELL = 'px-4 py-4 align-middle text-sm text-neutral-800'
+/** Hero action row: same height & typography as «Ny ansatt» */
+const HERO_ACTION_CLASS =
+  'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium leading-none'
+/** Inputs aligned with table container (rounded-2xl) — not pill-shaped */
+const FILTER_INPUT_CLASS =
+  'rounded-xl border border-neutral-200/90 bg-white px-4 py-2.5 text-sm shadow-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]'
 
 // ─── Avatar helper ────────────────────────────────────────────────────────────
 
@@ -540,10 +547,7 @@ export function OrganisationPage() {
       </nav>
 
       {/* Hero block — matches dashboard org summary */}
-      <div className="flex flex-wrap items-start gap-6 border-b border-neutral-200/80 pb-8">
-        <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-[#1a3d32] text-2xl font-bold text-[#c9a227]">
-          {companyTitle.slice(0, 2).toUpperCase()}
-        </div>
+      <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
         <div className="min-w-0 flex-1">
           <h1
             className="text-2xl font-semibold text-neutral-900 md:text-3xl"
@@ -561,39 +565,42 @@ export function OrganisationPage() {
               {!isDemoMode && (profile?.display_name ?? profile?.email ?? user.email ?? 'bruker')}
             </p>
           )}
-          <div className="mt-5 flex flex-wrap gap-2">
-            <span className="rounded-full bg-neutral-200/80 px-3 py-1 text-xs font-medium text-neutral-700">
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
               {ct.totalEmployeeCount} i beregning
             </span>
             {ct.requiresVerneombud ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800">
-                <CheckCircle2 className="size-3.5" />
+              <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
+                <CheckCircle2 className="size-4 shrink-0" />
                 Verneombud lovpålagt
               </span>
             ) : (
-              <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-500">Verneombud: &lt;5</span>
+              <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>Verneombud: &lt;5</span>
             )}
             {ct.requiresAmu ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800">
-                <CheckCircle2 className="size-3.5" />
+              <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
+                <CheckCircle2 className="size-4 shrink-0" />
                 AMU lovpålagt
               </span>
             ) : ct.mayRequestAmu ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
-                <AlertTriangle className="size-3.5" />
+              <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
+                <AlertTriangle className="size-4 shrink-0" />
                 AMU kan kreves
               </span>
             ) : (
-              <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-500">AMU: &lt;10</span>
+              <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>AMU: &lt;10</span>
             )}
             <button
               type="button"
               onClick={() => setEmpModal({ mode: 'create' })}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#142e26]"
+              className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white shadow-sm hover:bg-[#142e26]`}
             >
-              <Plus className="size-4" /> Ny ansatt
+              <Plus className="size-4 shrink-0" /> Ny ansatt
             </button>
           </div>
+        </div>
+        <div className="flex shrink-0 justify-center sm:justify-end sm:pt-1" aria-hidden>
+          <OrganisationHeaderIllustration className="h-[7.5rem] w-auto max-w-[min(100%,220px)] md:h-32" />
         </div>
       </div>
 
@@ -660,12 +667,12 @@ export function OrganisationPage() {
               value={searchEmp}
               onChange={(e) => setSearchEmp(e.target.value)}
               placeholder="Søk navn, tittel, e-post…"
-              className="min-w-[240px] flex-1 rounded-full border border-neutral-200/90 bg-white py-2.5 pl-4 pr-4 text-sm shadow-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+              className={`min-w-[240px] flex-1 ${FILTER_INPUT_CLASS}`}
             />
             <select
               value={filterUnit}
               onChange={(e) => setFilterUnit(e.target.value)}
-              className="rounded-full border border-neutral-200/90 bg-white px-4 py-2.5 text-sm shadow-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+              className={`min-w-[180px] ${FILTER_INPUT_CLASS}`}
             >
               <option value="">Alle enheter</option>
               {org.units.map((u) => (
