@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   Building2,
   CheckCircle2,
-  ChevronRight,
   GitBranch,
   Mail,
   Pencil,
@@ -36,17 +35,12 @@ const EMPLOYMENT_LABELS: Record<EmploymentType, string> = {
 }
 const ROLE_OPTIONS = ['Leder', 'Fagansvarlig', 'Fagmedarbeider', 'Saksbehandler', 'Verneombud', 'Tillitsvalgt', 'Konsulent', 'Annet']
 
-const BASE_INPUT = 'mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]'
-/** Matches ProjectDashboard, Documents, wiki — shell content column */
+const BASE_INPUT =
+  'mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]'
+/** Matches ProjectDashboard — shell content column */
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const NAV_GREEN = '#1a3d32'
-
-/** Deterministic 0–1 for demo “scores” in employee cards */
-function scoreFromString(s: string, salt: number) {
-  let h = salt
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return 0.35 + (h % 65) / 100
-}
+const TABLE_CELL = 'px-4 py-4 align-middle text-sm text-neutral-800'
 
 // ─── Avatar helper ────────────────────────────────────────────────────────────
 
@@ -57,98 +51,6 @@ function avatarColor(name: string) {
 }
 function initials(name: string) {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
-}
-
-// ─── Employee card ────────────────────────────────────────────────────────────
-
-function EmployeeCard({ emp, onEdit, onDeactivate }: {
-  emp: OrgEmployee
-  onEdit: () => void
-  onDeactivate: () => void
-}) {
-  const bg = avatarColor(emp.name)
-  const overall = Math.round(100 * scoreFromString(emp.name, 11))
-  const kpi = [
-    { label: 'Tilknytning', v: scoreFromString(emp.name, 1) },
-    { label: 'Rolle / nivå', v: scoreFromString(emp.name, 3) },
-    { label: 'Synlighet', v: scoreFromString(emp.name, 7) },
-  ]
-  return (
-    <div
-      className={`border bg-[#faf9f6] shadow-sm transition-shadow hover:shadow-md ${!emp.active ? 'opacity-50' : 'border-neutral-300'} rounded-none`}
-    >
-      <div className="flex items-start justify-between gap-2 border-b border-neutral-200/80 bg-white px-3 py-3">
-        <div className="flex min-w-0 flex-1 items-start gap-3">
-          <div
-            className="flex size-12 shrink-0 items-center justify-center text-sm font-bold text-white"
-            style={{ background: bg }}
-          >
-            {initials(emp.name)}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="font-semibold leading-tight text-neutral-900">{emp.name}</div>
-            <div className="mt-0.5 truncate text-xs text-neutral-500">{emp.jobTitle ?? emp.unitName ?? 'Ansatt'}</div>
-            {emp.role && (
-              <span className="mt-1 inline-block bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-900">
-                {emp.role}
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="shrink-0 text-right">
-          <div className="text-[10px] font-medium uppercase tracking-wide text-neutral-400">Profil</div>
-          <div className="text-2xl font-bold tabular-nums text-neutral-900">{overall}%</div>
-        </div>
-      </div>
-
-      <div className="space-y-2.5 px-3 py-3">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Nøkkeldata</span>
-          <span className="rounded-none bg-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600">
-            {kpi.length}
-          </span>
-        </div>
-        {kpi.map(({ label, v }) => (
-          <div key={label}>
-            <div className="mb-0.5 flex items-center justify-between text-[11px] text-neutral-600">
-              <span>{label}</span>
-              <span className="tabular-nums text-neutral-800">{v.toFixed(2)}</span>
-            </div>
-            <div className="h-1.5 w-full bg-neutral-200">
-              <div className="h-full bg-neutral-900 transition-[width]" style={{ width: `${Math.round(v * 100)}%` }} />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="space-y-1 border-t border-neutral-200/80 px-3 py-2.5 text-xs text-neutral-500">
-        {emp.email && <div className="flex items-center gap-1.5"><Mail className="size-3.5 shrink-0" />{emp.email}</div>}
-        {emp.phone && <div className="flex items-center gap-1.5"><Phone className="size-3.5 shrink-0" />{emp.phone}</div>}
-        {emp.unitName && <div className="flex items-center gap-1.5"><Building2 className="size-3.5 shrink-0" />{emp.unitName}</div>}
-        {emp.reportsToName && <div className="flex items-center gap-1.5"><GitBranch className="size-3.5 shrink-0" />Rapporterer til: {emp.reportsToName}</div>}
-        {emp.location && <div className="flex items-center gap-1.5"><span className="shrink-0">📍</span>{emp.location}</div>}
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200/80 bg-white px-3 py-2">
-        <div className="flex gap-2 text-[10px]">
-          <span className={`px-2 py-0.5 font-medium ${emp.active ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-500'}`}>
-            {emp.active ? 'Aktiv' : 'Inaktiv'}
-          </span>
-          <span className="bg-neutral-100 px-2 py-0.5 text-neutral-600">{EMPLOYMENT_LABELS[emp.employmentType]}</span>
-        </div>
-        <div className="flex gap-1">
-          <button type="button" onClick={onEdit} className="p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700">
-            <Pencil className="size-3.5" />
-          </button>
-          {emp.active && (
-            <button type="button" onClick={onDeactivate} className="p-1.5 text-neutral-400 hover:bg-amber-50 hover:text-amber-600">
-              <UserMinus className="size-3.5" />
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
 }
 
 // ─── Employee form modal ───────────────────────────────────────────────────────
@@ -375,7 +277,7 @@ function OrgChart({ employees, reportingTree }: {
 
   if (nodes.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-none border border-dashed border-neutral-300 bg-white py-20 text-center">
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-white py-20 text-center">
         <GitBranch className="mb-3 size-10 text-neutral-300" />
         <p className="text-sm font-medium text-neutral-500">Ingen ansatte å vise</p>
         <p className="mt-1 text-xs text-neutral-400">Legg til ansatte i fanen «Ansatte» og sett «Rapporterer til»</p>
@@ -399,9 +301,9 @@ function OrgChart({ employees, reportingTree }: {
   }
 
   return (
-    <div className="overflow-hidden rounded-none border border-neutral-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 border-b border-neutral-100 bg-neutral-50 px-4 py-2.5">
+      <div className="flex items-center gap-2 border-b border-neutral-100 bg-neutral-50/80 px-5 py-3">
         <GitBranch className="size-4 text-neutral-400" />
         <span className="text-sm font-semibold text-neutral-700">Organisasjonskart</span>
         <span className="ml-1 text-xs text-neutral-400">({nodes.length} ansatte)</span>
@@ -414,7 +316,7 @@ function OrgChart({ employees, reportingTree }: {
       </div>
 
       {/* Scrollable chart area */}
-      <div className="overflow-auto p-4" style={{ maxHeight: '70vh' }}>
+      <div className="overflow-auto p-5" style={{ maxHeight: '70vh' }}>
         <div style={{ transformOrigin: 'top left', transform: `scale(${zoom})`, width: svgW, height: svgH, transition: 'transform 0.2s' }}>
           <svg ref={svgRef} width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
             {/* Connector lines */}
@@ -431,13 +333,13 @@ function OrgChart({ employees, reportingTree }: {
               return (
                 <g key={node.emp.id} transform={`translate(${node.x}, ${node.y})`}>
                   {/* Card shadow */}
-                  <rect x={1} y={2} width={NODE_W - 2} height={NODE_H} fill="#00000012" />
+                  <rect x={1} y={2} width={NODE_W - 2} height={NODE_H} rx={10} fill="#0000000d" />
                   {/* Card */}
-                  <rect x={0} y={0} width={NODE_W} height={NODE_H} fill="white" stroke="#e5e7eb" strokeWidth="1" />
+                  <rect x={0} y={0} width={NODE_W} height={NODE_H} rx={10} fill="white" stroke="#e5e7eb" strokeWidth="1" />
                   {/* Left accent bar */}
-                  <rect x={0} y={0} width={4} height={NODE_H} fill={unitColor} />
-                  {/* Avatar (square) */}
-                  <rect x={8} y={NODE_H / 2 - 16} width={32} height={32} fill={bg} />
+                  <rect x={0} y={0} width={5} height={NODE_H} rx={10} fill={unitColor} />
+                  {/* Avatar */}
+                  <circle cx={24} cy={NODE_H / 2} r={16} fill={bg} />
                   <text x={24} y={NODE_H / 2 + 5} textAnchor="middle" style={{ fontSize: 10, fontWeight: 700, fill: 'white', fontFamily: 'system-ui' }}>
                     {initials(node.emp.name)}
                   </text>
@@ -452,7 +354,7 @@ function OrgChart({ employees, reportingTree }: {
                   {/* Role badge */}
                   {node.emp.role && (
                     <>
-                      <rect x={46} y={NODE_H / 2 + 12} width={Math.min(node.emp.role.length * 6 + 8, NODE_W - 52)} height={14} fill="#f3f4f6" />
+                      <rect x={46} y={NODE_H / 2 + 12} width={Math.min(node.emp.role.length * 6 + 8, NODE_W - 52)} height={14} rx={7} fill="#f3f4f6" />
                       <text x={50} y={NODE_H / 2 + 22} style={{ fontSize: 8, fill: '#374151', fontFamily: 'system-ui' }}>
                         {node.emp.role.length > 18 ? node.emp.role.slice(0, 17) + '…' : node.emp.role}
                       </text>
@@ -615,58 +517,67 @@ export function OrganisationPage() {
         />
       )}
 
-      {/* Page header */}
-      <div className="border-b border-neutral-300/40 pb-4">
-        <nav className="mb-3 flex items-center gap-1 text-sm text-neutral-500">
-          <Link to="/" className="hover:text-[#1a3d32]">Prosjekter</Link>
-          <ChevronRight className="mx-1 inline size-3.5" />
+      {/* Breadcrumb — aligned with ProjectDashboard */}
+      <nav className="mb-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
+        <span>
+          <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
+            Workspace
+          </Link>
+          <span className="mx-2 text-neutral-400">→</span>
           <span className="font-medium text-neutral-800">Organisasjon</span>
-        </nav>
+        </span>
+      </nav>
 
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1
-              className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-            >
-              {companyTitle}
-            </h1>
-            <p className="mt-1 text-sm text-neutral-600">{memberHeadline}</p>
-            {supabaseConfigured && user && (
-              <p className="mt-1 text-xs text-neutral-500">
-                Innlogget som {profile?.display_name ?? profile?.email ?? user.email ?? 'bruker'}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-none bg-neutral-200/80 px-2.5 py-1 text-xs font-medium text-neutral-700">
+      {/* Hero block — matches dashboard org summary */}
+      <div className="flex flex-wrap items-start gap-6 border-b border-neutral-200/80 pb-8">
+        <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-[#1a3d32] text-2xl font-bold text-[#c9a227]">
+          {companyTitle.slice(0, 2).toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h1
+            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
+            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+          >
+            {companyTitle}
+          </h1>
+          <p className="mt-1 text-sm text-neutral-500">{memberHeadline}</p>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-600">
+            Struktur, ansatte og grupper for virksomheten. Terskler for verneombud og AMU oppdateres ut fra antall ansatte.
+          </p>
+          {supabaseConfigured && user && (
+            <p className="mt-2 text-xs text-neutral-500">
+              Innlogget som {profile?.display_name ?? profile?.email ?? user.email ?? 'bruker'}
+            </p>
+          )}
+          <div className="mt-5 flex flex-wrap gap-2">
+            <span className="rounded-full bg-neutral-200/80 px-3 py-1 text-xs font-medium text-neutral-700">
               {ct.totalEmployeeCount} i beregning
             </span>
             {ct.requiresVerneombud ? (
-              <span className="inline-flex items-center gap-1 rounded-none bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800">
                 <CheckCircle2 className="size-3.5" />
                 Verneombud lovpålagt
               </span>
             ) : (
-              <span className="rounded-none bg-neutral-100 px-2.5 py-1 text-xs text-neutral-500">Verneombud: &lt;5</span>
+              <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-500">Verneombud: &lt;5</span>
             )}
             {ct.requiresAmu ? (
-              <span className="inline-flex items-center gap-1 rounded-none bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800">
                 <CheckCircle2 className="size-3.5" />
                 AMU lovpålagt
               </span>
             ) : ct.mayRequestAmu ? (
-              <span className="inline-flex items-center gap-1 rounded-none bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
                 <AlertTriangle className="size-3.5" />
                 AMU kan kreves
               </span>
             ) : (
-              <span className="rounded-none bg-neutral-100 px-2.5 py-1 text-xs text-neutral-500">AMU: &lt;10</span>
+              <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-500">AMU: &lt;10</span>
             )}
             <button
               type="button"
               onClick={() => setEmpModal({ mode: 'create' })}
-              className="inline-flex items-center gap-1.5 rounded-none bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26]"
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#142e26]"
             >
               <Plus className="size-4" /> Ny ansatt
             </button>
@@ -674,9 +585,12 @@ export function OrganisationPage() {
         </div>
       </div>
 
-      {/* In-page nav — green bar (matches sidebar), same column width as rest of app */}
-      <div className="mt-4 w-full border-b border-black/10" style={{ backgroundColor: NAV_GREEN }}>
-        <div className="flex min-h-[3rem] flex-wrap items-stretch gap-0">
+      {/* In-page nav — rounded container like dashboard pills row */}
+      <div
+        className="mt-8 overflow-hidden rounded-2xl border border-black/10 shadow-sm"
+        style={{ backgroundColor: NAV_GREEN }}
+      >
+        <div className="flex min-h-[3rem] flex-wrap items-stretch gap-0 px-1 py-1 sm:px-2">
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = tab === id
             return (
@@ -684,9 +598,9 @@ export function OrganisationPage() {
                 key={id}
                 type="button"
                 onClick={() => setTab(id)}
-                className={`inline-flex min-h-[3rem] flex-1 items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-5 ${
+                className={`inline-flex min-h-[2.75rem] flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-5 ${
                   active
-                    ? 'bg-[#f5f0e8] text-[#1a3d32]'
+                    ? 'bg-[#f5f0e8] text-[#1a3d32] shadow-sm'
                     : 'text-white/95 hover:bg-white/10'
                 }`}
               >
@@ -694,7 +608,7 @@ export function OrganisationPage() {
                 <span className="whitespace-nowrap">{label}</span>
                 {id === 'employees' && (
                   <span
-                    className={`rounded-none px-1.5 py-0.5 text-[10px] font-semibold ${
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                       active ? 'bg-neutral-200 text-neutral-700' : 'bg-white/20 text-white'
                     }`}
                   >
@@ -707,64 +621,169 @@ export function OrganisationPage() {
         </div>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-8 space-y-8">
       {/* ── Org chart ─────────────────────────────────────────────────────── */}
       {tab === 'orgchart' && (
-        <div className="mt-0">
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-neutral-900">Organisasjonskart</h2>
+            <p className="mt-1 text-sm text-neutral-500">Rapporteringslinjer og hierarki — samme visuelle ramme som tabellen under.</p>
+          </div>
           <OrgChart employees={org.activeEmployees} reportingTree={org.reportingTree} />
-        </div>
+        </section>
       )}
 
-      {/* ── Employees ─────────────────────────────────────────────────────── */}
+      {/* ── Employees — airy table (aligned with dashboard) ───────────────── */}
       {tab === 'employees' && (
-        <div className="mt-0 space-y-4">
-          {/* Filters */}
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-neutral-900">Ansatte</h2>
+              <p className="mt-1 text-sm text-neutral-500">Oversikt med romslige kolonner — samme uttrykk som forsiden.</p>
+            </div>
+            <span className="text-xs text-neutral-400">{filteredEmployees.length} vist</span>
+          </div>
           <div className="flex flex-wrap gap-3">
-            <input value={searchEmp} onChange={(e) => setSearchEmp(e.target.value)} placeholder="Søk navn, tittel, e-post…"
-              className="min-w-[220px] flex-1 rounded-none border border-neutral-200 bg-white py-2 pl-4 pr-4 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]" />
-            <select value={filterUnit} onChange={(e) => setFilterUnit(e.target.value)}
-              className="rounded-none border border-neutral-200 bg-white px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]">
+            <input
+              value={searchEmp}
+              onChange={(e) => setSearchEmp(e.target.value)}
+              placeholder="Søk navn, tittel, e-post…"
+              className="min-w-[240px] flex-1 rounded-full border border-neutral-200/90 bg-white py-2.5 pl-4 pr-4 text-sm shadow-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+            />
+            <select
+              value={filterUnit}
+              onChange={(e) => setFilterUnit(e.target.value)}
+              className="rounded-full border border-neutral-200/90 bg-white px-4 py-2.5 text-sm shadow-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+            >
               <option value="">Alle enheter</option>
-              {org.units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {org.units.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
             </select>
-            <span className="flex items-center text-xs text-neutral-400">{filteredEmployees.length} vist</span>
           </div>
 
-          {/* Cards grid */}
           {filteredEmployees.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-none border border-dashed border-neutral-300 bg-white py-16 text-center">
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-white py-16 text-center shadow-sm">
               <Users className="mb-3 size-10 text-neutral-300" />
               <p className="text-sm text-neutral-500">Ingen ansatte ennå</p>
-              <button type="button" onClick={() => setEmpModal({ mode: 'create' })}
-                className="mt-4 rounded-none bg-[#1a3d32] px-5 py-2 text-sm font-medium text-white hover:bg-[#142e26]">
-                <Plus className="inline size-4 mr-1" />Legg til første ansatt
+              <button
+                type="button"
+                onClick={() => setEmpModal({ mode: 'create' })}
+                className="mt-4 rounded-full bg-[#1a3d32] px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#142e26]"
+              >
+                <Plus className="mr-1 inline size-4" />
+                Legg til første ansatt
               </button>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredEmployees.map((emp) => (
-                <EmployeeCard key={emp.id} emp={emp}
-                  onEdit={() => setEmpModal({ mode: 'edit', emp })}
-                  onDeactivate={() => {
-                    const target = storedForEdit(emp, org.employees)
-                    if (target.id.startsWith('m-')) {
-                      window.alert('Denne personen finnes bare i medlemslisten. Legg til som ansatt før du deaktiverer.')
-                      return
-                    }
-                    if (confirm(`Deaktiver ${emp.name}?`)) org.deactivateEmployee(target.id)
-                  }}
-                />
-              ))}
+            <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-neutral-200 bg-neutral-50/80 text-neutral-600">
+                      <th className={`${TABLE_CELL} font-medium`}>Ansatt</th>
+                      <th className={`${TABLE_CELL} font-medium`}>Stilling / rolle</th>
+                      <th className={`${TABLE_CELL} font-medium`}>Enhet</th>
+                      <th className={`${TABLE_CELL} font-medium`}>Kontakt</th>
+                      <th className={`${TABLE_CELL} w-32 font-medium`}>Status</th>
+                      <th className={`${TABLE_CELL} w-28 text-right font-medium`} />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100">
+                    {filteredEmployees.map((emp) => {
+                      const bg = avatarColor(emp.name)
+                      const target = storedForEdit(emp, org.employees)
+                      return (
+                        <tr key={emp.id} className="hover:bg-neutral-50/60">
+                          <td className={TABLE_CELL}>
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="flex size-10 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                                style={{ background: bg }}
+                              >
+                                {initials(emp.name)}
+                              </div>
+                              <span className="font-medium text-neutral-900">{emp.name}</span>
+                            </div>
+                          </td>
+                          <td className={TABLE_CELL}>
+                            <div className="text-neutral-800">{emp.jobTitle ?? '—'}</div>
+                            {emp.role && <div className="mt-0.5 text-xs text-neutral-500">{emp.role}</div>}
+                          </td>
+                          <td className={`${TABLE_CELL} text-neutral-700`}>{emp.unitName ?? '—'}</td>
+                          <td className={`${TABLE_CELL} text-neutral-600`}>
+                            <div className="space-y-0.5">
+                              {emp.email && (
+                                <div className="flex items-center gap-1.5">
+                                  <Mail className="size-3.5 shrink-0 text-neutral-400" />
+                                  {emp.email}
+                                </div>
+                              )}
+                              {emp.phone && (
+                                <div className="flex items-center gap-1.5">
+                                  <Phone className="size-3.5 shrink-0 text-neutral-400" />
+                                  {emp.phone}
+                                </div>
+                              )}
+                              {!emp.email && !emp.phone && '—'}
+                            </div>
+                          </td>
+                          <td className={TABLE_CELL}>
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                emp.active ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-500'
+                              }`}
+                            >
+                              {emp.active ? 'Aktiv' : 'Inaktiv'}
+                            </span>
+                            <div className="mt-1 text-xs text-neutral-500">{EMPLOYMENT_LABELS[emp.employmentType]}</div>
+                          </td>
+                          <td className={`${TABLE_CELL} text-right`}>
+                            <button
+                              type="button"
+                              onClick={() => setEmpModal({ mode: 'edit', emp })}
+                              className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                              title="Rediger"
+                            >
+                              <Pencil className="size-4" />
+                            </button>
+                            {emp.active && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (target.id.startsWith('m-')) {
+                                    window.alert(
+                                      'Denne personen finnes bare i medlemslisten. Legg til som ansatt før du deaktiverer.',
+                                    )
+                                    return
+                                  }
+                                  if (confirm(`Deaktiver ${emp.name}?`)) org.deactivateEmployee(target.id)
+                                }}
+                                className="rounded-lg p-2 text-neutral-400 hover:bg-amber-50 hover:text-amber-600"
+                                title="Deaktiver"
+                              >
+                                <UserMinus className="size-4" />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
-        </div>
+        </section>
       )}
 
       {/* ── Units ─────────────────────────────────────────────────────────── */}
       {tab === 'units' && (
-        <div className="mt-0 grid gap-8 lg:grid-cols-[1fr_320px]">
+        <div className="grid gap-8 lg:grid-cols-[1fr_320px] lg:gap-10">
           <div>
-            <h2 className="mb-4 text-base font-semibold text-neutral-800">Organisasjonsstruktur</h2>
+            <h2 className="mb-4 text-lg font-semibold text-neutral-900">Organisasjonsstruktur</h2>
             <div className="space-y-2">
               {topLevelUnits.map((unit) => (
                 <UnitRow key={unit.id} unit={unit} childrenOf={childrenOf} onDelete={org.deleteUnit} depth={0} />
@@ -772,7 +791,7 @@ export function OrganisationPage() {
               {org.units.length === 0 && <p className="text-sm text-neutral-500">Ingen enheter ennå.</p>}
             </div>
           </div>
-          <div className="h-fit rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
+          <div className="h-fit rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm">
             <h2 className="text-base font-semibold text-neutral-900">Ny enhet</h2>
             <form className="mt-4 space-y-3" onSubmit={handleCreateUnit}>
               <div><label className="text-xs font-medium text-neutral-500">Navn *</label>
@@ -795,7 +814,7 @@ export function OrganisationPage() {
                   <span className="text-xs text-neutral-400">{unitForm.color}</span>
                 </div>
               </div>
-              <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-none bg-[#1a3d32] py-2.5 text-sm font-medium text-white hover:bg-[#142e26]">
+              <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-full bg-[#1a3d32] py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#142e26]">
                 <Plus className="size-4" />Opprett enhet
               </button>
             </form>
@@ -805,10 +824,10 @@ export function OrganisationPage() {
 
       {/* ── Groups ────────────────────────────────────────────────────────── */}
       {tab === 'groups' && (
-        <div className="mt-0 grid gap-8 lg:grid-cols-[1fr_360px]">
+        <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:gap-10">
           <div>
-            <h2 className="mb-4 text-base font-semibold text-neutral-800">Brukergrupper</h2>
-            <div className="overflow-hidden rounded-none border border-neutral-200 bg-white shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold text-neutral-900">Brukergrupper</h2>
+            <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
               {org.groups.length === 0 ? <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen grupper ennå.</p> : (
                 <ul className="divide-y divide-neutral-100">
                   {org.groups.map((g) => (
@@ -825,7 +844,7 @@ export function OrganisationPage() {
               )}
             </div>
           </div>
-          <div className="h-fit rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
+          <div className="h-fit rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm">
             <h2 className="text-base font-semibold text-neutral-900">Ny brukergruppe</h2>
             <form className="mt-4 space-y-3" onSubmit={handleCreateGroup}>
               <div><label className="text-xs font-medium text-neutral-500">Gruppenavn *</label><input value={groupForm.name} onChange={(e) => setGroupForm((f) => ({ ...f, name: e.target.value }))} required className={BASE_INPUT} /></div>
@@ -859,7 +878,7 @@ export function OrganisationPage() {
                     ))}
                   </div></div>
               )}
-              <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-none bg-[#1a3d32] py-2.5 text-sm font-medium text-white hover:bg-[#142e26]"><Plus className="size-4" />Opprett gruppe</button>
+              <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-full bg-[#1a3d32] py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#142e26]"><Plus className="size-4" />Opprett gruppe</button>
             </form>
           </div>
         </div>
@@ -867,8 +886,8 @@ export function OrganisationPage() {
 
       {/* ── Settings ──────────────────────────────────────────────────────── */}
       {tab === 'settings' && (
-        <div className="mt-0 max-w-xl space-y-6">
-          <div className="rounded-none border border-neutral-200/90 bg-white p-6 shadow-sm space-y-4">
+        <div className="max-w-xl space-y-6">
+          <div className="rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm space-y-4">
             <h2 className="text-base font-semibold text-neutral-900">Virksomhetsinnstillinger</h2>
             <p className="text-xs text-neutral-500">Disse verdiene driver AMU/verneombud-terskler og vises i Council-modulen.</p>
             <div><label className="text-xs font-medium text-neutral-500">Virksomhetsnavn</label>
@@ -884,7 +903,7 @@ export function OrganisationPage() {
             </div>
             <div><label className="text-xs font-medium text-neutral-500">Bransje / sektor</label>
               <input value={org.settings.industrySector ?? ''} onChange={(e) => org.updateSettings({ industrySector: e.target.value || undefined })} placeholder="f.eks. Helse og omsorg" className={BASE_INPUT} /></div>
-            <label className="flex cursor-pointer items-start gap-3 rounded-none border border-neutral-200 p-3.5">
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-200 p-3.5">
               <input type="checkbox" checked={org.settings.hasCollectiveAgreement} onChange={(e) => org.updateSettings({ hasCollectiveAgreement: e.target.checked })} className="mt-0.5 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
               <div>
                 <span className="text-sm font-medium text-neutral-900">Tariffavtale gjelder</span>
@@ -897,7 +916,7 @@ export function OrganisationPage() {
             )}
           </div>
 
-          <div className="rounded-none border border-neutral-200/90 bg-[#faf8f4] p-5">
+          <div className="rounded-2xl border border-neutral-200/90 bg-[#faf8f4] p-6">
             <h3 className="text-sm font-semibold text-neutral-800 mb-3">Beregnede terskler (AML 2024)</h3>
             <div className="space-y-2 text-sm">
               {[
@@ -932,8 +951,8 @@ function UnitRow({ unit, childrenOf, onDelete, depth }: {
   const color = unit.color ?? KIND_COLORS[unit.kind]
   return (
     <div>
-      <div className={`flex flex-wrap items-center gap-3 rounded-none border border-neutral-200 bg-white px-3 py-2.5 shadow-sm ${depth > 0 ? 'ml-6' : ''}`}>
-        <div className="size-3 shrink-0" style={{ background: color }} />
+      <div className={`flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-sm ${depth > 0 ? 'ml-6' : ''}`}>
+        <div className="size-3 shrink-0 rounded-full" style={{ background: color }} />
         <div className="flex-1 min-w-0">
           <span className="font-medium text-neutral-900">{unit.name}</span>
           <span className="ml-2 text-xs text-neutral-400">{KIND_LABELS[unit.kind]}</span>
