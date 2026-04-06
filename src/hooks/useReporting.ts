@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { useOrgSetupContext } from './useOrgSetupContext'
 
@@ -27,6 +27,26 @@ export function useReporting() {
         return null
       } finally {
         setLoading(false)
+      }
+    },
+    [supabase, orgId],
+  )
+
+  /** Same as withOrg but does not toggle global `loading` — avoids re-renders invalidating useEffect deps on report pages. */
+  const withOrgQuiet = useCallback(
+    async <T,>(op: () => PromiseLike<RpcResult<T>>): Promise<T | null> => {
+      if (!supabase || !orgId) {
+        setError('Mangler organisasjon.')
+        return null
+      }
+      setError(null)
+      try {
+        const { data, error: e } = await op()
+        if (e) throw new Error(e.message)
+        return data ?? null
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return null
       }
     },
     [supabase, orgId],
@@ -82,8 +102,10 @@ export function useReporting() {
 
   const fetchComplianceScore = useCallback(
     () =>
-      withOrg(() => supabase!.rpc('reporting_compliance_score', { p_org_id: orgId! }) as PromiseLike<RpcResult<unknown>>),
-    [withOrg, supabase, orgId],
+      withOrgQuiet(() =>
+        supabase!.rpc('reporting_compliance_score', { p_org_id: orgId! }) as PromiseLike<RpcResult<unknown>>,
+      ),
+    [withOrgQuiet, supabase, orgId],
   )
 
   const refreshComplianceMv = useCallback(async () => {
@@ -103,16 +125,30 @@ export function useReporting() {
     }
   }, [supabase])
 
-  return {
-    loading,
-    error,
-    fetchAmuAnnual,
-    fetchAnnualIk,
-    fetchArp,
-    fetchSickByDept,
-    fetchCorrelation,
-    fetchCostFriction,
-    fetchComplianceScore,
-    refreshComplianceMv,
-  }
+  return useMemo(
+    () => ({
+      loading,
+      error,
+      fetchAmuAnnual,
+      fetchAnnualIk,
+      fetchArp,
+      fetchSickByDept,
+      fetchCorrelation,
+      fetchCostFriction,
+      fetchComplianceScore,
+      refreshComplianceMv,
+    }),
+    [
+      loading,
+      error,
+      fetchAmuAnnual,
+      fetchAnnualIk,
+      fetchArp,
+      fetchSickByDept,
+      fetchCorrelation,
+      fetchCostFriction,
+      fetchComplianceScore,
+      refreshComplianceMv,
+    ],
+  )
 }

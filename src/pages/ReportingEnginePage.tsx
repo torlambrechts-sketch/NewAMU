@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BarChart3, Download, RefreshCw } from 'lucide-react'
+import { BarChart3, Download, Loader2, RefreshCw } from 'lucide-react'
 import { useReporting } from '../hooks/useReporting'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 
@@ -174,9 +174,15 @@ export function ReportingEnginePage() {
                   type="button"
                   disabled={rep.loading}
                   onClick={() => void runAmu()}
-                  className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:opacity-50"
+                  className="inline-flex min-w-[7.5rem] items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:opacity-50"
                 >
-                  {rep.loading ? '…' : 'Generer'}
+                  {rep.loading ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" /> Generer
+                    </>
+                  ) : (
+                    'Generer'
+                  )}
                 </button>
                 {amu != null && (
                   <button
@@ -208,9 +214,15 @@ export function ReportingEnginePage() {
                   type="button"
                   disabled={rep.loading}
                   onClick={() => void runIk()}
-                  className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:opacity-50"
+                  className="inline-flex min-w-[7.5rem] items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:opacity-50"
                 >
-                  Generer
+                  {rep.loading ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" /> Generer
+                    </>
+                  ) : (
+                    'Generer'
+                  )}
                 </button>
                 {ik != null && (
                   <button
@@ -242,9 +254,15 @@ export function ReportingEnginePage() {
                   type="button"
                   disabled={rep.loading}
                   onClick={() => void runArp()}
-                  className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:opacity-50"
+                  className="inline-flex min-w-[7.5rem] items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:opacity-50"
                 >
-                  Beregn
+                  {rep.loading ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" /> Beregn
+                    </>
+                  ) : (
+                    'Beregn'
+                  )}
                 </button>
                 {arp != null && (
                   <button
@@ -284,9 +302,15 @@ export function ReportingEnginePage() {
                 type="button"
                 disabled={rep.loading}
                 onClick={() => void runSick()}
-                className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:opacity-50"
+                className="inline-flex min-w-[10rem] items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:opacity-50"
               >
-                Test sykefravær per avdeling
+                {rep.loading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" /> Henter…
+                  </>
+                ) : (
+                  'Test sykefravær per avdeling'
+                )}
               </button>
               {sick != null && (
                 <button
@@ -312,9 +336,15 @@ export function ReportingEnginePage() {
                     type="button"
                     disabled={rep.loading}
                     onClick={() => void runCorr()}
-                    className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:opacity-50"
+                    className="inline-flex min-w-[8rem] items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:opacity-50"
                   >
-                    Kjør analyse
+                    {rep.loading ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" /> Kjør
+                      </>
+                    ) : (
+                      'Kjør analyse'
+                    )}
                   </button>
                   {corr != null && (
                     <button
@@ -339,9 +369,15 @@ export function ReportingEnginePage() {
                     type="button"
                     disabled={rep.loading}
                     onClick={() => void runCost()}
-                    className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:opacity-50"
+                    className="inline-flex min-w-[8rem] items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:opacity-50"
                   >
-                    Beregn kost
+                    {rep.loading ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" /> Beregn
+                      </>
+                    ) : (
+                      'Beregn kost'
+                    )}
                   </button>
                   {cost != null && (
                     <button
@@ -374,9 +410,14 @@ export function ReportingEnginePage() {
                   await rep.refreshComplianceMv()
                   await loadCompliance()
                 }}
-                className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:opacity-50"
+                className="inline-flex min-w-[10rem] items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:opacity-50"
               >
-                <RefreshCw className="size-4" /> Oppdater MV
+                {rep.loading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-4" />
+                )}
+                Oppdater MV
               </button>
             </div>
             <p className="mt-2 text-sm text-neutral-600">
