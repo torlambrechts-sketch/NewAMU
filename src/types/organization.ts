@@ -20,6 +20,10 @@ export type ProfileRow = {
   department_id?: string | null
   /** Flags for learning paths (e.g. is_safety_rep) — synced with `profiles.learning_metadata` */
   learning_metadata?: Record<string, unknown> | null
+  /** Public URL for profile photo (storage or HTTPS) */
+  avatar_url?: string | null
+  phone?: string | null
+  job_title?: string | null
   created_at: string
   updated_at: string
 }

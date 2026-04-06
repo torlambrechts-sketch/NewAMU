@@ -316,6 +316,46 @@ export function useOrgSetup() {
     [supabase, user, profile?.learning_metadata],
   )
 
+  const updateProfileFields = useCallback(
+    async (patch: {
+      display_name?: string
+      phone?: string | null
+      job_title?: string | null
+      avatar_url?: string | null
+    }) => {
+      if (!supabase || !user) throw new Error('Ikke innlogget.')
+      const row: Record<string, unknown> = {}
+      if (patch.display_name !== undefined) row.display_name = patch.display_name.trim() || 'Bruker'
+      if (patch.phone !== undefined) row.phone = patch.phone?.trim() || null
+      if (patch.job_title !== undefined) row.job_title = patch.job_title?.trim() || null
+      if (patch.avatar_url !== undefined) row.avatar_url = patch.avatar_url?.trim() || null
+      if (Object.keys(row).length === 0) return
+      const { error: e } = await supabase.from('profiles').update(row).eq('id', user.id)
+      if (e) throw new Error(getSupabaseErrorMessage(e))
+      setProfile((p) => {
+        if (!p) return p
+        return {
+          ...p,
+          ...(row.display_name !== undefined ? { display_name: String(row.display_name) } : {}),
+          ...(row.phone !== undefined ? { phone: row.phone as string | null } : {}),
+          ...(row.job_title !== undefined ? { job_title: row.job_title as string | null } : {}),
+          ...(row.avatar_url !== undefined ? { avatar_url: row.avatar_url as string | null } : {}),
+        }
+      })
+    },
+    [supabase, user],
+  )
+
+  const updatePassword = useCallback(
+    async (newPassword: string) => {
+      if (!supabase || !user) throw new Error('Ikke innlogget.')
+      if (newPassword.length < 8) throw new Error('Passordet må være minst 8 tegn.')
+      const { error: e } = await supabase.auth.updateUser({ password: newPassword })
+      if (e) throw new Error(getSupabaseErrorMessage(e))
+    },
+    [supabase, user],
+  )
+
   const addDepartment = useCallback(
     async (name: string) => {
       if (!supabase || !organization?.id) throw new Error('Mangler organisasjon.')
@@ -459,6 +499,8 @@ export function useOrgSetup() {
     updateLocale,
     updateDepartmentId,
     updateLearningMetadata,
+    updateProfileFields,
+    updatePassword,
     addDepartment,
     addTeam,
     addLocation,
