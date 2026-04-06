@@ -504,6 +504,7 @@ declare
   salary_m numeric;
   by_cat jsonb := '{}'::jsonb;
   salr record;
+  emp jsonb;
 begin
   if v_uid is null then
     raise exception 'Not authenticated';
@@ -519,10 +520,10 @@ begin
 
   employees := coalesce(org_payload, '[]'::jsonb);
 
-  for r in select value from jsonb_array_elements(employees) as t(value)
+  for emp in select jsonb_array_elements(employees)
   loop
-    role := lower(coalesce(r.value->>'role', ''));
-    gender := lower(coalesce(r.value->>'gender', ''));
+    role := lower(coalesce(emp->>'role', ''));
+    gender := lower(coalesce(emp->>'gender', ''));
     if gender in ('female', 'f', 'kvinne', 'k') then
       female := female + 1;
       if strpos(role, 'leder') > 0 or role like '%leader%' then
@@ -582,16 +583,16 @@ begin
     'salaryGapByCategory', by_cat,
     'parentalLeave', jsonb_build_object(
       'avgDaysFemale', (
-        select round(avg((emp->>'parentalLeaveDays')::numeric), 1)
-        from jsonb_array_elements(employees) emp
-        where lower(coalesce(emp->>'gender', '')) in ('female', 'f', 'kvinne', 'k')
-          and emp->>'parentalLeaveDays' is not null
+        select round(avg((e->>'parentalLeaveDays')::numeric), 1)
+        from jsonb_array_elements(employees) e
+        where lower(coalesce(e->>'gender', '')) in ('female', 'f', 'kvinne', 'k')
+          and e->>'parentalLeaveDays' is not null
       ),
       'avgDaysMale', (
-        select round(avg((emp->>'parentalLeaveDays')::numeric), 1)
-        from jsonb_array_elements(employees) emp
-        where lower(coalesce(emp->>'gender', '')) in ('male', 'm', 'mann')
-          and emp->>'parentalLeaveDays' is not null
+        select round(avg((e->>'parentalLeaveDays')::numeric), 1)
+        from jsonb_array_elements(employees) e
+        where lower(coalesce(e->>'gender', '')) in ('male', 'm', 'mann')
+          and e->>'parentalLeaveDays' is not null
       )
     ),
     'narrativeFields', jsonb_build_object(
