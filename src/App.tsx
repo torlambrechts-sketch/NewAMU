@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { OrgSetupProvider } from './context/OrgSetupProvider'
+import { UiThemeProvider } from './context/UiThemeProvider'
 import { I18nProvider } from './context/I18nProvider'
 import { AticsShell } from './components/layout/AticsShell'
 import { OrgGate } from './components/OrgGate'
@@ -61,6 +62,7 @@ function App() {
   return (
     <BrowserRouter>
       <OrgSetupProvider>
+        <UiThemeProvider>
         <I18nProvider>
           <Routes>
             <Route path="/hrm" element={<Navigate to="/hrm/employees" replace />} />
@@ -147,6 +149,7 @@ function App() {
             <Route path="*" element={<Navigate to="/404" replace />} />
           </Routes>
         </I18nProvider>
+        </UiThemeProvider>
       </OrgSetupProvider>
     </BrowserRouter>
   )

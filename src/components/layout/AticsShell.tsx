@@ -327,7 +327,7 @@ function NavModePanel({
             onClick={() => onChange('topbar')}
             className={`flex flex-1 flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-xs font-medium transition-colors ${
               navMode === 'topbar'
-                ? 'border-[#1a3d32] bg-[#1a3d32]/5 text-[#1a3d32]'
+                ? 'border-[color:var(--ui-accent)] bg-[color-mix(in_srgb,var(--ui-accent)_10%,transparent)] text-[color:var(--ui-accent)]'
                 : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-800'
             }`}
           >
@@ -343,7 +343,7 @@ function NavModePanel({
             onClick={() => onChange('sidebar')}
             className={`flex flex-1 flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-xs font-medium transition-colors ${
               navMode === 'sidebar'
-                ? 'border-[#1a3d32] bg-[#1a3d32]/5 text-[#1a3d32]'
+                ? 'border-[color:var(--ui-accent)] bg-[color-mix(in_srgb,var(--ui-accent)_10%,transparent)] text-[color:var(--ui-accent)]'
                 : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-800'
             }`}
           >
@@ -391,7 +391,7 @@ export function AticsShell() {
       <div className="flex h-screen overflow-hidden">
 
         {/* ── Rail 1: Group icons ──────────────────────────────────────────── */}
-        <aside className="flex w-[3.75rem] shrink-0 flex-col bg-[#1a3d32]">
+        <aside className="flex w-[3.75rem] shrink-0 flex-col bg-[var(--ui-nav-rail)]">
           {/* Logo */}
           <div className="flex h-14 shrink-0 items-center justify-center border-b border-white/10">
             <NavLink to="/" aria-label="Home" className="flex items-center justify-center rounded-lg p-1.5 hover:bg-white/10">
@@ -447,7 +447,7 @@ export function AticsShell() {
 
         {/* ── Rail 2: Modules + sub-items for active group ─────────────────── */}
         {!subNavCollapsed && activeGroup && (
-          <aside className="flex w-52 shrink-0 flex-col overflow-hidden bg-[#15302a]">
+          <aside className="flex w-52 shrink-0 flex-col overflow-hidden bg-[var(--ui-nav-rail-mid)]">
             {/* Group name header */}
             <div className="flex h-14 shrink-0 items-center border-b border-white/10 px-4">
               <span
@@ -520,7 +520,7 @@ export function AticsShell() {
         {/* ── Content area ─────────────────────────────────────────────────── */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Utility bar — page background colour */}
-          <header className="flex h-14 shrink-0 items-center gap-3 border-b border-neutral-300/40 bg-[#f5f0e8] px-4 md:px-5">
+          <header className="flex h-14 shrink-0 items-center gap-3 border-b border-neutral-300/40 bg-[var(--ui-surface)] px-4 md:px-5">
             <button
               type="button"
               onClick={() => setSubNavCollapsed((c) => !c)}
@@ -535,7 +535,7 @@ export function AticsShell() {
               <input
                 type="search"
                 placeholder="Find anything"
-                className="w-full rounded-full border border-neutral-300/70 bg-white/70 py-1.5 pl-9 pr-4 text-sm placeholder:text-neutral-400 focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+                className="w-full rounded-full border border-neutral-300/70 bg-white/70 py-1.5 pl-9 pr-4 text-sm placeholder:text-neutral-400 focus:border-[color:var(--ui-accent)] focus:outline-none focus:ring-1 focus:ring-[color:var(--ui-accent)]"
               />
             </div>
             <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
@@ -559,7 +559,7 @@ export function AticsShell() {
                       {t('shell.logOut')}
                     </button>
                   ) : (
-                    <a href="/login" className="rounded-lg px-2 py-1 text-xs font-medium text-[#1a3d32] hover:underline">
+                    <a href="/login" className="rounded-lg px-2 py-1 text-xs font-medium text-[color:var(--ui-accent)] hover:underline">
                       {t('shell.logIn')}
                     </a>
                   )}
@@ -580,7 +580,7 @@ export function AticsShell() {
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto bg-[#f5f0e8]">
+          <main className="flex-1 overflow-y-auto bg-[var(--ui-surface)]">
             <Outlet />
           </main>
         </div>
@@ -598,8 +598,8 @@ export function AticsShell() {
   )
 
   return (
-    <div className="min-h-screen bg-[#f5f0e8]">
-      <header className="bg-[#1a3d32] text-white">
+    <div className="min-h-screen bg-[var(--ui-surface)]">
+      <header className="bg-[var(--ui-nav-rail)] text-white">
 
         {/* ── Row 1: logo · group tabs · utilities ───────────────────────── */}
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 md:px-8">
@@ -637,7 +637,7 @@ export function AticsShell() {
 
           {/* Utilities */}
           <div className="flex shrink-0 items-center gap-2 md:gap-3">
-            <button type="button" className="hidden items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] sm:flex">
+            <button type="button" className="hidden items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[color:var(--ui-accent)] sm:flex">
               <Clock className="size-3.5" />
               {t('shell.upgrade')}
             </button>
@@ -723,7 +723,7 @@ export function AticsShell() {
 
         {/* ── Row 3: sub-item tabs for the active module + search ─────────── */}
         {subItems.length > 0 && (
-          <div className="border-t border-white/[0.07] bg-[#132e25]">
+          <div className="border-t border-white/[0.07] bg-[var(--ui-nav-sub)]">
             <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-4 py-2 md:px-8">
               <nav className="flex min-w-0 flex-1 flex-wrap gap-x-1 gap-y-1" aria-label="Section">
                 {subItems.map((item) => {
@@ -757,7 +757,7 @@ export function AticsShell() {
 
         {/* Search bar on row 2 when there are no sub-items */}
         {subItems.length === 0 && (
-          <div className="border-t border-white/[0.07] bg-[#132e25]">
+          <div className="border-t border-white/[0.07] bg-[var(--ui-nav-sub)]">
             <div className="mx-auto flex max-w-[1400px] items-center justify-end px-4 py-2 md:px-8">
               <div className="relative min-w-[180px] max-w-xs flex-1 sm:flex-none">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-white/40" />

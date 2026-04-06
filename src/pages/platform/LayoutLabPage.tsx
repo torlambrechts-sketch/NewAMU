@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Download, Loader2, Save, Trash2 } from 'lucide-react'
+import { Download, Loader2, Radio, Save, Trash2 } from 'lucide-react'
 import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 import {
@@ -17,6 +17,7 @@ import {
   layoutTableRowClass,
 } from '../../lib/layoutLabTokens'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
+import { useUiTheme } from '../../hooks/useUiTheme'
 
 type PresetRow = {
   id: string
@@ -27,6 +28,7 @@ type PresetRow = {
 
 export function LayoutLabPage() {
   const { userId, isAdmin } = usePlatformAdmin()
+  const { updatedAt: themeUpdatedAt, refresh: refreshGlobalTheme } = useUiTheme()
   const supabase = getSupabaseBrowserClient()
   const [settings, setSettings] = useState<LayoutLabPayload>(DEFAULT_LAYOUT_LAB)
   const [presets, setPresets] = useState<PresetRow[]>([])
@@ -123,6 +125,26 @@ export function LayoutLabPage() {
     }
   }
 
+  async function publishToAllOrgs() {
+    if (!supabase || !isAdmin) {
+      setError('Kun plattform-admin kan publisere.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    setMessage(null)
+    try {
+      const { error: e } = await supabase.rpc('platform_ui_theme_publish', { p_payload: settings })
+      if (e) throw e
+      setMessage('Publisert til alle organisasjoner. Oppslag oppdateres i sanntid der Realtime er aktivert.')
+      await refreshGlobalTheme()
+    } catch (err) {
+      setError(getSupabaseErrorMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function deletePreset(id: string) {
     if (!supabase) return
     setBusy(true)
@@ -168,8 +190,15 @@ export function LayoutLabPage() {
       <div>
         <h1 className="text-2xl font-semibold text-white">Layout-lab</h1>
         <p className="mt-1 text-sm text-neutral-400">
-          Test tabeller, kort og Kanban med felles innstillinger. Lagring lokalt + i databasen (for å dele med utvikling).
+          Test tabeller, kort og Kanban med felles innstillinger. Lagring lokalt + i databasen.{' '}
+          <strong className="text-neutral-300">Publiser til app</strong> sprer tokens til alle brukere (accent, flate, tabell,
+          kort, Kanban — se kode).
         </p>
+        {themeUpdatedAt && (
+          <p className="mt-1 text-xs text-neutral-500">
+            Sist publisert globalt: {new Date(themeUpdatedAt).toLocaleString('nb-NO')}
+          </p>
+        )}
         <Link
           to="/platform-admin/ui-advanced"
           className="mt-2 inline-block text-sm text-amber-400/90 hover:underline"
@@ -302,6 +331,18 @@ export function LayoutLabPage() {
 
           <div className="border-t border-white/10 pt-4">
             <p className="text-xs text-neutral-500">Lagres automatisk i nettleseren. Sky-lagring krever navn.</p>
+            <button
+              type="button"
+              disabled={busy || !isAdmin}
+              onClick={() => void publishToAllOrgs()}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-40"
+            >
+              <Radio className="size-4" /> Publiser til alle organisasjoner
+            </button>
+            <p className="mt-1 text-[10px] text-neutral-500">
+              Skriver til <code className="rounded bg-white/10 px-1">platform_ui_theme</code> og oppdaterer shell via
+              sanntid.
+            </p>
             <div className="mt-2 flex flex-wrap gap-2">
               <input
                 value={saveName}

@@ -18,12 +18,21 @@
 }
 
 @layer base {
+  :root {
+    /* Overridden at runtime by UiThemeProvider (Layout Lab publish) */
+    --ui-accent: var(--color-atics-green);
+    --ui-surface: var(--color-atics-beige);
+    --ui-nav-rail: var(--color-atics-green);
+    --ui-nav-rail-mid: #15302a;
+    --ui-nav-sub: #132e25;
+  }
   html {
     @apply antialiased;
     font-family: var(--font-sans);
   }
   body {
-    @apply m-0 min-h-screen bg-[var(--color-atics-beige)] text-neutral-800;
+    @apply m-0 min-h-screen text-neutral-800;
+    background-color: var(--ui-surface);
     font-family: var(--font-sans);
   }
   #root {

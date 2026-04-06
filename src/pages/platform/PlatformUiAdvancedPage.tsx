@@ -37,24 +37,9 @@ import {
   layoutTableRowClass,
   mergeLayoutPayload,
 } from '../../lib/layoutLabTokens'
-import {
-  DEFAULT_LAYOUT_LAB,
-  LAYOUT_LAB_CHANGED_EVENT,
-  LAYOUT_LAB_STORAGE_KEY,
-  type LayoutLabPayload,
-} from '../../types/layoutLab'
+import { LAYOUT_LAB_CHANGED_EVENT, LAYOUT_LAB_STORAGE_KEY, type LayoutLabPayload } from '../../types/layoutLab'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
-
-function readPayloadFromStorage(): LayoutLabPayload {
-  try {
-    const raw = localStorage.getItem(LAYOUT_LAB_STORAGE_KEY)
-    if (!raw) return DEFAULT_LAYOUT_LAB
-    const parsed = JSON.parse(raw) as Partial<LayoutLabPayload>
-    return mergeLayoutPayload(parsed)
-  } catch {
-    return DEFAULT_LAYOUT_LAB
-  }
-}
+import { useUiTheme } from '../../hooks/useUiTheme'
 
 function useLayoutLabPayload(): {
   payload: LayoutLabPayload
@@ -62,7 +47,7 @@ function useLayoutLabPayload(): {
   presetLoading: boolean
   presetError: string | null
 } {
-  const [payload, setPayload] = useState<LayoutLabPayload>(() => readPayloadFromStorage())
+  const { payload, refresh } = useUiTheme()
   const [searchParams] = useSearchParams()
   const presetId = searchParams.get('preset')
   const { userId, isAdmin } = usePlatformAdmin()
@@ -71,21 +56,13 @@ function useLayoutLabPayload(): {
   const [presetError, setPresetError] = useState<string | null>(null)
 
   const reload = useCallback(() => {
-    setPayload(readPayloadFromStorage())
-  }, [])
-
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === LAYOUT_LAB_STORAGE_KEY || e.key === null) reload()
+    try {
+      window.dispatchEvent(new Event(LAYOUT_LAB_CHANGED_EVENT))
+    } catch {
+      /* ignore */
     }
-    const onCustom = () => reload()
-    window.addEventListener('storage', onStorage)
-    window.addEventListener(LAYOUT_LAB_CHANGED_EVENT, onCustom)
-    return () => {
-      window.removeEventListener('storage', onStorage)
-      window.removeEventListener(LAYOUT_LAB_CHANGED_EVENT, onCustom)
-    }
-  }, [reload])
+    void refresh()
+  }, [refresh])
 
   useEffect(() => {
     if (!presetId || !supabase || !userId || !isAdmin) {
@@ -108,12 +85,17 @@ function useLayoutLabPayload(): {
         if (cancelled) return
         if (data?.payload) {
           const next = mergeLayoutPayload(data.payload as Partial<LayoutLabPayload>)
-          setPayload(next)
           try {
             localStorage.setItem(LAYOUT_LAB_STORAGE_KEY, JSON.stringify(next))
           } catch {
             /* ignore */
           }
+          try {
+            window.dispatchEvent(new Event(LAYOUT_LAB_CHANGED_EVENT))
+          } catch {
+            /* ignore */
+          }
+          void refresh()
         } else {
           setPresetError('Fant ikke preset eller ingen tilgang.')
         }
@@ -126,7 +108,7 @@ function useLayoutLabPayload(): {
     return () => {
       cancelled = true
     }
-  }, [presetId, supabase, userId, isAdmin])
+  }, [presetId, supabase, userId, isAdmin, refresh])
 
   return { payload, reload, presetLoading, presetError }
 }
