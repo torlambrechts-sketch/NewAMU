@@ -213,7 +213,7 @@ const navGroups: NavGroup[] = [
       },
       { to: '/hse', label: 'HSE / HMS', end: false, icon: HardHat, subs: hseSubs, perm: 'module.view.hse' },
       { to: '/org-health', label: 'Org Health', end: false, icon: HeartPulse, subs: orgHealthSubs, perm: 'module.view.org_health' },
-      { to: '/prosesser', label: 'Prosesser', end: false, icon: Workflow, subs: [], perm: 'module.view.dashboard' },
+      { to: '/workflow', label: 'Arbeidsflyt', end: false, icon: Workflow, subs: [], perm: 'module.view.workflow' },
     ],
   },
   {

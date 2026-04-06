@@ -14,6 +14,10 @@ export const PERMISSION_KEYS = [
   'module.view.learning',
   /** Cross-module reporting & compliance exports */
   'module.view.reports',
+  /** Workflow automation — view rules & run log */
+  'module.view.workflow',
+  /** Configure workflow rules and compliance templates */
+  'workflows.manage',
   /** Create/edit/publish courses; view org-wide learning progress in admin views */
   'learning.manage',
   /** Documents & wiki — folders, pages, compliance, template settings */
@@ -37,6 +41,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'module.view.tasks': 'Tasks',
   'module.view.learning': 'E-learning',
   'module.view.reports': 'Rapporter',
+  'module.view.workflow': 'Arbeidsflyt',
+  'workflows.manage': 'Arbeidsflyt — konfigurasjon',
   'learning.manage': 'E-learning — opprette og redigere kurs',
   'documents.manage': 'Documents & wiki — redigere innhold og maler',
   'module.view.admin': 'Admin (brukere & roller)',
@@ -52,6 +58,7 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/tasks', permission: 'module.view.tasks' },
   { pathPrefix: '/learning', permission: 'module.view.learning' },
   { pathPrefix: '/reports', permission: 'module.view.reports' },
+  { pathPrefix: '/workflow', permission: 'module.view.workflow' },
   { pathPrefix: '/admin', permission: 'module.view.admin' },
 ]
 

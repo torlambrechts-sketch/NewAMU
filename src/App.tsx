@@ -10,10 +10,10 @@ import { InviteAcceptPage } from './pages/InviteAcceptPage'
 import { AdminPage } from './pages/AdminPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ReportingEnginePage } from './pages/ReportingEnginePage'
+import { WorkflowModulePage } from './pages/WorkflowModulePage'
 import { HrmEmployees } from './pages/HrmEmployees'
 import { HrmSalary } from './pages/HrmSalary'
 import { NotFound } from './pages/NotFound'
-import { PlaceholderPage } from './pages/PlaceholderPage'
 import { CouncilModule } from './pages/CouncilModule'
 import { MembersModule } from './pages/MembersModule'
 import { HseModule } from './pages/HseModule'
@@ -95,15 +95,8 @@ function App() {
                     <Route path="external" element={<LearningExternalTraining />} />
                     <Route path="settings" element={<LearningSettings />} />
                   </Route>
-                  <Route
-                    path="prosesser"
-                    element={
-                      <PlaceholderPage
-                        title="Prosesser"
-                        description="Aktive arbeidsflyter og dynamiske skjemaer som knytter compliance-arbeidet sammen."
-                      />
-                    }
-                  />
+                  <Route path="prosesser" element={<Navigate to="/workflow" replace />} />
+                  <Route path="workflow" element={<WorkflowModulePage />} />
                   <Route path="documents" element={<DocumentsHome />} />
                   <Route path="documents/space/:spaceId" element={<WikiSpaceView />} />
                   <Route
