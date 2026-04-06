@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Download, Loader2, Save, Trash2 } from 'lucide-react'
 import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
@@ -193,6 +194,12 @@ export function LayoutLabPage() {
         <p className="mt-1 text-sm text-neutral-400">
           Test tabeller, kort og Kanban med felles innstillinger. Lagring lokalt + i databasen (for å dele med utvikling).
         </p>
+        <Link
+          to="/platform-admin/ui-advanced"
+          className="mt-2 inline-block text-sm text-amber-400/90 hover:underline"
+        >
+          Avansert UI (ATS-kort, tabell, scorecard) →
+        </Link>
       </div>
 
       {error && <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</div>}

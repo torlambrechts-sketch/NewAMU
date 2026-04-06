@@ -55,6 +55,7 @@ import { PlatformAdminLayout } from './pages/platform/PlatformAdminLayout'
 import { PlatformAdminDashboardPage } from './pages/platform/PlatformAdminDashboardPage'
 import { PlatformRoadmapPage } from './pages/platform/PlatformRoadmapPage'
 import { LayoutLabPage } from './pages/platform/LayoutLabPage'
+import { PlatformUiAdvancedPage } from './pages/platform/PlatformUiAdvancedPage'
 
 function App() {
   return (
@@ -77,6 +78,7 @@ function App() {
                 <Route index element={<PlatformAdminDashboardPage />} />
                 <Route path="roadmap" element={<PlatformRoadmapPage />} />
                 <Route path="layout-lab" element={<LayoutLabPage />} />
+                <Route path="ui-advanced" element={<PlatformUiAdvancedPage />} />
                 <Route path="*" element={<Navigate to="/platform-admin" replace />} />
               </Route>
               <Route path="onboarding" element={<OnboardingWizard />} />
