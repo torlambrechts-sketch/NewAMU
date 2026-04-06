@@ -1,5 +1,13 @@
 import type { CSSProperties } from 'react'
-import { mergeLayoutPayload, menu1ActiveTabClass, menu1ActiveTabTextStyle, menu1BarStyleObject, menu1InactiveTabClass } from '../lib/layoutLabTokens'
+import {
+  mergeLayoutPayload,
+  menu1ActiveTabClass,
+  menu1ActiveTabTextStyle,
+  menu1BarOuterClass,
+  menu1BarStyleObject,
+  menu1InactiveTabClass,
+  menu1InnerRowClass,
+} from '../lib/layoutLabTokens'
 import { useUiThemeOptional } from './useUiTheme'
 import { DEFAULT_LAYOUT_LAB } from '../types/layoutLab'
 
@@ -9,6 +17,8 @@ export function useOrgMenu1Styles() {
 
   return {
     barStyle: menu1BarStyleObject(merged) as CSSProperties,
+    barOuterClass: menu1BarOuterClass(merged),
+    innerRowClass: menu1InnerRowClass(merged),
     tabButton: (active: boolean) => ({
       className: active ? menu1ActiveTabClass(merged) : menu1InactiveTabClass(merged),
       style: (active ? menu1ActiveTabTextStyle(merged) : undefined) as CSSProperties | undefined,

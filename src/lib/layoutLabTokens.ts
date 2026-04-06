@@ -6,6 +6,7 @@ import {
   DEFAULT_MENU_1,
   DEFAULT_SIDEBAR_BOX_1,
   DEFAULT_TABLE_1,
+  DEFAULT_TABLE_1_TOOLBAR,
 } from '../types/layoutLab'
 
 /** Shared Tailwind token helpers — used by Layout-lab and Platform UI Advanced. */
@@ -116,7 +117,13 @@ export function mergeLayoutPayload(partial: Partial<LayoutLabPayload>): LayoutLa
   const sb = partial.sidebar_box_1
     ? { ...DEFAULT_SIDEBAR_BOX_1, ...partial.sidebar_box_1 }
     : DEFAULT_SIDEBAR_BOX_1
-  const t1 = partial.table_1 ? { ...DEFAULT_TABLE_1, ...partial.table_1 } : DEFAULT_TABLE_1
+  const t1 = partial.table_1
+    ? {
+        ...DEFAULT_TABLE_1,
+        ...partial.table_1,
+        toolbar: { ...DEFAULT_TABLE_1_TOOLBAR, ...partial.table_1.toolbar },
+      }
+    : DEFAULT_TABLE_1
   const m1 = partial.mainbox_1 ? { ...DEFAULT_MAINBOX_1, ...partial.mainbox_1 } : DEFAULT_MAINBOX_1
   const mu = partial.menu_1 ? { ...DEFAULT_MENU_1, ...partial.menu_1 } : DEFAULT_MENU_1
   return { ...DEFAULT_LAYOUT_LAB, ...partial, sidebar_box_1: sb, table_1: t1, mainbox_1: m1, menu_1: mu, version: 1 }
@@ -308,19 +315,48 @@ export function mainbox1PaddingClass(payload: LayoutLabPayload): string {
 
 // ─── menu_1 (Organisasjon tabs) ──────────────────────────────────────────────
 
+/** Ytre ramme rundt fanemenyen */
+export function menu1BarOuterClass(payload: LayoutLabPayload): string {
+  const m = payload.menu_1 ?? DEFAULT_MENU_1
+  if (m.tabLayout === 'flush') {
+    return 'mt-8 overflow-hidden border border-black/10 shadow-sm rounded-none'
+  }
+  return 'mt-8 overflow-hidden rounded-2xl border border-black/10 shadow-sm'
+}
+
 export function menu1BarStyleObject(payload: LayoutLabPayload): CSSProperties {
   const m = payload.menu_1 ?? DEFAULT_MENU_1
   const accent = payload.accent || DEFAULT_LAYOUT_LAB.accent
-  if (m.barTone === 'slate') {
-    return { backgroundColor: '#1e293b', borderColor: 'rgba(0,0,0,0.1)' }
+  const base: CSSProperties =
+    m.barTone === 'slate'
+      ? { backgroundColor: '#1e293b', borderColor: 'rgba(0,0,0,0.1)' }
+      : { backgroundColor: accent, borderColor: 'rgba(0,0,0,0.1)' }
+  if (m.tabLayout === 'flush') {
+    return { ...base, borderTop: '1px solid rgba(0,0,0,0.25)' }
   }
-  return { backgroundColor: accent, borderColor: 'rgba(0,0,0,0.1)' }
+  return base
+}
+
+/** Rad inni menybar — padding fjernes i «all the way down» så faner fyller kanten */
+export function menu1InnerRowClass(payload: LayoutLabPayload): string {
+  const m = payload.menu_1 ?? DEFAULT_MENU_1
+  if (m.tabLayout === 'flush') {
+    return 'flex min-h-[3rem] w-full flex-1 flex-wrap items-stretch gap-0'
+  }
+  return 'flex min-h-[3rem] flex-wrap items-stretch gap-0 px-1 py-1 sm:px-2'
 }
 
 export function menu1ActiveTabClass(payload: LayoutLabPayload): string {
   const m = payload.menu_1 ?? DEFAULT_MENU_1
   const fill = m.activeFill === 'white' ? 'bg-white' : 'bg-[#f5f0e8]'
-  const r = m.tabRounding === 'full' ? 'rounded-full' : 'rounded-xl'
+  if (m.tabLayout === 'flush') {
+    return `inline-flex min-h-[3rem] min-w-0 flex-1 items-center justify-center gap-2 border-0 px-3 py-2 text-sm font-medium transition-colors ${fill} rounded-none shadow-none`
+  }
+  if (m.tabLayout === 'squared') {
+    return `inline-flex min-h-[2.75rem] flex-1 items-center justify-center gap-2 rounded-none px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-5 ${fill} shadow-sm`
+  }
+  const r =
+    m.tabRounding === 'full' ? 'rounded-full' : m.tabRounding === 'none' ? 'rounded-none' : 'rounded-xl'
   return `inline-flex min-h-[2.75rem] flex-1 items-center justify-center gap-2 ${r} px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-5 ${fill} shadow-sm`
 }
 
@@ -330,6 +366,29 @@ export function menu1ActiveTabTextStyle(payload: LayoutLabPayload): CSSPropertie
 
 export function menu1InactiveTabClass(payload: LayoutLabPayload): string {
   const m = payload.menu_1 ?? DEFAULT_MENU_1
-  const r = m.tabRounding === 'full' ? 'rounded-full' : 'rounded-xl'
-  return `inline-flex min-h-[2.75rem] flex-1 items-center justify-center gap-2 ${r} px-3 py-2 text-sm font-medium transition-colors text-white/95 hover:bg-white/10 sm:flex-none sm:px-5`
+  if (m.tabLayout === 'flush') {
+    return `inline-flex min-h-[3rem] min-w-0 flex-1 items-center justify-center gap-2 rounded-none border-0 px-3 py-2 text-sm font-medium text-white/95 transition-colors hover:bg-white/10`
+  }
+  if (m.tabLayout === 'squared') {
+    return `inline-flex min-h-[2.75rem] flex-1 items-center justify-center gap-2 rounded-none px-3 py-2 text-sm font-medium text-white/95 transition-colors hover:bg-white/10 sm:flex-none sm:px-5`
+  }
+  const r =
+    m.tabRounding === 'full' ? 'rounded-full' : m.tabRounding === 'none' ? 'rounded-none' : 'rounded-xl'
+  return `inline-flex min-h-[2.75rem] flex-1 items-center justify-center gap-2 ${r} px-3 py-2 text-sm font-medium text-white/95 transition-colors hover:bg-white/10 sm:flex-none sm:px-5`
+}
+
+// ─── mainbox_1 heading ───────────────────────────────────────────────────────
+
+export function mainbox1HeadingClass(payload: LayoutLabPayload): string {
+  const m = payload.mainbox_1 ?? DEFAULT_MAINBOX_1
+  const base = 'text-lg font-semibold'
+  if (m.headingColor === 'accent') return `${base}`
+  if (m.headingColor === 'neutral') return `${base} text-neutral-600`
+  return `${base} text-neutral-900`
+}
+
+export function mainbox1HeadingStyleObject(payload: LayoutLabPayload): CSSProperties | undefined {
+  const m = payload.mainbox_1 ?? DEFAULT_MAINBOX_1
+  if (m.headingColor !== 'accent') return undefined
+  return { color: payload.accent || DEFAULT_LAYOUT_LAB.accent }
 }

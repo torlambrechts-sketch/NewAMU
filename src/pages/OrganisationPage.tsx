@@ -3,12 +3,14 @@ import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   Building2,
+  Check,
   CheckCircle2,
   GitBranch,
   Mail,
   Pencil,
   Phone,
   Plus,
+  Search,
   Settings2,
   Trash2,
   UserCheck,
@@ -24,6 +26,7 @@ import { OrganisationHeaderIllustration } from '../components/organisation/Organ
 import { SidebarBox1 } from '../components/layout/SidebarBox1'
 import { Mainbox1 } from '../components/layout/Mainbox1'
 import { Table1Shell } from '../components/layout/Table1Shell'
+import { Table1Toolbar } from '../components/layout/Table1Toolbar'
 import {
   table1BodyRowClass,
   table1CellPadding,
@@ -422,6 +425,8 @@ export function OrganisationPage() {
   const layout = mergeLayoutPayload(layoutPayload)
   const tableCell = `${table1CellPadding(layout)} ${TABLE_CELL_BASE}`
   const theadRow = table1HeaderRowClass(layout)
+  const rSeg =
+    layout.radius === 'sm' ? 'rounded-sm' : layout.radius === 'md' ? 'rounded-md' : 'rounded-lg'
   const org = useOrganisation()
   const { supabaseConfigured, organization: orgRow, members: orgMembers, profile, user, isDemoMode } =
     useOrgSetupContext()
@@ -444,6 +449,7 @@ export function OrganisationPage() {
   const [empModal, setEmpModal] = useState<{ mode: 'create' | 'edit'; emp?: OrgEmployee } | null>(null)
   const [searchEmp, setSearchEmp] = useState('')
   const [filterUnit, setFilterUnit] = useState('')
+  const [empSegment, setEmpSegment] = useState<'all' | 'active' | 'inactive'>('all')
 
   // Unit form
   const [unitForm, setUnitForm] = useState({
@@ -464,9 +470,11 @@ export function OrganisationPage() {
         e.jobTitle?.toLowerCase().includes(searchEmp.toLowerCase()) ||
         e.email?.toLowerCase().includes(searchEmp.toLowerCase())
       const matchUnit = !filterUnit || e.unitId === filterUnit
-      return matchSearch && matchUnit
+      const matchSeg =
+        empSegment === 'all' ? true : empSegment === 'active' ? e.active : !e.active
+      return matchSearch && matchUnit && matchSeg
     })
-  }, [org.displayEmployees, searchEmp, filterUnit])
+  }, [org.displayEmployees, searchEmp, filterUnit, empSegment])
 
   const companyTitle = orgRow?.name?.trim() || org.settings.orgName || 'Organisasjon'
   const memberHeadline =
@@ -620,8 +628,8 @@ export function OrganisationPage() {
       </div>
 
       {/* In-page nav — menu_1 tokens */}
-      <div className="mt-8 overflow-hidden rounded-2xl border border-black/10 shadow-sm" style={menu1.barStyle}>
-        <div className="flex min-h-[3rem] flex-wrap items-stretch gap-0 px-1 py-1 sm:px-2">
+      <div className={menu1.barOuterClass} style={menu1.barStyle}>
+        <div className={menu1.innerRowClass}>
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = tab === id
             const tb = menu1.tabButton(active)
@@ -672,26 +680,28 @@ export function OrganisationPage() {
             </div>
             <span className="text-xs text-neutral-400">{filteredEmployees.length} vist</span>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <input
-              value={searchEmp}
-              onChange={(e) => setSearchEmp(e.target.value)}
-              placeholder="Søk navn, tittel, e-post…"
-              className={`min-w-[240px] flex-1 ${FILTER_INPUT_CLASS}`}
-            />
-            <select
-              value={filterUnit}
-              onChange={(e) => setFilterUnit(e.target.value)}
-              className={`min-w-[180px] ${FILTER_INPUT_CLASS}`}
-            >
-              <option value="">Alle enheter</option>
-              {org.units.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {!layout.table_1.toolbar.search && (
+            <div className="flex flex-wrap gap-3">
+              <input
+                value={searchEmp}
+                onChange={(e) => setSearchEmp(e.target.value)}
+                placeholder="Søk navn, tittel, e-post…"
+                className={`min-w-[240px] flex-1 ${FILTER_INPUT_CLASS}`}
+              />
+              <select
+                value={filterUnit}
+                onChange={(e) => setFilterUnit(e.target.value)}
+                className={`min-w-[180px] ${FILTER_INPUT_CLASS}`}
+              >
+                <option value="">Alle enheter</option>
+                {org.units.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {filteredEmployees.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-white py-16 text-center shadow-sm">
@@ -707,7 +717,69 @@ export function OrganisationPage() {
               </button>
             </div>
           ) : (
-            <Table1Shell>
+            <Table1Shell
+              toolbar={
+                <Table1Toolbar
+                  payloadOverride={layout}
+                  searchSlot={
+                    <div className="flex min-w-0 flex-1 flex-wrap gap-3">
+                      <div
+                        className="relative min-w-[200px] flex-1"
+                        style={{ ['--layout-accent' as string]: layout.accent }}
+                      >
+                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                        <input
+                          value={searchEmp}
+                          onChange={(e) => setSearchEmp(e.target.value)}
+                          placeholder="Søk navn, tittel, e-post…"
+                          className={`w-full border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[color:var(--layout-accent)] ${rSeg}`}
+                        />
+                      </div>
+                      <select
+                        value={filterUnit}
+                        onChange={(e) => setFilterUnit(e.target.value)}
+                        className={`min-w-[180px] border border-neutral-200 bg-white px-3 py-2 text-sm ${rSeg}`}
+                      >
+                        <option value="">Alle enheter</option>
+                        {org.units.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  }
+                  segmentSlot={
+                    <div className={`inline-flex border border-neutral-200 bg-neutral-50/80 p-1 ${rSeg}`}>
+                      {(['all', 'active', 'inactive'] as const).map((id) => {
+                        const label = id === 'all' ? 'Alle' : id === 'active' ? 'Aktive' : 'Inaktive'
+                        const selected = empSegment === id
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setEmpSegment(id)}
+                            className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium transition ${rSeg} ${
+                              selected ? 'text-white shadow-sm' : 'text-neutral-600 hover:bg-white'
+                            }`}
+                            style={selected ? { backgroundColor: layout.accent, color: '#fff' } : undefined}
+                          >
+                            {selected ? (
+                              <span className="flex size-4 items-center justify-center rounded-full bg-white/20">
+                                <Check className="size-3" />
+                              </span>
+                            ) : (
+                              <span className="size-4 rounded-full border-2 border-neutral-300" />
+                            )}
+                            {label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  }
+                />
+              }
+            >
                 <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                   <thead>
                     <tr className={`text-sm ${theadRow}`}>

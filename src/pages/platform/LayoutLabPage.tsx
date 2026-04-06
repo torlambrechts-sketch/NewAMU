@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Download, Loader2, Plus, Radio, Save, Trash2 } from 'lucide-react'
+import { Download, Loader2, Plus, Radio, Save, Search, Trash2 } from 'lucide-react'
 import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 import {
@@ -15,20 +15,21 @@ import {
   layoutRadiusClass,
   layoutSurfaceClass,
   layoutTableRowClass,
-  mainbox1PaddingClass,
-  mainbox1ShellClass,
-  mainbox1ShellStyleObject,
   menu1ActiveTabClass,
   menu1ActiveTabTextStyle,
+  menu1BarOuterClass,
   menu1BarStyleObject,
   menu1InactiveTabClass,
+  menu1InnerRowClass,
   mergeLayoutPayload,
   table1BodyRowClass,
   table1CellPadding,
   table1HeaderRowClass,
 } from '../../lib/layoutLabTokens'
+import { Mainbox1 } from '../../components/layout/Mainbox1'
 import { SidebarBox1 } from '../../components/layout/SidebarBox1'
 import { Table1Shell } from '../../components/layout/Table1Shell'
+import { Table1Toolbar } from '../../components/layout/Table1Toolbar'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { useUiTheme } from '../../hooks/useUiTheme'
 
@@ -513,9 +514,51 @@ export function LayoutLabPage() {
 
           <LabSection
             title="Fanemeny (menu_1)"
-            description="Organisasjon — faner øverst på siden."
+            description="Organisasjon — faner øverst. «Helt ned» = blokker uten glipp, som referanse."
             controls={
               <>
+                <label className="block text-xs text-neutral-400">
+                  Aktiv fane layout
+                  <select
+                    value={settings.menu_1.tabLayout}
+                    onChange={(e) =>
+                      persistLocal({
+                        ...settings,
+                        menu_1: {
+                          ...settings.menu_1,
+                          tabLayout: e.target.value as LayoutLabPayload['menu_1']['tabLayout'],
+                        },
+                      })
+                    }
+                    className={SELECT_PANEL}
+                  >
+                    <option value="rounded">Avrundet (som nå)</option>
+                    <option value="squared">Skarp / kvadratisk</option>
+                    <option value="flush">Helt ned (blokker)</option>
+                  </select>
+                </label>
+                {settings.menu_1.tabLayout === 'rounded' && (
+                  <label className="block text-xs text-neutral-400">
+                    Fanehjørner
+                    <select
+                      value={settings.menu_1.tabRounding}
+                      onChange={(e) =>
+                        persistLocal({
+                          ...settings,
+                          menu_1: {
+                            ...settings.menu_1,
+                            tabRounding: e.target.value as LayoutLabPayload['menu_1']['tabRounding'],
+                          },
+                        })
+                      }
+                      className={SELECT_PANEL}
+                    >
+                      <option value="none">Ingen (skarp)</option>
+                      <option value="xl">Avrundet (xl)</option>
+                      <option value="full">Pill</option>
+                    </select>
+                  </label>
+                )}
                 <label className="block text-xs text-neutral-400">
                   Menylinje
                   <select
@@ -551,38 +594,16 @@ export function LayoutLabPage() {
                     <option value="white">Hvit</option>
                   </select>
                 </label>
-                <label className="block text-xs text-neutral-400">
-                  Fanehjørner
-                  <select
-                    value={settings.menu_1.tabRounding}
-                    onChange={(e) =>
-                      persistLocal({
-                        ...settings,
-                        menu_1: {
-                          ...settings.menu_1,
-                          tabRounding: e.target.value as LayoutLabPayload['menu_1']['tabRounding'],
-                        },
-                      })
-                    }
-                    className={SELECT_PANEL}
-                  >
-                    <option value="xl">Avrundet (xl)</option>
-                    <option value="full">Pill</option>
-                  </select>
-                </label>
               </>
             }
             preview={
-              <div className="overflow-hidden rounded-2xl border border-black/10 shadow-sm" style={menu1BarStyleObject(settings)}>
-                <div className="flex min-h-[2.5rem] flex-wrap gap-0 px-1 py-1">
+              <div className={menu1BarOuterClass(settings)} style={menu1BarStyleObject(settings)}>
+                <div className={menu1InnerRowClass(settings)}>
                   <button type="button" className={menu1ActiveTabClass(settings)} style={menu1ActiveTabTextStyle(settings)}>
-                    Org.kart
+                    Active
                   </button>
                   <button type="button" className={menu1InactiveTabClass(settings)}>
-                    Ansatte
-                  </button>
-                  <button type="button" className={menu1InactiveTabClass(settings)}>
-                    Enheter
+                    Archived
                   </button>
                 </div>
               </div>
@@ -688,10 +709,55 @@ export function LayoutLabPage() {
                     <option value="compact">Kompakt</option>
                   </select>
                 </label>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Verktøylinje</p>
+                {(
+                  [
+                    ['search', 'Søk'] as const,
+                    ['advanced', 'Avansert'] as const,
+                    ['filters', 'Filtre'] as const,
+                    ['segments', 'Segmentbokser'] as const,
+                    ['helpText', 'Hjelpetekst'] as const,
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="flex cursor-pointer items-center gap-2 text-xs text-neutral-300">
+                    <input
+                      type="checkbox"
+                      className="rounded border-white/20 bg-slate-950"
+                      checked={settings.table_1.toolbar[key]}
+                      onChange={(e) =>
+                        persistLocal({
+                          ...settings,
+                          table_1: {
+                            ...settings.table_1,
+                            toolbar: { ...settings.table_1.toolbar, [key]: e.target.checked },
+                          },
+                        })
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
               </>
             }
             preview={
-              <Table1Shell payloadOverride={settings}>
+              <Table1Shell
+                payloadOverride={settings}
+                toolbar={
+                  <Table1Toolbar
+                    payloadOverride={settings}
+                    searchSlot={
+                      <div className="relative min-w-[200px] flex-1">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                        <input
+                          readOnly
+                          placeholder="Søk …"
+                          className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm outline-none"
+                        />
+                      </div>
+                    }
+                  />
+                }
+              >
                 <table className="w-full min-w-[400px] border-collapse text-left text-sm">
                   <thead>
                     <tr className={table1HeaderRowClass(settings)}>
@@ -799,15 +865,50 @@ export function LayoutLabPage() {
                     <option value="accent">Aksent</option>
                   </select>
                 </label>
+                <label className="block text-xs text-neutral-400">
+                  Overskrift farge
+                  <select
+                    value={settings.mainbox_1.headingColor}
+                    onChange={(e) =>
+                      persistLocal({
+                        ...settings,
+                        mainbox_1: {
+                          ...settings.mainbox_1,
+                          headingColor: e.target.value as LayoutLabPayload['mainbox_1']['headingColor'],
+                        },
+                      })
+                    }
+                    className={SELECT_PANEL}
+                  >
+                    <option value="default">Standard (mørk)</option>
+                    <option value="accent">Aksent</option>
+                    <option value="neutral">Nøytral</option>
+                  </select>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-neutral-300">
+                  <input
+                    type="checkbox"
+                    className="rounded border-white/20 bg-slate-950"
+                    checked={settings.mainbox_1.headingDivider}
+                    onChange={(e) =>
+                      persistLocal({
+                        ...settings,
+                        mainbox_1: { ...settings.mainbox_1, headingDivider: e.target.checked },
+                      })
+                    }
+                  />
+                  Linje under overskrift
+                </label>
               </>
             }
             preview={
-              <div className={`${mainbox1ShellClass(settings)}`} style={mainbox1ShellStyleObject(settings)}>
-                <div className={mainbox1PaddingClass(settings)}>
-                  <h3 className="text-base font-semibold text-neutral-900">Virksomhetsinnstillinger</h3>
-                  <p className="mt-1 text-sm text-neutral-600">Eksempeltekst i hovedboks — samme komponent som i appen.</p>
-                </div>
-              </div>
+              <Mainbox1
+                payloadOverride={settings}
+                title="Virksomhetsinnstillinger"
+                subtitle="Eksempeltekst i hovedboks — samme komponent som i appen."
+              >
+                <p className="text-sm text-neutral-600">Ekstra innhold under overskriften.</p>
+              </Mainbox1>
             }
           />
 

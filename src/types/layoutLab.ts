@@ -44,6 +44,15 @@ export const DEFAULT_SIDEBAR_BOX_1: SidebarBox1Settings = {
   shadow: 'sm',
 }
 
+/** Verktøylinje over tabell (som Avansert UI — kandidater) */
+export type Table1ToolbarSettings = {
+  search: boolean
+  advanced: boolean
+  filters: boolean
+  segments: boolean
+  helpText: boolean
+}
+
 /** Primary data tables (e.g. Organisasjon → Ansatte) */
 export type Table1Settings = {
   surface: 'white' | 'cream' | 'muted'
@@ -52,6 +61,7 @@ export type Table1Settings = {
   rowStyle: 'zebra' | 'ruled' | 'minimal' | 'inherit'
   headerStyle: 'subtle' | 'strong' | 'plain'
   cellDensity: 'comfortable' | 'compact'
+  toolbar: Table1ToolbarSettings
 }
 
 /** Main content panels (e.g. Innstillinger — venstre boks) */
@@ -60,6 +70,9 @@ export type Mainbox1Settings = {
   shadow: 'none' | 'sm' | 'md'
   padding: 'comfortable' | 'compact'
   border: 'neutral' | 'accent'
+  /** Overskrift */
+  headingColor: 'default' | 'accent' | 'neutral'
+  headingDivider: boolean
 }
 
 /** In-page tab strip (e.g. Organisasjon faner) */
@@ -68,8 +81,22 @@ export type Menu1Settings = {
   barTone: 'accent' | 'slate'
   /** Active tab fill */
   activeFill: 'cream' | 'white'
-  /** Tab chip shape */
-  tabRounding: 'xl' | 'full'
+  /**
+   * Avrundet = faner som nå (pill / xl).
+   * Squared = skarpe hjørner, blokkfaner.
+   * All the way down = faner i full høyde, ingen glipp ned, som referanse (Active / Archived).
+   */
+  tabLayout: 'rounded' | 'squared' | 'flush'
+  /** Gjelder når tabLayout = rounded — «Ingen» = skarpe hjørner på faner */
+  tabRounding: 'none' | 'xl' | 'full'
+}
+
+export const DEFAULT_TABLE_1_TOOLBAR: Table1ToolbarSettings = {
+  search: true,
+  advanced: false,
+  filters: false,
+  segments: false,
+  helpText: false,
 }
 
 export const DEFAULT_TABLE_1: Table1Settings = {
@@ -78,6 +105,7 @@ export const DEFAULT_TABLE_1: Table1Settings = {
   rowStyle: 'inherit',
   headerStyle: 'subtle',
   cellDensity: 'comfortable',
+  toolbar: DEFAULT_TABLE_1_TOOLBAR,
 }
 
 export const DEFAULT_MAINBOX_1: Mainbox1Settings = {
@@ -85,11 +113,14 @@ export const DEFAULT_MAINBOX_1: Mainbox1Settings = {
   shadow: 'sm',
   padding: 'comfortable',
   border: 'neutral',
+  headingColor: 'default',
+  headingDivider: false,
 }
 
 export const DEFAULT_MENU_1: Menu1Settings = {
   barTone: 'accent',
   activeFill: 'cream',
+  tabLayout: 'rounded',
   tabRounding: 'xl',
 }
 
