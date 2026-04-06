@@ -12,6 +12,8 @@ export const PERMISSION_KEYS = [
   'module.view.internal_control',
   'module.view.tasks',
   'module.view.learning',
+  /** Cross-module reporting & compliance exports */
+  'module.view.reports',
   /** Create/edit/publish courses; view org-wide learning progress in admin views */
   'learning.manage',
   /** Documents & wiki — folders, pages, compliance, template settings */
@@ -34,6 +36,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'module.view.internal_control': 'Internkontroll',
   'module.view.tasks': 'Tasks',
   'module.view.learning': 'E-learning',
+  'module.view.reports': 'Rapporter',
   'learning.manage': 'E-learning — opprette og redigere kurs',
   'documents.manage': 'Documents & wiki — redigere innhold og maler',
   'module.view.admin': 'Admin (brukere & roller)',
@@ -48,6 +51,7 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/internal-control', permission: 'module.view.internal_control' },
   { pathPrefix: '/tasks', permission: 'module.view.tasks' },
   { pathPrefix: '/learning', permission: 'module.view.learning' },
+  { pathPrefix: '/reports', permission: 'module.view.reports' },
   { pathPrefix: '/admin', permission: 'module.view.admin' },
 ]
 

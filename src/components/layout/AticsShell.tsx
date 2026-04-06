@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
+  BarChart3,
   BookOpen,
   Building2,
   CalendarRange,
@@ -193,6 +194,7 @@ const navGroups: NavGroup[] = [
       { to: '/action-board', label: 'Action Board', end: false, icon: Kanban, subs: [], perm: 'module.view.dashboard' },
       { to: '/aarshjul', label: 'Årshjul', end: false, icon: CalendarRange, subs: [], perm: 'module.view.dashboard' },
       { to: '/organisation', label: 'Organisasjon', end: false, icon: Building2, subs: [], perm: 'module.view.dashboard' },
+      { to: '/reports', label: 'Rapporter', end: false, icon: BarChart3, subs: [], perm: 'module.view.reports' },
       { to: '/admin', label: 'Admin', end: true, icon: Shield, subs: [], perm: 'module.view.admin' },
     ],
   },

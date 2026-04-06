@@ -9,6 +9,7 @@ import { AuthPage } from './pages/AuthPage'
 import { InviteAcceptPage } from './pages/InviteAcceptPage'
 import { AdminPage } from './pages/AdminPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { ReportingEnginePage } from './pages/ReportingEnginePage'
 import { HrmEmployees } from './pages/HrmEmployees'
 import { HrmSalary } from './pages/HrmSalary'
 import { NotFound } from './pages/NotFound'
@@ -69,6 +70,7 @@ function App() {
                   <Route index element={<ProjectDashboard />} />
                   <Route path="tasks" element={<TasksPage />} />
                   <Route path="organisation" element={<OrganisationPage />} />
+                  <Route path="reports" element={<ReportingEnginePage />} />
                   <Route path="aarshjul" element={<AarshjulPage />} />
                   <Route path="action-board" element={<ActionBoardPage />} />
                   <Route path="council" element={<CouncilModule />} />
