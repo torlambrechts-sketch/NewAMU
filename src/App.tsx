@@ -50,6 +50,11 @@ import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import { DocumentsLayout } from './hooks/useDocuments'
+import { PlatformAdminLoginPage } from './pages/platform/PlatformAdminLoginPage'
+import { PlatformAdminLayout } from './pages/platform/PlatformAdminLayout'
+import { PlatformAdminDashboardPage } from './pages/platform/PlatformAdminDashboardPage'
+import { PlatformRoadmapPage } from './pages/platform/PlatformRoadmapPage'
+import { LayoutLabPage } from './pages/platform/LayoutLabPage'
 
 function App() {
   return (
@@ -64,9 +69,16 @@ function App() {
 
             <Route path="/login" element={<AuthPage mode="login" />} />
             <Route path="/signup" element={<AuthPage mode="signup" />} />
+            <Route path="/platform-admin/login" element={<PlatformAdminLoginPage />} />
             <Route path="/invite/:token" element={<InviteAcceptPage />} />
 
             <Route element={<OrgGate />}>
+              <Route path="platform-admin" element={<PlatformAdminLayout />}>
+                <Route index element={<PlatformAdminDashboardPage />} />
+                <Route path="roadmap" element={<PlatformRoadmapPage />} />
+                <Route path="layout-lab" element={<LayoutLabPage />} />
+                <Route path="*" element={<Navigate to="/platform-admin" replace />} />
+              </Route>
               <Route path="onboarding" element={<OnboardingWizard />} />
               <Route element={<PermissionGate />}>
                 <Route element={<DocumentsLayout />}>

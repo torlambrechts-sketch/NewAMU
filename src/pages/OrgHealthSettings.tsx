@@ -1,59 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Globe, ListTree, Shield } from 'lucide-react'
-
-const roadmap = [
-  {
-    title: 'Arbeidstid og hviletid — bruddvarsling (AML kap. 10)',
-    body:
-      'Compliance-lag (ikke fullt vaktplan): API/webhook der kunder (f.eks. Tripletex/Visma) pusher timeaggregater til Supabase; nattlig jobb (pg_cron) sjekker bl.a. 11 t sammenhengende hvile og overtidsterskler (f.eks. 200 t/år uten tariffavtale). Ved brudd: automatisk rødt avvik på Kanban til HR.',
-    status: 'Planlagt',
-  },
-  {
-    title: 'Beredskapsøvelser og krisehåndtering (IK-f § 5 nr. 6)',
-    body:
-      'Egen modul for planlagte øvelser (brann, dataangrep, trussel m.m.), evaluering etterpå og låst arkiv som revisjonsbevis. Kritiske funn (f.eks. blokkert rømningsvei) kan trigge arbeidsflyt → oppfølgingsavvik.',
-    status: 'Planlagt',
-  },
-  {
-    title: 'Eksterne entreprenører og påseplikt (AML § 2-2 / § 6-3)',
-    body:
-      'Rolle external_contractor, tidsbegrenset magic link til underleverandørportal: HMS-erklæring, kjemikalieliste, HMS-kort — lagret org-spesifikt. Hovedbedrift ser samsvarsstatus (grønt merke) per leverandør på arbeidsplassen.',
-    status: 'Planlagt',
-  },
-  {
-    title: 'Bedriftshelsetjenesten (BHT) — integrasjon (AML § 3-3)',
-    body:
-      'Konsulent-innlogging med streng RLS: BHT ser kun avdelinger og planer bedriften eksplisitt deler. Årsplan for BHT i dokument-senter, signatur på deltakelse i ROS/vernerunder — dokumentert i internkontroll.',
-    status: 'Planlagt',
-  },
-  {
-    title: 'Bedriftsomtale (company site)',
-    body:
-      'Egen informasjonsside for hele selskapet: åpen tilgang til anonym rapportering, valg og informasjon om arbeidsmiljøråd/HMS — uten innlogging i admin.',
-    status: 'Planlagt',
-  },
-  {
-    title: 'Internkontroll (nå: demo)',
-    body:
-      'Varslingssaker med status, ROS-mal og årsgjennomgang finnes under «Internkontroll» i appen — videreutvikles med roller, eksport og integrasjon mot BHT.',
-    status: 'Pågår',
-  },
-  {
-    title: 'E-post / SMS-varsler til HR',
-    body: 'Automatiserte varsler ved nye anonyme henvendelser og terskel for oppfølging.',
-    status: 'Planlagt',
-  },
-  {
-    title: 'Integrasjon med ekstern varsling',
-    body: 'API eller eksport til godkjente varslingskanaler der det kreves.',
-    status: 'Utforskning',
-  },
-  {
-    title: 'Roller og tilgangsstyring',
-    body: 'Skille mellom medarbeider, verneombud, HR og leder i samme løsning.',
-    status: 'Planlagt',
-  },
-]
+import { ProductRoadmapList } from '../components/ProductRoadmapList'
 
 export function OrgHealthSettings() {
   return (
@@ -89,22 +36,7 @@ export function OrgHealthSettings() {
           </div>
         </div>
 
-        <ul className="mt-8 space-y-4">
-          {roadmap.map((item) => (
-            <li
-              key={item.title}
-              className="rounded-xl border border-neutral-200/90 bg-[#faf8f4]/80 p-4"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-semibold text-[#1a3d32]">{item.title}</h2>
-                <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-neutral-600 ring-1 ring-neutral-200">
-                  {item.status}
-                </span>
-              </div>
-              <p className="mt-2 text-sm text-neutral-600">{item.body}</p>
-            </li>
-          ))}
-        </ul>
+        <ProductRoadmapList />
 
         <div className="mt-8 rounded-xl border border-sky-200/80 bg-sky-50/50 p-4">
           <h2 className="text-sm font-semibold text-sky-950">Forslag til implementasjon og hvordan vi starter</h2>

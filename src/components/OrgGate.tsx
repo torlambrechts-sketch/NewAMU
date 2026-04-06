@@ -17,19 +17,19 @@ export function OrgGate() {
   }
 
   const path = location.pathname
-  const isPublicAuth = path === '/login' || path === '/signup'
+  const isPublicAuth = path === '/login' || path === '/signup' || path === '/platform-admin/login'
   const isInvite = path.startsWith('/invite/')
-
   if (supabaseConfigured && !user && !isPublicAuth && !isInvite) {
-    return (
-      <Navigate
-        to={`/login?redirect=${encodeURIComponent(path + location.search)}&reason=no_session`}
-        replace
-      />
-    )
+    const isPlatformAdminArea = path.startsWith('/platform-admin')
+    const loginTarget = isPlatformAdminArea
+      ? `/platform-admin/login?redirect=${encodeURIComponent(path + location.search)}`
+      : `/login?redirect=${encodeURIComponent(path + location.search)}&reason=no_session`
+    return <Navigate to={loginTarget} replace />
   }
 
-  if (supabaseConfigured && user && needsOnboarding && path !== '/onboarding') {
+  const skipOnboardingForPlatformAdmin = path.startsWith('/platform-admin') && path !== '/platform-admin/login'
+
+  if (supabaseConfigured && user && needsOnboarding && path !== '/onboarding' && !skipOnboardingForPlatformAdmin) {
     return <Navigate to="/onboarding" replace state={{ from: path }} />
   }
 

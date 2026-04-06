@@ -508,14 +508,24 @@ export function useOrgSetup() {
     await refreshPermissions()
   }, [supabase, organization, refreshPermissions])
 
+  const isPlatformAdminRoute =
+    location.pathname.startsWith('/platform-admin') && location.pathname !== '/platform-admin/login'
+
   const needsOnboarding = useMemo(() => {
+    if (isPlatformAdminRoute) return false
     if (!supabase) return false
     if (!user) return false
     if (profile?.organization_id === DEMO_ORGANIZATION_ID) return false
     if (!profile?.organization_id) return true
     if (!organization?.onboarding_completed_at) return true
     return false
-  }, [supabase, user, profile?.organization_id, organization?.onboarding_completed_at])
+  }, [
+    isPlatformAdminRoute,
+    supabase,
+    user,
+    profile?.organization_id,
+    organization?.onboarding_completed_at,
+  ])
 
   const ready = loadState === 'ready' || loadState === 'idle'
 
