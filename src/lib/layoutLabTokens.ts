@@ -319,7 +319,8 @@ export function mainbox1PaddingClass(payload: LayoutLabPayload): string {
 export function menu1BarOuterClass(payload: LayoutLabPayload): string {
   const m = payload.menu_1 ?? DEFAULT_MENU_1
   if (m.tabLayout === 'flush') {
-    return 'mt-8 overflow-hidden border border-black/10 shadow-sm rounded-none'
+    /* No bottom border — bar extends flush into content below */
+    return 'mt-8 overflow-hidden rounded-none border-x border-t border-black/10 border-b-0 shadow-sm'
   }
   return 'mt-8 overflow-hidden rounded-2xl border border-black/10 shadow-sm'
 }
@@ -332,7 +333,12 @@ export function menu1BarStyleObject(payload: LayoutLabPayload): CSSProperties {
       ? { backgroundColor: '#1e293b', borderColor: 'rgba(0,0,0,0.1)' }
       : { backgroundColor: accent, borderColor: 'rgba(0,0,0,0.1)' }
   if (m.tabLayout === 'flush') {
-    return { ...base, borderTop: '1px solid rgba(0,0,0,0.25)' }
+    return {
+      ...base,
+      borderTop: '1px solid rgba(0,0,0,0.25)',
+      borderBottomWidth: 0,
+      borderBottomStyle: 'none',
+    }
   }
   return base
 }
