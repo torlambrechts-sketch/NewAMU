@@ -5,9 +5,17 @@ import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 import {
   DEFAULT_LAYOUT_LAB,
+  LAYOUT_LAB_CHANGED_EVENT,
   LAYOUT_LAB_STORAGE_KEY,
   type LayoutLabPayload,
 } from '../../types/layoutLab'
+import {
+  layoutDensityPadding,
+  layoutPageMaxClass,
+  layoutRadiusClass,
+  layoutSurfaceClass,
+  layoutTableRowClass,
+} from '../../lib/layoutLabTokens'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 
 type PresetRow = {
@@ -15,30 +23,6 @@ type PresetRow = {
   name: string
   payload: LayoutLabPayload
   updated_at: string
-}
-
-function radiusClass(r: LayoutLabPayload['radius']) {
-  switch (r) {
-    case 'sm':
-      return 'rounded-sm'
-    case 'md':
-      return 'rounded-md'
-    case 'lg':
-      return 'rounded-lg'
-    default:
-      return 'rounded-2xl'
-  }
-}
-
-function surfaceClass(s: LayoutLabPayload['surface']) {
-  switch (s) {
-    case 'white':
-      return 'bg-white'
-    case 'muted':
-      return 'bg-neutral-100'
-    default:
-      return 'bg-[#f5f0e8]'
-  }
 }
 
 export function LayoutLabPage() {
@@ -68,6 +52,11 @@ export function LayoutLabPage() {
     setSettings(next)
     try {
       localStorage.setItem(LAYOUT_LAB_STORAGE_KEY, JSON.stringify(next))
+    } catch {
+      /* ignore */
+    }
+    try {
+      window.dispatchEvent(new Event(LAYOUT_LAB_CHANGED_EVENT))
     } catch {
       /* ignore */
     }
@@ -103,20 +92,11 @@ export function LayoutLabPage() {
     void loadPresets()
   }, [loadPresets])
 
-  const pageMax = useMemo(() => {
-    switch (settings.pageWidth) {
-      case 'narrow':
-        return 'max-w-3xl'
-      case 'wide':
-        return 'max-w-[1400px]'
-      default:
-        return 'max-w-5xl'
-    }
-  }, [settings.pageWidth])
+  const pageMax = useMemo(() => layoutPageMaxClass(settings.pageWidth), [settings.pageWidth])
 
-  const densityPad = settings.density === 'compact' ? 'px-2 py-1.5' : 'px-4 py-3'
-  const r = radiusClass(settings.radius)
-  const surf = surfaceClass(settings.surface)
+  const densityPad = layoutDensityPadding(settings.density)
+  const r = layoutRadiusClass(settings.radius)
+  const surf = layoutSurfaceClass(settings.surface)
 
   async function saveToCloud() {
     if (!supabase || !userId || !saveName.trim()) {
@@ -174,11 +154,7 @@ export function LayoutLabPage() {
         ? 'border border-neutral-200/80 shadow-md'
         : 'border border-neutral-200/60'
 
-  const tableRowClass = (i: number) => {
-    if (settings.tableStyle === 'zebra') return i % 2 === 0 ? 'bg-white/80' : 'bg-neutral-100/50'
-    if (settings.tableStyle === 'ruled') return 'border-b border-neutral-200'
-    return ''
-  }
+  const tableRowClass = (i: number) => layoutTableRowClass(settings, i)
 
   const kanbanColClass =
     settings.kanbanStyle === 'dense'

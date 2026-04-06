@@ -27,3 +27,6 @@ export const DEFAULT_LAYOUT_LAB: LayoutLabPayload = {
 }
 
 export const LAYOUT_LAB_STORAGE_KEY = 'atics-layout-lab-payload-v1'
+
+/** Dispatched when Layout-lab updates localStorage so other tabs/pages can sync. */
+export const LAYOUT_LAB_CHANGED_EVENT = 'atics-layout-lab-changed'

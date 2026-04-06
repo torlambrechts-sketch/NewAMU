@@ -1,11 +1,12 @@
-import { useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight,
   Ban,
   Check,
   ChevronDown,
   Filter,
+  Loader2,
   Mail,
   MessageCircle,
   MoreHorizontal,
@@ -14,11 +15,111 @@ import {
   Star,
   Users,
 } from 'lucide-react'
+import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
+import { getSupabaseErrorMessage } from '../../lib/supabaseError'
+import {
+  layoutCardClass,
+  layoutCardStyleObject,
+  layoutDensityPadding,
+  layoutPageMaxClass,
+  layoutRadiusClass,
+  layoutSurfaceClass,
+  layoutTableRowClass,
+  mergeLayoutPayload,
+} from '../../lib/layoutLabTokens'
+import {
+  DEFAULT_LAYOUT_LAB,
+  LAYOUT_LAB_CHANGED_EVENT,
+  LAYOUT_LAB_STORAGE_KEY,
+  type LayoutLabPayload,
+} from '../../types/layoutLab'
+import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 
-/** Reference patterns for ATS-style UI — copy classes into main app modules. */
-const SURFACE = 'bg-[#f5f0e8] text-neutral-900'
-const CARD = 'rounded-xl border border-neutral-200/90 bg-white shadow-sm'
-const GREEN = '#1a3d32'
+function readPayloadFromStorage(): LayoutLabPayload {
+  try {
+    const raw = localStorage.getItem(LAYOUT_LAB_STORAGE_KEY)
+    if (!raw) return DEFAULT_LAYOUT_LAB
+    const parsed = JSON.parse(raw) as Partial<LayoutLabPayload>
+    return mergeLayoutPayload(parsed)
+  } catch {
+    return DEFAULT_LAYOUT_LAB
+  }
+}
+
+function useLayoutLabPayload(): {
+  payload: LayoutLabPayload
+  reload: () => void
+  presetLoading: boolean
+  presetError: string | null
+} {
+  const [payload, setPayload] = useState<LayoutLabPayload>(() => readPayloadFromStorage())
+  const [searchParams] = useSearchParams()
+  const presetId = searchParams.get('preset')
+  const { userId, isAdmin } = usePlatformAdmin()
+  const supabase = getSupabaseBrowserClient()
+  const [presetLoading, setPresetLoading] = useState(false)
+  const [presetError, setPresetError] = useState<string | null>(null)
+
+  const reload = useCallback(() => {
+    setPayload(readPayloadFromStorage())
+  }, [])
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LAYOUT_LAB_STORAGE_KEY || e.key === null) reload()
+    }
+    const onCustom = () => reload()
+    window.addEventListener('storage', onStorage)
+    window.addEventListener(LAYOUT_LAB_CHANGED_EVENT, onCustom)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener(LAYOUT_LAB_CHANGED_EVENT, onCustom)
+    }
+  }, [reload])
+
+  useEffect(() => {
+    if (!presetId || !supabase || !userId || !isAdmin) {
+      setPresetLoading(false)
+      setPresetError(null)
+      return
+    }
+    let cancelled = false
+    setPresetLoading(true)
+    setPresetError(null)
+    void (async () => {
+      try {
+        const { data, error: e } = await supabase
+          .from('platform_layout_presets')
+          .select('payload')
+          .eq('id', presetId)
+          .eq('user_id', userId)
+          .maybeSingle()
+        if (e) throw e
+        if (cancelled) return
+        if (data?.payload) {
+          const next = mergeLayoutPayload(data.payload as Partial<LayoutLabPayload>)
+          setPayload(next)
+          try {
+            localStorage.setItem(LAYOUT_LAB_STORAGE_KEY, JSON.stringify(next))
+          } catch {
+            /* ignore */
+          }
+        } else {
+          setPresetError('Fant ikke preset eller ingen tilgang.')
+        }
+      } catch (err) {
+        if (!cancelled) setPresetError(getSupabaseErrorMessage(err))
+      } finally {
+        if (!cancelled) setPresetLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [presetId, supabase, userId, isAdmin])
+
+  return { payload, reload, presetLoading, presetError }
+}
 
 function Pill({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
@@ -32,9 +133,11 @@ function PipelineIcon({ children }: { children: ReactNode }) {
   return <span className="flex items-center gap-1 text-neutral-500">{children}</span>
 }
 
-function JobListingCard() {
+function JobListingCard({ payload }: { payload: LayoutLabPayload }) {
+  const card = layoutCardClass(payload)
+  const cardStyle = layoutCardStyleObject(payload)
   return (
-    <div className={CARD}>
+    <div className={`${card} overflow-hidden`} style={cardStyle}>
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-100 px-5 py-4">
         <div className="min-w-0">
           <h3 className="text-lg font-semibold text-neutral-900">Sales Manager</h3>
@@ -95,29 +198,70 @@ function JobListingCard() {
   )
 }
 
-function CandidatesToolbarAndTable() {
-  const [segment, setSegment] = useState<'all' | 'uninvited' | 'invited'>('all')
+function JobListingCardAlt({ payload }: { payload: LayoutLabPayload }) {
+  const card = layoutCardClass(payload)
+  const cardStyle = layoutCardStyleObject(payload)
   return (
-    <div className={`${CARD} overflow-hidden`}>
+    <div className={card} style={cardStyle}>
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-100 px-5 py-4">
+        <div>
+          <h3 className="text-lg font-semibold text-neutral-900">Customer Success Manager</h3>
+          <p className="mt-1 text-sm text-neutral-500">Remote · Customer · Global</p>
+          <Pill className="mt-2 bg-amber-100/80 text-amber-900">PIN-0041</Pill>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Pill className="border border-emerald-200/80 bg-emerald-50 text-emerald-900">Open</Pill>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+        <div>
+          <p className="text-3xl font-bold tabular-nums">10</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Candidates</p>
+        </div>
+        <div className="flex items-center gap-1 text-sm">
+          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-900">1/5</span>
+          <span className="text-neutral-300">|</span>
+          <Users className="size-4 text-neutral-500" />
+        </div>
+        <button type="button" className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
+          View candidates <ChevronDown className="inline size-4" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function CandidatesToolbarAndTable({ payload }: { payload: LayoutLabPayload }) {
+  const [segment, setSegment] = useState<'all' | 'uninvited' | 'invited'>('all')
+  const card = layoutCardClass(payload)
+  const cardStyle = layoutCardStyleObject(payload)
+  const accent = payload.accent || '#1a3d32'
+  const pad = layoutDensityPadding(payload.density)
+  const rMd = payload.radius === 'sm' ? 'rounded-sm' : payload.radius === 'md' ? 'rounded-md' : 'rounded-lg'
+  return (
+    <div className={`${card} overflow-hidden`} style={cardStyle}>
       <div className="border-b border-neutral-100 p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[200px] flex-1">
+          <div
+            className="relative min-w-[200px] flex-1"
+            style={{ ['--layout-accent' as string]: accent }}
+          >
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
             <input
               type="search"
               placeholder="Search candidates…"
-              className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm outline-none ring-[#1a3d32] focus:ring-1"
+              className={`w-full border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[color:var(--layout-accent)] ${rMd}`}
             />
           </div>
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50"
+            className={`inline-flex items-center gap-1.5 border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50 ${rMd}`}
           >
             <Search className="size-3.5" /> Advanced
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50"
+            className={`inline-flex items-center gap-1.5 border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50 ${rMd}`}
           >
             <Filter className="size-3.5" /> Filters
           </button>
@@ -126,7 +270,7 @@ function CandidatesToolbarAndTable() {
           You can filter by candidates that have taken part in interviews at this stage.
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex rounded-lg border border-neutral-200 bg-neutral-50/80 p-1">
+          <div className={`inline-flex border border-neutral-200 bg-neutral-50/80 p-1 ${rMd}`}>
             {(
               [
                 ['all', 'All candidates'],
@@ -138,9 +282,14 @@ function CandidatesToolbarAndTable() {
                 key={id}
                 type="button"
                 onClick={() => setSegment(id)}
-                className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition ${
-                  segment === id ? 'bg-[#1a3d32] text-white shadow-sm' : 'text-neutral-600 hover:bg-white'
+                className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium transition ${rMd} ${
+                  segment === id ? 'text-white shadow-sm' : 'text-neutral-600 hover:bg-white'
                 }`}
+                style={
+                  segment === id
+                    ? { backgroundColor: accent, color: '#fff' }
+                    : undefined
+                }
               >
                 {segment === id ? (
                   <span className="flex size-4 items-center justify-center rounded-full bg-white/20">
@@ -155,7 +304,7 @@ function CandidatesToolbarAndTable() {
           </div>
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold uppercase text-neutral-700 hover:bg-neutral-50"
+            className={`inline-flex items-center gap-1.5 border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold uppercase text-neutral-700 hover:bg-neutral-50 ${rMd}`}
           >
             <Settings className="size-3.5" /> Configure
           </button>
@@ -165,26 +314,26 @@ function CandidatesToolbarAndTable() {
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead>
             <tr className="border-b border-neutral-100 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-              <th className="w-10 px-4 py-3">
+              <th className={`w-10 ${pad}`}>
                 <input type="checkbox" className="rounded border-neutral-300" aria-label="Select all" />
               </th>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Template</th>
-              <th className="px-4 py-3">Attendees</th>
-              <th className="px-4 py-3">Tags</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Date</th>
+              <th className={pad}>Name</th>
+              <th className={pad}>Template</th>
+              <th className={pad}>Attendees</th>
+              <th className={pad}>Tags</th>
+              <th className={pad}>Status</th>
+              <th className={pad}>Date</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-100">
-            <tr className="hover:bg-neutral-50/80">
-              <td className="px-4 py-3">
+          <tbody>
+            <tr className={`${layoutTableRowClass(payload, 0)} hover:bg-neutral-50/80`}>
+              <td className={pad}>
                 <input type="checkbox" className="rounded border-neutral-300" />
               </td>
-              <td className="px-4 py-3 font-medium text-neutral-900">Tom Hacquoil</td>
-              <td className="px-4 py-3 text-neutral-600">Standard</td>
-              <td className="px-4 py-3 text-neutral-600">—</td>
-              <td className="px-4 py-3">
+              <td className={`${pad} font-medium text-neutral-900`}>Tom Hacquoil</td>
+              <td className={`${pad} text-neutral-600`}>Standard</td>
+              <td className={`${pad} text-neutral-600`}>—</td>
+              <td className={pad}>
                 <span className="mr-1 inline-flex rounded-full bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-900">
                   Custom tag 1
                 </span>
@@ -192,10 +341,10 @@ function CandidatesToolbarAndTable() {
                   Referral
                 </span>
               </td>
-              <td className="px-4 py-3">
+              <td className={pad}>
                 <Pill className="bg-stone-100 text-stone-800">Not invited</Pill>
               </td>
-              <td className="px-4 py-3 text-neutral-500">—</td>
+              <td className={`${pad} text-neutral-500`}>—</td>
             </tr>
           </tbody>
         </table>
@@ -204,24 +353,38 @@ function CandidatesToolbarAndTable() {
   )
 }
 
-function ScoreBar({ value }: { value: number }) {
+function ScoreBar({ value, accent }: { value: number; accent: string }) {
   const pct = Math.min(100, Math.max(0, value * 20))
   return (
     <div className="flex flex-1 items-center gap-3">
       <div className="h-2 flex-1 overflow-hidden rounded-full bg-neutral-200">
-        <div className="h-full rounded-full bg-[#1a3d32]/85" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: accent }} />
       </div>
       <span className="w-10 text-right text-sm tabular-nums text-neutral-700">{value.toFixed(2)}</span>
     </div>
   )
 }
 
-function ScorecardCandidateCard({ name, overall }: { name: string; overall: number }) {
+function ScorecardCandidateCard({
+  name,
+  overall,
+  payload,
+}: {
+  name: string
+  overall: number
+  payload: LayoutLabPayload
+}) {
+  const card = layoutCardClass(payload)
+  const cardStyle = layoutCardStyleObject(payload)
+  const accent = payload.accent || '#1a3d32'
+  const pad = payload.density === 'compact' ? 'px-3 py-2' : 'px-4 py-3'
   return (
-    <div className={`${CARD} p-0`}>
-      <div className="flex items-start justify-between border-b border-neutral-100 px-4 py-3">
+    <div className={`${card} p-0`} style={cardStyle}>
+      <div className={`flex items-start justify-between border-b border-neutral-100 ${pad}`}>
         <h4 className="font-semibold text-neutral-900">{name}</h4>
-        <span className="text-2xl font-bold tabular-nums text-[#1a3d32]">{overall}%</span>
+        <span className="text-2xl font-bold tabular-nums" style={{ color: accent }}>
+          {overall}%
+        </span>
       </div>
       <div className="border-b border-neutral-100">
         <div className="flex items-center justify-between bg-amber-50/80 px-4 py-2">
@@ -231,14 +394,14 @@ function ScorecardCandidateCard({ name, overall }: { name: string; overall: numb
             <Pill className="bg-emerald-100 text-emerald-900">4.5</Pill>
           </span>
         </div>
-        <div className="space-y-3 px-4 py-3">
+        <div className={`space-y-3 ${pad}`}>
           <div className="flex items-center gap-3 text-sm">
             <span className="w-36 shrink-0 text-neutral-600">Ruby on Rails</span>
-            <ScoreBar value={4.5} />
+            <ScoreBar value={4.5} accent={accent} />
           </div>
           <div className="flex items-center gap-3 text-sm">
             <span className="w-36 shrink-0 text-neutral-600">Technical acumen</span>
-            <ScoreBar value={4.2} />
+            <ScoreBar value={4.2} accent={accent} />
           </div>
         </div>
       </div>
@@ -250,10 +413,10 @@ function ScorecardCandidateCard({ name, overall }: { name: string; overall: numb
             <Pill className="bg-amber-100 text-amber-900">3.8</Pill>
           </span>
         </div>
-        <div className="space-y-3 px-4 py-3">
+        <div className={`space-y-3 ${pad}`}>
           <div className="flex items-center gap-3 text-sm">
             <span className="w-36 shrink-0 text-neutral-600">Communication</span>
-            <ScoreBar value={3.8} />
+            <ScoreBar value={3.8} accent={accent} />
           </div>
         </div>
       </div>
@@ -262,21 +425,50 @@ function ScorecardCandidateCard({ name, overall }: { name: string; overall: numb
 }
 
 export function PlatformUiAdvancedPage() {
+  const { payload, reload, presetLoading, presetError } = useLayoutLabPayload()
+  const pageMax = useMemo(() => layoutPageMaxClass(payload.pageWidth), [payload.pageWidth])
+  const surf = layoutSurfaceClass(payload.surface)
+  const r = layoutRadiusClass(payload.radius)
+  const accent = payload.accent || '#1a3d32'
+
   return (
-    <div className="max-w-6xl space-y-10">
+    <div className={`${pageMax} space-y-10`}>
       <div>
         <h1 className="text-2xl font-semibold text-white">Avansert UI — referansemønstre</h1>
         <p className="mt-2 max-w-3xl text-sm text-neutral-400">
-          ATS-lignende kort, tabell med segmentkontroll og scorecard-kort. Bakgrunn matcher atics (
-          <code className="rounded bg-white/10 px-1">#f5f0e8</code> / <code className="rounded bg-white/10 px-1">{GREEN}</code>
-          ). Kopier markup og Tailwind-klasser inn i moduler etter behov.
+          ATS-lignende kort, tabell med segmentkontroll og scorecard-kort. Stil hentes fra{' '}
+          <Link to="/platform-admin/layout-lab" className="text-amber-400/90 hover:underline">
+            Layout-lab
+          </Link>{' '}
+          (lagres i nettleseren). Legg til{' '}
+          <code className="rounded bg-white/10 px-1">?preset=&lt;uuid&gt;</code> for å laste et sky-lagret preset (krever
+          innlogget plattform-admin).
         </p>
-        <Link to="/platform-admin/layout-lab" className="mt-3 inline-block text-sm text-amber-400/90 hover:underline">
-          ← Layout-lab (tokens og lagring)
-        </Link>
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+          <Link to="/platform-admin/layout-lab" className="text-amber-400/90 hover:underline">
+            ← Layout-lab (endre tokens)
+          </Link>
+          <button
+            type="button"
+            onClick={() => reload()}
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-neutral-200 hover:bg-white/5"
+          >
+            Oppdater fra lagring
+          </button>
+          {presetLoading && (
+            <span className="inline-flex items-center gap-1 text-neutral-400">
+              <Loader2 className="size-4 animate-spin" /> Laster preset…
+            </span>
+          )}
+        </div>
+        {presetError && <p className="mt-2 text-sm text-red-300">{presetError}</p>}
+        <p className="mt-2 text-xs text-neutral-500">
+          Aktiv aksent: <code className="rounded bg-white/10 px-1">{accent}</code> · Tetthet: {payload.density} ·
+          Tabell: {payload.tableStyle} · Kort: {payload.cardStyle}
+        </p>
       </div>
 
-      <section className={`${SURFACE} rounded-2xl border border-white/10 p-6 md:p-8`}>
+      <section className={`${surf} ${r} border border-white/10 p-6 md:p-8`}>
         <h2 className="font-serif text-lg font-semibold text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
           Stillingsliste — horisontalt kort (to rader)
         </h2>
@@ -284,56 +476,25 @@ export function PlatformUiAdvancedPage() {
           Øvre rad: tittel, meta, PIN-pille, stjerne/meny, status-piller. Nedre rad: hovedtall, pipeline med ikoner, CTA.
         </p>
         <div className="mt-6 space-y-4">
-          <JobListingCard />
-          <div className={CARD}>
-            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-100 px-5 py-4">
-              <div>
-                <h3 className="text-lg font-semibold text-neutral-900">Customer Success Manager</h3>
-                <p className="mt-1 text-sm text-neutral-500">Remote · Customer · Global</p>
-                <Pill className="mt-2 bg-amber-100/80 text-amber-900">PIN-0041</Pill>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Pill className="border border-emerald-200/80 bg-emerald-50 text-emerald-900">Open</Pill>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
-              <div>
-                <p className="text-3xl font-bold tabular-nums">10</p>
-                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Candidates</p>
-              </div>
-              <div className="flex items-center gap-1 text-sm">
-                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-900">1/5</span>
-                <span className="text-neutral-300">|</span>
-                <Users className="size-4 text-neutral-500" />
-              </div>
-              <button type="button" className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
-                View candidates <ChevronDown className="inline size-4" />
-              </button>
-            </div>
-          </div>
+          <JobListingCard payload={payload} />
+          <JobListingCardAlt payload={payload} />
         </div>
       </section>
 
-      <section className={`${SURFACE} rounded-2xl border border-white/10 p-6 md:p-8`}>
-        <h2
-          className="font-serif text-lg font-semibold text-neutral-900"
-          style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-        >
+      <section className={`${surf} ${r} border border-white/10 p-6 md:p-8`}>
+        <h2 className="font-serif text-lg font-semibold text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
           Kandidater — søk, segmentbokser og tabell
         </h2>
-        <p className="mt-1 text-sm text-neutral-600">Verktøylinje, hjelpetekst, pill-segment + tabell uten vertikale grid-linjer.</p>
+        <p className="mt-1 text-sm text-neutral-600">Verktøylinje, hjelpetekst, pill-segment + tabell (tokens fra Layout-lab).</p>
         <div className="mt-6">
-          <CandidatesToolbarAndTable />
+          <CandidatesToolbarAndTable payload={payload} />
         </div>
       </section>
 
-      <section className={`${SURFACE} rounded-2xl border border-white/10 p-6 md:p-8`}>
+      <section className={`${surf} ${r} border border-white/10 p-6 md:p-8`}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2
-              className="font-serif text-lg font-semibold text-neutral-900"
-              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-            >
+            <h2 className="font-serif text-lg font-semibold text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
               Scorecard ratings
             </h2>
             <p className="mt-1 text-sm text-neutral-600">Sammenligning: kort med seksjonsfelt og score-rader (progress + tall).</p>
@@ -361,8 +522,8 @@ export function PlatformUiAdvancedPage() {
           </label>
         </div>
         <div className="mt-6 grid gap-6 md:grid-cols-2">
-          <ScorecardCandidateCard name="Tom Hacquoil" overall={73} />
-          <ScorecardCandidateCard name="Jane Doe" overall={81} />
+          <ScorecardCandidateCard name="Tom Hacquoil" overall={73} payload={payload} />
+          <ScorecardCandidateCard name="Jane Doe" overall={81} payload={payload} />
         </div>
       </section>
     </div>
