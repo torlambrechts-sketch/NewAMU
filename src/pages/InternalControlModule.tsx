@@ -17,7 +17,8 @@ import { labelForAmlReportKind } from '../data/amlAnonymousReporting'
 import { useInternalControl } from '../hooks/useInternalControl'
 import { useOrgHealth } from '../hooks/useOrgHealth'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
-import type { WhistleCaseStatus } from '../types/internalControl'
+import type { RosCategory, WhistleCaseStatus } from '../types/internalControl'
+import { useHrCompliance } from '../hooks/useHrCompliance'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeRosWizard } from '../components/wizard/wizards'
@@ -48,6 +49,7 @@ const statusOrder: WhistleCaseStatus[] = [
 
 export function InternalControlModule() {
   const ic = useInternalControl()
+  const hr = useHrCompliance()
   const oh = useOrgHealth()
   const { supabaseConfigured } = useOrgSetupContext()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -61,6 +63,9 @@ export function InternalControlModule() {
   const [rosTitle, setRosTitle] = useState('')
   const [rosDept, setRosDept] = useState('')
   const [rosAssessor, setRosAssessor] = useState('')
+  const [rosCategory, setRosCategory] = useState<RosCategory>('general')
+  const [oRosAmuId, setORosAmuId] = useState('')
+  const [oRosVoId, setORosVoId] = useState('')
   const [annualYear, setAnnualYear] = useState(new Date().getFullYear())
   const [annualReviewer, setAnnualReviewer] = useState('')
   const [annualSummary, setAnnualSummary] = useState('')
@@ -361,7 +366,11 @@ export function InternalControlModule() {
             <WizardButton
               label="Veiviser"
               variant="solid"
-              def={makeRosWizard((data) => ic.createRosAssessment(String(data.title), String(data.department), String(data.assessor)))}
+              def={makeRosWizard((data) =>
+                ic.createRosAssessment(String(data.title), String(data.department), String(data.assessor), {
+                  category: 'general',
+                }),
+              )}
             />
           </div>
           <form
@@ -369,15 +378,36 @@ export function InternalControlModule() {
             onSubmit={(e) => {
               e.preventDefault()
               if (!rosTitle.trim()) return
-              ic.createRosAssessment(rosTitle, rosDept, rosAssessor)
+              const isO = rosCategory === 'organizational_change'
+              const r = ic.createRosAssessment(rosTitle, rosDept, rosAssessor, {
+                category: rosCategory,
+                seedORosRows: isO,
+              })
+              if (isO && r && supabaseConfigured && oRosAmuId && oRosVoId) {
+                void hr.upsertRosSignoff(r.id, oRosAmuId, oRosVoId)
+              }
               setRosTitle('')
               setRosDept('')
               setRosAssessor('')
+              setRosCategory('general')
+              setORosAmuId('')
+              setORosVoId('')
             }}
           >
             <div>
               <label className="text-xs text-neutral-500">Tittel</label>
               <input value={rosTitle} onChange={(e) => setRosTitle(e.target.value)} className="mt-1 block rounded-lg border border-neutral-200 px-2 py-1.5 text-sm" placeholder="f.eks. ROS — Lager 2026" required />
+            </div>
+            <div>
+              <label className="text-xs text-neutral-500">Kategori</label>
+              <select
+                value={rosCategory}
+                onChange={(e) => setRosCategory(e.target.value as RosCategory)}
+                className="mt-1 block rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+              >
+                <option value="general">Generell ROS</option>
+                <option value="organizational_change">Organisatorisk endring (O-ROS)</option>
+              </select>
             </div>
             <div>
               <label className="text-xs text-neutral-500">Avdeling</label>
@@ -387,12 +417,52 @@ export function InternalControlModule() {
               <label className="text-xs text-neutral-500">Vurdert av</label>
               <input value={rosAssessor} onChange={(e) => setRosAssessor(e.target.value)} className="mt-1 block rounded-lg border border-neutral-200 px-2 py-1.5 text-sm" />
             </div>
+            {rosCategory === 'organizational_change' && hr.orgUsers.length > 0 && (
+              <>
+                <div>
+                  <label className="text-xs text-neutral-500">AMU-representant (signatur)</label>
+                  <select
+                    value={oRosAmuId}
+                    onChange={(e) => setORosAmuId(e.target.value)}
+                    className="mt-1 block max-w-[220px] rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                  >
+                    <option value="">—</option>
+                    {hr.orgUsers.map((u) => (
+                      <option key={u.user_id} value={u.user_id}>
+                        {u.display_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-neutral-500">Verneombud (signatur)</label>
+                  <select
+                    value={oRosVoId}
+                    onChange={(e) => setORosVoId(e.target.value)}
+                    className="mt-1 block max-w-[220px] rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                  >
+                    <option value="">—</option>
+                    {hr.orgUsers.map((u) => (
+                      <option key={u.user_id} value={u.user_id}>
+                        {u.display_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
             <button type="submit" className="rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26]">Ny ROS</button>
           </form>
+          {rosCategory === 'organizational_change' && (
+            <p className="mt-2 text-xs text-amber-800">
+              O-ROS: forhåndsutfylte farer (kompetansetap, rolleuklarhet, psykososial belastning). Velg AMU og verneombud —
+              ROS kan ikke låses før begge har signert i HR-modulen.
+            </p>
+          )}
 
           {/* ROS assessments */}
           {ic.rosAssessments.map((ros) => (
-            <RosAssessmentCard key={ros.id} ros={ros} ic={ic} />
+            <RosAssessmentCard key={ros.id} ros={ros} ic={ic} hr={hr} />
           ))}
         </div>
       )}
@@ -519,9 +589,11 @@ export function InternalControlModule() {
 function RosAssessmentCard({
   ros,
   ic,
+  hr,
 }: {
   ros: import('../types/internalControl').RosAssessment
   ic: ReturnType<typeof useInternalControl>
+  hr: ReturnType<typeof useHrCompliance>
 }) {
   const [leaderName, setLeaderName] = useState('')
   const [verneombudName, setVerneombudName] = useState('')
@@ -529,6 +601,8 @@ function RosAssessmentCard({
   const leaderSig = ros.signatures.find((s) => s.role === 'leader')
   const verneombudSig = ros.signatures.find((s) => s.role === 'verneombud')
   const bothSigned = !!leaderSig && !!verneombudSig
+  const oRosBlock = hr.rosSignoffs.find((s) => s.ros_assessment_id === ros.id)
+  const oRosBlocked = ros.rosCategory === 'organizational_change' && oRosBlock?.blocked === true
   const isLocked = ros.locked
 
   function fmtDate(iso: string) {
@@ -555,10 +629,20 @@ function RosAssessmentCard({
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 bg-neutral-50 px-4 py-3">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-semibold text-neutral-900">{ros.title}</h3>
+            {ros.rosCategory === 'organizational_change' && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-900">
+                O-ROS
+              </span>
+            )}
             {isLocked && <Lock className="size-4 text-emerald-600" aria-label="Låst — begge signaturer innhentet" />}
           </div>
+          {oRosBlocked && (
+            <p className="mt-1 text-xs font-medium text-amber-800">
+              Sperret til AMU og verneombud har signert under HR → O-ROS.
+            </p>
+          )}
           <p className="text-xs text-neutral-500">{ros.department} · {ros.assessor} · {ros.assessedAt}</p>
         </div>
         {!isLocked && (
@@ -767,7 +851,7 @@ function RosAssessmentCard({
               ) : (
                 <div className="flex gap-2">
                   <input value={leaderName} onChange={(e) => setLeaderName(e.target.value)} placeholder="Leders fulle navn" className="flex-1 rounded-lg border border-neutral-200 px-2 py-1.5 text-sm" />
-                  <button type="button" disabled={!leaderName.trim()} onClick={() => { ic.signRos(ros.id, 'leader', leaderName); setLeaderName('') }} className="rounded-full bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40 hover:bg-[#142e26]">
+                  <button type="button" disabled={!leaderName.trim() || oRosBlocked} onClick={() => { void ic.signRos(ros.id, 'leader', leaderName); setLeaderName('') }} className="rounded-full bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40 hover:bg-[#142e26]">
                     Signer
                   </button>
                 </div>
@@ -784,7 +868,7 @@ function RosAssessmentCard({
               ) : (
                 <div className="flex gap-2">
                   <input value={verneombudName} onChange={(e) => setVerneombudName(e.target.value)} placeholder="Verneombudets fulle navn" className="flex-1 rounded-lg border border-neutral-200 px-2 py-1.5 text-sm" />
-                  <button type="button" disabled={!verneombudName.trim()} onClick={() => { ic.signRos(ros.id, 'verneombud', verneombudName); setVerneombudName('') }} className="rounded-full bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40 hover:bg-[#142e26]">
+                  <button type="button" disabled={!verneombudName.trim() || oRosBlocked} onClick={() => { void ic.signRos(ros.id, 'verneombud', verneombudName); setVerneombudName('') }} className="rounded-full bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40 hover:bg-[#142e26]">
                     Signer
                   </button>
                 </div>

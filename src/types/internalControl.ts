@@ -61,12 +61,24 @@ export type RosSignature = {
 }
 
 /** ROS / risikovurdering (mal kan kopieres) */
+export type RosCategory = 'general' | 'organizational_change'
+
+/** Pre-filled O-ROS hazards for omstrukturering (AML § 7-2 / arbeidsmiljø ved endring) */
+export const O_ROS_PRESET_HAZARDS: { activity: string; hazard: string; existingControls: string }[] = [
+  { activity: 'Omorganisering', hazard: 'Kompetansetap ved tap av nøkkelpersoner', existingControls: 'Kartlegging, kompetanseplan' },
+  { activity: 'Omorganisering', hazard: 'Rolleuklarhet og uklare ansvarsforhold', existingControls: 'Oppdaterte stillingsinstrukser' },
+  { activity: 'Omorganisering', hazard: 'Psykososial belastning og frykt for egen jobb', existingControls: 'Informasjon, medvirkning, oppfølging' },
+]
+
+/** ROS / risikovurdering (mal kan kopieres) */
 export type RosAssessment = {
   id: string
   title: string
   department: string
   assessedAt: string
   assessor: string
+  /** Organisatorisk endring (O-ROS) — krever AMU/VO-signatur i hr_ros_org_signoffs før låsing */
+  rosCategory?: RosCategory
   rows: RosRiskRow[]
   /** Electronic signatures — assessment locks when both leader and verneombud have signed */
   signatures: RosSignature[]

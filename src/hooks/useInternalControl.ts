@@ -14,12 +14,14 @@ import type {
   AnnualReview,
   InternalControlAuditEntry,
   RosAssessment,
+  RosCategory,
   RosRiskRow,
   RosSignature,
   RosSignatureRole,
   WhistleCase,
   WhistleCaseStatus,
 } from '../types/internalControl'
+import { O_ROS_PRESET_HAZARDS } from '../types/internalControl'
 
 const STORAGE_KEY = 'atics-internal-control-v1'
 const MODULE_KEY = 'internal_control' as const
@@ -59,6 +61,7 @@ function normalizeParsed(p: InternalControlState): InternalControlState {
     rosAssessments: Array.isArray(p.rosAssessments)
       ? p.rosAssessments.map((r) => ({
           ...r,
+          rosCategory: (r as RosAssessment).rosCategory ?? 'general',
           signatures: (r as RosAssessment).signatures ?? [],
           locked: (r as RosAssessment).locked ?? false,
           rows: Array.isArray(r.rows)
@@ -91,6 +94,7 @@ function seedDemoInternalControl(): InternalControlState {
     department: 'Administrasjon',
     assessedAt: new Date().toISOString().slice(0, 10),
     assessor: 'HMS-koordinator (demo)',
+    rosCategory: 'general',
     rows: [
       {
         ...emptyRosRow(),
@@ -327,14 +331,34 @@ export function useInternalControl() {
   )
 
   const createRosAssessment = useCallback(
-    (title: string, department: string, assessor: string) => {
+    (
+      title: string,
+      department: string,
+      assessor: string,
+      opts?: { category?: RosCategory; seedORosRows?: boolean },
+    ) => {
+      const cat = opts?.category ?? 'general'
+      const rows =
+        cat === 'organizational_change' && opts?.seedORosRows
+          ? O_ROS_PRESET_HAZARDS.map((h) => ({
+              ...emptyRosRow(),
+              id: crypto.randomUUID(),
+              activity: h.activity,
+              hazard: h.hazard,
+              existingControls: h.existingControls,
+              severity: 3,
+              likelihood: 3,
+              riskScore: 9,
+            }))
+          : [emptyRosRow()]
       const r: RosAssessment = {
         id: crypto.randomUUID(),
         title: title.trim(),
         department: department.trim(),
         assessedAt: new Date().toISOString().slice(0, 10),
         assessor: assessor.trim(),
-        rows: [emptyRosRow()],
+        rosCategory: cat,
+        rows,
         signatures: [],
         locked: false,
         createdAt: new Date().toISOString(),
@@ -377,8 +401,24 @@ export function useInternalControl() {
   )
 
   const signRos = useCallback(
-    (rosId: string, role: RosSignatureRole, signerName: string) => {
+    async (rosId: string, role: RosSignatureRole, signerName: string) => {
       if (!signerName.trim()) return
+      const target = state.rosAssessments.find((x) => x.id === rosId)
+      if (target?.rosCategory === 'organizational_change' && useRemote && supabase && orgId) {
+        const { data, error: se } = await supabase
+          .from('hr_ros_org_signoffs')
+          .select('blocked')
+          .eq('organization_id', orgId)
+          .eq('ros_assessment_id', rosId)
+          .maybeSingle()
+        if (se) console.warn('hr_ros_org_signoffs', se.message)
+        if (data?.blocked === true) {
+          setError(
+            'O-ROS er sperret: begge signaturer (AMU-representant og verneombud) må registreres under HR → O-ROS før ROS kan låses.',
+          )
+          return
+        }
+      }
       setState((s) => ({
         ...s,
         rosAssessments: s.rosAssessments.map((ros) => {
@@ -393,7 +433,7 @@ export function useInternalControl() {
         auditTrail: [...s.auditTrail, audit('ros_signed', `ROS signert av ${signerName} (${role})`, { rosId, role })],
       }))
     },
-    [setState],
+    [setState, state.rosAssessments, useRemote, supabase, orgId],
   )
 
   const addRosRow = useCallback(
