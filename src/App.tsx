@@ -11,6 +11,10 @@ import { AdminPage } from './pages/AdminPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ReportingEnginePage } from './pages/ReportingEnginePage'
 import { WorkflowModulePage } from './pages/WorkflowModulePage'
+import { HrComplianceHub } from './pages/hr/HrComplianceHub'
+import { HrDiscussionPage } from './pages/hr/HrDiscussionPage'
+import { HrConsultationPage } from './pages/hr/HrConsultationPage'
+import { HrORosPage } from './pages/hr/HrORosPage'
 import { HrmEmployees } from './pages/HrmEmployees'
 import { HrmSalary } from './pages/HrmSalary'
 import { NotFound } from './pages/NotFound'
@@ -97,6 +101,10 @@ function App() {
                   </Route>
                   <Route path="prosesser" element={<Navigate to="/workflow" replace />} />
                   <Route path="workflow" element={<WorkflowModulePage />} />
+                  <Route path="hr" element={<HrComplianceHub />} />
+                  <Route path="hr/discussion" element={<HrDiscussionPage />} />
+                  <Route path="hr/consultation" element={<HrConsultationPage />} />
+                  <Route path="hr/o-ros" element={<HrORosPage />} />
                   <Route path="documents" element={<DocumentsHome />} />
                   <Route path="documents/space/:spaceId" element={<WikiSpaceView />} />
                   <Route

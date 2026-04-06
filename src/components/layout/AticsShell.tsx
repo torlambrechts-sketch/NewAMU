@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   BarChart3,
+  Briefcase,
   BookOpen,
   Building2,
   CalendarRange,
@@ -214,6 +215,7 @@ const navGroups: NavGroup[] = [
       { to: '/hse', label: 'HSE / HMS', end: false, icon: HardHat, subs: hseSubs, perm: 'module.view.hse' },
       { to: '/org-health', label: 'Org Health', end: false, icon: HeartPulse, subs: orgHealthSubs, perm: 'module.view.org_health' },
       { to: '/workflow', label: 'Arbeidsflyt', end: false, icon: Workflow, subs: [], perm: 'module.view.workflow' },
+      { to: '/hr', label: 'HR & rettssikkerhet', end: false, icon: Briefcase, subs: [], perm: 'module.view.hr_compliance' },
     ],
   },
   {

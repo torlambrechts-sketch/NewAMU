@@ -18,6 +18,13 @@ export const PERMISSION_KEYS = [
   'module.view.workflow',
   /** Configure workflow rules and compliance templates */
   'workflows.manage',
+  /** HR compliance hub (AML § 15-1, kap. 8, O-ROS overview) */
+  'module.view.hr_compliance',
+  'hr.discussion.manage',
+  'hr.consultation.manage',
+  'hr.o_ros.manage',
+  'hr.o_ros.view',
+  'hr.o_ros.sign',
   /** Create/edit/publish courses; view org-wide learning progress in admin views */
   'learning.manage',
   /** Documents & wiki — folders, pages, compliance, template settings */
@@ -43,6 +50,12 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'module.view.reports': 'Rapporter',
   'module.view.workflow': 'Arbeidsflyt',
   'workflows.manage': 'Arbeidsflyt — konfigurasjon',
+  'module.view.hr_compliance': 'HR & rettssikkerhet',
+  'hr.discussion.manage': 'HR — drøftelsessamtaler (§ 15-1)',
+  'hr.consultation.manage': 'HR — informasjon/drøfting (kap. 8)',
+  'hr.o_ros.manage': 'HR — O-ROS administrasjon',
+  'hr.o_ros.view': 'HR — O-ROS innsyn',
+  'hr.o_ros.sign': 'HR — O-ROS signatur (AMU/VO)',
   'learning.manage': 'E-learning — opprette og redigere kurs',
   'documents.manage': 'Documents & wiki — redigere innhold og maler',
   'module.view.admin': 'Admin (brukere & roller)',
@@ -59,6 +72,7 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/learning', permission: 'module.view.learning' },
   { pathPrefix: '/reports', permission: 'module.view.reports' },
   { pathPrefix: '/workflow', permission: 'module.view.workflow' },
+  { pathPrefix: '/hr', permission: 'module.view.hr_compliance' },
   { pathPrefix: '/admin', permission: 'module.view.admin' },
 ]
 
