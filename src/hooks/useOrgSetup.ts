@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { usePermissions } from './usePermissions'
 import { ensureProfileRowExists } from '../lib/ensureProfile'
@@ -20,7 +19,6 @@ import type {
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 
 export function useOrgSetup() {
-  const location = useLocation()
   const supabase = getSupabaseBrowserClient()
   const [loadState, setLoadState] = useState<LoadState>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -121,10 +119,11 @@ export function useOrgSetup() {
     }
   }, [supabase, loadProfileAndOrg])
 
+  /* Do not depend on location.pathname — re-reading session on every navigation caused flicker. */
   useEffect(() => {
     if (!supabase) return
     void syncSessionForRoute()
-  }, [location.pathname, supabase, syncSessionForRoute])
+  }, [supabase, syncSessionForRoute])
 
   useEffect(() => {
     if (!supabase) {

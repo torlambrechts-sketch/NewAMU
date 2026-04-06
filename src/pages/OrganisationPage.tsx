@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   Building2,
@@ -479,6 +479,13 @@ function OrgChart({ employees, reportingTree }: {
 
 type Tab = 'orgchart' | 'employees' | 'units' | 'groups' | 'settings'
 
+const TAB_VALUES: Tab[] = ['orgchart', 'employees', 'units', 'groups', 'settings']
+
+function tabFromSearch(raw: string | null): Tab {
+  if (raw && TAB_VALUES.includes(raw as Tab)) return raw as Tab
+  return 'orgchart'
+}
+
 /** Virtual rows from `organization_members` use ids `m-{memberId}`; resolve to a persisted org employee by email when possible */
 function storedForEdit(emp: OrgEmployee, employees: OrgEmployee[]): OrgEmployee {
   if (!emp.id.startsWith('m-')) return emp
@@ -493,7 +500,22 @@ function storedForEdit(emp: OrgEmployee, employees: OrgEmployee[]): OrgEmployee 
 export function OrganisationPage() {
   const org = useOrganisation()
   const { supabaseConfigured, organization: orgRow, members: orgMembers, profile, user } = useOrgSetupContext()
-  const [tab, setTab] = useState<Tab>('orgchart')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = useMemo(() => tabFromSearch(searchParams.get('tab')), [searchParams])
+  const setTab = useCallback(
+    (id: Tab) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (id === 'orgchart') next.delete('tab')
+          else next.set('tab', id)
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
   const [empModal, setEmpModal] = useState<{ mode: 'create' | 'edit'; emp?: OrgEmployee } | null>(null)
   const [searchEmp, setSearchEmp] = useState('')
   const [filterUnit, setFilterUnit] = useState('')

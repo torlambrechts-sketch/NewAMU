@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+/* eslint-disable react-refresh/only-export-components -- provider + hook + store in one module */
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Outlet } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   AcknowledgementAudience,
@@ -330,7 +332,7 @@ function userMustAcknowledgePage(
   return true
 }
 
-export function useDocuments() {
+function useDocumentsStore() {
   const { supabase, organization, user, profile, isAdmin: isOrgAdminFromPerms } = useOrgSetupContext()
   const orgId = organization?.id
   const userId = user?.id
@@ -1160,4 +1162,31 @@ export function useDocuments() {
     acknowledgementRequiredForMe,
     resetDemo,
   }
+}
+
+export type DocumentsContextValue = ReturnType<typeof useDocumentsStore>
+
+const DocumentsContext = createContext<DocumentsContextValue | null>(null)
+
+/** Single shared wiki/documents store — avoids duplicate state per route (fixes blank wiki / crashes). */
+export function DocumentsProvider({ children }: { children: ReactNode }) {
+  const value = useDocumentsStore()
+  return <DocumentsContext.Provider value={value}>{children}</DocumentsContext.Provider>
+}
+
+/** Route layout: wraps shell routes with shared documents context. */
+export function DocumentsLayout() {
+  return (
+    <DocumentsProvider>
+      <Outlet />
+    </DocumentsProvider>
+  )
+}
+
+export function useDocuments(): DocumentsContextValue {
+  const ctx = useContext(DocumentsContext)
+  if (!ctx) {
+    throw new Error('useDocuments must be used within DocumentsProvider')
+  }
+  return ctx
 }

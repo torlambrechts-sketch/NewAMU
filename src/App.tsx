@@ -44,6 +44,7 @@ import { WikiPageEditor } from './pages/documents/WikiPageEditor'
 import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
+import { DocumentsLayout } from './hooks/useDocuments'
 
 function App() {
   return (
@@ -63,6 +64,7 @@ function App() {
             <Route element={<OrgGate />}>
               <Route path="onboarding" element={<OnboardingWizard />} />
               <Route element={<PermissionGate />}>
+                <Route element={<DocumentsLayout />}>
                 <Route element={<AticsShell />}>
                   <Route index element={<ProjectDashboard />} />
                   <Route path="tasks" element={<TasksPage />} />
@@ -120,6 +122,7 @@ function App() {
                   />
                   <Route path="documents/compliance" element={<ComplianceDashboard />} />
                   <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
+                </Route>
                 </Route>
               </Route>
             </Route>
