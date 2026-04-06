@@ -14,10 +14,20 @@ import {
   layoutPageMaxClass,
   layoutRadiusClass,
   layoutSurfaceClass,
-  layoutTableRowClass,
+  mainbox1PaddingClass,
+  mainbox1ShellClass,
+  mainbox1ShellStyleObject,
+  menu1ActiveTabClass,
+  menu1ActiveTabTextStyle,
+  menu1BarStyleObject,
+  menu1InactiveTabClass,
   mergeLayoutPayload,
+  table1BodyRowClass,
+  table1CellPadding,
+  table1HeaderRowClass,
 } from '../../lib/layoutLabTokens'
 import { SidebarBox1 } from '../../components/layout/SidebarBox1'
+import { Table1Shell } from '../../components/layout/Table1Shell'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { useUiTheme } from '../../hooks/useUiTheme'
 
@@ -177,8 +187,6 @@ export function LayoutLabPage() {
       : settings.cardStyle === 'shadow'
         ? 'border border-neutral-200/80 shadow-md'
         : 'border border-neutral-200/60'
-
-  const tableRowClass = (i: number) => layoutTableRowClass(settings, i)
 
   const kanbanColClass =
     settings.kanbanStyle === 'dense'
@@ -440,6 +448,241 @@ export function LayoutLabPage() {
             </select>
           </label>
 
+          <div className="border-t border-white/10 pt-3">
+            <p className="text-xs font-semibold text-white">Tabell (table_1)</p>
+            <p className="mt-0.5 text-[10px] text-neutral-500">Organisasjon → Ansatte-tabell.</p>
+          </div>
+          <label className="block text-xs text-neutral-400">
+            Bakgrunn
+            <select
+              value={settings.table_1.surface}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  table_1: { ...settings.table_1, surface: e.target.value as LayoutLabPayload['table_1']['surface'] },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="white">Hvit</option>
+              <option value="cream">Krem</option>
+              <option value="muted">Nøytral</option>
+            </select>
+          </label>
+          <label className="block text-xs text-neutral-400">
+            Skygge
+            <select
+              value={settings.table_1.shadow}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  table_1: { ...settings.table_1, shadow: e.target.value as LayoutLabPayload['table_1']['shadow'] },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="none">Ingen</option>
+              <option value="sm">Liten</option>
+              <option value="md">Medium</option>
+            </select>
+          </label>
+          <label className="block text-xs text-neutral-400">
+            Radmønster
+            <select
+              value={settings.table_1.rowStyle}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  table_1: { ...settings.table_1, rowStyle: e.target.value as LayoutLabPayload['table_1']['rowStyle'] },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="inherit">Arv global tabellstil</option>
+              <option value="zebra">Zebra</option>
+              <option value="ruled">Linjer</option>
+              <option value="minimal">Minimal</option>
+            </select>
+          </label>
+          <label className="block text-xs text-neutral-400">
+            Tabellhode
+            <select
+              value={settings.table_1.headerStyle}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  table_1: {
+                    ...settings.table_1,
+                    headerStyle: e.target.value as LayoutLabPayload['table_1']['headerStyle'],
+                  },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="subtle">Diskret</option>
+              <option value="strong">Tydelig</option>
+              <option value="plain">Enkel</option>
+            </select>
+          </label>
+          <label className="block text-xs text-neutral-400">
+            Celle-padding
+            <select
+              value={settings.table_1.cellDensity}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  table_1: {
+                    ...settings.table_1,
+                    cellDensity: e.target.value as LayoutLabPayload['table_1']['cellDensity'],
+                  },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="comfortable">Luftig</option>
+              <option value="compact">Kompakt</option>
+            </select>
+          </label>
+
+          <div className="border-t border-white/10 pt-3">
+            <p className="text-xs font-semibold text-white">Hovedboks (mainbox_1)</p>
+            <p className="mt-0.5 text-[10px] text-neutral-500">Organisasjon → innstillinger (venstre), brukergrupper-liste.</p>
+          </div>
+          <label className="block text-xs text-neutral-400">
+            Bakgrunn
+            <select
+              value={settings.mainbox_1.surface}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  mainbox_1: {
+                    ...settings.mainbox_1,
+                    surface: e.target.value as LayoutLabPayload['mainbox_1']['surface'],
+                  },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="white">Hvit</option>
+              <option value="cream">Krem</option>
+              <option value="muted">Nøytral</option>
+            </select>
+          </label>
+          <label className="block text-xs text-neutral-400">
+            Skygge
+            <select
+              value={settings.mainbox_1.shadow}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  mainbox_1: { ...settings.mainbox_1, shadow: e.target.value as LayoutLabPayload['mainbox_1']['shadow'] },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="none">Ingen</option>
+              <option value="sm">Liten</option>
+              <option value="md">Medium</option>
+            </select>
+          </label>
+          <label className="block text-xs text-neutral-400">
+            Padding
+            <select
+              value={settings.mainbox_1.padding}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  mainbox_1: {
+                    ...settings.mainbox_1,
+                    padding: e.target.value as LayoutLabPayload['mainbox_1']['padding'],
+                  },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="comfortable">Luftig</option>
+              <option value="compact">Kompakt</option>
+            </select>
+          </label>
+          <label className="block text-xs text-neutral-400">
+            Kant
+            <select
+              value={settings.mainbox_1.border}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  mainbox_1: {
+                    ...settings.mainbox_1,
+                    border: e.target.value as LayoutLabPayload['mainbox_1']['border'],
+                  },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="neutral">Nøytral</option>
+              <option value="accent">Aksent</option>
+            </select>
+          </label>
+
+          <div className="border-t border-white/10 pt-3">
+            <p className="text-xs font-semibold text-white">Fanemeny (menu_1)</p>
+            <p className="mt-0.5 text-[10px] text-neutral-500">Organisasjon — faner øverst.</p>
+          </div>
+          <label className="block text-xs text-neutral-400">
+            Menylinje
+            <select
+              value={settings.menu_1.barTone}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  menu_1: { ...settings.menu_1, barTone: e.target.value as LayoutLabPayload['menu_1']['barTone'] },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="accent">Aksent</option>
+              <option value="slate">Skifer</option>
+            </select>
+          </label>
+          <label className="block text-xs text-neutral-400">
+            Aktiv fane bakgrunn
+            <select
+              value={settings.menu_1.activeFill}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  menu_1: {
+                    ...settings.menu_1,
+                    activeFill: e.target.value as LayoutLabPayload['menu_1']['activeFill'],
+                  },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="cream">Krem</option>
+              <option value="white">Hvit</option>
+            </select>
+          </label>
+          <label className="block text-xs text-neutral-400">
+            Fanehjørner
+            <select
+              value={settings.menu_1.tabRounding}
+              onChange={(e) =>
+                persistLocal({
+                  ...settings,
+                  menu_1: {
+                    ...settings.menu_1,
+                    tabRounding: e.target.value as LayoutLabPayload['menu_1']['tabRounding'],
+                  },
+                })
+              }
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white"
+            >
+              <option value="xl">Avrundet (xl)</option>
+              <option value="full">Pill</option>
+            </select>
+          </label>
+
           <div className="border-t border-white/10 pt-4">
             <p className="text-xs text-neutral-500">Lagres automatisk i nettleseren. Sky-lagring krever navn.</p>
             <button
@@ -503,27 +746,55 @@ export function LayoutLabPage() {
         <div className={`mx-auto w-full ${pageMax} ${surf} ${r} border border-neutral-200/60 p-4 shadow-inner`}>
           <p className="mb-4 text-xs font-medium text-neutral-500">Forhåndsvisning</p>
 
-          <div className={`mb-6 overflow-x-auto ${r} border border-neutral-200/50 bg-white/90`}>
-            <table className="w-full min-w-[480px] text-left text-sm">
+          <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-neutral-500">menu_1</p>
+          <div className="mb-6 overflow-hidden rounded-2xl border border-black/10 shadow-sm" style={menu1BarStyleObject(settings)}>
+            <div className="flex min-h-[2.5rem] flex-wrap gap-0 px-1 py-1">
+              <button
+                type="button"
+                className={menu1ActiveTabClass(settings)}
+                style={menu1ActiveTabTextStyle(settings)}
+              >
+                Fane A
+              </button>
+              <button type="button" className={menu1InactiveTabClass(settings)}>
+                Fane B
+              </button>
+            </div>
+          </div>
+
+          <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-neutral-500">table_1</p>
+          <Table1Shell payloadOverride={settings}>
+            <table className="w-full min-w-[480px] border-collapse text-left text-sm">
               <thead>
-                <tr className="bg-neutral-100/90 text-xs uppercase text-neutral-600">
-                  <th className={densityPad}>Oppgave</th>
-                  <th className={densityPad}>Eier</th>
-                  <th className={densityPad}>Status</th>
+                <tr className={table1HeaderRowClass(settings)}>
+                  <th className={`${table1CellPadding(settings)} font-medium`}>Oppgave</th>
+                  <th className={`${table1CellPadding(settings)} font-medium`}>Eier</th>
+                  <th className={`${table1CellPadding(settings)} font-medium`}>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {['ROS-gjennomgang', 'Vernerunde Q2', 'BHT-møte'].map((label, i) => (
-                  <tr key={label} className={tableRowClass(i)}>
-                    <td className={densityPad}>{label}</td>
-                    <td className={densityPad}>Kari</td>
-                    <td className={densityPad}>
+                  <tr key={label} className={table1BodyRowClass(settings, i)}>
+                    <td className={table1CellPadding(settings)}>{label}</td>
+                    <td className={table1CellPadding(settings)}>Kari</td>
+                    <td className={table1CellPadding(settings)}>
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">Åpen</span>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </Table1Shell>
+
+          <p className="mb-2 mt-6 text-[10px] font-medium uppercase tracking-wide text-neutral-500">mainbox_1</p>
+          <div
+            className={`mb-6 ${mainbox1ShellClass(settings)}`}
+            style={mainbox1ShellStyleObject(settings)}
+          >
+            <div className={mainbox1PaddingClass(settings)}>
+              <h3 className="text-base font-semibold text-neutral-900">Virksomhetsinnstillinger</h3>
+              <p className="mt-1 text-sm text-neutral-600">Eksempeltekst i hovedboks.</p>
+            </div>
           </div>
 
           <div className="mb-6 grid gap-3 sm:grid-cols-3">

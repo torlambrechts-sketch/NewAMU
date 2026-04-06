@@ -22,6 +22,16 @@ import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { OrganisationHeaderIllustration } from '../components/organisation/OrganisationHeaderIllustration'
 import { SidebarBox1 } from '../components/layout/SidebarBox1'
+import { Mainbox1 } from '../components/layout/Mainbox1'
+import { Table1Shell } from '../components/layout/Table1Shell'
+import {
+  table1BodyRowClass,
+  table1CellPadding,
+  table1HeaderRowClass,
+} from '../lib/layoutLabTokens'
+import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
+import { useUiTheme } from '../hooks/useUiTheme'
+import { mergeLayoutPayload } from '../lib/layoutLabTokens'
 import type { EmploymentType, OrgEmployee, OrgUnitKind, UserGroup } from '../types/organisation'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -41,8 +51,7 @@ const BASE_INPUT =
   'mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]'
 /** Matches ProjectDashboard — shell content column */
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
-const NAV_GREEN = '#1a3d32'
-const TABLE_CELL = 'px-4 py-4 align-middle text-sm text-neutral-800'
+const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
 /** Hero action row: same height & typography as «Ny ansatt» */
 const HERO_ACTION_CLASS =
   'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium leading-none'
@@ -408,6 +417,11 @@ function storedForEdit(emp: OrgEmployee, employees: OrgEmployee[]): OrgEmployee 
 }
 
 export function OrganisationPage() {
+  const menu1 = useOrgMenu1Styles()
+  const { payload: layoutPayload } = useUiTheme()
+  const layout = mergeLayoutPayload(layoutPayload)
+  const tableCell = `${table1CellPadding(layout)} ${TABLE_CELL_BASE}`
+  const theadRow = table1HeaderRowClass(layout)
   const org = useOrganisation()
   const { supabaseConfigured, organization: orgRow, members: orgMembers, profile, user, isDemoMode } =
     useOrgSetupContext()
@@ -605,24 +619,19 @@ export function OrganisationPage() {
         </div>
       </div>
 
-      {/* In-page nav — rounded container like dashboard pills row */}
-      <div
-        className="mt-8 overflow-hidden rounded-2xl border border-black/10 shadow-sm"
-        style={{ backgroundColor: NAV_GREEN }}
-      >
+      {/* In-page nav — menu_1 tokens */}
+      <div className="mt-8 overflow-hidden rounded-2xl border border-black/10 shadow-sm" style={menu1.barStyle}>
         <div className="flex min-h-[3rem] flex-wrap items-stretch gap-0 px-1 py-1 sm:px-2">
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = tab === id
+            const tb = menu1.tabButton(active)
             return (
               <button
                 key={id}
                 type="button"
                 onClick={() => setTab(id)}
-                className={`inline-flex min-h-[2.75rem] flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-5 ${
-                  active
-                    ? 'bg-[#f5f0e8] text-[#1a3d32] shadow-sm'
-                    : 'text-white/95 hover:bg-white/10'
-                }`}
+                className={tb.className}
+                style={tb.style}
               >
                 <Icon className="size-4 shrink-0 opacity-90" />
                 <span className="whitespace-nowrap">{label}</span>
@@ -698,26 +707,25 @@ export function OrganisationPage() {
               </button>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-              <div className="overflow-x-auto">
+            <Table1Shell>
                 <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                   <thead>
-                    <tr className="border-b border-neutral-200 bg-neutral-50/80 text-neutral-600">
-                      <th className={`${TABLE_CELL} font-medium`}>Ansatt</th>
-                      <th className={`${TABLE_CELL} font-medium`}>Stilling / rolle</th>
-                      <th className={`${TABLE_CELL} font-medium`}>Enhet</th>
-                      <th className={`${TABLE_CELL} font-medium`}>Kontakt</th>
-                      <th className={`${TABLE_CELL} w-32 font-medium`}>Status</th>
-                      <th className={`${TABLE_CELL} w-28 text-right font-medium`} />
+                    <tr className={`text-sm ${theadRow}`}>
+                      <th className={`${tableCell} font-medium`}>Ansatt</th>
+                      <th className={`${tableCell} font-medium`}>Stilling / rolle</th>
+                      <th className={`${tableCell} font-medium`}>Enhet</th>
+                      <th className={`${tableCell} font-medium`}>Kontakt</th>
+                      <th className={`${tableCell} w-32 font-medium`}>Status</th>
+                      <th className={`${tableCell} w-28 text-right font-medium`} />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-100">
-                    {filteredEmployees.map((emp) => {
+                  <tbody>
+                    {filteredEmployees.map((emp, rowIdx) => {
                       const bg = avatarColor(emp.name)
                       const target = storedForEdit(emp, org.employees)
                       return (
-                        <tr key={emp.id} className="hover:bg-neutral-50/60">
-                          <td className={TABLE_CELL}>
+                        <tr key={emp.id} className={`${table1BodyRowClass(layout, rowIdx)} hover:bg-neutral-50/50`}>
+                          <td className={tableCell}>
                             <div className="flex items-center gap-3">
                               <div
                                 className="flex size-10 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
@@ -728,12 +736,12 @@ export function OrganisationPage() {
                               <span className="font-medium text-neutral-900">{emp.name}</span>
                             </div>
                           </td>
-                          <td className={TABLE_CELL}>
+                          <td className={tableCell}>
                             <div className="text-neutral-800">{emp.jobTitle ?? '—'}</div>
                             {emp.role && <div className="mt-0.5 text-xs text-neutral-500">{emp.role}</div>}
                           </td>
-                          <td className={`${TABLE_CELL} text-neutral-700`}>{emp.unitName ?? '—'}</td>
-                          <td className={`${TABLE_CELL} text-neutral-600`}>
+                          <td className={`${tableCell} text-neutral-700`}>{emp.unitName ?? '—'}</td>
+                          <td className={`${tableCell} text-neutral-600`}>
                             <div className="space-y-0.5">
                               {emp.email && (
                                 <div className="flex items-center gap-1.5">
@@ -750,7 +758,7 @@ export function OrganisationPage() {
                               {!emp.email && !emp.phone && '—'}
                             </div>
                           </td>
-                          <td className={TABLE_CELL}>
+                          <td className={tableCell}>
                             <span
                               className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
                                 emp.active ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-500'
@@ -760,7 +768,7 @@ export function OrganisationPage() {
                             </span>
                             <div className="mt-1 text-xs text-neutral-500">{EMPLOYMENT_LABELS[emp.employmentType]}</div>
                           </td>
-                          <td className={`${TABLE_CELL} text-right`}>
+                          <td className={`${tableCell} text-right`}>
                             <button
                               type="button"
                               onClick={() => setEmpModal({ mode: 'edit', emp })}
@@ -793,8 +801,7 @@ export function OrganisationPage() {
                     })}
                   </tbody>
                 </table>
-              </div>
-            </div>
+            </Table1Shell>
           )}
         </section>
       )}
@@ -851,7 +858,7 @@ export function OrganisationPage() {
         <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:gap-10">
           <div>
             <h2 className="mb-4 text-lg font-semibold text-neutral-900">Brukergrupper</h2>
-            <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
+            <Mainbox1>
               {org.groups.length === 0 ? <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen grupper ennå.</p> : (
                 <ul className="divide-y divide-neutral-100">
                   {org.groups.map((g) => (
@@ -866,7 +873,7 @@ export function OrganisationPage() {
                   ))}
                 </ul>
               )}
-            </div>
+            </Mainbox1>
           </div>
           <SidebarBox1
             heading="Ny brukergruppe"
@@ -917,12 +924,11 @@ export function OrganisationPage() {
       {/* ── Settings — samme layout som Brukergrupper (liste/skjema venstre, boks høyre) ─ */}
       {tab === 'settings' && (
         <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:gap-10">
-          <div className="rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Virksomhetsinnstillinger</h2>
-            <p className="mt-2 text-sm text-neutral-600">
-              Disse verdiene driver AMU/verneombud-terskler og vises i Council-modulen.
-            </p>
-            <div className="mt-5 space-y-4">
+          <Mainbox1
+            title="Virksomhetsinnstillinger"
+            subtitle="Disse verdiene driver AMU/verneombud-terskler og vises i Council-modulen."
+          >
+            <div className="space-y-4">
               <div>
                 <label className="text-xs font-medium text-neutral-500">Virksomhetsnavn</label>
                 <input
@@ -986,7 +992,7 @@ export function OrganisationPage() {
                 </div>
               )}
             </div>
-          </div>
+          </Mainbox1>
 
           <SidebarBox1
             heading="Beregnede terskler (AML 2024)"

@@ -1,6 +1,12 @@
 import type { CSSProperties } from 'react'
-import type { LayoutLabPayload, SidebarBox1Settings } from '../types/layoutLab'
-import { DEFAULT_LAYOUT_LAB, DEFAULT_SIDEBAR_BOX_1 } from '../types/layoutLab'
+import type { LayoutLabPayload, Mainbox1Settings, SidebarBox1Settings, Table1Settings } from '../types/layoutLab'
+import {
+  DEFAULT_LAYOUT_LAB,
+  DEFAULT_MAINBOX_1,
+  DEFAULT_MENU_1,
+  DEFAULT_SIDEBAR_BOX_1,
+  DEFAULT_TABLE_1,
+} from '../types/layoutLab'
 
 /** Shared Tailwind token helpers — used by Layout-lab and Platform UI Advanced. */
 export function layoutRadiusClass(r: LayoutLabPayload['radius']): string {
@@ -110,7 +116,10 @@ export function mergeLayoutPayload(partial: Partial<LayoutLabPayload>): LayoutLa
   const sb = partial.sidebar_box_1
     ? { ...DEFAULT_SIDEBAR_BOX_1, ...partial.sidebar_box_1 }
     : DEFAULT_SIDEBAR_BOX_1
-  return { ...DEFAULT_LAYOUT_LAB, ...partial, sidebar_box_1: sb, version: 1 }
+  const t1 = partial.table_1 ? { ...DEFAULT_TABLE_1, ...partial.table_1 } : DEFAULT_TABLE_1
+  const m1 = partial.mainbox_1 ? { ...DEFAULT_MAINBOX_1, ...partial.mainbox_1 } : DEFAULT_MAINBOX_1
+  const mu = partial.menu_1 ? { ...DEFAULT_MENU_1, ...partial.menu_1 } : DEFAULT_MENU_1
+  return { ...DEFAULT_LAYOUT_LAB, ...partial, sidebar_box_1: sb, table_1: t1, mainbox_1: m1, menu_1: mu, version: 1 }
 }
 
 function sidebarBox1SurfaceClass(s: SidebarBox1Settings['surface']): string {
@@ -194,4 +203,133 @@ export function sidebarBox1ButtonStyleObject(payload: LayoutLabPayload): CSSProp
     return { borderColor: accent, color: accent }
   }
   return undefined
+}
+
+// ─── table_1 ─────────────────────────────────────────────────────────────────
+
+function table1SurfaceClass(s: Table1Settings['surface']): string {
+  switch (s) {
+    case 'cream':
+      return 'bg-[#faf8f4]'
+    case 'muted':
+      return 'bg-neutral-50'
+    default:
+      return 'bg-white'
+  }
+}
+
+function table1ShadowClass(s: Table1Settings['shadow']): string {
+  switch (s) {
+    case 'none':
+      return 'shadow-none'
+    case 'md':
+      return 'shadow-md'
+    default:
+      return 'shadow-sm'
+  }
+}
+
+export function table1ShellClass(payload: LayoutLabPayload): string {
+  const t = payload.table_1 ?? DEFAULT_TABLE_1
+  const r = layoutRadiusClass(payload.radius)
+  const surf = table1SurfaceClass(t.surface)
+  const sh = table1ShadowClass(t.shadow)
+  return `overflow-hidden border border-neutral-200/90 ${r} ${surf} ${sh}`
+}
+
+export function table1HeaderRowClass(payload: LayoutLabPayload): string {
+  const h = payload.table_1?.headerStyle ?? DEFAULT_TABLE_1.headerStyle
+  if (h === 'strong') return 'border-b border-neutral-200 bg-neutral-100 text-neutral-800'
+  if (h === 'plain') return 'border-b border-neutral-200 text-neutral-600'
+  return 'border-b border-neutral-200 bg-neutral-50/80 text-neutral-600'
+}
+
+export function table1CellPadding(payload: LayoutLabPayload): string {
+  const d = payload.table_1?.cellDensity ?? DEFAULT_TABLE_1.cellDensity
+  return d === 'compact' ? 'px-3 py-2' : 'px-4 py-4'
+}
+
+/** Effective row background for tbody rows (index 0-based) */
+export function table1BodyRowClass(payload: LayoutLabPayload, rowIndex: number): string {
+  const row = payload.table_1?.rowStyle ?? DEFAULT_TABLE_1.rowStyle
+  const effective =
+    row === 'inherit' ? payload.tableStyle : row === 'zebra' ? 'zebra' : row === 'ruled' ? 'ruled' : 'minimal'
+  if (effective === 'zebra') return rowIndex % 2 === 0 ? 'bg-white/90' : 'bg-neutral-100/40'
+  if (effective === 'ruled') return 'border-b border-neutral-100'
+  return 'border-b border-transparent'
+}
+
+// ─── mainbox_1 ───────────────────────────────────────────────────────────────
+
+function mainbox1SurfaceClass(s: Mainbox1Settings['surface']): string {
+  switch (s) {
+    case 'cream':
+      return 'bg-[#faf8f4]'
+    case 'muted':
+      return 'bg-neutral-50'
+    default:
+      return 'bg-white'
+  }
+}
+
+function mainbox1ShadowClass(s: Mainbox1Settings['shadow']): string {
+  switch (s) {
+    case 'none':
+      return 'shadow-none'
+    case 'md':
+      return 'shadow-md'
+    default:
+      return 'shadow-sm'
+  }
+}
+
+export function mainbox1ShellClass(payload: LayoutLabPayload): string {
+  const m = payload.mainbox_1 ?? DEFAULT_MAINBOX_1
+  const r = layoutRadiusClass(payload.radius)
+  const surf = mainbox1SurfaceClass(m.surface)
+  const sh = mainbox1ShadowClass(m.shadow)
+  const border =
+    m.border === 'accent'
+      ? 'border-2'
+      : 'border border-neutral-200/90'
+  return `${r} ${surf} ${sh} ${border}`
+}
+
+export function mainbox1ShellStyleObject(payload: LayoutLabPayload): CSSProperties | undefined {
+  const m = payload.mainbox_1 ?? DEFAULT_MAINBOX_1
+  if (m.border !== 'accent') return undefined
+  return { borderColor: payload.accent || DEFAULT_LAYOUT_LAB.accent }
+}
+
+export function mainbox1PaddingClass(payload: LayoutLabPayload): string {
+  const p = payload.mainbox_1?.padding ?? DEFAULT_MAINBOX_1.padding
+  return p === 'compact' ? 'p-4' : 'p-6'
+}
+
+// ─── menu_1 (Organisasjon tabs) ──────────────────────────────────────────────
+
+export function menu1BarStyleObject(payload: LayoutLabPayload): CSSProperties {
+  const m = payload.menu_1 ?? DEFAULT_MENU_1
+  const accent = payload.accent || DEFAULT_LAYOUT_LAB.accent
+  if (m.barTone === 'slate') {
+    return { backgroundColor: '#1e293b', borderColor: 'rgba(0,0,0,0.1)' }
+  }
+  return { backgroundColor: accent, borderColor: 'rgba(0,0,0,0.1)' }
+}
+
+export function menu1ActiveTabClass(payload: LayoutLabPayload): string {
+  const m = payload.menu_1 ?? DEFAULT_MENU_1
+  const fill = m.activeFill === 'white' ? 'bg-white' : 'bg-[#f5f0e8]'
+  const r = m.tabRounding === 'full' ? 'rounded-full' : 'rounded-xl'
+  return `inline-flex min-h-[2.75rem] flex-1 items-center justify-center gap-2 ${r} px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-5 ${fill} shadow-sm`
+}
+
+export function menu1ActiveTabTextStyle(payload: LayoutLabPayload): CSSProperties {
+  return { color: payload.accent || DEFAULT_LAYOUT_LAB.accent }
+}
+
+export function menu1InactiveTabClass(payload: LayoutLabPayload): string {
+  const m = payload.menu_1 ?? DEFAULT_MENU_1
+  const r = m.tabRounding === 'full' ? 'rounded-full' : 'rounded-xl'
+  return `inline-flex min-h-[2.75rem] flex-1 items-center justify-center gap-2 ${r} px-3 py-2 text-sm font-medium transition-colors text-white/95 hover:bg-white/10 sm:flex-none sm:px-5`
 }
