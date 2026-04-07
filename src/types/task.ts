@@ -32,10 +32,16 @@ export type Task = {
   title: string
   description: string
   status: TaskStatus
-  /** Ansvarlig utfører */
+  /** Ansvarlig utfører (visningsnavn) */
   assignee: string
+  /** Kobling til ansattliste når valgt i skjema */
+  assigneeEmployeeId?: string
   /** Rolle / ansvar (f.eks. verneombud, leder) */
   ownerRole: string
+  /** Leder / godkjenner (kobling til ansatt) */
+  leaderEmployeeId?: string
+  /** Denormalisert navn for visning uten org-data */
+  leaderName?: string
   dueDate: string
   createdAt: string
   module: TaskModule

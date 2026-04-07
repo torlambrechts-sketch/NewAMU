@@ -3,7 +3,9 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Calendar, Check, History, LayoutList, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { MODULE_LABELS } from '../lib/taskNavigation'
 import { useTasks } from '../hooks/useTasks'
+import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { TASK_OWNER_ROLE_OPTIONS } from '../lib/taskFormOptions'
 import type { Task, TaskModule, TaskSourceType, TaskStatus } from '../types/task'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeTaskWizard } from '../components/wizard/wizards'
@@ -93,6 +95,7 @@ export function TasksPage() {
   const theadRow = table1HeaderRowClass(layout)
 
   const { supabaseConfigured } = useOrgSetupContext()
+  const org = useOrganisation()
   const {
     tasks,
     auditLog,
@@ -129,7 +132,9 @@ export function TasksPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [assignee, setAssignee] = useState('')
+  const [assigneeEmployeeId, setAssigneeEmployeeId] = useState('')
   const [ownerRole, setOwnerRole] = useState('Ansvarlig')
+  const [leaderEmployeeId, setLeaderEmployeeId] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [moduleFilter, setModuleFilter] = useState<TaskModule | 'all'>('all')
   const [taskSearch, setTaskSearch] = useState('')
@@ -163,6 +168,22 @@ export function TasksPage() {
     })
   }, [searchParams, setSearchParams])
 
+  const employeePickList = useMemo(
+    () =>
+      [...org.activeEmployees].sort((a, b) => a.name.localeCompare(b.name, 'nb')),
+    [org.activeEmployees],
+  )
+
+  const leaderCandidates = useMemo(() => {
+    const isLeaderLike = (e: (typeof employeePickList)[0]) => {
+      const r = (e.role ?? '').toLowerCase()
+      const j = (e.jobTitle ?? '').toLowerCase()
+      return r.includes('led') || j.includes('leder') || j.includes('director') || j.includes('sjef')
+    }
+    const leaders = employeePickList.filter(isLeaderLike)
+    return leaders.length > 0 ? leaders : employeePickList
+  }, [employeePickList])
+
   const filtered = useMemo(() => {
     let list = moduleFilter === 'all' ? tasks : tasks.filter((t) => t.module === moduleFilter)
     const q = taskSearch.trim().toLowerCase()
@@ -189,11 +210,17 @@ export function TasksPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
+    const leaderEmp = leaderEmployeeId
+      ? org.employees.find((e) => e.id === leaderEmployeeId) ?? org.displayEmployees.find((e) => e.id === leaderEmployeeId)
+      : undefined
     const base = {
       title: title.trim(),
       description: description.trim(),
       assignee: assignee.trim() || 'Unassigned',
+      assigneeEmployeeId: assigneeEmployeeId || undefined,
       ownerRole: ownerRole.trim() || 'Ansvarlig',
+      leaderEmployeeId: requiresMgmt ? leaderEmployeeId || undefined : undefined,
+      leaderName: requiresMgmt && leaderEmp ? leaderEmp.name : undefined,
       dueDate: dueDate || '—',
       module: formModule,
       sourceType: formSource,
@@ -213,7 +240,9 @@ export function TasksPage() {
     setTitle('')
     setDescription('')
     setAssignee('')
+    setAssigneeEmployeeId('')
     setOwnerRole('Ansvarlig')
+    setLeaderEmployeeId('')
     setDueDate('')
     setFormModule('general')
     setFormSource('manual')
@@ -227,7 +256,9 @@ export function TasksPage() {
     setTitle(task.title)
     setDescription(task.description)
     setAssignee(task.assignee)
+    setAssigneeEmployeeId(task.assigneeEmployeeId ?? '')
     setOwnerRole(task.ownerRole)
+    setLeaderEmployeeId(task.leaderEmployeeId ?? '')
     setDueDate(task.dueDate === '—' ? '' : task.dueDate)
     setFormModule(task.module)
     setFormSource(task.sourceType)
@@ -383,22 +414,70 @@ export function TasksPage() {
                 <p className={SETTINGS_LEAD_ON_DARK}>Hvem eier oppgaven, når skal den være ferdig?</p>
                 <div className="mt-3 space-y-3">
                   <div>
-                    <label className={SETTINGS_FIELD_LABEL_ON_DARK}>Ansvarlig (navn)</label>
-                    <input
-                      value={assignee}
-                      onChange={(e) => setAssignee(e.target.value)}
+                    <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="task-assignee-emp">
+                      Ansvarlig (ansatt)
+                    </label>
+                    <select
+                      id="task-assignee-emp"
+                      value={assigneeEmployeeId}
+                      onChange={(e) => {
+                        const id = e.target.value
+                        setAssigneeEmployeeId(id)
+                        const emp = employeePickList.find((x) => x.id === id)
+                        setAssignee(emp ? emp.name : assignee)
+                      }}
                       className={SETTINGS_INPUT_ON_DARK}
-                      placeholder="Navn"
-                    />
+                    >
+                      <option value="">Fritekst (felt under)</option>
+                      {employeePickList.map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.name}
+                          {e.jobTitle ? ` — ${e.jobTitle}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {!assigneeEmployeeId ? (
+                      <input
+                        value={assignee}
+                        onChange={(e) => setAssignee(e.target.value)}
+                        className={`${SETTINGS_INPUT_ON_DARK} mt-2`}
+                        placeholder="Navn (hvis ikke i listen)"
+                      />
+                    ) : (
+                      <p className="mt-2 text-xs text-white/75">Valgt: {assignee}</p>
+                    )}
                   </div>
                   <div>
-                    <label className={SETTINGS_FIELD_LABEL_ON_DARK}>Rolle</label>
-                    <input
-                      value={ownerRole}
-                      onChange={(e) => setOwnerRole(e.target.value)}
+                    <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="task-owner-role">
+                      Rolle
+                    </label>
+                    <select
+                      id="task-owner-role"
+                      value={
+                        (TASK_OWNER_ROLE_OPTIONS as readonly string[]).includes(ownerRole) ? ownerRole : 'Annet'
+                      }
+                      onChange={(e) => {
+                        const v = e.target.value
+                        if (v === 'Annet') setOwnerRole('')
+                        else setOwnerRole(v)
+                      }}
                       className={SETTINGS_INPUT_ON_DARK}
-                      placeholder="f.eks. verneombud"
-                    />
+                    >
+                      {TASK_OWNER_ROLE_OPTIONS.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                      <option value="Annet">Annet (fritekst)</option>
+                    </select>
+                    {!(TASK_OWNER_ROLE_OPTIONS as readonly string[]).includes(ownerRole) && (
+                      <input
+                        value={ownerRole}
+                        onChange={(e) => setOwnerRole(e.target.value)}
+                        className={`${SETTINGS_INPUT_ON_DARK} mt-2`}
+                        placeholder="Beskriv rolle"
+                      />
+                    )}
                   </div>
                   <div>
                     <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="task-due">
@@ -419,11 +498,38 @@ export function TasksPage() {
                     <input
                       type="checkbox"
                       checked={requiresMgmt}
-                      onChange={(e) => setRequiresMgmt(e.target.checked)}
+                      onChange={(e) => {
+                        setRequiresMgmt(e.target.checked)
+                        if (!e.target.checked) setLeaderEmployeeId('')
+                      }}
                       className="size-4 rounded-none border-white/40 bg-white/10 text-[#1a3d32] focus:ring-1 focus:ring-white"
                     />
                     Krever ledelses godkjenning
                   </label>
+                  {requiresMgmt && (
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="task-leader-emp">
+                        Leder (godkjenner)
+                      </label>
+                      <select
+                        id="task-leader-emp"
+                        value={leaderEmployeeId}
+                        onChange={(e) => setLeaderEmployeeId(e.target.value)}
+                        className={SETTINGS_INPUT_ON_DARK}
+                      >
+                        <option value="">— Velg leder —</option>
+                        {leaderCandidates.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {e.name}
+                            {e.jobTitle ? ` — ${e.jobTitle}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-[11px] text-white/60">
+                        Listen prioriterer roller/titler med «leder». Alle ansatte vises hvis ingen treff.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className={ORG_MERGED_COL}>
@@ -519,7 +625,9 @@ export function TasksPage() {
                       setTitle('')
                       setDescription('')
                       setAssignee('')
+                      setAssigneeEmployeeId('')
                       setOwnerRole('Ansvarlig')
+                      setLeaderEmployeeId('')
                       setDueDate('')
                       setFormModule('general')
                       setFormSource('manual')
@@ -644,6 +752,14 @@ export function TasksPage() {
                           <td className={`${tableCell} align-top`}>
                             <div className="text-neutral-800">{t.assignee}</div>
                             <div className="text-xs text-neutral-500">{t.ownerRole}</div>
+                            {t.requiresManagementSignOff && (t.leaderName || t.leaderEmployeeId) ? (
+                              <div className="mt-1 text-xs text-neutral-500">
+                                Leder:{' '}
+                                <span className="font-medium text-neutral-700">
+                                  {t.leaderName ?? '—'}
+                                </span>
+                              </div>
+                            ) : null}
                           </td>
                           <td className={`${tableCell} align-top text-neutral-600`}>{t.dueDate}</td>
                           <td className={`${tableCell} align-top`}>
