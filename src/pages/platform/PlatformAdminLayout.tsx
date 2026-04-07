@@ -1,5 +1,5 @@
 import { NavLink, Outlet, Link } from 'react-router-dom'
-import { LayoutGrid, Loader2, LogOut, Map, PanelsTopLeft, Shield } from 'lucide-react'
+import { Box, LayoutGrid, Loader2, LogOut, Map, PanelsTopLeft, Shield } from 'lucide-react'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 
 const nav: {
@@ -12,6 +12,7 @@ const nav: {
   { to: '/platform-admin/roadmap', label: 'Veikart', icon: Map },
   { to: '/platform-admin/layout-lab', label: 'Layout-lab', icon: LayoutGrid },
   { to: '/platform-admin/ui-advanced', label: 'Avansert UI', icon: PanelsTopLeft },
+  { to: '/platform-admin/box-designer', label: 'Boksdesigner', icon: Box },
 ]
 
 export function PlatformAdminLayout() {
