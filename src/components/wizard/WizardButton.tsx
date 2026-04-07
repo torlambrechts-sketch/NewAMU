@@ -12,11 +12,13 @@ export function WizardButton({
   label = 'Veiviser',
   size = 'sm',
   variant = 'outline',
+  className,
 }: {
   def: WizardDef
   label?: string
   size?: 'xs' | 'sm'
   variant?: 'outline' | 'solid' | 'ghost'
+  className?: string
 }) {
   const [open, setOpen] = useState(false)
 
@@ -36,7 +38,7 @@ export function WizardButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`inline-flex items-center rounded-full font-medium transition-colors ${sizeClass} ${variantClass}`}
+        className={`inline-flex items-center rounded-full font-medium transition-colors ${sizeClass} ${variantClass} ${className ?? ''}`}
       >
         <Wand2 className={size === 'xs' ? 'size-3' : 'size-3.5'} />
         {label}
