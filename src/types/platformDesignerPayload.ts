@@ -1,5 +1,6 @@
 import type { UiBoxCoreDesign } from './uiBoxCore'
 import { cloneUiBoxCore } from './uiBoxCore'
+import { UI_BOX_CORE_ID } from './uiBoxCore'
 import type { UiTableCoreDesign } from './uiTableCore'
 import { UI_TABLE_CORE_ID, cloneUiTableCore } from './uiTableCore'
 import type { UiMenuCoreDesign } from './uiMenuCore'
@@ -15,6 +16,18 @@ export type PlatformDesignerPayload =
   | UiTableCoreDesign
   | UiMenuCoreDesign
   | UiButtonCoreDesign
+
+/** Infer kind from raw JSON (e.g. Supabase row) before merge. */
+export function inferDesignerKindFromUnknown(raw: unknown): PlatformDesignerKind {
+  if (raw && typeof raw === 'object' && 'componentId' in raw) {
+    const id = (raw as { componentId: string }).componentId
+    if (id === UI_TABLE_CORE_ID) return 'ui_table_core'
+    if (id === UI_MENU_CORE_ID) return 'ui_menu_core'
+    if (id === UI_BUTTON_CORE_ID) return 'ui_button_core'
+    if (id === UI_BOX_CORE_ID) return 'ui_box_core'
+  }
+  return 'ui_box_core'
+}
 
 export function payloadKind(p: PlatformDesignerPayload): PlatformDesignerKind {
   switch (p.componentId) {

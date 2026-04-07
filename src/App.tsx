@@ -58,6 +58,7 @@ import { PlatformRoadmapPage } from './pages/platform/PlatformRoadmapPage'
 import { LayoutLabPage } from './pages/platform/LayoutLabPage'
 import { PlatformUiAdvancedPage } from './pages/platform/PlatformUiAdvancedPage'
 import { PlatformBoxDesignerPage } from './pages/platform/PlatformBoxDesignerPage'
+import { PlatformLayoutCompositionPage } from './pages/platform/PlatformLayoutCompositionPage'
 
 function App() {
   return (
@@ -83,6 +84,7 @@ function App() {
                 <Route path="layout-lab" element={<LayoutLabPage />} />
                 <Route path="ui-advanced" element={<PlatformUiAdvancedPage />} />
                 <Route path="box-designer" element={<PlatformBoxDesignerPage />} />
+                <Route path="layout-builder" element={<PlatformLayoutCompositionPage />} />
                 <Route path="*" element={<Navigate to="/platform-admin" replace />} />
               </Route>
               <Route path="onboarding" element={<OnboardingWizard />} />
