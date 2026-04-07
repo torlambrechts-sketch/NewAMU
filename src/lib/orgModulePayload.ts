@@ -9,6 +9,7 @@ export type OrgModulePayloadKey =
   | 'organisation'
   | 'cost_settings'
   | 'workspace'
+  | 'report_builder'
 
 export function orgModuleSnapKey(moduleKey: OrgModulePayloadKey, orgId: string, userId: string) {
   return `atics-org-mod:${moduleKey}:${orgId}:${userId}`
