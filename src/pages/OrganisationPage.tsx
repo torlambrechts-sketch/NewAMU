@@ -68,6 +68,7 @@ const R_ORG_FLAT = 'rounded-none'
 const SETTINGS_ROW_GRID =
   'grid grid-cols-1 gap-4 border-b border-neutral-200 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,1.05fr)_minmax(0,380px)] md:items-start md:gap-10 md:px-5 md:py-5'
 const SETTINGS_LEAD = 'text-sm leading-relaxed text-neutral-600'
+const SETTINGS_LEAD_ON_DARK = 'text-sm leading-relaxed text-white/90'
 const SETTINGS_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-800'
 const SETTINGS_INPUT =
   'mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900'
@@ -77,6 +78,11 @@ const SETTINGS_CHECK_WRAP =
 /** Terskel-bokser under meny (samme mørke bakgrunn som fanemeny) */
 const SETTINGS_THRESHOLD_BOX =
   'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
+/** Feltetikett på mørk boks (ny brukergruppe) */
+const SETTINGS_FIELD_LABEL_ON_DARK = 'text-[10px] font-bold uppercase tracking-wider text-white/90'
+/** Inndata på mørk bakgrunn — hvitt felt */
+const SETTINGS_INPUT_ON_DARK =
+  'mt-1.5 w-full rounded-none border border-white/25 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-white focus:outline-none focus:ring-1 focus:ring-white'
 
 // ─── Avatar helper ────────────────────────────────────────────────────────────
 
@@ -718,6 +724,146 @@ export function OrganisationPage() {
         </div>
       )}
 
+      {tab === 'groups' && (
+        <form id="org-new-group" className="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-4" onSubmit={handleCreateGroup}>
+          <div className={SETTINGS_THRESHOLD_BOX} style={menu1.barStyle}>
+            <p className={SETTINGS_LEAD_ON_DARK}>Hva skal gruppen hete, og hvordan beskrives den kort?</p>
+            <div className="mt-3 space-y-3">
+              <div>
+                <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-group-name">
+                  Gruppenavn
+                </label>
+                <input
+                  id="org-group-name"
+                  value={groupForm.name}
+                  onChange={(e) => setGroupForm((f) => ({ ...f, name: e.target.value }))}
+                  required
+                  className={SETTINGS_INPUT_ON_DARK}
+                  placeholder="Påkrevd"
+                />
+              </div>
+              <div>
+                <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-group-desc">
+                  Beskrivelse
+                </label>
+                <input
+                  id="org-group-desc"
+                  value={groupForm.description}
+                  onChange={(e) => setGroupForm((f) => ({ ...f, description: e.target.value }))}
+                  className={SETTINGS_INPUT_ON_DARK}
+                  placeholder="Valgfritt"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className={SETTINGS_THRESHOLD_BOX} style={menu1.barStyle}>
+            <p className={SETTINGS_LEAD_ON_DARK}>Hvem skal omfanget gjelde — alle, utvalgte enheter, utvalgte ansatte eller en kombinasjon?</p>
+            <div className="mt-3">
+              <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-group-scope">
+                Omfang
+              </label>
+              <select
+                id="org-group-scope"
+                value={groupForm.scopeKind}
+                onChange={(e) =>
+                  setGroupForm((f) => ({ ...f, scopeKind: e.target.value as typeof groupForm.scopeKind }))
+                }
+                className={SETTINGS_INPUT_ON_DARK}
+              >
+                <option value="all">Alle ansatte</option>
+                <option value="units">Bestemte enheter</option>
+                <option value="employees">Bestemte ansatte</option>
+                <option value="mixed">Enheter + ansatte</option>
+              </select>
+            </div>
+          </div>
+
+          <div className={`${SETTINGS_THRESHOLD_BOX} lg:col-span-2`} style={menu1.barStyle}>
+            {(groupForm.scopeKind === 'units' || groupForm.scopeKind === 'mixed') && (
+              <>
+                <p className={SETTINGS_LEAD_ON_DARK}>Kryss av hvilke enheter som inngår i gruppen.</p>
+                <p className={SETTINGS_FIELD_LABEL_ON_DARK + ' mt-3'}>Velg enheter</p>
+                <div className="mt-1.5 max-h-36 overflow-y-auto space-y-1.5 rounded-none border border-white/20 bg-black/15 p-2">
+                  {org.units.length === 0 ? (
+                    <p className="text-xs text-white/60">Ingen enheter ennå.</p>
+                  ) : (
+                    org.units.map((u) => (
+                      <label key={u.id} className="flex cursor-pointer items-center gap-2 text-sm text-white/95">
+                        <input
+                          type="checkbox"
+                          checked={groupForm.unitIds.includes(u.id)}
+                          onChange={(e) =>
+                            setGroupForm((f) => ({
+                              ...f,
+                              unitIds: e.target.checked ? [...f.unitIds, u.id] : f.unitIds.filter((id) => id !== u.id),
+                            }))
+                          }
+                          className="size-4 rounded-none border-white/40 bg-white/10 text-[#1a3d32] focus:ring-1 focus:ring-white"
+                        />
+                        <span>{u.name}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+            {(groupForm.scopeKind === 'employees' || groupForm.scopeKind === 'mixed') && (
+              <>
+                <p
+                  className={
+                    SETTINGS_LEAD_ON_DARK +
+                    (groupForm.scopeKind === 'mixed' ? ' mt-4 border-t border-white/15 pt-4' : '')
+                  }
+                >
+                  Velg enkeltpersoner som skal inngå.
+                </p>
+                <p className={SETTINGS_FIELD_LABEL_ON_DARK + ' mt-3'}>Velg ansatte</p>
+                <div className="mt-1.5 max-h-36 overflow-y-auto space-y-1.5 rounded-none border border-white/20 bg-black/15 p-2">
+                  {org.activeEmployees.length === 0 ? (
+                    <p className="text-xs text-white/60">Ingen aktive ansatte.</p>
+                  ) : (
+                    org.activeEmployees.map((emp) => (
+                      <label key={emp.id} className="flex cursor-pointer items-center gap-2 text-sm text-white/95">
+                        <input
+                          type="checkbox"
+                          checked={groupForm.employeeIds.includes(emp.id)}
+                          onChange={(e) =>
+                            setGroupForm((f) => ({
+                              ...f,
+                              employeeIds: e.target.checked
+                                ? [...f.employeeIds, emp.id]
+                                : f.employeeIds.filter((id) => id !== emp.id),
+                            }))
+                          }
+                          className="size-4 rounded-none border-white/40 bg-white/10 text-[#1a3d32] focus:ring-1 focus:ring-white"
+                        />
+                        <span>{emp.name}</span>
+                        {emp.jobTitle && <span className="text-xs text-white/55">{emp.jobTitle}</span>}
+                      </label>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+            {groupForm.scopeKind === 'all' && (
+              <p className={SETTINGS_LEAD_ON_DARK}>Gruppen gjelder alle ansatte. Ingen ytterligere utvalg.</p>
+            )}
+          </div>
+
+          <div className="flex items-end lg:col-span-4">
+            <button
+              type="submit"
+              className="w-full rounded-none border border-white/30 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-none transition hover:bg-white/95 sm:w-auto sm:min-w-[200px]"
+              style={{ color: layout.accent }}
+            >
+              <Plus className="mr-2 inline size-4 align-text-bottom" />
+              Opprett gruppe
+            </button>
+          </div>
+        </form>
+      )}
+
       <div className="mt-8 space-y-8">
       {/* ── Org chart ─────────────────────────────────────────────────────── */}
       {tab === 'orgchart' && (
@@ -1015,72 +1161,52 @@ export function OrganisationPage() {
         </div>
       )}
 
-      {/* ── Groups ────────────────────────────────────────────────────────── */}
+      {/* ── Groups — samme mønster som Innstillinger (bokser under meny + tabellayout) ─ */}
       {tab === 'groups' && (
-        <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:gap-10">
-          <div>
-            <h2 className="mb-4 text-lg font-semibold text-neutral-900">Brukergrupper</h2>
-            <Mainbox1>
-              {org.groups.length === 0 ? <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen grupper ennå.</p> : (
-                <ul className="divide-y divide-neutral-100">
-                  {org.groups.map((g) => (
-                    <li key={g.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                      <div>
-                        <div className="flex items-center gap-2"><Users className="size-4 text-[#1a3d32]" /><span className="font-medium">{g.name}</span></div>
-                        <p className="mt-0.5 text-xs text-neutral-500">{org.getGroupLabel(g)}</p>
-                        {g.description && <p className="text-xs text-neutral-400">{g.description}</p>}
-                      </div>
-                      <button type="button" onClick={() => { if (confirm(`Slett «${g.name}»?`)) org.deleteGroup(g.id) }} className="rounded-lg p-1.5 text-red-400 hover:bg-red-50"><Trash2 className="size-4" /></button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Mainbox1>
-          </div>
-          <SidebarBox1
-            heading="Ny brukergruppe"
-            primaryAction={({ className, style }) => (
-              <button type="submit" form="org-sidebar-new-group" className={className} style={style}>
-                <Plus className="size-4" />
-                Opprett gruppe
-              </button>
-            )}
+        <section className="w-full space-y-0">
+          <Mainbox1
+            title="Brukergrupper"
+            subtitle="Oversikt over grupper og omfang. Opprett nye grupper i boksene over."
           >
-            <form id="org-sidebar-new-group" className="space-y-3" onSubmit={handleCreateGroup}>
-              <div><label className="text-xs font-medium text-neutral-500">Gruppenavn *</label><input value={groupForm.name} onChange={(e) => setGroupForm((f) => ({ ...f, name: e.target.value }))} required className={BASE_INPUT} /></div>
-              <div><label className="text-xs font-medium text-neutral-500">Beskrivelse</label><input value={groupForm.description} onChange={(e) => setGroupForm((f) => ({ ...f, description: e.target.value }))} className={BASE_INPUT} /></div>
-              <div><label className="text-xs font-medium text-neutral-500">Omfang</label>
-                <select value={groupForm.scopeKind} onChange={(e) => setGroupForm((f) => ({ ...f, scopeKind: e.target.value as typeof groupForm.scopeKind }))} className={BASE_INPUT}>
-                  <option value="all">Alle ansatte</option>
-                  <option value="units">Bestemte enheter</option>
-                  <option value="employees">Bestemte ansatte</option>
-                  <option value="mixed">Enheter + ansatte</option>
-                </select></div>
-              {(groupForm.scopeKind === 'units' || groupForm.scopeKind === 'mixed') && (
-                <div><label className="text-xs font-medium text-neutral-500">Velg enheter</label>
-                  <div className="mt-1 max-h-36 overflow-y-auto space-y-1 rounded-xl border border-neutral-200 p-2">
-                    {org.units.map((u) => (
-                      <label key={u.id} className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={groupForm.unitIds.includes(u.id)} onChange={(e) => setGroupForm((f) => ({ ...f, unitIds: e.target.checked ? [...f.unitIds, u.id] : f.unitIds.filter((id) => id !== u.id) }))} className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
-                        <span>{u.name}</span>
-                      </label>
-                    ))}
-                  </div></div>
-              )}
-              {(groupForm.scopeKind === 'employees' || groupForm.scopeKind === 'mixed') && (
-                <div><label className="text-xs font-medium text-neutral-500">Velg ansatte</label>
-                  <div className="mt-1 max-h-36 overflow-y-auto space-y-1 rounded-xl border border-neutral-200 p-2">
-                    {org.activeEmployees.map((emp) => (
-                      <label key={emp.id} className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={groupForm.employeeIds.includes(emp.id)} onChange={(e) => setGroupForm((f) => ({ ...f, employeeIds: e.target.checked ? [...f.employeeIds, emp.id] : f.employeeIds.filter((id) => id !== emp.id) }))} className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
-                        <span>{emp.name}</span><span className="text-xs text-neutral-400">{emp.jobTitle}</span>
-                      </label>
-                    ))}
-                  </div></div>
-              )}
-            </form>
-          </SidebarBox1>
-        </div>
+            {org.groups.length === 0 ? (
+              <p className="border border-neutral-200 bg-white px-4 py-10 text-center text-sm text-neutral-500">Ingen grupper ennå.</p>
+            ) : (
+              <div className="divide-y divide-neutral-200 border border-neutral-200 bg-white">
+                {org.groups.map((g) => (
+                  <div key={g.id} className={SETTINGS_ROW_GRID}>
+                    <div className="flex items-start gap-3">
+                      <Users className="mt-0.5 size-5 shrink-0 text-[#1a3d32]" aria-hidden />
+                      <div>
+                        <p className="text-sm font-semibold text-neutral-900">{g.name}</p>
+                        <p className="mt-1 text-xs text-neutral-500">{org.getGroupLabel(g)}</p>
+                        {g.description ? (
+                          <p className="mt-1 text-xs text-neutral-400">{g.description}</p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
+                      <div className="min-w-0 sm:text-right">
+                        <span className={SETTINGS_FIELD_LABEL}>Handling</span>
+                        <div className="mt-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Slett «${g.name}»?`)) org.deleteGroup(g.id)
+                            }}
+                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-none border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 sm:w-auto"
+                          >
+                            <Trash2 className="size-4" />
+                            Slett
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Mainbox1>
+        </section>
       )}
 
       {/* ── Settings — full bredde; terskler i bokser over (under meny) ─ */}
