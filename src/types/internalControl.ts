@@ -1,5 +1,42 @@
 import type { Level1SystemSignatureMeta } from './level1Signature'
 
+/** Ja/Nei for strukturerte spørsmål i årsgjennomgang */
+export type AnnualReviewYesNo = 'yes' | 'no'
+
+/** IK-f § 5 nr. 8 — strukturerte vurderingsfelt (erstatter fri tekst som eneste innhold) */
+export type AnnualReviewSections = {
+  goalsLastYearAchieved: AnnualReviewYesNo | ''
+  goalsLastYearComment: string
+  /** Rapporteringskultur og korrigerende tiltak */
+  deviationsReview: string
+  /** ROS — oppdatert? nye farer? */
+  rosReview: string
+  /** Sykefravær — trender, oppfølging */
+  sickLeaveReview: string
+  /** Konkrete HMS-mål neste 12 mnd */
+  goalsNextYear: string
+}
+
+export type AnnualReviewActionDraft = {
+  id: string
+  title: string
+  description: string
+  assignee: string
+  dueDate: string
+}
+
+export type AnnualReviewSignatureRole = 'manager' | 'safety_rep'
+
+export type AnnualReviewSignature = {
+  role: AnnualReviewSignatureRole
+  signerName: string
+  signerUserId?: string
+  signedAt: string
+  level1?: Level1SystemSignatureMeta
+}
+
+export type AnnualReviewStatus = 'draft' | 'pending_safety_rep' | 'locked'
+
 export type RosRowStatus = 'open' | 'in_progress' | 'closed'
 
 /** Arbeidsområde for ROS (veiviser / forslag — skiller fra O-ROS juridisk kategori) */
@@ -85,15 +122,35 @@ export type RosAssessment = {
   updatedAt: string
 }
 
-/** Årlig gjennomgang av internkontrollen (illustrativ) */
+/** Årlig gjennomgang av internkontrollen (IK-f § 5 nr. 8) */
 export type AnnualReview = {
   id: string
   year: number
   reviewedAt: string
   reviewer: string
+  /** Eldre format når sections mangler */
   summary: string
-  /** Neste planlagte gjennomgang */
   nextReviewDue: string
+  status?: AnnualReviewStatus
+  sections?: AnnualReviewSections
+  actionPlanDrafts?: AnnualReviewActionDraft[]
+  signatures?: AnnualReviewSignature[]
+  locked?: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+export const EMPTY_ANNUAL_REVIEW_SECTIONS: AnnualReviewSections = {
+  goalsLastYearAchieved: '',
+  goalsLastYearComment: '',
+  deviationsReview: '',
+  rosReview: '',
+  sickLeaveReview: '',
+  goalsNextYear: '',
+}
+
+export function isLegacyAnnualReview(a: AnnualReview): boolean {
+  return !a.sections && Boolean(a.summary?.trim())
 }
 
 export type InternalControlAuditEntry = {

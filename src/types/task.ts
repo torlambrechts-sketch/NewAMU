@@ -25,6 +25,8 @@ export type TaskSourceType =
   | 'learning_course'
   /** Opprettet automatisk ved låst ROS når rad har tiltak, ansvarlig og frist */
   | 'ros_measure'
+  /** Opprettet fra årsgjennomgang (handlingsplan) */
+  | 'annual_review_action'
 
 export type DigitalSignature = {
   signerName: string

@@ -13,6 +13,9 @@ import { fetchClientIpBestEffort, hashDocumentPayload } from '../lib/level1Signa
 import { insertSystemSignatureEvent } from '../lib/recordSystemSignature'
 import type {
   AnnualReview,
+  AnnualReviewActionDraft,
+  AnnualReviewSections,
+  AnnualReviewSignature,
   InternalControlAuditEntry,
   RosAssessment,
   RosCategory,
@@ -21,6 +24,7 @@ import type {
   RosSignatureRole,
   RosWorkspaceCategory,
 } from '../types/internalControl'
+import { isLegacyAnnualReview } from '../types/internalControl'
 import { O_ROS_PRESET_HAZARDS } from '../types/internalControl'
 
 const STORAGE_KEY = 'atics-internal-control-v1'
@@ -66,7 +70,37 @@ function normalizeParsed(p: InternalControlState & { whistleCases?: unknown }): 
             : [],
         }))
       : [],
-    annualReviews: Array.isArray(p.annualReviews) ? p.annualReviews : [],
+    annualReviews: Array.isArray(p.annualReviews)
+      ? p.annualReviews.map((a) => {
+          const ar = a as AnnualReview
+          const sigs = ar.signatures ?? []
+          const hasManager = sigs.some((s) => s.role === 'manager')
+          const hasSafety = sigs.some((s) => s.role === 'safety_rep')
+          const legacy = isLegacyAnnualReview(ar)
+          let status = ar.status
+          let locked = ar.locked
+          if (legacy) {
+            status = status ?? 'locked'
+            locked = locked ?? true
+          } else if (hasSafety) {
+            status = 'locked'
+            locked = true
+          } else if (hasManager) {
+            status = status ?? 'pending_safety_rep'
+            locked = false
+          } else {
+            status = status ?? 'draft'
+            locked = locked ?? false
+          }
+          return {
+            ...ar,
+            actionPlanDrafts: ar.actionPlanDrafts ?? [],
+            signatures: sigs,
+            status,
+            locked,
+          }
+        })
+      : [],
     auditTrail: Array.isArray(p.auditTrail) ? p.auditTrail : [],
   }
 }
@@ -106,8 +140,22 @@ function seedDemoInternalControl(): InternalControlState {
     year: new Date().getFullYear(),
     reviewedAt: new Date().toISOString().slice(0, 10),
     reviewer: 'Ledergruppe (demo)',
-    summary: 'Årlig gjennomgang av internkontrollen er dokumentert (eksempel).',
+    summary: '',
     nextReviewDue: `${new Date().getFullYear() + 1}-12-31`,
+    status: 'locked',
+    locked: true,
+    sections: {
+      goalsLastYearAchieved: 'yes',
+      goalsLastYearComment: 'Hovedmål om vernerunder er nådd.',
+      deviationsReview: 'Rapporteringskultur god; åpne avvik følges opp i oppgavelisten.',
+      rosReview: 'ROS er revidert for hovedprosesser.',
+      sickLeaveReview: 'Fravær innenfor forventning; oppfølging etter rutine.',
+      goalsNextYear: 'Fullføre digitale vernerunder i alle avdelinger.',
+    },
+    actionPlanDrafts: [],
+    signatures: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   }
   return {
     rosAssessments: [demoRos],
@@ -447,9 +495,16 @@ export function useInternalControl() {
 
   const addAnnualReview = useCallback(
     (input: Omit<AnnualReview, 'id'>) => {
+      const now = new Date().toISOString()
       const a: AnnualReview = {
         ...input,
         id: crypto.randomUUID(),
+        status: input.status ?? (isLegacyAnnualReview(input as AnnualReview) ? 'locked' : 'draft'),
+        locked: input.locked ?? isLegacyAnnualReview(input as AnnualReview),
+        actionPlanDrafts: input.actionPlanDrafts ?? [],
+        signatures: input.signatures ?? [],
+        createdAt: now,
+        updatedAt: now,
       }
       setState((s) => ({
         ...s,
@@ -459,6 +514,270 @@ export function useInternalControl() {
       return a
     },
     [setState],
+  )
+
+  const upsertAnnualReview = useCallback(
+    (partial: Partial<AnnualReview> & Pick<AnnualReview, 'id'>) => {
+      const now = new Date().toISOString()
+      setState((s) => {
+        const exists = s.annualReviews.some((x) => x.id === partial.id)
+        if (exists) {
+          return {
+            ...s,
+            annualReviews: s.annualReviews.map((x) =>
+              x.id === partial.id ? { ...x, ...partial, updatedAt: now } : x,
+            ),
+            auditTrail: [...s.auditTrail, audit('annual_review', 'Årsgjennomgang oppdatert (utkast).', { annualId: partial.id })],
+          }
+        }
+        const a: AnnualReview = {
+          year: partial.year ?? new Date().getFullYear(),
+          reviewedAt: partial.reviewedAt ?? now.slice(0, 10),
+          reviewer: partial.reviewer ?? '',
+          summary: partial.summary ?? '',
+          nextReviewDue: partial.nextReviewDue ?? '',
+          sections: partial.sections,
+          actionPlanDrafts: partial.actionPlanDrafts ?? [],
+          signatures: partial.signatures ?? [],
+          status: partial.status ?? 'draft',
+          locked: partial.locked ?? false,
+          id: partial.id,
+          createdAt: partial.createdAt ?? now,
+          updatedAt: now,
+        }
+        return {
+          ...s,
+          annualReviews: [a, ...s.annualReviews],
+          auditTrail: [...s.auditTrail, audit('annual_review', `Årsgjennomgang ${a.year} opprettet.`, { year: a.year })],
+        }
+      })
+    },
+    [setState],
+  )
+
+  function annualReviewCompletePayload(a: AnnualReview) {
+    return {
+      kind: 'annual_review' as const,
+      id: a.id,
+      year: a.year,
+      reviewedAt: a.reviewedAt,
+      nextReviewDue: a.nextReviewDue,
+      reviewer: a.reviewer,
+      sections: a.sections ?? null,
+      summaryLegacy: a.summary || null,
+      actionPlanDrafts: (a.actionPlanDrafts ?? []).map((d) => ({
+        title: d.title,
+        description: d.description,
+        assignee: d.assignee,
+        dueDate: d.dueDate,
+      })),
+      signatures: (a.signatures ?? []).map((s) => ({
+        role: s.role,
+        signerName: s.signerName,
+        signedAt: s.signedAt,
+      })),
+      status: a.status ?? 'draft',
+      locked: a.locked ?? false,
+    }
+  }
+
+  function validateAnnualSections(sec: AnnualReviewSections | undefined): string | null {
+    if (!sec) return 'Strukturerte felt mangler.'
+    if (sec.goalsLastYearAchieved !== 'yes' && sec.goalsLastYearAchieved !== 'no') {
+      return 'Velg om fjorårets HMS-mål ble nådd (Ja/Nei).'
+    }
+    const minLen = 15
+    const check = (v: string, label: string) => (v.trim().length < minLen ? `${label} må ha minst ${minLen} tegn.` : null)
+    return (
+      check(sec.goalsLastYearComment, 'Kommentar til fjorårets mål') ||
+      check(sec.deviationsReview, 'Vurdering av avvik') ||
+      check(sec.rosReview, 'Vurdering av ROS') ||
+      check(sec.sickLeaveReview, 'Vurdering av sykefravær') ||
+      check(sec.goalsNextYear, 'Nye HMS-mål')
+    )
+  }
+
+  const signAnnualReviewManager = useCallback(
+    async (
+      reviewId: string,
+      opts: {
+        signerName: string
+        signerUserId?: string
+        reviewerDisplay: string
+        sections: AnnualReviewSections
+        nextReviewDue: string
+        year: number
+        reviewedAt: string
+        actionPlanDrafts: AnnualReviewActionDraft[]
+        onCreateTasks?: (drafts: AnnualReviewActionDraft[]) => void
+      },
+    ) => {
+      const v = validateAnnualSections(opts.sections)
+      if (v) {
+        setError(v)
+        return false
+      }
+      const target = state.annualReviews.find((x) => x.id === reviewId)
+      if (!target || target.locked || target.signatures?.some((s) => s.role === 'manager')) {
+        setError('Kan ikke signere: ugyldig tilstand.')
+        return false
+      }
+      if (isLegacyAnnualReview(target)) {
+        setError('Eldre årsgjennomgang uten nye felt kan ikke signeres i det nye flyten — opprett ny.')
+        return false
+      }
+      setError(null)
+      const signedAt = new Date().toISOString()
+      const nextRev: AnnualReview = {
+        ...target,
+        year: opts.year,
+        reviewedAt: opts.reviewedAt,
+        reviewer: opts.reviewerDisplay.trim() || target.reviewer,
+        nextReviewDue: opts.nextReviewDue,
+        sections: opts.sections,
+        actionPlanDrafts: [],
+        signatures: [...(target.signatures ?? [])],
+        status: 'pending_safety_rep',
+        locked: false,
+        updatedAt: signedAt,
+      }
+      const sigPreview: AnnualReviewSignature = {
+        role: 'manager',
+        signerName: opts.signerName.trim(),
+        signerUserId: opts.signerUserId,
+        signedAt,
+      }
+      const withManager = {
+        ...nextRev,
+        signatures: [...(nextRev.signatures ?? []), sigPreview],
+      }
+      const documentHashSha256 = await hashDocumentPayload(annualReviewCompletePayload(withManager))
+      let level1: AnnualReviewSignature['level1'] | undefined
+      if (useRemote && supabase && orgId && userId) {
+        const clientIp = await fetchClientIpBestEffort()
+        const ins = await insertSystemSignatureEvent(supabase, orgId, userId, {
+          resourceType: 'annual_review',
+          resourceId: reviewId,
+          action: 'annual_review_sign_manager',
+          documentHashSha256,
+          signerDisplayName: opts.signerName.trim(),
+          role: 'manager',
+          clientIp,
+        })
+        if ('error' in ins) {
+          setError(ins.error)
+          return false
+        }
+        level1 = ins.evidence
+      }
+      const sig: AnnualReviewSignature = { ...sigPreview, level1 }
+      if (opts.onCreateTasks && opts.actionPlanDrafts.length > 0) {
+        opts.onCreateTasks(opts.actionPlanDrafts)
+      }
+      setState((s) => ({
+        ...s,
+        annualReviews: s.annualReviews.map((x) =>
+          x.id === reviewId
+            ? {
+                ...x,
+                year: opts.year,
+                reviewedAt: opts.reviewedAt,
+                reviewer: opts.reviewerDisplay.trim() || x.reviewer,
+                nextReviewDue: opts.nextReviewDue,
+                sections: opts.sections,
+                actionPlanDrafts: [],
+                signatures: [...(x.signatures ?? []).filter((z) => z.role !== 'manager'), sig],
+                status: 'pending_safety_rep',
+                locked: false,
+                updatedAt: signedAt,
+              }
+            : x,
+        ),
+        auditTrail: [
+          ...s.auditTrail,
+          audit('annual_review_signed_manager', `Årsgjennomgang ${opts.year}: leder signert, venter verneombud/AMU.`, {
+            annualId: reviewId,
+          }),
+        ],
+      }))
+      return true
+    },
+    [setState, setError, state.annualReviews, useRemote, supabase, orgId, userId],
+  )
+
+  const signAnnualReviewSafetyRep = useCallback(
+    async (reviewId: string, opts: { signerName: string; signerUserId?: string }) => {
+      const target = state.annualReviews.find((x) => x.id === reviewId)
+      if (!target || target.locked || target.status !== 'pending_safety_rep') {
+        setError('Kan ikke godkjenne: dokumentet er ikke i «venter verneombud»-status.')
+        return false
+      }
+      if (target.signatures?.some((s) => s.role === 'safety_rep')) {
+        setError('Allerede godkjent av verneombud.')
+        return false
+      }
+      if (!target.signatures?.some((s) => s.role === 'manager')) {
+        setError('Leder må signere først.')
+        return false
+      }
+      setError(null)
+      const signedAt = new Date().toISOString()
+      const sigPreview: AnnualReviewSignature = {
+        role: 'safety_rep',
+        signerName: opts.signerName.trim(),
+        signerUserId: opts.signerUserId,
+        signedAt,
+      }
+      const withBoth = {
+        ...target,
+        signatures: [...(target.signatures ?? []), sigPreview],
+        status: 'locked' as const,
+        locked: true,
+        updatedAt: signedAt,
+      }
+      const documentHashSha256 = await hashDocumentPayload(annualReviewCompletePayload(withBoth))
+      let level1: AnnualReviewSignature['level1'] | undefined
+      if (useRemote && supabase && orgId && userId) {
+        const clientIp = await fetchClientIpBestEffort()
+        const ins = await insertSystemSignatureEvent(supabase, orgId, userId, {
+          resourceType: 'annual_review',
+          resourceId: reviewId,
+          action: 'annual_review_sign_safety_rep',
+          documentHashSha256,
+          signerDisplayName: opts.signerName.trim(),
+          role: 'safety_rep',
+          clientIp,
+        })
+        if ('error' in ins) {
+          setError(ins.error)
+          return false
+        }
+        level1 = ins.evidence
+      }
+      const sig: AnnualReviewSignature = { ...sigPreview, level1 }
+      setState((s) => ({
+        ...s,
+        annualReviews: s.annualReviews.map((x) =>
+          x.id === reviewId
+            ? {
+                ...x,
+                signatures: [...(x.signatures ?? []).filter((z) => z.role !== 'safety_rep'), sig],
+                status: 'locked',
+                locked: true,
+                updatedAt: signedAt,
+              }
+            : x,
+        ),
+        auditTrail: [
+          ...s.auditTrail,
+          audit('annual_review_locked', `Årsgjennomgang ${target.year} endelig godkjent (verneombud).`, {
+            annualId: reviewId,
+          }),
+        ],
+      }))
+      return true
+    },
+    [setState, setError, state.annualReviews, useRemote, supabase, orgId, userId],
   )
 
   const stats = useMemo(() => {
@@ -497,6 +816,9 @@ export function useInternalControl() {
     signRos,
     duplicateRosRevision,
     addAnnualReview,
+    upsertAnnualReview,
+    signAnnualReviewManager,
+    signAnnualReviewSafetyRep,
     resetDemo,
   }
 }
