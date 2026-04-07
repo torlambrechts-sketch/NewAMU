@@ -1,5 +1,14 @@
 export type RosRowStatus = 'open' | 'in_progress' | 'closed'
 
+/** Arbeidsområde for ROS (veiviser / forslag — skiller fra O-ROS juridisk kategori) */
+export type RosWorkspaceCategory =
+  | 'general'
+  | 'production'
+  | 'office'
+  | 'warehouse'
+  | 'construction'
+  | 'healthcare'
+
 export type RosRiskRow = {
   id: string
   activity: string
@@ -23,6 +32,10 @@ export type RosRiskRow = {
   residualLikelihood?: number
   /** residualSeverity × residualLikelihood (computed) */
   residualScore?: number
+  /**
+   * Påkrevd ved signering hvis restrisiko er rød (15–25): dokumenter strakstiltak / eskalering.
+   */
+  redResidualJustification?: string
   /** Legacy field — kept for migration */
   done?: boolean
 }
@@ -54,11 +67,17 @@ export type RosAssessment = {
   assessor: string
   /** Organisatorisk endring (O-ROS) — krever AMU/VO-signatur i hr_ros_org_signoffs før låsing */
   rosCategory?: RosCategory
+  /** Kartleggingskontekst for veiviser (Produksjon, Kontor, …) */
+  workspaceCategory?: RosWorkspaceCategory
   rows: RosRiskRow[]
   /** Electronic signatures — assessment locks when both leader and verneombud have signed */
   signatures: RosSignature[]
   /** True once both required signatures are present */
   locked: boolean
+  /** Når denne revisjonen er kopi fra en låst ROS */
+  revisionParentId?: string
+  /** Løpenummer for revisjon (1 = opprinnelig utkast uten forelder) */
+  revisionVersion?: number
   createdAt: string
   updatedAt: string
 }

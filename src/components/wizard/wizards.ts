@@ -450,7 +450,7 @@ export function makeRosWizard(
   return {
     id: 'ros',
     title: 'Ny ROS-vurdering',
-    description: 'ROS-vurderingen er opprettet med én startrad. Åpne den for å legge til flere steg.',
+    description: 'ROS-vurderingen opprettes med forslagsrader tilpasset arbeidsområdet. Juster og signer når dere er enige.',
     colour: 'amber',
     steps: [
       {
@@ -473,6 +473,17 @@ export function makeRosWizard(
             required: true,
           },
           {
+            id: 'rosLegalCategory',
+            label: 'Type ROS (juridisk)',
+            kind: 'select',
+            required: true,
+            hint: 'O-ROS (organisatorisk endring) får egne forhåndsutfylte farer og krever AMU/VO-signatur i HR før låsing.',
+            options: [
+              { value: 'general', label: 'Generell ROS' },
+              { value: 'organizational_change', label: 'Organisatorisk endring (O-ROS)' },
+            ],
+          },
+          {
             id: 'department',
             label: 'Avdeling / område',
             kind: 'text',
@@ -488,7 +499,86 @@ export function makeRosWizard(
           },
         ],
         validate: (v) =>
-          (!v.title || !v.assessor) ? 'Tittel og ansvarlig er påkrevd.' : null,
+          (!v.title || !v.assessor || !v.rosLegalCategory) ? 'Tittel, type og ansvarlig er påkrevd.' : null,
+      },
+      {
+        id: 'hazards',
+        title: 'Vanlige farer',
+        subtitle: 'Tilpass listen',
+        icon: '⚗️',
+        fields: [
+          {
+            id: '_oRosInfo',
+            label: '',
+            kind: 'info',
+            showWhen: (v) => v.rosLegalCategory === 'organizational_change',
+            infoBody:
+              'O-ROS opprettes med <strong>forhåndsutfylte farer</strong> knyttet til omorganisering. Velg AMU og verneombud i skjemaet etter opprettelse, og fullfør HR-signatur før dokumentet låses.',
+          },
+          {
+            id: 'workspaceCategory',
+            label: 'Arbeidsområde (forslagsrader)',
+            kind: 'select',
+            required: true,
+            showWhen: (v) => v.rosLegalCategory !== 'organizational_change',
+            hint: 'Typiske farer for valgt område legges inn. Du kan slette eller endre rader etterpå.',
+            options: [
+              { value: 'general', label: 'Generelt' },
+              { value: 'production', label: 'Produksjon' },
+              { value: 'office', label: 'Kontor' },
+              { value: 'warehouse', label: 'Lager / logistikk' },
+              { value: 'construction', label: 'Bygg / anlegg' },
+              { value: 'healthcare', label: 'Helse / omsorg' },
+            ],
+          },
+          {
+            id: 'chemicalsYes',
+            label: 'Jobber dere med kjemikalier eller farlige stoffer?',
+            kind: 'radio-cards',
+            required: true,
+            showWhen: (v) =>
+              v.rosLegalCategory !== 'organizational_change' &&
+              (v.workspaceCategory === 'production' || v.workspaceCategory === 'warehouse'),
+            options: [
+              { value: 'yes', label: 'Ja', icon: '✓', description: 'Legger inn en ekstra rad om kjemikaliehåndtering' },
+              { value: 'no', label: 'Nei', icon: '—', description: 'Ingen ekstra kjemikalierad' },
+            ],
+          },
+          {
+            id: '_chemInfo',
+            label: '',
+            kind: 'info',
+            showWhen: (v) =>
+              v.rosLegalCategory !== 'organizational_change' &&
+              (v.workspaceCategory === 'production' || v.workspaceCategory === 'warehouse') &&
+              v.chemicalsYes === 'yes',
+            infoBody:
+              'En rad om <strong>kjemikaliehåndtering</strong> legges automatisk inn i tabellen under (kan redigeres).',
+          },
+          {
+            id: '_presetInfo',
+            label: '',
+            kind: 'info',
+            showWhen: (v) =>
+              v.rosLegalCategory !== 'organizational_change' &&
+              v.workspaceCategory !== 'production' &&
+              v.workspaceCategory !== 'warehouse',
+            infoBody:
+              'Neste steg oppretter ROS med ca. <strong>10 forslagsrader</strong> for valgt arbeidsområde. Du kan legge til, fjerne og endre alt før signering.',
+          },
+        ],
+        validate: (v) => {
+          if (v.rosLegalCategory === 'organizational_change') return null
+          if (!v.workspaceCategory) return 'Velg arbeidsområde.'
+          if (
+            (v.workspaceCategory === 'production' || v.workspaceCategory === 'warehouse') &&
+            v.chemicalsYes !== 'yes' &&
+            v.chemicalsYes !== 'no'
+          ) {
+            return 'Svar på spørsmålet om kjemikalier.'
+          }
+          return null
+        },
       },
       {
         id: 'trigger',
@@ -534,9 +624,13 @@ export function makeRosWizard(
     ],
     onSubmit: (v) => {
       onCreate({
-        title:      v.title ?? '',
-        department: v.department ?? '',
-        assessor:   v.assessor ?? '',
+        title:              v.title ?? '',
+        department:         v.department ?? '',
+        assessor:           v.assessor ?? '',
+        rosLegalCategory:   String(v.rosLegalCategory ?? 'general'),
+        workspaceCategory:  String(v.workspaceCategory ?? 'general'),
+        chemicalsYes:       v.chemicalsYes === 'yes',
+        trigger:            v.trigger ?? '',
       })
     },
   }

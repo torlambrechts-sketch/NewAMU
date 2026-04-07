@@ -17,6 +17,7 @@ export function emptyRosRow(): RosRiskRow {
     residualSeverity: undefined,
     residualLikelihood: undefined,
     residualScore: undefined,
+    redResidualJustification: undefined,
   }
 }
 

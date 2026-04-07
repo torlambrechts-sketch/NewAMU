@@ -85,6 +85,7 @@ function parseSource(s: string | null): TaskSourceType | null {
     'nav_report',
     'labor_metric',
     'learning_course',
+    'ros_measure',
   ]
   return allowed.includes(s as TaskSourceType) ? (s as TaskSourceType) : null
 }

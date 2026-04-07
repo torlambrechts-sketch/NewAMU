@@ -17,6 +17,7 @@ import type {
   RosRiskRow,
   RosSignature,
   RosSignatureRole,
+  RosWorkspaceCategory,
 } from '../types/internalControl'
 import { O_ROS_PRESET_HAZARDS } from '../types/internalControl'
 
@@ -49,11 +50,15 @@ function normalizeParsed(p: InternalControlState & { whistleCases?: unknown }): 
       ? p.rosAssessments.map((r) => ({
           ...r,
           rosCategory: (r as RosAssessment).rosCategory ?? 'general',
+          workspaceCategory: (r as RosAssessment).workspaceCategory,
+          revisionParentId: (r as RosAssessment).revisionParentId,
+          revisionVersion: (r as RosAssessment).revisionVersion,
           signatures: (r as RosAssessment).signatures ?? [],
           locked: (r as RosAssessment).locked ?? false,
           rows: Array.isArray(r.rows)
             ? r.rows.map((row: RosRiskRow) => ({
                 ...row,
+                redResidualJustification: (row as RosRiskRow).redResidualJustification,
                 status: (row as RosRiskRow).status ?? (row.done ? 'closed' : 'open'),
               }))
             : [],
@@ -90,6 +95,7 @@ function seedDemoInternalControl(): InternalControlState {
     ],
     signatures: [],
     locked: false,
+    revisionVersion: 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
@@ -201,22 +207,31 @@ export function useInternalControl() {
       title: string,
       department: string,
       assessor: string,
-      opts?: { category?: RosCategory; seedORosRows?: boolean },
+      opts?: {
+        category?: RosCategory
+        seedORosRows?: boolean
+        workspaceCategory?: RosWorkspaceCategory
+        initialRows?: RosRiskRow[]
+      },
     ) => {
       const cat = opts?.category ?? 'general'
-      const rows =
-        cat === 'organizational_change' && opts?.seedORosRows
-          ? O_ROS_PRESET_HAZARDS.map((h) => ({
-              ...emptyRosRow(),
-              id: crypto.randomUUID(),
-              activity: h.activity,
-              hazard: h.hazard,
-              existingControls: h.existingControls,
-              severity: 3,
-              likelihood: 3,
-              riskScore: 9,
-            }))
-          : [emptyRosRow()]
+      let rows: RosRiskRow[]
+      if (opts?.initialRows && opts.initialRows.length > 0) {
+        rows = opts.initialRows
+      } else if (cat === 'organizational_change' && opts?.seedORosRows) {
+        rows = O_ROS_PRESET_HAZARDS.map((h) => ({
+          ...emptyRosRow(),
+          id: crypto.randomUUID(),
+          activity: h.activity,
+          hazard: h.hazard,
+          existingControls: h.existingControls,
+          severity: 3,
+          likelihood: 3,
+          riskScore: 9,
+        }))
+      } else {
+        rows = [emptyRosRow()]
+      }
       const r: RosAssessment = {
         id: crypto.randomUUID(),
         title: title.trim(),
@@ -224,9 +239,11 @@ export function useInternalControl() {
         assessedAt: new Date().toISOString().slice(0, 10),
         assessor: assessor.trim(),
         rosCategory: cat,
+        workspaceCategory: opts?.workspaceCategory,
         rows,
         signatures: [],
         locked: false,
+        revisionVersion: 1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
@@ -267,7 +284,12 @@ export function useInternalControl() {
   )
 
   const signRos = useCallback(
-    async (rosId: string, role: RosSignatureRole, signerName: string) => {
+    async (
+      rosId: string,
+      role: RosSignatureRole,
+      signerName: string,
+      opts?: { onLocked?: (ros: RosAssessment) => void },
+    ) => {
       if (!signerName.trim()) return
       const target = state.rosAssessments.find((x) => x.id === rosId)
       if (target?.rosCategory === 'organizational_change' && useRemote && supabase && orgId) {
@@ -285,21 +307,87 @@ export function useInternalControl() {
           return
         }
       }
-      setState((s) => ({
-        ...s,
-        rosAssessments: s.rosAssessments.map((ros) => {
+      const redWithoutJust = target?.rows.some(
+        (row) =>
+          row.residualScore != null &&
+          row.residualScore >= 15 &&
+          !(row.redResidualJustification && row.redResidualJustification.trim().length >= 10),
+      )
+      if (redWithoutJust) {
+        setError(
+          'Kan ikke signere: én eller flere rader har rød restrisiko (15–25) uten utfylt «Strakstiltak / eskalering» (min. 10 tegn).',
+        )
+        return
+      }
+      setError(null)
+      setState((s) => {
+        let lockedRos: RosAssessment | null = null
+        const nextAssessments = s.rosAssessments.map((ros) => {
           if (ros.id !== rosId) return ros
           if (ros.signatures.some((sig) => sig.role === role)) return ros
           const sig: RosSignature = { role, signerName: signerName.trim(), signedAt: new Date().toISOString() }
           const signatures = [...ros.signatures, sig]
           const locked =
             signatures.some((x) => x.role === 'leader') && signatures.some((x) => x.role === 'verneombud')
-          return { ...ros, signatures, locked, updatedAt: new Date().toISOString() }
-        }),
-        auditTrail: [...s.auditTrail, audit('ros_signed', `ROS signert av ${signerName} (${role})`, { rosId, role })],
-      }))
+          const updated = { ...ros, signatures, locked, updatedAt: new Date().toISOString() }
+          if (locked) lockedRos = updated
+          return updated
+        })
+        if (lockedRos && opts?.onLocked) {
+          queueMicrotask(() => opts.onLocked!(lockedRos!))
+        }
+        return {
+          ...s,
+          rosAssessments: nextAssessments,
+          auditTrail: [...s.auditTrail, audit('ros_signed', `ROS signert av ${signerName} (${role})`, { rosId, role })],
+        }
+      })
     },
     [setState, state.rosAssessments, useRemote, supabase, orgId],
+  )
+
+  const duplicateRosRevision = useCallback(
+    (lockedSourceId: string) => {
+      setState((s) => {
+        const src = s.rosAssessments.find((x) => x.id === lockedSourceId)
+        if (!src?.locked) return s
+        let maxRev = src.revisionVersion ?? 1
+        for (const r of s.rosAssessments) {
+          if (r.id === lockedSourceId) maxRev = Math.max(maxRev, r.revisionVersion ?? 1)
+          if (r.revisionParentId === lockedSourceId) maxRev = Math.max(maxRev, r.revisionVersion ?? 1)
+        }
+        const nextVersion = maxRev + 1
+        const cloneRows = src.rows.map((row) => ({
+          ...row,
+          id: crypto.randomUUID(),
+        }))
+        const copy: RosAssessment = {
+          ...src,
+          id: crypto.randomUUID(),
+          title: `${src.title.replace(/\s*\(revisjon v\d+\)\s*$/i, '').trim()} (revisjon v${nextVersion})`,
+          assessedAt: new Date().toISOString().slice(0, 10),
+          rows: cloneRows,
+          signatures: [],
+          locked: false,
+          revisionParentId: lockedSourceId,
+          revisionVersion: nextVersion,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+        return {
+          ...s,
+          rosAssessments: [copy, ...s.rosAssessments],
+          auditTrail: [
+            ...s.auditTrail,
+            audit('ros_revision', `Ny ROS-revisjon v${nextVersion} fra låst dokument`, {
+              rosId: copy.id,
+              parentId: lockedSourceId,
+            }),
+          ],
+        }
+      })
+    },
+    [setState],
   )
 
   const addRosRow = useCallback(
@@ -366,6 +454,7 @@ export function useInternalControl() {
     updateRosRow,
     addRosRow,
     signRos,
+    duplicateRosRevision,
     addAnnualReview,
     resetDemo,
   }

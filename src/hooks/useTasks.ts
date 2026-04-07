@@ -63,6 +63,7 @@ const ALL_SOURCES: TaskSourceType[] = [
   'nav_report',
   'labor_metric',
   'learning_course',
+  'ros_measure',
 ]
 
 function migrateLegacyTask(raw: Record<string, unknown>): Task {

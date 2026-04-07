@@ -21,6 +21,8 @@ export type TaskSourceType =
   | 'nav_report'
   | 'labor_metric'
   | 'learning_course'
+  /** Opprettet automatisk ved låst ROS når rad har tiltak, ansvarlig og frist */
+  | 'ros_measure'
 
 export type DigitalSignature = {
   signerName: string
