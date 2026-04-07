@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   ChevronDown,
   Download,
+  FileDown,
   GripVertical,
   History,
   Info,
   LayoutGrid,
   Loader2,
+  Mail,
   Plus,
   RefreshCw,
   Search,
@@ -37,6 +39,9 @@ import {
 import type { CustomReportTemplate, ReportModule, ReportModuleKind } from '../types/reportBuilder'
 import { CustomReportPreview } from '../components/reports/CustomReportPreview'
 import { Mainbox1 } from '../components/layout/Mainbox1'
+import { StandardReportDashboard } from '../components/reports/StandardReportDashboard'
+import { ShareSensitiveDataModal } from '../components/reports/ShareSensitiveDataModal'
+import { buildStandardReportVisualModel } from '../lib/standardReportVisualModel'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const HERO_ACTION_CLASS =
@@ -136,6 +141,10 @@ export function ReportingEnginePage() {
   const [standardPayload, setStandardPayload] = useState<unknown>(null)
   const [standardLoading, setStandardLoading] = useState(false)
   const [activeStandardId, setActiveStandardId] = useState<StandardReportId | null>(null)
+  const [viewerOpen, setViewerOpen] = useState(false)
+  const [shareModal, setShareModal] = useState<null | 'pdf' | 'email'>(null)
+  const [showJsonInViewer, setShowJsonInViewer] = useState(false)
+  const reportViewRef = useRef<HTMLDivElement>(null)
 
   const [builderOpen, setBuilderOpen] = useState(false)
   const [draft, setDraft] = useState<CustomReportTemplate | null>(null)
@@ -199,6 +208,8 @@ export function ReportingEnginePage() {
             break
         }
         setStandardPayload(data)
+        setShowJsonInViewer(false)
+        setViewerOpen(true)
         const title =
           STANDARD_REPORT_CATEGORIES.flatMap((c) => c.reports).find((r) => r.id === id)?.title ?? id
         const entry: RunEntry = { id: crypto.randomUUID(), title, at: new Date().toISOString(), kind: 'standard' }
@@ -210,6 +221,72 @@ export function ReportingEnginePage() {
     },
     [rep, y],
   )
+
+  const standardVisualModel = useMemo(() => {
+    if (!activeStandardId || standardPayload == null) return null
+    return buildStandardReportVisualModel(activeStandardId, standardPayload)
+  }, [activeStandardId, standardPayload])
+
+  const activeStandardTitle = useMemo(() => {
+    if (!activeStandardId) return ''
+    return STANDARD_REPORT_CATEGORIES.flatMap((c) => c.reports).find((r) => r.id === activeStandardId)?.title ?? ''
+  }, [activeStandardId])
+
+  const closeViewer = useCallback(() => {
+    setViewerOpen(false)
+    setShareModal(null)
+    setShowJsonInViewer(false)
+  }, [])
+
+  function openPrintWindowForPdf() {
+    const el = reportViewRef.current
+    if (!el) return
+    const orgName = organization?.name ?? 'Organisasjon'
+    const title = activeStandardTitle || 'Rapport'
+    const w = window.open('', '_blank')
+    if (!w) return
+    const styles = `
+      body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; padding: 20px; color: #171717; background: #fff; }
+      h1 { font-size: 1.25rem; margin: 0 0 8px; }
+      .meta { font-size: 12px; color: #525252; margin-bottom: 20px; }
+      @media print { body { padding: 12px; } }
+    `
+    w.document.write(
+      `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${title}</title><style>${styles}</style></head><body>` +
+        `<h1>${title}</h1><div class="meta">${orgName} · ${y} · ${new Date().toLocaleString('no-NO')}</div>` +
+        el.innerHTML +
+        `</body></html>`,
+    )
+    w.document.close()
+    w.focus()
+    queueMicrotask(() => {
+      w.print()
+    })
+  }
+
+  function buildEmailSummary(): string {
+    const lines: string[] = []
+    lines.push(`Rapport: ${activeStandardTitle}`)
+    lines.push(`Organisasjon: ${organization?.name ?? '—'}`)
+    lines.push(`År: ${y}`)
+    lines.push(`Generert: ${new Date().toLocaleString('no-NO')}`)
+    lines.push('')
+    if (standardVisualModel?.kpis.length) {
+      lines.push('Nøkkeltall:')
+      for (const k of standardVisualModel.kpis.slice(0, 12)) {
+        lines.push(`- ${k.label}: ${k.value}`)
+      }
+    }
+    lines.push('')
+    lines.push('Full data finnes i løsningen. Ved behag, legg ved JSON-eksport manuelt.')
+    return lines.join('\n')
+  }
+
+  function openEmailWithSummary() {
+    const subject = encodeURIComponent(`${activeStandardTitle || 'Rapport'} — ${organization?.name ?? ''} (${y})`)
+    const body = encodeURIComponent(buildEmailSummary())
+    window.location.href = `mailto:?subject=${subject}&body=${body}`
+  }
 
   const datasetKeysForModules = useCallback((mods: ReportModule[]) => {
     const s = new Set(mods.map((m) => m.datasetKey))
@@ -278,6 +355,24 @@ export function ReportingEnginePage() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [builderOpen])
+
+  useEffect(() => {
+    if (!viewerOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [viewerOpen])
+
+  useEffect(() => {
+    if (!viewerOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeViewer()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [viewerOpen, closeViewer])
 
   function openNewReport() {
     const now = new Date().toISOString()
@@ -422,7 +517,7 @@ export function ReportingEnginePage() {
                 min={2000}
                 max={2100}
                 onChange={(e) => setY(Number(e.target.value))}
-                className="ml-2 w-16 rounded-none border border-neutral-200 bg-white px-2 py-1 text-sm"
+                className="ml-2 w-[5.25rem] min-w-[5.25rem] rounded-none border border-neutral-200 bg-white px-2 py-1 text-center text-sm tabular-nums"
               />
             </label>
             <button
@@ -530,40 +625,44 @@ export function ReportingEnginePage() {
             })}
           </section>
 
-          {(standardLoading || standardPayload != null) && (
-            <section className="mt-8">
-              <Mainbox1
-                title={
-                  activeStandardId
-                    ? (STANDARD_REPORT_CATEGORIES.flatMap((c) => c.reports).find((r) => r.id === activeStandardId)
-                        ?.title ?? 'Resultat')
-                    : 'Resultat'
-                }
-                subtitle="Rådata (JSON). PDF kan kobles på senere."
-              >
-                {standardLoading ? (
-                  <p className="flex items-center gap-2 text-sm text-neutral-500">
-                    <Loader2 className="size-4 animate-spin" /> Henter…
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {activeStandardId ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void downloadJson(`report-${activeStandardId}-${y}.json`, standardPayload)
-                        }
-                        className={`${R_FLAT} inline-flex items-center gap-2 bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white`}
-                      >
-                        <Download className="size-4" /> Last ned JSON
-                      </button>
-                    ) : null}
-                    <JsonBlock data={standardPayload} />
-                  </div>
-                )}
-              </Mainbox1>
-            </section>
-          )}
+          <section className="mt-8">
+            <Mainbox1
+              title="Siste rapport"
+              subtitle={
+                viewerOpen && activeStandardTitle
+                  ? 'Rapportvinduet er åpent til høyre. Du kan også hente JSON her.'
+                  : 'Kjør en standardrapport over — resultat åpnes i sidevindu med grafer og tabeller.'
+              }
+            >
+              {standardLoading ? (
+                <p className="flex items-center gap-2 text-sm text-neutral-500">
+                  <Loader2 className="size-4 animate-spin" /> Henter rapport…
+                </p>
+              ) : standardPayload != null && activeStandardId ? (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowJsonInViewer(false)
+                      setViewerOpen(true)
+                    }}
+                    className={`${R_FLAT} inline-flex items-center gap-2 border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50`}
+                  >
+                    Åpne rapportvisning
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadJson(`report-${activeStandardId}-${y}.json`, standardPayload)}
+                    className={`${R_FLAT} inline-flex items-center gap-2 bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white`}
+                  >
+                    <Download className="size-4" /> Last ned JSON
+                  </button>
+                </div>
+              ) : (
+                <p className="text-sm text-neutral-500">Ingen rapport i økten ennå.</p>
+              )}
+            </Mainbox1>
+          </section>
 
           <section className="mt-12 border-t border-neutral-200/80 pt-10">
             <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -778,6 +877,122 @@ export function ReportingEnginePage() {
           )}
         </section>
       )}
+
+      <ShareSensitiveDataModal
+        open={shareModal === 'pdf'}
+        title="Eksporter som PDF"
+        actionLabel="Åpne utskrift / lagre som PDF"
+        onCancel={() => setShareModal(null)}
+        onConfirm={() => {
+          setShareModal(null)
+          openPrintWindowForPdf()
+        }}
+      />
+      <ShareSensitiveDataModal
+        open={shareModal === 'email'}
+        title="Send som e-post"
+        actionLabel="Åpne e-postklient"
+        onCancel={() => setShareModal(null)}
+        onConfirm={() => {
+          setShareModal(null)
+          openEmailWithSummary()
+        }}
+      />
+
+      {viewerOpen && activeStandardId && standardVisualModel ? (
+        <div
+          className="fixed inset-0 z-[110] flex justify-end bg-black/45 backdrop-blur-[2px]"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeViewer()
+          }}
+        >
+          <div
+            className="flex h-full w-full max-w-[min(100vw,960px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="report-viewer-title"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-neutral-200/90 bg-[#f7f6f2] px-5 py-4 sm:px-6">
+              <div className="min-w-0">
+                <h2
+                  id="report-viewer-title"
+                  className="truncate text-xl font-semibold text-neutral-900 sm:text-2xl"
+                  style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+                >
+                  {activeStandardTitle}
+                </h2>
+                <p className="mt-0.5 text-xs text-neutral-500">
+                  {organization?.name ?? 'Organisasjon'} · {y}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowJsonInViewer((v) => !v)}
+                  className={`${R_FLAT} border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50`}
+                >
+                  {showJsonInViewer ? 'Skjul JSON' : 'Vis JSON'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void downloadJson(`report-${activeStandardId}-${y}.json`, standardPayload)}
+                  className={`${R_FLAT} border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50`}
+                >
+                  <Download className="mr-1 inline size-3.5 align-middle" />
+                  JSON
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShareModal('pdf')}
+                  className={`${R_FLAT} border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50`}
+                >
+                  <FileDown className="mr-1 inline size-3.5 align-middle" />
+                  PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShareModal('email')}
+                  className={`${R_FLAT} border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50`}
+                >
+                  <Mail className="mr-1 inline size-3.5 align-middle" />
+                  E-post
+                </button>
+                <button
+                  type="button"
+                  onClick={closeViewer}
+                  className="rounded-none p-2 text-neutral-500 hover:bg-neutral-200/60"
+                  aria-label="Lukk"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {standardLoading ? (
+                <div className="flex items-center justify-center p-16">
+                  <Loader2 className="size-8 animate-spin text-neutral-400" />
+                </div>
+              ) : (
+                <div ref={reportViewRef}>
+                  <StandardReportDashboard
+                    subtitle={`${organization?.name ?? 'Organisasjon'} · år ${y}`}
+                    model={standardVisualModel}
+                    accent={accent}
+                  />
+                  {showJsonInViewer ? (
+                    <div className="border-t border-neutral-200 bg-white px-4 py-4 sm:px-6">
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Rådata</p>
+                      <JsonBlock data={standardPayload} />
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {builderOpen && draft ? (
         <div
