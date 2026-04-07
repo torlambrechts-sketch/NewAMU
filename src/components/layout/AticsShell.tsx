@@ -8,7 +8,6 @@ import {
   CalendarRange,
   ClipboardList,
   Clock,
-  ExternalLink,
   FileText,
   GraduationCap,
   HardHat,
@@ -574,9 +573,6 @@ export function AticsShell() {
                   </NavLink>
                 </>
               ) : null}
-              <button type="button" className="rounded-lg p-1.5 text-neutral-500 hover:bg-black/5" aria-label={t('shell.externalAria')}>
-                <ExternalLink className="size-4" />
-              </button>
             </div>
           </header>
 
@@ -685,10 +681,6 @@ export function AticsShell() {
             >
               <Settings className="size-5" />
             </NavLink>
-            <button type="button" className="rounded-lg p-2 hover:bg-white/10" aria-label={t('shell.externalAria')}>
-              <ExternalLink className="size-5" />
-            </button>
-            <div className="size-9 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-700 ring-2 ring-white/30" role="img" aria-label={t('shell.userProfileAria')} />
           </div>
         </div>
 
