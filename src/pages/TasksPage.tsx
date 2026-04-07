@@ -28,9 +28,9 @@ const HERO_ACTION_CLASS =
 const R_FLAT = 'rounded-none'
 const SETTINGS_THRESHOLD_BOX =
   'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
-/** Panel: tabellaktige rader som Innstillinger (lys boks) */
-const SETTINGS_ROW_GRID =
-  'grid grid-cols-1 gap-4 border-b border-neutral-200 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,1.05fr)_minmax(0,380px)] md:items-start md:gap-10 md:px-5 md:py-5'
+/** Task panel: lead text 40% / form inset 60% from md breakpoint */
+const TASK_PANEL_ROW_GRID =
+  'grid grid-cols-1 gap-4 border-b border-neutral-200 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-5 md:py-5'
 const SETTINGS_LEAD = 'text-sm leading-relaxed text-neutral-600'
 const SETTINGS_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-800'
 const SETTINGS_INPUT =
@@ -695,7 +695,7 @@ export function TasksPage() {
               onSubmit={handleSubmit}
             >
               <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-8">
-                <div className={SETTINGS_ROW_GRID}>
+                <div className={TASK_PANEL_ROW_GRID}>
                   <div>
                     <h3 className="text-base font-semibold text-neutral-900">Oppgavens innhold</h3>
                     <p className={`${SETTINGS_LEAD} mt-2`}>
@@ -740,7 +740,7 @@ export function TasksPage() {
 
                 <div className="my-8 border-t border-neutral-200/90" />
 
-                <div className={SETTINGS_ROW_GRID}>
+                <div className={TASK_PANEL_ROW_GRID}>
                   <div>
                     <h3 className="text-base font-semibold text-neutral-900">Ansvar og frist</h3>
                     <p className={`${SETTINGS_LEAD} mt-2`}>
@@ -910,7 +910,7 @@ export function TasksPage() {
 
                 <div className="my-8 border-t border-neutral-200/90" />
 
-                <div className={SETTINGS_ROW_GRID}>
+                <div className={TASK_PANEL_ROW_GRID}>
                   <div>
                     <h3 className="text-base font-semibold text-neutral-900">Opprinnelse i løsningen</h3>
                     <p className={`${SETTINGS_LEAD} mt-2`}>
