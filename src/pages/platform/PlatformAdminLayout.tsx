@@ -12,7 +12,7 @@ const nav: {
   { to: '/platform-admin/roadmap', label: 'Veikart', icon: Map },
   { to: '/platform-admin/layout-lab', label: 'Layout-lab', icon: LayoutGrid },
   { to: '/platform-admin/ui-advanced', label: 'Avansert UI', icon: PanelsTopLeft },
-  { to: '/platform-admin/box-designer', label: 'Boksdesigner', icon: Box },
+  { to: '/platform-admin/box-designer', label: 'Komponentdesigner', icon: Box },
 ]
 
 export function PlatformAdminLayout() {

@@ -4,135 +4,58 @@ import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { UiBoxCorePreview } from '../../components/platform/UiBoxCorePreview'
+import { UiTableCorePreview } from '../../components/platform/UiTableCorePreview'
+import { UiMenuCorePreview } from '../../components/platform/UiMenuCorePreview'
+import { UiButtonCorePreview } from '../../components/platform/UiButtonCorePreview'
 import {
-  cloneUiBoxCore,
-  deepMergeUiBox,
-  type UiBoxCoreDesign,
-} from '../../types/uiBoxCore'
-
-const PANEL = 'mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-sm text-white'
-const SECTION = 'rounded-xl border border-white/10 bg-slate-900/40 p-4'
-const LABEL = 'block text-xs font-medium text-neutral-400'
+  clonePayloadForKind,
+  mergePayload,
+  payloadKind,
+  type PlatformDesignerKind,
+  type PlatformDesignerPayload,
+  DESIGNER_KIND_LABELS,
+} from '../../types/platformDesignerPayload'
+import { UI_TABLE_CORE_ID } from '../../types/uiTableCore'
+import { UI_MENU_CORE_ID } from '../../types/uiMenuCore'
+import { UI_BUTTON_CORE_ID } from '../../types/uiButtonCore'
+import { BoxCoreForm } from './boxDesigner/BoxCoreForm'
+import { TableCoreForm } from './boxDesigner/TableCoreForm'
+import { MenuCoreForm } from './boxDesigner/MenuCoreForm'
+import { ButtonCoreForm } from './boxDesigner/ButtonCoreForm'
+import { SelectField, TextField } from './boxDesigner/sharedFields'
+import { LABEL, PANEL, SECTION } from './boxDesigner/fieldTokens'
+import type { UiBoxCoreDesign } from '../../types/uiBoxCore'
+import type { UiTableCoreDesign } from '../../types/uiTableCore'
+import type { UiMenuCoreDesign } from '../../types/uiMenuCore'
+import type { UiButtonCoreDesign } from '../../types/uiButtonCore'
 
 type DesignTab = {
   localId: string
   dbId?: string
-  /** Stable key for prompts / cross-reference */
   referenceKey: string
-  design: UiBoxCoreDesign
+  kind: PlatformDesignerKind
+  design: PlatformDesignerPayload
 }
 
 function slugKey(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-_]/g, '')
-    .slice(0, 64) || 'box'
-}
-
-function hexForPicker(value: string): string {
-  if (/^#[0-9A-Fa-f]{6}$/.test(value)) return value
-  return '#ffffff'
-}
-
-function ColorField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: string
-  onChange: (next: string) => void
-}) {
   return (
-    <label className={LABEL}>
-      {label}
-      <div className="mt-1 flex items-center gap-2">
-        <input
-          type="color"
-          value={hexForPicker(value)}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-9 w-12 shrink-0 cursor-pointer rounded border border-white/10 bg-transparent p-0"
-          aria-label={label}
-        />
-        <input value={value} onChange={(e) => onChange(e.target.value)} className={PANEL} />
-      </div>
-    </label>
+    name
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-_]/g, '')
+      .slice(0, 64) || 'design'
   )
 }
 
-function TextField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: string
-  onChange: (next: string) => void
-}) {
-  return (
-    <label className={LABEL}>
-      {label}
-      <input value={value} onChange={(e) => onChange(e.target.value)} className={PANEL} />
-    </label>
-  )
-}
-
-function NumberField({
-  label,
-  value,
-  onChange,
-  step = 1,
-  min,
-  max,
-}: {
-  label: string
-  value: number
-  onChange: (next: number) => void
-  step?: number
-  min?: number
-  max?: number
-}) {
-  return (
-    <label className={LABEL}>
-      {label}
-      <input
-        type="number"
-        step={step}
-        min={min}
-        max={max}
-        value={Number.isFinite(value) ? value : 0}
-        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-        className={PANEL}
-      />
-    </label>
-  )
-}
-
-function SelectField<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string
-  value: T
-  options: { value: T; label: string }[]
-  onChange: (next: T) => void
-}) {
-  return (
-    <label className={LABEL}>
-      {label}
-      <select value={value} onChange={(e) => onChange(e.target.value as T)} className={PANEL}>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  )
+function inferKindFromPayload(p: unknown): PlatformDesignerKind {
+  if (p && typeof p === 'object' && 'componentId' in p) {
+    const id = (p as { componentId: string }).componentId
+    if (id === UI_TABLE_CORE_ID) return 'ui_table_core'
+    if (id === UI_MENU_CORE_ID) return 'ui_menu_core'
+    if (id === UI_BUTTON_CORE_ID) return 'ui_button_core'
+  }
+  return 'ui_box_core'
 }
 
 export function PlatformBoxDesignerPage() {
@@ -143,7 +66,8 @@ export function PlatformBoxDesignerPage() {
     {
       localId: crypto.randomUUID(),
       referenceKey: 'mainbox-1',
-      design: cloneUiBoxCore(),
+      kind: 'ui_box_core',
+      design: clonePayloadForKind('ui_box_core'),
     },
   ])
   const [activeIdx, setActiveIdx] = useState(0)
@@ -151,6 +75,7 @@ export function PlatformBoxDesignerPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [newKind, setNewKind] = useState<PlatformDesignerKind>('ui_box_core')
 
   const active = tabs[activeIdx]
 
@@ -175,7 +100,8 @@ export function PlatformBoxDesignerPage() {
           {
             localId: crypto.randomUUID(),
             referenceKey: 'mainbox-1',
-            design: cloneUiBoxCore(),
+            kind: 'ui_box_core',
+            design: clonePayloadForKind('ui_box_core'),
           },
         ])
         setActiveIdx(0)
@@ -184,13 +110,17 @@ export function PlatformBoxDesignerPage() {
 
       setTabs(
         rows.map((row) => {
-          const raw = row.payload as Partial<UiBoxCoreDesign>
-          const design = deepMergeUiBox(cloneUiBoxCore(), raw)
-          design.metadata.name = (row.display_name as string) || design.metadata.name
+          const raw = row.payload as Record<string, unknown>
+          const kind = inferKindFromPayload(raw)
+          const design = mergePayload(clonePayloadForKind(kind), raw as Partial<PlatformDesignerPayload>)
+          if (design.metadata) {
+            design.metadata.name = (row.display_name as string) || design.metadata.name
+          }
           return {
             localId: crypto.randomUUID(),
             dbId: row.id as string,
             referenceKey: row.reference_key as string,
+            kind,
             design,
           }
         }),
@@ -207,19 +137,19 @@ export function PlatformBoxDesignerPage() {
     void loadDesigns()
   }, [loadDesigns])
 
-  const updateActive = useCallback((patch: Partial<UiBoxCoreDesign> | ((d: UiBoxCoreDesign) => UiBoxCoreDesign)) => {
-    setTabs((prev) => {
-      const next = [...prev]
-      const cur = next[activeIdx]
-      if (!cur) return prev
-      const design =
-        typeof patch === 'function'
-          ? patch(structuredClone(cur.design))
-          : deepMergeUiBox(structuredClone(cur.design), patch)
-      next[activeIdx] = { ...cur, design }
-      return next
-    })
-  }, [activeIdx])
+  const updateActive = useCallback(
+    (patch: Partial<PlatformDesignerPayload>) => {
+      setTabs((prev) => {
+        const next = [...prev]
+        const cur = next[activeIdx]
+        if (!cur) return prev
+        const design = mergePayload(structuredClone(cur.design), patch)
+        next[activeIdx] = { ...cur, design, kind: payloadKind(design) }
+        return next
+      })
+    },
+    [activeIdx],
+  )
 
   const setReferenceKeyRaw = useCallback(
     (referenceKey: string) => {
@@ -234,25 +164,52 @@ export function PlatformBoxDesignerPage() {
     [activeIdx],
   )
 
+  const changeKind = useCallback(
+    (kind: PlatformDesignerKind) => {
+      setTabs((prev) => {
+        const next = [...prev]
+        const cur = next[activeIdx]
+        if (!cur) return prev
+        const fresh = clonePayloadForKind(kind)
+        const name = cur.design.metadata?.name ?? cur.referenceKey
+        fresh.metadata.name = name
+        next[activeIdx] = { ...cur, kind, design: fresh }
+        return next
+      })
+    },
+    [activeIdx],
+  )
+
+  const defaultRefForKind = (kind: PlatformDesignerKind): string => {
+    switch (kind) {
+      case 'ui_table_core':
+        return 'table-1'
+      case 'ui_menu_core':
+        return 'menu-1'
+      case 'ui_button_core':
+        return 'button-primary'
+      default:
+        return 'mainbox-1'
+    }
+  }
+
   const addTab = useCallback(() => {
-    const n = tabs.length + 1
-    const referenceKey = `box-${n}-${Math.random().toString(36).slice(2, 7)}`
+    const kind = newKind
+    const referenceKey = `${defaultRefForKind(kind)}-${Math.random().toString(36).slice(2, 6)}`
+    const design = clonePayloadForKind(kind)
+    design.metadata.name = referenceKey
     setTabs((prev) => [
       ...prev,
       {
         localId: crypto.randomUUID(),
         referenceKey,
-        design: cloneUiBoxCore({
-          metadata: {
-            name: `Ny boks ${n}`,
-            description: 'Tilpass i panelet til venstre.',
-          },
-        }),
+        kind,
+        design,
       },
     ])
     setActiveIdx(tabs.length)
     setMessage(null)
-  }, [tabs.length])
+  }, [newKind, tabs.length])
 
   const removeTab = useCallback(
     async (idx: number) => {
@@ -300,7 +257,7 @@ export function PlatformBoxDesignerPage() {
         setBusy(false)
         return
       }
-      const displayName = active.design.metadata.name.trim() || key
+      const displayName = active.design.metadata?.name?.trim() || key
       const row = {
         user_id: userId,
         reference_key: key,
@@ -319,11 +276,7 @@ export function PlatformBoxDesignerPage() {
           .eq('id', active.dbId)
         if (e) throw e
       } else {
-        const { data, error: e } = await supabase
-          .from('platform_box_designs')
-          .insert(row)
-          .select('id')
-          .single()
+        const { data, error: e } = await supabase.from('platform_box_designs').insert(row).select('id').single()
         if (e) throw e
         newId = data?.id as string
       }
@@ -333,7 +286,9 @@ export function PlatformBoxDesignerPage() {
         if (cur) next[activeIdx] = { ...cur, referenceKey: key, dbId: newId }
         return next
       })
-      setMessage(`Lagret «${key}». Bruk referansen i prompt eller dokumentasjon: ${key}`)
+      setMessage(
+        `Lagret «${key}» (${active.design.componentId}). Bruk referansen: ${key}`,
+      )
     } catch (err) {
       setError(getSupabaseErrorMessage(err))
     } finally {
@@ -351,11 +306,25 @@ export function PlatformBoxDesignerPage() {
     setMessage('JSON kopiert til utklippstavlen.')
   }, [exportJson])
 
+  const previewHint = useMemo(() => {
+    if (!active) return ''
+    switch (active.kind) {
+      case 'ui_table_core':
+        return 'Eksempeldata — juster thead/tbody/td.'
+      case 'ui_menu_core':
+        return 'Klikk faner; hold over inaktiv for hover.'
+      case 'ui_button_core':
+        return 'Hover, trykk (active), Tab for fokus; disabled til høyre.'
+      default:
+        return 'Hold pekeren over boksen for hover.'
+    }
+  }, [active])
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-neutral-300">
         <Loader2 className="size-5 animate-spin" />
-        Laster boksdesign…
+        Laster komponentdesign…
       </div>
     )
   }
@@ -365,13 +334,16 @@ export function PlatformBoxDesignerPage() {
   }
 
   const d = active.design
+  const kind = active.kind
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-white">Boksdesigner</h1>
+        <h1 className="text-xl font-semibold text-white">Komponentdesigner</h1>
         <p className="mt-1 text-sm text-neutral-400">
-          Avansert redigering av <code className="rounded bg-white/10 px-1">ui_box_core</code>. Lagre med unik referansenøkkel du kan bruke senere i prompt eller dokumentasjon.
+          Detaljerte spesifikasjoner for <code className="rounded bg-white/10 px-1">ui_box_core</code>,{' '}
+          <code className="rounded bg-white/10 px-1">ui_table_core</code>, <code className="rounded bg-white/10 px-1">ui_menu_core</code> og{' '}
+          <code className="rounded bg-white/10 px-1">ui_button_core</code>. Lagre med unik referansenøkkel.
         </p>
       </div>
 
@@ -391,6 +363,7 @@ export function PlatformBoxDesignerPage() {
               className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                 idx === activeIdx ? 'bg-white/15 text-white' : 'text-neutral-400 hover:bg-white/5 hover:text-white'
               }`}
+              title={tab.kind}
             >
               {tab.referenceKey}
             </button>
@@ -404,14 +377,25 @@ export function PlatformBoxDesignerPage() {
             </button>
           </div>
         ))}
-        <button
-          type="button"
-          onClick={addTab}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-white/20 px-3 py-2 text-sm text-neutral-300 hover:border-white/40 hover:text-white"
-        >
-          <Plus className="size-4" />
-          Ny boks
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <SelectField
+            value={newKind}
+            options={(Object.keys(DESIGNER_KIND_LABELS) as PlatformDesignerKind[]).map((k) => ({
+              value: k,
+              label: DESIGNER_KIND_LABELS[k],
+            }))}
+            onChange={(v) => setNewKind(v)}
+            className="text-xs text-neutral-400"
+          />
+          <button
+            type="button"
+            onClick={addTab}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-white/20 px-3 py-2 text-sm text-neutral-300 hover:border-white/40 hover:text-white"
+          >
+            <Plus className="size-4" />
+            Ny komponent
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
@@ -419,444 +403,39 @@ export function PlatformBoxDesignerPage() {
           <section className={SECTION}>
             <h2 className="text-sm font-semibold text-white">Identitet og referanse</h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <TextField
-                label="Referansenøkkel (unik, normaliseres ved lagring)"
-                value={active.referenceKey}
-                onChange={(v) => setReferenceKeyRaw(v)}
-              />
-              <TextField
-                label="metadata.name (JSON)"
-                value={d.metadata.name}
-                onChange={(v) => updateActive({ metadata: { ...d.metadata, name: v } })}
-              />
+              <TextField label="Referansenøkkel (unik)" value={active.referenceKey} onChange={(v) => setReferenceKeyRaw(v)} />
+              <TextField label="metadata.name" value={d.metadata?.name ?? ''} onChange={(v) => updateActive({ metadata: { ...d.metadata!, name: v } })} />
             </div>
             <label className={`${LABEL} mt-3`}>
               Beskrivelse
               <textarea
-                value={d.metadata.description}
-                onChange={(e) => updateActive({ metadata: { ...d.metadata, description: e.target.value } })}
+                value={d.metadata?.description ?? ''}
+                onChange={(e) => updateActive({ metadata: { ...d.metadata!, description: e.target.value } })}
                 rows={2}
                 className={PANEL}
               />
             </label>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <SelectField
+                label="Komponenttype"
+                value={kind}
+                options={(Object.keys(DESIGNER_KIND_LABELS) as PlatformDesignerKind[]).map((k) => ({
+                  value: k,
+                  label: DESIGNER_KIND_LABELS[k],
+                }))}
+                onChange={(k) => changeKind(k)}
+              />
+            </div>
             <p className="mt-2 text-xs text-neutral-500">
-              Versjon: <code className="text-neutral-400">{d.version}</code> · Komponent:{' '}
+              Versjon: <code className="text-neutral-400">{d.version}</code> · ID:{' '}
               <code className="text-neutral-400">{d.componentId}</code>
             </p>
           </section>
 
-          <section className={SECTION}>
-            <h2 className="text-sm font-semibold text-white">Layout</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <TextField label="display" value={d.layout.display} onChange={(v) => updateActive({ layout: { ...d.layout, display: v } })} />
-              <TextField label="position" value={d.layout.position} onChange={(v) => updateActive({ layout: { ...d.layout, position: v } })} />
-              <TextField label="width" value={d.layout.width} onChange={(v) => updateActive({ layout: { ...d.layout, width: v } })} />
-              <TextField label="height" value={d.layout.height} onChange={(v) => updateActive({ layout: { ...d.layout, height: v } })} />
-              <TextField label="minHeight" value={d.layout.minHeight} onChange={(v) => updateActive({ layout: { ...d.layout, minHeight: v } })} />
-              <TextField label="margin" value={d.layout.margin} onChange={(v) => updateActive({ layout: { ...d.layout, margin: v } })} />
-              <TextField label="padding" value={d.layout.padding} onChange={(v) => updateActive({ layout: { ...d.layout, padding: v } })} />
-              <TextField label="overflow" value={d.layout.overflow} onChange={(v) => updateActive({ layout: { ...d.layout, overflow: v } })} />
-              <TextField label="zIndex" value={d.layout.zIndex} onChange={(v) => updateActive({ layout: { ...d.layout, zIndex: v } })} />
-            </div>
-          </section>
-
-          <section className={SECTION}>
-            <h2 className="text-sm font-semibold text-white">Flexbox</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <TextField
-                label="flexDirection"
-                value={d.flexbox.flexDirection}
-                onChange={(v) => updateActive({ flexbox: { ...d.flexbox, flexDirection: v } })}
-              />
-              <TextField
-                label="justifyContent"
-                value={d.flexbox.justifyContent}
-                onChange={(v) => updateActive({ flexbox: { ...d.flexbox, justifyContent: v } })}
-              />
-              <TextField
-                label="alignItems"
-                value={d.flexbox.alignItems}
-                onChange={(v) => updateActive({ flexbox: { ...d.flexbox, alignItems: v } })}
-              />
-              <TextField label="gap" value={d.flexbox.gap} onChange={(v) => updateActive({ flexbox: { ...d.flexbox, gap: v } })} />
-              <TextField
-                label="flexWrap"
-                value={d.flexbox.flexWrap}
-                onChange={(v) => updateActive({ flexbox: { ...d.flexbox, flexWrap: v } })}
-              />
-            </div>
-          </section>
-
-          <section className={SECTION}>
-            <h2 className="text-sm font-semibold text-white">Typografi</h2>
-            <p className="mt-1 text-xs text-neutral-500">Base</p>
-            <div className="mt-2 grid gap-3 sm:grid-cols-2">
-              <TextField
-                label="fontFamily"
-                value={d.typography.base.fontFamily}
-                onChange={(v) => updateActive({ typography: { ...d.typography, base: { ...d.typography.base, fontFamily: v } } })}
-              />
-              <ColorField
-                label="base color"
-                value={d.typography.base.color}
-                onChange={(v) => updateActive({ typography: { ...d.typography, base: { ...d.typography.base, color: v } } })}
-              />
-              <SelectField
-                label="textAlign"
-                value={d.typography.base.textAlign as 'left' | 'center' | 'right' | 'justify'}
-                options={[
-                  { value: 'left', label: 'left' },
-                  { value: 'center', label: 'center' },
-                  { value: 'right', label: 'right' },
-                  { value: 'justify', label: 'justify' },
-                ]}
-                onChange={(v) => updateActive({ typography: { ...d.typography, base: { ...d.typography.base, textAlign: v } } })}
-              />
-              <TextField
-                label="fontSize"
-                value={d.typography.base.fontSize}
-                onChange={(v) => updateActive({ typography: { ...d.typography, base: { ...d.typography.base, fontSize: v } } })}
-              />
-              <TextField
-                label="lineHeight"
-                value={d.typography.base.lineHeight}
-                onChange={(v) => updateActive({ typography: { ...d.typography, base: { ...d.typography.base, lineHeight: v } } })}
-              />
-            </div>
-            <p className="mt-4 text-xs text-neutral-500">Overskrift</p>
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-300">
-                <input
-                  type="checkbox"
-                  className="rounded border-white/20"
-                  checked={d.typography.heading.enabled}
-                  onChange={(e) =>
-                    updateActive({
-                      typography: {
-                        ...d.typography,
-                        heading: { ...d.typography.heading, enabled: e.target.checked },
-                      },
-                    })
-                  }
-                />
-                Aktivert
-              </label>
-            </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <TextField
-                label="Tekst"
-                value={d.typography.heading.text}
-                onChange={(v) => updateActive({ typography: { ...d.typography, heading: { ...d.typography.heading, text: v } } })}
-              />
-              <SelectField
-                label="tag"
-                value={d.typography.heading.tag}
-                options={[
-                  { value: 'h1', label: 'h1' },
-                  { value: 'h2', label: 'h2' },
-                  { value: 'h3', label: 'h3' },
-                  { value: 'h4', label: 'h4' },
-                  { value: 'h5', label: 'h5' },
-                  { value: 'h6', label: 'h6' },
-                  { value: 'div', label: 'div' },
-                ]}
-                onChange={(v) => updateActive({ typography: { ...d.typography, heading: { ...d.typography.heading, tag: v } } })}
-              />
-              <ColorField
-                label="heading color"
-                value={d.typography.heading.color}
-                onChange={(v) => updateActive({ typography: { ...d.typography, heading: { ...d.typography.heading, color: v } } })}
-              />
-              <TextField
-                label="fontSize"
-                value={d.typography.heading.fontSize}
-                onChange={(v) => updateActive({ typography: { ...d.typography, heading: { ...d.typography.heading, fontSize: v } } })}
-              />
-              <TextField
-                label="fontWeight"
-                value={d.typography.heading.fontWeight}
-                onChange={(v) => updateActive({ typography: { ...d.typography, heading: { ...d.typography.heading, fontWeight: v } } })}
-              />
-              <TextField
-                label="lineHeight"
-                value={d.typography.heading.lineHeight}
-                onChange={(v) => updateActive({ typography: { ...d.typography, heading: { ...d.typography.heading, lineHeight: v } } })}
-              />
-              <TextField
-                label="letterSpacing"
-                value={d.typography.heading.letterSpacing}
-                onChange={(v) => updateActive({ typography: { ...d.typography, heading: { ...d.typography.heading, letterSpacing: v } } })}
-              />
-              <TextField
-                label="textTransform"
-                value={d.typography.heading.textTransform}
-                onChange={(v) => updateActive({ typography: { ...d.typography, heading: { ...d.typography.heading, textTransform: v } } })}
-              />
-              <TextField
-                label="marginBottom"
-                value={d.typography.heading.marginBottom}
-                onChange={(v) => updateActive({ typography: { ...d.typography, heading: { ...d.typography.heading, marginBottom: v } } })}
-              />
-            </div>
-          </section>
-
-          <section className={SECTION}>
-            <h2 className="text-sm font-semibold text-white">Styling og bakgrunn</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <ColorField
-                label="backgroundColor"
-                value={d.styling.backgroundColor}
-                onChange={(v) => updateActive({ styling: { ...d.styling, backgroundColor: v } })}
-              />
-              <NumberField
-                label="opacity"
-                value={d.styling.opacity}
-                step={0.05}
-                min={0}
-                max={1}
-                onChange={(v) => updateActive({ styling: { ...d.styling, opacity: Math.min(1, Math.max(0, v)) } })}
-              />
-              <label className={`${LABEL} sm:col-span-2`}>
-                backgroundGradient (CSS)
-                <textarea
-                  value={d.styling.backgroundGradient}
-                  onChange={(e) => updateActive({ styling: { ...d.styling, backgroundGradient: e.target.value } })}
-                  rows={2}
-                  placeholder="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-                  className={PANEL}
-                />
-              </label>
-              <TextField
-                label="backgroundImage (url eller kort)"
-                value={d.styling.backgroundImage}
-                onChange={(v) => updateActive({ styling: { ...d.styling, backgroundImage: v } })}
-              />
-              <TextField
-                label="backgroundSize"
-                value={d.styling.backgroundSize}
-                onChange={(v) => updateActive({ styling: { ...d.styling, backgroundSize: v } })}
-              />
-              <TextField
-                label="backgroundPosition"
-                value={d.styling.backgroundPosition}
-                onChange={(v) => updateActive({ styling: { ...d.styling, backgroundPosition: v } })}
-              />
-              <TextField
-                label="backgroundAttachment"
-                value={d.styling.backgroundAttachment}
-                onChange={(v) => updateActive({ styling: { ...d.styling, backgroundAttachment: v } })}
-              />
-              <TextField
-                label="backgroundBlendMode"
-                value={d.styling.backgroundBlendMode}
-                onChange={(v) => updateActive({ styling: { ...d.styling, backgroundBlendMode: v } })}
-              />
-            </div>
-          </section>
-
-          <section className={SECTION}>
-            <h2 className="text-sm font-semibold text-white">Avanserte effekter</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <TextField
-                label="backdropFilter"
-                value={d.advancedVisuals.backdropFilter}
-                onChange={(v) => updateActive({ advancedVisuals: { ...d.advancedVisuals, backdropFilter: v } })}
-              />
-              <TextField
-                label="filter"
-                value={d.advancedVisuals.filter}
-                onChange={(v) => updateActive({ advancedVisuals: { ...d.advancedVisuals, filter: v } })}
-              />
-              <TextField
-                label="clipPath"
-                value={d.advancedVisuals.clipPath}
-                onChange={(v) => updateActive({ advancedVisuals: { ...d.advancedVisuals, clipPath: v } })}
-              />
-              <TextField
-                label="mixBlendMode"
-                value={d.advancedVisuals.mixBlendMode}
-                onChange={(v) => updateActive({ advancedVisuals: { ...d.advancedVisuals, mixBlendMode: v } })}
-              />
-            </div>
-          </section>
-
-          <section className={SECTION}>
-            <h2 className="text-sm font-semibold text-white">Ramme og skygge</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <TextField
-                label="borderWidth"
-                value={d.borders.borderWidth}
-                onChange={(v) => updateActive({ borders: { ...d.borders, borderWidth: v } })}
-              />
-              <TextField
-                label="borderStyle"
-                value={d.borders.borderStyle}
-                onChange={(v) => updateActive({ borders: { ...d.borders, borderStyle: v } })}
-              />
-              <ColorField
-                label="borderColor"
-                value={d.borders.borderColor}
-                onChange={(v) => updateActive({ borders: { ...d.borders, borderColor: v } })}
-              />
-              <TextField
-                label="borderRadius"
-                value={d.borders.borderRadius}
-                onChange={(v) => updateActive({ borders: { ...d.borders, borderRadius: v } })}
-              />
-              <label className={`${LABEL} sm:col-span-2`}>
-                boxShadow
-                <textarea
-                  value={d.borders.boxShadow}
-                  onChange={(e) => updateActive({ borders: { ...d.borders, boxShadow: e.target.value } })}
-                  rows={2}
-                  className={PANEL}
-                />
-              </label>
-            </div>
-          </section>
-
-          <section className={SECTION}>
-            <h2 className="text-sm font-semibold text-white">Transforms</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <NumberField
-                label="scale"
-                value={d.transforms.scale}
-                step={0.05}
-                min={0.1}
-                max={3}
-                onChange={(v) => updateActive({ transforms: { ...d.transforms, scale: v } })}
-              />
-              <TextField
-                label="rotate"
-                value={d.transforms.rotate}
-                onChange={(v) => updateActive({ transforms: { ...d.transforms, rotate: v } })}
-              />
-              <TextField
-                label="translateX"
-                value={d.transforms.translateX}
-                onChange={(v) => updateActive({ transforms: { ...d.transforms, translateX: v } })}
-              />
-              <TextField
-                label="translateY"
-                value={d.transforms.translateY}
-                onChange={(v) => updateActive({ transforms: { ...d.transforms, translateY: v } })}
-              />
-              <TextField label="skewX" value={d.transforms.skewX} onChange={(v) => updateActive({ transforms: { ...d.transforms, skewX: v } })} />
-              <TextField label="skewY" value={d.transforms.skewY} onChange={(v) => updateActive({ transforms: { ...d.transforms, skewY: v } })} />
-              <TextField
-                label="transformOrigin"
-                value={d.transforms.transformOrigin}
-                onChange={(v) => updateActive({ transforms: { ...d.transforms, transformOrigin: v } })}
-              />
-            </div>
-          </section>
-
-          <section className={SECTION}>
-            <h2 className="text-sm font-semibold text-white">Animasjon</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <TextField
-                label="transitionProperty"
-                value={d.animation.transitionProperty}
-                onChange={(v) => updateActive({ animation: { ...d.animation, transitionProperty: v } })}
-              />
-              <TextField
-                label="transitionDuration"
-                value={d.animation.transitionDuration}
-                onChange={(v) => updateActive({ animation: { ...d.animation, transitionDuration: v } })}
-              />
-              <TextField
-                label="transitionTimingFunction"
-                value={d.animation.transitionTimingFunction}
-                onChange={(v) => updateActive({ animation: { ...d.animation, transitionTimingFunction: v } })}
-              />
-              <TextField
-                label="transitionDelay"
-                value={d.animation.transitionDelay}
-                onChange={(v) => updateActive({ animation: { ...d.animation, transitionDelay: v } })}
-              />
-              <TextField
-                label="entranceAnimation"
-                value={d.animation.entranceAnimation}
-                onChange={(v) => updateActive({ animation: { ...d.animation, entranceAnimation: v } })}
-              />
-            </div>
-          </section>
-
-          <section className={SECTION}>
-            <h2 className="text-sm font-semibold text-white">Interaksjon (hover)</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <TextField
-                label="cursor"
-                value={d.interaction.cursor}
-                onChange={(v) => updateActive({ interaction: { ...d.interaction, cursor: v } })}
-              />
-              <ColorField
-                label="hover backgroundColor"
-                value={d.interaction.hoverState.backgroundColor || '#ffffff'}
-                onChange={(v) => updateActive({ interaction: { ...d.interaction, hoverState: { ...d.interaction.hoverState, backgroundColor: v } } })}
-              />
-              <NumberField
-                label="hover scale"
-                value={d.interaction.hoverState.scale}
-                step={0.05}
-                min={0.5}
-                max={2}
-                onChange={(v) =>
-                  updateActive({ interaction: { ...d.interaction, hoverState: { ...d.interaction.hoverState, scale: v } } })
-                }
-              />
-              <label className={`${LABEL} sm:col-span-2`}>
-                hover boxShadow
-                <textarea
-                  value={d.interaction.hoverState.boxShadow}
-                  onChange={(e) =>
-                    updateActive({
-                      interaction: { ...d.interaction, hoverState: { ...d.interaction.hoverState, boxShadow: e.target.value } },
-                    })
-                  }
-                  rows={2}
-                  className={PANEL}
-                />
-              </label>
-              <TextField
-                label="hover rotate"
-                value={d.interaction.hoverState.rotate}
-                onChange={(v) =>
-                  updateActive({ interaction: { ...d.interaction, hoverState: { ...d.interaction.hoverState, rotate: v } } })
-                }
-              />
-              <TextField
-                label="onClick (merknad)"
-                value={d.interaction.onClick}
-                onChange={(v) => updateActive({ interaction: { ...d.interaction, onClick: v } })}
-              />
-            </div>
-          </section>
-
-          <section className={SECTION}>
-            <h2 className="text-sm font-semibold text-white">Data (valgfritt)</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <TextField
-                label="provider"
-                value={d.data.provider}
-                onChange={(v) => updateActive({ data: { ...d.data, provider: v } })}
-              />
-              <TextField
-                label="documentPath"
-                value={d.data.documentPath}
-                onChange={(v) => updateActive({ data: { ...d.data, documentPath: v } })}
-              />
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-300 sm:col-span-2">
-                <input
-                  type="checkbox"
-                  className="rounded border-white/20"
-                  checked={d.data.bindToStyle}
-                  onChange={(e) => updateActive({ data: { ...d.data, bindToStyle: e.target.checked } })}
-                />
-                bindToStyle
-              </label>
-            </div>
-          </section>
+          {kind === 'ui_box_core' && <BoxCoreForm d={d as UiBoxCoreDesign} update={updateActive} />}
+          {kind === 'ui_table_core' && <TableCoreForm d={d as UiTableCoreDesign} update={updateActive} />}
+          {kind === 'ui_menu_core' && <MenuCoreForm d={d as UiMenuCoreDesign} update={updateActive} />}
+          {kind === 'ui_button_core' && <ButtonCoreForm d={d as UiButtonCoreDesign} update={updateActive} />}
 
           <div className="flex flex-wrap gap-3">
             <button
@@ -881,9 +460,12 @@ export function PlatformBoxDesignerPage() {
         <div className="lg:sticky lg:top-4 h-fit space-y-3">
           <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Forhåndsvisning</p>
-            <p className="mt-1 text-xs text-neutral-500">Hold pekeren over boksen for hover.</p>
+            <p className="mt-1 text-xs text-neutral-500">{previewHint}</p>
             <div className="mt-4 rounded-lg bg-[#e8e4dc] p-4">
-              <UiBoxCorePreview design={d} />
+              {kind === 'ui_box_core' && <UiBoxCorePreview design={d as UiBoxCoreDesign} />}
+              {kind === 'ui_table_core' && <UiTableCorePreview design={d as UiTableCoreDesign} />}
+              {kind === 'ui_menu_core' && <UiMenuCorePreview design={d as UiMenuCoreDesign} />}
+              {kind === 'ui_button_core' && <UiButtonCorePreview design={d as UiButtonCoreDesign} />}
             </div>
           </div>
           <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
