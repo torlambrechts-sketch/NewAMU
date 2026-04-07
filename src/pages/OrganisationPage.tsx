@@ -55,12 +55,14 @@ const BASE_INPUT =
 /** Matches ProjectDashboard — shell content column */
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
-/** Hero action row: same height & typography as «Ny ansatt» */
+/** Hero action row: same height & typography as «Ny ansatt» — square corners */
 const HERO_ACTION_CLASS =
-  'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium leading-none'
-/** Inputs aligned with table container (rounded-2xl) — not pill-shaped */
+  'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-none px-4 text-sm font-medium leading-none'
+/** Inputs on this page — square corners */
 const FILTER_INPUT_CLASS =
-  'rounded-xl border border-neutral-200/90 bg-white px-4 py-2.5 text-sm shadow-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]'
+  'rounded-none border border-neutral-200/90 bg-white px-4 py-2.5 text-sm shadow-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]'
+/** Toolbar / segment controls — square corners */
+const R_ORG_FLAT = 'rounded-none'
 
 // ─── Avatar helper ────────────────────────────────────────────────────────────
 
@@ -198,10 +200,10 @@ function EmployeeFormModal({
           </form>
         </div>
         <div className="flex gap-3 border-t border-neutral-100 bg-neutral-50 px-6 py-4">
-          <button type="submit" form="emp-form" className="flex-1 rounded-full bg-[#1a3d32] py-2.5 text-sm font-medium text-white hover:bg-[#142e26]">
+          <button type="submit" form="emp-form" className="flex-1 rounded-none bg-[#1a3d32] py-2.5 text-sm font-medium text-white hover:bg-[#142e26]">
             {initial ? 'Lagre endringer' : 'Legg til ansatt'}
           </button>
-          <button type="button" onClick={onClose} className="rounded-full border border-neutral-200 px-5 py-2.5 text-sm text-neutral-600 hover:bg-neutral-50">Avbryt</button>
+          <button type="button" onClick={onClose} className="rounded-none border border-neutral-200 px-5 py-2.5 text-sm text-neutral-600 hover:bg-neutral-50">Avbryt</button>
         </div>
       </div>
     </div>
@@ -425,8 +427,7 @@ export function OrganisationPage() {
   const layout = mergeLayoutPayload(layoutPayload)
   const tableCell = `${table1CellPadding(layout)} ${TABLE_CELL_BASE}`
   const theadRow = table1HeaderRowClass(layout)
-  const rSeg =
-    layout.radius === 'sm' ? 'rounded-sm' : layout.radius === 'md' ? 'rounded-md' : 'rounded-lg'
+  const rSeg = R_ORG_FLAT
   const org = useOrganisation()
   const { supabaseConfigured, organization: orgRow, members: orgMembers, profile, user, isDemoMode } =
     useOrgSetupContext()
@@ -475,6 +476,8 @@ export function OrganisationPage() {
       return matchSearch && matchUnit && matchSeg
     })
   }, [org.displayEmployees, searchEmp, filterUnit, empSegment])
+
+  const hasAnyEmployees = org.displayEmployees.length > 0
 
   const companyTitle = orgRow?.name?.trim() || org.settings.orgName || 'Organisasjon'
   const memberHeadline =
@@ -645,7 +648,7 @@ export function OrganisationPage() {
                 <span className="whitespace-nowrap">{label}</span>
                 {id === 'employees' && (
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                    className={`rounded-none px-2 py-0.5 text-[10px] font-semibold ${
                       active ? 'bg-neutral-200 text-neutral-700' : 'bg-white/20 text-white'
                     }`}
                   >
@@ -703,14 +706,14 @@ export function OrganisationPage() {
             </div>
           )}
 
-          {filteredEmployees.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-white py-16 text-center shadow-sm">
+          {!hasAnyEmployees ? (
+            <div className="flex flex-col items-center justify-center rounded-none border border-dashed border-neutral-300 bg-white py-16 text-center shadow-sm">
               <Users className="mb-3 size-10 text-neutral-300" />
               <p className="text-sm text-neutral-500">Ingen ansatte ennå</p>
               <button
                 type="button"
                 onClick={() => setEmpModal({ mode: 'create' })}
-                className="mt-4 rounded-full bg-[#1a3d32] px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#142e26]"
+                className="mt-4 rounded-none bg-[#1a3d32] px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#142e26]"
               >
                 <Plus className="mr-1 inline size-4" />
                 Legg til første ansatt
@@ -765,11 +768,11 @@ export function OrganisationPage() {
                             style={selected ? { backgroundColor: layout.accent, color: '#fff' } : undefined}
                           >
                             {selected ? (
-                              <span className="flex size-4 items-center justify-center rounded-full bg-white/20">
+                              <span className="flex size-4 items-center justify-center rounded-none bg-white/20">
                                 <Check className="size-3" />
                               </span>
                             ) : (
-                              <span className="size-4 rounded-full border-2 border-neutral-300" />
+                              <span className="size-4 rounded-none border-2 border-neutral-300" />
                             )}
                             {label}
                           </button>
@@ -780,6 +783,35 @@ export function OrganisationPage() {
                 />
               }
             >
+              {filteredEmployees.length === 0 ? (
+                <div className="flex flex-col items-center justify-center border-t border-neutral-100 bg-neutral-50/50 px-6 py-16 text-center">
+                  <Users className="mb-3 size-10 text-neutral-300" />
+                  <p className="text-sm font-medium text-neutral-700">Ingen ansatte i dette utvalget</p>
+                  <p className="mt-1 max-w-sm text-xs text-neutral-500">
+                    Det finnes ansatte, men ingen samsvarer med segment, søk eller enhetsfilter. Juster filtre eller vis alle.
+                  </p>
+                  <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmpSegment('all')
+                        setSearchEmp('')
+                        setFilterUnit('')
+                      }}
+                      className="rounded-none bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#142e26]"
+                    >
+                      Vis alle ansatte
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEmpSegment('all')}
+                      className="rounded-none border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                    >
+                      Nullstill segment
+                    </button>
+                  </div>
+                </div>
+              ) : (
                 <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                   <thead>
                     <tr className={`text-sm ${theadRow}`}>
@@ -832,7 +864,7 @@ export function OrganisationPage() {
                           </td>
                           <td className={tableCell}>
                             <span
-                              className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              className={`inline-flex rounded-none px-2.5 py-0.5 text-xs font-medium ${
                                 emp.active ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-500'
                               }`}
                             >
@@ -844,7 +876,7 @@ export function OrganisationPage() {
                             <button
                               type="button"
                               onClick={() => setEmpModal({ mode: 'edit', emp })}
-                              className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                              className="rounded-none p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
                               title="Rediger"
                             >
                               <Pencil className="size-4" />
@@ -861,7 +893,7 @@ export function OrganisationPage() {
                                   }
                                   if (confirm(`Deaktiver ${emp.name}?`)) org.deactivateEmployee(target.id)
                                 }}
-                                className="rounded-lg p-2 text-neutral-400 hover:bg-amber-50 hover:text-amber-600"
+                                className="rounded-none p-2 text-neutral-400 hover:bg-amber-50 hover:text-amber-600"
                                 title="Deaktiver"
                               >
                                 <UserMinus className="size-4" />
@@ -873,6 +905,7 @@ export function OrganisationPage() {
                     })}
                   </tbody>
                 </table>
+              )}
             </Table1Shell>
           )}
         </section>

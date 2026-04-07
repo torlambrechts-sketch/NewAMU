@@ -320,9 +320,9 @@ export function menu1BarOuterClass(payload: LayoutLabPayload): string {
   const m = payload.menu_1 ?? DEFAULT_MENU_1
   if (m.tabLayout === 'flush') {
     /* No bottom border — bar extends flush into content below */
-    return 'mt-8 overflow-hidden rounded-none border-x border-t border-black/10 border-b-0 shadow-sm'
+    return 'mt-8 overflow-hidden rounded-none border-x border-t border-black/10 border-b-0'
   }
-  return 'mt-8 overflow-hidden rounded-2xl border border-black/10 shadow-sm'
+  return 'mt-8 overflow-hidden rounded-2xl border border-black/10'
 }
 
 export function menu1BarStyleObject(payload: LayoutLabPayload): CSSProperties {
@@ -359,11 +359,11 @@ export function menu1ActiveTabClass(payload: LayoutLabPayload): string {
     return `inline-flex min-h-[3rem] min-w-0 flex-1 items-center justify-center gap-2 border-0 px-3 py-2 text-sm font-medium transition-colors ${fill} rounded-none shadow-none`
   }
   if (m.tabLayout === 'squared') {
-    return `inline-flex min-h-[2.75rem] flex-1 items-center justify-center gap-2 rounded-none px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-5 ${fill} shadow-sm`
+    return `inline-flex min-h-[2.75rem] flex-1 items-center justify-center gap-2 rounded-none px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-5 ${fill}`
   }
   const r =
     m.tabRounding === 'full' ? 'rounded-full' : m.tabRounding === 'none' ? 'rounded-none' : 'rounded-xl'
-  return `inline-flex min-h-[2.75rem] flex-1 items-center justify-center gap-2 ${r} px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-5 ${fill} shadow-sm`
+  return `inline-flex min-h-[2.75rem] flex-1 items-center justify-center gap-2 ${r} px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-5 ${fill}`
 }
 
 export function menu1ActiveTabTextStyle(payload: LayoutLabPayload): CSSProperties {
