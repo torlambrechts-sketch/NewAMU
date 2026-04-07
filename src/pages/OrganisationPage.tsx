@@ -19,11 +19,11 @@ import {
   X,
   ZoomIn,
   ZoomOut,
+  PieChart,
 } from 'lucide-react'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { OrganisationHeaderIllustration } from '../components/organisation/OrganisationHeaderIllustration'
-import { SidebarBox1 } from '../components/layout/SidebarBox1'
 import { Mainbox1 } from '../components/layout/Mainbox1'
 import { Table1Shell } from '../components/layout/Table1Shell'
 import { Table1Toolbar } from '../components/layout/Table1Toolbar'
@@ -78,6 +78,12 @@ const SETTINGS_CHECK_WRAP =
 /** Terskel-bokser under meny (samme mørke bakgrunn som fanemeny) */
 const SETTINGS_THRESHOLD_BOX =
   'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
+/** Én samlet mørk panel for skjema (grupper/enheter) — kolonner med vertikal deler */
+const ORG_MERGED_PANEL =
+  'flex min-h-0 flex-col border border-black/15 lg:flex-row lg:items-stretch lg:divide-x lg:divide-white/15'
+const ORG_MERGED_COL = 'min-w-0 flex-1 p-4 sm:p-5'
+const ORG_MERGED_ACTION_COL =
+  'flex shrink-0 flex-col justify-center border-t border-white/15 p-4 sm:p-5 lg:border-t-0 lg:border-l lg:border-white/15'
 /** Feltetikett på mørk boks (ny brukergruppe) */
 const SETTINGS_FIELD_LABEL_ON_DARK = 'text-[10px] font-bold uppercase tracking-wider text-white/90'
 /** Inndata på mørk bakgrunn — hvitt felt */
@@ -421,9 +427,9 @@ function OrgChart({ employees, reportingTree }: {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-type Tab = 'orgchart' | 'employees' | 'units' | 'groups' | 'settings'
+type Tab = 'orgchart' | 'employees' | 'units' | 'groups' | 'insights' | 'settings'
 
-const TAB_VALUES: Tab[] = ['orgchart', 'employees', 'units', 'groups', 'settings']
+const TAB_VALUES: Tab[] = ['orgchart', 'employees', 'units', 'groups', 'insights', 'settings']
 
 function tabFromSearch(raw: string | null): Tab {
   if (raw && TAB_VALUES.includes(raw as Tab)) return raw as Tab
@@ -530,11 +536,34 @@ export function OrganisationPage() {
   const topLevelUnits = org.units.filter((u) => !u.parentId)
   const childrenOf = (id: string) => org.units.filter((u) => u.parentId === id)
 
+  const insightStats = useMemo(() => {
+    const byKind = org.units.reduce(
+      (acc, u) => {
+        acc[u.kind] = (acc[u.kind] ?? 0) + 1
+        return acc
+      },
+      {} as Partial<Record<OrgUnitKind, number>>,
+    )
+    const inactiveCount = org.displayEmployees.filter((e) => !e.active).length
+    const rootUnits = org.units.filter((u) => !u.parentId).length
+    return {
+      members: orgMembers.length,
+      employeesTotal: org.displayEmployees.length,
+      employeesActive: org.activeEmployees.length,
+      employeesInactive: inactiveCount,
+      units: org.units.length,
+      unitsTopLevel: rootUnits,
+      groups: org.groups.length,
+      byKind,
+    }
+  }, [org, orgMembers])
+
   const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'orgchart',  label: 'Org.kart',      icon: GitBranch },
     { id: 'employees', label: 'Ansatte',        icon: Users },
     { id: 'units',     label: 'Enheter',        icon: Building2 },
     { id: 'groups',    label: 'Brukergrupper',  icon: UserCheck },
+    { id: 'insights',  label: 'Innsikt',        icon: PieChart },
     { id: 'settings',  label: 'Innstillinger',  icon: Settings2 },
   ]
 
@@ -656,15 +685,30 @@ export function OrganisationPage() {
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = tab === id
             const tb = menu1.tabButton(active)
+            const isInsightsTab = id === 'insights'
+            const insightActive = active && isInsightsTab
             return (
               <button
                 key={id}
                 type="button"
                 onClick={() => setTab(id)}
-                className={tb.className}
-                style={tb.style}
+                className={
+                  insightActive
+                    ? `${tb.className} !bg-white !text-neutral-900 shadow-none [&_svg]:opacity-100 [&_svg]:text-neutral-800`
+                    : tb.className
+                }
+                style={
+                  insightActive
+                    ? {
+                        ...tb.style,
+                        backgroundColor: '#ffffff',
+                        color: '#171717',
+                        boxShadow: 'none',
+                      }
+                    : tb.style
+                }
               >
-                <Icon className="size-4 shrink-0 opacity-90" />
+                <Icon className={`size-4 shrink-0 ${insightActive ? 'opacity-100 text-neutral-800' : 'opacity-90'}`} />
                 <span className="whitespace-nowrap">{label}</span>
                 {id === 'employees' && (
                   <span
@@ -725,141 +769,143 @@ export function OrganisationPage() {
       )}
 
       {tab === 'groups' && (
-        <form id="org-new-group" className="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-4" onSubmit={handleCreateGroup}>
-          <div className={SETTINGS_THRESHOLD_BOX} style={menu1.barStyle}>
-            <p className={SETTINGS_LEAD_ON_DARK}>Hva skal gruppen hete, og hvordan beskrives den kort?</p>
-            <div className="mt-3 space-y-3">
-              <div>
-                <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-group-name">
-                  Gruppenavn
-                </label>
-                <input
-                  id="org-group-name"
-                  value={groupForm.name}
-                  onChange={(e) => setGroupForm((f) => ({ ...f, name: e.target.value }))}
-                  required
-                  className={SETTINGS_INPUT_ON_DARK}
-                  placeholder="Påkrevd"
-                />
-              </div>
-              <div>
-                <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-group-desc">
-                  Beskrivelse
-                </label>
-                <input
-                  id="org-group-desc"
-                  value={groupForm.description}
-                  onChange={(e) => setGroupForm((f) => ({ ...f, description: e.target.value }))}
-                  className={SETTINGS_INPUT_ON_DARK}
-                  placeholder="Valgfritt"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className={SETTINGS_THRESHOLD_BOX} style={menu1.barStyle}>
-            <p className={SETTINGS_LEAD_ON_DARK}>Hvem skal omfanget gjelde — alle, utvalgte enheter, utvalgte ansatte eller en kombinasjon?</p>
-            <div className="mt-3">
-              <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-group-scope">
-                Omfang
-              </label>
-              <select
-                id="org-group-scope"
-                value={groupForm.scopeKind}
-                onChange={(e) =>
-                  setGroupForm((f) => ({ ...f, scopeKind: e.target.value as typeof groupForm.scopeKind }))
-                }
-                className={SETTINGS_INPUT_ON_DARK}
-              >
-                <option value="all">Alle ansatte</option>
-                <option value="units">Bestemte enheter</option>
-                <option value="employees">Bestemte ansatte</option>
-                <option value="mixed">Enheter + ansatte</option>
-              </select>
-            </div>
-          </div>
-
-          <div className={`${SETTINGS_THRESHOLD_BOX} lg:col-span-2`} style={menu1.barStyle}>
-            {(groupForm.scopeKind === 'units' || groupForm.scopeKind === 'mixed') && (
-              <>
-                <p className={SETTINGS_LEAD_ON_DARK}>Kryss av hvilke enheter som inngår i gruppen.</p>
-                <p className={SETTINGS_FIELD_LABEL_ON_DARK + ' mt-3'}>Velg enheter</p>
-                <div className="mt-1.5 max-h-36 overflow-y-auto space-y-1.5 rounded-none border border-white/20 bg-black/15 p-2">
-                  {org.units.length === 0 ? (
-                    <p className="text-xs text-white/60">Ingen enheter ennå.</p>
-                  ) : (
-                    org.units.map((u) => (
-                      <label key={u.id} className="flex cursor-pointer items-center gap-2 text-sm text-white/95">
-                        <input
-                          type="checkbox"
-                          checked={groupForm.unitIds.includes(u.id)}
-                          onChange={(e) =>
-                            setGroupForm((f) => ({
-                              ...f,
-                              unitIds: e.target.checked ? [...f.unitIds, u.id] : f.unitIds.filter((id) => id !== u.id),
-                            }))
-                          }
-                          className="size-4 rounded-none border-white/40 bg-white/10 text-[#1a3d32] focus:ring-1 focus:ring-white"
-                        />
-                        <span>{u.name}</span>
-                      </label>
-                    ))
-                  )}
+        <form id="org-new-group" className="mt-6 overflow-hidden rounded-none border border-black/10" onSubmit={handleCreateGroup} style={menu1.barStyle}>
+          <div className={ORG_MERGED_PANEL}>
+            <div className={ORG_MERGED_COL}>
+              <p className={SETTINGS_LEAD_ON_DARK}>Hva skal gruppen hete, og hvordan beskrives den kort?</p>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-group-name">
+                    Gruppenavn
+                  </label>
+                  <input
+                    id="org-group-name"
+                    value={groupForm.name}
+                    onChange={(e) => setGroupForm((f) => ({ ...f, name: e.target.value }))}
+                    required
+                    className={SETTINGS_INPUT_ON_DARK}
+                    placeholder="Påkrevd"
+                  />
                 </div>
-              </>
-            )}
-            {(groupForm.scopeKind === 'employees' || groupForm.scopeKind === 'mixed') && (
-              <>
-                <p
-                  className={
-                    SETTINGS_LEAD_ON_DARK +
-                    (groupForm.scopeKind === 'mixed' ? ' mt-4 border-t border-white/15 pt-4' : '')
+                <div>
+                  <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-group-desc">
+                    Beskrivelse
+                  </label>
+                  <input
+                    id="org-group-desc"
+                    value={groupForm.description}
+                    onChange={(e) => setGroupForm((f) => ({ ...f, description: e.target.value }))}
+                    className={SETTINGS_INPUT_ON_DARK}
+                    placeholder="Valgfritt"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className={ORG_MERGED_COL}>
+              <p className={SETTINGS_LEAD_ON_DARK}>Hvem skal omfanget gjelde — alle, utvalgte enheter, utvalgte ansatte eller en kombinasjon?</p>
+              <div className="mt-3">
+                <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-group-scope">
+                  Omfang
+                </label>
+                <select
+                  id="org-group-scope"
+                  value={groupForm.scopeKind}
+                  onChange={(e) =>
+                    setGroupForm((f) => ({ ...f, scopeKind: e.target.value as typeof groupForm.scopeKind }))
                   }
+                  className={SETTINGS_INPUT_ON_DARK}
                 >
-                  Velg enkeltpersoner som skal inngå.
-                </p>
-                <p className={SETTINGS_FIELD_LABEL_ON_DARK + ' mt-3'}>Velg ansatte</p>
-                <div className="mt-1.5 max-h-36 overflow-y-auto space-y-1.5 rounded-none border border-white/20 bg-black/15 p-2">
-                  {org.activeEmployees.length === 0 ? (
-                    <p className="text-xs text-white/60">Ingen aktive ansatte.</p>
-                  ) : (
-                    org.activeEmployees.map((emp) => (
-                      <label key={emp.id} className="flex cursor-pointer items-center gap-2 text-sm text-white/95">
-                        <input
-                          type="checkbox"
-                          checked={groupForm.employeeIds.includes(emp.id)}
-                          onChange={(e) =>
-                            setGroupForm((f) => ({
-                              ...f,
-                              employeeIds: e.target.checked
-                                ? [...f.employeeIds, emp.id]
-                                : f.employeeIds.filter((id) => id !== emp.id),
-                            }))
-                          }
-                          className="size-4 rounded-none border-white/40 bg-white/10 text-[#1a3d32] focus:ring-1 focus:ring-white"
-                        />
-                        <span>{emp.name}</span>
-                        {emp.jobTitle && <span className="text-xs text-white/55">{emp.jobTitle}</span>}
-                      </label>
-                    ))
-                  )}
-                </div>
-              </>
-            )}
-            {groupForm.scopeKind === 'all' && (
-              <p className={SETTINGS_LEAD_ON_DARK}>Gruppen gjelder alle ansatte. Ingen ytterligere utvalg.</p>
-            )}
-          </div>
+                  <option value="all">Alle ansatte</option>
+                  <option value="units">Bestemte enheter</option>
+                  <option value="employees">Bestemte ansatte</option>
+                  <option value="mixed">Enheter + ansatte</option>
+                </select>
+              </div>
+            </div>
 
-          <div className="flex items-end lg:col-span-4">
-            <button
-              type="submit"
-              className="w-full rounded-none border border-white/30 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-none transition hover:bg-white/95 sm:w-auto sm:min-w-[200px]"
-              style={{ color: layout.accent }}
-            >
-              <Plus className="mr-2 inline size-4 align-text-bottom" />
-              Opprett gruppe
-            </button>
+            <div className={`${ORG_MERGED_COL} min-h-[12rem] lg:max-w-[min(100%,560px)] lg:flex-[1.35]`}>
+              {(groupForm.scopeKind === 'units' || groupForm.scopeKind === 'mixed') && (
+                <>
+                  <p className={SETTINGS_LEAD_ON_DARK}>Kryss av hvilke enheter som inngår i gruppen.</p>
+                  <p className={`${SETTINGS_FIELD_LABEL_ON_DARK} mt-3`}>Velg enheter</p>
+                  <div className="mt-1.5 max-h-40 overflow-y-auto space-y-1.5 rounded-none border border-white/20 bg-black/15 p-2">
+                    {org.units.length === 0 ? (
+                      <p className="text-xs text-white/60">Ingen enheter ennå.</p>
+                    ) : (
+                      org.units.map((u) => (
+                        <label key={u.id} className="flex cursor-pointer items-center gap-2 text-sm text-white/95">
+                          <input
+                            type="checkbox"
+                            checked={groupForm.unitIds.includes(u.id)}
+                            onChange={(e) =>
+                              setGroupForm((f) => ({
+                                ...f,
+                                unitIds: e.target.checked ? [...f.unitIds, u.id] : f.unitIds.filter((id) => id !== u.id),
+                              }))
+                            }
+                            className="size-4 rounded-none border-white/40 bg-white/10 text-[#1a3d32] focus:ring-1 focus:ring-white"
+                          />
+                          <span>{u.name}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+              {(groupForm.scopeKind === 'employees' || groupForm.scopeKind === 'mixed') && (
+                <>
+                  <p
+                    className={
+                      SETTINGS_LEAD_ON_DARK +
+                      (groupForm.scopeKind === 'mixed' ? ' mt-4 border-t border-white/15 pt-4' : '')
+                    }
+                  >
+                    Velg enkeltpersoner som skal inngå.
+                  </p>
+                  <p className={`${SETTINGS_FIELD_LABEL_ON_DARK} mt-3`}>Velg ansatte</p>
+                  <div className="mt-1.5 max-h-40 overflow-y-auto space-y-1.5 rounded-none border border-white/20 bg-black/15 p-2">
+                    {org.activeEmployees.length === 0 ? (
+                      <p className="text-xs text-white/60">Ingen aktive ansatte.</p>
+                    ) : (
+                      org.activeEmployees.map((emp) => (
+                        <label key={emp.id} className="flex cursor-pointer items-center gap-2 text-sm text-white/95">
+                          <input
+                            type="checkbox"
+                            checked={groupForm.employeeIds.includes(emp.id)}
+                            onChange={(e) =>
+                              setGroupForm((f) => ({
+                                ...f,
+                                employeeIds: e.target.checked
+                                  ? [...f.employeeIds, emp.id]
+                                  : f.employeeIds.filter((id) => id !== emp.id),
+                              }))
+                            }
+                            className="size-4 rounded-none border-white/40 bg-white/10 text-[#1a3d32] focus:ring-1 focus:ring-white"
+                          />
+                          <span>{emp.name}</span>
+                          {emp.jobTitle && <span className="text-xs text-white/55">{emp.jobTitle}</span>}
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+              {groupForm.scopeKind === 'all' && (
+                <p className={SETTINGS_LEAD_ON_DARK}>Gruppen gjelder alle ansatte. Ingen ytterligere utvalg.</p>
+              )}
+            </div>
+
+            <div className={ORG_MERGED_ACTION_COL}>
+              <button
+                type="submit"
+                className="inline-flex w-full min-w-[10rem] items-center justify-center gap-2 rounded-none border border-white/35 bg-white px-5 py-3 text-sm font-semibold shadow-none transition hover:bg-white/95"
+                style={{ color: layout.accent }}
+              >
+                <Plus className="size-4 shrink-0" />
+                Opprett gruppe
+              </button>
+            </div>
           </div>
         </form>
       )}
@@ -1114,10 +1160,107 @@ export function OrganisationPage() {
         </section>
       )}
 
-      {/* ── Units ─────────────────────────────────────────────────────────── */}
+      {/* ── Units — samlet panel under meny som brukergrupper ─ */}
       {tab === 'units' && (
-        <div className="grid gap-8 lg:grid-cols-[1fr_320px] lg:gap-10">
-          <div>
+        <>
+          <form id="org-new-unit" className="mt-6 overflow-hidden rounded-none border border-black/10" onSubmit={handleCreateUnit} style={menu1.barStyle}>
+            <div className={ORG_MERGED_PANEL}>
+              <div className={ORG_MERGED_COL}>
+                <p className={SETTINGS_LEAD_ON_DARK}>Navn og type for den nye enheten. Velg overordnet hvis den skal ligge under en annen.</p>
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-unit-name">
+                      Navn
+                    </label>
+                    <input
+                      id="org-unit-name"
+                      value={unitForm.name}
+                      onChange={(e) => setUnitForm((f) => ({ ...f, name: e.target.value }))}
+                      required
+                      className={SETTINGS_INPUT_ON_DARK}
+                    />
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-unit-kind">
+                      Type
+                    </label>
+                    <select
+                      id="org-unit-kind"
+                      value={unitForm.kind}
+                      onChange={(e) => setUnitForm((f) => ({ ...f, kind: e.target.value as OrgUnitKind }))}
+                      className={SETTINGS_INPUT_ON_DARK}
+                    >
+                      {Object.entries(KIND_LABELS).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-unit-parent">
+                      Overordnet enhet
+                    </label>
+                    <select
+                      id="org-unit-parent"
+                      value={unitForm.parentId}
+                      onChange={(e) => setUnitForm((f) => ({ ...f, parentId: e.target.value }))}
+                      className={SETTINGS_INPUT_ON_DARK}
+                    >
+                      <option value="">— Ingen (toppnivå) —</option>
+                      {org.units.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className={ORG_MERGED_COL}>
+                <p className={SETTINGS_LEAD_ON_DARK}>Valgfritt: hvem leder enheten, og hvilken farge brukes i org.kartet?</p>
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-unit-head">
+                      Leder / enhetshode
+                    </label>
+                    <input
+                      id="org-unit-head"
+                      value={unitForm.headName}
+                      onChange={(e) => setUnitForm((f) => ({ ...f, headName: e.target.value }))}
+                      className={SETTINGS_INPUT_ON_DARK}
+                    />
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-unit-color">
+                      Farge (org.kart)
+                    </label>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <input
+                        id="org-unit-color"
+                        type="color"
+                        value={unitForm.color}
+                        onChange={(e) => setUnitForm((f) => ({ ...f, color: e.target.value }))}
+                        className="h-10 w-16 cursor-pointer rounded-none border border-white/30 bg-white"
+                      />
+                      <span className="text-xs text-white/70">{unitForm.color}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className={ORG_MERGED_ACTION_COL}>
+                <button
+                  type="submit"
+                  className="inline-flex w-full min-w-[10rem] items-center justify-center gap-2 rounded-none border border-white/35 bg-white px-5 py-3 text-sm font-semibold shadow-none transition hover:bg-white/95"
+                  style={{ color: layout.accent }}
+                >
+                  <Plus className="size-4 shrink-0" />
+                  Opprett enhet
+                </button>
+              </div>
+            </div>
+          </form>
+          <section className="mt-8 w-full">
             <h2 className="mb-4 text-lg font-semibold text-neutral-900">Organisasjonsstruktur</h2>
             <div className="space-y-2">
               {topLevelUnits.map((unit) => (
@@ -1125,40 +1268,8 @@ export function OrganisationPage() {
               ))}
               {org.units.length === 0 && <p className="text-sm text-neutral-500">Ingen enheter ennå.</p>}
             </div>
-          </div>
-          <SidebarBox1
-            heading="Ny enhet"
-            primaryAction={({ className, style }) => (
-              <button type="submit" form="org-sidebar-new-unit" className={className} style={style}>
-                <Plus className="size-4" />
-                Opprett enhet
-              </button>
-            )}
-          >
-            <form id="org-sidebar-new-unit" className="space-y-3" onSubmit={handleCreateUnit}>
-              <div><label className="text-xs font-medium text-neutral-500">Navn *</label>
-                <input value={unitForm.name} onChange={(e) => setUnitForm((f) => ({ ...f, name: e.target.value }))} required className={BASE_INPUT} /></div>
-              <div><label className="text-xs font-medium text-neutral-500">Type</label>
-                <select value={unitForm.kind} onChange={(e) => setUnitForm((f) => ({ ...f, kind: e.target.value as OrgUnitKind }))} className={BASE_INPUT}>
-                  {Object.entries(KIND_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select></div>
-              <div><label className="text-xs font-medium text-neutral-500">Overordnet enhet</label>
-                <select value={unitForm.parentId} onChange={(e) => setUnitForm((f) => ({ ...f, parentId: e.target.value }))} className={BASE_INPUT}>
-                  <option value="">— Ingen —</option>
-                  {org.units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                </select></div>
-              <div><label className="text-xs font-medium text-neutral-500">Leder / enhetshode</label>
-                <input value={unitForm.headName} onChange={(e) => setUnitForm((f) => ({ ...f, headName: e.target.value }))} className={BASE_INPUT} /></div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Farge (org.kart)</label>
-                <div className="mt-1 flex items-center gap-2">
-                  <input type="color" value={unitForm.color} onChange={(e) => setUnitForm((f) => ({ ...f, color: e.target.value }))} className="h-9 w-14 cursor-pointer rounded-lg border border-neutral-200" />
-                  <span className="text-xs text-neutral-400">{unitForm.color}</span>
-                </div>
-              </div>
-            </form>
-          </SidebarBox1>
-        </div>
+          </section>
+        </>
       )}
 
       {/* ── Groups — samme mønster som Innstillinger (bokser under meny + tabellayout) ─ */}
@@ -1205,6 +1316,104 @@ export function OrganisationPage() {
                 ))}
               </div>
             )}
+          </Mainbox1>
+        </section>
+      )}
+
+      {/* ── Innsikt — oversiktstall (egen fane, aktiv fane lys som referanse) ─ */}
+      {tab === 'insights' && (
+        <section className="w-full space-y-6">
+          <div>
+            <h2
+              className="text-xl font-semibold text-neutral-900 sm:text-2xl"
+              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+            >
+              Organisasjonsinnsikt
+            </h2>
+            <p className="mt-1 text-sm text-neutral-500">
+              Samlet oversikt over medlemmer, ansatte, enheter og grupper — oppdatert fra dataene dine.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {(
+              [
+                {
+                  label: 'Medlemmer (app)',
+                  value: insightStats.members,
+                  hint: 'Kontoer tilknyttet organisasjonen',
+                },
+                {
+                  label: 'Ansatte (totalt)',
+                  value: insightStats.employeesTotal,
+                  hint: `${insightStats.employeesActive} aktive · ${insightStats.employeesInactive} inaktive`,
+                },
+                {
+                  label: 'Enheter',
+                  value: insightStats.units,
+                  hint: `${insightStats.unitsTopLevel} på toppnivå`,
+                },
+                {
+                  label: 'Brukergrupper',
+                  value: insightStats.groups,
+                  hint: 'Definerte grupper',
+                },
+              ] as const
+            ).map((card) => (
+              <div
+                key={card.label}
+                className="border border-neutral-200 bg-white px-4 py-4 shadow-sm"
+              >
+                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{card.label}</p>
+                <p className="mt-2 text-2xl font-semibold tabular-nums text-neutral-900">{card.value}</p>
+                <p className="mt-1 text-xs text-neutral-500">{card.hint}</p>
+              </div>
+            ))}
+          </div>
+          <Mainbox1 title="Enheter etter type" subtitle="Fordeling på divisjon, avdeling, team og lokasjon.">
+            <div className="divide-y divide-neutral-200 border border-neutral-200 bg-white">
+              {(['division', 'department', 'team', 'location'] as const).map((kind) => (
+                <div key={kind} className={SETTINGS_ROW_GRID}>
+                  <p className={SETTINGS_LEAD}>{KIND_LABELS[kind]}</p>
+                  <div className="text-right sm:text-left">
+                    <span className={SETTINGS_FIELD_LABEL}>Antall</span>
+                    <p className="mt-1.5 text-lg font-semibold tabular-nums text-neutral-900">
+                      {insightStats.byKind[kind] ?? 0}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Mainbox1>
+          <Mainbox1 title="Samsvar (AML-terskler)" subtitle="Basert på antall ansatte i beregningen.">
+            <div className="divide-y divide-neutral-200 border border-neutral-200 bg-white">
+              <div className={SETTINGS_ROW_GRID}>
+                <p className={SETTINGS_LEAD}>Verneombud etter arbeidsmiljøloven §6-1.</p>
+                <div>
+                  <span className={SETTINGS_FIELD_LABEL}>Status</span>
+                  <p className={`mt-1.5 text-base font-semibold ${ct.requiresVerneombud ? 'text-emerald-700' : 'text-neutral-600'}`}>
+                    {ct.requiresVerneombud ? 'Lovpålagt (≥5 ansatte)' : 'Ikke påkrevd (&lt;5)'}
+                  </p>
+                </div>
+              </div>
+              <div className={SETTINGS_ROW_GRID}>
+                <p className={SETTINGS_LEAD}>AMU kan kreves i området 10–29 ansatte.</p>
+                <div>
+                  <span className={SETTINGS_FIELD_LABEL}>Status</span>
+                  <p className={`mt-1.5 text-base font-semibold ${ct.mayRequestAmu ? 'text-amber-800' : 'text-neutral-600'}`}>
+                    {ct.mayRequestAmu ? 'Ja' : 'Nei'}
+                  </p>
+                </div>
+              </div>
+              <div className={SETTINGS_ROW_GRID}>
+                <p className={SETTINGS_LEAD}>AMU etter arbeidsmiljøloven §7-1 (vanligvis ≥30 ansatte).</p>
+                <div>
+                  <span className={SETTINGS_FIELD_LABEL}>Status</span>
+                  <p className={`mt-1.5 text-base font-semibold ${ct.requiresAmu ? 'text-emerald-700' : 'text-neutral-600'}`}>
+                    {ct.requiresAmu ? 'Lovpålagt (≥30)' : 'Nei'}
+                  </p>
+                </div>
+              </div>
+            </div>
           </Mainbox1>
         </section>
       )}
