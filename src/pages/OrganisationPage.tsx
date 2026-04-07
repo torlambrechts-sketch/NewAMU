@@ -74,6 +74,10 @@ const SETTINGS_INPUT =
 const SETTINGS_CHECK_WRAP =
   'mt-1.5 flex cursor-pointer items-start gap-3 rounded-none border border-neutral-300 bg-neutral-50/80 p-3'
 
+/** Terskel-bokser under meny (samme mørke bakgrunn som fanemeny) */
+const SETTINGS_THRESHOLD_BOX =
+  'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
+
 // ─── Avatar helper ────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = ['#1a3d32','#0284c7','#7c3aed','#d97706','#dc2626','#0d9488','#9333ea','#2563eb']
@@ -671,6 +675,49 @@ export function OrganisationPage() {
         </div>
       </div>
 
+      {tab === 'settings' && (
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {(
+            [
+              {
+                title: 'Antall ansatte',
+                sub: 'Grunnlag for terskler',
+                value: `${org.totalEmployeeCount}`,
+                valueClass: 'text-white',
+              },
+              {
+                title: 'Verneombud (AML §6-1)',
+                sub: 'Kreves ved ≥5 ansatte',
+                value: ct.requiresVerneombud ? 'Ja (≥5)' : 'Nei',
+                valueClass: ct.requiresVerneombud ? 'text-emerald-200' : 'text-white/80',
+              },
+              {
+                title: 'AMU kan kreves',
+                sub: 'Område 10–29 ansatte',
+                value: ct.mayRequestAmu ? 'Ja' : 'Nei',
+                valueClass: ct.mayRequestAmu ? 'text-amber-200' : 'text-white/80',
+              },
+              {
+                title: 'AMU lovpålagt (AML §7-1)',
+                sub: 'Kreves ved ≥30 ansatte',
+                value: ct.requiresAmu ? 'Ja (≥30)' : 'Nei',
+                valueClass: ct.requiresAmu ? 'text-emerald-200' : 'text-white/80',
+              },
+            ] as const
+          ).map((item) => (
+            <div
+              key={item.title}
+              className={SETTINGS_THRESHOLD_BOX}
+              style={menu1.barStyle}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
+              <p className="mt-1 text-xs text-white/70">{item.sub}</p>
+              <p className={`mt-2 text-lg font-semibold tabular-nums ${item.valueClass}`}>{item.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="mt-8 space-y-8">
       {/* ── Org chart ─────────────────────────────────────────────────────── */}
       {tab === 'orgchart' && (
@@ -1036,9 +1083,9 @@ export function OrganisationPage() {
         </div>
       )}
 
-      {/* ── Settings — samme layout som Brukergrupper (liste/skjema venstre, boks høyre) ─ */}
+      {/* ── Settings — full bredde; terskler i bokser over (under meny) ─ */}
       {tab === 'settings' && (
-        <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:gap-10">
+        <section className="w-full">
           <Mainbox1
             title="Virksomhetsinnstillinger"
             subtitle="Disse verdiene driver AMU/verneombud-terskler og vises i Council-modulen."
@@ -1149,33 +1196,7 @@ export function OrganisationPage() {
               </div>
             </div>
           </Mainbox1>
-
-          <SidebarBox1
-            heading="Beregnede terskler (AML 2024)"
-            subheading="Oppdateres ut fra antall ansatte og innstillinger."
-          >
-            <div className="border border-neutral-200 bg-white text-sm">
-              {[
-                { label: 'Antall ansatte', value: `${org.totalEmployeeCount}`, ok: undefined },
-                { label: 'Verneombud lovpålagt (AML §6-1)', value: ct.requiresVerneombud ? 'Ja (≥5)' : 'Nei', ok: ct.requiresVerneombud },
-                { label: 'AMU kan kreves (10–29)', value: ct.mayRequestAmu ? 'Ja' : 'Nei', ok: ct.mayRequestAmu },
-                { label: 'AMU lovpålagt (AML §7-1)', value: ct.requiresAmu ? 'Ja (≥30)' : 'Nei', ok: ct.requiresAmu },
-              ].map(({ label, value, ok }, i) => (
-                <div
-                  key={label}
-                  className={`flex items-center justify-between gap-3 px-3 py-3 md:px-4 ${i > 0 ? 'border-t border-neutral-200' : ''}`}
-                >
-                  <span className="text-neutral-600">{label}</span>
-                  <span
-                    className={`shrink-0 text-right font-medium tabular-nums ${ok === true ? 'text-emerald-700' : ok === false ? 'text-neutral-400' : 'text-neutral-700'}`}
-                  >
-                    {value}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </SidebarBox1>
-        </div>
+        </section>
       )}
       </div>
     </div>
