@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Lock,
   Plus,
+  Search,
   ShieldCheck,
   X,
 } from 'lucide-react'
@@ -23,6 +24,7 @@ import type {
   AnnualReview,
   AnnualReviewActionDraft,
   AnnualReviewSections,
+  InternalControlAuditEntry,
   RosAssessment,
   RosCategory,
   RosRiskRow,
@@ -32,6 +34,8 @@ import { EMPTY_ANNUAL_REVIEW_SECTIONS, O_ROS_PRESET_HAZARDS, isLegacyAnnualRevie
 import { useHrCompliance } from '../hooks/useHrCompliance'
 import { useHse } from '../hooks/useHse'
 import { useTasks } from '../hooks/useTasks'
+import { Table1Shell } from '../components/layout/Table1Shell'
+import { Table1Toolbar } from '../components/layout/Table1Toolbar'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeRosWizard } from '../components/wizard/wizards'
 import {
@@ -71,6 +75,18 @@ const ORG_MERGED_COL = 'min-w-0 flex-1 sm:max-w-[min(100%,280px)]'
 const ORG_MERGED_ACTION_COL = 'flex w-full shrink-0 flex-col justify-end sm:w-auto sm:min-w-[160px]'
 const SETTINGS_THRESHOLD_BOX =
   'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
+const LOG_FILTER_INPUT =
+  'w-full min-w-[200px] max-w-md rounded-none border border-neutral-200/90 bg-white px-4 py-2.5 text-sm shadow-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]'
+const LOG_SEG_BTN =
+  'rounded-none border px-3 py-2 text-xs font-semibold uppercase tracking-wide transition-colors'
+
+function auditLogSegment(a: InternalControlAuditEntry): 'init' | 'ros' | 'annual' | 'other' {
+  const act = a.action
+  if (act === 'init') return 'init'
+  if (act.startsWith('ros_')) return 'ros'
+  if (act.startsWith('annual_review')) return 'annual'
+  return 'other'
+}
 
 function buildWizardRosRows(v: Record<string, string | boolean>): RosRiskRow[] {
   const legal = String(v.rosLegalCategory ?? 'general') as RosCategory
@@ -214,6 +230,38 @@ export function InternalControlModule() {
     () => [...ic.auditTrail].sort((a, b) => b.at.localeCompare(a.at)),
     [ic.auditTrail],
   )
+
+  const [auditSearch, setAuditSearch] = useState('')
+  const [auditSeg, setAuditSeg] = useState<'all' | 'init' | 'ros' | 'annual' | 'other'>('all')
+
+  const auditStats = useMemo(() => {
+    const list = ic.auditTrail
+    return {
+      total: list.length,
+      ros: list.filter((a) => auditLogSegment(a) === 'ros').length,
+      annual: list.filter((a) => auditLogSegment(a) === 'annual').length,
+      other: list.filter((a) => {
+        const s = auditLogSegment(a)
+        return s !== 'ros' && s !== 'annual'
+      }).length,
+    }
+  }, [ic.auditTrail])
+
+  const filteredAudit = useMemo(() => {
+    const q = auditSearch.trim().toLowerCase()
+    return sortedAudit.filter((a) => {
+      if (auditSeg !== 'all' && auditLogSegment(a) !== auditSeg) return false
+      if (!q) return true
+      const metaStr =
+        a.meta != null
+          ? Object.entries(a.meta)
+              .map(([k, v]) => `${k}:${String(v)}`)
+              .join(' ')
+          : ''
+      const hay = `${a.action} ${a.message} ${metaStr}`.toLowerCase()
+      return hay.includes(q)
+    })
+  }, [sortedAudit, auditSearch, auditSeg])
 
   const rosStats = useMemo(() => {
     const list = ic.rosAssessments
@@ -471,6 +519,11 @@ export function InternalControlModule() {
                 Varsling:{' '}
                 <Link to="/tasks?view=whistle" className="font-medium text-[#1a3d32] underline">Oppgaver → Varslingssaker</Link>.
               </>
+            ) : tab === 'audit' ? (
+              <>
+                Revisjonslogg for ROS, årsgjennomgang og øvrige hendelser i internkontroll-modulen. Søk og filtrer som på
+                oppgavetabellen.
+              </>
             ) : (
               <>
                 <strong>ROS / risiko</strong>, <strong>årsgjennomgang</strong> og revisjonslogg. Varsling (AML kap. 2A) i{' '}
@@ -478,6 +531,22 @@ export function InternalControlModule() {
               </>
             )}
           </p>
+          {tab === 'audit' ? (
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                Totalt <strong className="ml-1 font-semibold">{auditStats.total}</strong>
+              </span>
+              <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-700`}>
+                Vist <strong className="ml-1 font-semibold">{filteredAudit.length}</strong>
+              </span>
+              <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
+                ROS <strong className="ml-1 font-semibold">{auditStats.ros}</strong>
+              </span>
+              <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-950`}>
+                Årsgjennomgang <strong className="ml-1 font-semibold">{auditStats.annual}</strong>
+              </span>
+            </div>
+          ) : null}
           {tab === 'annual' ? (
             <div className="mt-5 flex flex-wrap items-center gap-2">
               <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
@@ -549,6 +618,25 @@ export function InternalControlModule() {
           })}
         </div>
       </div>
+
+      {tab === 'audit' ? (
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {(
+            [
+              { title: 'Hendelser totalt', sub: 'I loggen', value: `${auditStats.total}` },
+              { title: 'ROS-relatert', sub: 'Handlinger ros_*', value: `${auditStats.ros}` },
+              { title: 'Årsgjennomgang', sub: 'annual_review*', value: `${auditStats.annual}` },
+              { title: 'Øvrig', sub: 'Init + annet', value: `${auditStats.other}` },
+            ] as const
+          ).map((item) => (
+            <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={menu1.barStyle}>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
+              <p className="mt-1 text-xs text-white/70">{item.sub}</p>
+              <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {tab === 'overview' && (
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
@@ -1591,26 +1679,138 @@ export function InternalControlModule() {
       )}
 
       {tab === 'audit' && (
-        <div className="mt-8">
-          <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
+        <div className="mt-6 space-y-8">
+          <LegalDisclaimer compact />
+
+          <section className="overflow-hidden rounded-none border border-neutral-200 bg-white">
             <div className="border-b border-neutral-200 px-4 py-3">
-              <h2 className="font-semibold text-neutral-900">Hendelseslogg (internkontroll)</h2>
+              <h2 className="font-semibold text-neutral-900">Hendelseslogg</h2>
+              <p className="mt-1 text-xs text-neutral-500">
+                Kronologisk sporbarhet for internkontroll. Bruk søk og segment som på organisasjon/oppgaver.
+              </p>
             </div>
-            <ul className="max-h-[560px] divide-y divide-neutral-100 overflow-y-auto text-sm">
-              {sortedAudit.map((a) => (
-                <li key={a.id} className="px-4 py-3">
-                  <div className="text-xs text-neutral-500">{formatWhen(a.at)} · {a.action}</div>
-                  <p className="mt-1 text-neutral-800">{a.message}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
+            <Table1Shell
+              toolbar={
+                <Table1Toolbar
+                  searchSlot={
+                    <div className="relative min-w-0 flex-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                      <input
+                        type="search"
+                        value={auditSearch}
+                        onChange={(e) => setAuditSearch(e.target.value)}
+                        placeholder="Søk i handling, melding, metadata…"
+                        className={`${LOG_FILTER_INPUT} pl-10`}
+                        aria-label="Søk i logg"
+                      />
+                    </div>
+                  }
+                  segmentSlot={
+                    <div className="flex flex-wrap gap-1">
+                      {(
+                        [
+                          ['all', 'Alle'] as const,
+                          ['ros', 'ROS'] as const,
+                          ['annual', 'Årsgj.'] as const,
+                          ['other', 'Øvrig'] as const,
+                          ['init', 'Init'] as const,
+                        ] as const
+                      ).map(([id, label]) => {
+                        const active = auditSeg === id
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setAuditSeg(id)}
+                            className={`${LOG_SEG_BTN} ${
+                              active
+                                ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                                : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  }
+                />
+              }
+            >
+              <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className={theadRow}>
+                    <th className={`${tableCell} font-medium`}>Tidspunkt</th>
+                    <th className={`${tableCell} font-medium`}>Handling</th>
+                    <th className={`${tableCell} font-medium`}>Kategori</th>
+                    <th className={`${tableCell} font-medium`}>Melding</th>
+                    <th className={`${tableCell} font-medium`}>Meta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAudit.length === 0 ? (
+                    <tr className={tbodyRow(0)}>
+                      <td colSpan={5} className={`${tableCell} py-10 text-center text-neutral-500`}>
+                        Ingen treff.
+                        {auditSearch || auditSeg !== 'all' ? (
+                          <button
+                            type="button"
+                            className="ml-2 font-medium text-[#1a3d32] underline"
+                            onClick={() => {
+                              setAuditSearch('')
+                              setAuditSeg('all')
+                            }}
+                          >
+                            Nullstill filtre
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredAudit.map((a, ri) => {
+                      const seg = auditLogSegment(a)
+                      const segLabel =
+                        seg === 'ros'
+                          ? 'ROS'
+                          : seg === 'annual'
+                            ? 'Årsgjennomgang'
+                            : seg === 'init'
+                              ? 'Init'
+                              : 'Annet'
+                      return (
+                        <tr key={a.id} className={tbodyRow(ri)}>
+                          <td className={`${tableCell} whitespace-nowrap text-neutral-600 tabular-nums`}>
+                            {formatWhen(a.at)}
+                          </td>
+                          <td className={`${tableCell} font-mono text-xs text-neutral-800`}>{a.action}</td>
+                          <td className={tableCell}>
+                            <span className="rounded-none border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                              {segLabel}
+                            </span>
+                          </td>
+                          <td className={`${tableCell} max-w-[min(40vw,28rem)] text-neutral-800`}>
+                            {a.message}
+                          </td>
+                          <td className={`${tableCell} max-w-[200px] truncate font-mono text-[11px] text-neutral-500`}>
+                            {a.meta && Object.keys(a.meta).length > 0
+                              ? JSON.stringify(a.meta)
+                              : '—'}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </Table1Shell>
+          </section>
+
           <button
             type="button"
             onClick={() => {
               if (confirm('Tilbakestill internkontroll-demo?')) ic.resetDemo()
             }}
-            className="mt-4 text-sm text-neutral-500 underline hover:text-neutral-800"
+            className="rounded-none border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
           >
             Tilbakestill demo
           </button>
