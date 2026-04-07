@@ -49,7 +49,7 @@ export type WorkflowRunRow = {
 
 export const WORKFLOW_SOURCE_MODULES = [
   { value: 'hse', label: 'HSE (hendelser, sykefravær, …)' },
-  { value: 'internal_control', label: 'Internkontroll (varsling, ROS, …)' },
+  { value: 'internal_control', label: 'Internkontroll (ROS, årsgjennomgang, …)' },
   { value: 'org_health', label: 'Organisasjonshelse' },
   { value: 'tasks', label: 'Oppgaver (JSON)' },
   { value: 'wiki_published', label: 'Wiki — side publisert' },

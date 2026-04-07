@@ -2,6 +2,8 @@ export type OrganizationRow = {
   id: string
   organization_number: string
   name: string
+  /** Public URL segment for anonymous whistleblowing form */
+  whistle_public_slug?: string | null
   brreg_snapshot: Record<string, unknown> | null
   onboarding_completed_at: string | null
   created_at: string

@@ -59,6 +59,8 @@ import { LayoutLabPage } from './pages/platform/LayoutLabPage'
 import { PlatformUiAdvancedPage } from './pages/platform/PlatformUiAdvancedPage'
 import { PlatformBoxDesignerPage } from './pages/platform/PlatformBoxDesignerPage'
 import { PlatformLayoutCompositionPage } from './pages/platform/PlatformLayoutCompositionPage'
+import { PublicWhistlePage } from './pages/PublicWhistlePage'
+import { WhistleStatusPage } from './pages/WhistleStatusPage'
 
 function App() {
   return (
@@ -76,6 +78,8 @@ function App() {
             <Route path="/signup" element={<AuthPage mode="signup" />} />
             <Route path="/platform-admin/login" element={<PlatformAdminLoginPage />} />
             <Route path="/invite/:token" element={<InviteAcceptPage />} />
+            <Route path="/varsle/status" element={<WhistleStatusPage />} />
+            <Route path="/varsle/:slug" element={<PublicWhistlePage />} />
 
             <Route element={<OrgGate />}>
               <Route path="platform-admin" element={<PlatformAdminLayout />}>

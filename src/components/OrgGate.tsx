@@ -18,9 +18,10 @@ export function OrgGate() {
   }
 
   const path = location.pathname
+  const isPublicWhistle = path.startsWith('/varsle')
   const isPublicAuth = path === '/login' || path === '/signup' || path === '/platform-admin/login'
   const isInvite = path.startsWith('/invite/')
-  if (supabaseConfigured && !user && !isPublicAuth && !isInvite) {
+  if (supabaseConfigured && !user && !isPublicAuth && !isInvite && !isPublicWhistle) {
     const isPlatformAdminArea = path.startsWith('/platform-admin')
     const wantsDemo = isDemoRouteSearch(location.search)
     const loginTarget = isPlatformAdminArea

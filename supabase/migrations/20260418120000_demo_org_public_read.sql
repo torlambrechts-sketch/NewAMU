@@ -48,7 +48,8 @@ cross join (
     ('module.view.workflow'),
     ('module.view.hr_compliance'),
     ('documents.manage'),
-    ('module.view.admin')
+    ('module.view.admin'),
+    ('whistleblowing.committee')
 ) as p(permission_key)
 where rd.organization_id = '00000000-0000-4000-a000-000000000001'
   and rd.slug = 'admin'

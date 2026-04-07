@@ -200,7 +200,7 @@ export function OrgHealthModule() {
               to="/internal-control"
               className="mt-2 block w-full rounded-xl border border-neutral-200 py-2.5 text-center text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
             >
-              Internkontroll & varslingssaker
+              Internkontroll og oppfølging
             </Link>
             <div className="mt-3 flex justify-center">
               <AddTaskLink
@@ -481,8 +481,8 @@ export function OrgHealthModule() {
             <strong>Anonym rapportering.</strong> Fritekst du skriver nedenfor{' '}
             <strong>lagres ikke</strong> — kun kategori, hastegrad og om du indikerte at du hadde mer å si. HR ser
             aggregerte oppføringer for oppfølging. For strukturert oppfølging med status, bruk{' '}
-            <Link to="/internal-control?tab=whistle" className="font-medium underline">
-              Internkontroll → varslingssaker
+            <Link to="/tasks?view=whistle" className="font-medium underline">
+              Oppgaver → varslingssaker
             </Link>
             . Henvisninger til AML er illustrative — verifiser mot{' '}
             <a href="https://lovdata.no" className="font-medium underline" target="_blank" rel="noreferrer">

@@ -8,24 +8,19 @@ import {
   History,
   LayoutDashboard,
   Lock,
-  Scale,
   ShieldCheck,
 } from 'lucide-react'
 import { LegalDisclaimer } from '../components/internalControl/LegalDisclaimer'
 import { ROS_TEMPLATE_HELP, RISK_COLOUR_CLASSES, computeRiskScore, riskColour } from '../data/rosTemplate'
-import { labelForAmlReportKind } from '../data/amlAnonymousReporting'
 import { useInternalControl } from '../hooks/useInternalControl'
-import { useOrgHealth } from '../hooks/useOrgHealth'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
-import type { RosCategory, WhistleCaseStatus } from '../types/internalControl'
+import type { RosCategory } from '../types/internalControl'
 import { useHrCompliance } from '../hooks/useHrCompliance'
-import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeRosWizard } from '../components/wizard/wizards'
 
 const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: LayoutDashboard },
-  { id: 'whistle' as const, label: 'Varslingssaker', icon: Scale },
   { id: 'ros' as const, label: 'ROS / risiko', icon: ClipboardList },
   { id: 'annual' as const, label: 'Årsgjennomgang', icon: Calendar },
   { id: 'audit' as const, label: 'Logg', icon: History },
@@ -39,18 +34,9 @@ function formatWhen(iso: string) {
   }
 }
 
-const statusOrder: WhistleCaseStatus[] = [
-  'received',
-  'triage',
-  'investigation',
-  'internal_review',
-  'closed',
-]
-
 export function InternalControlModule() {
   const ic = useInternalControl()
   const hr = useHrCompliance()
-  const oh = useOrgHealth()
   const { supabaseConfigured } = useOrgSetupContext()
   const [searchParams, setSearchParams] = useSearchParams()
   type TabId = (typeof tabs)[number]['id']
@@ -59,7 +45,6 @@ export function InternalControlModule() {
     tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
   const setTab = (id: TabId) => setSearchParams({ tab: id }, { replace: true })
 
-  const [newCaseTitle, setNewCaseTitle] = useState('')
   const [rosTitle, setRosTitle] = useState('')
   const [rosDept, setRosDept] = useState('')
   const [rosAssessor, setRosAssessor] = useState('')
@@ -77,14 +62,6 @@ export function InternalControlModule() {
     () => [...ic.auditTrail].sort((a, b) => b.at.localeCompare(a.at)),
     [ic.auditTrail],
   )
-
-  const caseIdsFromReports = useMemo(() => {
-    const s = new Set<string>()
-    for (const c of ic.whistleCases) {
-      if (c.sourceAnonymousReportId) s.add(c.sourceAnonymousReportId)
-    }
-    return s
-  }, [ic.whistleCases])
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
@@ -111,12 +88,11 @@ export function InternalControlModule() {
             className="text-2xl font-semibold text-neutral-900 md:text-3xl"
             style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
           >
-            Internkontroll & varsling
+            Internkontroll
           </h1>
           <p className="mt-2 max-w-3xl text-sm text-neutral-600">
-            Samlet spor for <strong>varslingssaker med status</strong>, <strong>ROS-maler</strong>,{' '}
-            <strong>årsgjennomgang</strong> og kobling til anonyme meldinger fra organisasjonshelse. Bruk intern revisjon
-            etter egen fullmakt — dette verktøyet er ikke en full internkontroll i forskriftens forstand alene.
+            <strong>ROS / risiko</strong>, <strong>årsgjennomgang</strong> og revisjonslogg. Varsling (AML kap. 2A) ligger i
+            egen modul under <Link to="/tasks?view=whistle" className="font-medium text-[#1a3d32] underline">Oppgaver → Varslingssaker</Link>.
           </p>
         </div>
       </div>
@@ -125,15 +101,7 @@ export function InternalControlModule() {
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
           <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm lg:col-span-2">
             <h2 className="text-lg font-semibold text-neutral-900">Status</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-              <div className="rounded-xl bg-[#faf8f4] p-4 ring-1 ring-neutral-100">
-                <div className="text-2xl font-semibold text-[#1a3d32]">{ic.stats.whistleOpen}</div>
-                <div className="text-sm text-neutral-600">Åpne varslingssaker</div>
-              </div>
-              <div className="rounded-xl bg-amber-50/90 p-4 ring-1 ring-amber-200/80">
-                <div className="text-2xl font-semibold text-[#1a3d32]">{ic.stats.whistleInReview}</div>
-                <div className="text-sm text-neutral-600">I intern revisjon</div>
-              </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div className="rounded-xl bg-[#faf8f4] p-4 ring-1 ring-neutral-100">
                 <div className="text-2xl font-semibold text-[#1a3d32]">{ic.stats.rosCount}</div>
                 <div className="text-sm text-neutral-600">ROS-vurderinger</div>
@@ -146,23 +114,22 @@ export function InternalControlModule() {
             <div className="mt-6 flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setTab('whistle')}
-                className="rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26]"
-              >
-                Varslingssaker
-              </button>
-              <button
-                type="button"
                 onClick={() => setTab('ros')}
-                className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
+                className="rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26]"
               >
                 Ny ROS
               </button>
               <Link
+                to="/tasks?view=whistle"
+                className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
+              >
+                Varslingssaker (lukket hvelv)
+              </Link>
+              <Link
                 to="/org-health?tab=reporting"
                 className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
               >
-                Anonym rapportering
+                Anonym rapportering (org.health)
               </Link>
             </div>
           </div>
@@ -180,157 +147,6 @@ export function InternalControlModule() {
               i org.health.
             </p>
           </div>
-        </div>
-      )}
-
-      {tab === 'whistle' && (
-        <div className="mt-8 space-y-8">
-          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Ny sak (manuell)</h2>
-            <form
-              className="mt-4 flex flex-wrap gap-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (!newCaseTitle.trim()) return
-                ic.createWhistleCase({ title: newCaseTitle })
-                setNewCaseTitle('')
-              }}
-            >
-              <input
-                value={newCaseTitle}
-                onChange={(e) => setNewCaseTitle(e.target.value)}
-                placeholder="Tittel på varslingssak"
-                className="min-w-[220px] flex-1 rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-              />
-              <button
-                type="submit"
-                className="rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white"
-              >
-                Opprett
-              </button>
-            </form>
-          </section>
-
-          <section className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-            <div className="border-b border-[#1a3d32]/15 bg-gradient-to-r from-[#1a3d32]/8 to-transparent px-4 py-3">
-              <h2 className="font-semibold text-neutral-900">Alle varslingssaker</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px] border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-neutral-200 bg-neutral-50 text-xs font-semibold uppercase text-neutral-600">
-                    <th className="px-4 py-3">Sak</th>
-                    <th className="px-4 py-3">Kategori</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Ansvarlig</th>
-                    <th className="px-4 py-3">Oppdatert</th>
-                    <th className="px-4 py-3">Handlinger</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ic.whistleCases.map((c, i) => (
-                    <tr
-                      key={c.id}
-                      className={`border-b border-neutral-100 ${i % 2 === 0 ? 'bg-white' : 'bg-emerald-50/25'}`}
-                    >
-                      <td className="px-4 py-3 align-top">
-                        <div className="font-medium text-neutral-900">{c.title}</div>
-                        {c.sourceAnonymousReportId ? (
-                          <div className="text-xs text-neutral-500">
-                            Ref. anonym: {c.sourceAnonymousReportId.slice(0, 8)}…
-                          </div>
-                        ) : null}
-                        <textarea
-                          value={c.internalNotes}
-                          onChange={(e) => ic.updateWhistleNotes(c.id, e.target.value)}
-                          rows={2}
-                          className="mt-2 w-full max-w-md rounded-lg border border-neutral-200 px-2 py-1 text-xs"
-                          placeholder="Interne notater…"
-                        />
-                      </td>
-                      <td className="px-4 py-3 text-neutral-700">
-                        {c.categoryKind ? labelForAmlReportKind(c.categoryKind) : '—'}
-                      </td>
-                      <td className="px-4 py-3 align-top">
-                        <select
-                          value={c.status}
-                          onChange={(e) =>
-                            ic.updateWhistleStatus(c.id, e.target.value as WhistleCaseStatus)
-                          }
-                          className="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs"
-                        >
-                          {statusOrder.map((s) => (
-                            <option key={s} value={s}>
-                              {ic.statusLabels[s]}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-4 py-3 text-neutral-700">{c.assignee}</td>
-                      <td className="px-4 py-3 text-xs text-neutral-500">{formatWhen(c.updatedAt)}</td>
-                      <td className="px-4 py-3 align-top">
-                        <div className="flex flex-col gap-2">
-                          {c.status !== 'internal_review' && c.status !== 'closed' ? (
-                            <button
-                              type="button"
-                              onClick={() => ic.sendToInternalReview(c.id)}
-                              className="whitespace-nowrap rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-950 hover:bg-amber-100"
-                            >
-                              Send til intern revisjon
-                            </button>
-                          ) : null}
-                          <AddTaskLink
-                            title={`Oppfølging varslingssak: ${c.title.slice(0, 60)}`}
-                            module="org_health"
-                            sourceType="manual"
-                            sourceId={c.id}
-                            sourceLabel={c.title}
-                            ownerRole="HR / revisjon"
-                            requiresManagementSignOff
-                            className="inline-flex w-fit items-center gap-1 rounded-full border border-neutral-200 bg-white px-2 py-1 text-xs"
-                          >
-                            Oppgave
-                          </AddTaskLink>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Anonyme meldinger uten sak</h2>
-            <p className="mt-1 text-sm text-neutral-600">
-              Opprett varslingssak fra organisasjonshelse når meldingen skal følges opp strukturert.
-            </p>
-            <ul className="mt-4 space-y-2">
-              {oh.anonymousAmlReports.filter((r) => !caseIdsFromReports.has(r.id)).length === 0 ? (
-                <li className="text-sm text-neutral-500">Alle meldinger har sak, eller ingen meldinger.</li>
-              ) : (
-                oh.anonymousAmlReports
-                  .filter((r) => !caseIdsFromReports.has(r.id))
-                  .map((r) => (
-                    <li
-                      key={r.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-100 bg-[#faf8f4] px-3 py-2 text-sm"
-                    >
-                      <span>
-                        {formatWhen(r.submittedAt)} · {labelForAmlReportKind(r.kind)} · {r.urgency}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => ic.createCaseFromAnonymousReport(r)}
-                        className="rounded-full bg-[#1a3d32] px-3 py-1 text-xs font-medium text-white"
-                      >
-                        Opprett sak
-                      </button>
-                    </li>
-                  ))
-              )}
-            </ul>
-          </section>
         </div>
       )}
 

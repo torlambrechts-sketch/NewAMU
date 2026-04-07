@@ -1,28 +1,3 @@
-import type { AmlReportKind } from './orgHealth'
-
-/** Varslingssak — støtteverktøy; ikke juridisk komplett etter aml. kap. 2 A. */
-export type WhistleCaseStatus =
-  | 'received'
-  | 'triage'
-  | 'investigation'
-  | 'internal_review'
-  | 'closed'
-
-export type WhistleCase = {
-  id: string
-  title: string
-  /** Opprinnelig kategori fra anonym melding eller manuell */
-  categoryKind?: AmlReportKind
-  status: WhistleCaseStatus
-  createdAt: string
-  updatedAt: string
-  /** Valgfri kobling til anonym org.health-melding (ID) */
-  sourceAnonymousReportId?: string
-  assignee: string
-  /** Interne notater (ikke «ekstern varsling») */
-  internalNotes: string
-}
-
 export type RosRowStatus = 'open' | 'in_progress' | 'closed'
 
 export type RosRiskRow = {

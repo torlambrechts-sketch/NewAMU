@@ -61,6 +61,11 @@ const tasksSubs: SubItem[] = [
       pathname === '/tasks' &&
       (!new URLSearchParams(search).get('view') || new URLSearchParams(search).get('view') === 'list'),
   },
+  {
+    label: 'Varslingssaker',
+    path: '/tasks?view=whistle',
+    match: ({ pathname, search }) => pathname === '/tasks' && new URLSearchParams(search).get('view') === 'whistle',
+  },
   { label: 'Oppgavelogg', path: '/tasks?view=audit', match: ({ pathname, search }) => pathname === '/tasks' && new URLSearchParams(search).get('view') === 'audit' },
 ]
 
@@ -72,7 +77,6 @@ const internalControlSubs: SubItem[] = [
       pathname === '/internal-control' &&
       (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
   },
-  { label: 'Varslingssaker', path: '/internal-control?tab=whistle', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'whistle' },
   { label: 'ROS', path: '/internal-control?tab=ros', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'ros' },
   { label: 'Årsgjennomgang', path: '/internal-control?tab=annual', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'annual' },
   { label: 'Logg', path: '/internal-control?tab=audit', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'audit' },

@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Calendar, Check, History, LayoutList, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { Calendar, Check, History, LayoutList, Pencil, Plus, Scale, Search, Trash2, X } from 'lucide-react'
 import { MODULE_LABELS } from '../lib/taskNavigation'
 import { useTasks } from '../hooks/useTasks'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { useWhistleblowing, acknowledgementUrgency } from '../hooks/useWhistleblowing'
 import { TASK_OWNER_ROLE_OPTIONS } from '../lib/taskFormOptions'
 import type { Task, TaskModule, TaskSourceType, TaskStatus } from '../types/task'
+import type { WhistleblowingCaseStatus } from '../types/whistleblowing'
+import { WHISTLE_CATEGORY_OPTIONS } from '../types/whistleblowing'
+import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeTaskWizard } from '../components/wizard/wizards'
 import { Mainbox1 } from '../components/layout/Mainbox1'
@@ -85,7 +89,15 @@ function parseSource(s: string | null): TaskSourceType | null {
   return allowed.includes(s as TaskSourceType) ? (s as TaskSourceType) : null
 }
 
-type TaskPageTab = 'list' | 'audit'
+type TaskPageTab = 'list' | 'audit' | 'whistle'
+
+const WHISTLE_STATUS_LABELS: Record<WhistleblowingCaseStatus, string> = {
+  received: 'Mottatt',
+  triage: 'Vurdering',
+  investigation: 'Undersøkelse',
+  internal_review: 'Intern revisjon',
+  closed: 'Avsluttet',
+}
 
 export function TasksPage() {
   const menu1 = useOrgMenu1Styles()
@@ -94,8 +106,9 @@ export function TasksPage() {
   const tableCell = `${table1CellPadding(layout)} ${TABLE_CELL_BASE}`
   const theadRow = table1HeaderRowClass(layout)
 
-  const { supabaseConfigured } = useOrgSetupContext()
+  const { supabaseConfigured, organization } = useOrgSetupContext()
   const org = useOrganisation()
+  const wb = useWhistleblowing()
   const {
     tasks,
     auditLog,
@@ -109,7 +122,9 @@ export function TasksPage() {
     error,
   } = useTasks()
   const [searchParams, setSearchParams] = useSearchParams()
-  const pageTab: TaskPageTab = searchParams.get('view') === 'audit' ? 'audit' : 'list'
+  const viewParam = searchParams.get('view')
+  const pageTab: TaskPageTab =
+    viewParam === 'audit' ? 'audit' : viewParam === 'whistle' ? 'whistle' : 'list'
 
   const setPageTab = useCallback(
     (t: TaskPageTab) => {
@@ -117,6 +132,7 @@ export function TasksPage() {
         (prev) => {
           const next = new URLSearchParams(prev)
           if (t === 'audit') next.set('view', 'audit')
+          else if (t === 'whistle') next.set('view', 'whistle')
           else {
             next.delete('view')
             next.set('view', 'list')
@@ -147,6 +163,22 @@ export function TasksPage() {
   const [signName, setSignName] = useState<Record<string, string>>({})
   const [taskPanelOpen, setTaskPanelOpen] = useState(false)
 
+  const [whistlePanelOpen, setWhistlePanelOpen] = useState(false)
+  const [wCategory, setWCategory] = useState(WHISTLE_CATEGORY_OPTIONS[0]?.value ?? 'other')
+  const [wTitle, setWTitle] = useState('')
+  const [wDesc, setWDesc] = useState('')
+  const [wWww, setWWww] = useState('')
+  const [wOccurred, setWOccurred] = useState('')
+  const [wAnonymous, setWAnonymous] = useState(true)
+  const [wContact, setWContact] = useState('')
+  const [wFiles, setWFiles] = useState('')
+  const [wSubmitKey, setWSubmitKey] = useState<string | null>(null)
+  const [noteDraft, setNoteDraft] = useState<Record<string, string>>({})
+  const [closeModalCaseId, setCloseModalCaseId] = useState<string | null>(null)
+  const [closeSummary, setCloseSummary] = useState('')
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- React setState identities are stable
   const resetTaskForm = useCallback(() => {
     setTitle('')
     setDescription('')
@@ -163,9 +195,59 @@ export function TasksPage() {
     setEditingId(null)
   }, [])
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- React setState identities are stable
+  const resetWhistleForm = useCallback(() => {
+    setWCategory(WHISTLE_CATEGORY_OPTIONS[0]?.value ?? 'other')
+    setWTitle('')
+    setWDesc('')
+    setWWww('')
+    setWOccurred('')
+    setWAnonymous(true)
+    setWContact('')
+    setWFiles('')
+    setWSubmitKey(null)
+  }, [])
+
+  function openWhistlePanel() {
+    resetWhistleForm()
+    setWhistlePanelOpen(true)
+  }
+
+  const closeWhistlePanel = useCallback(() => {
+    setWhistlePanelOpen(false)
+    resetWhistleForm()
+  }, [resetWhistleForm])
+
+  const closeTaskPanel = useCallback(() => {
+    setTaskPanelOpen(false)
+    resetTaskForm()
+  }, [resetTaskForm])
+
+  async function submitWhistleCase(e: React.FormEvent) {
+    e.preventDefault()
+    if (!wTitle.trim() || !wDesc.trim()) return
+    const hints = wFiles
+      .split(/[\n,;]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+    const r = await wb.createCase({
+      category: wCategory,
+      title: wTitle,
+      description: wDesc,
+      whoWhatWhere: wWww,
+      occurredAtText: wOccurred,
+      isAnonymous: wAnonymous,
+      reporterContact: wContact,
+      attachmentHints: hints,
+    })
+    if (r) {
+      setWSubmitKey(r.accessKey)
+    }
+  }
+
   useEffect(() => {
     const t = searchParams.get('title')
-    if (!t) return
+    if (!t || viewParam === 'whistle') return
     queueMicrotask(() => {
       setTitle(t)
       setDescription(searchParams.get('desc') ?? '')
@@ -185,7 +267,7 @@ export function TasksPage() {
       const view = searchParams.get('view')
       setSearchParams(view ? { view } : { view: 'list' }, { replace: true })
     })
-  }, [searchParams, setSearchParams])
+  }, [searchParams, setSearchParams, viewParam])
 
   useEffect(() => {
     if (!taskPanelOpen) return
@@ -199,14 +281,35 @@ export function TasksPage() {
   useEffect(() => {
     if (!taskPanelOpen) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setTaskPanelOpen(false)
-        resetTaskForm()
-      }
+      if (e.key === 'Escape') closeTaskPanel()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [taskPanelOpen, resetTaskForm])
+  }, [taskPanelOpen, closeTaskPanel])
+
+  useEffect(() => {
+    if (!whistlePanelOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [whistlePanelOpen])
+
+  useEffect(() => {
+    if (!whistlePanelOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeWhistlePanel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [whistlePanelOpen, closeWhistlePanel])
+
+  useEffect(() => {
+    if (pageTab !== 'whistle') return
+    const id = window.setInterval(() => setNowMs(Date.now()), 60_000)
+    return () => window.clearInterval(id)
+  }, [pageTab])
 
   const employeePickList = useMemo(
     () =>
@@ -297,11 +400,6 @@ export function TasksPage() {
     setTaskPanelOpen(true)
   }
 
-  function closeTaskPanel() {
-    setTaskPanelOpen(false)
-    resetTaskForm()
-  }
-
   function openNewTaskPanel() {
     resetTaskForm()
     setTaskPanelOpen(true)
@@ -341,32 +439,60 @@ export function TasksPage() {
             className="text-2xl font-semibold text-neutral-900 md:text-3xl"
             style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
           >
-            Oppgaver (samlet)
+            {pageTab === 'whistle' ? 'Varslingssaker' : 'Oppgaver (samlet)'}
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
-            Alle moduler kan sende oppfølgingsoppgaver hit. Digital signatur = navn + tidspunkt lagret lokalt.
+            {pageTab === 'whistle'
+              ? 'Lukket hvelv: kun varslingsmottak og administrator ser saker. Notater er kun tillegg (kan ikke slettes). Anonym innsending: lenke på innloggingssiden.'
+              : 'Alle moduler kan sende oppfølgingsoppgaver hit. Digital signatur = navn + tidspunkt lagret lokalt.'}
           </p>
           <div className="mt-5 flex flex-wrap items-center gap-2">
-            <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-              Vist: <strong className="font-semibold">{stats.total}</strong>
-            </span>
-            <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-700`}>
-              To do <strong className="ml-1 font-semibold">{stats.todo}</strong>
-            </span>
-            <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
-              Aktiv <strong className="ml-1 font-semibold">{stats.prog}</strong>
-            </span>
-            <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
-              Ferdig <strong className="ml-1 font-semibold">{stats.done}</strong>
-            </span>
-            <button
-              type="button"
-              onClick={openNewTaskPanel}
-              className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
-            >
-              <Plus className="size-4 shrink-0" />
-              Ny oppgave
-            </button>
+            {pageTab === 'list' ? (
+              <>
+                <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                  Vist: <strong className="font-semibold">{stats.total}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-700`}>
+                  To do <strong className="ml-1 font-semibold">{stats.todo}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
+                  Aktiv <strong className="ml-1 font-semibold">{stats.prog}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
+                  Ferdig <strong className="ml-1 font-semibold">{stats.done}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={openNewTaskPanel}
+                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                >
+                  <Plus className="size-4 shrink-0" />
+                  Ny oppgave
+                </button>
+              </>
+            ) : pageTab === 'whistle' ? (
+              <>
+                <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                  Saker <strong className="ml-1 font-semibold">{wb.cases.length}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={openWhistlePanel}
+                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                >
+                  <Plus className="size-4 shrink-0" />
+                  Ny varslingssak
+                </button>
+                {organization?.whistle_public_slug ? (
+                  <span className={`${HERO_ACTION_CLASS} max-w-full bg-white text-xs text-neutral-600 ring-1 ring-neutral-200`}>
+                    Offentlig lenke:{' '}
+                    <code className="ml-1 font-mono text-[11px]">
+                      /varsle/{organization.whistle_public_slug}
+                    </code>
+                  </span>
+                ) : null}
+              </>
+            ) : null}
           </div>
         </div>
       </div>
@@ -376,6 +502,7 @@ export function TasksPage() {
           {(
             [
               { id: 'list' as const, label: 'Oppgaver', Icon: LayoutList },
+              { id: 'whistle' as const, label: 'Varslingssaker', Icon: Scale },
               { id: 'audit' as const, label: 'Oppgavelogg', Icon: History },
             ] as const
           ).map(({ id, label, Icon }) => {
@@ -397,11 +524,218 @@ export function TasksPage() {
         </div>
       </div>
 
-      {error && (
-        <p className="mt-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>
+      {(error || wb.error) && (
+        <p className="mt-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          {error ?? wb.error}
+        </p>
       )}
       {loading && supabaseConfigured && (
         <p className="mt-4 text-sm text-neutral-500">Laster oppgaver…</p>
+      )}
+
+      {pageTab === 'whistle' && (
+        <>
+          {!supabaseConfigured ? (
+            <div className="mt-8 rounded-none border border-neutral-200 bg-white px-4 py-4 text-sm text-neutral-700">
+              Varslingshvelvet krever Supabase med migrasjonene <code className="text-xs">whistleblowing_cases</code> og
+              RLS. Konfigurer klienten for å bruke denne modulen.
+            </div>
+          ) : !wb.canAccessVault ? (
+            <div className="mt-8 rounded-none border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+              Du har ikke tilgang til varslingshvelvet. Kun brukere med rollen{' '}
+              <strong>Varslingsmottak</strong> (<code className="text-xs">whistleblowing.committee</code>) eller
+              organisasjonsadministrator kan se saker her.
+            </div>
+          ) : wb.loading && supabaseConfigured ? (
+            <p className="mt-6 text-sm text-neutral-500">Laster varslingssaker…</p>
+          ) : (
+            <>
+              <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {(
+                  [
+                    { title: 'Totalt', sub: 'Registrerte saker', value: `${wb.cases.length}` },
+                    {
+                      title: 'Åpne',
+                      sub: 'Ikke avsluttet',
+                      value: `${wb.cases.filter((c) => c.status !== 'closed').length}`,
+                    },
+                    {
+                      title: 'Frist nær',
+                      sub: '≤2 dager til bekreftelsesfrist',
+                      value: `${wb.cases.filter((c) => c.status !== 'closed' && acknowledgementUrgency(c.acknowledgement_due_at) === 'soon').length}`,
+                    },
+                    {
+                      title: 'Forfalt frist',
+                      sub: 'Krever oppfølging',
+                      value: `${wb.cases.filter((c) => c.status !== 'closed' && acknowledgementUrgency(c.acknowledgement_due_at) === 'overdue').length}`,
+                    },
+                  ] as const
+                ).map((item) => (
+                  <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={menu1.barStyle}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
+                    <p className="mt-1 text-xs text-white/70">{item.sub}</p>
+                    <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <section className="mt-8 overflow-hidden rounded-none border border-neutral-200 bg-white">
+                <div className="border-b border-neutral-200 px-4 py-3">
+                  <h2 className="font-semibold text-neutral-900">Saker</h2>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Mottatt-dato og frist for bekreftelse (typisk 7 dager). Interne notater er append-only i databasen.
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[920px] border-collapse text-left text-sm">
+                    <thead>
+                      <tr className={theadRow}>
+                        <th className={`${tableCell} font-medium`}>Sak</th>
+                        <th className={`${tableCell} font-medium`}>Status</th>
+                        <th className={`${tableCell} font-medium`}>Mottatt</th>
+                        <th className={`${tableCell} font-medium`}>Bekreftelsesfrist</th>
+                        <th className={`${tableCell} font-medium`}>Notater</th>
+                        <th className={`${tableCell} text-right font-medium`}>Handlinger</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {wb.cases.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-10 text-center text-sm text-neutral-500">
+                            Ingen varslingssaker ennå.
+                          </td>
+                        </tr>
+                      ) : (
+                        wb.cases.map((c, rowIdx) => {
+                          const urg = acknowledgementUrgency(c.acknowledgement_due_at)
+                          const fristCls =
+                            urg === 'overdue'
+                              ? 'text-red-700 font-semibold'
+                              : urg === 'soon'
+                                ? 'text-amber-800 font-medium'
+                                : 'text-neutral-700'
+                          const daysLeft = Math.ceil(
+                            (new Date(c.acknowledgement_due_at).getTime() - nowMs) / (24 * 60 * 60 * 1000),
+                          )
+                          return (
+                            <tr key={c.id} className={`${table1BodyRowClass(layout, rowIdx)} hover:bg-neutral-50/50`}>
+                              <td className={`${tableCell} align-top`}>
+                                <div className="font-medium text-neutral-900">{c.title}</div>
+                                <div className="mt-0.5 text-xs text-neutral-500">{c.category}</div>
+                                {c.description ? (
+                                  <div className="mt-1 line-clamp-2 text-xs text-neutral-600">{c.description}</div>
+                                ) : null}
+                              </td>
+                              <td className={`${tableCell} align-top`}>
+                                <select
+                                  value={c.status}
+                                  disabled={c.status === 'closed'}
+                                  onChange={(e) => void wb.updateStatus(c.id, e.target.value as WhistleblowingCaseStatus)}
+                                  className="rounded-none border border-neutral-200 px-2 py-1 text-xs"
+                                >
+                                  {(Object.keys(WHISTLE_STATUS_LABELS) as WhistleblowingCaseStatus[]).map((s) => (
+                                    <option key={s} value={s}>
+                                      {WHISTLE_STATUS_LABELS[s]}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className={`${tableCell} align-top text-xs text-neutral-600`}>
+                                {new Date(c.received_at).toLocaleString('no-NO', {
+                                  dateStyle: 'short',
+                                  timeStyle: 'short',
+                                })}
+                              </td>
+                              <td className={`${tableCell} align-top text-xs ${fristCls}`}>
+                                {new Date(c.acknowledgement_due_at).toLocaleDateString('no-NO')}
+                                <div className="mt-0.5">
+                                  {urg === 'overdue'
+                                    ? `Forfalt (${Math.abs(daysLeft)} d)`
+                                    : `Gjenstår ca. ${daysLeft} d`}
+                                </div>
+                              </td>
+                              <td className={`${tableCell} align-top max-w-[280px]`}>
+                                <ul className="max-h-24 space-y-1 overflow-y-auto text-[11px] text-neutral-600">
+                                  {(wb.notesByCase[c.id] ?? []).map((n) => (
+                                    <li key={n.id} className="border-b border-neutral-100 pb-1">
+                                      <span className="text-neutral-400">
+                                        {new Date(n.created_at).toLocaleString('no-NO', { dateStyle: 'short' })}:{' '}
+                                      </span>
+                                      {n.body}
+                                    </li>
+                                  ))}
+                                </ul>
+                                <textarea
+                                  value={noteDraft[c.id] ?? ''}
+                                  onChange={(e) => setNoteDraft((d) => ({ ...d, [c.id]: e.target.value }))}
+                                  rows={2}
+                                  placeholder="Nytt notat (lagres som ny rad)…"
+                                  className="mt-2 w-full rounded-none border border-neutral-200 px-2 py-1 text-xs"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const t = noteDraft[c.id]?.trim()
+                                    if (!t) return
+                                    void wb.appendNote(c.id, t).then(() =>
+                                      setNoteDraft((d) => ({ ...d, [c.id]: '' })),
+                                    )
+                                  }}
+                                  className="mt-1 rounded-none bg-neutral-800 px-2 py-1 text-[11px] font-medium text-white"
+                                >
+                                  Legg til notat
+                                </button>
+                              </td>
+                              <td className={`${tableCell} align-top text-right`}>
+                                <div className="flex flex-col items-end gap-2">
+                                  {c.status !== 'internal_review' && c.status !== 'closed' ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => void wb.updateStatus(c.id, 'internal_review')}
+                                      className="rounded-none border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-950"
+                                    >
+                                      Intern revisjon
+                                    </button>
+                                  ) : null}
+                                  {c.status !== 'closed' ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setCloseModalCaseId(c.id)
+                                        setCloseSummary('')
+                                      }}
+                                      className="rounded-none border border-neutral-300 px-2 py-1 text-xs"
+                                    >
+                                      Lukk sak
+                                    </button>
+                                  ) : (
+                                    <span className="text-xs text-neutral-500">Avsluttet</span>
+                                  )}
+                                  <AddTaskLink
+                                    title={`Varsling: ${c.title.slice(0, 50)}`}
+                                    module="general"
+                                    sourceType="manual"
+                                    sourceId={c.id}
+                                    sourceLabel={`Varsling ${c.id.slice(0, 8)}`}
+                                    ownerRole="Varslingsmottak"
+                                    requiresManagementSignOff
+                                    className="inline-flex rounded-none border border-neutral-200 px-2 py-1 text-xs"
+                                  >
+                                    Oppgave
+                                  </AddTaskLink>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </>
+          )}
+        </>
       )}
 
       {pageTab === 'list' && (
@@ -656,6 +990,230 @@ export function TasksPage() {
           </Mainbox1>
         </section>
       )}
+
+      {closeModalCaseId ? (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setCloseModalCaseId(null)
+          }}
+        >
+          <div
+            className="max-w-md border border-neutral-200 bg-white p-6 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-neutral-900">Lukk varslingssak</h3>
+            <p className="mt-2 text-sm text-neutral-600">
+              Skriv en offisiell konklusjon. Denne lagres på saken og kan ikke fjernes uten databaseinngrep.
+            </p>
+            <textarea
+              value={closeSummary}
+              onChange={(e) => setCloseSummary(e.target.value)}
+              rows={4}
+              className="mt-4 w-full rounded-none border border-neutral-300 px-3 py-2 text-sm"
+              placeholder="Konklusjon og eventuelle henvisninger til rutiner…"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCloseModalCaseId(null)}
+                className="rounded-none border border-neutral-300 px-4 py-2 text-sm"
+              >
+                Avbryt
+              </button>
+              <button
+                type="button"
+                disabled={closeSummary.trim().length < 10}
+                onClick={() => {
+                  if (!closeModalCaseId) return
+                  void wb.closeCase(closeModalCaseId, closeSummary).then(() => {
+                    setCloseModalCaseId(null)
+                    setCloseSummary('')
+                  })
+                }}
+                className="rounded-none bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+              >
+                Bekreft lukking
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {whistlePanelOpen && pageTab === 'whistle' && wb.canAccessVault ? (
+        <div
+          className="fixed inset-0 z-[100] flex justify-end bg-black/45 backdrop-blur-[2px]"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeWhistlePanel()
+          }}
+        >
+          <div
+            className="flex h-full w-full max-w-[min(100vw,920px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="whistle-panel-title"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 bg-[#f7f6f2] px-6 py-5 sm:px-8 sm:py-6">
+              <h2
+                id="whistle-panel-title"
+                className="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl"
+                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+              >
+                Ny varslingssak
+              </h2>
+              <button
+                type="button"
+                onClick={closeWhistlePanel}
+                className="rounded-none p-2 text-neutral-500 transition hover:bg-neutral-200/60"
+                aria-label="Lukk"
+              >
+                <X className="size-6" />
+              </button>
+            </header>
+            <form className="flex min-h-0 flex-1 flex-col" onSubmit={(e) => void submitWhistleCase(e)}>
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-8">
+                {wSubmitKey ? (
+                  <div className="rounded-none border border-emerald-200 bg-white p-5">
+                    <p className="font-medium text-emerald-900">Sak opprettet</p>
+                    <p className="mt-2 text-sm text-neutral-700">
+                      Saksnøkkel for varsler (hvis ikke anonym):{' '}
+                      <code className="break-all text-xs">{wSubmitKey}</code>
+                    </p>
+                    <p className="mt-2 text-xs text-neutral-500">
+                      Varsler kan sjekke status på /varsle/status med denne nøkkelen.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className={TASK_PANEL_ROW_GRID}>
+                      <div>
+                        <h3 className="text-base font-semibold text-neutral-900">Grunnlag</h3>
+                        <p className={`${SETTINGS_LEAD} mt-2`}>
+                          Beskriv kritikkverdige forhold etter virksomhetens rutiner. Feltene støtter dokumentasjon under
+                          AML kap. 2A.
+                        </p>
+                      </div>
+                      <div className={TASK_PANEL_INSET}>
+                        <label className={SETTINGS_FIELD_LABEL}>Kategori</label>
+                        <select
+                          value={wCategory}
+                          onChange={(e) => setWCategory(e.target.value)}
+                          className={TASK_PANEL_SELECT}
+                        >
+                          {WHISTLE_CATEGORY_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                        <label className={`${SETTINGS_FIELD_LABEL} mt-4`}>Tittel</label>
+                        <input
+                          required
+                          value={wTitle}
+                          onChange={(e) => setWTitle(e.target.value)}
+                          className={TASK_PANEL_SELECT}
+                        />
+                        <label className={`${SETTINGS_FIELD_LABEL} mt-4`}>Beskrivelse</label>
+                        <textarea
+                          required
+                          rows={4}
+                          value={wDesc}
+                          onChange={(e) => setWDesc(e.target.value)}
+                          className={TASK_PANEL_SELECT}
+                        />
+                      </div>
+                    </div>
+                    <div className="my-8 border-t border-neutral-200/90" />
+                    <div className={TASK_PANEL_ROW_GRID}>
+                      <div>
+                        <h3 className="text-base font-semibold text-neutral-900">Hvem / hva / hvor</h3>
+                        <p className={`${SETTINGS_LEAD} mt-2`}>
+                          Tidsrom og involverte parter (uten å navngi unødvendig hvis du varsler anonymt).
+                        </p>
+                      </div>
+                      <div className={TASK_PANEL_INSET}>
+                        <label className={SETTINGS_FIELD_LABEL}>Hvem, hva, hvor</label>
+                        <textarea rows={3} value={wWww} onChange={(e) => setWWww(e.target.value)} className={TASK_PANEL_SELECT} />
+                        <label className={`${SETTINGS_FIELD_LABEL} mt-4`}>Tidspunkt (fritekst)</label>
+                        <input value={wOccurred} onChange={(e) => setWOccurred(e.target.value)} className={TASK_PANEL_SELECT} />
+                      </div>
+                    </div>
+                    <div className="my-8 border-t border-neutral-200/90" />
+                    <div className={TASK_PANEL_ROW_GRID}>
+                      <div>
+                        <h3 className="text-base font-semibold text-neutral-900">Anonymitet og vedlegg</h3>
+                        <p className={`${SETTINGS_LEAD} mt-2`}>
+                          Du kan varsle anonymt. Opplasting av filer kobles til lagring i produksjon (nå: filnavn som hint).
+                        </p>
+                      </div>
+                      <div className={TASK_PANEL_INSET}>
+                        <fieldset className="space-y-2">
+                          <label className="flex items-start gap-2 text-sm">
+                            <input type="radio" checked={wAnonymous} onChange={() => setWAnonymous(true)} className="mt-1" />
+                            <span>Anonym varsling</span>
+                          </label>
+                          <label className="flex items-start gap-2 text-sm">
+                            <input type="radio" checked={!wAnonymous} onChange={() => setWAnonymous(false)} className="mt-1" />
+                            <span>Jeg oppgir kontakt (kobles til min bruker i systemet)</span>
+                          </label>
+                        </fieldset>
+                        {!wAnonymous ? (
+                          <>
+                            <label className={`${SETTINGS_FIELD_LABEL} mt-4`}>Kontakt</label>
+                            <input value={wContact} onChange={(e) => setWContact(e.target.value)} className={TASK_PANEL_SELECT} />
+                          </>
+                        ) : null}
+                        <label className={`${SETTINGS_FIELD_LABEL} mt-4`}>Vedlegg (filnavn, én per linje)</label>
+                        <textarea
+                          rows={2}
+                          value={wFiles}
+                          onChange={(e) => setWFiles(e.target.value)}
+                          className={TASK_PANEL_SELECT}
+                          placeholder="bevis.png"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <footer className="shrink-0 border-t border-neutral-200/90 bg-[#f0efe9] px-6 py-5 sm:px-8">
+                {wSubmitKey ? (
+                  <button
+                    type="button"
+                    onClick={closeWhistlePanel}
+                    className="w-full rounded-none bg-[#1a3d32] px-5 py-3 text-sm font-semibold text-white"
+                  >
+                    Lukk
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="submit"
+                      disabled={!wTitle.trim() || !wDesc.trim()}
+                      className="flex w-full items-center justify-center rounded-none px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.12em] text-white disabled:opacity-45"
+                      style={{ backgroundColor: layout.accent }}
+                    >
+                      Registrer sak
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeWhistlePanel}
+                      className="mt-3 w-full rounded-none border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700"
+                    >
+                      Avbryt
+                    </button>
+                  </>
+                )}
+              </footer>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       {taskPanelOpen && pageTab === 'list' ? (
         <div

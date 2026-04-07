@@ -282,6 +282,26 @@ export function AuthPage({ mode }: { mode: Mode }) {
           </div>
         )}
 
+        {mode === 'login' ? (
+          <p className="mt-6 border-t border-neutral-200 pt-5 text-center text-xs text-neutral-600">
+            <span className="block text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Varsling (AML kap. 2A)</span>
+            <span className="mt-2 block leading-relaxed">
+              Ønsker du å varsle om kritikkverdige forhold <strong>uten å logge inn</strong>? Bruk lenken du har fått fra
+              arbeidsgiver, eller demo-lenken under.
+            </span>
+            <Link
+              to="/varsle/0000000000004000a000000000000001"
+              className="mt-2 inline-block font-medium text-[#1a3d32] underline"
+            >
+              Varsle anonymt (demo-virksomhet)
+            </Link>
+            <span className="mx-2 text-neutral-300">·</span>
+            <Link to="/varsle/status" className="font-medium text-[#1a3d32] underline">
+              Sjekk status med saksnøkkel
+            </Link>
+          </p>
+        ) : null}
+
         <p className="mt-6 text-center text-sm text-neutral-600">
           {mode === 'login' ? (
             <>

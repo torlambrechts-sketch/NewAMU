@@ -10,6 +10,8 @@ export const PERMISSION_KEYS = [
   'module.view.org_health',
   'module.view.hse',
   'module.view.internal_control',
+  /** Varslingsmottak — full innsyn i whistleblowing_cases (AML kap. 2A) */
+  'whistleblowing.committee',
   'module.view.tasks',
   'module.view.learning',
   /** Cross-module reporting & compliance exports */
@@ -45,6 +47,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'module.view.org_health': 'Org health',
   'module.view.hse': 'HSE',
   'module.view.internal_control': 'Internkontroll',
+  'whistleblowing.committee': 'Varslingsmottak',
   'module.view.tasks': 'Tasks',
   'module.view.learning': 'E-learning',
   'module.view.reports': 'Rapporter',

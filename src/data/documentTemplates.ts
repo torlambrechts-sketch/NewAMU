@@ -125,7 +125,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
         { kind: 'heading', level: 2, text: 'Prosess' },
         { kind: 'text', body: '<ol><li><strong>Meld avviket</strong> i avvikssystemet umiddelbart</li><li><strong>Ansvarlig leder</strong> vurderer alvorlighet og setter status</li><li><strong>Rotårsaksanalyse</strong> gjennomføres for alvorlige avvik</li><li><strong>Tiltak</strong> planlegges, ansvar tildeles og frist settes</li><li><strong>Lukking</strong> bekreftes av leder når tiltak er gjennomført</li><li><strong>Statistikk</strong> gjennomgås i AMU kvartalsvis</li></ol>' },
         { kind: 'module', moduleName: 'action_button', params: { label: 'Meld HMS-avvik', route: '/hse?tab=incidents', variant: 'danger' } },
-        { kind: 'module', moduleName: 'action_button', params: { label: 'Meld varslingssak', route: '/internal-control?tab=whistle', variant: 'secondary' } },
+        { kind: 'module', moduleName: 'action_button', params: { label: 'Meld varslingssak', route: '/tasks?view=whistle', variant: 'secondary' } },
         { kind: 'law_ref', ref: 'IK-f §5 nr. 4', description: 'Rutiner for å avdekke og rette opp avvik', url: 'https://lovdata.no/forskrift/1996-12-06-1127/§5' },
         { kind: 'law_ref', ref: 'AML §3-1 (2e)', description: 'Rutiner for avdekke og rette opp regelverksovertredelser', url: 'https://lovdata.no/lov/2005-06-17-62/§3-1' },
         { kind: 'module', moduleName: 'acknowledgement_footer' },
