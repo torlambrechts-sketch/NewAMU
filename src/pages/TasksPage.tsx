@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Calendar, Check, History, LayoutList, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { Calendar, Check, History, LayoutList, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { MODULE_LABELS } from '../lib/taskNavigation'
 import { useTasks } from '../hooks/useTasks'
 import { useOrganisation } from '../hooks/useOrganisation'
@@ -28,15 +28,15 @@ const HERO_ACTION_CLASS =
 const R_FLAT = 'rounded-none'
 const SETTINGS_THRESHOLD_BOX =
   'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
-const ORG_MERGED_PANEL =
-  'flex min-h-0 flex-col border border-black/15 lg:flex-row lg:items-stretch lg:divide-x lg:divide-white/15'
-const ORG_MERGED_COL = 'min-w-0 flex-1 p-4 sm:p-5'
-const ORG_MERGED_ACTION_COL =
-  'flex shrink-0 flex-col justify-center gap-3 border-t border-white/15 p-4 sm:p-5 lg:border-t-0 lg:border-l lg:border-white/15'
-const SETTINGS_LEAD_ON_DARK = 'text-sm leading-relaxed text-white/90'
-const SETTINGS_FIELD_LABEL_ON_DARK = 'text-[10px] font-bold uppercase tracking-wider text-white/90'
-const SETTINGS_INPUT_ON_DARK =
-  'mt-1.5 w-full rounded-none border border-white/25 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-white focus:outline-none focus:ring-1 focus:ring-white'
+/** Panel: tabellaktige rader som Innstillinger (lys boks) */
+const SETTINGS_ROW_GRID =
+  'grid grid-cols-1 gap-4 border-b border-neutral-200 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,1.05fr)_minmax(0,380px)] md:items-start md:gap-10 md:px-5 md:py-5'
+const SETTINGS_LEAD = 'text-sm leading-relaxed text-neutral-600'
+const SETTINGS_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-800'
+const SETTINGS_INPUT =
+  'mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900'
+const TASK_PANEL_INSET = 'rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6'
+const TASK_PANEL_SELECT = `${SETTINGS_INPUT} bg-white`
 
 const statusLabels: Record<TaskStatus, string> = {
   todo: 'To do',
@@ -145,6 +145,23 @@ export function TasksPage() {
   const [requiresMgmt, setRequiresMgmt] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [signName, setSignName] = useState<Record<string, string>>({})
+  const [taskPanelOpen, setTaskPanelOpen] = useState(false)
+
+  const resetTaskForm = useCallback(() => {
+    setTitle('')
+    setDescription('')
+    setAssignee('')
+    setAssigneeEmployeeId('')
+    setOwnerRole('Ansvarlig')
+    setLeaderEmployeeId('')
+    setDueDate('')
+    setFormModule('general')
+    setFormSource('manual')
+    setSourceId('')
+    setSourceLabel('')
+    setRequiresMgmt(false)
+    setEditingId(null)
+  }, [])
 
   useEffect(() => {
     const t = searchParams.get('title')
@@ -163,10 +180,33 @@ export function TasksPage() {
       setSourceLabel(searchParams.get('sourceLabel') ?? '')
       setOwnerRole(searchParams.get('role') ?? 'Ansvarlig')
       setRequiresMgmt(searchParams.get('mgmt') === '1')
+      setEditingId(null)
+      setTaskPanelOpen(true)
       const view = searchParams.get('view')
       setSearchParams(view ? { view } : { view: 'list' }, { replace: true })
     })
   }, [searchParams, setSearchParams])
+
+  useEffect(() => {
+    if (!taskPanelOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [taskPanelOpen])
+
+  useEffect(() => {
+    if (!taskPanelOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setTaskPanelOpen(false)
+        resetTaskForm()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [taskPanelOpen, resetTaskForm])
 
   const employeePickList = useMemo(
     () =>
@@ -230,25 +270,14 @@ export function TasksPage() {
     }
     if (editingId) {
       updateTask(editingId, base)
-      setEditingId(null)
     } else {
       addTask({
         ...base,
         status: 'todo',
       })
     }
-    setTitle('')
-    setDescription('')
-    setAssignee('')
-    setAssigneeEmployeeId('')
-    setOwnerRole('Ansvarlig')
-    setLeaderEmployeeId('')
-    setDueDate('')
-    setFormModule('general')
-    setFormSource('manual')
-    setSourceId('')
-    setSourceLabel('')
-    setRequiresMgmt(false)
+    setTaskPanelOpen(false)
+    resetTaskForm()
   }
 
   function startEdit(task: Task) {
@@ -265,6 +294,17 @@ export function TasksPage() {
     setSourceId(task.sourceId ?? '')
     setSourceLabel(task.sourceLabel ?? '')
     setRequiresMgmt(task.requiresManagementSignOff)
+    setTaskPanelOpen(true)
+  }
+
+  function closeTaskPanel() {
+    setTaskPanelOpen(false)
+    resetTaskForm()
+  }
+
+  function openNewTaskPanel() {
+    resetTaskForm()
+    setTaskPanelOpen(true)
   }
 
   function formatSig(s?: { signerName: string; signedAt: string }) {
@@ -319,6 +359,14 @@ export function TasksPage() {
             <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
               Ferdig <strong className="ml-1 font-semibold">{stats.done}</strong>
             </span>
+            <button
+              type="button"
+              onClick={openNewTaskPanel}
+              className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+            >
+              <Plus className="size-4 shrink-0" />
+              Ny oppgave
+            </button>
           </div>
         </div>
       </div>
@@ -374,275 +422,6 @@ export function TasksPage() {
               </div>
             ))}
           </div>
-
-          <form
-            className="mt-6 overflow-hidden rounded-none border border-black/10"
-            onSubmit={handleSubmit}
-            style={menu1.barStyle}
-          >
-            <div className={ORG_MERGED_PANEL}>
-              <div className={ORG_MERGED_COL}>
-                <p className={SETTINGS_LEAD_ON_DARK}>Hva skal gjøres, og hva er bakgrunnen?</p>
-                <div className="mt-3 space-y-3">
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="task-title">
-                      Tittel
-                    </label>
-                    <input
-                      id="task-title"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      required
-                      className={SETTINGS_INPUT_ON_DARK}
-                    />
-                  </div>
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="task-desc">
-                      Beskrivelse
-                    </label>
-                    <textarea
-                      id="task-desc"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      rows={3}
-                      className={SETTINGS_INPUT_ON_DARK}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className={ORG_MERGED_COL}>
-                <p className={SETTINGS_LEAD_ON_DARK}>Hvem eier oppgaven, når skal den være ferdig?</p>
-                <div className="mt-3 space-y-3">
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="task-assignee-emp">
-                      Ansvarlig (ansatt)
-                    </label>
-                    <select
-                      id="task-assignee-emp"
-                      value={assigneeEmployeeId}
-                      onChange={(e) => {
-                        const id = e.target.value
-                        setAssigneeEmployeeId(id)
-                        const emp = employeePickList.find((x) => x.id === id)
-                        setAssignee(emp ? emp.name : assignee)
-                      }}
-                      className={SETTINGS_INPUT_ON_DARK}
-                    >
-                      <option value="">Fritekst (felt under)</option>
-                      {employeePickList.map((e) => (
-                        <option key={e.id} value={e.id}>
-                          {e.name}
-                          {e.jobTitle ? ` — ${e.jobTitle}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    {!assigneeEmployeeId ? (
-                      <input
-                        value={assignee}
-                        onChange={(e) => setAssignee(e.target.value)}
-                        className={`${SETTINGS_INPUT_ON_DARK} mt-2`}
-                        placeholder="Navn (hvis ikke i listen)"
-                      />
-                    ) : (
-                      <p className="mt-2 text-xs text-white/75">Valgt: {assignee}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="task-owner-role">
-                      Rolle
-                    </label>
-                    <select
-                      id="task-owner-role"
-                      value={
-                        (TASK_OWNER_ROLE_OPTIONS as readonly string[]).includes(ownerRole) ? ownerRole : 'Annet'
-                      }
-                      onChange={(e) => {
-                        const v = e.target.value
-                        if (v === 'Annet') setOwnerRole('')
-                        else setOwnerRole(v)
-                      }}
-                      className={SETTINGS_INPUT_ON_DARK}
-                    >
-                      {TASK_OWNER_ROLE_OPTIONS.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                      <option value="Annet">Annet (fritekst)</option>
-                    </select>
-                    {!(TASK_OWNER_ROLE_OPTIONS as readonly string[]).includes(ownerRole) && (
-                      <input
-                        value={ownerRole}
-                        onChange={(e) => setOwnerRole(e.target.value)}
-                        className={`${SETTINGS_INPUT_ON_DARK} mt-2`}
-                        placeholder="Beskriv rolle"
-                      />
-                    )}
-                  </div>
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="task-due">
-                      Frist
-                    </label>
-                    <div className="relative mt-1.5">
-                      <Calendar className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-500" />
-                      <input
-                        id="task-due"
-                        type="date"
-                        value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
-                        className={`${SETTINGS_INPUT_ON_DARK} pl-10`}
-                      />
-                    </div>
-                  </div>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-white/95">
-                    <input
-                      type="checkbox"
-                      checked={requiresMgmt}
-                      onChange={(e) => {
-                        setRequiresMgmt(e.target.checked)
-                        if (!e.target.checked) setLeaderEmployeeId('')
-                      }}
-                      className="size-4 rounded-none border-white/40 bg-white/10 text-[#1a3d32] focus:ring-1 focus:ring-white"
-                    />
-                    Krever ledelses godkjenning
-                  </label>
-                  {requiresMgmt && (
-                    <div>
-                      <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="task-leader-emp">
-                        Leder (godkjenner)
-                      </label>
-                      <select
-                        id="task-leader-emp"
-                        value={leaderEmployeeId}
-                        onChange={(e) => setLeaderEmployeeId(e.target.value)}
-                        className={SETTINGS_INPUT_ON_DARK}
-                      >
-                        <option value="">— Velg leder —</option>
-                        {leaderCandidates.map((e) => (
-                          <option key={e.id} value={e.id}>
-                            {e.name}
-                            {e.jobTitle ? ` — ${e.jobTitle}` : ''}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="mt-1 text-[11px] text-white/60">
-                        Listen prioriterer roller/titler med «leder». Alle ansatte vises hvis ingen treff.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className={ORG_MERGED_COL}>
-                <p className={SETTINGS_LEAD_ON_DARK}>Hvor kommer oppgaven fra i løsningen?</p>
-                <div className="mt-3 space-y-3">
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL_ON_DARK}>Modul</label>
-                    <select
-                      value={formModule}
-                      onChange={(e) => setFormModule(e.target.value as TaskModule)}
-                      className={SETTINGS_INPUT_ON_DARK}
-                    >
-                      {(Object.keys(MODULE_LABELS) as TaskModule[]).map((m) => (
-                        <option key={m} value={m}>
-                          {MODULE_LABELS[m]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL_ON_DARK}>Kilde</label>
-                    <select
-                      value={formSource}
-                      onChange={(e) => setFormSource(e.target.value as TaskSourceType)}
-                      className={SETTINGS_INPUT_ON_DARK}
-                    >
-                      <option value="manual">Manuell</option>
-                      <option value="council_meeting">Rådsmøte</option>
-                      <option value="council_compliance">Samsvar (råd)</option>
-                      <option value="representatives">Representasjon</option>
-                      <option value="survey">Undersøkelse</option>
-                      <option value="hse_safety_round">Vernerunde</option>
-                      <option value="hse_inspection">HMS-inspeksjon</option>
-                      <option value="hse_incident">Hendelse</option>
-                      <option value="nav_report">Sykefravær/NAV</option>
-                      <option value="labor_metric">AML-indikator</option>
-                      <option value="learning_course">Læringskurs</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL_ON_DARK}>Kilde-ID / merkelapp</label>
-                    <div className="mt-1.5 flex gap-2">
-                      <input
-                        value={sourceId}
-                        onChange={(e) => setSourceId(e.target.value)}
-                        className={`${SETTINGS_INPUT_ON_DARK} w-1/3 text-xs`}
-                        placeholder="ID"
-                      />
-                      <input
-                        value={sourceLabel}
-                        onChange={(e) => setSourceLabel(e.target.value)}
-                        className={`${SETTINGS_INPUT_ON_DARK} min-w-0 flex-1`}
-                        placeholder="F.eks. møtetittel"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className={ORG_MERGED_ACTION_COL}>
-                {!editingId && (
-                  <WizardButton
-                    label="Veiviser"
-                    variant="ghost"
-                    def={makeTaskWizard((data) => {
-                      addTask({
-                        title: String(data.title),
-                        description: String(data.description) || '',
-                        assignee: String(data.assignee) || '',
-                        ownerRole: String(data.ownerRole) || 'Ansvarlig',
-                        dueDate: String(data.dueDate) || '',
-                        module: String(data.module) as TaskModule,
-                        sourceType: 'manual' as TaskSourceType,
-                        status: 'todo' as TaskStatus,
-                        requiresManagementSignOff: Boolean(data.requiresManagementSignOff),
-                      })
-                    })}
-                    className="w-full justify-center rounded-none border border-white/35 bg-white/10 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/15 hover:text-white"
-                  />
-                )}
-                <button
-                  type="submit"
-                  className="inline-flex w-full min-w-[10rem] items-center justify-center gap-2 rounded-none border border-white/35 bg-white px-5 py-3 text-sm font-semibold shadow-none transition hover:bg-white/95"
-                  style={{ color: layout.accent }}
-                >
-                  <Plus className="size-4 shrink-0" />
-                  {editingId ? 'Lagre' : 'Legg til'}
-                </button>
-                {editingId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingId(null)
-                      setTitle('')
-                      setDescription('')
-                      setAssignee('')
-                      setAssigneeEmployeeId('')
-                      setOwnerRole('Ansvarlig')
-                      setLeaderEmployeeId('')
-                      setDueDate('')
-                      setFormModule('general')
-                      setFormSource('manual')
-                      setSourceId('')
-                      setSourceLabel('')
-                      setRequiresMgmt(false)
-                    }}
-                    className="w-full rounded-none border border-white/25 px-4 py-2.5 text-sm font-medium text-white/90 hover:bg-white/10"
-                  >
-                    Avbryt
-                  </button>
-                )}
-              </div>
-            </div>
-          </form>
 
           <section className="mt-8 space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-4">
@@ -877,6 +656,375 @@ export function TasksPage() {
           </Mainbox1>
         </section>
       )}
+
+      {taskPanelOpen && pageTab === 'list' ? (
+        <div
+          className="fixed inset-0 z-[100] flex justify-end bg-black/45 backdrop-blur-[2px]"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeTaskPanel()
+          }}
+        >
+          <div
+            className="flex h-full w-full max-w-[min(100vw,920px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="task-panel-title"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 bg-[#f7f6f2] px-6 py-5 sm:px-8 sm:py-6">
+              <h2
+                id="task-panel-title"
+                className="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl"
+                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+              >
+                {editingId ? 'Rediger oppgave' : 'Ny oppgave'}
+              </h2>
+              <button
+                type="button"
+                onClick={closeTaskPanel}
+                className="rounded-none p-2 text-neutral-500 transition hover:bg-neutral-200/60 hover:text-neutral-800"
+                aria-label="Lukk"
+              >
+                <X className="size-6" />
+              </button>
+            </header>
+
+            <form
+              className="flex min-h-0 flex-1 flex-col"
+              onSubmit={handleSubmit}
+            >
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-8">
+                <div className={SETTINGS_ROW_GRID}>
+                  <div>
+                    <h3 className="text-base font-semibold text-neutral-900">Oppgavens innhold</h3>
+                    <p className={`${SETTINGS_LEAD} mt-2`}>
+                      Beskriv hva som skal gjøres og hvorfor. Tydelig tittel og kontekst gjør det enklere å følge opp og
+                      dokumentere etter AML og internkontroll.
+                    </p>
+                  </div>
+                  <div className={TASK_PANEL_INSET}>
+                    <p className="text-sm font-semibold text-neutral-900">
+                      {title.trim() ? title.trim() : 'Uten tittel — fyll inn under'}
+                    </p>
+                    <div className="mt-5 space-y-4">
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL} htmlFor="task-panel-title-input">
+                          Tittel
+                        </label>
+                        <input
+                          id="task-panel-title-input"
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          required
+                          className={TASK_PANEL_SELECT}
+                          placeholder="F.eks. Revider HMS-rutine"
+                        />
+                      </div>
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL} htmlFor="task-panel-desc">
+                          Beskrivelse
+                        </label>
+                        <textarea
+                          id="task-panel-desc"
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          rows={4}
+                          className={TASK_PANEL_SELECT}
+                          placeholder="Bakgrunn, forventet resultat, lenker …"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="my-8 border-t border-neutral-200/90" />
+
+                <div className={SETTINGS_ROW_GRID}>
+                  <div>
+                    <h3 className="text-base font-semibold text-neutral-900">Ansvar og frist</h3>
+                    <p className={`${SETTINGS_LEAD} mt-2`}>
+                      Velg hvem som utfører oppgaven og hvilken rolle de har i sporbarheten. Frist og eventuell
+                      ledelsesgodkjenning styrer hva som kreves før lukking.
+                    </p>
+                  </div>
+                  <div className={TASK_PANEL_INSET}>
+                    <p className={SETTINGS_FIELD_LABEL}>Ansvarlig</p>
+                    {assigneeEmployeeId ? (
+                      <div className="mt-2 inline-flex items-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white">
+                        <span className="max-w-[220px] truncate">{assignee || 'Valgt ansatt'}</span>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-none px-1 text-white/80 hover:text-white"
+                          onClick={() => {
+                            setAssigneeEmployeeId('')
+                            setAssignee('')
+                          }}
+                          aria-label="Fjern valgt ansatt"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ) : null}
+                    <div className={assigneeEmployeeId ? 'mt-4' : 'mt-2'}>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="task-panel-assignee-emp">
+                        Velg ansatt
+                      </label>
+                      <select
+                        id="task-panel-assignee-emp"
+                        value={assigneeEmployeeId}
+                        onChange={(e) => {
+                          const id = e.target.value
+                          setAssigneeEmployeeId(id)
+                          const emp = employeePickList.find((x) => x.id === id)
+                          setAssignee(emp ? emp.name : assignee)
+                        }}
+                        className={TASK_PANEL_SELECT}
+                      >
+                        <option value="">Fritekst (felt under)</option>
+                        {employeePickList.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {e.name}
+                            {e.jobTitle ? ` — ${e.jobTitle}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {!assigneeEmployeeId ? (
+                        <input
+                          value={assignee}
+                          onChange={(e) => setAssignee(e.target.value)}
+                          className={`${TASK_PANEL_SELECT} mt-2`}
+                          placeholder="Navn (hvis ikke i listen)"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="mt-5">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="task-panel-owner-role">
+                        Rolle i oppgaven
+                      </label>
+                      <select
+                        id="task-panel-owner-role"
+                        value={
+                          (TASK_OWNER_ROLE_OPTIONS as readonly string[]).includes(ownerRole) ? ownerRole : 'Annet'
+                        }
+                        onChange={(e) => {
+                          const v = e.target.value
+                          if (v === 'Annet') setOwnerRole('')
+                          else setOwnerRole(v)
+                        }}
+                        className={TASK_PANEL_SELECT}
+                      >
+                        {TASK_OWNER_ROLE_OPTIONS.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                        <option value="Annet">Annet (fritekst)</option>
+                      </select>
+                      {!(TASK_OWNER_ROLE_OPTIONS as readonly string[]).includes(ownerRole) ? (
+                        <input
+                          value={ownerRole}
+                          onChange={(e) => setOwnerRole(e.target.value)}
+                          className={`${TASK_PANEL_SELECT} mt-2`}
+                          placeholder="Beskriv rolle"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="mt-5">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="task-panel-due">
+                        Frist
+                      </label>
+                      <div className="relative mt-1.5">
+                        <Calendar className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-500" />
+                        <input
+                          id="task-panel-due"
+                          type="date"
+                          value={dueDate}
+                          onChange={(e) => setDueDate(e.target.value)}
+                          className={`${TASK_PANEL_SELECT} pl-10`}
+                        />
+                      </div>
+                    </div>
+                    <p className={`${SETTINGS_FIELD_LABEL} mt-6`}>Godkjenning</p>
+                    <div className="mt-3 space-y-3">
+                      <label className="flex cursor-pointer items-start gap-3 rounded-none border border-neutral-300/80 bg-white p-3">
+                        <input
+                          type="radio"
+                          name="task-mgmt"
+                          checked={!requiresMgmt}
+                          onChange={() => {
+                            setRequiresMgmt(false)
+                            setLeaderEmployeeId('')
+                          }}
+                          className="mt-0.5 size-4 rounded-full border-neutral-400 text-[#1a3d32] focus:ring-[#1a3d32]"
+                        />
+                        <span>
+                          <span className="text-sm font-medium text-neutral-900">Kun signatur fra utfører</span>
+                          <span className="mt-0.5 block text-xs text-neutral-500">
+                            Oppgaven kan lukkes når ansvarlig har signert.
+                          </span>
+                        </span>
+                      </label>
+                      <label className="flex cursor-pointer items-start gap-3 rounded-none border border-neutral-300/80 bg-white p-3">
+                        <input
+                          type="radio"
+                          name="task-mgmt"
+                          checked={requiresMgmt}
+                          onChange={() => setRequiresMgmt(true)}
+                          className="mt-0.5 size-4 rounded-full border-neutral-400 text-[#1a3d32] focus:ring-[#1a3d32]"
+                        />
+                        <span>
+                          <span className="text-sm font-medium text-neutral-900">Krever ledelses godkjenning</span>
+                          <span className="mt-0.5 block text-xs text-neutral-500">
+                            Leder må signere i tillegg før oppgaven regnes som fullført.
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                    {requiresMgmt ? (
+                      <div className="mt-4">
+                        <label className={SETTINGS_FIELD_LABEL} htmlFor="task-panel-leader">
+                          Leder (godkjenner)
+                        </label>
+                        <select
+                          id="task-panel-leader"
+                          value={leaderEmployeeId}
+                          onChange={(e) => setLeaderEmployeeId(e.target.value)}
+                          className={TASK_PANEL_SELECT}
+                        >
+                          <option value="">— Velg leder —</option>
+                          {leaderCandidates.map((e) => (
+                            <option key={e.id} value={e.id}>
+                              {e.name}
+                              {e.jobTitle ? ` — ${e.jobTitle}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-1.5 text-xs italic text-neutral-500">
+                          Listen prioriterer roller og titler med «leder». Alle ansatte vises dersom ingen treff.
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="my-8 border-t border-neutral-200/90" />
+
+                <div className={SETTINGS_ROW_GRID}>
+                  <div>
+                    <h3 className="text-base font-semibold text-neutral-900">Opprinnelse i løsningen</h3>
+                    <p className={`${SETTINGS_LEAD} mt-2`}>
+                      Koble oppgaven til modul og kilde slik at sporbarhet og rapporter stemmer på tvers av workspace,
+                      råd, HMS og læring.
+                    </p>
+                  </div>
+                  <div className={TASK_PANEL_INSET}>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="task-panel-module">
+                        Modul
+                      </label>
+                      <select
+                        id="task-panel-module"
+                        value={formModule}
+                        onChange={(e) => setFormModule(e.target.value as TaskModule)}
+                        className={TASK_PANEL_SELECT}
+                      >
+                        {(Object.keys(MODULE_LABELS) as TaskModule[]).map((m) => (
+                          <option key={m} value={m}>
+                            {MODULE_LABELS[m]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="mt-5">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="task-panel-source">
+                        Kilde
+                      </label>
+                      <select
+                        id="task-panel-source"
+                        value={formSource}
+                        onChange={(e) => setFormSource(e.target.value as TaskSourceType)}
+                        className={TASK_PANEL_SELECT}
+                      >
+                        <option value="manual">Manuell</option>
+                        <option value="council_meeting">Rådsmøte</option>
+                        <option value="council_compliance">Samsvar (råd)</option>
+                        <option value="representatives">Representasjon</option>
+                        <option value="survey">Undersøkelse</option>
+                        <option value="hse_safety_round">Vernerunde</option>
+                        <option value="hse_inspection">HMS-inspeksjon</option>
+                        <option value="hse_incident">Hendelse</option>
+                        <option value="nav_report">Sykefravær/NAV</option>
+                        <option value="labor_metric">AML-indikator</option>
+                        <option value="learning_course">Læringskurs</option>
+                      </select>
+                    </div>
+                    <div className="mt-5">
+                      <label className={SETTINGS_FIELD_LABEL}>Kilde-ID og merkelapp</label>
+                      <div className="mt-1.5 flex flex-wrap gap-2">
+                        <input
+                          value={sourceId}
+                          onChange={(e) => setSourceId(e.target.value)}
+                          className={`${TASK_PANEL_SELECT} w-full min-w-[6rem] sm:w-32`}
+                          placeholder="ID"
+                        />
+                        <input
+                          value={sourceLabel}
+                          onChange={(e) => setSourceLabel(e.target.value)}
+                          className={`${TASK_PANEL_SELECT} min-w-0 flex-1`}
+                          placeholder="F.eks. møtetittel"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {!editingId ? (
+                  <div className="mt-10 border-t border-neutral-200/90 pt-8">
+                    <WizardButton
+                      label="Start veiviser (hurtigutfylling)"
+                      variant="outline"
+                      def={makeTaskWizard((data) => {
+                        addTask({
+                          title: String(data.title),
+                          description: String(data.description) || '',
+                          assignee: String(data.assignee) || '',
+                          ownerRole: String(data.ownerRole) || 'Ansvarlig',
+                          dueDate: String(data.dueDate) || '',
+                          module: String(data.module) as TaskModule,
+                          sourceType: 'manual' as TaskSourceType,
+                          status: 'todo' as TaskStatus,
+                          requiresManagementSignOff: Boolean(data.requiresManagementSignOff),
+                        })
+                        closeTaskPanel()
+                      })}
+                      className="w-full justify-center rounded-none border border-neutral-300 bg-white px-4 py-3 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+                    />
+                  </div>
+                ) : null}
+              </div>
+
+              <footer className="shrink-0 border-t border-neutral-200/90 bg-[#f0efe9] px-6 py-5 sm:px-8">
+                <button
+                  type="submit"
+                  disabled={!title.trim()}
+                  className="flex w-full items-center justify-center rounded-none px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.12em] text-white transition disabled:cursor-not-allowed disabled:opacity-45"
+                  style={{ backgroundColor: layout.accent }}
+                >
+                  {editingId ? 'Lagre oppgave' : 'Opprett oppgave'}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeTaskPanel}
+                  className="mt-3 w-full rounded-none border border-neutral-300 bg-transparent px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-200/40"
+                >
+                  Avbryt
+                </button>
+              </footer>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
