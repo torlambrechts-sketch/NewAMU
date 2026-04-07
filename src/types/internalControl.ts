@@ -1,3 +1,5 @@
+import type { Level1SystemSignatureMeta } from './level1Signature'
+
 export type RosRowStatus = 'open' | 'in_progress' | 'closed'
 
 /** Arbeidsområde for ROS (veiviser / forslag — skiller fra O-ROS juridisk kategori) */
@@ -46,6 +48,7 @@ export type RosSignature = {
   role: RosSignatureRole
   signerName: string
   signedAt: string
+  level1?: Level1SystemSignatureMeta
 }
 
 /** ROS / risikovurdering (mal kan kopieres) */

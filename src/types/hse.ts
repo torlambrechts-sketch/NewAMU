@@ -1,3 +1,5 @@
+import type { Level1SystemSignatureMeta } from './level1Signature'
+
 export type ChecklistItemStatus = 'ok' | 'issue' | 'na'
 
 export type HseChecklistItem = {
@@ -29,6 +31,7 @@ export type SafetyRoundApproval = {
   approverName: string
   approvedAt: string
   comment?: string
+  level1?: Level1SystemSignatureMeta
 }
 
 export type SafetyRound = {
@@ -59,6 +62,7 @@ export type HseProtocolSignature = {
   signerName: string
   signedAt: string
   role: 'inspector' | 'management' | 'verneombud'
+  level1?: Level1SystemSignatureMeta
 }
 
 export type Inspection = {
@@ -231,6 +235,7 @@ export type SjaSignature = {
   signerName: string
   role: 'foreman' | 'verneombud' | 'worker' | 'management'
   signedAt: string
+  level1?: Level1SystemSignatureMeta
 }
 
 export type SjaAnalysis = {

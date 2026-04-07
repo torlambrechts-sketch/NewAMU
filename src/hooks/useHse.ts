@@ -14,6 +14,8 @@ import {
   writeOrgModuleSnap,
 } from '../lib/orgModulePayload'
 import { useOrgSetupContext } from './useOrgSetupContext'
+import { fetchClientIpBestEffort, hashDocumentPayload } from '../lib/level1Signature'
+import { insertSystemSignatureEvent } from '../lib/recordSystemSignature'
 import type {
   ChecklistItemDetail,
   ChecklistItemStatus,
@@ -382,25 +384,77 @@ export function useHse() {
   )
 
   const approveRound = useCallback(
-    (roundId: string, approval: SafetyRoundApproval) => {
+    async (
+      roundId: string,
+      approvalIn: { approverName: string; approvedAt?: string; comment?: string },
+    ) => {
+      setError(null)
+      const round = state.safetyRounds.find((x) => x.id === roundId)
+      if (!round) return false
+      const approvedAt = approvalIn.approvedAt ?? new Date().toISOString()
+      const approverName = approvalIn.approverName.trim()
+      if (!approverName) return false
+      const approvalBase: Omit<SafetyRoundApproval, 'level1'> = {
+        approverName,
+        approvedAt,
+        comment: approvalIn.comment,
+      }
+      const hashPayload = {
+        docKind: 'hse_safety_round_approval' as const,
+        roundId: round.id,
+        title: round.title,
+        conductedAt: round.conductedAt,
+        location: round.location,
+        conductedBy: round.conductedBy,
+        department: round.department,
+        items: round.items,
+        itemDetails: round.itemDetails,
+        notes: round.notes,
+        status: 'approved' as const,
+        submittedForApprovalAt: round.submittedForApprovalAt,
+        approval: { approverName, approvedAt, comment: approvalBase.comment ?? '' },
+      }
+      const documentHashSha256 = await hashDocumentPayload(hashPayload)
+      let level1: SafetyRoundApproval['level1'] | undefined
+      if (useRemote && supabase && orgId && userId) {
+        const clientIp = await fetchClientIpBestEffort()
+        const row = await insertSystemSignatureEvent(supabase, orgId, userId, {
+          resourceType: 'hse_safety_round',
+          resourceId: roundId,
+          action: 'hse_safety_round_approve',
+          documentHashSha256,
+          signerDisplayName: approverName,
+          role: 'management_approval',
+          clientIp,
+        })
+        if ('error' in row) {
+          setError(row.error)
+          return false
+        }
+        level1 = row.evidence
+      }
+      const approvalWithMeta: SafetyRoundApproval = { ...approvalBase, level1 }
       setState((s) => {
         const entry = auditEntry(
           'safety_round_updated',
           'safety_round',
           roundId,
-          `Vernerunde godkjent av ${approval.approverName}`,
-          { approverName: approval.approverName },
+          `Vernerunde godkjent av ${approverName}`,
+          { approverName },
         )
         return {
           ...s,
           safetyRounds: s.safetyRounds.map((x) =>
-            x.id === roundId ? { ...x, status: 'approved' as const, approval, updatedAt: new Date().toISOString() } : x,
+            x.id === roundId
+              ? { ...x, status: 'approved' as const, approval: approvalWithMeta, updatedAt: new Date().toISOString() }
+              : x,
           ),
           auditTrail: [...s.auditTrail, entry],
         }
       })
+      return true
     },
-    [setState],
+    [setState, state.safetyRounds, useRemote, supabase, orgId, userId],
   )
 
   const createInspection = useCallback(
@@ -438,10 +492,54 @@ export function useHse() {
   )
 
   const signInspectionProtocol = useCallback(
-    (inspectionId: string, signerName: string, role: HseProtocolSignature['role']) => {
+    async (inspectionId: string, signerName: string, role: HseProtocolSignature['role']) => {
       const name = signerName.trim()
       if (!name) return false
-      const sig: HseProtocolSignature = { signerName: name, signedAt: new Date().toISOString(), role }
+      setError(null)
+      const ins = state.inspections.find((x) => x.id === inspectionId)
+      if (!ins) return false
+      const signedAt = new Date().toISOString()
+      const proposed = [
+        ...(ins.protocolSignatures ?? []).map(({ signerName: sn, signedAt: sa, role: r }) => ({
+          signerName: sn,
+          signedAt: sa,
+          role: r,
+        })),
+        { signerName: name, signedAt, role },
+      ]
+      const hashPayload = {
+        docKind: 'hse_inspection_protocol' as const,
+        inspectionId: ins.id,
+        title: ins.title,
+        inspectionKind: ins.kind,
+        conductedAt: ins.conductedAt,
+        scope: ins.scope,
+        findings: ins.findings,
+        followUp: ins.followUp,
+        status: ins.status,
+        responsible: ins.responsible,
+        protocolSignatures: proposed,
+      }
+      const documentHashSha256 = await hashDocumentPayload(hashPayload)
+      let level1: HseProtocolSignature['level1'] | undefined
+      if (useRemote && supabase && orgId && userId) {
+        const clientIp = await fetchClientIpBestEffort()
+        const row = await insertSystemSignatureEvent(supabase, orgId, userId, {
+          resourceType: 'hse_inspection',
+          resourceId: inspectionId,
+          action: `hse_inspection_protocol_sign_${role}`,
+          documentHashSha256,
+          signerDisplayName: name,
+          role,
+          clientIp,
+        })
+        if ('error' in row) {
+          setError(row.error)
+          return false
+        }
+        level1 = row.evidence
+      }
+      const sig: HseProtocolSignature = { signerName: name, signedAt, role, level1 }
       setState((s) => {
         const entry = auditEntry(
           'inspection_updated',
@@ -462,7 +560,7 @@ export function useHse() {
       })
       return true
     },
-    [setState],
+    [setState, state.inspections, useRemote, supabase, orgId, userId],
   )
 
   const createIncident = useCallback(
@@ -656,8 +754,51 @@ export function useHse() {
   )
 
   const signSja = useCallback(
-    (sjaId: string, sig: Omit<SjaSignature, 'signedAt'>) => {
-      const signature: SjaSignature = { ...sig, signedAt: new Date().toISOString() }
+    async (sjaId: string, sig: Omit<SjaSignature, 'signedAt' | 'level1'>) => {
+      setError(null)
+      if (!sig.signerName.trim()) return false
+      const sja = state.sjaAnalyses.find((x) => x.id === sjaId)
+      if (!sja) return false
+      const signedAt = new Date().toISOString()
+      const proposedSigs = [
+        ...sja.signatures.map(({ signerName: sn, signedAt: sa, role: r }) => ({ signerName: sn, signedAt: sa, role: r })),
+        { signerName: sig.signerName.trim(), signedAt, role: sig.role },
+      ]
+      const hashPayload = {
+        kind: 'hse_sja' as const,
+        sjaId: sja.id,
+        title: sja.title,
+        jobDescription: sja.jobDescription,
+        location: sja.location,
+        department: sja.department,
+        plannedAt: sja.plannedAt,
+        conductedBy: sja.conductedBy,
+        participants: sja.participants,
+        rows: sja.rows,
+        status: sja.status,
+        conclusion: sja.conclusion,
+        signatures: proposedSigs,
+      }
+      const documentHashSha256 = await hashDocumentPayload(hashPayload)
+      let level1: SjaSignature['level1'] | undefined
+      if (useRemote && supabase && orgId && userId) {
+        const clientIp = await fetchClientIpBestEffort()
+        const row = await insertSystemSignatureEvent(supabase, orgId, userId, {
+          resourceType: 'hse_sja',
+          resourceId: sjaId,
+          action: `hse_sja_sign_${sig.role}`,
+          documentHashSha256,
+          signerDisplayName: sig.signerName.trim(),
+          role: sig.role,
+          clientIp,
+        })
+        if ('error' in row) {
+          setError(row.error)
+          return false
+        }
+        level1 = row.evidence
+      }
+      const signature: SjaSignature = { ...sig, signedAt, level1 }
       setState((s) => {
         const entry = auditEntry('sja_approved', 'sja', sjaId, `SJA signert: ${sig.signerName} (${sig.role})`)
         return {
@@ -668,8 +809,9 @@ export function useHse() {
           auditTrail: [...s.auditTrail, entry],
         }
       })
+      return true
     },
-    [setState],
+    [setState, state.sjaAnalyses, useRemote, supabase, orgId, userId],
   )
 
   const addChecklistTemplate = useCallback(

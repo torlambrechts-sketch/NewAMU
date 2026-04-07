@@ -34,6 +34,7 @@ import {
 } from '../lib/layoutLabTokens'
 import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
 import { useUiTheme } from '../hooks/useUiTheme'
+import { formatLevel1AuditLine } from '../lib/level1Signature'
 
 const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: LayoutDashboard },
@@ -1102,17 +1103,21 @@ function RosAssessmentCard({
 
         {isLocked ? (
           <div className="flex flex-wrap gap-4">
-            {ros.signatures.map((sig) => (
-              <div key={sig.role} className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-                <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-emerald-900">
-                    {sig.role === 'leader' ? 'Leder' : 'Verneombud'}: {sig.signerName}
-                  </p>
-                  <p className="text-xs text-emerald-700">{fmtDate(sig.signedAt)}</p>
+            {ros.signatures.map((sig) => {
+              const l1 = formatLevel1AuditLine(sig.level1)
+              return (
+                <div key={sig.role} className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-emerald-900">
+                      {sig.role === 'leader' ? 'Leder' : 'Verneombud'}: {sig.signerName}
+                    </p>
+                    <p className="text-xs text-emerald-700">{fmtDate(sig.signedAt)}</p>
+                    {l1 ? <p className="mt-1 font-mono text-[10px] text-emerald-800/90">{l1}</p> : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
             <div className="flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-100 px-4 py-3">
               <Lock className="size-4 text-emerald-700" />
               <span className="text-sm font-medium text-emerald-900">Dokumentet er låst og read-only</span>
@@ -1126,7 +1131,13 @@ function RosAssessmentCard({
               {leaderSig ? (
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="size-4 text-emerald-600" />
-                  <span className="text-sm text-emerald-800">{leaderSig.signerName} — {fmtDate(leaderSig.signedAt)}</span>
+                  <div>
+                    <span className="text-sm text-emerald-800">{leaderSig.signerName} — {fmtDate(leaderSig.signedAt)}</span>
+                    {(() => {
+                      const l1 = formatLevel1AuditLine(leaderSig.level1)
+                      return l1 ? <p className="mt-0.5 font-mono text-[10px] text-emerald-800/90">{l1}</p> : null
+                    })()}
+                  </div>
                 </div>
               ) : (
                 <div className="flex gap-2">
@@ -1143,7 +1154,13 @@ function RosAssessmentCard({
               {verneombudSig ? (
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="size-4 text-emerald-600" />
-                  <span className="text-sm text-emerald-800">{verneombudSig.signerName} — {fmtDate(verneombudSig.signedAt)}</span>
+                  <div>
+                    <span className="text-sm text-emerald-800">{verneombudSig.signerName} — {fmtDate(verneombudSig.signedAt)}</span>
+                    {(() => {
+                      const l1 = formatLevel1AuditLine(verneombudSig.level1)
+                      return l1 ? <p className="mt-0.5 font-mono text-[10px] text-emerald-800/90">{l1}</p> : null
+                    })()}
+                  </div>
                 </div>
               ) : (
                 <div className="flex gap-2">
@@ -1159,7 +1176,7 @@ function RosAssessmentCard({
 
         {!isLocked && !bothSigned && (
           <p className="mt-3 text-xs text-neutral-400">
-            Dokumentet låses automatisk når begge parter har signert.
+            Dokumentet låses automatisk når begge parter har signert. Signering bruker <strong>nivå 1</strong> (innlogget bruker + SHA-256 av innhold + logg i databasen).
           </p>
         )}
       </div>

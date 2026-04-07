@@ -10,6 +10,8 @@ import {
   type OrgModulePayloadKey,
 } from '../lib/orgModulePayload'
 import { useOrgSetupContext } from './useOrgSetupContext'
+import { fetchClientIpBestEffort, hashDocumentPayload } from '../lib/level1Signature'
+import { insertSystemSignatureEvent } from '../lib/recordSystemSignature'
 
 const MODULE_KEY: OrgModulePayloadKey = 'tasks'
 const STORAGE_KEY_V2 = 'atics-tasks-v2'
@@ -319,11 +321,44 @@ export function useTasks() {
     [updateTask],
   )
 
+  function taskPayloadForLevel1(task: Task, kind: 'assignee' | 'management', signerName: string, signedAt: string) {
+    const { assigneeSignature, managementSignature, ...rest } = task
+    const assigneeSignatureNext =
+      kind === 'assignee' ? { signerName, signedAt } : assigneeSignature ?? null
+    const managementSignatureNext =
+      kind === 'management' ? { signerName, signedAt } : managementSignature ?? null
+    return { ...rest, assigneeSignature: assigneeSignatureNext, managementSignature: managementSignatureNext }
+  }
+
   const signAsAssignee = useCallback(
-    (id: string, signerName: string) => {
+    async (id: string, signerName: string) => {
       const name = signerName.trim()
       if (!name) return false
-      const sig: DigitalSignature = { signerName: name, signedAt: new Date().toISOString() }
+      setError(null)
+      const task = store.tasks.find((t) => t.id === id)
+      if (!task) return false
+      const signedAt = new Date().toISOString()
+      const payload = taskPayloadForLevel1(task, 'assignee', name, signedAt)
+      const documentHashSha256 = await hashDocumentPayload(payload)
+      let level1: DigitalSignature['level1'] | undefined
+      if (useRemote && supabase && orgId && userId) {
+        const [clientIp] = await Promise.all([fetchClientIpBestEffort()])
+        const ins = await insertSystemSignatureEvent(supabase, orgId, userId, {
+          resourceType: 'task',
+          resourceId: id,
+          action: 'task_sign_assignee',
+          documentHashSha256,
+          signerDisplayName: name,
+          role: 'assignee',
+          clientIp,
+        })
+        if ('error' in ins) {
+          setError(ins.error)
+          return false
+        }
+        level1 = ins.evidence
+      }
+      const sig: DigitalSignature = { signerName: name, signedAt, level1 }
       setStore((s) => ({
         ...s,
         tasks: s.tasks.map((t) => (t.id === id ? { ...t, assigneeSignature: sig } : t)),
@@ -331,14 +366,38 @@ export function useTasks() {
       }))
       return true
     },
-    [setStore],
+    [setStore, setError, store.tasks, supabase, orgId, userId, useRemote],
   )
 
   const signManagement = useCallback(
-    (id: string, signerName: string) => {
+    async (id: string, signerName: string) => {
       const name = signerName.trim()
       if (!name) return false
-      const sig: DigitalSignature = { signerName: name, signedAt: new Date().toISOString() }
+      setError(null)
+      const task = store.tasks.find((t) => t.id === id)
+      if (!task) return false
+      const signedAt = new Date().toISOString()
+      const payload = taskPayloadForLevel1(task, 'management', name, signedAt)
+      const documentHashSha256 = await hashDocumentPayload(payload)
+      let level1: DigitalSignature['level1'] | undefined
+      if (useRemote && supabase && orgId && userId) {
+        const clientIp = await fetchClientIpBestEffort()
+        const ins = await insertSystemSignatureEvent(supabase, orgId, userId, {
+          resourceType: 'task',
+          resourceId: id,
+          action: 'task_sign_management',
+          documentHashSha256,
+          signerDisplayName: name,
+          role: 'management',
+          clientIp,
+        })
+        if ('error' in ins) {
+          setError(ins.error)
+          return false
+        }
+        level1 = ins.evidence
+      }
+      const sig: DigitalSignature = { signerName: name, signedAt, level1 }
       setStore((s) => ({
         ...s,
         tasks: s.tasks.map((t) => (t.id === id ? { ...t, managementSignature: sig } : t)),
@@ -346,7 +405,7 @@ export function useTasks() {
       }))
       return true
     },
-    [setStore],
+    [setStore, setError, store.tasks, supabase, orgId, userId, useRemote],
   )
 
   const resetDemo = useCallback(async () => {

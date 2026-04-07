@@ -1,3 +1,5 @@
+import type { Level1SystemSignatureMeta } from './level1Signature'
+
 export type BoardRole = 'leader' | 'deputy' | 'member'
 
 export type BoardMember = {
@@ -77,6 +79,7 @@ export type ProtocolSignature = {
   signerName: string
   signedAt: string
   role: 'chair' | 'secretary' | 'management'
+  level1?: Level1SystemSignatureMeta
 }
 
 export type CouncilMeeting = {

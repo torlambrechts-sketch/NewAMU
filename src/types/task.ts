@@ -1,3 +1,5 @@
+import type { Level1SystemSignatureMeta } from './level1Signature'
+
 export type TaskStatus = 'todo' | 'in_progress' | 'done'
 
 export type TaskModule =
@@ -27,6 +29,8 @@ export type TaskSourceType =
 export type DigitalSignature = {
   signerName: string
   signedAt: string
+  /** Level 1 system signature (SHA-256 + auth.uid audit) */
+  level1?: Level1SystemSignatureMeta
 }
 
 export type Task = {

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { useHse } from '../hooks/useHse'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { formatLevel1AuditLine } from '../lib/level1Signature'
 import { TRAINING_KIND_LABELS } from '../data/hseTemplates'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeIncidentWizard, makeSickLeaveWizard, makeSjaWizard, makeSafetyRoundWizard } from '../components/wizard/wizards'
@@ -920,9 +921,15 @@ export function HseModule() {
                       {/* Signatures */}
                       <div>
                         <p className="text-xs font-semibold text-neutral-600 mb-2">Signaturer ({sja.signatures.length})</p>
-                        {sja.signatures.map((s, i) => (
-                          <div key={i} className="text-xs text-neutral-600">{s.signerName} ({s.role}) · {formatDate(s.signedAt)}</div>
-                        ))}
+                        {sja.signatures.map((s, i) => {
+                          const l1 = formatLevel1AuditLine(s.level1)
+                          return (
+                            <div key={i} className="whitespace-pre-line text-xs text-neutral-600">
+                              {s.signerName} ({s.role}) · {formatDate(s.signedAt)}
+                              {l1 ? `\n${l1}` : ''}
+                            </div>
+                          )
+                        })}
                         <div className="mt-2 flex flex-wrap gap-2">
                           <select value={sigDraft.role} onChange={(e) => setSjaSignDraft((d) => ({ ...d, [sja.id]: { ...sigDraft, role: e.target.value as typeof sigDraft.role } }))} className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs">
                             <option value="foreman">Arbeidsleder</option>
@@ -933,8 +940,10 @@ export function HseModule() {
                           <input value={sigDraft.signerName} onChange={(e) => setSjaSignDraft((d) => ({ ...d, [sja.id]: { ...sigDraft, signerName: e.target.value } }))} placeholder="Fullt navn" className="flex-1 min-w-[140px] rounded-lg border border-neutral-200 px-2 py-1.5 text-xs" />
                           <button type="button" onClick={() => {
                             if (!sigDraft.signerName.trim()) return
-                            hse.signSja(sja.id, sigDraft)
-                            setSjaSignDraft((d) => ({ ...d, [sja.id]: { signerName: '', role: 'worker' } }))
+                            void (async () => {
+                              await hse.signSja(sja.id, sigDraft)
+                              setSjaSignDraft((d) => ({ ...d, [sja.id]: { signerName: '', role: 'worker' } }))
+                            })()
                           }} className="rounded-lg bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white">Signer</button>
                         </div>
                       </div>
@@ -1450,9 +1459,15 @@ function InspectionRow({ ins, hse }: { ins: Inspection; hse: ReturnType<typeof u
       <div className="mt-3 rounded-lg bg-[#faf8f4] p-3 text-xs">
         <span className="font-medium text-neutral-800">Signaturer:</span>
         <ul className="mt-1 space-y-0.5 text-neutral-700">
-          {(ins.protocolSignatures ?? []).map((s, i) => (
-            <li key={`${s.signedAt}-${i}`}>{s.role === 'inspector' ? 'Inspektør' : s.role === 'verneombud' ? 'Verneombud' : 'Ledelse'}: {s.signerName} — {formatWhenLocal(s.signedAt)}</li>
-          ))}
+          {(ins.protocolSignatures ?? []).map((s, i) => {
+            const l1 = formatLevel1AuditLine(s.level1)
+            return (
+              <li key={`${s.signedAt}-${i}`} className="whitespace-pre-line">
+                {s.role === 'inspector' ? 'Inspektør' : s.role === 'verneombud' ? 'Verneombud' : 'Ledelse'}: {s.signerName} — {formatWhenLocal(s.signedAt)}
+                {l1 ? `\n${l1}` : ''}
+              </li>
+            )
+          })}
         </ul>
         <div className="mt-2 flex flex-wrap gap-2">
           <select value={role} onChange={(e) => setRole(e.target.value as HseProtocolSignature['role'])} className="rounded border border-neutral-200 px-2 py-1">
@@ -1461,7 +1476,7 @@ function InspectionRow({ ins, hse }: { ins: Inspection; hse: ReturnType<typeof u
             <option value="management">Ledelse</option>
           </select>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Fullt navn" className="min-w-[140px] flex-1 rounded border border-neutral-200 px-2 py-1" />
-          <button type="button" onClick={() => { if (hse.signInspectionProtocol(ins.id, name, role)) setName('') }} className="rounded bg-[#1a3d32] px-2 py-1 text-white">Signer</button>
+          <button type="button" onClick={() => { void (async () => { if (await hse.signInspectionProtocol(ins.id, name, role)) setName('') })() }} className="rounded bg-[#1a3d32] px-2 py-1 text-white">Signer</button>
         </div>
       </div>
       <div className="mt-2">
@@ -1724,9 +1739,17 @@ function SafetyRoundCard({ round, checklist, hse }: {
                 type="button"
                 disabled={!approvalName.trim()}
                 onClick={() => {
-                  hse.approveRound(round.id, { approverName: approvalName.trim(), approvedAt: new Date().toISOString(), comment: approvalComment.trim() || undefined })
-                  setApprovalName('')
-                  setApprovalComment('')
+                  void (async () => {
+                    const ok = await hse.approveRound(round.id, {
+                      approverName: approvalName.trim(),
+                      approvedAt: new Date().toISOString(),
+                      comment: approvalComment.trim() || undefined,
+                    })
+                    if (ok) {
+                      setApprovalName('')
+                      setApprovalComment('')
+                    }
+                  })()
                 }}
                 className="inline-flex items-center gap-2 rounded-full bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-40"
               >
@@ -1742,7 +1765,11 @@ function SafetyRoundCard({ round, checklist, hse }: {
             <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
             <div>
               <p className="text-sm font-semibold text-emerald-900">Godkjent av {round.approval.approverName}</p>
-              <p className="text-xs text-emerald-700">{fmtDate(round.approval.approvedAt)}{round.approval.comment ? ` · ${round.approval.comment}` : ''}</p>
+              <p className="whitespace-pre-line text-xs text-emerald-700">
+                {fmtDate(round.approval.approvedAt)}
+                {round.approval.comment ? ` · ${round.approval.comment}` : ''}
+                {formatLevel1AuditLine(round.approval.level1) ? `\n${formatLevel1AuditLine(round.approval.level1)}` : ''}
+              </p>
             </div>
           </div>
         )}

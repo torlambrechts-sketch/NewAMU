@@ -9,6 +9,8 @@ import {
   writeOrgModuleSnap,
 } from '../lib/orgModulePayload'
 import { useOrgSetupContext } from './useOrgSetupContext'
+import { fetchClientIpBestEffort, hashDocumentPayload } from '../lib/level1Signature'
+import { insertSystemSignatureEvent } from '../lib/recordSystemSignature'
 import type {
   AnnualReview,
   InternalControlAuditEntry,
@@ -319,17 +321,56 @@ export function useInternalControl() {
         )
         return
       }
+      if (!target || target.signatures.some((sig) => sig.role === role)) return
       setError(null)
+      const signedAt = new Date().toISOString()
+      const name = signerName.trim()
+      const signaturesPreview = [...target.signatures, { role, signerName: name, signedAt }]
+      const lockedPreview =
+        signaturesPreview.some((x) => x.role === 'leader') &&
+        signaturesPreview.some((x) => x.role === 'verneombud')
+      const rosAfterSign: RosAssessment = {
+        ...target,
+        signatures: signaturesPreview,
+        locked: lockedPreview,
+        updatedAt: signedAt,
+      }
+      const hashPayload = {
+        ...rosAfterSign,
+        signatures: rosAfterSign.signatures.map((s) => ({
+          role: s.role,
+          signerName: s.signerName,
+          signedAt: s.signedAt,
+        })),
+      }
+      const documentHashSha256 = await hashDocumentPayload(hashPayload)
+      let level1: RosSignature['level1'] | undefined
+      if (useRemote && supabase && orgId && userId) {
+        const clientIp = await fetchClientIpBestEffort()
+        const ins = await insertSystemSignatureEvent(supabase, orgId, userId, {
+          resourceType: 'ros_assessment',
+          resourceId: rosId,
+          action: `ros_sign_${role}`,
+          documentHashSha256,
+          signerDisplayName: name,
+          role,
+          clientIp,
+        })
+        if ('error' in ins) {
+          setError(ins.error)
+          return
+        }
+        level1 = ins.evidence
+      }
+      const sig: RosSignature = { role, signerName: name, signedAt, level1 }
       setState((s) => {
         let lockedRos: RosAssessment | null = null
         const nextAssessments = s.rosAssessments.map((ros) => {
           if (ros.id !== rosId) return ros
-          if (ros.signatures.some((sig) => sig.role === role)) return ros
-          const sig: RosSignature = { role, signerName: signerName.trim(), signedAt: new Date().toISOString() }
+          if (ros.signatures.some((x) => x.role === role)) return ros
           const signatures = [...ros.signatures, sig]
-          const locked =
-            signatures.some((x) => x.role === 'leader') && signatures.some((x) => x.role === 'verneombud')
-          const updated = { ...ros, signatures, locked, updatedAt: new Date().toISOString() }
+          const locked = signatures.some((x) => x.role === 'leader') && signatures.some((x) => x.role === 'verneombud')
+          const updated = { ...ros, signatures, locked, updatedAt: signedAt }
           if (locked) lockedRos = updated
           return updated
         })
@@ -343,7 +384,7 @@ export function useInternalControl() {
         }
       })
     },
-    [setState, state.rosAssessments, useRemote, supabase, orgId],
+    [setState, state.rosAssessments, useRemote, supabase, orgId, userId],
   )
 
   const duplicateRosRevision = useCallback(

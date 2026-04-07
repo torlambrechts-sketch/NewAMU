@@ -8,6 +8,7 @@ import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useWhistleblowing, acknowledgementUrgency } from '../hooks/useWhistleblowing'
 import { TASK_OWNER_ROLE_OPTIONS } from '../lib/taskFormOptions'
 import type { Task, TaskModule, TaskSourceType, TaskStatus } from '../types/task'
+import type { Level1SystemSignatureMeta } from '../types/level1Signature'
 import type { WhistleblowingCaseStatus } from '../types/whistleblowing'
 import { WHISTLE_CATEGORY_OPTIONS } from '../types/whistleblowing'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
@@ -24,6 +25,7 @@ import {
 } from '../lib/layoutLabTokens'
 import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
 import { useUiTheme } from '../hooks/useUiTheme'
+import { formatLevel1AuditLine } from '../lib/level1Signature'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
@@ -406,14 +408,15 @@ export function TasksPage() {
     setTaskPanelOpen(true)
   }
 
-  function formatSig(s?: { signerName: string; signedAt: string }) {
+  function formatSig(s?: { signerName: string; signedAt: string; level1?: Level1SystemSignatureMeta }) {
     if (!s) return null
     try {
       const d = new Date(s.signedAt).toLocaleString('no-NO', {
         dateStyle: 'short',
         timeStyle: 'short',
       })
-      return `${s.signerName} · ${d}`
+      const l1 = formatLevel1AuditLine(s.level1)
+      return l1 ? `${s.signerName} · ${d}\n${l1}` : `${s.signerName} · ${d}`
     } catch {
       return s.signerName
     }
@@ -891,14 +894,14 @@ export function TasksPage() {
                           </td>
                           <td className={`${tableCell} align-top text-xs`}>
                             <div className="space-y-1">
-                              <div>
+                              <div className="whitespace-pre-line">
                                 <span className="text-neutral-500">Utfører: </span>
                                 {formatSig(t.assigneeSignature) ?? (
                                   <span className="text-amber-700">Ikke signert</span>
                                 )}
                               </div>
                               {t.requiresManagementSignOff ? (
-                                <div>
+                                <div className="whitespace-pre-line">
                                   <span className="text-neutral-500">Leder: </span>
                                   {formatSig(t.managementSignature) ?? (
                                     <span className="text-amber-700">Mangler</span>
@@ -921,8 +924,10 @@ export function TasksPage() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const ok = signAsAssignee(t.id, signName[t.id] ?? '')
-                                    if (ok) setSignName((s) => ({ ...s, [t.id]: '' }))
+                                    void (async () => {
+                                      const ok = await signAsAssignee(t.id, signName[t.id] ?? '')
+                                      if (ok) setSignName((s) => ({ ...s, [t.id]: '' }))
+                                    })()
                                   }}
                                   className="shrink-0 rounded-none bg-[#1a3d32] px-2 py-0.5 text-xs text-white"
                                 >
@@ -933,8 +938,10 @@ export function TasksPage() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const ok = signManagement(t.id, signName[t.id] ?? '')
-                                    if (ok) setSignName((s) => ({ ...s, [t.id]: '' }))
+                                    void (async () => {
+                                      const ok = await signManagement(t.id, signName[t.id] ?? '')
+                                      if (ok) setSignName((s) => ({ ...s, [t.id]: '' }))
+                                    })()
                                   }}
                                   className="rounded-none border border-neutral-300 px-2 py-0.5 text-xs"
                                 >

@@ -30,6 +30,7 @@ import { useRepresentatives } from '../hooks/useRepresentatives'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useLearning } from '../hooks/useLearning'
 import { avatarUrlFromSeed } from '../lib/avatarUrl'
+import { formatLevel1AuditLine } from '../lib/level1Signature'
 import { REPRESENTATIVE_ROLE_REQUIREMENTS, requirementsForRole } from '../data/representativeRules'
 import type {
   AgendaItem,
@@ -1925,20 +1926,24 @@ function MeetingDetailPanel({
           <div className="mt-4 rounded-xl border border-neutral-200 bg-[#faf8f4] p-4">
             <h4 className="text-sm font-semibold text-neutral-900">Forhåndsregistrering på protokoll</h4>
             <p className="mt-1 text-xs text-neutral-600">
-              Registrerer navn og tid som <strong>bekreftelse på at partene er enige</strong>.
-              Dette er <em>ikke</em> en juridisk bindende eSignatur — integrér BankID/Verified i produksjon.
+              <strong>Nivå 1 systemsignatur</strong> (innlogget bruker + SHA-256 av protokollinnhold + revisjonslogg i databasen).
+              <strong> Nivå 2</strong> (BankID / QES for høyrisiko HR) er planlagt i veikartet.
             </p>
             <ul className="mt-2 space-y-1 text-xs text-neutral-700">
-              {(meeting.protocolSignatures ?? []).map((s, i) => (
-                <li key={`${s.signedAt}-${i}`}>
-                  {s.role === 'chair'
-                    ? 'Møteleder'
-                    : s.role === 'secretary'
-                      ? 'Referent'
-                      : 'Ledelse'}
-                  : {s.signerName} — {formatWhen(s.signedAt)}
-                </li>
-              ))}
+              {(meeting.protocolSignatures ?? []).map((s, i) => {
+                const l1 = formatLevel1AuditLine(s.level1)
+                return (
+                  <li key={`${s.signedAt}-${i}`} className="whitespace-pre-line">
+                    {s.role === 'chair'
+                      ? 'Møteleder'
+                      : s.role === 'secretary'
+                        ? 'Referent'
+                        : 'Ledelse'}
+                    : {s.signerName} — {formatWhen(s.signedAt)}
+                    {l1 ? `\n${l1}` : ''}
+                  </li>
+                )
+              })}
             </ul>
             <div className="mt-3 flex flex-wrap gap-2">
               <select

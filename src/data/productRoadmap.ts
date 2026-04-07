@@ -9,6 +9,12 @@ export type RoadmapItem = {
 
 export const PRODUCT_ROADMAP: RoadmapItem[] = [
   {
+    title: 'Nivå 2 signatur — BankID / kvalifisert e-signatur (QES, eIDAS)',
+    body:
+      'For høyrisiko HR (kontrakter, formelle advarsler, oppsigelser, AML § 15-1-protokoller): integrasjon mot nordisk tillitsleverandør (f.eks. Signicat, Criipto, Scrive). Arbeidsflyt: generer dokument → ekstern signaturlenke → webhook tilbake → PAdES i Storage og status «QES signert». Dagens «Nivå 1» (SHA-256 + auth.uid + revisjonslogg) dekker ROS, oppgaver, AMU-protokoll m.m.',
+    status: 'Planlagt',
+  },
+  {
     title: 'Arbeidstid og hviletid — bruddvarsling (AML kap. 10)',
     body:
       'Compliance-lag (ikke fullt vaktplan): API/webhook der kunder (f.eks. Tripletex/Visma) pusher timeaggregater til Supabase; nattlig jobb (pg_cron) sjekker bl.a. 11 t sammenhengende hvile og overtidsterskler (f.eks. 200 t/år uten tariffavtale). Ved brudd: automatisk rødt avvik på Kanban til HR.',

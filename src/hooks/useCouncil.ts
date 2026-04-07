@@ -7,6 +7,8 @@ import {
 import { defaultComplianceItems } from '../data/norwegianLabourCompliance'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { useOrgSetupContext } from './useOrgSetupContext'
+import { fetchClientIpBestEffort, hashDocumentPayload } from '../lib/level1Signature'
+import { insertSystemSignatureEvent } from '../lib/recordSystemSignature'
 import type {
   AgendaItem,
   AuditEntry,
@@ -934,23 +936,58 @@ export function useCouncil() {
     async (meetingId: string, signerName: string, role: ProtocolSignature['role']) => {
       const name = signerName.trim()
       if (!name) return false
-      const sig: ProtocolSignature = {
-        signerName: name,
-        signedAt: new Date().toISOString(),
-        role,
-      }
+      setError(null)
+      const signedAt = new Date().toISOString()
       const auditLine = `Protokoll signert (${role}): ${name}`
       const entry: AuditEntry = {
         id: crypto.randomUUID(),
-        at: new Date().toISOString(),
+        at: signedAt,
         kind: 'note',
         text: auditLine,
         author: name,
       }
 
+      const stripProto = (sigs: ProtocolSignature[] | undefined) =>
+        (sigs ?? []).map(({ signerName: sn, signedAt: sa, role: r }) => ({ signerName: sn, signedAt: sa, role: r }))
+
+      const cur = state.meetings.find((x) => x.id === meetingId)
+      if (!cur) return false
+
+      const proposedSigs = [...stripProto(cur.protocolSignatures), { signerName: name, signedAt, role }]
+      const hashPayload = {
+        kind: 'council_meeting_protocol' as const,
+        meetingId: cur.id,
+        title: cur.title,
+        startsAt: cur.startsAt,
+        location: cur.location,
+        minutes: cur.minutes ?? '',
+        agendaItems: cur.agendaItems,
+        protocolSignatures: proposedSigs,
+      }
+      const documentHashSha256 = await hashDocumentPayload(hashPayload)
+
+      let level1: ProtocolSignature['level1'] | undefined
+      if (useRemote && supabase && orgId && userId) {
+        const clientIp = await fetchClientIpBestEffort()
+        const ins = await insertSystemSignatureEvent(supabase, orgId, userId, {
+          resourceType: 'council_meeting',
+          resourceId: meetingId,
+          action: `council_protocol_sign_${role}`,
+          documentHashSha256,
+          signerDisplayName: name,
+          role,
+          clientIp,
+        })
+        if ('error' in ins) {
+          setError(ins.error)
+          return false
+        }
+        level1 = ins.evidence
+      }
+
+      const sig: ProtocolSignature = { signerName: name, signedAt, role, level1 }
+
       if (useRemote && supabase && orgId) {
-        const cur = remoteState.meetings.find((x) => x.id === meetingId)
-        if (!cur) return false
         const next: CouncilMeeting = {
           ...cur,
           protocolSignatures: [...(cur.protocolSignatures ?? []), sig],
@@ -975,7 +1012,7 @@ export function useCouncil() {
       }))
       return true
     },
-    [useRemote, supabase, orgId, remoteState.meetings, refreshCouncil, setState],
+    [useRemote, supabase, orgId, userId, state.meetings, refreshCouncil, setState],
   )
 
   const resetToDemoData = useCallback(async () => {
