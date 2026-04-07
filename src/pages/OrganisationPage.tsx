@@ -64,6 +64,16 @@ const FILTER_INPUT_CLASS =
 /** Toolbar / segment controls — square corners */
 const R_ORG_FLAT = 'rounded-none'
 
+/** Innstillinger: tabellaktig rader — skarpe hjørner, tydelig hierarki */
+const SETTINGS_ROW_GRID =
+  'grid grid-cols-1 gap-4 border-b border-neutral-200 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,1.05fr)_minmax(0,380px)] md:items-start md:gap-10 md:px-5 md:py-5'
+const SETTINGS_LEAD = 'text-sm leading-relaxed text-neutral-600'
+const SETTINGS_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-800'
+const SETTINGS_INPUT =
+  'mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900'
+const SETTINGS_CHECK_WRAP =
+  'mt-1.5 flex cursor-pointer items-start gap-3 rounded-none border border-neutral-300 bg-neutral-50/80 p-3'
+
 // ─── Avatar helper ────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = ['#1a3d32','#0284c7','#7c3aed','#d97706','#dc2626','#0d9488','#9333ea','#2563eb']
@@ -1033,69 +1043,110 @@ export function OrganisationPage() {
             title="Virksomhetsinnstillinger"
             subtitle="Disse verdiene driver AMU/verneombud-terskler og vises i Council-modulen."
           >
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Virksomhetsnavn</label>
-                <input
-                  value={org.settings.orgName}
-                  onChange={(e) => org.updateSettings({ orgName: e.target.value })}
-                  className={BASE_INPUT}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Organisasjonsnummer</label>
-                <input
-                  value={org.settings.orgNumber ?? ''}
-                  onChange={(e) => org.updateSettings({ orgNumber: e.target.value || undefined })}
-                  placeholder="9 siffer"
-                  className={BASE_INPUT}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">
-                  Antall ansatte (manuelt — overstyres av ansattlisten)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  value={org.settings.employeeCount}
-                  onChange={(e) => org.updateSettings({ employeeCount: Number(e.target.value) || 0 })}
-                  className={BASE_INPUT}
-                />
-                <p className="mt-1 text-xs text-neutral-400">Aktive i ansattlisten: {org.activeEmployees.length}</p>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Bransje / sektor</label>
-                <input
-                  value={org.settings.industrySector ?? ''}
-                  onChange={(e) => org.updateSettings({ industrySector: e.target.value || undefined })}
-                  placeholder="f.eks. Helse og omsorg"
-                  className={BASE_INPUT}
-                />
-              </div>
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-200 p-3.5">
-                <input
-                  type="checkbox"
-                  checked={org.settings.hasCollectiveAgreement}
-                  onChange={(e) => org.updateSettings({ hasCollectiveAgreement: e.target.checked })}
-                  className="mt-0.5 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
-                />
+            <div className="divide-y divide-neutral-200 border border-neutral-200 bg-white">
+              <div className={SETTINGS_ROW_GRID}>
+                <p className={SETTINGS_LEAD}>Hvilket navn skal vises for virksomheten i løsningen og i rapporter?</p>
                 <div>
-                  <span className="text-sm font-medium text-neutral-900">Tariffavtale gjelder</span>
-                  <p className="text-xs text-neutral-500">Kan fravike noen AML-regler.</p>
-                </div>
-              </label>
-              {org.settings.hasCollectiveAgreement && (
-                <div>
-                  <label className="text-xs font-medium text-neutral-500">Tariffavtalens navn</label>
+                  <label className={SETTINGS_FIELD_LABEL} htmlFor="org-settings-name">
+                    Virksomhetsnavn
+                  </label>
                   <input
-                    value={org.settings.collectiveAgreementName ?? ''}
-                    onChange={(e) => org.updateSettings({ collectiveAgreementName: e.target.value || undefined })}
-                    placeholder="f.eks. Hovedavtalen LO-NHO"
-                    className={BASE_INPUT}
+                    id="org-settings-name"
+                    value={org.settings.orgName}
+                    onChange={(e) => org.updateSettings({ orgName: e.target.value })}
+                    className={SETTINGS_INPUT}
+                    autoComplete="organization"
                   />
                 </div>
-              )}
+              </div>
+
+              <div className={SETTINGS_ROW_GRID}>
+                <p className={SETTINGS_LEAD}>Offisielt organisasjonsnummer (Brønnøysund) brukes ved behov i dokumenter og referanser.</p>
+                <div>
+                  <label className={SETTINGS_FIELD_LABEL} htmlFor="org-settings-orgnr">
+                    Organisasjonsnummer
+                  </label>
+                  <input
+                    id="org-settings-orgnr"
+                    value={org.settings.orgNumber ?? ''}
+                    onChange={(e) => org.updateSettings({ orgNumber: e.target.value || undefined })}
+                    placeholder="9 siffer"
+                    className={SETTINGS_INPUT}
+                    inputMode="numeric"
+                  />
+                </div>
+              </div>
+
+              <div className={SETTINGS_ROW_GRID}>
+                <p className={SETTINGS_LEAD}>
+                  Terskler for verneombud og AMU kan beregnes ut fra dette tallet. Vanligvis synkroniseres det med ansattlisten; du kan overstyre manuelt ved behov.
+                </p>
+                <div>
+                  <label className={SETTINGS_FIELD_LABEL} htmlFor="org-settings-emp-count">
+                    Antall ansatte (manuelt)
+                  </label>
+                  <input
+                    id="org-settings-emp-count"
+                    type="number"
+                    min={0}
+                    value={org.settings.employeeCount}
+                    onChange={(e) => org.updateSettings({ employeeCount: Number(e.target.value) || 0 })}
+                    className={SETTINGS_INPUT}
+                  />
+                  <p className="mt-2 text-xs text-neutral-500">Aktive i ansattlisten: {org.activeEmployees.length}</p>
+                </div>
+              </div>
+
+              <div className={SETTINGS_ROW_GRID}>
+                <p className={SETTINGS_LEAD}>Hvilken bransje eller sektor beskriver virksomheten best? Brukes i oversikter og sammenligninger.</p>
+                <div>
+                  <label className={SETTINGS_FIELD_LABEL} htmlFor="org-settings-sector">
+                    Bransje / sektor
+                  </label>
+                  <input
+                    id="org-settings-sector"
+                    value={org.settings.industrySector ?? ''}
+                    onChange={(e) => org.updateSettings({ industrySector: e.target.value || undefined })}
+                    placeholder="f.eks. Helse og omsorg"
+                    className={SETTINGS_INPUT}
+                  />
+                </div>
+              </div>
+
+              <div className={SETTINGS_ROW_GRID}>
+                <p className={SETTINGS_LEAD}>
+                  Gjelder det en tariffavtale? Dette kan påvirke hvordan enkelte arbeidsmiljøregler tolkes i praksis.
+                </p>
+                <div>
+                  <span className={SETTINGS_FIELD_LABEL}>Tariffavtale</span>
+                  <label className={SETTINGS_CHECK_WRAP}>
+                    <input
+                      type="checkbox"
+                      checked={org.settings.hasCollectiveAgreement}
+                      onChange={(e) => org.updateSettings({ hasCollectiveAgreement: e.target.checked })}
+                      className="mt-0.5 size-4 rounded-none border-neutral-400 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-neutral-900">Tariffavtale gjelder</span>
+                      <p className="text-xs text-neutral-500">Kan fravike noen AML-regler.</p>
+                    </div>
+                  </label>
+                  {org.settings.hasCollectiveAgreement && (
+                    <div className="mt-4">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="org-settings-tariff-name">
+                        Avtalens navn
+                      </label>
+                      <input
+                        id="org-settings-tariff-name"
+                        value={org.settings.collectiveAgreementName ?? ''}
+                        onChange={(e) => org.updateSettings({ collectiveAgreementName: e.target.value || undefined })}
+                        placeholder="f.eks. Hovedavtalen LO-NHO"
+                        className={SETTINGS_INPUT}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </Mainbox1>
 
@@ -1103,20 +1154,20 @@ export function OrganisationPage() {
             heading="Beregnede terskler (AML 2024)"
             subheading="Oppdateres ut fra antall ansatte og innstillinger."
           >
-            <div className="space-y-3 text-sm">
+            <div className="border border-neutral-200 bg-white text-sm">
               {[
                 { label: 'Antall ansatte', value: `${org.totalEmployeeCount}`, ok: undefined },
                 { label: 'Verneombud lovpålagt (AML §6-1)', value: ct.requiresVerneombud ? 'Ja (≥5)' : 'Nei', ok: ct.requiresVerneombud },
                 { label: 'AMU kan kreves (10–29)', value: ct.mayRequestAmu ? 'Ja' : 'Nei', ok: ct.mayRequestAmu },
                 { label: 'AMU lovpålagt (AML §7-1)', value: ct.requiresAmu ? 'Ja (≥30)' : 'Nei', ok: ct.requiresAmu },
-              ].map(({ label, value, ok }) => (
+              ].map(({ label, value, ok }, i) => (
                 <div
                   key={label}
-                  className="flex items-center justify-between gap-3 border-b border-neutral-200/80 pb-3 last:border-0 last:pb-0"
+                  className={`flex items-center justify-between gap-3 px-3 py-3 md:px-4 ${i > 0 ? 'border-t border-neutral-200' : ''}`}
                 >
                   <span className="text-neutral-600">{label}</span>
                   <span
-                    className={`shrink-0 font-medium ${ok === true ? 'text-emerald-700' : ok === false ? 'text-neutral-400' : 'text-neutral-700'}`}
+                    className={`shrink-0 text-right font-medium tabular-nums ${ok === true ? 'text-emerald-700' : ok === false ? 'text-neutral-400' : 'text-neutral-700'}`}
                   >
                     {value}
                   </span>
