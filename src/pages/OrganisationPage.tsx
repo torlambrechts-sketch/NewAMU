@@ -20,6 +20,8 @@ import {
   ZoomIn,
   ZoomOut,
   PieChart,
+  ChevronRight,
+  ChevronDown,
 } from 'lucide-react'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
@@ -35,7 +37,7 @@ import {
 import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { mergeLayoutPayload } from '../lib/layoutLabTokens'
-import type { EmploymentType, OrgEmployee, OrgUnitKind, UserGroup } from '../types/organisation'
+import type { EmploymentType, OrgEmployee, OrgUnit, OrgUnitKind, UserGroup } from '../types/organisation'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -477,6 +479,9 @@ export function OrganisationPage() {
   const [searchEmp, setSearchEmp] = useState('')
   const [filterUnit, setFilterUnit] = useState('')
   const [empSegment, setEmpSegment] = useState<'all' | 'active' | 'inactive'>('all')
+  const [unitSearch, setUnitSearch] = useState('')
+  const [unitKindSeg, setUnitKindSeg] = useState<'all' | OrgUnitKind>('all')
+  const [expandedUnits, setExpandedUnits] = useState<Set<string>>(() => new Set())
 
   // Unit form
   const [unitForm, setUnitForm] = useState({
@@ -533,8 +538,43 @@ export function OrganisationPage() {
     setGroupForm((f) => ({ ...f, name: '', description: '', unitIds: [], employeeIds: [] }))
   }
 
-  const topLevelUnits = org.units.filter((u) => !u.parentId)
-  const childrenOf = (id: string) => org.units.filter((u) => u.parentId === id)
+  const unitRowsFlat = useMemo(() => {
+    const byParent = (pid: string | undefined) =>
+      org.units.filter((u) => u.parentId === pid).sort((a, b) => a.name.localeCompare(b.name, 'nb'))
+    const rows: { unit: OrgUnit; depth: number; hasChildren: boolean }[] = []
+    const walk = (parentId: string | undefined, depth: number) => {
+      for (const u of byParent(parentId)) {
+        const hasChildren = org.units.some((x) => x.parentId === u.id)
+        rows.push({ unit: u, depth, hasChildren })
+        if (expandedUnits.has(u.id)) walk(u.id, depth + 1)
+      }
+    }
+    walk(undefined, 0)
+    return rows
+  }, [org.units, expandedUnits])
+
+  const filteredUnitRows = useMemo(() => {
+    const q = unitSearch.trim().toLowerCase()
+    return unitRowsFlat.filter(({ unit }) => {
+      const matchKind = unitKindSeg === 'all' || unit.kind === unitKindSeg
+      const matchSearch =
+        !q ||
+        unit.name.toLowerCase().includes(q) ||
+        (unit.headName ?? '').toLowerCase().includes(q) ||
+        (unit.managerName ?? '').toLowerCase().includes(q) ||
+        KIND_LABELS[unit.kind].toLowerCase().includes(q)
+      return matchKind && matchSearch
+    })
+  }, [unitRowsFlat, unitSearch, unitKindSeg])
+
+  const toggleUnitExpanded = useCallback((id: string) => {
+    setExpandedUnits((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
 
   const insightStats = useMemo(() => {
     const byKind = org.units.reduce(
@@ -1260,14 +1300,168 @@ export function OrganisationPage() {
               </div>
             </div>
           </form>
-          <section className="mt-8 w-full">
-            <h2 className="mb-4 text-lg font-semibold text-neutral-900">Organisasjonsstruktur</h2>
-            <div className="space-y-2">
-              {topLevelUnits.map((unit) => (
-                <UnitRow key={unit.id} unit={unit} childrenOf={childrenOf} onDelete={org.deleteUnit} depth={0} />
-              ))}
-              {org.units.length === 0 && <p className="text-sm text-neutral-500">Ingen enheter ennå.</p>}
+          <section className="mt-8 w-full space-y-4">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-neutral-900">Avdelinger og enheter</h2>
+                <p className="mt-1 text-sm text-neutral-500">
+                  Trestruktur med utvidbare rader — samme tabelloppsett som under Ansatte.
+                </p>
+              </div>
+              <span className="text-xs text-neutral-400">{filteredUnitRows.length} vist</span>
             </div>
+
+            {org.units.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-none border border-dashed border-neutral-300 bg-white py-16 text-center shadow-sm">
+                <Building2 className="mb-3 size-10 text-neutral-300" />
+                <p className="text-sm text-neutral-500">Ingen enheter ennå</p>
+                <p className="mt-1 text-xs text-neutral-400">Opprett en enhet i skjemaet over.</p>
+              </div>
+            ) : (
+              <Table1Shell
+                toolbar={
+                  <Table1Toolbar
+                    payloadOverride={layout}
+                    searchSlot={
+                      <div className="flex min-w-0 flex-1 flex-wrap gap-3">
+                        <div
+                          className="relative min-w-[200px] flex-1"
+                          style={{ ['--layout-accent' as string]: layout.accent }}
+                        >
+                          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                          <input
+                            value={unitSearch}
+                            onChange={(e) => setUnitSearch(e.target.value)}
+                            placeholder="Søk navn, type, leder…"
+                            className={`w-full border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[color:var(--layout-accent)] ${rSeg}`}
+                          />
+                        </div>
+                      </div>
+                    }
+                    segmentSlot={
+                      <div className={`inline-flex flex-wrap border border-neutral-200 bg-neutral-50/80 p-1 ${rSeg}`}>
+                        {(
+                          [
+                            ['all', 'Alle'] as const,
+                            ['department', 'Avdeling'] as const,
+                            ['division', 'Divisjon'] as const,
+                            ['team', 'Team'] as const,
+                            ['location', 'Lokasjon'] as const,
+                          ] as const
+                        ).map(([id, label]) => {
+                          const selected = unitKindSeg === id
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => setUnitKindSeg(id)}
+                              className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium transition ${rSeg} ${
+                                selected ? 'text-white shadow-sm' : 'text-neutral-600 hover:bg-white'
+                              }`}
+                              style={selected ? { backgroundColor: layout.accent, color: '#fff' } : undefined}
+                            >
+                              {selected ? (
+                                <span className="flex size-4 items-center justify-center rounded-none bg-white/20">
+                                  <Check className="size-3" />
+                                </span>
+                              ) : (
+                                <span className="size-4 rounded-none border-2 border-neutral-300" />
+                              )}
+                              {label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    }
+                  />
+                }
+              >
+                {filteredUnitRows.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center border-t border-neutral-100 bg-neutral-50/50 px-6 py-14 text-center">
+                    <Building2 className="mb-3 size-10 text-neutral-300" />
+                    <p className="text-sm font-medium text-neutral-700">Ingen treff</p>
+                    <p className="mt-1 max-w-sm text-xs text-neutral-500">
+                      Juster søk eller typefilter, eller vis alle enheter.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUnitSearch('')
+                        setUnitKindSeg('all')
+                      }}
+                      className="mt-4 rounded-none bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#142e26]"
+                    >
+                      Nullstill filtre
+                    </button>
+                  </div>
+                ) : (
+                  <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+                    <thead>
+                      <tr className={`text-sm ${theadRow}`}>
+                        <th className={`${tableCell} font-medium`}>Enhet</th>
+                        <th className={`${tableCell} font-medium`}>Type</th>
+                        <th className={`${tableCell} font-medium`}>Leder</th>
+                        <th className={`${tableCell} w-28 font-medium`}>Ansatte</th>
+                        <th className={`${tableCell} w-28 text-right font-medium`} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredUnitRows.map(({ unit, depth, hasChildren }, rowIdx) => {
+                        const color = unit.color ?? KIND_COLORS[unit.kind]
+                        const empHere = org.displayEmployees.filter((e) => e.unitId === unit.id && e.active).length
+                        const pad = 12 + depth * 20
+                        return (
+                          <tr key={unit.id} className={`${table1BodyRowClass(layout, rowIdx)} hover:bg-neutral-50/50`}>
+                            <td className={tableCell}>
+                              <div className="flex items-center gap-2" style={{ paddingLeft: pad }}>
+                                {hasChildren ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleUnitExpanded(unit.id)}
+                                    className="flex size-8 shrink-0 items-center justify-center rounded-none border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
+                                    aria-expanded={expandedUnits.has(unit.id)}
+                                    title={expandedUnits.has(unit.id) ? 'Skjul underenheter' : 'Vis underenheter'}
+                                  >
+                                    {expandedUnits.has(unit.id) ? (
+                                      <ChevronDown className="size-4" />
+                                    ) : (
+                                      <ChevronRight className="size-4" />
+                                    )}
+                                  </button>
+                                ) : (
+                                  <span className="inline-block w-8 shrink-0" aria-hidden />
+                                )}
+                                <div
+                                  className="size-3 shrink-0 rounded-full"
+                                  style={{ background: color }}
+                                  aria-hidden
+                                />
+                                <span className="font-medium text-neutral-900">{unit.name}</span>
+                              </div>
+                            </td>
+                            <td className={`${tableCell} text-neutral-700`}>{KIND_LABELS[unit.kind]}</td>
+                            <td className={`${tableCell} text-neutral-600`}>{unit.headName ?? unit.managerName ?? '—'}</td>
+                            <td className={`${tableCell} tabular-nums text-neutral-700`}>{empHere}</td>
+                            <td className={`${tableCell} text-right`}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Slett «${unit.name}»?`)) org.deleteUnit(unit.id)
+                                }}
+                                className="rounded-none p-2 text-neutral-400 hover:bg-red-50 hover:text-red-600"
+                                title="Slett"
+                              >
+                                <Trash2 className="size-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </Table1Shell>
+            )}
           </section>
         </>
       )}
@@ -1534,39 +1728,6 @@ export function OrganisationPage() {
         </section>
       )}
       </div>
-    </div>
-  )
-}
-
-// ─── Unit tree row ────────────────────────────────────────────────────────────
-
-function UnitRow({ unit, childrenOf, onDelete, depth }: {
-  unit: ReturnType<typeof useOrganisation>['units'][0]
-  childrenOf: (id: string) => ReturnType<typeof useOrganisation>['units']
-  onDelete: (id: string) => void
-  depth: number
-}) {
-  const children = childrenOf(unit.id)
-  const color = unit.color ?? KIND_COLORS[unit.kind]
-  return (
-    <div>
-      <div className={`flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-sm ${depth > 0 ? 'ml-6' : ''}`}>
-        <div className="size-3 shrink-0 rounded-full" style={{ background: color }} />
-        <div className="flex-1 min-w-0">
-          <span className="font-medium text-neutral-900">{unit.name}</span>
-          <span className="ml-2 text-xs text-neutral-400">{KIND_LABELS[unit.kind]}</span>
-          {(unit.headName || unit.managerName) && <span className="ml-2 text-xs text-neutral-500">· {unit.headName ?? unit.managerName}</span>}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="size-3 rounded-sm shrink-0" style={{ background: color }} />
-          <button type="button" onClick={() => { if (confirm(`Slett «${unit.name}»?`)) onDelete(unit.id) }} className="rounded-lg p-1 text-neutral-300 hover:bg-red-50 hover:text-red-500"><Trash2 className="size-3.5" /></button>
-        </div>
-      </div>
-      {children.length > 0 && (
-        <div className="mt-1.5 space-y-1.5">
-          {children.map((child) => <UnitRow key={child.id} unit={child} childrenOf={childrenOf} onDelete={onDelete} depth={depth + 1} />)}
-        </div>
-      )}
     </div>
   )
 }
