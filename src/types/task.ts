@@ -19,6 +19,8 @@ export type TaskSourceType =
   | 'survey'
   | 'hse_safety_round'
   | 'hse_inspection'
+  /** Konkret avvik under HMS-inspeksjon */
+  | 'hse_inspection_finding'
   | 'hse_incident'
   | 'nav_report'
   | 'labor_metric'

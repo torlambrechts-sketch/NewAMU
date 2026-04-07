@@ -83,6 +83,7 @@ function parseSource(s: string | null): TaskSourceType | null {
     'survey',
     'hse_safety_round',
     'hse_inspection',
+    'hse_inspection_finding',
     'hse_incident',
     'nav_report',
     'labor_metric',
@@ -1519,6 +1520,7 @@ export function TasksPage() {
                         <option value="survey">Undersøkelse</option>
                         <option value="hse_safety_round">Vernerunde</option>
                         <option value="hse_inspection">HMS-inspeksjon</option>
+                        <option value="hse_inspection_finding">Inspeksjonsavvik</option>
                         <option value="hse_incident">Hendelse</option>
                         <option value="nav_report">Sykefravær/NAV</option>
                         <option value="labor_metric">AML-indikator</option>

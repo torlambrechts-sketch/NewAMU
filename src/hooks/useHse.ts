@@ -21,11 +21,14 @@ import type {
   ChecklistItemStatus,
   ChecklistTemplate,
   CorrectiveAction,
+  HseChecklistItem,
   HseAuditAction,
   HseAuditEntry,
   HseProtocolSignature,
   Incident,
   Inspection,
+  InspectionAttachment,
+  InspectionFinding,
   SafetyRound,
   SafetyRoundApproval,
   SjaAnalysis,
@@ -37,6 +40,9 @@ import type {
   SickLeaveMessage,
   TrainingRecord,
 } from '../types/hse'
+import type { Task as KanbanTask } from '../types/task'
+
+type KanbanTaskSeed = Omit<KanbanTask, 'id' | 'createdAt'> & Partial<Pick<KanbanTask, 'id' | 'createdAt'>>
 
 const STORAGE_KEY = 'atics-hse-v2'
 const MODULE_KEY = 'hse' as const
@@ -73,13 +79,16 @@ function auditEntry(
   }
 }
 
-const emptyChecklist = (): Record<string, ChecklistItemStatus> => {
+function emptyChecklistForItems(items: HseChecklistItem[]): Record<string, ChecklistItemStatus> {
   const m: Record<string, ChecklistItemStatus> = {}
-  for (const it of DEFAULT_SAFETY_ROUND_CHECKLIST) {
+  for (const it of items) {
     m[it.id] = 'na'
   }
   return m
 }
+
+const emptyChecklist = (): Record<string, ChecklistItemStatus> =>
+  emptyChecklistForItems(DEFAULT_SAFETY_ROUND_CHECKLIST)
 
 const MILESTONE_DEFS: { kind: SickLeaveMilestoneKind; label: string; lawRef: string; daysOffset: number }[] = [
   { kind: 'contact_day_4', label: 'Kontakt med ansatt (dag 4)', lawRef: 'AML §4-6 nr. 1, NAV-krav', daysOffset: 4 },
@@ -107,13 +116,35 @@ function buildMilestones(sickFrom: string): SickLeaveMilestone[] {
 function normalizeParsed(p: HseState): HseState {
   return {
     safetyRounds: Array.isArray(p.safetyRounds)
-      ? p.safetyRounds.map((sr) => ({
-          ...sr,
-          itemDetails: (sr as SafetyRound).itemDetails ?? {},
-          status: (sr as SafetyRound).status ?? ('in_progress' as const),
-        }))
+      ? p.safetyRounds.map((sr) => {
+          const r = sr as SafetyRound
+          let status = r.status ?? 'in_progress'
+          if (status === 'pending_approval') status = 'pending_verneombud'
+          const sigs = r.signatures ?? []
+          const issueSynced = r.issueTasksSynced ?? false
+          return {
+            ...r,
+            itemDetails: r.itemDetails ?? {},
+            status,
+            signatures: sigs,
+            checklistTemplateId: r.checklistTemplateId ?? SAFETY_ROUND_TEMPLATE_ID,
+            issueTasksSynced: issueSynced,
+          }
+        })
       : [],
-    inspections: Array.isArray(p.inspections) ? p.inspections : [],
+    inspections: Array.isArray(p.inspections)
+      ? p.inspections.map((raw) => {
+          const ins = raw as Inspection
+          return {
+            ...ins,
+            concreteFindings: Array.isArray(ins.concreteFindings) ? ins.concreteFindings : [],
+            attachments: Array.isArray(ins.attachments) ? ins.attachments : [],
+            protocolSignatures: ins.protocolSignatures ?? [],
+            locked: ins.locked ?? false,
+            findingTasksSynced: ins.findingTasksSynced ?? false,
+          }
+        })
+      : [],
     incidents: Array.isArray(p.incidents) ? p.incidents : [],
     sjaAnalyses: Array.isArray(p.sjaAnalyses) ? p.sjaAnalyses : [],
     trainingRecords: Array.isArray(p.trainingRecords) ? p.trainingRecords : [],
@@ -277,15 +308,25 @@ export function useHse() {
     }
   }, [useRemote, supabase, orgId, userId, remoteState])
 
+  const checklistTemplatesRef = useRef(state.checklistTemplates)
+  checklistTemplatesRef.current = state.checklistTemplates
+
   const createSafetyRound = useCallback(
-    (partial: Omit<SafetyRound, 'id' | 'createdAt' | 'updatedAt' | 'items' | 'itemDetails' | 'status'>) => {
+    (partial: Omit<SafetyRound, 'id' | 'createdAt' | 'updatedAt' | 'items' | 'itemDetails' | 'status' | 'signatures' | 'issueTasksSynced'> & { checklistTemplateId?: string }) => {
       const now = new Date().toISOString()
+      const tid = partial.checklistTemplateId ?? SAFETY_ROUND_TEMPLATE_ID
+      const tpl = checklistTemplatesRef.current.find((t) => t.id === tid)
+      const items = tpl?.items ?? DEFAULT_SAFETY_ROUND_CHECKLIST
       const sr: SafetyRound = {
         ...partial,
+        checklistTemplateId: tid,
+        conductedBy: partial.conductedBy?.trim() ? partial.conductedBy : '—',
         id: crypto.randomUUID(),
-        items: emptyChecklist(),
+        items: emptyChecklistForItems(items),
         itemDetails: {},
         status: 'in_progress',
+        signatures: [],
+        issueTasksSynced: false,
         createdAt: now,
         updatedAt: now,
       }
@@ -293,7 +334,7 @@ export function useHse() {
         location: sr.location,
         conductedBy: sr.conductedBy,
         conductedAt: sr.conductedAt,
-        templateId: SAFETY_ROUND_TEMPLATE_ID,
+        templateId: tid,
       })
       setState((s) => ({ ...s, safetyRounds: [sr, ...s.safetyRounds], auditTrail: [...s.auditTrail, entry] }))
       return sr
@@ -458,12 +499,16 @@ export function useHse() {
   )
 
   const createInspection = useCallback(
-    (partial: Omit<Inspection, 'id' | 'createdAt' | 'updatedAt'>) => {
+    (partial: Omit<Inspection, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
       const now = new Date().toISOString()
       const ins: Inspection = {
         ...partial,
+        concreteFindings: partial.concreteFindings ?? [],
+        attachments: partial.attachments ?? [],
         protocolSignatures: partial.protocolSignatures ?? [],
-        id: crypto.randomUUID(),
+        locked: partial.locked ?? false,
+        findingTasksSynced: partial.findingTasksSynced ?? false,
+        id: partial.id ?? crypto.randomUUID(),
         createdAt: now,
         updatedAt: now,
       }
@@ -480,6 +525,8 @@ export function useHse() {
   const updateInspection = useCallback(
     (id: string, patch: Partial<Inspection>) => {
       setState((s) => {
+        const cur = s.inspections.find((x) => x.id === id)
+        if (!cur || cur.locked) return s
         const entry = auditEntry('inspection_updated', 'inspection', id, 'Inspeksjon oppdatert', { status: patch.status ?? null })
         return {
           ...s,
@@ -491,13 +538,239 @@ export function useHse() {
     [setState],
   )
 
+  const addInspectionFinding = useCallback(
+    (inspectionId: string, description: string) => {
+      const desc = description.trim()
+      if (!desc) return null
+      const fid = crypto.randomUUID()
+      const now = new Date().toISOString()
+      const row: InspectionFinding = { id: fid, description: desc, status: 'open', createdAt: now }
+      setState((s) => ({
+        ...s,
+        inspections: s.inspections.map((x) =>
+          x.id === inspectionId && !x.locked
+            ? { ...x, concreteFindings: [...(x.concreteFindings ?? []), row], updatedAt: now }
+            : x,
+        ),
+      }))
+      return fid
+    },
+    [setState],
+  )
+
+  const updateInspectionFinding = useCallback(
+    (inspectionId: string, findingId: string, patch: Partial<Pick<InspectionFinding, 'description' | 'status' | 'photoPath' | 'photoUrl'>>) => {
+      setState((s) => ({
+        ...s,
+        inspections: s.inspections.map((x) => {
+          if (x.id !== inspectionId || x.locked) return x
+          return {
+            ...x,
+            concreteFindings: (x.concreteFindings ?? []).map((f) =>
+              f.id === findingId ? { ...f, ...patch, resolvedAt: patch.status === 'resolved' ? new Date().toISOString() : f.resolvedAt } : f,
+            ),
+            updatedAt: new Date().toISOString(),
+          }
+        }),
+      }))
+    },
+    [setState],
+  )
+
+  const removeInspectionFinding = useCallback(
+    (inspectionId: string, findingId: string) => {
+      setState((s) => ({
+        ...s,
+        inspections: s.inspections.map((x) =>
+          x.id === inspectionId && !x.locked
+            ? {
+                ...x,
+                concreteFindings: (x.concreteFindings ?? []).filter((f) => f.id !== findingId),
+                updatedAt: new Date().toISOString(),
+              }
+            : x,
+        ),
+      }))
+    },
+    [setState],
+  )
+
+  const addInspectionAttachment = useCallback(
+    (inspectionId: string, att: Omit<InspectionAttachment, 'id' | 'uploadedAt'>) => {
+      const now = new Date().toISOString()
+      const row = { ...att, id: crypto.randomUUID(), uploadedAt: now }
+      setState((s) => ({
+        ...s,
+        inspections: s.inspections.map((x) =>
+          x.id === inspectionId && !x.locked
+            ? { ...x, attachments: [...(x.attachments ?? []), row], updatedAt: now }
+            : x,
+        ),
+      }))
+      return row.id
+    },
+    [setState],
+  )
+
+  const removeInspectionAttachment = useCallback(
+    (inspectionId: string, attachmentId: string) => {
+      setState((s) => ({
+        ...s,
+        inspections: s.inspections.map((x) =>
+          x.id === inspectionId && !x.locked
+            ? {
+                ...x,
+                attachments: (x.attachments ?? []).filter((a) => a.id !== attachmentId),
+                updatedAt: new Date().toISOString(),
+              }
+            : x,
+        ),
+      }))
+    },
+    [setState],
+  )
+
+  const linkInspectionFindingTasks = useCallback(
+    (inspectionId: string, links: { findingId: string; taskId: string }[]) => {
+      setState((s) => ({
+        ...s,
+        inspections: s.inspections.map((x) => {
+          if (x.id !== inspectionId) return x
+          const map = new Map(links.map((l) => [l.findingId, l.taskId]))
+          return {
+            ...x,
+            concreteFindings: (x.concreteFindings ?? []).map((f) => {
+              const tid = map.get(f.id)
+              return tid ? { ...f, linkedTaskId: tid } : f
+            }),
+            updatedAt: new Date().toISOString(),
+          }
+        }),
+      }))
+    },
+    [setState],
+  )
+
+  const inspectionDocumentPayload = useCallback((ins: Inspection, protocolSignatures: HseProtocolSignature[], closure?: HseProtocolSignature) => ({
+    docKind: 'hse_inspection_document' as const,
+    inspectionId: ins.id,
+    title: ins.title,
+    inspectionKind: ins.kind,
+    conductedAt: ins.conductedAt,
+    scope: ins.scope,
+    findingsSummary: ins.findings,
+    followUp: ins.followUp,
+    status: ins.status,
+    responsible: ins.responsible,
+    responsibleEmployeeId: ins.responsibleEmployeeId ?? null,
+    subjectKind: ins.subjectKind ?? 'free_text',
+    subjectUnitId: ins.subjectUnitId ?? null,
+    subjectLabel: ins.subjectLabel ?? null,
+    concreteFindings: (ins.concreteFindings ?? []).map((f) => ({
+      id: f.id,
+      description: f.description,
+      status: f.status,
+      photoPath: f.photoPath ?? null,
+    })),
+    attachments: (ins.attachments ?? []).map((a) => ({ id: a.id, kind: a.kind, path: a.path, fileName: a.fileName })),
+    protocolSignatures: protocolSignatures.map((s) => ({ signerName: s.signerName, signedAt: s.signedAt, role: s.role })),
+    closureSignature: closure
+      ? { signerName: closure.signerName, signedAt: closure.signedAt, role: closure.role }
+      : null,
+    locked: ins.locked ?? false,
+  }), [])
+
+  const finalizeInspectionClose = useCallback(
+    async (inspectionId: string, signerName: string): Promise<{ ok: true; seeds: { findingId: string; task: KanbanTaskSeed }[] } | { ok: false }> => {
+      const name = signerName.trim()
+      if (!name) return { ok: false }
+      setError(null)
+      const ins = state.inspections.find((x) => x.id === inspectionId)
+      if (!ins || ins.locked || ins.status !== 'closed') return { ok: false }
+
+      const signedAt = new Date().toISOString()
+      const closureSig: HseProtocolSignature = { signerName: name, signedAt, role: 'inspector' }
+      const protos = ins.protocolSignatures ?? []
+      const hashPayload = inspectionDocumentPayload({ ...ins, locked: true, status: 'closed' }, protos, closureSig)
+      const documentHashSha256 = await hashDocumentPayload(hashPayload)
+      let level1: HseProtocolSignature['level1'] | undefined
+      if (useRemote && supabase && orgId && userId) {
+        const clientIp = await fetchClientIpBestEffort()
+        const row = await insertSystemSignatureEvent(supabase, orgId, userId, {
+          resourceType: 'hse_inspection',
+          resourceId: inspectionId,
+          action: 'hse_inspection_close_finalize',
+          documentHashSha256,
+          signerDisplayName: name,
+          role: 'inspector',
+          clientIp,
+        })
+        if ('error' in row) {
+          setError(row.error)
+          return { ok: false }
+        }
+        level1 = row.evidence
+      }
+      const closureWithMeta: HseProtocolSignature = { ...closureSig, level1 }
+
+      const openFindings = (ins.concreteFindings ?? []).filter((f) => f.status === 'open')
+      const seeds: { findingId: string; task: KanbanTaskSeed }[] = openFindings.map((f) => ({
+        findingId: f.id,
+        task: {
+          title: `Avvik: ${ins.title.slice(0, 36)}${ins.title.length > 36 ? '…' : ''} — ${f.description.slice(0, 48)}${f.description.length > 48 ? '…' : ''}`,
+          description: [f.description, f.photoUrl ? `Vedlegg: ${f.photoUrl}` : '', ins.followUp ? `Oppfølging (inspeksjon): ${ins.followUp}` : '']
+            .filter(Boolean)
+            .join('\n\n'),
+          status: 'todo',
+          assignee: ins.responsible || 'Unassigned',
+          assigneeEmployeeId: ins.responsibleEmployeeId,
+          ownerRole: 'HMS / inspeksjon',
+          dueDate: '—',
+          module: 'hse',
+          sourceType: 'hse_inspection_finding',
+          sourceId: f.id,
+          sourceLabel: ins.title,
+          requiresManagementSignOff: ins.kind === 'external',
+        },
+      }))
+
+      setState((s) => {
+        const entry = auditEntry(
+          'inspection_updated',
+          'inspection',
+          inspectionId,
+          `Inspeksjon låst og signert (nivå 1): ${name}`,
+          { locked: true, findingsTaskCount: seeds.length },
+        )
+        return {
+          ...s,
+          inspections: s.inspections.map((x) =>
+            x.id === inspectionId
+              ? {
+                  ...x,
+                  locked: true,
+                  closureSignature: closureWithMeta,
+                  findingTasksSynced: seeds.length > 0,
+                  updatedAt: new Date().toISOString(),
+                }
+              : x,
+          ),
+          auditTrail: [...s.auditTrail, entry],
+        }
+      })
+
+      return { ok: true, seeds }
+    },
+    [state.inspections, setState, useRemote, supabase, orgId, userId, inspectionDocumentPayload],
+  )
+
   const signInspectionProtocol = useCallback(
     async (inspectionId: string, signerName: string, role: HseProtocolSignature['role']) => {
       const name = signerName.trim()
       if (!name) return false
       setError(null)
       const ins = state.inspections.find((x) => x.id === inspectionId)
-      if (!ins) return false
+      if (!ins || ins.locked) return false
       const signedAt = new Date().toISOString()
       const proposed = [
         ...(ins.protocolSignatures ?? []).map(({ signerName: sn, signedAt: sa, role: r }) => ({
@@ -518,6 +791,12 @@ export function useHse() {
         followUp: ins.followUp,
         status: ins.status,
         responsible: ins.responsible,
+        responsibleEmployeeId: ins.responsibleEmployeeId ?? null,
+        subjectKind: ins.subjectKind ?? null,
+        subjectUnitId: ins.subjectUnitId ?? null,
+        subjectLabel: ins.subjectLabel ?? null,
+        concreteFindings: ins.concreteFindings ?? [],
+        attachments: ins.attachments ?? [],
         protocolSignatures: proposed,
       }
       const documentHashSha256 = await hashDocumentPayload(hashPayload)
@@ -988,6 +1267,13 @@ export function useHse() {
     approveRound,
     createInspection,
     updateInspection,
+    addInspectionFinding,
+    updateInspectionFinding,
+    removeInspectionFinding,
+    addInspectionAttachment,
+    removeInspectionAttachment,
+    linkInspectionFindingTasks,
+    finalizeInspectionClose,
     signInspectionProtocol,
     createIncident,
     updateIncident,

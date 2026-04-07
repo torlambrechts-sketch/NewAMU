@@ -25,7 +25,23 @@ export type ChecklistItemDetail = {
   resolvedAt?: string
 }
 
-export type SafetyRoundStatus = 'in_progress' | 'pending_approval' | 'approved'
+export type SafetyRoundStatus =
+  | 'in_progress'
+  /** Leder har signert — venter verneombud (AML § 3-1) */
+  | 'pending_verneombud'
+  /** @deprecated Bruk pending_verneombud */
+  | 'pending_approval'
+  | 'approved'
+
+export type SafetyRoundSignatureRole = 'management' | 'safety_rep'
+
+export type SafetyRoundSignature = {
+  role: SafetyRoundSignatureRole
+  signerName: string
+  signerUserId?: string
+  signedAt: string
+  level1?: Level1SystemSignatureMeta
+}
 
 export type SafetyRoundApproval = {
   approverName: string
@@ -39,8 +55,11 @@ export type SafetyRound = {
   title: string
   conductedAt: string
   location: string
+  /** Kun visning / historikk — ikke brukt til juridisk signatur */
   conductedBy: string
   department?: string
+  /** Mal brukt for denne runden */
+  checklistTemplateId?: string
   /** checklist template id -> status */
   items: Record<string, ChecklistItemStatus>
   /** checklist item id -> avvik detail (only set when status === 'issue') */
@@ -50,6 +69,12 @@ export type SafetyRound = {
   status: SafetyRoundStatus
   /** Set when status reaches 'pending_approval' */
   submittedForApprovalAt?: string
+  /** Leder + verneombud (nivå 1) — begge kreves før låsing */
+  signatures?: SafetyRoundSignature[]
+  /** Oppgaver opprettet på Kanban etter endelig VO-signatur */
+  issueTasksSynced?: boolean
+  /** Merknad fra leder ved signatur (visning) */
+  leaderComment?: string
   /** Manager sign-off — locks the checklist */
   approval?: SafetyRoundApproval
   createdAt: string
@@ -65,17 +90,66 @@ export type HseProtocolSignature = {
   level1?: Level1SystemSignatureMeta
 }
 
+/** Inspeksjonsobjekt — koblet til organisasjonsenhet eller merket utstyr/lokasjon */
+export type InspectionSubjectKind = 'free_text' | 'org_unit' | 'equipment_or_area'
+
+export type InspectionFindingStatus = 'open' | 'resolved'
+
+/** Sporbart avvik under inspeksjon (egen «child»-rad) */
+export type InspectionFinding = {
+  id: string
+  description: string
+  status: InspectionFindingStatus
+  /** Supabase Storage path (bucket hse_inspection_files) */
+  photoPath?: string
+  /** Midlertidig visning (data-URL) eller signert URL */
+  photoUrl?: string
+  /** Koblet Kanban-oppgave etter lukking av inspeksjon */
+  linkedTaskId?: string
+  createdAt: string
+  resolvedAt?: string
+}
+
+export type InspectionAttachmentKind = 'image' | 'pdf' | 'other'
+
+export type InspectionAttachment = {
+  id: string
+  kind: InspectionAttachmentKind
+  /** Storage object path under org folder */
+  path: string
+  fileName: string
+  uploadedAt: string
+}
+
 export type Inspection = {
   id: string
   kind: InspectionKind
   title: string
   conductedAt: string
   scope: string
+  /** Kort oppsummering av funn (ikke erstatning for konkrete avvik) */
   findings: string
   followUp: string
   status: 'open' | 'closed'
+  /** Visningsnavn (denormalisert) */
   responsible: string
-  /** Signatur på inspeksjonsprotokoll */
+  /** Kobling til ansatt som hovedansvarlig */
+  responsibleEmployeeId?: string
+  subjectKind?: InspectionSubjectKind
+  /** Når subjectKind === org_unit */
+  subjectUnitId?: string
+  /** Fritekst / merkelapp for utstyr eller rom (truck 3, fryserom B, …) */
+  subjectLabel?: string
+  /** Ved «kun fritekst» — gammelt omfang i scope; subjectLabel kan speile scope i UI */
+  concreteFindings?: InspectionFinding[]
+  attachments?: InspectionAttachment[]
+  /** Når sann: ingen redigering (app-nivå; RLS i DB anbefales for produksjon) */
+  locked?: boolean
+  /** Signatur ved formell lukking / fullføring (nivå 1) */
+  closureSignature?: HseProtocolSignature
+  /** Oppgaver opprettet for åpne avvik ved lukking */
+  findingTasksSynced?: boolean
+  /** Signatur på inspeksjonsprotokoll (underveis) */
   protocolSignatures?: HseProtocolSignature[]
   createdAt: string
   updatedAt: string

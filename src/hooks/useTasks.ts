@@ -61,6 +61,7 @@ const ALL_SOURCES: TaskSourceType[] = [
   'survey',
   'hse_safety_round',
   'hse_inspection',
+  'hse_inspection_finding',
   'hse_incident',
   'nav_report',
   'labor_metric',

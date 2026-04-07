@@ -1,6 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
+import { Mainbox1 } from '../components/layout/Mainbox1'
+import { Table1Shell } from '../components/layout/Table1Shell'
+import { Table1Toolbar } from '../components/layout/Table1Toolbar'
 import {
   AlertTriangle,
   BookOpen,
@@ -23,19 +26,34 @@ import {
   ShieldCheck,
   Trash2,
   Users,
+  X,
 } from 'lucide-react'
 import { useHse } from '../hooks/useHse'
+import { useOrganisation } from '../hooks/useOrganisation'
+import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { useTasks } from '../hooks/useTasks'
+import { useUiTheme } from '../hooks/useUiTheme'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
+import {
+  mergeLayoutPayload,
+  table1BodyRowClass,
+  table1CellPadding,
+  table1HeaderRowClass,
+} from '../lib/layoutLabTokens'
 import { TRAINING_KIND_LABELS } from '../data/hseTemplates'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeIncidentWizard, makeSickLeaveWizard, makeSjaWizard, makeSafetyRoundWizard } from '../components/wizard/wizards'
+import type { Task as KanbanTask } from '../types/task'
 import type {
   HseProtocolSignature,
   Incident,
   IncidentCategory,
   IncidentFormTemplate,
   Inspection,
+  InspectionAttachment,
+  InspectionFinding,
+  InspectionSubjectKind,
   SafetyRound,
   SjaAnalysis,
   SjaHazardRow,
@@ -43,6 +61,20 @@ import type {
   SickLeaveMilestoneKind,
   TrainingKind,
 } from '../types/hse'
+
+const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
+const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
+const HERO_ACTION_CLASS =
+  'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-none px-4 text-sm font-medium leading-none'
+const TASK_PANEL_ROW_GRID =
+  'grid grid-cols-1 gap-4 border-b border-neutral-200 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-5 md:py-5'
+const SETTINGS_LEAD = 'text-sm leading-relaxed text-neutral-600'
+const SETTINGS_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-800'
+const SETTINGS_INPUT =
+  'mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900'
+const TASK_PANEL_INSET = 'rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6'
+const R_FLAT = 'rounded-none'
+const HSE_INSPECTION_BUCKET = 'hse_inspection_files'
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -150,14 +182,93 @@ function daysUntil(isoDate: string) {
 
 export function HseModule() {
   const hse = useHse()
-  const { supabaseConfigured } = useOrgSetupContext()
+  const { supabaseConfigured, supabase, organization, profile } = useOrgSetupContext()
+  const org = useOrganisation()
+  const { addTask } = useTasks()
+  const menu1 = useOrgMenu1Styles()
+  const { payload: layoutPayload } = useUiTheme()
+  const layout = mergeLayoutPayload(layoutPayload)
+  const tableCell = `${table1CellPadding(layout)} ${TABLE_CELL_BASE}`
+  const theadRow = table1HeaderRowClass(layout)
+
   const [searchParams] = useSearchParams()
   type TabId = (typeof tabs)[number]['id']
   const tabParam = searchParams.get('tab')
   const tab: TabId = tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
 
   const [roundForm, setRoundForm] = useState({ title: '', conductedAt: '', location: '', department: '', conductedBy: '', notes: '', templateId: 'tpl-standard' })
-  const [insForm, setInsForm] = useState({ kind: 'internal' as Inspection['kind'], title: '', conductedAt: '', scope: '', findings: '', followUp: '', responsible: '', status: 'open' as Inspection['status'] })
+
+  const [inspectionPanelOpen, setInspectionPanelOpen] = useState(false)
+  const [insDraftId, setInsDraftId] = useState<string | null>(null)
+  const [insKind, setInsKind] = useState<Inspection['kind']>('internal')
+  const [insTitle, setInsTitle] = useState('')
+  const [insConductedAt, setInsConductedAt] = useState('')
+  const [insScope, setInsScope] = useState('')
+  const [insFindingsSummary, setInsFindingsSummary] = useState('')
+  const [insFollowUp, setInsFollowUp] = useState('')
+  const [insStatus, setInsStatus] = useState<Inspection['status']>('open')
+  const [insSubjectKind, setInsSubjectKind] = useState<InspectionSubjectKind>('free_text')
+  const [insSubjectUnitId, setInsSubjectUnitId] = useState('')
+  const [insSubjectLabel, setInsSubjectLabel] = useState('')
+  const [insResponsibleEmployeeId, setInsResponsibleEmployeeId] = useState('')
+  const [findingDrafts, setFindingDrafts] = useState<{ id: string; description: string; photoDataUrl?: string }[]>([])
+  const [newFindingText, setNewFindingText] = useState('')
+  const [insFileQueue, setInsFileQueue] = useState<File[]>([])
+  const [insSearch, setInsSearch] = useState('')
+  const [expandedInspectionId, setExpandedInspectionId] = useState<string | null>(null)
+
+  const employeePickList = useMemo(
+    () => [...org.activeEmployees].sort((a, b) => a.name.localeCompare(b.name, 'nb')),
+    [org.activeEmployees],
+  )
+
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- React setState identities are stable
+  const resetInspectionPanel = useCallback(() => {
+    setInsDraftId(null)
+    setInsKind('internal')
+    setInsTitle('')
+    setInsConductedAt('')
+    setInsScope('')
+    setInsFindingsSummary('')
+    setInsFollowUp('')
+    setInsStatus('open')
+    setInsSubjectKind('free_text')
+    setInsSubjectUnitId('')
+    setInsSubjectLabel('')
+    setInsResponsibleEmployeeId('')
+    setFindingDrafts([])
+    setNewFindingText('')
+    setInsFileQueue([])
+  }, [])
+
+  const openNewInspectionPanel = useCallback(() => {
+    resetInspectionPanel()
+    setInsDraftId(crypto.randomUUID())
+    setInspectionPanelOpen(true)
+  }, [resetInspectionPanel])
+
+  const closeInspectionPanel = useCallback(() => {
+    setInspectionPanelOpen(false)
+    resetInspectionPanel()
+  }, [resetInspectionPanel])
+
+  useEffect(() => {
+    if (!inspectionPanelOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [inspectionPanelOpen])
+
+  useEffect(() => {
+    if (!inspectionPanelOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeInspectionPanel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [inspectionPanelOpen, closeInspectionPanel])
 
   // Incident form — rich
   const [incForm, setIncForm] = useState({
@@ -219,10 +330,139 @@ export function HseModule() {
 
   const sortedAudit = useMemo(() => [...hse.auditTrail].sort((a, b) => a.at.localeCompare(b.at)), [hse.auditTrail])
 
+  const inspectionStats = useMemo(() => {
+    const list = hse.inspections
+    return {
+      total: list.length,
+      open: list.filter((i) => i.status === 'open' && !i.locked).length,
+      closedUnlocked: list.filter((i) => i.status === 'closed' && !i.locked).length,
+      locked: list.filter((i) => i.locked).length,
+    }
+  }, [hse.inspections])
+
+  const inspectionsFiltered = useMemo(() => {
+    const q = insSearch.trim().toLowerCase()
+    let list = [...hse.inspections]
+    if (q) {
+      list = list.filter(
+        (i) =>
+          i.title.toLowerCase().includes(q) ||
+          i.scope.toLowerCase().includes(q) ||
+          i.findings.toLowerCase().includes(q) ||
+          (i.subjectLabel ?? '').toLowerCase().includes(q),
+      )
+    }
+    list.sort((a, b) => b.conductedAt.localeCompare(a.conductedAt))
+    return list
+  }, [hse.inspections, insSearch])
+
+  const uploadInspectionFile = useCallback(
+    async (
+      inspectionId: string,
+      file: File,
+    ): Promise<{ path: string; kind: InspectionAttachment['kind'] } | null> => {
+      const mime = file.type || ''
+      const kind: InspectionAttachment['kind'] = mime.includes('pdf')
+        ? 'pdf'
+        : mime.startsWith('image/')
+          ? 'image'
+          : 'other'
+      const safeName = file.name.replace(/[^\w.-]+/g, '_').slice(0, 120)
+      const rel = `inspections/${inspectionId}/${crypto.randomUUID()}-${safeName}`
+      if (supabase && organization?.id) {
+        const path = `${organization.id}/${rel}`
+        const { error } = await supabase.storage.from(HSE_INSPECTION_BUCKET).upload(path, file, {
+          cacheControl: '3600',
+          upsert: false,
+        })
+        if (error) {
+          console.warn('hse_inspection_files upload', error.message)
+          return null
+        }
+        return { path, kind }
+      }
+      return { path: `local/${rel}`, kind }
+    },
+    [supabase, organization],
+  )
+
+  function responsibleLabelFromEmployeeId(id: string) {
+    const e = employeePickList.find((x) => x.id === id)
+    return e?.name ?? ''
+  }
+
+  async function submitInspectionPanel(e: React.FormEvent) {
+    e.preventDefault()
+    if (!insTitle.trim() || !insDraftId) return
+    const conductedIso = insConductedAt ? new Date(insConductedAt).toISOString() : new Date().toISOString()
+    const respName =
+      insResponsibleEmployeeId ? responsibleLabelFromEmployeeId(insResponsibleEmployeeId) : '—'
+    const subjectUnitName =
+      insSubjectKind === 'org_unit' && insSubjectUnitId
+        ? org.units.find((u) => u.id === insSubjectUnitId)?.name
+        : undefined
+    const scopeText =
+      insSubjectKind === 'org_unit' && subjectUnitName
+        ? [insScope.trim(), `Enhet: ${subjectUnitName}`].filter(Boolean).join('\n')
+        : insScope.trim()
+    const findingsRows: InspectionFinding[] = findingDrafts.map((d) => ({
+      id: d.id,
+      description: d.description.trim(),
+      status: 'open' as const,
+      photoUrl: d.photoDataUrl,
+      createdAt: new Date().toISOString(),
+    }))
+    const existing = hse.inspections.find((x) => x.id === insDraftId)
+    const attList: InspectionAttachment[] = [...(existing?.attachments ?? [])]
+    for (const f of insFileQueue) {
+      const r = await uploadInspectionFile(insDraftId, f)
+      if (r) {
+        attList.push({
+          id: crypto.randomUUID(),
+          kind: r.kind,
+          path: r.path,
+          fileName: f.name,
+          uploadedAt: new Date().toISOString(),
+        })
+      }
+    }
+    if (insKind === 'external' && !attList.some((a) => a.kind === 'pdf')) {
+      window.alert('Ved ekstern inspeksjon (Arbeidstilsynet, Mattilsynet, brannvesen m.m.) må offisiell PDF-rapport lastes opp.')
+      return
+    }
+    const base: Omit<Inspection, 'createdAt' | 'updatedAt'> & { id?: string } = {
+      id: insDraftId,
+      kind: insKind,
+      title: insTitle.trim(),
+      conductedAt: conductedIso,
+      scope: scopeText,
+      findings: insFindingsSummary.trim(),
+      followUp: insFollowUp.trim(),
+      status: insStatus,
+      responsible: respName,
+      responsibleEmployeeId: insResponsibleEmployeeId || undefined,
+      subjectKind: insSubjectKind,
+      subjectUnitId: insSubjectKind === 'org_unit' ? insSubjectUnitId || undefined : undefined,
+      subjectLabel: insSubjectKind === 'equipment_or_area' ? insSubjectLabel.trim() || undefined : undefined,
+      concreteFindings: findingsRows,
+      attachments: attList,
+      protocolSignatures: existing?.protocolSignatures ?? [],
+      locked: existing?.locked ?? false,
+      closureSignature: existing?.closureSignature,
+      findingTasksSynced: existing?.findingTasksSynced ?? false,
+    }
+    if (existing) {
+      hse.updateInspection(insDraftId, base)
+    } else {
+      hse.createInspection(base)
+    }
+    closeInspectionPanel()
+  }
+
   const activeTemplate = FORM_TEMPLATES.find((t) => t.id === incForm.formTemplate)!
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
+    <div className={PAGE_WRAP}>
       <nav className="mb-4 text-sm text-neutral-600">
         <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">Prosjekter</Link>
         <span className="mx-2 text-neutral-400">→</span>
@@ -249,35 +489,31 @@ export function HseModule() {
         </div>
       </div>
 
-      {/* Tab bar */}
-      <div className="mt-4 flex flex-wrap gap-1 border-b border-neutral-200">
-        {tabs.map(({ id, label, icon: Icon }) => {
-          const active = tab === id
-          return (
-            <Link
-              key={id}
-              to={`?tab=${id}`}
-              className={`inline-flex items-center gap-1.5 rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-                active ? 'border-b-2 border-[#1a3d32] text-[#1a3d32]' : 'text-neutral-500 hover:text-neutral-800'
-              }`}
-            >
-              <Icon className="size-4" />
-              {label}
-              {id === 'incidents' && hse.stats.violence > 0 && (
-                <span className="ml-1 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.violence}</span>
-              )}
-              {id === 'sja' && hse.stats.openSja > 0 && (
-                <span className="ml-1 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.openSja}</span>
-              )}
-              {id === 'training' && hse.stats.expiredTraining > 0 && (
-                <span className="ml-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.expiredTraining}</span>
-              )}
-              {id === 'sickness' && hse.stats.overdueMilestones > 0 && (
-                <span className="ml-1 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.overdueMilestones}</span>
-              )}
-            </Link>
-          )
-        })}
+      <div className={menu1.barOuterClass} style={menu1.barStyle}>
+        <div className={menu1.innerRowClass}>
+          {tabs.map(({ id, label, icon: Icon }) => {
+            const active = tab === id
+            const tb = menu1.tabButton(active)
+            return (
+              <Link key={id} to={`?tab=${id}`} className={tb.className} style={tb.style}>
+                <Icon className="size-4 shrink-0 opacity-90" />
+                <span className="whitespace-nowrap">{label}</span>
+                {id === 'incidents' && hse.stats.violence > 0 && (
+                  <span className="ml-0.5 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.violence}</span>
+                )}
+                {id === 'sja' && hse.stats.openSja > 0 && (
+                  <span className="ml-0.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.openSja}</span>
+                )}
+                {id === 'training' && hse.stats.expiredTraining > 0 && (
+                  <span className="ml-0.5 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.expiredTraining}</span>
+                )}
+                {id === 'sickness' && hse.stats.overdueMilestones > 0 && (
+                  <span className="ml-0.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.overdueMilestones}</span>
+                )}
+              </Link>
+            )
+          })}
+        </div>
       </div>
 
       {/* ── Overview ──────────────────────────────────────────────────────────── */}
@@ -382,57 +618,123 @@ export function HseModule() {
         </div>
       )}
 
-      {/* ── Inspections ───────────────────────────────────────────────────────── */}
+      {/* ── Inspections (Tasks / Organisasjon layout) ─────────────────────────── */}
       {tab === 'inspections' && (
-        <div className="mt-8 space-y-8">
-          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Registrer inspeksjon</h2>
-            <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
-              e.preventDefault()
-              if (!insForm.title.trim()) return
-              hse.createInspection({ kind: insForm.kind, title: insForm.title.trim(), conductedAt: insForm.conductedAt ? new Date(insForm.conductedAt).toISOString() : new Date().toISOString(), scope: insForm.scope, findings: insForm.findings, followUp: insForm.followUp, status: insForm.status, responsible: insForm.responsible })
-              setInsForm((i) => ({ ...i, title: '', scope: '', findings: '', followUp: '' }))
-            }}>
-              <div>
-                <label className="text-xs text-neutral-500">Type</label>
-                <select value={insForm.kind} onChange={(e) => setInsForm((i) => ({ ...i, kind: e.target.value as Inspection['kind'] }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
-                  <option value="internal">Intern</option>
-                  <option value="external">Ekstern</option>
-                  <option value="audit">Revisjon</option>
-                </select>
+        <div className="mt-8 space-y-6">
+          <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <h2
+                className="text-2xl font-semibold text-neutral-900 md:text-3xl"
+                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+              >
+                Inspeksjoner
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-neutral-600">
+                Registrer inspeksjoner med sporbar ansvarlig, inspeksjonsobjekt, konkrete avvik og vedlegg. Når status er lukket og du låser rapporten, opprettes Kanban-oppgaver per åpent avvik og dokumentet blir skrivebeskyttet.
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                  Totalt <strong className="ml-1 font-semibold">{inspectionStats.total}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
+                  Åpne <strong className="ml-1 font-semibold">{inspectionStats.open}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
+                  Lukket (utkast) <strong className="ml-1 font-semibold">{inspectionStats.closedUnlocked}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
+                  Låst <strong className="ml-1 font-semibold">{inspectionStats.locked}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={openNewInspectionPanel}
+                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                >
+                  <Plus className="size-4 shrink-0" />
+                  Ny inspeksjon
+                </button>
               </div>
-              <div>
-                <label className="text-xs text-neutral-500">Dato/tid</label>
-                <input type="datetime-local" value={insForm.conductedAt} onChange={(e) => setInsForm((i) => ({ ...i, conductedAt: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs text-neutral-500">Tittel</label>
-                <input value={insForm.title} onChange={(e) => setInsForm((i) => ({ ...i, title: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
-              </div>
-              <div className="sm:col-span-2"><label className="text-xs text-neutral-500">Omfang</label><textarea value={insForm.scope} onChange={(e) => setInsForm((i) => ({ ...i, scope: e.target.value }))} rows={2} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" /></div>
-              <div className="sm:col-span-2"><label className="text-xs text-neutral-500">Funn</label><textarea value={insForm.findings} onChange={(e) => setInsForm((i) => ({ ...i, findings: e.target.value }))} rows={2} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" /></div>
-              <div className="sm:col-span-2"><label className="text-xs text-neutral-500">Oppfølging</label><textarea value={insForm.followUp} onChange={(e) => setInsForm((i) => ({ ...i, followUp: e.target.value }))} rows={2} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" /></div>
-              <div>
-                <label className="text-xs text-neutral-500">Ansvarlig</label>
-                <input value={insForm.responsible} onChange={(e) => setInsForm((i) => ({ ...i, responsible: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs text-neutral-500">Status</label>
-                <select value={insForm.status} onChange={(e) => setInsForm((i) => ({ ...i, status: e.target.value as Inspection['status'] }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
-                  <option value="open">Åpen</option>
-                  <option value="closed">Lukket</option>
-                </select>
-              </div>
-              <button type="submit" className="rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2">Lagre inspeksjon</button>
-            </form>
-          </section>
-          <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-            <div className="border-b border-neutral-200 bg-neutral-50 px-4 py-3"><h2 className="font-semibold text-neutral-900">Logg — inspeksjoner</h2></div>
-            <ul className="divide-y divide-neutral-100">
-              {hse.inspections.map((ins) => <InspectionRow key={ins.id} ins={ins} hse={hse} />)}
-            </ul>
-            {hse.inspections.length === 0 ? <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen inspeksjoner ennå.</p> : null}
+            </div>
           </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{inspectionStats.total}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Registrert</div>
+            </div>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{inspectionStats.open}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Pågår</div>
+            </div>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{inspectionStats.closedUnlocked}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Lukket — kan låses</div>
+            </div>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{inspectionStats.locked}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Arkiv (signert)</div>
+            </div>
+          </div>
+
+          <Mainbox1 title="Tidligere inspeksjoner" subtitle="Sortert etter gjennomført tid. Utvid en rad for signatur, låsing og sporbarhet.">
+            <Table1Shell
+              toolbar={
+                <Table1Toolbar
+                  searchSlot={
+                    <div className="min-w-[200px] flex-1">
+                      <label className="sr-only" htmlFor="ins-search">
+                        Søk
+                      </label>
+                      <input
+                        id="ins-search"
+                        value={insSearch}
+                        onChange={(e) => setInsSearch(e.target.value)}
+                        placeholder="Søk i tittel, omfang, funn …"
+                        className={`${SETTINGS_INPUT} bg-white`}
+                      />
+                    </div>
+                  }
+                />
+              }
+            >
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse text-left">
+                  <thead>
+                    <tr className={theadRow}>
+                      <th className={tableCell}>Tittel</th>
+                      <th className={tableCell}>Type</th>
+                      <th className={tableCell}>Gjennomført</th>
+                      <th className={tableCell}>Ansvarlig</th>
+                      <th className={tableCell}>Avvik</th>
+                      <th className={tableCell}>Status</th>
+                      <th className={`${tableCell} text-right`}>Handling</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inspectionsFiltered.map((ins, ri) => (
+                      <InspectionTableRow
+                        key={ins.id}
+                        ins={ins}
+                        rowClass={table1BodyRowClass(layout, ri)}
+                        cellClass={tableCell}
+                        hse={hse}
+                        addTask={addTask}
+                        profileDisplayName={profile?.display_name}
+                        expanded={expandedInspectionId === ins.id}
+                        onToggleExpand={() =>
+                          setExpandedInspectionId((id) => (id === ins.id ? null : ins.id))
+                        }
+                        uploadInspectionFile={uploadInspectionFile}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {inspectionsFiltered.length === 0 ? (
+                <p className="px-4 py-10 text-center text-sm text-neutral-500">Ingen inspeksjoner matcher søket.</p>
+              ) : null}
+            </Table1Shell>
+          </Mainbox1>
         </div>
       )}
 
@@ -1421,6 +1723,323 @@ export function HseModule() {
           </div>
         </div>
       )}
+
+      {/* Ny inspeksjon — sidepanel (samme mønster som oppgaver) */}
+      {inspectionPanelOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Lukk"
+            className="fixed inset-0 z-[60] bg-black/40"
+            onClick={closeInspectionPanel}
+          />
+          <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[920px] flex-col border-l border-neutral-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-neutral-900">Ny inspeksjon</h2>
+                <p className="text-xs text-neutral-500">Utkast-ID: {insDraftId}</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeInspectionPanel}
+                className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-100`}
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <form onSubmit={submitInspectionPanel} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+              <div className={TASK_PANEL_ROW_GRID}>
+                <div>
+                  <p className={SETTINGS_LEAD}>
+                    Registrer inspeksjon med relasjonell ansvarlig (ansatt), inspeksjonsobjekt (enhet eller utstyr/lokasjon) og
+                    konkrete avvik som hver kan følges på Kanban. Ved ekstern tilsyn kreves PDF-rapport som vedlegg.
+                  </p>
+                </div>
+                <div className={TASK_PANEL_INSET}>
+                  <label className={SETTINGS_FIELD_LABEL}>Type</label>
+                  <select
+                    value={insKind}
+                    onChange={(e) => setInsKind(e.target.value as Inspection['kind'])}
+                    className={`${SETTINGS_INPUT} bg-white`}
+                  >
+                    <option value="internal">Intern</option>
+                    <option value="external">Ekstern</option>
+                    <option value="audit">Revisjon</option>
+                  </select>
+                </div>
+              </div>
+              <div className={TASK_PANEL_ROW_GRID}>
+                <div>
+                  <p className={SETTINGS_LEAD}>Tittel og tidspunkt for gjennomføring.</p>
+                </div>
+                <div className={TASK_PANEL_INSET} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Tittel *</label>
+                    <input
+                      value={insTitle}
+                      onChange={(e) => setInsTitle(e.target.value)}
+                      className={`${SETTINGS_INPUT} bg-white`}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Dato / tid</label>
+                    <input
+                      type="datetime-local"
+                      value={insConductedAt}
+                      onChange={(e) => setInsConductedAt(e.target.value)}
+                      className={`${SETTINGS_INPUT} bg-white`}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className={TASK_PANEL_ROW_GRID}>
+                <div>
+                  <p className={SETTINGS_LEAD}>Velg hva som inspiseres for sporbarhet i rapporter (historikk per maskin, rom, enhet).</p>
+                </div>
+                <div className={TASK_PANEL_INSET} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Inspeksjonsobjekt</label>
+                    <select
+                      value={insSubjectKind}
+                      onChange={(e) => setInsSubjectKind(e.target.value as InspectionSubjectKind)}
+                      className={`${SETTINGS_INPUT} bg-white`}
+                    >
+                      <option value="free_text">Kun fritekst i omfang</option>
+                      <option value="org_unit">Organisasjonsenhet</option>
+                      <option value="equipment_or_area">Utstyr / lokasjon (merkelapp)</option>
+                    </select>
+                  </div>
+                  {insSubjectKind === 'org_unit' && (
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL}>Enhet</label>
+                      <select
+                        value={insSubjectUnitId}
+                        onChange={(e) => setInsSubjectUnitId(e.target.value)}
+                        className={`${SETTINGS_INPUT} bg-white`}
+                      >
+                        <option value="">Velg enhet …</option>
+                        {org.units.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {insSubjectKind === 'equipment_or_area' && (
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL}>Merkelapp (f.eks. Truck 3, Fryserom B)</label>
+                      <input
+                        value={insSubjectLabel}
+                        onChange={(e) => setInsSubjectLabel(e.target.value)}
+                        className={`${SETTINGS_INPUT} bg-white`}
+                        placeholder="Beskriv objektet"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Omfang / notater</label>
+                    <textarea
+                      value={insScope}
+                      onChange={(e) => setInsScope(e.target.value)}
+                      rows={3}
+                      className={`${SETTINGS_INPUT} bg-white`}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className={TASK_PANEL_ROW_GRID}>
+                <div>
+                  <p className={SETTINGS_LEAD}>
+                    Kort oppsummering av funn pluss én rad per konkret avvik — hver rad kan få egen status og Kanban-oppgave ved låsing.
+                  </p>
+                </div>
+                <div className={TASK_PANEL_INSET} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Funn (kort oppsummering)</label>
+                    <textarea
+                      value={insFindingsSummary}
+                      onChange={(e) => setInsFindingsSummary(e.target.value)}
+                      rows={2}
+                      className={`${SETTINGS_INPUT} bg-white`}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2 border border-neutral-200/80 bg-white p-3">
+                    <input
+                      value={newFindingText}
+                      onChange={(e) => setNewFindingText(e.target.value)}
+                      placeholder="Beskriv konkret avvik …"
+                      className={`min-w-[200px] flex-1 ${SETTINGS_INPUT} bg-neutral-50`}
+                    />
+                    <button
+                      type="button"
+                      className={`${HERO_ACTION_CLASS} bg-neutral-800 text-white hover:bg-neutral-900`}
+                      onClick={() => {
+                        const t = newFindingText.trim()
+                        if (!t) return
+                        setFindingDrafts((d) => [...d, { id: crypto.randomUUID(), description: t }])
+                        setNewFindingText('')
+                      }}
+                    >
+                      + Registrer konkret avvik
+                    </button>
+                  </div>
+                  {findingDrafts.length > 0 && (
+                    <ul className="space-y-2 text-sm">
+                      {findingDrafts.map((f) => (
+                        <li key={f.id} className="flex flex-col gap-2 border border-neutral-200 bg-white p-3 sm:flex-row sm:items-start">
+                          <textarea
+                            value={f.description}
+                            onChange={(e) =>
+                              setFindingDrafts((rows) =>
+                                rows.map((x) => (x.id === f.id ? { ...x, description: e.target.value } : x)),
+                              )
+                            }
+                            className={`min-h-[60px] flex-1 ${SETTINGS_INPUT} bg-neutral-50`}
+                          />
+                          <div className="flex shrink-0 flex-col gap-2">
+                            <label className={`${SETTINGS_FIELD_LABEL} cursor-pointer`}>
+                              <span className="inline-flex items-center gap-1">
+                                <ImagePlus className="size-3.5" /> Bilde
+                              </span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="sr-only"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0]
+                                  if (!file) return
+                                  const reader = new FileReader()
+                                  reader.onload = () => {
+                                    const url = typeof reader.result === 'string' ? reader.result : undefined
+                                    setFindingDrafts((rows) =>
+                                      rows.map((x) => (x.id === f.id ? { ...x, photoDataUrl: url } : x)),
+                                    )
+                                  }
+                                  reader.readAsDataURL(file)
+                                  e.target.value = ''
+                                }}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-700`}
+                              onClick={() => setFindingDrafts((rows) => rows.filter((x) => x.id !== f.id))}
+                            >
+                              Fjern
+                            </button>
+                          </div>
+                          {f.photoDataUrl ? (
+                            <img src={f.photoDataUrl} alt="" className="max-h-24 rounded border border-neutral-200" />
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+              <div className={TASK_PANEL_ROW_GRID}>
+                <div>
+                  <p className={SETTINGS_LEAD}>
+                    Last opp bilder av forhold eller offisiell PDF ved ekstern inspeksjon. Filer lagres under organisasjonens mappe i Supabase Storage når klient er konfigurert.
+                  </p>
+                </div>
+                <div className={TASK_PANEL_INSET}>
+                  <label className={SETTINGS_FIELD_LABEL}>Vedlegg</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,application/pdf"
+                    onChange={(e) => {
+                      const files = e.target.files ? Array.from(e.target.files) : []
+                      setInsFileQueue((q) => [...q, ...files])
+                      e.target.value = ''
+                    }}
+                    className="mt-2 block w-full text-sm text-neutral-600"
+                  />
+                  {insFileQueue.length > 0 && (
+                    <ul className="mt-2 space-y-1 text-xs text-neutral-600">
+                      {insFileQueue.map((f, i) => (
+                        <li key={`${f.name}-${i}`} className="flex items-center justify-between gap-2">
+                          <span className="truncate">{f.name}</span>
+                          <button
+                            type="button"
+                            className="shrink-0 text-red-600 hover:underline"
+                            onClick={() => setInsFileQueue((q) => q.filter((_, j) => j !== i))}
+                          >
+                            Fjern
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+              <div className={TASK_PANEL_ROW_GRID}>
+                <div>
+                  <p className={SETTINGS_LEAD}>
+                    Ansvarlig kobles til ansattlisten slik at oppfølgingsoppgaver kan tildeles riktig person på Kanban.
+                  </p>
+                </div>
+                <div className={TASK_PANEL_INSET} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Ansvarlig (ansatt)</label>
+                    <select
+                      value={insResponsibleEmployeeId}
+                      onChange={(e) => setInsResponsibleEmployeeId(e.target.value)}
+                      className={`${SETTINGS_INPUT} bg-white`}
+                    >
+                      <option value="">Velg ansatt …</option>
+                      {employeePickList.map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.name}
+                          {e.unitName ? ` — ${e.unitName}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Oppfølging</label>
+                    <textarea
+                      value={insFollowUp}
+                      onChange={(e) => setInsFollowUp(e.target.value)}
+                      rows={2}
+                      className={`${SETTINGS_INPUT} bg-white`}
+                    />
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Status</label>
+                    <select
+                      value={insStatus}
+                      onChange={(e) => setInsStatus(e.target.value as Inspection['status'])}
+                      className={`${SETTINGS_INPUT} bg-white`}
+                    >
+                      <option value="open">Åpen</option>
+                      <option value="closed">Lukket / fullført (klar for låsing)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-auto flex flex-wrap justify-end gap-2 border-t border-neutral-200 px-5 py-4">
+                <button
+                  type="button"
+                  onClick={closeInspectionPanel}
+                  className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+                >
+                  Avbryt
+                </button>
+                <button
+                  type="submit"
+                  className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                >
+                  Lagre inspeksjon
+                </button>
+              </div>
+            </form>
+          </aside>
+        </>
+      )}
     </div>
   )
 }
@@ -1438,51 +2057,407 @@ function StatCard({ label, value, colour = 'neutral' }: { label: string; value: 
   )
 }
 
-function InspectionRow({ ins, hse }: { ins: Inspection; hse: ReturnType<typeof useHse> }) {
-  const [name, setName] = useState('')
-  const [role, setRole] = useState<HseProtocolSignature['role']>('inspector')
-  function formatWhenLocal(iso: string) { try { return new Date(iso).toLocaleString('no-NO', { dateStyle: 'short', timeStyle: 'short' }) } catch { return iso } }
+const INSPECTION_KIND_LABEL: Record<Inspection['kind'], string> = {
+  internal: 'Intern',
+  external: 'Ekstern',
+  audit: 'Revisjon',
+}
+
+function InspectionTableRow({
+  ins,
+  rowClass,
+  cellClass,
+  hse,
+  addTask,
+  profileDisplayName,
+  expanded,
+  onToggleExpand,
+  uploadInspectionFile,
+}: {
+  ins: Inspection
+  rowClass: string
+  cellClass: string
+  hse: ReturnType<typeof useHse>
+  addTask: (t: Omit<KanbanTask, 'id' | 'createdAt'> & Partial<Pick<KanbanTask, 'id' | 'createdAt'>>) => KanbanTask
+  profileDisplayName?: string | null
+  expanded: boolean
+  onToggleExpand: () => void
+  uploadInspectionFile: (
+    inspectionId: string,
+    file: File,
+  ) => Promise<{ path: string; kind: InspectionAttachment['kind'] } | null>
+}) {
+  const org = useOrganisation()
+  const { supabase } = useOrgSetupContext()
+  const [protoName, setProtoName] = useState('')
+  const [protoRole, setProtoRole] = useState<HseProtocolSignature['role']>('inspector')
+  const [finalizeName, setFinalizeName] = useState('')
+  const [newFindingDesc, setNewFindingDesc] = useState('')
+
+  function formatWhenLocal(iso: string) {
+    try {
+      return new Date(iso).toLocaleString('no-NO', { dateStyle: 'short', timeStyle: 'short' })
+    } catch {
+      return iso
+    }
+  }
+
+  const unitName =
+    ins.subjectUnitId && ins.subjectKind === 'org_unit'
+      ? org.units.find((u) => u.id === ins.subjectUnitId)?.name
+      : null
+  const subjectBits = [unitName, ins.subjectLabel].filter(Boolean)
+  const openFindings = (ins.concreteFindings ?? []).filter((f) => f.status === 'open').length
+
+  async function openAttachment(a: InspectionAttachment) {
+    if (!supabase || a.path.startsWith('local/')) {
+      window.alert('Kan ikke åpne vedlegg uten Supabase eller for lokale opplastinger.')
+      return
+    }
+    const { data, error } = await supabase.storage.from(HSE_INSPECTION_BUCKET).createSignedUrl(a.path, 3600)
+    if (error || !data?.signedUrl) {
+      window.alert('Kunne ikke hente signert URL for vedlegg.')
+      return
+    }
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+  }
+
   return (
-    <li className="px-4 py-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <span className="font-medium text-neutral-900">{ins.title}</span>
-          <span className="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs">{ins.kind}</span>
-        </div>
-        <select value={ins.status} onChange={(e) => hse.updateInspection(ins.id, { status: e.target.value as Inspection['status'] })} className="rounded-full border border-neutral-200 px-2 py-1 text-xs">
-          <option value="open">Åpen</option>
-          <option value="closed">Lukket</option>
-        </select>
-      </div>
-      <p className="mt-1 text-xs text-neutral-500">{formatWhenLocal(ins.conductedAt)}</p>
-      <p className="mt-2 text-sm text-neutral-700">{ins.findings || '—'}</p>
-      <div className="mt-3 rounded-lg bg-[#faf8f4] p-3 text-xs">
-        <span className="font-medium text-neutral-800">Signaturer:</span>
-        <ul className="mt-1 space-y-0.5 text-neutral-700">
-          {(ins.protocolSignatures ?? []).map((s, i) => {
-            const l1 = formatLevel1AuditLine(s.level1)
-            return (
-              <li key={`${s.signedAt}-${i}`} className="whitespace-pre-line">
-                {s.role === 'inspector' ? 'Inspektør' : s.role === 'verneombud' ? 'Verneombud' : 'Ledelse'}: {s.signerName} — {formatWhenLocal(s.signedAt)}
-                {l1 ? `\n${l1}` : ''}
-              </li>
-            )
-          })}
-        </ul>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <select value={role} onChange={(e) => setRole(e.target.value as HseProtocolSignature['role'])} className="rounded border border-neutral-200 px-2 py-1">
-            <option value="inspector">Inspektør</option>
-            <option value="verneombud">Verneombud</option>
-            <option value="management">Ledelse</option>
-          </select>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Fullt navn" className="min-w-[140px] flex-1 rounded border border-neutral-200 px-2 py-1" />
-          <button type="button" onClick={() => { void (async () => { if (await hse.signInspectionProtocol(ins.id, name, role)) setName('') })() }} className="rounded bg-[#1a3d32] px-2 py-1 text-white">Signer</button>
-        </div>
-      </div>
-      <div className="mt-2">
-        <AddTaskLink title={`Oppfølging inspeksjon: ${ins.title.slice(0, 60)}`} description={ins.followUp || ins.findings?.slice(0, 200)} module="hse" sourceType="hse_inspection" sourceId={ins.id} sourceLabel={ins.title} ownerRole={ins.responsible || 'Ansvarlig'} />
-      </div>
-    </li>
+    <>
+      <tr className={rowClass}>
+        <td className={cellClass}>
+          <div className="max-w-[220px] font-medium text-neutral-900">{ins.title}</div>
+          {subjectBits.length > 0 && (
+            <div className="mt-0.5 text-xs text-neutral-500">{subjectBits.join(' · ')}</div>
+          )}
+        </td>
+        <td className={cellClass}>
+          <span className={`${R_FLAT} inline-block border border-neutral-200 px-2 py-0.5 text-xs`}>
+            {INSPECTION_KIND_LABEL[ins.kind]}
+          </span>
+        </td>
+        <td className={cellClass}>{formatWhenLocal(ins.conductedAt)}</td>
+        <td className={cellClass}>{ins.responsible || '—'}</td>
+        <td className={cellClass}>
+          {(ins.concreteFindings ?? []).length > 0 ? (
+            <span>
+              {openFindings} åpne / {(ins.concreteFindings ?? []).length} totalt
+            </span>
+          ) : (
+            '—'
+          )}
+        </td>
+        <td className={cellClass}>
+          {ins.locked ? (
+            <span className={`${R_FLAT} inline-flex items-center gap-1 border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-900`}>
+              <Lock className="size-3" /> Låst
+            </span>
+          ) : ins.status === 'closed' ? (
+            <span className={`${R_FLAT} inline-block border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-900`}>
+              Lukket
+            </span>
+          ) : (
+            <span className={`${R_FLAT} inline-block border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs text-sky-900`}>
+              Åpen
+            </span>
+          )}
+        </td>
+        <td className={`${cellClass} text-right`}>
+          <button
+            type="button"
+            onClick={onToggleExpand}
+            className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+          >
+            {expanded ? 'Skjul' : 'Detaljer'}
+          </button>
+        </td>
+      </tr>
+      {expanded && (
+        <tr className={rowClass}>
+          <td colSpan={7} className="bg-[#faf8f4] px-4 py-4">
+            <div className="space-y-4 text-sm">
+              <div>
+                <span className="text-xs font-semibold text-neutral-600">Omfang</span>
+                <p className="mt-1 whitespace-pre-line text-neutral-800">{ins.scope || '—'}</p>
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-neutral-600">Funn (oppsummering)</span>
+                <p className="mt-1 text-neutral-800">{ins.findings || '—'}</p>
+              </div>
+
+              {!ins.locked && (
+                <div className={`${TASK_PANEL_INSET} space-y-2`}>
+                  <span className={SETTINGS_FIELD_LABEL}>Legg til avvik</span>
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      value={newFindingDesc}
+                      onChange={(e) => setNewFindingDesc(e.target.value)}
+                      placeholder="Beskriv avvik …"
+                      className={`min-w-[200px] flex-1 ${SETTINGS_INPUT} bg-white`}
+                    />
+                    <button
+                      type="button"
+                      className={`${HERO_ACTION_CLASS} bg-neutral-800 text-white`}
+                      onClick={() => {
+                        const t = newFindingDesc.trim()
+                        if (!t) return
+                        hse.addInspectionFinding(ins.id, t)
+                        setNewFindingDesc('')
+                      }}
+                    >
+                      + Avvik
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {(ins.concreteFindings ?? []).length > 0 && (
+                <div>
+                  <span className="text-xs font-semibold text-neutral-600">Konkrete avvik</span>
+                  <ul className="mt-2 space-y-2">
+                    {(ins.concreteFindings ?? []).map((f) => (
+                      <li
+                        key={f.id}
+                        className={`${R_FLAT} flex flex-wrap items-start justify-between gap-2 border border-neutral-200 bg-white p-3`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-neutral-900">{f.description}</p>
+                          <p className="mt-1 text-xs text-neutral-500">
+                            {f.status === 'open' ? 'Åpen' : 'Løst'}
+                            {f.linkedTaskId ? ` · Oppgave ${f.linkedTaskId.slice(0, 8)}…` : ''}
+                          </p>
+                          {f.photoUrl ? (
+                            <img src={f.photoUrl} alt="" className="mt-2 max-h-28 border border-neutral-200" />
+                          ) : null}
+                        </div>
+                        {!ins.locked && f.status === 'open' && (
+                          <div className="flex flex-col gap-1">
+                            <label className={`${SETTINGS_FIELD_LABEL} cursor-pointer`}>
+                              <span className="text-xs text-[#1a3d32] underline">Last opp bilde</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="sr-only"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0]
+                                  if (!file) return
+                                  void (async () => {
+                                    const r = await uploadInspectionFile(ins.id, file)
+                                    const reader = new FileReader()
+                                    reader.onload = () => {
+                                      const url = typeof reader.result === 'string' ? reader.result : undefined
+                                      hse.updateInspectionFinding(ins.id, f.id, {
+                                        photoPath: r?.path,
+                                        photoUrl: url,
+                                      })
+                                    }
+                                    reader.readAsDataURL(file)
+                                  })()
+                                  e.target.value = ''
+                                }}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              className="text-xs text-emerald-700 hover:underline"
+                              onClick={() => hse.updateInspectionFinding(ins.id, f.id, { status: 'resolved' })}
+                            >
+                              Marker løst
+                            </button>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div>
+                <span className="text-xs font-semibold text-neutral-600">Vedlegg</span>
+                {!ins.locked && (
+                  <label className="mt-2 block cursor-pointer text-xs text-[#1a3d32] underline">
+                    Last opp fil (bilde/PDF)
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="sr-only"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        void (async () => {
+                          const r = await uploadInspectionFile(ins.id, file)
+                          if (r) {
+                            hse.addInspectionAttachment(ins.id, {
+                              kind: r.kind,
+                              path: r.path,
+                              fileName: file.name,
+                            })
+                          }
+                        })()
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                )}
+                <ul className="mt-2 space-y-1 text-xs">
+                  {(ins.attachments ?? []).map((a) => (
+                    <li key={a.id} className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className="text-left text-[#1a3d32] underline"
+                        onClick={() => void openAttachment(a)}
+                      >
+                        {a.fileName}
+                      </button>
+                      <span className="text-neutral-400">({a.kind})</span>
+                      {!ins.locked && (
+                        <button
+                          type="button"
+                          className="text-red-600 hover:underline"
+                          onClick={() => hse.removeInspectionAttachment(ins.id, a.id)}
+                        >
+                          Fjern
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {!ins.locked && (
+                  <select
+                    value={ins.status}
+                    onChange={(e) =>
+                      hse.updateInspection(ins.id, { status: e.target.value as Inspection['status'] })
+                    }
+                    className={`${SETTINGS_INPUT} w-auto bg-white text-xs`}
+                  >
+                    <option value="open">Åpen</option>
+                    <option value="closed">Lukket / fullført</option>
+                  </select>
+                )}
+              </div>
+
+              <div className={`${R_FLAT} border border-neutral-200 bg-white p-3`}>
+                <span className="text-xs font-semibold text-neutral-800">Protokollsignatur (underveis)</span>
+                <ul className="mt-2 space-y-1 text-xs text-neutral-700">
+                  {(ins.protocolSignatures ?? []).map((s, i) => {
+                    const l1 = formatLevel1AuditLine(s.level1)
+                    return (
+                      <li key={`${s.signedAt}-${i}`} className="whitespace-pre-line">
+                        {s.role === 'inspector' ? 'Inspektør' : s.role === 'verneombud' ? 'Verneombud' : 'Ledelse'}:{' '}
+                        {s.signerName} — {formatWhenLocal(s.signedAt)}
+                        {l1 ? `\n${l1}` : ''}
+                      </li>
+                    )
+                  })}
+                </ul>
+                {!ins.locked && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <select
+                      value={protoRole}
+                      onChange={(e) => setProtoRole(e.target.value as HseProtocolSignature['role'])}
+                      className={`${SETTINGS_INPUT} w-auto bg-neutral-50 text-xs`}
+                    >
+                      <option value="inspector">Inspektør</option>
+                      <option value="verneombud">Verneombud</option>
+                      <option value="management">Ledelse</option>
+                    </select>
+                    <input
+                      value={protoName}
+                      onChange={(e) => setProtoName(e.target.value)}
+                      placeholder="Navn"
+                      className={`${SETTINGS_INPUT} min-w-[140px] flex-1 bg-neutral-50 text-xs`}
+                    />
+                    <button
+                      type="button"
+                      className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white`}
+                      onClick={() => {
+                        void (async () => {
+                          if (await hse.signInspectionProtocol(ins.id, protoName, protoRole)) setProtoName('')
+                        })()
+                      }}
+                    >
+                      Signer
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {ins.closureSignature && (
+                <div className={`${R_FLAT} border border-emerald-200 bg-emerald-50/80 p-3 text-xs`}>
+                  <span className="font-semibold text-emerald-900">Låsesignatur (nivå 1)</span>
+                  <p className="mt-1 whitespace-pre-line text-emerald-950">
+                    {ins.closureSignature.signerName} — {formatWhenLocal(ins.closureSignature.signedAt)}
+                    {formatLevel1AuditLine(ins.closureSignature.level1)
+                      ? `\n${formatLevel1AuditLine(ins.closureSignature.level1)}`
+                      : ''}
+                  </p>
+                </div>
+              )}
+
+              {!ins.locked && ins.status === 'closed' && (
+                <div className="space-y-2">
+                  <p className="text-xs text-neutral-600">
+                    Når du låser rapporten: dokumentet blir skrivebeskyttet, nivå 1-signatur loggføres, og åpne avvik
+                    opprettes som oppgaver på Kanban med kilde <code className="text-[10px]">hse_inspection_finding</code>.
+                  </p>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="min-w-[200px] flex-1">
+                      <label className={SETTINGS_FIELD_LABEL}>Signer som inspektør (fullt navn)</label>
+                      <input
+                        value={finalizeName}
+                        onChange={(e) => setFinalizeName(e.target.value)}
+                        placeholder={profileDisplayName ?? ''}
+                        className={`${SETTINGS_INPUT} bg-white text-sm`}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className={`${HERO_ACTION_CLASS} bg-emerald-800 text-white hover:bg-emerald-900`}
+                      onClick={() => {
+                        const nm = finalizeName.trim() || profileDisplayName?.trim()
+                        if (!nm) {
+                          window.alert('Fyll inn navn for signatur.')
+                          return
+                        }
+                        void (async () => {
+                          const r = await hse.finalizeInspectionClose(ins.id, nm)
+                          if (!r.ok) return
+                          const links: { findingId: string; taskId: string }[] = []
+                          for (const s of r.seeds) {
+                            const t = addTask({ ...s.task, status: 'todo' })
+                            links.push({ findingId: s.findingId, taskId: t.id })
+                          }
+                          if (links.length) hse.linkInspectionFindingTasks(ins.id, links)
+                          setFinalizeName('')
+                        })()
+                      }}
+                    >
+                      Lås og opprett oppgaver
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <AddTaskLink
+                  title={`Oppfølging inspeksjon: ${ins.title.slice(0, 60)}`}
+                  description={ins.followUp || ins.findings?.slice(0, 200)}
+                  module="hse"
+                  sourceType="hse_inspection"
+                  sourceId={ins.id}
+                  sourceLabel={ins.title}
+                  ownerRole={ins.responsible || 'Ansvarlig'}
+                  className={`${HERO_ACTION_CLASS} inline-flex gap-1.5 border border-neutral-300 bg-white text-xs text-[#1a3d32]`}
+                />
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   )
 }
 
@@ -1501,11 +2476,13 @@ function SafetyRoundCard({ round, checklist, hse }: {
     catch { return iso }
   }
 
-  const statusBadge = {
-    in_progress:       { label: 'Pågår',              cls: 'bg-sky-100 text-sky-800' },
-    pending_approval:  { label: 'Venter på godkjenning', cls: 'bg-amber-100 text-amber-800' },
-    approved:          { label: 'Godkjent',            cls: 'bg-emerald-100 text-emerald-800' },
-  }[round.status]
+  const statusBadge =
+    {
+      in_progress: { label: 'Pågår', cls: 'bg-sky-100 text-sky-800' },
+      pending_verneombud: { label: 'Venter verneombud', cls: 'bg-amber-100 text-amber-800' },
+      pending_approval: { label: 'Venter på godkjenning', cls: 'bg-amber-100 text-amber-800' },
+      approved: { label: 'Godkjent', cls: 'bg-emerald-100 text-emerald-800' },
+    }[round.status] ?? { label: round.status, cls: 'bg-neutral-100 text-neutral-700' }
 
   return (
     <div className={`rounded-2xl border bg-white shadow-sm ${isLocked ? 'border-emerald-200' : 'border-neutral-200/90'}`}>
