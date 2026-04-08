@@ -16,6 +16,11 @@ const MODULE_KEY: OrgModulePayloadKey = 'organisation'
 const STORAGE_KEY = 'atics-organisation-v2'
 const PERSIST_DEBOUNCE_MS = 450
 
+function normEmail(s: string | null | undefined) {
+  const t = s?.trim().toLowerCase()
+  return t || undefined
+}
+
 const KIND_ORDER: OrgUnitKind[] = ['division', 'department', 'team', 'location']
 
 type OrgState = {
@@ -31,6 +36,7 @@ const SEED_SETTINGS: OrgSettings = {
   orgName: 'Virksomheten AS',
   employeeCount: 0,
   hasCollectiveAgreement: false,
+  approvedTaskSignerEmployeeIds: [],
 }
 
 const SEED_UNITS: OrgUnit[] = [
@@ -60,8 +66,14 @@ const SEED_GROUPS: UserGroup[] = [
 ]
 
 function normalizeParsed(p: OrgState): OrgState {
+  const rawSettings = p.settings ?? SEED_SETTINGS
+  const approved = rawSettings.approvedTaskSignerEmployeeIds
   return {
-    settings: p.settings ?? SEED_SETTINGS,
+    settings: {
+      ...SEED_SETTINGS,
+      ...rawSettings,
+      approvedTaskSignerEmployeeIds: Array.isArray(approved) ? approved : [],
+    },
     employees: Array.isArray(p.employees) ? p.employees : [],
     units: Array.isArray(p.units) ? p.units : [],
     groups: Array.isArray(p.groups) ? p.groups : [],
@@ -74,7 +86,7 @@ function seedDemoLocal(): OrgState {
 
 function emptyRemoteState(orgName: string): OrgState {
   return {
-    settings: { ...SEED_SETTINGS, orgName },
+    settings: { ...SEED_SETTINGS, orgName, approvedTaskSignerEmployeeIds: [] },
     employees: [],
     units: [],
     groups: [],
@@ -398,6 +410,25 @@ export function useOrganisation() {
     }
   }, [totalEmployeeCount])
 
+  /** Aktive ansatte med e-post som kan velges som signatar på oppgaver (filtrert hvis godkjent-liste er satt). */
+  const allowedTaskSignerEmployees = useMemo(() => {
+    const withEmail = activeEmployees.filter((e) => normEmail(e.email))
+    const approved = state.settings.approvedTaskSignerEmployeeIds
+    if (!approved?.length) return withEmail
+    const set = new Set(approved)
+    return withEmail.filter((e) => set.has(e.id))
+  }, [activeEmployees, state.settings.approvedTaskSignerEmployeeIds])
+
+  const toggleApprovedTaskSigner = useCallback(
+    (employeeId: string, on: boolean) => {
+      const cur = new Set(state.settings.approvedTaskSignerEmployeeIds ?? [])
+      if (on) cur.add(employeeId)
+      else cur.delete(employeeId)
+      updateSettings({ approvedTaskSignerEmployeeIds: [...cur] })
+    },
+    [state.settings.approvedTaskSignerEmployeeIds, updateSettings],
+  )
+
   const reportingTree = useMemo(() => {
     const map = new Map<string, OrgEmployee[]>()
     for (const emp of activeEmployees) {
@@ -456,6 +487,8 @@ export function useOrganisation() {
     employeeById,
     totalEmployeeCount,
     complianceThresholds,
+    allowedTaskSignerEmployees,
+    toggleApprovedTaskSigner,
     reportingTree,
     getGroupLabel,
     initials,

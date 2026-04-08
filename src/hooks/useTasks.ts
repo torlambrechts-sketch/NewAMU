@@ -98,6 +98,12 @@ function migrateLegacyTask(raw: Record<string, unknown>): Task {
     managementSignerEmail: raw.managementSignerEmail ? String(raw.managementSignerEmail).trim().toLowerCase() : undefined,
     managementSignerName: raw.managementSignerName ? String(raw.managementSignerName) : undefined,
     cosignParentTaskId: raw.cosignParentTaskId ? String(raw.cosignParentTaskId) : undefined,
+    assigneeSignerEmployeeId: raw.assigneeSignerEmployeeId
+      ? String(raw.assigneeSignerEmployeeId)
+      : undefined,
+    managementSignerEmployeeId: raw.managementSignerEmployeeId
+      ? String(raw.managementSignerEmployeeId)
+      : undefined,
   }
 }
 
@@ -324,6 +330,8 @@ export function useTasks() {
           : undefined,
         managementSignerName: partial.managementSignerName,
         cosignParentTaskId: partial.cosignParentTaskId,
+        assigneeSignerEmployeeId: partial.assigneeSignerEmployeeId,
+        managementSignerEmployeeId: partial.managementSignerEmployeeId,
         id: partial.id ?? crypto.randomUUID(),
         createdAt: partial.createdAt ?? new Date().toISOString(),
       }
@@ -399,7 +407,8 @@ export function useTasks() {
         return false
       }
       const expectedAssigneeEmail =
-        task.assigneeSignerEmail ?? employeeEmailById(task.assigneeEmployeeId)
+        task.assigneeSignerEmail ??
+        employeeEmailById(task.assigneeSignerEmployeeId ?? task.assigneeEmployeeId)
       if (!userSignerEmail) {
         setError('Profilen din mangler e-postadresse. Oppdater profil for å signere.')
         return false
@@ -442,10 +451,11 @@ export function useTasks() {
       }
       const sig: DigitalSignature = { signerName: name, signerUserId: userId, signedAt, level1 }
 
+      const mgmtEmpId = task.managementSignerEmployeeId ?? task.leaderEmployeeId
       const needsCosignReminder =
         task.requiresManagementSignOff &&
-        !!task.leaderEmployeeId &&
-        !!(task.managementSignerEmail ?? employeeEmailById(task.leaderEmployeeId))
+        !!mgmtEmpId &&
+        !!(task.managementSignerEmail ?? employeeEmailById(mgmtEmpId))
 
       setStore((s) => {
         let nextTasks = s.tasks.map((t) => (t.id === id ? { ...t, assigneeSignature: sig } : t))
@@ -457,7 +467,7 @@ export function useTasks() {
               t.status !== 'done',
           )
           if (!hasOpenReminder) {
-            const leaderId = task.leaderEmployeeId!
+            const leaderId = mgmtEmpId!
             const leaderEmail = task.managementSignerEmail ?? employeeEmailById(leaderId)
             const leaderName =
               task.managementSignerName ?? employeeNameById(leaderId) ?? 'Leder'
@@ -529,7 +539,8 @@ export function useTasks() {
         return false
       }
       const expectedMgmtEmail =
-        task.managementSignerEmail ?? employeeEmailById(task.leaderEmployeeId)
+        task.managementSignerEmail ??
+        employeeEmailById(task.managementSignerEmployeeId ?? task.leaderEmployeeId)
       if (!userSignerEmail) {
         setError('Profilen din mangler e-postadresse. Oppdater profil for å signere.')
         return false

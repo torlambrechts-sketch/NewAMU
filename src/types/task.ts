@@ -68,11 +68,15 @@ export type Task = {
   managementSignature?: DigitalSignature
   /**
    * E-post (normalisert lowercase) for hvem som kan signere som utfører.
-   * Satt fra valgt ansatt eller innlogget bruker ved opprettelse.
+   * Satt fra valgt signatar (godkjent liste) eller ansvarlig-ansatt.
    */
   assigneeSignerEmail?: string
+  /** Valgt signatar utfører (OrgEmployee.id) — kan skille fra ansvarlig for oppgaven */
+  assigneeSignerEmployeeId?: string
   /** E-post for hvem som kan signere som leder/medgodkjenner */
   managementSignerEmail?: string
+  /** Valgt leder-signatar (OrgEmployee.id) */
+  managementSignerEmployeeId?: string
   /** Visningsnavn for leder (til påminnelsesoppgave) */
   managementSignerName?: string
   /** Hvis satt: påminnelse om medsignatur for hovedoppgaven med denne id */

@@ -154,8 +154,10 @@ export function TasksPage() {
   const [description, setDescription] = useState('')
   const [assignee, setAssignee] = useState('')
   const [assigneeEmployeeId, setAssigneeEmployeeId] = useState('')
+  const [assigneeSignerEmployeeId, setAssigneeSignerEmployeeId] = useState('')
   const [ownerRole, setOwnerRole] = useState('Ansvarlig')
   const [leaderEmployeeId, setLeaderEmployeeId] = useState('')
+  const [managementSignerEmployeeId, setManagementSignerEmployeeId] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [moduleFilter, setModuleFilter] = useState<TaskModule | 'all'>('all')
   const [taskSearch, setTaskSearch] = useState('')
@@ -189,8 +191,10 @@ export function TasksPage() {
     setDescription('')
     setAssignee('')
     setAssigneeEmployeeId('')
+    setAssigneeSignerEmployeeId('')
     setOwnerRole('Ansvarlig')
     setLeaderEmployeeId('')
+    setManagementSignerEmployeeId('')
     setDueDate('')
     setFormModule('general')
     setFormSource('manual')
@@ -322,15 +326,22 @@ export function TasksPage() {
     [org.activeEmployees],
   )
 
+  const signerPickList = useMemo(
+    () =>
+      [...org.allowedTaskSignerEmployees].sort((a, b) => a.name.localeCompare(b.name, 'nb')),
+    [org.allowedTaskSignerEmployees],
+  )
+
   const leaderCandidates = useMemo(() => {
+    const pool = signerPickList.length > 0 ? signerPickList : employeePickList
     const isLeaderLike = (e: (typeof employeePickList)[0]) => {
       const r = (e.role ?? '').toLowerCase()
       const j = (e.jobTitle ?? '').toLowerCase()
       return r.includes('led') || j.includes('leder') || j.includes('director') || j.includes('sjef')
     }
-    const leaders = employeePickList.filter(isLeaderLike)
-    return leaders.length > 0 ? leaders : employeePickList
-  }, [employeePickList])
+    const leaders = pool.filter(isLeaderLike)
+    return leaders.length > 0 ? leaders : pool
+  }, [employeePickList, signerPickList])
 
   const filtered = useMemo(() => {
     let list = moduleFilter === 'all' ? tasks : tasks.filter((t) => t.module === moduleFilter)
@@ -363,6 +374,20 @@ export function TasksPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
+    const effectiveAssigneeSignerId =
+      assigneeSignerEmployeeId ||
+      (signerPickList.some((e) => e.id === assigneeEmployeeId) ? assigneeEmployeeId : '')
+    if (signerPickList.length > 0 && !effectiveAssigneeSignerId) {
+      window.alert('Velg hvem som skal signere som utfører (godkjente signatarer).')
+      return
+    }
+    const effectiveMgmtSignerId =
+      managementSignerEmployeeId ||
+      (requiresMgmt && signerPickList.some((e) => e.id === leaderEmployeeId) ? leaderEmployeeId : '')
+    if (requiresMgmt && signerPickList.length > 0 && !effectiveMgmtSignerId) {
+      window.alert('Velg hvem som skal signere som leder (godkjente signatarer).')
+      return
+    }
     const assigneeEmp = assigneeEmployeeId
       ? org.employees.find((e) => e.id === assigneeEmployeeId) ??
         org.displayEmployees.find((e) => e.id === assigneeEmployeeId)
@@ -370,17 +395,31 @@ export function TasksPage() {
     const leaderEmp = leaderEmployeeId
       ? org.employees.find((e) => e.id === leaderEmployeeId) ?? org.displayEmployees.find((e) => e.id === leaderEmployeeId)
       : undefined
+    const assigneeSignerEmp = effectiveAssigneeSignerId
+      ? org.employees.find((e) => e.id === effectiveAssigneeSignerId) ??
+        org.displayEmployees.find((e) => e.id === effectiveAssigneeSignerId)
+      : undefined
+    const mgmtSignerEmp = effectiveMgmtSignerId
+      ? org.employees.find((e) => e.id === effectiveMgmtSignerId) ??
+        org.displayEmployees.find((e) => e.id === effectiveMgmtSignerId)
+      : undefined
     const base = {
       title: title.trim(),
       description: description.trim(),
       assignee: assignee.trim() || 'Unassigned',
       assigneeEmployeeId: assigneeEmployeeId || undefined,
-      assigneeSignerEmail: normSignerEmail(assigneeEmp?.email),
+      assigneeSignerEmployeeId: effectiveAssigneeSignerId || undefined,
+      assigneeSignerEmail: normSignerEmail(assigneeSignerEmp?.email ?? assigneeEmp?.email),
       ownerRole: ownerRole.trim() || 'Ansvarlig',
       leaderEmployeeId: requiresMgmt ? leaderEmployeeId || undefined : undefined,
       leaderName: requiresMgmt && leaderEmp ? leaderEmp.name : undefined,
-      managementSignerEmail: requiresMgmt ? normSignerEmail(leaderEmp?.email) : undefined,
-      managementSignerName: requiresMgmt && leaderEmp ? leaderEmp.name : undefined,
+      managementSignerEmployeeId: requiresMgmt ? effectiveMgmtSignerId || undefined : undefined,
+      managementSignerEmail: requiresMgmt
+        ? normSignerEmail(mgmtSignerEmp?.email ?? leaderEmp?.email)
+        : undefined,
+      managementSignerName: requiresMgmt
+        ? mgmtSignerEmp?.name ?? leaderEmp?.name
+        : undefined,
       dueDate: dueDate || '—',
       module: formModule,
       sourceType: formSource,
@@ -406,8 +445,24 @@ export function TasksPage() {
     setDescription(task.description)
     setAssignee(task.assignee)
     setAssigneeEmployeeId(task.assigneeEmployeeId ?? '')
+    {
+      const def =
+        task.assigneeSignerEmployeeId ??
+        (task.assigneeEmployeeId && signerPickList.some((e) => e.id === task.assigneeEmployeeId)
+          ? task.assigneeEmployeeId
+          : '')
+      setAssigneeSignerEmployeeId(def)
+    }
     setOwnerRole(task.ownerRole)
     setLeaderEmployeeId(task.leaderEmployeeId ?? '')
+    {
+      const def =
+        task.managementSignerEmployeeId ??
+        (task.leaderEmployeeId && signerPickList.some((e) => e.id === task.leaderEmployeeId)
+          ? task.leaderEmployeeId
+          : '')
+      setManagementSignerEmployeeId(task.requiresManagementSignOff ? def : '')
+    }
     setDueDate(task.dueDate === '—' ? '' : task.dueDate)
     setFormModule(task.module)
     setFormSource(task.sourceType)
@@ -432,10 +487,14 @@ export function TasksPage() {
       const parent = t.cosignParentTaskId ? tasks.find((x) => x.id === t.cosignParentTaskId) : undefined
       const expectedMgmt =
         parent?.managementSignerEmail ??
-        (parent?.leaderEmployeeId
+        (parent?.managementSignerEmployeeId ?? parent?.leaderEmployeeId
           ? normSignerEmail(
-              org.employees.find((e) => e.id === parent.leaderEmployeeId)?.email ??
-                org.displayEmployees.find((e) => e.id === parent.leaderEmployeeId)?.email,
+              org.employees.find(
+                (e) => e.id === (parent.managementSignerEmployeeId ?? parent.leaderEmployeeId),
+              )?.email ??
+                org.displayEmployees.find(
+                  (e) => e.id === (parent.managementSignerEmployeeId ?? parent.leaderEmployeeId),
+                )?.email,
             )
           : undefined)
       const canSignParent =
@@ -454,18 +513,18 @@ export function TasksPage() {
     }
     const expectedAssignee =
       t.assigneeSignerEmail ??
-      (t.assigneeEmployeeId
+      (t.assigneeSignerEmployeeId ?? t.assigneeEmployeeId
         ? normSignerEmail(
-            org.employees.find((e) => e.id === t.assigneeEmployeeId)?.email ??
-              org.displayEmployees.find((e) => e.id === t.assigneeEmployeeId)?.email,
+            org.employees.find((e) => e.id === (t.assigneeSignerEmployeeId ?? t.assigneeEmployeeId))?.email ??
+              org.displayEmployees.find((e) => e.id === (t.assigneeSignerEmployeeId ?? t.assigneeEmployeeId))?.email,
           )
         : undefined)
     const expectedMgmt =
       t.managementSignerEmail ??
-      (t.leaderEmployeeId
+      (t.managementSignerEmployeeId ?? t.leaderEmployeeId
         ? normSignerEmail(
-            org.employees.find((e) => e.id === t.leaderEmployeeId)?.email ??
-              org.displayEmployees.find((e) => e.id === t.leaderEmployeeId)?.email,
+            org.employees.find((e) => e.id === (t.managementSignerEmployeeId ?? t.leaderEmployeeId))?.email ??
+              org.displayEmployees.find((e) => e.id === (t.managementSignerEmployeeId ?? t.leaderEmployeeId))?.email,
           )
         : undefined)
     const canSignAssignee =
@@ -483,8 +542,12 @@ export function TasksPage() {
       expectedMgmt,
       canSignAssignee,
       canSignMgmt,
-      missingAssigneeEmail: !!t.assigneeEmployeeId && !expectedAssignee,
-      missingLeaderEmail: t.requiresManagementSignOff && !!t.leaderEmployeeId && !expectedMgmt,
+      missingAssigneeEmail:
+        !!(t.assigneeSignerEmployeeId || t.assigneeEmployeeId) && !expectedAssignee,
+      missingLeaderEmail:
+        t.requiresManagementSignOff &&
+        !!(t.managementSignerEmployeeId || t.leaderEmployeeId) &&
+        !expectedMgmt,
     }
   }, [taskBeingEdited, tasks, userSignerEmail, org.employees, org.displayEmployees])
 
@@ -1490,6 +1553,11 @@ export function TasksPage() {
                           setAssigneeEmployeeId(id)
                           const emp = employeePickList.find((x) => x.id === id)
                           setAssignee(emp ? emp.name : assignee)
+                          if (signerPickList.some((x) => x.id === id)) {
+                            setAssigneeSignerEmployeeId(id)
+                          } else {
+                            setAssigneeSignerEmployeeId('')
+                          }
                         }}
                         className={TASK_PANEL_SELECT}
                       >
@@ -1557,6 +1625,33 @@ export function TasksPage() {
                         />
                       </div>
                     </div>
+                    <div className="mt-6">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="task-panel-assignee-signer">
+                        Signatar (utfører)
+                      </label>
+                      <select
+                        id="task-panel-assignee-signer"
+                        value={assigneeSignerEmployeeId}
+                        onChange={(e) => setAssigneeSignerEmployeeId(e.target.value)}
+                        className={`${TASK_PANEL_SELECT} mt-1.5`}
+                        required={signerPickList.length > 0}
+                      >
+                        <option value="">
+                          {signerPickList.length > 0 ? '— Velg signatar —' : 'Alle med e-post (ingen begrensning)'}
+                        </option>
+                        {signerPickList.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {e.name}
+                            {e.email ? ` — ${e.email}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1.5 text-xs text-neutral-500">
+                        {signerPickList.length > 0
+                          ? 'Kun valgt person kan signere som utfører. Listen administreres under Organisasjon → Innstillinger.'
+                          : 'Når ingen godkjent liste er satt, brukes ansvarlig med e-post. Legg til godkjente signatarer for tydelig styring.'}
+                      </p>
+                    </div>
                     <p className={`${SETTINGS_FIELD_LABEL} mt-6`}>Godkjenning</p>
                     <div className="mt-3 space-y-3">
                       <label className="flex cursor-pointer items-start gap-3 rounded-none border border-neutral-300/80 bg-white p-3">
@@ -1567,6 +1662,7 @@ export function TasksPage() {
                           onChange={() => {
                             setRequiresMgmt(false)
                             setLeaderEmployeeId('')
+                            setManagementSignerEmployeeId('')
                           }}
                           className="mt-0.5 size-4 rounded-full border-neutral-400 text-[#1a3d32] focus:ring-[#1a3d32]"
                         />
@@ -1601,7 +1697,15 @@ export function TasksPage() {
                         <select
                           id="task-panel-leader"
                           value={leaderEmployeeId}
-                          onChange={(e) => setLeaderEmployeeId(e.target.value)}
+                          onChange={(e) => {
+                            const id = e.target.value
+                            setLeaderEmployeeId(id)
+                            if (signerPickList.some((x) => x.id === id)) {
+                              setManagementSignerEmployeeId(id)
+                            } else {
+                              setManagementSignerEmployeeId('')
+                            }
+                          }}
                           className={TASK_PANEL_SELECT}
                         >
                           <option value="">— Velg leder —</option>
@@ -1615,6 +1719,32 @@ export function TasksPage() {
                         <p className="mt-1.5 text-xs italic text-neutral-500">
                           Listen prioriterer roller og titler med «leder». Alle ansatte vises dersom ingen treff.
                         </p>
+                        <div className="mt-4">
+                          <label className={SETTINGS_FIELD_LABEL} htmlFor="task-panel-mgmt-signer">
+                            Signatar (leder)
+                          </label>
+                          <select
+                            id="task-panel-mgmt-signer"
+                            value={managementSignerEmployeeId}
+                            onChange={(e) => setManagementSignerEmployeeId(e.target.value)}
+                            className={`${TASK_PANEL_SELECT} mt-1.5`}
+                            required={signerPickList.length > 0}
+                          >
+                            <option value="">
+                              {signerPickList.length > 0 ? '— Velg leder-signatar —' : 'Samme som valgt leder over'}
+                            </option>
+                            {signerPickList.map((e) => (
+                              <option key={e.id} value={e.id}>
+                                {e.name}
+                                {e.email ? ` — ${e.email}` : ''}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="mt-1.5 text-xs text-neutral-500">
+                            Den som skal motta påminnelsesoppgave og signere som leder (vanligvis samme som godkjenner
+                            over).
+                          </p>
+                        </div>
                       </div>
                     ) : null}
                   </div>
@@ -1627,9 +1757,9 @@ export function TasksPage() {
                       <div>
                         <h3 className="text-base font-semibold text-neutral-900">Status og signatur</h3>
                         <p className={`${SETTINGS_LEAD} mt-2`}>
-                          Signatur bruker innlogget bruker (ikke fritekstnavn). Kun valgt ansvarlig / valgt leder kan
-                          signere — e-post på profilen må samsvare med ansattens e-post. Nivå 1 loggføres når Supabase
-                          er konfigurert.
+                          Signatur bruker innlogget bruker. Hvem som kan signere styres av «Signatar»-feltene i
+                          skjemaet (godkjente personer under Organisasjon → Innstillinger). E-post på profilen må
+                          samsvare med signatarens e-post. Nivå 1 loggføres når Supabase er konfigurert.
                         </p>
                       </div>
                       <div className={TASK_PANEL_INSET}>

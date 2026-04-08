@@ -13,12 +13,18 @@ export type OrgSettings = {
   collectiveAgreementName?: string
   /** Industry sector — affects some compliance thresholds */
   industrySector?: string
+  /**
+   * Ansatt-IDer (OrgEmployee.id) som er godkjent til digital signatur på oppgaver.
+   * Tom liste = alle aktive ansatte med e-post kan velges som signatar i oppgave-skjemaet.
+   */
+  approvedTaskSignerEmployeeIds?: string[]
 }
 
 export const DEFAULT_ORG_SETTINGS: OrgSettings = {
   orgName: 'Virksomheten',
   employeeCount: 0,
   hasCollectiveAgreement: false,
+  approvedTaskSignerEmployeeIds: [],
 }
 
 // ─── Employee ─────────────────────────────────────────────────────────────────

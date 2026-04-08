@@ -1723,6 +1723,58 @@ export function OrganisationPage() {
                   )}
                 </div>
               </div>
+
+              <div className={SETTINGS_ROW_GRID}>
+                <p className={SETTINGS_LEAD}>
+                  Hvem kan velges som digital signatar på oppgaver (utfører og leder)? Tom liste betyr at alle aktive
+                  ansatte med e-post kan velges. Når du krysser av minst én person, gjelder kun de som er avkrysset.
+                  Oppgaver oppretter automatisk en påminnelse til leder-signatar når utfører har signert.
+                </p>
+                <div>
+                  <span className={SETTINGS_FIELD_LABEL}>Godkjente signatarer</span>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Krever e-post på ansatt / medlem. Oppdater under Ansatte eller synk fra medlemmer.
+                  </p>
+                  <ul className="mt-3 max-h-56 space-y-2 overflow-y-auto rounded-none border border-neutral-200 bg-white p-3">
+                    {org.activeEmployees.filter((e) => e.email?.trim()).length === 0 ? (
+                      <li className="text-sm text-neutral-500">Ingen aktive med e-post — legg til e-post først.</li>
+                    ) : (
+                      org.activeEmployees
+                        .filter((e) => e.email?.trim())
+                        .sort((a, b) => a.name.localeCompare(b.name, 'nb'))
+                        .map((e) => {
+                          const approved = org.settings.approvedTaskSignerEmployeeIds ?? []
+                          const restricted = approved.length > 0
+                          const checked = restricted ? approved.includes(e.id) : false
+                          return (
+                            <li key={e.id} className="flex items-start gap-3 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(ev) => org.toggleApprovedTaskSigner(e.id, ev.target.checked)}
+                                className="mt-0.5 size-4 rounded-none border-neutral-400 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+                                aria-label={`Godkjenn ${e.name} som signatar`}
+                              />
+                              <span className="min-w-0">
+                                <span className="font-medium text-neutral-900">{e.name}</span>
+                                <span className="mt-0.5 block text-xs text-neutral-500">{e.email}</span>
+                              </span>
+                            </li>
+                          )
+                        })
+                    )}
+                  </ul>
+                  {(org.settings.approvedTaskSignerEmployeeIds?.length ?? 0) > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => org.updateSettings({ approvedTaskSignerEmployeeIds: [] })}
+                      className="mt-3 text-xs font-medium text-[#1a3d32] underline hover:text-[#142e26]"
+                    >
+                      Nullstill (alle med e-post kan signere igjen)
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             </div>
           </Mainbox1>
         </section>
