@@ -27,6 +27,7 @@ import {
   UsersRound,
   Workflow,
 } from 'lucide-react'
+import { NotificationTray } from '../notifications/NotificationTray'
 import { LanguageSwitcher } from '../LanguageSwitcher'
 import { useI18n } from '../../hooks/useI18n'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
@@ -566,6 +567,7 @@ export function AticsShell() {
                       {t('shell.logIn')}
                     </a>
                   )}
+                  <NotificationTray variant="sidebar" />
                   <NavLink
                     to="/profile"
                     className={({ isActive }) =>
@@ -676,6 +678,7 @@ export function AticsShell() {
                 {t('shell.logIn')}
               </a>
             ) : null}
+            <NotificationTray variant="topbar" />
             <NavLink
               to="/profile"
               className={({ isActive }) =>

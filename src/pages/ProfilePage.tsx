@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  Bell,
   Building2,
   Camera,
   CheckCircle2,
@@ -14,7 +15,9 @@ import {
 import { APP_LOCALES, LOCALE_LABELS, type AppLocale } from '../i18n/strings'
 import { useI18n } from '../hooks/useI18n'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { mergeNotificationPreferences, parseNotificationPreferences } from '../lib/notificationPreferences'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
+import type { NotificationPreferences } from '../types/notifications'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const CARD = 'rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm'
@@ -45,6 +48,7 @@ export function ProfilePage() {
     updateDepartmentId,
     updateLearningMetadata,
     updateProfileFields,
+    updateNotificationPreferences,
     updatePassword,
   } = useOrgSetupContext()
 
@@ -64,6 +68,12 @@ export function ProfilePage() {
   const [err, setErr] = useState<string | null>(null)
   const [pwMsg, setPwMsg] = useState<string | null>(null)
   const [pwErr, setPwErr] = useState<string | null>(null)
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(() =>
+    parseNotificationPreferences(undefined),
+  )
+  const [busyNotif, setBusyNotif] = useState(false)
+  const [notifMsg, setNotifMsg] = useState<string | null>(null)
+  const [notifErr, setNotifErr] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -78,6 +88,10 @@ export function ProfilePage() {
       setSafetyRep(lm?.is_safety_rep === true)
     }
   }, [profile, ctxLocale])
+
+  useEffect(() => {
+    setNotifPrefs(parseNotificationPreferences(profile?.notification_preferences))
+  }, [profile?.notification_preferences])
 
   const email = user?.email ?? profile?.email ?? ''
 
@@ -102,6 +116,20 @@ export function ProfilePage() {
       setErr(getSupabaseErrorMessage(e))
     } finally {
       setBusyProfile(false)
+    }
+  }
+
+  const saveNotificationPrefs = async () => {
+    setBusyNotif(true)
+    setNotifErr(null)
+    setNotifMsg(null)
+    try {
+      await updateNotificationPreferences(notifPrefs)
+      setNotifMsg('Varslingsinnstillinger lagret.')
+    } catch (e) {
+      setNotifErr(getSupabaseErrorMessage(e))
+    } finally {
+      setBusyNotif(false)
     }
   }
 
@@ -375,6 +403,176 @@ export function ProfilePage() {
               >
                 {busyProfile ? <Loader2 className="size-4 animate-spin" /> : null}
                 {busyProfile ? t('profile.savingPersonalia') : t('profile.savePersonalia')}
+              </button>
+            </div>
+          </section>
+
+          {/* Notifications */}
+          <section>
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-neutral-900">
+              <Bell className="size-5 text-neutral-500" />
+              Varsler
+            </h2>
+            <div className={`${CARD} space-y-5`}>
+              <p className="text-sm text-neutral-600">
+                Velg hvilke hendelser du vil følge med på. I appen vises et varselikon med ulest antall; du kan også få
+                popup øverst når nye varsler dukker opp. E-post og webhook krever at plattformen er konfigurert med
+                utsending (lagres her som preferanser).
+              </p>
+
+              <div>
+                <h3 className="text-sm font-semibold text-neutral-900">Kanaler</h3>
+                <div className="mt-2 space-y-2">
+                  <label className="flex cursor-pointer items-start gap-3 text-sm text-neutral-800">
+                    <input
+                      type="checkbox"
+                      checked={notifPrefs.channels.inApp}
+                      onChange={(e) =>
+                        setNotifPrefs((p) =>
+                          mergeNotificationPreferences(p, {
+                            channels: { ...p.channels, inApp: e.target.checked },
+                          }),
+                        )
+                      }
+                      className="mt-1 rounded border-neutral-300"
+                    />
+                    <span>
+                      I appen (ikon + liste)
+                      <span className="mt-0.5 block text-xs font-normal text-neutral-500">
+                        Anbefalt — varsler genereres fra oppgaver og varslingssaker du har tilgang til.
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-3 text-sm text-neutral-800">
+                    <input
+                      type="checkbox"
+                      checked={notifPrefs.channels.email}
+                      onChange={(e) =>
+                        setNotifPrefs((p) =>
+                          mergeNotificationPreferences(p, {
+                            channels: { ...p.channels, email: e.target.checked },
+                          }),
+                        )
+                      }
+                      className="mt-1 rounded border-neutral-300"
+                    />
+                    <span>
+                      E-post
+                      <span className="mt-0.5 block text-xs font-normal text-neutral-500">
+                        Sendes til {email || 'din profil-e-post'} når utsending er aktivert i drift.
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-3 text-sm text-neutral-800">
+                    <input
+                      type="checkbox"
+                      checked={notifPrefs.channels.webhook}
+                      onChange={(e) =>
+                        setNotifPrefs((p) =>
+                          mergeNotificationPreferences(p, {
+                            channels: { ...p.channels, webhook: e.target.checked },
+                          }),
+                        )
+                      }
+                      className="mt-1 rounded border-neutral-300"
+                    />
+                    <span>
+                      Webhook (HTTPS)
+                      <span className="mt-0.5 block text-xs font-normal text-neutral-500">
+                        POST med JSON til din URL (f.eks. Zapier, n8n, Microsoft Power Automate).
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {notifPrefs.channels.webhook ? (
+                <div className="grid gap-3 sm:grid-cols-1">
+                  <div>
+                    <label className="text-sm font-medium text-neutral-800">Webhook-URL</label>
+                    <input
+                      value={notifPrefs.webhookUrl ?? ''}
+                      onChange={(e) =>
+                        setNotifPrefs((p) => mergeNotificationPreferences(p, { webhookUrl: e.target.value }))
+                      }
+                      className={INPUT}
+                      placeholder="https://…"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-neutral-800">Delt hemmelighet (valgfritt)</label>
+                    <input
+                      type="password"
+                      value={notifPrefs.webhookSecret ?? ''}
+                      onChange={(e) =>
+                        setNotifPrefs((p) => mergeNotificationPreferences(p, { webhookSecret: e.target.value }))
+                      }
+                      className={INPUT}
+                      placeholder="Sendes som X-Notification-Secret"
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              <div>
+                <h3 className="text-sm font-semibold text-neutral-900">Hva vil du varsles om?</h3>
+                <div className="mt-2 space-y-2">
+                  {(
+                    [
+                      ['tasks_sign', 'Oppgaver — signatur / godkjenning'],
+                      ['tasks_due', 'Oppgaver — frist nær (7 dager)'],
+                      ['whistle', 'Varslingssaker (komité/admin)'],
+                      ['compliance', 'Samsvar / revisjon (kommer)'],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <label key={key} className="flex cursor-pointer items-start gap-3 text-sm text-neutral-800">
+                      <input
+                        type="checkbox"
+                        checked={notifPrefs.categories[key]}
+                        onChange={(e) =>
+                          setNotifPrefs((p) =>
+                            mergeNotificationPreferences(p, {
+                              categories: { ...p.categories, [key]: e.target.checked },
+                            }),
+                          )
+                        }
+                        className="mt-1 rounded border-neutral-300"
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <label className="flex cursor-pointer items-start gap-3 text-sm text-neutral-800">
+                <input
+                  type="checkbox"
+                  checked={notifPrefs.toastEnabled}
+                  onChange={(e) =>
+                    setNotifPrefs((p) => mergeNotificationPreferences(p, { toastEnabled: e.target.checked }))
+                  }
+                  className="mt-1 rounded border-neutral-300"
+                />
+                <span>
+                  Popup øverst på skjermen ved nye uleste varsler
+                  <span className="mt-0.5 block text-xs font-normal text-neutral-500">
+                    Kort banner med lenke til innholdet. Slå av hvis du foretrekker kun ikonet.
+                  </span>
+                </span>
+              </label>
+
+              {notifErr ? <p className="text-sm text-red-700">{notifErr}</p> : null}
+              {notifMsg ? <p className="text-sm text-emerald-800">{notifMsg}</p> : null}
+              <button
+                type="button"
+                onClick={() => void saveNotificationPrefs()}
+                disabled={busyNotif}
+                className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#142e26] disabled:opacity-50"
+              >
+                {busyNotif ? <Loader2 className="size-4 animate-spin" /> : null}
+                {busyNotif ? 'Lagrer…' : 'Lagre varslingsinnstillinger'}
               </button>
             </div>
           </section>

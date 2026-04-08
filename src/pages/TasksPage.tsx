@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Calendar, Check, History, LayoutList, Plus, Scale, Search, Trash2, X } from 'lucide-react'
 import { MODULE_LABELS } from '../lib/taskNavigation'
@@ -184,6 +184,7 @@ export function TasksPage() {
   const [whistleCasePanelId, setWhistleCasePanelId] = useState<string | null>(null)
   const [whistlePanelNote, setWhistlePanelNote] = useState('')
   const [nowMs, setNowMs] = useState(() => Date.now())
+  const openedTaskIdRef = useRef<string | null>(null)
 
   // eslint-disable-next-line react-hooks/preserve-manual-memoization -- React setState identities are stable
   const resetTaskForm = useCallback(() => {
@@ -331,6 +332,52 @@ export function TasksPage() {
       [...org.allowedTaskSignerEmployees].sort((a, b) => a.name.localeCompare(b.name, 'nb')),
     [org.allowedTaskSignerEmployees],
   )
+
+  useEffect(() => {
+    const openId = searchParams.get('openTask')?.trim()
+    if (!openId || viewParam === 'whistle') {
+      openedTaskIdRef.current = null
+      return
+    }
+    const task = tasks.find((x) => x.id === openId)
+    if (!task) return
+    if (openedTaskIdRef.current === openId) return
+    openedTaskIdRef.current = openId
+    queueMicrotask(() => {
+      setEditingId(task.id)
+      setTitle(task.title)
+      setDescription(task.description)
+      setAssignee(task.assignee)
+      setAssigneeEmployeeId(task.assigneeEmployeeId ?? '')
+      {
+        const def =
+          task.assigneeSignerEmployeeId ??
+          (task.assigneeEmployeeId && signerPickList.some((e) => e.id === task.assigneeEmployeeId)
+            ? task.assigneeEmployeeId
+            : '')
+        setAssigneeSignerEmployeeId(def)
+      }
+      setOwnerRole(task.ownerRole)
+      setLeaderEmployeeId(task.leaderEmployeeId ?? '')
+      {
+        const def =
+          task.managementSignerEmployeeId ??
+          (task.leaderEmployeeId && signerPickList.some((e) => e.id === task.leaderEmployeeId)
+            ? task.leaderEmployeeId
+            : '')
+        setManagementSignerEmployeeId(task.requiresManagementSignOff ? def : '')
+      }
+      setDueDate(task.dueDate === '—' ? '' : task.dueDate)
+      setFormModule(task.module)
+      setFormSource(task.sourceType)
+      setSourceId(task.sourceId ?? '')
+      setSourceLabel(task.sourceLabel ?? '')
+      setRequiresMgmt(task.requiresManagementSignOff)
+      setTaskPanelOpen(true)
+      const view = searchParams.get('view') ?? 'list'
+      setSearchParams({ view }, { replace: true })
+    })
+  }, [searchParams, tasks, viewParam, setSearchParams, signerPickList])
 
   const leaderCandidates = useMemo(() => {
     const pool = signerPickList.length > 0 ? signerPickList : employeePickList

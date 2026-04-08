@@ -14,6 +14,7 @@ import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { fetchEnhetByOrgnr, normalizeOrgNumber } from '../lib/brreg'
 import type { BrregEnhet } from '../types/brreg'
 import type { AppLocale } from '../i18n/strings'
+import type { NotificationPreferences } from '../types/notifications'
 import type {
   DepartmentRow,
   LocationRow,
@@ -340,6 +341,19 @@ export function useOrgSetup() {
     [supabase, user],
   )
 
+  const updateNotificationPreferences = useCallback(
+    async (next: NotificationPreferences) => {
+      if (!supabase || !user) throw new Error('Ikke innlogget.')
+      const { error: e } = await supabase
+        .from('profiles')
+        .update({ notification_preferences: next as unknown as Record<string, unknown> })
+        .eq('id', user.id)
+      if (e) throw new Error(getSupabaseErrorMessage(e))
+      setProfile((p) => (p ? { ...p, notification_preferences: next as unknown as Record<string, unknown> } : p))
+    },
+    [supabase, user],
+  )
+
   const updateLearningMetadata = useCallback(
     async (patch: Record<string, unknown>) => {
       if (!supabase || !user) throw new Error('Ikke innlogget.')
@@ -561,6 +575,7 @@ export function useOrgSetup() {
     updateDepartmentId,
     updateLearningMetadata,
     updateProfileFields,
+    updateNotificationPreferences,
     updatePassword,
     addDepartment,
     addTeam,

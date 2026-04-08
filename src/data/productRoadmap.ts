@@ -9,6 +9,12 @@ export type RoadmapItem = {
 
 export const PRODUCT_ROADMAP: RoadmapItem[] = [
   {
+    title: 'Varsler — e-post og webhook (server-side utsending)',
+    body:
+      'Profilen lagrer allerede preferanser for e-post og webhook. Neste steg: kø/tabell for utgående varsler, Edge Function eller jobb som sender e-post (Resend/SendGrid) og signerte POST-kall til webhook-URL med hemmelighet. Kobles til sanntids- eller cron-baserte hendelser.',
+    status: 'Planlagt',
+  },
+  {
     title: 'Nivå 2 signatur — BankID / kvalifisert e-signatur (QES, eIDAS)',
     body:
       'For høyrisiko HR (kontrakter, formelle advarsler, oppsigelser, AML § 15-1-protokoller): integrasjon mot nordisk tillitsleverandør (f.eks. Signicat, Criipto, Scrive). Arbeidsflyt: generer dokument → ekstern signaturlenke → webhook tilbake → PAdES i Storage og status «QES signert». Dagens «Nivå 1» (SHA-256 + auth.uid + revisjonslogg) dekker ROS, oppgaver, AMU-protokoll m.m.',
