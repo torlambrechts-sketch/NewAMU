@@ -797,18 +797,10 @@ export function makeSafetyRoundWizard(
       },
       {
         id: 'team',
-        title: 'Deltakere og mal',
-        subtitle: 'Hvem deltar og hvilken sjekkliste?',
+        title: 'Mal og notater',
+        subtitle: 'Velg sjekkliste — signering skjer senere med innlogget bruker.',
         icon: '👥',
         fields: [
-          {
-            id: 'conductedBy',
-            label: 'Gjennomført av',
-            kind: 'text',
-            placeholder: 'Verneombud, leder eller begge',
-            required: true,
-            hint: 'AML krever at verneombudet deltar i vernerunden.',
-          },
           {
             id: 'templateId',
             label: 'Sjekklistemal',
@@ -824,7 +816,7 @@ export function makeSafetyRoundWizard(
             placeholder: 'Spesielle forhold å undersøke, kjente problemområder…',
           },
         ],
-        validate: (v) => !v.conductedBy ? 'Navn på gjennomfører er påkrevd.' : null,
+        validate: () => null,
       },
       {
         id: 'confirm',
@@ -837,11 +829,11 @@ export function makeSafetyRoundWizard(
             kind: 'info',
             infoBody: `
               Vernerunden opprettes med status <em>Pågår</em>.<br><br>
-              <strong>Neste steg i runden:</strong><br>
-              1. Gå gjennom hvert sjekkpunkt — marker OK, Avvik eller N/A<br>
-              2. Avvik: legg til beskrivelse, bilde og ansvarlig<br>
-              3. Klikk «Send til godkjenning» når sjekklisten er ferdig<br>
-              4. Leder godkjenner → dokumentet låses (AML §3-1)
+              <strong>Neste steg:</strong><br>
+              1. Gå gjennom sjekklisten — <strong>OK</strong> eller <strong>Registrer avvik</strong> (beskrivelse + bilde)<br>
+              2. Klikk «Send til signering» når listen er ferdig<br>
+              3. <strong>Leder</strong> og <strong>verneombud</strong> signerer hver for seg (innlogget bruker, nivå 1)<br>
+              4. Ved begge signaturer låses runden og åpne avvik blir oppgaver på Kanban
             `,
           },
         ],
@@ -853,7 +845,6 @@ export function makeSafetyRoundWizard(
         conductedAt: v.conductedAt ?? new Date().toISOString(),
         location:    v.location ?? '',
         department:  v.department ?? '',
-        conductedBy: v.conductedBy ?? '',
         templateId:  v.templateId ?? 'tpl-standard',
         notes:       v.notes ?? '',
       })

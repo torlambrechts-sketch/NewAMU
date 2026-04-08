@@ -9,7 +9,6 @@ import {
   BookOpen,
   Calendar,
   CheckCircle2,
-  ClipboardCheck,
   Download,
   FileWarning,
   GraduationCap,
@@ -41,10 +40,11 @@ import {
   table1CellPadding,
   table1HeaderRowClass,
 } from '../lib/layoutLabTokens'
-import { TRAINING_KIND_LABELS } from '../data/hseTemplates'
+import { SAFETY_ROUND_TEMPLATE_ID, TRAINING_KIND_LABELS } from '../data/hseTemplates'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeIncidentWizard, makeSickLeaveWizard, makeSjaWizard, makeSafetyRoundWizard } from '../components/wizard/wizards'
 import type {
+  ChecklistTemplate,
   HseProtocolSignature,
   Incident,
   IncidentCategory,
@@ -74,6 +74,7 @@ const SETTINGS_INPUT =
 const TASK_PANEL_INSET = 'rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6'
 const R_FLAT = 'rounded-none'
 const HSE_INSPECTION_BUCKET = 'hse_inspection_files'
+const ROUND_DRAFT_STORAGE_KEY = 'atics-hse-new-round-draft-v1'
 /** Same strip boxes as rapporter / organisasjonsinnsikt */
 const HSE_THRESHOLD_BOX =
   'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
@@ -198,7 +199,7 @@ function isoToDatetimeLocal(iso: string) {
 
 export function HseModule() {
   const hse = useHse()
-  const { supabaseConfigured, supabase, organization, profile } = useOrgSetupContext()
+  const { supabaseConfigured, supabase, organization, profile, user } = useOrgSetupContext()
   const org = useOrganisation()
   const { addTask } = useTasks()
   const menu1 = useOrgMenu1Styles()
@@ -212,7 +213,16 @@ export function HseModule() {
   const tabParam = searchParams.get('tab')
   const tab: TabId = tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
 
-  const [roundForm, setRoundForm] = useState({ title: '', conductedAt: '', location: '', department: '', conductedBy: '', notes: '', templateId: 'tpl-standard' })
+  const [roundSearch, setRoundSearch] = useState('')
+  const [roundPanelId, setRoundPanelId] = useState<string | null>(null)
+  const [roundDraft, setRoundDraft] = useState({
+    templateId: 'tpl-standard',
+    title: '',
+    conductedAt: '',
+    location: '',
+    department: '',
+    notes: '',
+  })
 
   const [inspectionPanelOpen, setInspectionPanelOpen] = useState(false)
   const [insDraftId, setInsDraftId] = useState<string | null>(null)
@@ -422,6 +432,92 @@ export function HseModule() {
       locked: list.filter((i) => i.locked).length,
     }
   }, [hse.inspections])
+
+  const roundStats = useMemo(() => {
+    const list = hse.safetyRounds
+    return {
+      total: list.length,
+      inProgress: list.filter((r) => r.status === 'in_progress').length,
+      pending: list.filter((r) => r.status === 'pending_verneombud' || r.status === 'pending_approval').length,
+      approved: list.filter((r) => r.status === 'approved').length,
+      withIssues: list.filter((r) => Object.values(r.items).some((v) => v === 'issue')).length,
+    }
+  }, [hse.safetyRounds])
+
+  const roundsFiltered = useMemo(() => {
+    const q = roundSearch.trim().toLowerCase()
+    let list = [...hse.safetyRounds]
+    if (q) {
+      list = list.filter(
+        (r) =>
+          r.title.toLowerCase().includes(q) ||
+          r.location.toLowerCase().includes(q) ||
+          (r.department ?? '').toLowerCase().includes(q) ||
+          r.conductedBy.toLowerCase().includes(q),
+      )
+    }
+    list.sort((a, b) => b.conductedAt.localeCompare(a.conductedAt))
+    return list
+  }, [hse.safetyRounds, roundSearch])
+
+  const openNewRoundPanel = useCallback(() => {
+    setRoundPanelId('__new__')
+  }, [])
+
+  const openRoundPanel = useCallback((id: string) => {
+    setRoundPanelId(id)
+  }, [])
+
+  const closeRoundPanel = useCallback(() => {
+    setRoundPanelId(null)
+  }, [])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(ROUND_DRAFT_STORAGE_KEY)
+      if (!raw) return
+      const p = JSON.parse(raw) as Record<string, unknown>
+      if (!p || typeof p !== 'object') return
+      queueMicrotask(() => {
+        setRoundDraft((d) => ({
+          templateId: typeof p.templateId === 'string' ? p.templateId : d.templateId,
+          title: typeof p.title === 'string' ? p.title : d.title,
+          conductedAt: typeof p.conductedAt === 'string' ? p.conductedAt : d.conductedAt,
+          location: typeof p.location === 'string' ? p.location : d.location,
+          department: typeof p.department === 'string' ? p.department : d.department,
+          notes: typeof p.notes === 'string' ? p.notes : d.notes,
+        }))
+      })
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ROUND_DRAFT_STORAGE_KEY, JSON.stringify(roundDraft))
+    } catch {
+      /* ignore */
+    }
+  }, [roundDraft])
+
+  useEffect(() => {
+    if (!roundPanelId) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [roundPanelId])
+
+  useEffect(() => {
+    if (!roundPanelId) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeRoundPanel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [roundPanelId, closeRoundPanel])
 
   const inspectionsFiltered = useMemo(() => {
     const q = insSearch.trim().toLowerCase()
@@ -890,81 +986,335 @@ export function HseModule() {
         </div>
       )}
 
-      {/* ── Safety rounds ─────────────────────────────────────────────────────── */}
+      {/* ── Safety rounds (samme mønster som inspeksjoner) ───────────────────── */}
       {tab === 'rounds' && (
-        <div className="mt-8 space-y-8">
-          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-neutral-900">Ny vernerunde</h2>
-              <WizardButton
-                label="Veiviser"
-                def={makeSafetyRoundWizard(
-                  (data) => hse.createSafetyRound({
-                    title: String(data.title), conductedAt: new Date(String(data.conductedAt)).toISOString(),
-                    location: String(data.location) || '—', department: String(data.department) || undefined,
-                    conductedBy: String(data.conductedBy) || '—', notes: String(data.notes) || '',
-                  }),
-                  hse.checklistTemplates.map((t) => ({ value: t.id, label: t.name })),
-                )}
-              />
-            </div>
-            <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
-              e.preventDefault()
-              if (!roundForm.title.trim() || !roundForm.conductedAt) return
-              hse.createSafetyRound({ title: roundForm.title.trim(), conductedAt: new Date(roundForm.conductedAt).toISOString(), location: roundForm.location.trim() || '—', department: roundForm.department.trim() || undefined, conductedBy: roundForm.conductedBy.trim() || '—', notes: roundForm.notes })
-              setRoundForm((r) => ({ ...r, title: '', notes: '' }))
-            }}>
-              {/* Checklist template selector */}
-              <div className="sm:col-span-2">
-                <label className="text-xs font-medium text-neutral-500">Sjekklistemal</label>
-                <select
-                  value={roundForm.templateId}
-                  onChange={(e) => setRoundForm((r) => ({ ...r, templateId: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+        <div className="mt-8 space-y-6">
+          <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <h2
+                className="text-2xl font-semibold text-neutral-900 md:text-3xl"
+                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+              >
+                Vernerunder
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-neutral-600">
+                Velg mal — sjekklisten lastes inn med én gang. Registrer avvik per punkt (bilde + kommentar). Ved signering (leder + verneombud, nivå 1) låses runden og åpne avvik sendes til Kanban-tavlen. Utkast lagres lokalt i nettleseren til du oppretter runden (støtte for arbeid uten nett).
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                  Totalt <strong className="ml-1 font-semibold">{roundStats.total}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
+                  Pågår <strong className="ml-1 font-semibold">{roundStats.inProgress}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
+                  Signering <strong className="ml-1 font-semibold">{roundStats.pending}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
+                  Låst <strong className="ml-1 font-semibold">{roundStats.approved}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-rose-50 text-rose-900 ring-1 ring-rose-200`}>
+                  Med avvik <strong className="ml-1 font-semibold">{roundStats.withIssues}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={openNewRoundPanel}
+                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
                 >
-                  {hse.checklistTemplates.map((tpl) => (
-                    <option key={tpl.id} value={tpl.id}>
-                      {tpl.name}{tpl.department ? ` (${tpl.department})` : ''}
-                    </option>
-                  ))}
-                </select>
+                  <Plus className="size-4 shrink-0" />
+                  Ny vernerunde
+                </button>
+                <WizardButton
+                  label="Veiviser"
+                  variant="solid"
+                  className={HERO_ACTION_CLASS}
+                  def={makeSafetyRoundWizard(
+                    (data) => {
+                      const sr = hse.createSafetyRound({
+                        title: String(data.title),
+                        conductedAt: new Date(String(data.conductedAt)).toISOString(),
+                        location: String(data.location) || '—',
+                        department: String(data.department) || undefined,
+                        conductedBy:
+                          profile?.display_name?.trim() || user?.email?.trim() || 'Registrert bruker',
+                        notes: String(data.notes) || '',
+                        checklistTemplateId: String(data.templateId) || SAFETY_ROUND_TEMPLATE_ID,
+                      })
+                      openRoundPanel(sr.id)
+                    },
+                    hse.checklistTemplates.map((t) => ({ value: t.id, label: t.name })),
+                  )}
+                />
               </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs text-neutral-500">Tittel</label>
-                <input value={roundForm.title} onChange={(e) => setRoundForm((r) => ({ ...r, title: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
-              </div>
-              <div>
-                <label className="text-xs text-neutral-500">Gjennomført</label>
-                <input type="datetime-local" value={roundForm.conductedAt} onChange={(e) => setRoundForm((r) => ({ ...r, conductedAt: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
-              </div>
-              <div>
-                <label className="text-xs text-neutral-500">Område / lokasjon</label>
-                <input value={roundForm.location} onChange={(e) => setRoundForm((r) => ({ ...r, location: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs text-neutral-500">Avdeling</label>
-                <input value={roundForm.department} onChange={(e) => setRoundForm((r) => ({ ...r, department: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs text-neutral-500">Gjennomført av (f.eks. verneombud)</label>
-                <input value={roundForm.conductedBy} onChange={(e) => setRoundForm((r) => ({ ...r, conductedBy: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs text-neutral-500">Notater</label>
-                <textarea value={roundForm.notes} onChange={(e) => setRoundForm((r) => ({ ...r, notes: e.target.value }))} rows={3} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2">
-                <ClipboardCheck className="size-4" />Opprett runde
-              </button>
-            </form>
-          </section>
-          <div className="space-y-6">
-            {hse.safetyRounds.map((sr) => {
-              // Use the template items if the round has a matching template, otherwise fall back to default
-              const checklist = hse.checklistTemplate
-              return <SafetyRoundCard key={sr.id} round={sr} checklist={checklist} hse={hse} />
-            })}
+            </div>
           </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{roundStats.total}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Registrert</div>
+            </div>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{roundStats.inProgress}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Utfylling</div>
+            </div>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{roundStats.pending}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Venter signatur</div>
+            </div>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{roundStats.approved}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Arkiv</div>
+            </div>
+          </div>
+
+          <Mainbox1
+            title="Vernerunder"
+            subtitle="Sortert etter gjennomføringstid. Åpne raden i sidevinduet for sjekkliste, avvik og dobbeltsignatur."
+          >
+            <Table1Shell
+              toolbar={
+                <Table1Toolbar
+                  searchSlot={
+                    <div className="min-w-[200px] flex-1">
+                      <label className="sr-only" htmlFor="round-search">
+                        Søk
+                      </label>
+                      <input
+                        id="round-search"
+                        value={roundSearch}
+                        onChange={(e) => setRoundSearch(e.target.value)}
+                        placeholder="Søk i tittel, sted, avdeling …"
+                        className={`${SETTINGS_INPUT} bg-white`}
+                      />
+                    </div>
+                  }
+                />
+              }
+            >
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse text-left">
+                  <thead>
+                    <tr className={theadRow}>
+                      <th className={tableCell}>Tittel</th>
+                      <th className={tableCell}>Lokasjon</th>
+                      <th className={tableCell}>Status</th>
+                      <th className={tableCell}>Gjennomført</th>
+                      <th className={tableCell}>Avvik</th>
+                      <th className={`${tableCell} text-right`}>Handling</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {roundsFiltered.map((sr, ri) => (
+                      <SafetyRoundTableRow
+                        key={sr.id}
+                        round={sr}
+                        templates={hse.checklistTemplates}
+                        rowClass={table1BodyRowClass(layout, ri)}
+                        cellClass={tableCell}
+                        onOpen={() => openRoundPanel(sr.id)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {roundsFiltered.length === 0 ? (
+                <p className="px-4 py-10 text-center text-sm text-neutral-500">Ingen runder matcher søket.</p>
+              ) : null}
+            </Table1Shell>
+          </Mainbox1>
+
+          {roundPanelId ? (
+            <div
+              className="fixed inset-0 z-[100] flex justify-end bg-black/45 backdrop-blur-[2px]"
+              role="presentation"
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) closeRoundPanel()
+              }}
+            >
+              <aside
+                className="flex h-full w-full max-w-[min(100vw,920px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="round-panel-title"
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <header className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 bg-[#f7f6f2] px-6 py-5 sm:px-8">
+                  <h2
+                    id="round-panel-title"
+                    className="text-xl font-semibold text-neutral-900 sm:text-2xl"
+                    style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+                  >
+                    {roundPanelId === '__new__' ? 'Ny vernerunde' : hse.safetyRounds.find((r) => r.id === roundPanelId)?.title ?? 'Vernerunde'}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={closeRoundPanel}
+                    className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-200/60 hover:text-neutral-800`}
+                    aria-label="Lukk"
+                  >
+                    <X className="size-6" />
+                  </button>
+                </header>
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+                  {roundPanelId === '__new__' ? (
+                    <div className="space-y-6">
+                      <p className={`${SETTINGS_LEAD} rounded-none border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-950`}>
+                        <strong>Medvirkning (AML § 3-1):</strong> Signering skjer med innlogget bruker (nivå 1) — ikke fritekst «gjennomført av». Velg mal under — sjekklisten vises her før du oppretter runden.
+                      </p>
+                      <div className={TASK_PANEL_ROW_GRID}>
+                        <div>
+                          <h3 className="text-base font-semibold text-neutral-900">Mal og kontekst</h3>
+                          <p className={`${SETTINGS_LEAD} mt-2`}>Sjekklisten lastes inn straks du velger mal. Utkast lagres automatisk i denne nettleseren.</p>
+                        </div>
+                        <div className={TASK_PANEL_INSET}>
+                          <label className={SETTINGS_FIELD_LABEL} htmlFor="new-round-template">
+                            Sjekklistemal
+                          </label>
+                          <select
+                            id="new-round-template"
+                            value={roundDraft.templateId}
+                            onChange={(e) => setRoundDraft((d) => ({ ...d, templateId: e.target.value }))}
+                            className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                          >
+                            {hse.checklistTemplates.map((tpl) => (
+                              <option key={tpl.id} value={tpl.id}>
+                                {tpl.name}
+                                {tpl.department ? ` (${tpl.department})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="mt-5">
+                            <label className={SETTINGS_FIELD_LABEL} htmlFor="new-round-title">
+                              Tittel
+                            </label>
+                            <input
+                              id="new-round-title"
+                              value={roundDraft.title}
+                              onChange={(e) => setRoundDraft((d) => ({ ...d, title: e.target.value }))}
+                              className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                              placeholder="f.eks. Vernerunde — Lager Q2"
+                            />
+                          </div>
+                          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                            <div>
+                              <label className={SETTINGS_FIELD_LABEL} htmlFor="new-round-when">
+                                Gjennomført
+                              </label>
+                              <input
+                                id="new-round-when"
+                                type="datetime-local"
+                                value={roundDraft.conductedAt}
+                                onChange={(e) => setRoundDraft((d) => ({ ...d, conductedAt: e.target.value }))}
+                                className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                              />
+                            </div>
+                            <div>
+                              <label className={SETTINGS_FIELD_LABEL} htmlFor="new-round-loc">
+                                Område / lokasjon
+                              </label>
+                              <input
+                                id="new-round-loc"
+                                value={roundDraft.location}
+                                onChange={(e) => setRoundDraft((d) => ({ ...d, location: e.target.value }))}
+                                className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                              />
+                            </div>
+                          </div>
+                          <div className="mt-5">
+                            <label className={SETTINGS_FIELD_LABEL} htmlFor="new-round-dept">
+                              Avdeling
+                            </label>
+                            <input
+                              id="new-round-dept"
+                              value={roundDraft.department}
+                              onChange={(e) => setRoundDraft((d) => ({ ...d, department: e.target.value }))}
+                              className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                            />
+                          </div>
+                          <div className="mt-5">
+                            <label className={SETTINGS_FIELD_LABEL} htmlFor="new-round-notes">
+                              Notater
+                            </label>
+                            <textarea
+                              id="new-round-notes"
+                              value={roundDraft.notes}
+                              onChange={(e) => setRoundDraft((d) => ({ ...d, notes: e.target.value }))}
+                              rows={3}
+                              className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`${R_FLAT} border border-amber-200/90 bg-amber-50/60 px-4 py-3 text-xs text-amber-950`}>
+                        <strong>Frakoblet:</strong> du kan fylle ut skjemaet uten nett — trykk «Opprett runde» når du er tilkoblet igjen for å synkronisere til Supabase.
+                      </div>
+                      {(() => {
+                        const previewTpl = hse.checklistTemplates.find((t) => t.id === roundDraft.templateId)
+                        const previewItems = previewTpl?.items ?? []
+                        return previewItems.length > 0 ? (
+                          <div className={`${R_FLAT} border border-neutral-200 bg-white p-4`}>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                              Forhåndsvisning — {previewItems.length} punkter
+                            </p>
+                            <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto text-xs text-neutral-700">
+                              {previewItems.slice(0, 12).map((it) => (
+                                <li key={it.id} className="border-b border-neutral-100 py-1 last:border-0">
+                                  {it.label}
+                                </li>
+                              ))}
+                              {previewItems.length > 12 ? (
+                                <li className="py-1 text-neutral-400">+ {previewItems.length - 12} flere …</li>
+                              ) : null}
+                            </ul>
+                          </div>
+                        ) : null
+                      })()}
+                    </div>
+                  ) : roundPanelId && hse.safetyRounds.some((r) => r.id === roundPanelId) ? (
+                    <SafetyRoundCard
+                      round={hse.safetyRounds.find((r) => r.id === roundPanelId)!}
+                      templates={hse.checklistTemplates}
+                      hse={hse}
+                      addTask={addTask}
+                    />
+                  ) : (
+                    <p className="text-sm text-neutral-600">Fant ikke denne runden.</p>
+                  )}
+                </div>
+                {roundPanelId === '__new__' ? (
+                  <footer className="shrink-0 border-t border-neutral-200/90 bg-[#f0efe9] px-6 py-5 sm:px-8">
+                    <button
+                      type="button"
+                      className="w-full rounded-none bg-[#1a3d32] px-5 py-3 text-sm font-semibold text-white hover:bg-[#142e26]"
+                      onClick={() => {
+                        if (!roundDraft.title.trim() || !roundDraft.conductedAt) return
+                        const sr = hse.createSafetyRound({
+                          title: roundDraft.title.trim(),
+                          conductedAt: new Date(roundDraft.conductedAt).toISOString(),
+                          location: roundDraft.location.trim() || '—',
+                          department: roundDraft.department.trim() || undefined,
+                          conductedBy: profile?.display_name?.trim() || user?.email?.trim() || 'Registrert bruker',
+                          notes: roundDraft.notes,
+                          checklistTemplateId: roundDraft.templateId,
+                        })
+                        setRoundPanelId(sr.id)
+                      }}
+                    >
+                      Opprett runde og fortsett
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeRoundPanel}
+                      className="mt-3 w-full rounded-none border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700"
+                    >
+                      Avbryt
+                    </button>
+                  </footer>
+                ) : null}
+              </aside>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -3275,13 +3625,78 @@ function InspectionTableRow({
   )
 }
 
-function SafetyRoundCard({ round, checklist, hse }: {
+function SafetyRoundTableRow({
+  round,
+  templates,
+  rowClass,
+  cellClass,
+  onOpen,
+}: {
   round: SafetyRound
-  checklist: { id: string; label: string; lawRef: string }[]
-  hse: ReturnType<typeof useHse>
+  templates: ChecklistTemplate[]
+  rowClass: string
+  cellClass: string
+  onOpen: () => void
 }) {
-  const [approvalName, setApprovalName] = useState('')
-  const [approvalComment, setApprovalComment] = useState('')
+  const tpl = templates.find((t) => t.id === (round.checklistTemplateId ?? SAFETY_ROUND_TEMPLATE_ID))
+  const issueCount = (tpl?.items ?? []).filter((it) => round.items[it.id] === 'issue').length
+  const statusBadge =
+    {
+      in_progress: { label: 'Pågår', cls: 'border-sky-300 bg-sky-50 text-sky-900' },
+      pending_verneombud: { label: 'Signering', cls: 'border-amber-300 bg-amber-50 text-amber-950' },
+      pending_approval: { label: 'Signering', cls: 'border-amber-300 bg-amber-50 text-amber-950' },
+      approved: { label: 'Låst', cls: 'border-emerald-300 bg-emerald-50 text-emerald-900' },
+    }[round.status] ?? { label: round.status, cls: 'border-neutral-200 bg-neutral-50 text-neutral-700' }
+
+  return (
+    <tr className={rowClass}>
+      <td className={cellClass}>
+        <div className="max-w-[240px] font-medium text-neutral-900">{round.title}</div>
+      </td>
+      <td className={cellClass}>
+        <div className="text-neutral-800">{round.location}</div>
+        {round.department ? <div className="text-xs text-neutral-500">{round.department}</div> : null}
+      </td>
+      <td className={cellClass}>
+        <span className={`${R_FLAT} inline-block border px-2 py-0.5 text-xs font-medium ${statusBadge.cls}`}>
+          {statusBadge.label}
+        </span>
+      </td>
+      <td className={`${cellClass} text-neutral-600`}>{formatWhen(round.conductedAt)}</td>
+      <td className={cellClass}>
+        {issueCount > 0 ? (
+          <span className={`${R_FLAT} inline-flex items-center gap-1 border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900`}>
+            <AlertTriangle className="size-3" />
+            {issueCount}
+          </span>
+        ) : (
+          <span className="text-xs text-neutral-400">0</span>
+        )}
+      </td>
+      <td className={`${cellClass} text-right`}>
+        <button type="button" onClick={onOpen} className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}>
+          Åpne
+        </button>
+      </td>
+    </tr>
+  )
+}
+
+function SafetyRoundCard({
+  round,
+  templates,
+  hse,
+  addTask,
+}: {
+  round: SafetyRound
+  templates: ChecklistTemplate[]
+  hse: ReturnType<typeof useHse>
+  addTask: ReturnType<typeof useTasks>['addTask']
+}) {
+  const checklist = useMemo(() => {
+    const tpl = templates.find((t) => t.id === (round.checklistTemplateId ?? SAFETY_ROUND_TEMPLATE_ID))
+    return tpl?.items ?? []
+  }, [templates, round.checklistTemplateId])
   const isLocked = round.status === 'approved'
   const issueItems = checklist.filter((item) => round.items[item.id] === 'issue')
 
@@ -3298,33 +3713,38 @@ function SafetyRoundCard({ round, checklist, hse }: {
       approved: { label: 'Godkjent', cls: 'bg-emerald-100 text-emerald-800' },
     }[round.status] ?? { label: round.status, cls: 'bg-neutral-100 text-neutral-700' }
 
+  const hasMgmtSig = (round.signatures ?? []).some((s) => s.role === 'management')
+  const hasVoSig = (round.signatures ?? []).some((s) => s.role === 'safety_rep')
+
   return (
-    <div className={`rounded-2xl border bg-white shadow-sm ${isLocked ? 'border-emerald-200' : 'border-neutral-200/90'}`}>
-      {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-neutral-100 px-5 py-4">
+    <div className={`${R_FLAT} border bg-white ${isLocked ? 'border-emerald-200' : 'border-neutral-200/90'}`}>
+      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-neutral-100 px-1 py-4 sm:px-2">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-semibold text-neutral-900">{round.title}</h3>
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadge.cls}`}>{statusBadge.label}</span>
+            <span className={`${R_FLAT} px-2.5 py-0.5 text-xs font-medium ${statusBadge.cls}`}>{statusBadge.label}</span>
             {isLocked && <Lock className="size-3.5 text-emerald-600" />}
           </div>
-          <p className="mt-1 text-sm text-neutral-600">{round.location}{round.department ? ` · ${round.department}` : ''} · {round.conductedBy}</p>
+          <p className="mt-1 text-sm text-neutral-600">
+            {round.location}
+            {round.department ? ` · ${round.department}` : ''}
+          </p>
           <p className="text-xs text-neutral-400">{fmtDate(round.conductedAt)}</p>
         </div>
-        {/* Issue count badge */}
         {issueItems.length > 0 && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+          <span className={`${R_FLAT} inline-flex items-center gap-1.5 border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900`}>
             <AlertTriangle className="size-3.5" />
             {issueItems.length} avvik
           </span>
         )}
       </div>
 
-      {/* ── Checklist ─────────────────────────────────────────────────────── */}
-      <div className="px-5 py-4">
-        {/* Conceptual note for users */}
-        <div className="mb-3 rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-800">
-          <strong>Avvik i vernerunde</strong> = potensielle farer oppdaget under runden (ikke-hendelser). Meld ulykker og vold separat under fanen <strong>Hendelser</strong>.
+      <div className="px-1 py-4 sm:px-2">
+        <div className={`${R_FLAT} mb-4 border border-sky-200 bg-sky-50/80 px-3 py-2 text-xs text-sky-950`}>
+          <strong>Handlingsplan (IK-f § 5 nr. 7):</strong> Når runden er ferdig signert av både leder og verneombud, opprettes én oppgave per avvik på Kanban-tavlen automatisk. Du kan også opprette oppgaver manuelt underveis.
+        </div>
+        <div className={`${R_FLAT} mb-4 border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-800`}>
+          <strong>Avvik i vernerunde</strong> = potensielle farer under runden. Meld ulykker og vold under <strong>Hendelser</strong>.
         </div>
 
         <ul className="space-y-2">
@@ -3333,29 +3753,41 @@ function SafetyRoundCard({ round, checklist, hse }: {
             const detail = (round.itemDetails ?? {})[item.id]
             const isIssue = st === 'issue'
             return (
-              <li key={item.id} className={`rounded-xl border ${isIssue ? 'border-amber-200 bg-amber-50/50' : 'border-neutral-100 bg-[#faf8f4]'}`}>
-                {/* Status row */}
+              <li key={item.id} className={`${R_FLAT} border ${isIssue ? 'border-amber-200 bg-amber-50/50' : 'border-neutral-100 bg-[#faf8f4]'}`}>
                 <div className="flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <span className="text-sm text-neutral-900">{item.label}</span>
                     <span className="mt-0.5 block text-xs text-neutral-400">{item.lawRef}</span>
                   </div>
-                  <div className="flex shrink-0 gap-1">
-                    {(['ok', 'issue', 'na'] as const).map((v) => (
-                      <button
-                        key={v}
-                        type="button"
-                        disabled={isLocked}
-                        onClick={() => hse.setChecklistStatus(round.id, item.id, v)}
-                        className={`rounded-full px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                          st === v
-                            ? v === 'issue' ? 'bg-amber-400 text-amber-950' : v === 'ok' ? 'bg-emerald-400 text-white' : 'bg-neutral-300 text-neutral-800'
-                            : 'bg-white ring-1 ring-neutral-200 hover:bg-neutral-50'
-                        }`}
-                      >
-                        {v === 'ok' ? 'OK' : v === 'issue' ? '⚠ Avvik' : 'N/A'}
-                      </button>
-                    ))}
+                  <div className="flex shrink-0 flex-wrap gap-1">
+                    <button
+                      type="button"
+                      disabled={isLocked}
+                      onClick={() => hse.setChecklistStatus(round.id, item.id, 'ok')}
+                      className={`${R_FLAT} px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                        st === 'ok' ? 'bg-emerald-600 text-white' : 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
+                      }`}
+                    >
+                      OK
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLocked}
+                      onClick={() => hse.setChecklistStatus(round.id, item.id, 'issue')}
+                      className={`${R_FLAT} px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                        st === 'issue' ? 'bg-amber-500 text-amber-950' : 'border border-amber-200 bg-white text-amber-900 hover:bg-amber-50'
+                      }`}
+                    >
+                      Registrer avvik
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLocked}
+                      onClick={() => hse.setChecklistStatus(round.id, item.id, 'na')}
+                      className={`${R_FLAT} px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-neutral-500 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50`}
+                    >
+                      Ikke relevant
+                    </button>
                   </div>
                 </div>
 
@@ -3373,27 +3805,28 @@ function SafetyRoundCard({ round, checklist, hse }: {
                         disabled={isLocked}
                         rows={2}
                         placeholder="Hva ble observert? Angi omfang og plassering…"
-                        className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm focus:border-amber-400 focus:outline-none disabled:opacity-60"
+                        className={`${SETTINGS_INPUT} mt-1 border-amber-200 bg-white focus:border-amber-400 disabled:opacity-60`}
                       />
                     </div>
 
-                    {/* Photo upload */}
                     <div>
                       <label className="text-xs font-medium text-neutral-600">Bilde / vedlegg</label>
                       <div className="mt-1 flex flex-wrap items-center gap-2">
                         {detail?.photoUrl ? (
                           <div className="relative">
-                            <img src={detail.photoUrl} alt="Avvik" className="h-20 w-24 rounded-lg object-cover ring-1 ring-amber-200" />
+                            <img src={detail.photoUrl} alt="Avvik" className={`${R_FLAT} h-20 w-24 object-cover ring-1 ring-amber-200`} />
                             {!isLocked && (
                               <button
                                 type="button"
                                 onClick={() => hse.setChecklistItemDetail(round.id, item.id, { photoUrl: undefined })}
                                 className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-red-500 text-white text-xs"
-                              >×</button>
+                              >
+                                ×
+                              </button>
                             )}
                           </div>
                         ) : !isLocked ? (
-                          <label className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-amber-300 bg-white px-3 py-2 text-xs text-amber-700 hover:bg-amber-50">
+                          <label className={`${R_FLAT} flex cursor-pointer items-center gap-1.5 border border-dashed border-amber-300 bg-white px-3 py-2 text-xs text-amber-700 hover:bg-amber-50`}>
                             <ImagePlus className="size-4" />
                             Legg til bilde
                             <input
@@ -3413,11 +3846,12 @@ function SafetyRoundCard({ round, checklist, hse }: {
                               }}
                             />
                           </label>
-                        ) : <span className="text-xs text-neutral-400">Ingen bilde</span>}
+                        ) : (
+                          <span className="text-xs text-neutral-400">Ingen bilde</span>
+                        )}
                       </div>
                     </div>
 
-                    {/* Assignee + due date */}
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
                         <label className="text-xs font-medium text-neutral-600">Tildel oppgave til</label>
@@ -3426,7 +3860,7 @@ function SafetyRoundCard({ round, checklist, hse }: {
                           onChange={(e) => !isLocked && hse.setChecklistItemDetail(round.id, item.id, { assignee: e.target.value })}
                           disabled={isLocked}
                           placeholder="Navn / rolle"
-                          className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-sm focus:border-amber-400 focus:outline-none disabled:opacity-60"
+                          className={`${SETTINGS_INPUT} mt-1 border-amber-200 bg-white disabled:opacity-60`}
                         />
                       </div>
                       <div>
@@ -3436,12 +3870,11 @@ function SafetyRoundCard({ round, checklist, hse }: {
                           value={detail?.dueDate ?? ''}
                           onChange={(e) => !isLocked && hse.setChecklistItemDetail(round.id, item.id, { dueDate: e.target.value })}
                           disabled={isLocked}
-                          className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-sm focus:border-amber-400 focus:outline-none disabled:opacity-60"
+                          className={`${SETTINGS_INPUT} mt-1 border-amber-200 bg-white disabled:opacity-60`}
                         />
                       </div>
                     </div>
 
-                    {/* Per-item task link */}
                     {!isLocked && (detail?.assignee || detail?.description) && (
                       <AddTaskLink
                         title={`Avvik: ${item.label.slice(0, 60)}`}
@@ -3460,7 +3893,6 @@ function SafetyRoundCard({ round, checklist, hse }: {
           })}
         </ul>
 
-        {/* Global notes */}
         <div className="mt-4">
           <label className="text-xs font-medium text-neutral-500">Generelle notater fra runden</label>
           <textarea
@@ -3468,103 +3900,145 @@ function SafetyRoundCard({ round, checklist, hse }: {
             onChange={(e) => !isLocked && hse.updateSafetyRound(round.id, { notes: e.target.value })}
             disabled={isLocked}
             rows={3}
-            className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm disabled:opacity-60"
+            className={`${SETTINGS_INPUT} mt-1 disabled:opacity-60`}
           />
         </div>
       </div>
 
-      {/* ── Approval workflow ──────────────────────────────────────────────── */}
-      <div className="border-t border-neutral-100 px-5 py-4">
-        {round.status === 'in_progress' && (
+      <div className="border-t border-neutral-100 px-1 py-4 sm:px-2">
+        {!isLocked && (
           <div className="flex flex-wrap items-start gap-4">
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-neutral-800">Send til leder for godkjenning</p>
-              <p className="text-xs text-neutral-500 mt-0.5">
-                Runden låses (read-only) når leder har godkjent. Loven krever at både verneombud og leder bekrefter resultatet.
+            <div className="flex-1 min-w-[200px]">
+              <p className="text-sm font-semibold text-neutral-800">Klar for signering (AML § 3-1)</p>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                Signatur bruker innlogget bruker (nivå 1). Begge roller må signere med hver sin brukerkonto. Runden låses når begge er på plass; åpne avvik sendes til Kanban.
               </p>
             </div>
             <button
               type="button"
-              disabled={issueItems.some((i) => !round.itemDetails?.[i.id]?.description?.trim())}
+              disabled={
+                round.status !== 'in_progress' ||
+                issueItems.some((i) => !round.itemDetails?.[i.id]?.description?.trim())
+              }
               onClick={() => hse.submitRoundForApproval(round.id)}
-              className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] disabled:opacity-40"
-              title={issueItems.some((i) => !round.itemDetails?.[i.id]?.description?.trim()) ? 'Fyll inn beskrivelse for alle avvik først' : undefined}
+              className={`${HERO_ACTION_CLASS} inline-flex items-center gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26] disabled:opacity-40`}
+              title={
+                issueItems.some((i) => !round.itemDetails?.[i.id]?.description?.trim())
+                  ? 'Fyll inn beskrivelse for alle avvik først'
+                  : undefined
+              }
             >
               <Send className="size-4" />
-              Send til godkjenning
+              Send til signering
             </button>
           </div>
         )}
 
-        {round.status === 'pending_approval' && (
-          <div className="space-y-3">
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-              <p className="text-sm font-semibold text-amber-900">Venter på lederens godkjenning</p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                Sendt: {round.submittedForApprovalAt ? fmtDate(round.submittedForApprovalAt) : '—'}
+        {(round.status === 'pending_verneombud' || round.status === 'pending_approval') && (
+          <div className="mt-4 space-y-4">
+            <div className={`${R_FLAT} border border-amber-200 bg-amber-50 px-4 py-3`}>
+              <p className="text-sm font-semibold text-amber-900">Venter på to signaturer</p>
+              <p className="mt-0.5 text-xs text-amber-800">
+                Sendt: {round.submittedForApprovalAt ? fmtDate(round.submittedForApprovalAt) : '—'} · Leder og verneombud må signere hver for seg.
               </p>
             </div>
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
-              <p className="text-sm font-semibold text-emerald-900">Godkjenn som leder</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="text-xs font-medium text-neutral-600">Leders navn</label>
-                  <input
-                    value={approvalName}
-                    onChange={(e) => setApprovalName(e.target.value)}
-                    placeholder="Fullt navn"
-                    className="mt-1 w-full rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-neutral-600">Kommentar (valgfritt)</label>
-                  <input
-                    value={approvalComment}
-                    onChange={(e) => setApprovalComment(e.target.value)}
-                    placeholder="Merknad til vernerunden"
-                    className="mt-1 w-full rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-sm"
-                  />
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={!approvalName.trim()}
-                onClick={() => {
-                  void (async () => {
-                    const ok = await hse.approveRound(round.id, {
-                      approverName: approvalName.trim(),
-                      approvedAt: new Date().toISOString(),
-                      comment: approvalComment.trim() || undefined,
-                    })
-                    if (ok) {
-                      setApprovalName('')
-                      setApprovalComment('')
-                    }
-                  })()
-                }}
-                className="inline-flex items-center gap-2 rounded-full bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-40"
-              >
-                <CheckCircle2 className="size-4" />
-                Godkjenn vernerunde
-              </button>
-            </div>
+            <SafetyRoundSignPanel
+              label="Signer som leder (arbeidsgiver)"
+              signed={hasMgmtSig}
+              onSign={async () => {
+                const r = await hse.signSafetyRound(round.id, 'management')
+                if (r.ok && r.seeds.length) {
+                  for (const t of r.seeds) {
+                    addTask(t)
+                  }
+                }
+              }}
+            />
+            <SafetyRoundSignPanel
+              label="Signer som verneombud"
+              signed={hasVoSig}
+              onSign={async () => {
+                const r = await hse.signSafetyRound(round.id, 'safety_rep')
+                if (r.ok && r.seeds.length) {
+                  for (const t of r.seeds) {
+                    addTask(t)
+                  }
+                }
+              }}
+            />
           </div>
         )}
 
-        {round.status === 'approved' && round.approval && (
-          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-            <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-emerald-900">Godkjent av {round.approval.approverName}</p>
-              <p className="whitespace-pre-line text-xs text-emerald-700">
-                {fmtDate(round.approval.approvedAt)}
-                {round.approval.comment ? ` · ${round.approval.comment}` : ''}
-                {formatLevel1AuditLine(round.approval.level1) ? `\n${formatLevel1AuditLine(round.approval.level1)}` : ''}
-              </p>
-            </div>
+        {isLocked && (round.signatures?.length ?? 0) > 0 && (
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-emerald-900">Signaturer (nivå 1)</p>
+            {(round.signatures ?? []).map((s) => (
+              <div key={`${s.role}-${s.signedAt}`} className={`${R_FLAT} flex flex-wrap items-start gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3`}>
+                <CheckCircle2 className="size-5 shrink-0 text-emerald-600" />
+                <div>
+                  <p className="text-sm font-semibold text-emerald-900">
+                    {s.role === 'management' ? 'Leder' : 'Verneombud'}: {s.signerName}
+                  </p>
+                  <p className="whitespace-pre-line text-xs text-emerald-800">
+                    {fmtDate(s.signedAt)}
+                    {formatLevel1AuditLine(s.level1) ? `\n${formatLevel1AuditLine(s.level1)}` : ''}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function SafetyRoundSignPanel({
+  label,
+  signed,
+  onSign,
+}: {
+  label: string
+  signed: boolean
+  onSign: () => Promise<void>
+}) {
+  const { user, profile } = useOrgSetupContext()
+  const [busy, setBusy] = useState(false)
+  const display = profile?.display_name?.trim() || user?.email?.trim() || 'Innlogget bruker'
+
+  if (signed) {
+    return (
+      <div className={`${R_FLAT} border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-900`}>
+        <strong>{label}:</strong> registrert.
+      </div>
+    )
+  }
+
+  return (
+    <div className={`${R_FLAT} border border-neutral-200 bg-white p-4`}>
+      <p className="text-sm font-semibold text-neutral-900">{label}</p>
+      <p className="mt-1 text-xs text-neutral-500">
+        Signerer som: <span className="font-medium text-neutral-800">{display}</span>
+      </p>
+      <button
+        type="button"
+        disabled={busy || !user}
+        onClick={() => {
+          void (async () => {
+            setBusy(true)
+            try {
+              await onSign()
+            } finally {
+              setBusy(false)
+            }
+          })()
+        }}
+        className={`${HERO_ACTION_CLASS} mt-3 inline-flex items-center gap-2 bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-40`}
+      >
+        <CheckCircle2 className="size-4" />
+        {busy ? 'Signerer…' : 'Signer og godkjenn'}
+      </button>
+      {!user ? <p className="mt-2 text-xs text-red-700">Du må være innlogget for å signere.</p> : null}
     </div>
   )
 }

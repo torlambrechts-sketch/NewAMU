@@ -30,7 +30,8 @@ import type {
   InspectionAttachment,
   InspectionFinding,
   SafetyRound,
-  SafetyRoundApproval,
+  SafetyRoundSignature,
+  SafetyRoundSignatureRole,
   SjaAnalysis,
   SjaHazardRow,
   SjaSignature,
@@ -242,7 +243,7 @@ function saveLocal(state: HseState) {
 }
 
 export function useHse() {
-  const { supabase, organization, user } = useOrgSetupContext()
+  const { supabase, organization, user, profile } = useOrgSetupContext()
   const orgId = organization?.id
   const userId = user?.id
   const useRemote = !!(supabase && orgId && userId)
@@ -320,7 +321,7 @@ export function useHse() {
       const sr: SafetyRound = {
         ...partial,
         checklistTemplateId: tid,
-        conductedBy: partial.conductedBy?.trim() ? partial.conductedBy : '—',
+        conductedBy: partial.conductedBy?.trim() ? partial.conductedBy.trim() : '—',
         id: crypto.randomUUID(),
         items: emptyChecklistForItems(items),
         itemDetails: {},
@@ -411,11 +412,18 @@ export function useHse() {
     (roundId: string) => {
       setState((s) => {
         const now = new Date().toISOString()
-        const entry = auditEntry('safety_round_updated', 'safety_round', roundId, 'Vernerunde sendt til leder for godkjenning')
+        const entry = auditEntry(
+          'safety_round_updated',
+          'safety_round',
+          roundId,
+          'Vernerunde sendt til signering (leder + verneombud)',
+        )
         return {
           ...s,
           safetyRounds: s.safetyRounds.map((x) =>
-            x.id === roundId ? { ...x, status: 'pending_approval' as const, submittedForApprovalAt: now, updatedAt: now } : x,
+            x.id === roundId
+              ? { ...x, status: 'pending_verneombud' as const, submittedForApprovalAt: now, updatedAt: now }
+              : x,
           ),
           auditTrail: [...s.auditTrail, entry],
         }
@@ -424,78 +432,192 @@ export function useHse() {
     [setState],
   )
 
-  const approveRound = useCallback(
+  const safetyRoundDocumentPayload = useCallback((round: SafetyRound) => {
+    const tpl = checklistTemplatesRef.current.find((t) => t.id === (round.checklistTemplateId ?? SAFETY_ROUND_TEMPLATE_ID))
+    const checklistIds = (tpl?.items ?? DEFAULT_SAFETY_ROUND_CHECKLIST).map((i) => i.id)
+    const itemsOrdered = Object.fromEntries(checklistIds.map((id) => [id, round.items[id] ?? 'na']))
+    const detailsOrdered: Record<string, ChecklistItemDetail> = {}
+    for (const id of checklistIds) {
+      const d = round.itemDetails?.[id]
+      if (d) detailsOrdered[id] = d
+    }
+    return {
+      docKind: 'hse_safety_round' as const,
+      roundId: round.id,
+      title: round.title,
+      conductedAt: round.conductedAt,
+      location: round.location,
+      department: round.department ?? '',
+      conductedBy: round.conductedBy,
+      checklistTemplateId: round.checklistTemplateId ?? SAFETY_ROUND_TEMPLATE_ID,
+      items: itemsOrdered,
+      itemDetails: detailsOrdered,
+      notes: round.notes,
+      status: round.status,
+      submittedForApprovalAt: round.submittedForApprovalAt ?? null,
+      signatures: (round.signatures ?? []).map((s) => ({
+        role: s.role,
+        signerName: s.signerName,
+        signerUserId: s.signerUserId ?? null,
+        signedAt: s.signedAt,
+      })),
+    }
+  }, [])
+
+  const signSafetyRound = useCallback(
     async (
       roundId: string,
-      approvalIn: { approverName: string; approvedAt?: string; comment?: string },
-    ) => {
+      role: SafetyRoundSignatureRole,
+    ): Promise<{ ok: true; seeds: KanbanTaskSeed[] } | { ok: false }> => {
       setError(null)
       const round = state.safetyRounds.find((x) => x.id === roundId)
-      if (!round) return false
-      const approvedAt = approvalIn.approvedAt ?? new Date().toISOString()
-      const approverName = approvalIn.approverName.trim()
-      if (!approverName) return false
-      const approvalBase: Omit<SafetyRoundApproval, 'level1'> = {
-        approverName,
-        approvedAt,
-        comment: approvalIn.comment,
+      if (!round || round.status === 'approved') return { ok: false }
+      if ((round.signatures ?? []).some((s) => s.role === role)) return { ok: false }
+      if (userId) {
+        const other = (round.signatures ?? []).find((s) => s.role !== role && s.signerUserId === userId)
+        if (other) {
+          setError('Samme innloggede bruker kan ikke signere både som leder og verneombud (AML § 3-1 medvirkning).')
+          return { ok: false }
+        }
+      }
+
+      const issueTpl = checklistTemplatesRef.current.find((t) => t.id === (round.checklistTemplateId ?? SAFETY_ROUND_TEMPLATE_ID))
+      const checklistItems = issueTpl?.items ?? DEFAULT_SAFETY_ROUND_CHECKLIST
+      const issueRows = checklistItems.filter((item) => round.items[item.id] === 'issue')
+      if (issueRows.some((item) => !(round.itemDetails?.[item.id]?.description ?? '').trim())) {
+        setError('Fyll inn beskrivelse for alle punkter med avvik før signering.')
+        return { ok: false }
+      }
+
+      const displayName =
+        profile?.display_name?.trim() || user?.email?.trim() || 'Bruker'
+      const signedAt = new Date().toISOString()
+      const sigPreview: SafetyRoundSignature = {
+        role,
+        signerName: displayName,
+        signerUserId: user?.id,
+        signedAt,
+      }
+      const signaturesNext = [...(round.signatures ?? []), sigPreview]
+      const hasMgmt = signaturesNext.some((s) => s.role === 'management')
+      const hasVo = signaturesNext.some((s) => s.role === 'safety_rep')
+      const bothSigned = hasMgmt && hasVo
+
+      const roundAfter: SafetyRound = {
+        ...round,
+        signatures: signaturesNext,
+        status: bothSigned ? 'approved' : round.status,
+        updatedAt: signedAt,
       }
       const hashPayload = {
-        docKind: 'hse_safety_round_approval' as const,
-        roundId: round.id,
-        title: round.title,
-        conductedAt: round.conductedAt,
-        location: round.location,
-        conductedBy: round.conductedBy,
-        department: round.department,
-        items: round.items,
-        itemDetails: round.itemDetails,
-        notes: round.notes,
-        status: 'approved' as const,
-        submittedForApprovalAt: round.submittedForApprovalAt,
-        approval: { approverName, approvedAt, comment: approvalBase.comment ?? '' },
+        ...safetyRoundDocumentPayload(roundAfter),
+        status: bothSigned ? ('approved' as const) : roundAfter.status,
+        signatures: signaturesNext.map((s) => ({
+          role: s.role,
+          signerName: s.signerName,
+          signerUserId: s.signerUserId ?? null,
+          signedAt: s.signedAt,
+        })),
       }
       const documentHashSha256 = await hashDocumentPayload(hashPayload)
-      let level1: SafetyRoundApproval['level1'] | undefined
+      let level1: SafetyRoundSignature['level1'] | undefined
       if (useRemote && supabase && orgId && userId) {
         const clientIp = await fetchClientIpBestEffort()
         const row = await insertSystemSignatureEvent(supabase, orgId, userId, {
           resourceType: 'hse_safety_round',
           resourceId: roundId,
-          action: 'hse_safety_round_approve',
+          action: role === 'management' ? 'hse_safety_round_sign_management' : 'hse_safety_round_sign_safety_rep',
           documentHashSha256,
-          signerDisplayName: approverName,
-          role: 'management_approval',
+          signerDisplayName: displayName,
+          role,
           clientIp,
         })
         if ('error' in row) {
           setError(row.error)
-          return false
+          return { ok: false }
         }
         level1 = row.evidence
       }
-      const approvalWithMeta: SafetyRoundApproval = { ...approvalBase, level1 }
+      const sigWithMeta: SafetyRoundSignature = { ...sigPreview, level1 }
+
+      let seeds: KanbanTaskSeed[] = []
+      if (bothSigned && !round.issueTasksSynced) {
+        seeds = issueRows.map((item) => {
+          const det = round.itemDetails?.[item.id]
+          const assignee = det?.assignee?.trim() || 'Verneombud / HMS'
+          const due = det?.dueDate?.trim() || '—'
+          return {
+            title: `Vernerunde-avvik: ${item.label.slice(0, 72)}${item.label.length > 72 ? '…' : ''}`,
+            description: [
+              `Runde: ${round.title}`,
+              `Lokasjon: ${round.location}`,
+              det?.description ?? '',
+              det?.photoUrl ? `Bilde: ${det.photoUrl}` : '',
+              round.notes ? `Notater: ${round.notes}` : '',
+            ]
+              .filter(Boolean)
+              .join('\n\n'),
+            status: 'todo' as const,
+            assignee,
+            ownerRole: 'Vernerunde / avvik',
+            dueDate: due,
+            module: 'hse' as const,
+            sourceType: 'hse_safety_round' as const,
+            sourceId: round.id,
+            sourceLabel: `${round.title} — ${item.label}`,
+            requiresManagementSignOff: false,
+          }
+        })
+      }
+
       setState((s) => {
+        const cur = s.safetyRounds.find((x) => x.id === roundId)
+        if (!cur || cur.status === 'approved') return s
+        if ((cur.signatures ?? []).some((x) => x.role === role)) return s
+        const sigs = [...(cur.signatures ?? []), sigWithMeta]
+        const mgmt = sigs.some((x) => x.role === 'management')
+        const vo = sigs.some((x) => x.role === 'safety_rep')
+        const locked = mgmt && vo
         const entry = auditEntry(
           'safety_round_updated',
           'safety_round',
           roundId,
-          `Vernerunde godkjent av ${approverName}`,
-          { approverName },
+          locked
+            ? `Vernerunde låst (nivå 1): leder + verneombud signert — ${seeds.length} oppgave(r) til Kanban`
+            : `Vernerunde signert (${role === 'management' ? 'leder' : 'verneombud'}): ${displayName}`,
+          { role, locked, taskCount: seeds.length },
         )
         return {
           ...s,
           safetyRounds: s.safetyRounds.map((x) =>
             x.id === roundId
-              ? { ...x, status: 'approved' as const, approval: approvalWithMeta, updatedAt: new Date().toISOString() }
+              ? {
+                  ...x,
+                  signatures: sigs,
+                  status: locked ? ('approved' as const) : x.status,
+                  issueTasksSynced: locked ? true : x.issueTasksSynced,
+                  updatedAt: signedAt,
+                }
               : x,
           ),
           auditTrail: [...s.auditTrail, entry],
         }
       })
-      return true
+
+      return bothSigned ? { ok: true, seeds } : { ok: true, seeds: [] }
     },
-    [setState, state.safetyRounds, useRemote, supabase, orgId, userId],
+    [
+      state.safetyRounds,
+      setState,
+      setError,
+      useRemote,
+      supabase,
+      orgId,
+      userId,
+      user,
+      profile,
+      safetyRoundDocumentPayload,
+    ],
   )
 
   const createInspection = useCallback(
@@ -1264,7 +1386,7 @@ export function useHse() {
     setChecklistStatus,
     setChecklistItemDetail,
     submitRoundForApproval,
-    approveRound,
+    signSafetyRound,
     createInspection,
     updateInspection,
     addInspectionFinding,
