@@ -44,7 +44,6 @@ import {
 import { TRAINING_KIND_LABELS } from '../data/hseTemplates'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeIncidentWizard, makeSickLeaveWizard, makeSjaWizard, makeSafetyRoundWizard } from '../components/wizard/wizards'
-import type { Task as KanbanTask } from '../types/task'
 import type {
   HseProtocolSignature,
   Incident,
@@ -178,6 +177,17 @@ function daysUntil(isoDate: string) {
   return Math.ceil(diff / 86400000)
 }
 
+function isoToDatetimeLocal(iso: string) {
+  try {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    const p = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+  } catch {
+    return ''
+  }
+}
+
 // ─── Module ───────────────────────────────────────────────────────────────────
 
 export function HseModule() {
@@ -211,18 +221,21 @@ export function HseModule() {
   const [insSubjectUnitId, setInsSubjectUnitId] = useState('')
   const [insSubjectLabel, setInsSubjectLabel] = useState('')
   const [insResponsibleEmployeeId, setInsResponsibleEmployeeId] = useState('')
-  const [findingDrafts, setFindingDrafts] = useState<{ id: string; description: string; photoDataUrl?: string }[]>([])
+  const [findingDrafts, setFindingDrafts] = useState<
+    { id: string; description: string; photoDataUrl?: string; status?: InspectionFinding['status'] }[]
+  >([])
   const [newFindingText, setNewFindingText] = useState('')
   const [insFileQueue, setInsFileQueue] = useState<File[]>([])
   const [insSearch, setInsSearch] = useState('')
-  const [expandedInspectionId, setExpandedInspectionId] = useState<string | null>(null)
+  const [protoName, setProtoName] = useState('')
+  const [protoRole, setProtoRole] = useState<HseProtocolSignature['role']>('inspector')
+  const [finalizeName, setFinalizeName] = useState('')
 
   const employeePickList = useMemo(
     () => [...org.activeEmployees].sort((a, b) => a.name.localeCompare(b.name, 'nb')),
     [org.activeEmployees],
   )
 
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- React setState identities are stable
   const resetInspectionPanel = useCallback(() => {
     setInsDraftId(null)
     setInsKind('internal')
@@ -243,6 +256,9 @@ export function HseModule() {
 
   const openNewInspectionPanel = useCallback(() => {
     resetInspectionPanel()
+    setProtoName('')
+    setProtoRole('inspector')
+    setFinalizeName('')
     setInsDraftId(crypto.randomUUID())
     setInspectionPanelOpen(true)
   }, [resetInspectionPanel])
@@ -356,6 +372,22 @@ export function HseModule() {
     return list
   }, [hse.inspections, insSearch])
 
+  const openSavedInspectionAttachment = useCallback(
+    async (a: InspectionAttachment) => {
+      if (!supabase || a.path.startsWith('local/')) {
+        window.alert('Kan ikke åpne vedlegg uten Supabase eller for lokale opplastinger.')
+        return
+      }
+      const { data, error } = await supabase.storage.from(HSE_INSPECTION_BUCKET).createSignedUrl(a.path, 3600)
+      if (error || !data?.signedUrl) {
+        window.alert('Kunne ikke hente signert URL for vedlegg.')
+        return
+      }
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+    },
+    [supabase],
+  )
+
   const uploadInspectionFile = useCallback(
     async (
       inspectionId: string,
@@ -391,9 +423,46 @@ export function HseModule() {
     return e?.name ?? ''
   }
 
+  const panelInspection = insDraftId ? hse.inspections.find((i) => i.id === insDraftId) : undefined
+  const insFormLocked = Boolean(panelInspection?.locked)
+  const isNewInspectionDraft = Boolean(insDraftId && !panelInspection)
+
+  const openEditInspectionPanel = useCallback((ins: Inspection) => {
+    let scopeForForm = ins.scope
+    if (ins.subjectKind === 'org_unit' && ins.subjectUnitId) {
+      scopeForForm = ins.scope.replace(/\nEnhet:\s*.+$/m, '').trimEnd()
+    }
+    setInsDraftId(ins.id)
+    setInsKind(ins.kind)
+    setInsTitle(ins.title)
+    setInsConductedAt(isoToDatetimeLocal(ins.conductedAt))
+    setInsScope(scopeForForm)
+    setInsFindingsSummary(ins.findings)
+    setInsFollowUp(ins.followUp)
+    setInsStatus(ins.status)
+    setInsSubjectKind(ins.subjectKind ?? 'free_text')
+    setInsSubjectUnitId(ins.subjectUnitId ?? '')
+    setInsSubjectLabel(ins.subjectLabel ?? '')
+    setInsResponsibleEmployeeId(ins.responsibleEmployeeId ?? '')
+    setFindingDrafts(
+      (ins.concreteFindings ?? []).map((f) => ({
+        id: f.id,
+        description: f.description,
+        photoDataUrl: f.photoUrl,
+        status: f.status,
+      })),
+    )
+    setNewFindingText('')
+    setInsFileQueue([])
+    setProtoName('')
+    setProtoRole('inspector')
+    setFinalizeName('')
+    setInspectionPanelOpen(true)
+  }, [])
+
   async function submitInspectionPanel(e: React.FormEvent) {
     e.preventDefault()
-    if (!insTitle.trim() || !insDraftId) return
+    if (!insTitle.trim() || !insDraftId || insFormLocked) return
     const conductedIso = insConductedAt ? new Date(insConductedAt).toISOString() : new Date().toISOString()
     const respName =
       insResponsibleEmployeeId ? responsibleLabelFromEmployeeId(insResponsibleEmployeeId) : '—'
@@ -405,14 +474,24 @@ export function HseModule() {
       insSubjectKind === 'org_unit' && subjectUnitName
         ? [insScope.trim(), `Enhet: ${subjectUnitName}`].filter(Boolean).join('\n')
         : insScope.trim()
-    const findingsRows: InspectionFinding[] = findingDrafts.map((d) => ({
-      id: d.id,
-      description: d.description.trim(),
-      status: 'open' as const,
-      photoUrl: d.photoDataUrl,
-      createdAt: new Date().toISOString(),
-    }))
     const existing = hse.inspections.find((x) => x.id === insDraftId)
+    const existingFindings = existing?.concreteFindings ?? []
+    const findingsRows: InspectionFinding[] = findingDrafts.map((d) => {
+      const prev = existingFindings.find((f) => f.id === d.id)
+      const status = d.status ?? prev?.status ?? 'open'
+      const resolvedAt =
+        status === 'resolved' ? prev?.resolvedAt ?? new Date().toISOString() : undefined
+      return {
+        id: d.id,
+        description: d.description.trim(),
+        status,
+        photoPath: prev?.photoPath,
+        photoUrl: d.photoDataUrl ?? prev?.photoUrl,
+        linkedTaskId: prev?.linkedTaskId,
+        createdAt: prev?.createdAt ?? new Date().toISOString(),
+        resolvedAt,
+      }
+    })
     const attList: InspectionAttachment[] = [...(existing?.attachments ?? [])]
     for (const f of insFileQueue) {
       const r = await uploadInspectionFile(insDraftId, f)
@@ -676,7 +755,7 @@ export function HseModule() {
             </div>
           </div>
 
-          <Mainbox1 title="Tidligere inspeksjoner" subtitle="Sortert etter gjennomført tid. Utvid en rad for signatur, låsing og sporbarhet.">
+          <Mainbox1 title="Tidligere inspeksjoner" subtitle="Sortert etter gjennomført tid. Åpne en rad i sidevinduet for redigering, signatur og låsing.">
             <Table1Shell
               toolbar={
                 <Table1Toolbar
@@ -717,14 +796,7 @@ export function HseModule() {
                         ins={ins}
                         rowClass={table1BodyRowClass(layout, ri)}
                         cellClass={tableCell}
-                        hse={hse}
-                        addTask={addTask}
-                        profileDisplayName={profile?.display_name}
-                        expanded={expandedInspectionId === ins.id}
-                        onToggleExpand={() =>
-                          setExpandedInspectionId((id) => (id === ins.id ? null : ins.id))
-                        }
-                        uploadInspectionFile={uploadInspectionFile}
+                        onOpen={() => openEditInspectionPanel(ins)}
                       />
                     ))}
                   </tbody>
@@ -1736,8 +1808,16 @@ export function HseModule() {
           <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[920px] flex-col border-l border-neutral-200 bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
               <div>
-                <h2 className="text-lg font-semibold text-neutral-900">Ny inspeksjon</h2>
-                <p className="text-xs text-neutral-500">Utkast-ID: {insDraftId}</p>
+                <h2 className="text-lg font-semibold text-neutral-900">
+                  {isNewInspectionDraft
+                    ? 'Ny inspeksjon'
+                    : insFormLocked
+                      ? 'Inspeksjon (skrivebeskyttet)'
+                      : 'Rediger inspeksjon'}
+                </h2>
+                <p className="text-xs text-neutral-500">
+                  {isNewInspectionDraft ? `Utkast-ID: ${insDraftId}` : `ID: ${insDraftId}`}
+                </p>
               </div>
               <button
                 type="button"
@@ -1760,7 +1840,8 @@ export function HseModule() {
                   <select
                     value={insKind}
                     onChange={(e) => setInsKind(e.target.value as Inspection['kind'])}
-                    className={`${SETTINGS_INPUT} bg-white`}
+                    disabled={insFormLocked}
+                    className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
                   >
                     <option value="internal">Intern</option>
                     <option value="external">Ekstern</option>
@@ -1778,7 +1859,8 @@ export function HseModule() {
                     <input
                       value={insTitle}
                       onChange={(e) => setInsTitle(e.target.value)}
-                      className={`${SETTINGS_INPUT} bg-white`}
+                      disabled={insFormLocked}
+                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
                       required
                     />
                   </div>
@@ -1788,7 +1870,8 @@ export function HseModule() {
                       type="datetime-local"
                       value={insConductedAt}
                       onChange={(e) => setInsConductedAt(e.target.value)}
-                      className={`${SETTINGS_INPUT} bg-white`}
+                      disabled={insFormLocked}
+                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
                     />
                   </div>
                 </div>
@@ -1803,7 +1886,8 @@ export function HseModule() {
                     <select
                       value={insSubjectKind}
                       onChange={(e) => setInsSubjectKind(e.target.value as InspectionSubjectKind)}
-                      className={`${SETTINGS_INPUT} bg-white`}
+                      disabled={insFormLocked}
+                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
                     >
                       <option value="free_text">Kun fritekst i omfang</option>
                       <option value="org_unit">Organisasjonsenhet</option>
@@ -1816,7 +1900,8 @@ export function HseModule() {
                       <select
                         value={insSubjectUnitId}
                         onChange={(e) => setInsSubjectUnitId(e.target.value)}
-                        className={`${SETTINGS_INPUT} bg-white`}
+                        disabled={insFormLocked}
+                        className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
                       >
                         <option value="">Velg enhet …</option>
                         {org.units.map((u) => (
@@ -1833,7 +1918,8 @@ export function HseModule() {
                       <input
                         value={insSubjectLabel}
                         onChange={(e) => setInsSubjectLabel(e.target.value)}
-                        className={`${SETTINGS_INPUT} bg-white`}
+                        disabled={insFormLocked}
+                        className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
                         placeholder="Beskriv objektet"
                       />
                     </div>
@@ -1844,7 +1930,8 @@ export function HseModule() {
                       value={insScope}
                       onChange={(e) => setInsScope(e.target.value)}
                       rows={3}
-                      className={`${SETTINGS_INPUT} bg-white`}
+                      disabled={insFormLocked}
+                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
                     />
                   </div>
                 </div>
@@ -1862,77 +1949,111 @@ export function HseModule() {
                       value={insFindingsSummary}
                       onChange={(e) => setInsFindingsSummary(e.target.value)}
                       rows={2}
-                      className={`${SETTINGS_INPUT} bg-white`}
+                      disabled={insFormLocked}
+                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
                     />
                   </div>
-                  <div className="flex flex-wrap gap-2 border border-neutral-200/80 bg-white p-3">
-                    <input
-                      value={newFindingText}
-                      onChange={(e) => setNewFindingText(e.target.value)}
-                      placeholder="Beskriv konkret avvik …"
-                      className={`min-w-[200px] flex-1 ${SETTINGS_INPUT} bg-neutral-50`}
-                    />
-                    <button
-                      type="button"
-                      className={`${HERO_ACTION_CLASS} bg-neutral-800 text-white hover:bg-neutral-900`}
-                      onClick={() => {
-                        const t = newFindingText.trim()
-                        if (!t) return
-                        setFindingDrafts((d) => [...d, { id: crypto.randomUUID(), description: t }])
-                        setNewFindingText('')
-                      }}
-                    >
-                      + Registrer konkret avvik
-                    </button>
-                  </div>
+                  {!insFormLocked && (
+                    <div className="flex flex-wrap gap-2 border border-neutral-200/80 bg-white p-3">
+                      <input
+                        value={newFindingText}
+                        onChange={(e) => setNewFindingText(e.target.value)}
+                        placeholder="Beskriv konkret avvik …"
+                        className={`min-w-[200px] flex-1 ${SETTINGS_INPUT} bg-neutral-50`}
+                      />
+                      <button
+                        type="button"
+                        className={`${HERO_ACTION_CLASS} bg-neutral-800 text-white hover:bg-neutral-900`}
+                        onClick={() => {
+                          const t = newFindingText.trim()
+                          if (!t) return
+                          setFindingDrafts((d) => [...d, { id: crypto.randomUUID(), description: t, status: 'open' }])
+                          setNewFindingText('')
+                        }}
+                      >
+                        + Registrer konkret avvik
+                      </button>
+                    </div>
+                  )}
                   {findingDrafts.length > 0 && (
                     <ul className="space-y-2 text-sm">
                       {findingDrafts.map((f) => (
                         <li key={f.id} className="flex flex-col gap-2 border border-neutral-200 bg-white p-3 sm:flex-row sm:items-start">
-                          <textarea
-                            value={f.description}
-                            onChange={(e) =>
-                              setFindingDrafts((rows) =>
-                                rows.map((x) => (x.id === f.id ? { ...x, description: e.target.value } : x)),
-                              )
-                            }
-                            className={`min-h-[60px] flex-1 ${SETTINGS_INPUT} bg-neutral-50`}
-                          />
-                          <div className="flex shrink-0 flex-col gap-2">
-                            <label className={`${SETTINGS_FIELD_LABEL} cursor-pointer`}>
-                              <span className="inline-flex items-center gap-1">
-                                <ImagePlus className="size-3.5" /> Bilde
-                              </span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="sr-only"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0]
-                                  if (!file) return
-                                  const reader = new FileReader()
-                                  reader.onload = () => {
-                                    const url = typeof reader.result === 'string' ? reader.result : undefined
+                          {insFormLocked ? (
+                            <div className="min-w-0 flex-1">
+                              <p className="text-neutral-900">{f.description}</p>
+                              <p className="mt-1 text-xs text-neutral-500">
+                                Status: {f.status === 'resolved' ? 'Løst' : 'Åpen'}
+                              </p>
+                              {f.photoDataUrl ? (
+                                <img src={f.photoDataUrl} alt="" className="mt-2 max-h-24 border border-neutral-200" />
+                              ) : null}
+                            </div>
+                          ) : (
+                            <>
+                              <textarea
+                                value={f.description}
+                                onChange={(e) =>
+                                  setFindingDrafts((rows) =>
+                                    rows.map((x) => (x.id === f.id ? { ...x, description: e.target.value } : x)),
+                                  )
+                                }
+                                className={`min-h-[60px] flex-1 ${SETTINGS_INPUT} bg-neutral-50`}
+                              />
+                              <div className="flex w-full shrink-0 flex-col gap-2 sm:w-40">
+                                <label className={SETTINGS_FIELD_LABEL}>Status</label>
+                                <select
+                                  value={f.status ?? 'open'}
+                                  onChange={(e) =>
                                     setFindingDrafts((rows) =>
-                                      rows.map((x) => (x.id === f.id ? { ...x, photoDataUrl: url } : x)),
+                                      rows.map((x) =>
+                                        x.id === f.id
+                                          ? { ...x, status: e.target.value as InspectionFinding['status'] }
+                                          : x,
+                                      ),
                                     )
                                   }
-                                  reader.readAsDataURL(file)
-                                  e.target.value = ''
-                                }}
-                              />
-                            </label>
-                            <button
-                              type="button"
-                              className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-700`}
-                              onClick={() => setFindingDrafts((rows) => rows.filter((x) => x.id !== f.id))}
-                            >
-                              Fjern
-                            </button>
-                          </div>
-                          {f.photoDataUrl ? (
-                            <img src={f.photoDataUrl} alt="" className="max-h-24 rounded border border-neutral-200" />
-                          ) : null}
+                                  className={`${SETTINGS_INPUT} bg-white text-xs`}
+                                >
+                                  <option value="open">Åpen</option>
+                                  <option value="resolved">Løst</option>
+                                </select>
+                                <label className={`${SETTINGS_FIELD_LABEL} cursor-pointer`}>
+                                  <span className="inline-flex items-center gap-1">
+                                    <ImagePlus className="size-3.5" /> Bilde
+                                  </span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="sr-only"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0]
+                                      if (!file) return
+                                      const reader = new FileReader()
+                                      reader.onload = () => {
+                                        const url = typeof reader.result === 'string' ? reader.result : undefined
+                                        setFindingDrafts((rows) =>
+                                          rows.map((x) => (x.id === f.id ? { ...x, photoDataUrl: url } : x)),
+                                        )
+                                      }
+                                      reader.readAsDataURL(file)
+                                      e.target.value = ''
+                                    }}
+                                  />
+                                </label>
+                                <button
+                                  type="button"
+                                  className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-700`}
+                                  onClick={() => setFindingDrafts((rows) => rows.filter((x) => x.id !== f.id))}
+                                >
+                                  Fjern
+                                </button>
+                              </div>
+                              {f.photoDataUrl ? (
+                                <img src={f.photoDataUrl} alt="" className="max-h-24 rounded border border-neutral-200" />
+                              ) : null}
+                            </>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -1947,17 +2068,19 @@ export function HseModule() {
                 </div>
                 <div className={TASK_PANEL_INSET}>
                   <label className={SETTINGS_FIELD_LABEL}>Vedlegg</label>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*,application/pdf"
-                    onChange={(e) => {
-                      const files = e.target.files ? Array.from(e.target.files) : []
-                      setInsFileQueue((q) => [...q, ...files])
-                      e.target.value = ''
-                    }}
-                    className="mt-2 block w-full text-sm text-neutral-600"
-                  />
+                  {!insFormLocked && (
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,application/pdf"
+                      onChange={(e) => {
+                        const files = e.target.files ? Array.from(e.target.files) : []
+                        setInsFileQueue((q) => [...q, ...files])
+                        e.target.value = ''
+                      }}
+                      className="mt-2 block w-full text-sm text-neutral-600"
+                    />
+                  )}
                   {insFileQueue.length > 0 && (
                     <ul className="mt-2 space-y-1 text-xs text-neutral-600">
                       {insFileQueue.map((f, i) => (
@@ -1970,6 +2093,32 @@ export function HseModule() {
                           >
                             Fjern
                           </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {panelInspection && (panelInspection.attachments ?? []).length > 0 && (
+                    <ul className="mt-3 space-y-1 border-t border-neutral-200/80 pt-3 text-xs">
+                      <li className={SETTINGS_FIELD_LABEL}>Lagrede vedlegg</li>
+                      {(panelInspection.attachments ?? []).map((a) => (
+                        <li key={a.id} className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            className="text-left text-[#1a3d32] underline"
+                            onClick={() => void openSavedInspectionAttachment(a)}
+                          >
+                            {a.fileName}
+                          </button>
+                          <span className="text-neutral-400">({a.kind})</span>
+                          {!insFormLocked && insDraftId && (
+                            <button
+                              type="button"
+                              className="text-red-600 hover:underline"
+                              onClick={() => hse.removeInspectionAttachment(insDraftId, a.id)}
+                            >
+                              Fjern
+                            </button>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -1988,7 +2137,8 @@ export function HseModule() {
                     <select
                       value={insResponsibleEmployeeId}
                       onChange={(e) => setInsResponsibleEmployeeId(e.target.value)}
-                      className={`${SETTINGS_INPUT} bg-white`}
+                      disabled={insFormLocked}
+                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
                     >
                       <option value="">Velg ansatt …</option>
                       {employeePickList.map((e) => (
@@ -2005,7 +2155,8 @@ export function HseModule() {
                       value={insFollowUp}
                       onChange={(e) => setInsFollowUp(e.target.value)}
                       rows={2}
-                      className={`${SETTINGS_INPUT} bg-white`}
+                      disabled={insFormLocked}
+                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
                     />
                   </div>
                   <div>
@@ -2013,7 +2164,8 @@ export function HseModule() {
                     <select
                       value={insStatus}
                       onChange={(e) => setInsStatus(e.target.value as Inspection['status'])}
-                      className={`${SETTINGS_INPUT} bg-white`}
+                      disabled={insFormLocked}
+                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
                     >
                       <option value="open">Åpen</option>
                       <option value="closed">Lukket / fullført (klar for låsing)</option>
@@ -2021,20 +2173,144 @@ export function HseModule() {
                   </div>
                 </div>
               </div>
+
+              {panelInspection && (
+                <div className={`${R_FLAT} mx-4 mb-4 border border-neutral-200 bg-white p-4 md:mx-5`}>
+                  <span className="text-xs font-semibold text-neutral-800">Protokollsignatur (underveis)</span>
+                  <ul className="mt-2 space-y-1 text-xs text-neutral-700">
+                    {(panelInspection.protocolSignatures ?? []).map((s, i) => {
+                      const l1 = formatLevel1AuditLine(s.level1)
+                      return (
+                        <li key={`${s.signedAt}-${i}`} className="whitespace-pre-line">
+                          {s.role === 'inspector' ? 'Inspektør' : s.role === 'verneombud' ? 'Verneombud' : 'Ledelse'}:{' '}
+                          {s.signerName} — {formatWhen(s.signedAt)}
+                          {l1 ? `\n${l1}` : ''}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  {!insFormLocked && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <select
+                        value={protoRole}
+                        onChange={(e) => setProtoRole(e.target.value as HseProtocolSignature['role'])}
+                        className={`${SETTINGS_INPUT} w-auto bg-neutral-50 text-xs`}
+                      >
+                        <option value="inspector">Inspektør</option>
+                        <option value="verneombud">Verneombud</option>
+                        <option value="management">Ledelse</option>
+                      </select>
+                      <input
+                        value={protoName}
+                        onChange={(e) => setProtoName(e.target.value)}
+                        placeholder="Navn"
+                        className={`${SETTINGS_INPUT} min-w-[140px] flex-1 bg-neutral-50 text-xs`}
+                      />
+                      <button
+                        type="button"
+                        className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white`}
+                        onClick={() => {
+                          if (!insDraftId) return
+                          void (async () => {
+                            if (await hse.signInspectionProtocol(insDraftId, protoName, protoRole)) setProtoName('')
+                          })()
+                        }}
+                      >
+                        Signer
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {panelInspection?.closureSignature && (
+                <div className={`${R_FLAT} mx-4 mb-4 border border-emerald-200 bg-emerald-50/80 p-4 text-xs md:mx-5`}>
+                  <span className="font-semibold text-emerald-900">Låsesignatur (nivå 1)</span>
+                  <p className="mt-1 whitespace-pre-line text-emerald-950">
+                    {panelInspection.closureSignature.signerName} — {formatWhen(panelInspection.closureSignature.signedAt)}
+                    {formatLevel1AuditLine(panelInspection.closureSignature.level1)
+                      ? `\n${formatLevel1AuditLine(panelInspection.closureSignature.level1)}`
+                      : ''}
+                  </p>
+                </div>
+              )}
+
+              {panelInspection && !insFormLocked && panelInspection.status === 'closed' && (
+                <div className="mx-4 mb-4 space-y-2 rounded-none border border-amber-200/80 bg-amber-50/50 p-4 text-sm md:mx-5">
+                  <p className="text-xs text-neutral-700">
+                    Lås rapporten: skrivebeskyttelse, nivå 1-signatur i logg, og Kanban-oppgaver for åpne avvik (
+                    <code className="text-[10px]">hse_inspection_finding</code>).
+                  </p>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="min-w-[200px] flex-1">
+                      <label className={SETTINGS_FIELD_LABEL}>Signer som inspektør (fullt navn)</label>
+                      <input
+                        value={finalizeName}
+                        onChange={(e) => setFinalizeName(e.target.value)}
+                        placeholder={profile?.display_name ?? ''}
+                        className={`${SETTINGS_INPUT} bg-white text-sm`}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className={`${HERO_ACTION_CLASS} bg-emerald-800 text-white hover:bg-emerald-900`}
+                      onClick={() => {
+                        if (!insDraftId) return
+                        const nm = finalizeName.trim() || profile?.display_name?.trim()
+                        if (!nm) {
+                          window.alert('Fyll inn navn for signatur.')
+                          return
+                        }
+                        void (async () => {
+                          const r = await hse.finalizeInspectionClose(insDraftId, nm)
+                          if (!r.ok) return
+                          const links: { findingId: string; taskId: string }[] = []
+                          for (const s of r.seeds) {
+                            const t = addTask({ ...s.task, status: 'todo' })
+                            links.push({ findingId: s.findingId, taskId: t.id })
+                          }
+                          if (links.length) hse.linkInspectionFindingTasks(insDraftId, links)
+                          setFinalizeName('')
+                        })()
+                      }}
+                    >
+                      Lås og opprett oppgaver
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {panelInspection && (
+                <div className="mx-4 mb-6 md:mx-5">
+                  <AddTaskLink
+                    title={`Oppfølging inspeksjon: ${panelInspection.title.slice(0, 60)}`}
+                    description={panelInspection.followUp || panelInspection.findings?.slice(0, 200)}
+                    module="hse"
+                    sourceType="hse_inspection"
+                    sourceId={panelInspection.id}
+                    sourceLabel={panelInspection.title}
+                    ownerRole={panelInspection.responsible || 'Ansvarlig'}
+                    className={`${HERO_ACTION_CLASS} inline-flex gap-1.5 border border-neutral-300 bg-white text-xs text-[#1a3d32]`}
+                  />
+                </div>
+              )}
+
               <div className="mt-auto flex flex-wrap justify-end gap-2 border-t border-neutral-200 px-5 py-4">
                 <button
                   type="button"
                   onClick={closeInspectionPanel}
                   className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
                 >
-                  Avbryt
+                  {insFormLocked ? 'Lukk' : 'Avbryt'}
                 </button>
-                <button
-                  type="submit"
-                  className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white hover:bg-[#142e26]`}
-                >
-                  Lagre inspeksjon
-                </button>
+                {!insFormLocked && (
+                  <button
+                    type="submit"
+                    className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                  >
+                    Lagre inspeksjon
+                  </button>
+                )}
               </div>
             </form>
           </aside>
@@ -2067,32 +2343,14 @@ function InspectionTableRow({
   ins,
   rowClass,
   cellClass,
-  hse,
-  addTask,
-  profileDisplayName,
-  expanded,
-  onToggleExpand,
-  uploadInspectionFile,
+  onOpen,
 }: {
   ins: Inspection
   rowClass: string
   cellClass: string
-  hse: ReturnType<typeof useHse>
-  addTask: (t: Omit<KanbanTask, 'id' | 'createdAt'> & Partial<Pick<KanbanTask, 'id' | 'createdAt'>>) => KanbanTask
-  profileDisplayName?: string | null
-  expanded: boolean
-  onToggleExpand: () => void
-  uploadInspectionFile: (
-    inspectionId: string,
-    file: File,
-  ) => Promise<{ path: string; kind: InspectionAttachment['kind'] } | null>
+  onOpen: () => void
 }) {
   const org = useOrganisation()
-  const { supabase } = useOrgSetupContext()
-  const [protoName, setProtoName] = useState('')
-  const [protoRole, setProtoRole] = useState<HseProtocolSignature['role']>('inspector')
-  const [finalizeName, setFinalizeName] = useState('')
-  const [newFindingDesc, setNewFindingDesc] = useState('')
 
   function formatWhenLocal(iso: string) {
     try {
@@ -2109,355 +2367,55 @@ function InspectionTableRow({
   const subjectBits = [unitName, ins.subjectLabel].filter(Boolean)
   const openFindings = (ins.concreteFindings ?? []).filter((f) => f.status === 'open').length
 
-  async function openAttachment(a: InspectionAttachment) {
-    if (!supabase || a.path.startsWith('local/')) {
-      window.alert('Kan ikke åpne vedlegg uten Supabase eller for lokale opplastinger.')
-      return
-    }
-    const { data, error } = await supabase.storage.from(HSE_INSPECTION_BUCKET).createSignedUrl(a.path, 3600)
-    if (error || !data?.signedUrl) {
-      window.alert('Kunne ikke hente signert URL for vedlegg.')
-      return
-    }
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
-  }
-
   return (
-    <>
-      <tr className={rowClass}>
-        <td className={cellClass}>
-          <div className="max-w-[220px] font-medium text-neutral-900">{ins.title}</div>
-          {subjectBits.length > 0 && (
-            <div className="mt-0.5 text-xs text-neutral-500">{subjectBits.join(' · ')}</div>
-          )}
-        </td>
-        <td className={cellClass}>
-          <span className={`${R_FLAT} inline-block border border-neutral-200 px-2 py-0.5 text-xs`}>
-            {INSPECTION_KIND_LABEL[ins.kind]}
+    <tr className={rowClass}>
+      <td className={cellClass}>
+        <div className="max-w-[220px] font-medium text-neutral-900">{ins.title}</div>
+        {subjectBits.length > 0 && (
+          <div className="mt-0.5 text-xs text-neutral-500">{subjectBits.join(' · ')}</div>
+        )}
+      </td>
+      <td className={cellClass}>
+        <span className={`${R_FLAT} inline-block border border-neutral-200 px-2 py-0.5 text-xs`}>
+          {INSPECTION_KIND_LABEL[ins.kind]}
+        </span>
+      </td>
+      <td className={cellClass}>{formatWhenLocal(ins.conductedAt)}</td>
+      <td className={cellClass}>{ins.responsible || '—'}</td>
+      <td className={cellClass}>
+        {(ins.concreteFindings ?? []).length > 0 ? (
+          <span>
+            {openFindings} åpne / {(ins.concreteFindings ?? []).length} totalt
           </span>
-        </td>
-        <td className={cellClass}>{formatWhenLocal(ins.conductedAt)}</td>
-        <td className={cellClass}>{ins.responsible || '—'}</td>
-        <td className={cellClass}>
-          {(ins.concreteFindings ?? []).length > 0 ? (
-            <span>
-              {openFindings} åpne / {(ins.concreteFindings ?? []).length} totalt
-            </span>
-          ) : (
-            '—'
-          )}
-        </td>
-        <td className={cellClass}>
-          {ins.locked ? (
-            <span className={`${R_FLAT} inline-flex items-center gap-1 border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-900`}>
-              <Lock className="size-3" /> Låst
-            </span>
-          ) : ins.status === 'closed' ? (
-            <span className={`${R_FLAT} inline-block border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-900`}>
-              Lukket
-            </span>
-          ) : (
-            <span className={`${R_FLAT} inline-block border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs text-sky-900`}>
-              Åpen
-            </span>
-          )}
-        </td>
-        <td className={`${cellClass} text-right`}>
-          <button
-            type="button"
-            onClick={onToggleExpand}
-            className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
-          >
-            {expanded ? 'Skjul' : 'Detaljer'}
-          </button>
-        </td>
-      </tr>
-      {expanded && (
-        <tr className={rowClass}>
-          <td colSpan={7} className="bg-[#faf8f4] px-4 py-4">
-            <div className="space-y-4 text-sm">
-              <div>
-                <span className="text-xs font-semibold text-neutral-600">Omfang</span>
-                <p className="mt-1 whitespace-pre-line text-neutral-800">{ins.scope || '—'}</p>
-              </div>
-              <div>
-                <span className="text-xs font-semibold text-neutral-600">Funn (oppsummering)</span>
-                <p className="mt-1 text-neutral-800">{ins.findings || '—'}</p>
-              </div>
-
-              {!ins.locked && (
-                <div className={`${TASK_PANEL_INSET} space-y-2`}>
-                  <span className={SETTINGS_FIELD_LABEL}>Legg til avvik</span>
-                  <div className="flex flex-wrap gap-2">
-                    <input
-                      value={newFindingDesc}
-                      onChange={(e) => setNewFindingDesc(e.target.value)}
-                      placeholder="Beskriv avvik …"
-                      className={`min-w-[200px] flex-1 ${SETTINGS_INPUT} bg-white`}
-                    />
-                    <button
-                      type="button"
-                      className={`${HERO_ACTION_CLASS} bg-neutral-800 text-white`}
-                      onClick={() => {
-                        const t = newFindingDesc.trim()
-                        if (!t) return
-                        hse.addInspectionFinding(ins.id, t)
-                        setNewFindingDesc('')
-                      }}
-                    >
-                      + Avvik
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {(ins.concreteFindings ?? []).length > 0 && (
-                <div>
-                  <span className="text-xs font-semibold text-neutral-600">Konkrete avvik</span>
-                  <ul className="mt-2 space-y-2">
-                    {(ins.concreteFindings ?? []).map((f) => (
-                      <li
-                        key={f.id}
-                        className={`${R_FLAT} flex flex-wrap items-start justify-between gap-2 border border-neutral-200 bg-white p-3`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-neutral-900">{f.description}</p>
-                          <p className="mt-1 text-xs text-neutral-500">
-                            {f.status === 'open' ? 'Åpen' : 'Løst'}
-                            {f.linkedTaskId ? ` · Oppgave ${f.linkedTaskId.slice(0, 8)}…` : ''}
-                          </p>
-                          {f.photoUrl ? (
-                            <img src={f.photoUrl} alt="" className="mt-2 max-h-28 border border-neutral-200" />
-                          ) : null}
-                        </div>
-                        {!ins.locked && f.status === 'open' && (
-                          <div className="flex flex-col gap-1">
-                            <label className={`${SETTINGS_FIELD_LABEL} cursor-pointer`}>
-                              <span className="text-xs text-[#1a3d32] underline">Last opp bilde</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="sr-only"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0]
-                                  if (!file) return
-                                  void (async () => {
-                                    const r = await uploadInspectionFile(ins.id, file)
-                                    const reader = new FileReader()
-                                    reader.onload = () => {
-                                      const url = typeof reader.result === 'string' ? reader.result : undefined
-                                      hse.updateInspectionFinding(ins.id, f.id, {
-                                        photoPath: r?.path,
-                                        photoUrl: url,
-                                      })
-                                    }
-                                    reader.readAsDataURL(file)
-                                  })()
-                                  e.target.value = ''
-                                }}
-                              />
-                            </label>
-                            <button
-                              type="button"
-                              className="text-xs text-emerald-700 hover:underline"
-                              onClick={() => hse.updateInspectionFinding(ins.id, f.id, { status: 'resolved' })}
-                            >
-                              Marker løst
-                            </button>
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div>
-                <span className="text-xs font-semibold text-neutral-600">Vedlegg</span>
-                {!ins.locked && (
-                  <label className="mt-2 block cursor-pointer text-xs text-[#1a3d32] underline">
-                    Last opp fil (bilde/PDF)
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      className="sr-only"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (!file) return
-                        void (async () => {
-                          const r = await uploadInspectionFile(ins.id, file)
-                          if (r) {
-                            hse.addInspectionAttachment(ins.id, {
-                              kind: r.kind,
-                              path: r.path,
-                              fileName: file.name,
-                            })
-                          }
-                        })()
-                        e.target.value = ''
-                      }}
-                    />
-                  </label>
-                )}
-                <ul className="mt-2 space-y-1 text-xs">
-                  {(ins.attachments ?? []).map((a) => (
-                    <li key={a.id} className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        className="text-left text-[#1a3d32] underline"
-                        onClick={() => void openAttachment(a)}
-                      >
-                        {a.fileName}
-                      </button>
-                      <span className="text-neutral-400">({a.kind})</span>
-                      {!ins.locked && (
-                        <button
-                          type="button"
-                          className="text-red-600 hover:underline"
-                          onClick={() => hse.removeInspectionAttachment(ins.id, a.id)}
-                        >
-                          Fjern
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {!ins.locked && (
-                  <select
-                    value={ins.status}
-                    onChange={(e) =>
-                      hse.updateInspection(ins.id, { status: e.target.value as Inspection['status'] })
-                    }
-                    className={`${SETTINGS_INPUT} w-auto bg-white text-xs`}
-                  >
-                    <option value="open">Åpen</option>
-                    <option value="closed">Lukket / fullført</option>
-                  </select>
-                )}
-              </div>
-
-              <div className={`${R_FLAT} border border-neutral-200 bg-white p-3`}>
-                <span className="text-xs font-semibold text-neutral-800">Protokollsignatur (underveis)</span>
-                <ul className="mt-2 space-y-1 text-xs text-neutral-700">
-                  {(ins.protocolSignatures ?? []).map((s, i) => {
-                    const l1 = formatLevel1AuditLine(s.level1)
-                    return (
-                      <li key={`${s.signedAt}-${i}`} className="whitespace-pre-line">
-                        {s.role === 'inspector' ? 'Inspektør' : s.role === 'verneombud' ? 'Verneombud' : 'Ledelse'}:{' '}
-                        {s.signerName} — {formatWhenLocal(s.signedAt)}
-                        {l1 ? `\n${l1}` : ''}
-                      </li>
-                    )
-                  })}
-                </ul>
-                {!ins.locked && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <select
-                      value={protoRole}
-                      onChange={(e) => setProtoRole(e.target.value as HseProtocolSignature['role'])}
-                      className={`${SETTINGS_INPUT} w-auto bg-neutral-50 text-xs`}
-                    >
-                      <option value="inspector">Inspektør</option>
-                      <option value="verneombud">Verneombud</option>
-                      <option value="management">Ledelse</option>
-                    </select>
-                    <input
-                      value={protoName}
-                      onChange={(e) => setProtoName(e.target.value)}
-                      placeholder="Navn"
-                      className={`${SETTINGS_INPUT} min-w-[140px] flex-1 bg-neutral-50 text-xs`}
-                    />
-                    <button
-                      type="button"
-                      className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white`}
-                      onClick={() => {
-                        void (async () => {
-                          if (await hse.signInspectionProtocol(ins.id, protoName, protoRole)) setProtoName('')
-                        })()
-                      }}
-                    >
-                      Signer
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {ins.closureSignature && (
-                <div className={`${R_FLAT} border border-emerald-200 bg-emerald-50/80 p-3 text-xs`}>
-                  <span className="font-semibold text-emerald-900">Låsesignatur (nivå 1)</span>
-                  <p className="mt-1 whitespace-pre-line text-emerald-950">
-                    {ins.closureSignature.signerName} — {formatWhenLocal(ins.closureSignature.signedAt)}
-                    {formatLevel1AuditLine(ins.closureSignature.level1)
-                      ? `\n${formatLevel1AuditLine(ins.closureSignature.level1)}`
-                      : ''}
-                  </p>
-                </div>
-              )}
-
-              {!ins.locked && ins.status === 'closed' && (
-                <div className="space-y-2">
-                  <p className="text-xs text-neutral-600">
-                    Når du låser rapporten: dokumentet blir skrivebeskyttet, nivå 1-signatur loggføres, og åpne avvik
-                    opprettes som oppgaver på Kanban med kilde <code className="text-[10px]">hse_inspection_finding</code>.
-                  </p>
-                  <div className="flex flex-wrap items-end gap-2">
-                    <div className="min-w-[200px] flex-1">
-                      <label className={SETTINGS_FIELD_LABEL}>Signer som inspektør (fullt navn)</label>
-                      <input
-                        value={finalizeName}
-                        onChange={(e) => setFinalizeName(e.target.value)}
-                        placeholder={profileDisplayName ?? ''}
-                        className={`${SETTINGS_INPUT} bg-white text-sm`}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      className={`${HERO_ACTION_CLASS} bg-emerald-800 text-white hover:bg-emerald-900`}
-                      onClick={() => {
-                        const nm = finalizeName.trim() || profileDisplayName?.trim()
-                        if (!nm) {
-                          window.alert('Fyll inn navn for signatur.')
-                          return
-                        }
-                        void (async () => {
-                          const r = await hse.finalizeInspectionClose(ins.id, nm)
-                          if (!r.ok) return
-                          const links: { findingId: string; taskId: string }[] = []
-                          for (const s of r.seeds) {
-                            const t = addTask({ ...s.task, status: 'todo' })
-                            links.push({ findingId: s.findingId, taskId: t.id })
-                          }
-                          if (links.length) hse.linkInspectionFindingTasks(ins.id, links)
-                          setFinalizeName('')
-                        })()
-                      }}
-                    >
-                      Lås og opprett oppgaver
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <AddTaskLink
-                  title={`Oppfølging inspeksjon: ${ins.title.slice(0, 60)}`}
-                  description={ins.followUp || ins.findings?.slice(0, 200)}
-                  module="hse"
-                  sourceType="hse_inspection"
-                  sourceId={ins.id}
-                  sourceLabel={ins.title}
-                  ownerRole={ins.responsible || 'Ansvarlig'}
-                  className={`${HERO_ACTION_CLASS} inline-flex gap-1.5 border border-neutral-300 bg-white text-xs text-[#1a3d32]`}
-                />
-              </div>
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
+        ) : (
+          '—'
+        )}
+      </td>
+      <td className={cellClass}>
+        {ins.locked ? (
+          <span className={`${R_FLAT} inline-flex items-center gap-1 border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-900`}>
+            <Lock className="size-3" /> Låst
+          </span>
+        ) : ins.status === 'closed' ? (
+          <span className={`${R_FLAT} inline-block border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-900`}>
+            Lukket
+          </span>
+        ) : (
+          <span className={`${R_FLAT} inline-block border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs text-sky-900`}>
+            Åpen
+          </span>
+        )}
+      </td>
+      <td className={`${cellClass} text-right`}>
+        <button
+          type="button"
+          onClick={onOpen}
+          className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+        >
+          Åpne
+        </button>
+      </td>
+    </tr>
   )
 }
 
