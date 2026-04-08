@@ -3,6 +3,10 @@ export type WorkflowCondition =
   | { match: 'always' }
   | { match: 'array_any'; path: string; where: Record<string, unknown> }
   | { match: 'field_equals'; path: string; value: string }
+  | { match: 'and'; conditions: WorkflowCondition[] }
+  | { match: 'or'; conditions: WorkflowCondition[] }
+  /** Eksakt én under-betingelse må være sann (for grenvis handlinger) */
+  | { match: 'xor'; conditions: WorkflowCondition[] }
 
 export type WorkflowActionCreateTask = {
   type: 'create_task'
@@ -19,6 +23,12 @@ export type WorkflowActionCreateTask = {
 
 export type WorkflowAction = WorkflowActionCreateTask | { type: 'log_only'; note?: string }
 
+/** actions_json når XOR-grener har hver sine handlinger */
+export type WorkflowXorActionsEnvelope = {
+  mode: 'xor_branches'
+  branches: { actions: WorkflowAction[] }[]
+}
+
 export type WorkflowRuleRow = {
   id: string
   organization_id: string
@@ -29,7 +39,8 @@ export type WorkflowRuleRow = {
   trigger_on: 'insert' | 'update' | 'both'
   is_active: boolean
   condition_json: WorkflowCondition
-  actions_json: WorkflowAction[]
+  actions_json: WorkflowAction[] | WorkflowXorActionsEnvelope
+  flow_graph_json?: Record<string, unknown> | null
   priority: number
   is_template: boolean
   created_at: string

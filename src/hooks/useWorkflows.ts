@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { useOrgSetupContext } from './useOrgSetupContext'
-import type { WorkflowAction, WorkflowCondition, WorkflowRuleRow, WorkflowRunRow } from '../types/workflow'
+import type {
+  WorkflowAction,
+  WorkflowCondition,
+  WorkflowRuleRow,
+  WorkflowRunRow,
+  WorkflowXorActionsEnvelope,
+} from '../types/workflow'
 
 export function useWorkflows() {
   const { supabase, organization, can } = useOrgSetupContext()
@@ -74,7 +80,8 @@ export function useWorkflows() {
       trigger_on: 'insert' | 'update' | 'both'
       is_active: boolean
       condition_json: WorkflowCondition
-      actions_json: WorkflowAction[]
+      actions_json: WorkflowAction[] | WorkflowXorActionsEnvelope
+      flow_graph_json?: Record<string, unknown> | null
       priority?: number
     }) => {
       if (!supabase || !orgId || !canManage) return { ok: false as const }
@@ -90,7 +97,8 @@ export function useWorkflows() {
               trigger_on: input.trigger_on,
               is_active: input.is_active,
               condition_json: input.condition_json as unknown as Record<string, unknown>,
-              actions_json: input.actions_json as unknown as Record<string, unknown>[],
+              actions_json: input.actions_json as unknown as Record<string, unknown>,
+              flow_graph_json: input.flow_graph_json ?? null,
               priority: input.priority ?? 0,
             })
             .eq('id', input.id)
@@ -105,7 +113,8 @@ export function useWorkflows() {
             trigger_on: input.trigger_on,
             is_active: input.is_active,
             condition_json: input.condition_json,
-            actions_json: input.actions_json,
+            actions_json: input.actions_json as unknown as Record<string, unknown>,
+            flow_graph_json: input.flow_graph_json ?? null,
             priority: input.priority ?? 0,
             is_template: false,
           })

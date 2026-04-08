@@ -1,12 +1,21 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { GitBranch, Loader2, Plus, Trash2, Zap } from 'lucide-react'
+import { GitBranch, Loader2, Pencil, Plus, Trash2, Zap } from 'lucide-react'
+import { WorkflowFlowBuilder } from '../components/workflow/WorkflowFlowBuilder'
+import { flowDocumentFromLegacy } from '../lib/workflowFlowFromLegacy'
+import {
+  compileWorkflowFlow,
+  defaultWorkflowFlowDocument,
+  type WorkflowFlowDocument,
+} from '../lib/workflowFlowTypes'
 import { useWorkflows } from '../hooks/useWorkflows'
 import { WORKFLOW_SOURCE_MODULES } from '../types/workflow'
-import type { WorkflowAction, WorkflowCondition } from '../types/workflow'
+import type { WorkflowAction, WorkflowCondition, WorkflowRuleRow, WorkflowXorActionsEnvelope } from '../types/workflow'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
-const CARD = 'rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm'
+const CARD = 'rounded-none border border-neutral-200/90 bg-white p-6 shadow-sm'
+const BTN_PRI = 'inline-flex items-center gap-2 rounded-none bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white'
+const BTN_SEC = 'inline-flex items-center gap-2 rounded-none border border-neutral-200 px-4 py-2.5 text-sm text-neutral-700'
 
 const DEFAULT_CONDITION: WorkflowCondition = { match: 'always' }
 const DEFAULT_ACTIONS: WorkflowAction[] = [
@@ -22,26 +31,70 @@ const DEFAULT_ACTIONS: WorkflowAction[] = [
 ]
 
 function slugify(s: string) {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9æøå]+/gi, '_')
-    .replace(/^_|_$/g, '')
-    .slice(0, 80) || 'regel'
+  return (
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9æøå]+/gi, '_')
+      .replace(/^_|_$/g, '')
+      .slice(0, 80) || 'regel'
+  )
+}
+
+function actionsToJsonString(actions: WorkflowAction[] | WorkflowXorActionsEnvelope): string {
+  return JSON.stringify(actions, null, 2)
 }
 
 export function WorkflowModulePage() {
   const wf = useWorkflows()
   const [tab, setTab] = useState<'design' | 'runs' | 'settings'>('design')
-  const [formOpen, setFormOpen] = useState(false)
+  const [designSubtab, setDesignSubtab] = useState<'canvas' | 'advanced'>('canvas')
+
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editingRuleId, setEditingRuleId] = useState<string | 'new' | null>(null)
+
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [sourceModule, setSourceModule] = useState('hse')
   const [triggerOn, setTriggerOn] = useState<'insert' | 'update' | 'both'>('both')
+  const [flowDoc, setFlowDoc] = useState<WorkflowFlowDocument>(() => defaultWorkflowFlowDocument())
+  const [conditionJson, setConditionJson] = useState<WorkflowCondition>(DEFAULT_CONDITION)
+  const [actionsPayload, setActionsPayload] = useState<WorkflowAction[] | WorkflowXorActionsEnvelope>(DEFAULT_ACTIONS)
   const [conditionText, setConditionText] = useState(JSON.stringify(DEFAULT_CONDITION, null, 2))
   const [actionsText, setActionsText] = useState(JSON.stringify(DEFAULT_ACTIONS, null, 2))
+  const [compileErr, setCompileErr] = useState<string | null>(null)
   const [formErr, setFormErr] = useState<string | null>(null)
 
   const templatesCount = useMemo(() => wf.rules.filter((r) => r.is_template).length, [wf.rules])
+
+  const recompileFlow = useCallback((doc: WorkflowFlowDocument) => {
+    const out = compileWorkflowFlow(doc)
+    if ('error' in out) {
+      setCompileErr(out.error)
+      return
+    }
+    setCompileErr(null)
+    setConditionJson(out.condition_json)
+    setActionsPayload(out.actions_json)
+    setConditionText(JSON.stringify(out.condition_json, null, 2))
+    setActionsText(JSON.stringify(out.actions_json, null, 2))
+  }, [])
+
+  const handleFlowDocChange = useCallback(
+    (doc: WorkflowFlowDocument) => {
+      setFlowDoc(doc)
+      const out = compileWorkflowFlow(doc)
+      if ('error' in out) {
+        setCompileErr(out.error)
+        return
+      }
+      setCompileErr(null)
+      setConditionJson(out.condition_json)
+      setActionsPayload(out.actions_json)
+      setConditionText(JSON.stringify(out.condition_json, null, 2))
+      setActionsText(JSON.stringify(out.actions_json, null, 2))
+    },
+    [],
+  )
 
   const parseJson = useCallback(<T,>(raw: string, label: string): T | null => {
     try {
@@ -52,13 +105,84 @@ export function WorkflowModulePage() {
     }
   }, [])
 
+  const openNewRule = useCallback(() => {
+    setFormErr(null)
+    setCompileErr(null)
+    setEditingRuleId('new')
+    setEditorOpen(true)
+    setName('')
+    setSlug('')
+    setSourceModule('hse')
+    setTriggerOn('both')
+    const doc = defaultWorkflowFlowDocument()
+    setFlowDoc(doc)
+    recompileFlow(doc)
+    setDesignSubtab('canvas')
+  }, [recompileFlow])
+
+  const openEditRule = useCallback(
+    (r: WorkflowRuleRow) => {
+      setFormErr(null)
+      setCompileErr(null)
+      setEditingRuleId(r.id)
+      setEditorOpen(true)
+      setName(r.name)
+      setSlug(r.slug)
+      setSourceModule(r.source_module)
+      setTriggerOn(r.trigger_on)
+      setConditionJson(r.condition_json)
+      setActionsPayload(r.actions_json)
+      setConditionText(JSON.stringify(r.condition_json, null, 2))
+      setActionsText(actionsToJsonString(r.actions_json))
+
+      const fg = r.flow_graph_json
+      const doc =
+        fg && typeof fg === 'object' && (fg as { version?: number }).version === 1
+          ? (fg as WorkflowFlowDocument)
+          : flowDocumentFromLegacy(r.condition_json, r.actions_json)
+      setFlowDoc(doc)
+      setDesignSubtab('canvas')
+      queueMicrotask(() => recompileFlow(doc))
+    },
+    [recompileFlow],
+  )
+
+  const closeEditor = useCallback(() => {
+    setEditorOpen(false)
+    setEditingRuleId(null)
+  }, [])
+
   const handleSaveRule = useCallback(async () => {
     setFormErr(null)
-    const cond = parseJson<WorkflowCondition>(conditionText, 'betingelse')
-    const acts = parseJson<WorkflowAction[]>(actionsText, 'handlinger')
-    if (!cond || !acts || !Array.isArray(acts)) return
+    let cond: WorkflowCondition
+    let acts: WorkflowAction[] | WorkflowXorActionsEnvelope
+
+    if (designSubtab === 'advanced') {
+      const c = parseJson<WorkflowCondition>(conditionText, 'betingelse')
+      const rawActs = parseJson<unknown>(actionsText, 'handlinger')
+      if (!c || rawActs === null) return
+      if (!Array.isArray(rawActs) && typeof rawActs === 'object' && rawActs !== null && (rawActs as { mode?: string }).mode === 'xor_branches') {
+        acts = rawActs as WorkflowXorActionsEnvelope
+      } else if (Array.isArray(rawActs)) {
+        acts = rawActs as WorkflowAction[]
+      } else {
+        setFormErr('Handlinger må være JSON-array eller xor_branches-objekt.')
+        return
+      }
+      cond = c
+    } else {
+      const out = compileWorkflowFlow(flowDoc)
+      if ('error' in out) {
+        setFormErr(out.error)
+        return
+      }
+      cond = out.condition_json
+      acts = out.actions_json
+    }
+
     const s = slug.trim() || slugify(name)
     const res = await wf.upsertRule({
+      id: editingRuleId && editingRuleId !== 'new' ? editingRuleId : undefined,
       slug: s,
       name: name.trim() || 'Uten navn',
       description: '',
@@ -67,15 +191,44 @@ export function WorkflowModulePage() {
       is_active: false,
       condition_json: cond,
       actions_json: acts,
+      flow_graph_json: designSubtab === 'canvas' ? (flowDoc as unknown as Record<string, unknown>) : null,
     })
-    if (res.ok) {
-      setFormOpen(false)
-      setName('')
-      setSlug('')
-      setConditionText(JSON.stringify(DEFAULT_CONDITION, null, 2))
-      setActionsText(JSON.stringify(DEFAULT_ACTIONS, null, 2))
+    if (res.ok) closeEditor()
+  }, [
+    closeEditor,
+    conditionText,
+    actionsText,
+    designSubtab,
+    editingRuleId,
+    flowDoc,
+    name,
+    parseJson,
+    slug,
+    sourceModule,
+    triggerOn,
+    wf,
+  ])
+
+  const applyAdvancedToFlow = useCallback(() => {
+    const c = parseJson<WorkflowCondition>(conditionText, 'betingelse')
+    const rawActs = parseJson<unknown>(actionsText, 'handlinger')
+    if (!c || rawActs === null) return
+    let acts: WorkflowAction[] | WorkflowXorActionsEnvelope
+    if (Array.isArray(rawActs)) acts = rawActs
+    else if (typeof rawActs === 'object' && rawActs !== null && (rawActs as { mode?: string }).mode === 'xor_branches') {
+      acts = rawActs as WorkflowXorActionsEnvelope
+    } else {
+      setFormErr('Ugyldig actions-format')
+      return
     }
-  }, [wf, name, slug, sourceModule, triggerOn, conditionText, actionsText, parseJson])
+    setFormErr(null)
+    const doc = flowDocumentFromLegacy(c, acts)
+    setFlowDoc(doc)
+    setConditionJson(c)
+    setActionsPayload(acts)
+    setDesignSubtab('canvas')
+    recompileFlow(doc)
+  }, [actionsText, conditionText, parseJson, recompileFlow])
 
   return (
     <div className={PAGE_WRAP}>
@@ -88,7 +241,7 @@ export function WorkflowModulePage() {
       </nav>
 
       <div className="flex flex-wrap items-start gap-6 border-b border-neutral-200/80 pb-8">
-        <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-[#1a3d32] text-[#c9a227]">
+        <div className="flex size-20 shrink-0 items-center justify-center rounded-none bg-[#1a3d32] text-[#c9a227]">
           <GitBranch className="size-9" />
         </div>
         <div className="min-w-0 flex-1">
@@ -99,14 +252,14 @@ export function WorkflowModulePage() {
             Arbeidsflyt
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-neutral-600">
-            Koble automatiske oppgaver og oppfølging til dataregistrering (HSE, internkontroll, wiki). Regler kjøres i
-            databasen når JSON-moduler lagres — så ingenting tapes ved dårlig nett. Ekstern e-post/Slack krever Edge
-            Function (konfigureres i Supabase).
+            Visuell flytbygger med dra-og-slipp: systeminndata (modul + JSON-betingelser) og handlingsblokker.{' '}
+            <strong>XOR</strong> lar deg definere flere eksklusive grener — nøyaktig én må matche, ellers hoppes regelen
+            over (krever oppdatert database-migrasjon). Avansert JSON er fortsatt tilgjengelig.
           </p>
         </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-2 rounded-2xl border border-neutral-200/80 bg-white/60 p-2">
+      <div className="mt-6 flex flex-wrap gap-2 rounded-none border border-neutral-200/80 bg-white/60 p-2">
         {(
           [
             ['design', 'Design & regler'],
@@ -118,7 +271,7 @@ export function WorkflowModulePage() {
             key={id}
             type="button"
             onClick={() => setTab(id)}
-            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+            className={`rounded-none px-4 py-2 text-sm font-medium transition ${
               tab === id ? 'bg-[#1a3d32] text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-100'
             }`}
           >
@@ -128,7 +281,7 @@ export function WorkflowModulePage() {
       </div>
 
       {wf.error && (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{wf.error}</p>
+        <p className="mt-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{wf.error}</p>
       )}
 
       {tab === 'design' && (
@@ -137,31 +290,58 @@ export function WorkflowModulePage() {
             <div>
               <h2 className="text-lg font-semibold text-neutral-900">Regler</h2>
               <p className="mt-1 text-sm text-neutral-600">
-                Aktiver med bryteren. Tom database = ingen sideeffekter — alt er av som standard til du aktiverer.
+                Aktiver med bryteren. Flyt lagres som <code className="text-xs">flow_graph_json</code> + kompilert{' '}
+                <code className="text-xs">condition_json</code> / <code className="text-xs">actions_json</code>.
               </p>
             </div>
             {wf.canManage && (
-              <button
-                type="button"
-                onClick={() => setFormOpen((v) => !v)}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white hover:opacity-95"
-              >
+              <button type="button" onClick={openNewRule} className={BTN_PRI}>
                 <Plus className="size-4" /> Ny regel
               </button>
             )}
           </div>
 
-          {formOpen && wf.canManage && (
+          {editorOpen && wf.canManage && (
             <div className={CARD}>
-              <h3 className="font-semibold text-neutral-900">Ny regel</h3>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <h3 className="font-semibold text-neutral-900">
+                  {editingRuleId === 'new' ? 'Ny regel' : 'Rediger regel'}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDesignSubtab('canvas')}
+                    className={`rounded-none border px-3 py-1.5 text-sm font-medium ${
+                      designSubtab === 'canvas' ? 'border-[#1a3d32] bg-[#1a3d32] text-white' : 'border-neutral-200'
+                    }`}
+                  >
+                    Visuell flyt
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDesignSubtab('advanced')
+                      setConditionText(JSON.stringify(conditionJson, null, 2))
+                      setActionsText(actionsToJsonString(actionsPayload))
+                    }}
+                    className={`rounded-none border px-3 py-1.5 text-sm font-medium ${
+                      designSubtab === 'advanced' ? 'border-[#1a3d32] bg-[#1a3d32] text-white' : 'border-neutral-200'
+                    }`}
+                  >
+                    Avansert JSON
+                  </button>
+                </div>
+              </div>
+
               {formErr && <p className="mt-2 text-sm text-red-700">{formErr}</p>}
+
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <label className="block text-sm">
                   <span className="text-neutral-600">Navn</span>
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm"
                     placeholder="F.eks. Kritisk hendelse → HMS-oppgave"
                   />
                 </label>
@@ -170,7 +350,7 @@ export function WorkflowModulePage() {
                   <input
                     value={slug}
                     onChange={(e) => setSlug(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm font-mono text-xs"
+                    className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 font-mono text-xs"
                     placeholder="auto fra navn hvis tom"
                   />
                 </label>
@@ -179,7 +359,7 @@ export function WorkflowModulePage() {
                   <select
                     value={sourceModule}
                     onChange={(e) => setSourceModule(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm"
                   >
                     {WORKFLOW_SOURCE_MODULES.map((m) => (
                       <option key={m.value} value={m.value}>
@@ -193,7 +373,7 @@ export function WorkflowModulePage() {
                   <select
                     value={triggerOn}
                     onChange={(e) => setTriggerOn(e.target.value as 'insert' | 'update' | 'both')}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm"
                   >
                     <option value="both">Lagring (ny + oppdatering)</option>
                     <option value="insert">Kun første lagring</option>
@@ -201,44 +381,57 @@ export function WorkflowModulePage() {
                   </select>
                 </label>
               </div>
-              <label className="mt-4 block text-sm">
-                <span className="text-neutral-600">Betingelse (JSON)</span>
-                <textarea
-                  value={conditionText}
-                  onChange={(e) => setConditionText(e.target.value)}
-                  rows={5}
-                  className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 font-mono text-xs"
-                />
-              </label>
-              <label className="mt-4 block text-sm">
-                <span className="text-neutral-600">Handlinger (JSON-array)</span>
-                <textarea
-                  value={actionsText}
-                  onChange={(e) => setActionsText(e.target.value)}
-                  rows={10}
-                  className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 font-mono text-xs"
-                />
-              </label>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleSaveRule()}
-                  className="rounded-xl bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white"
-                >
+
+              {designSubtab === 'canvas' ? (
+                <div className="mt-6 border-t border-neutral-100 pt-6">
+                  <WorkflowFlowBuilder
+                    value={flowDoc}
+                    onChange={handleFlowDocChange}
+                    sourceModule={sourceModule}
+                    compileError={compileErr}
+                  />
+                  <p className="mt-4 text-xs text-neutral-500">
+                    Kompilert betingelse: <code className="break-all">{JSON.stringify(conditionJson)}</code>
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-6 space-y-4 border-t border-neutral-100 pt-6">
+                  <button type="button" onClick={applyAdvancedToFlow} className={BTN_SEC}>
+                    Synkroniser JSON → visuell flyt
+                  </button>
+                  <label className="block text-sm">
+                    <span className="text-neutral-600">Betingelse (JSON)</span>
+                    <textarea
+                      value={conditionText}
+                      onChange={(e) => setConditionText(e.target.value)}
+                      rows={8}
+                      className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 font-mono text-xs"
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="text-neutral-600">Handlinger (array eller xor_branches)</span>
+                    <textarea
+                      value={actionsText}
+                      onChange={(e) => setActionsText(e.target.value)}
+                      rows={14}
+                      className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 font-mono text-xs"
+                    />
+                  </label>
+                </div>
+              )}
+
+              <div className="mt-6 flex flex-wrap gap-2 border-t border-neutral-100 pt-4">
+                <button type="button" onClick={() => void handleSaveRule()} className={BTN_PRI}>
                   Lagre regel (av som standard)
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setFormOpen(false)}
-                  className="rounded-xl border border-neutral-200 px-4 py-2 text-sm text-neutral-700"
-                >
+                <button type="button" onClick={closeEditor} className={BTN_SEC}>
                   Avbryt
                 </button>
               </div>
             </div>
           )}
 
-          <div className="overflow-x-auto rounded-2xl border border-neutral-200/90">
+          <div className="overflow-x-auto rounded-none border border-neutral-200/90">
             <table className="min-w-[720px] w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-neutral-200 bg-neutral-50/80 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
@@ -291,16 +484,26 @@ export function WorkflowModulePage() {
                       <td className="px-4 py-3">{r.is_template ? 'Ja' : '—'}</td>
                       <td className="px-4 py-3 text-right">
                         {wf.canManage && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (confirm(`Slette «${r.name}»?`)) void wf.deleteRule(r.id)
-                            }}
-                            className="inline-flex rounded-lg p-2 text-neutral-400 hover:bg-red-50 hover:text-red-700"
-                            aria-label="Slett"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openEditRule(r)}
+                              className="inline-flex rounded-none p-2 text-neutral-500 hover:bg-neutral-100 hover:text-[#1a3d32]"
+                              aria-label="Rediger"
+                            >
+                              <Pencil className="size-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`Slette «${r.name}»?`)) void wf.deleteRule(r.id)
+                              }}
+                              className="inline-flex rounded-none p-2 text-neutral-400 hover:bg-red-50 hover:text-red-700"
+                              aria-label="Slett"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </>
                         )}
                       </td>
                     </tr>
@@ -316,9 +519,9 @@ export function WorkflowModulePage() {
         <div className={`${CARD} mt-8`}>
           <h2 className="text-lg font-semibold text-neutral-900">Siste kjøringer</h2>
           <p className="mt-1 text-sm text-neutral-600">
-            Logg fra databasen (fullført / hoppet over / feilet). Knyttes til rapportering av responstid senere.
+            Ved XOR vises <code className="text-xs">xor_branch</code> i detalj når én gren traff.
           </p>
-          <div className="mt-4 max-h-[480px] overflow-auto rounded-xl border border-neutral-100">
+          <div className="mt-4 max-h-[480px] overflow-auto rounded-none border border-neutral-100">
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-neutral-100">
                 <tr>
@@ -356,8 +559,8 @@ export function WorkflowModulePage() {
           <div>
             <h2 className="text-lg font-semibold text-neutral-900">Forhåndsdefinerte compliance-maler</h2>
             <p className="mt-2 text-sm text-neutral-600">
-              Ett-knapps import av AML / IK-f-relaterte maler (alle starter <strong>av</strong>). Aktiver under
-              Design når dere er klare.
+              Ett-knapps import av AML / IK-f-relaterte maler (alle starter <strong>av</strong>). Aktiver under Design
+              når dere er klare.
             </p>
             {wf.canManage ? (
               <button
@@ -366,7 +569,7 @@ export function WorkflowModulePage() {
                   const r = await wf.seedComplianceTemplates()
                   if (r.ok) alert('Maler lagt til (eller fantes fra før).')
                 }}
-                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-950 hover:bg-amber-100"
+                className="mt-4 inline-flex items-center gap-2 rounded-none border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-950 hover:bg-amber-100"
               >
                 <Zap className="size-4" /> Importer compliance-maler
               </button>
@@ -375,11 +578,10 @@ export function WorkflowModulePage() {
             )}
             <p className="mt-2 text-xs text-neutral-500">Maler i database: {templatesCount}</p>
           </div>
-          <div className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 text-sm text-neutral-700">
-            <strong className="text-neutral-900">Teknisk:</strong> Utsatt eskalering (7 dager i «todo») planlegges via
-            tabellen <code className="rounded bg-white px-1">workflow_scheduled_actions</code> + cron/Edge Function.
-            Ekstern varsling (SendGrid, Slack) bør kalles fra Edge Function med webhook fra databasen — ikke fra
-            nettleseren.
+          <div className="rounded-none border border-neutral-200 bg-neutral-50/80 p-4 text-sm text-neutral-700">
+            <strong className="text-neutral-900">Migrasjon:</strong> Kjør{' '}
+            <code className="rounded bg-white px-1">20260508120000_workflow_xor_branches.sql</code> for XOR-grener og{' '}
+            <code className="rounded bg-white px-1">flow_graph_json</code>.
           </div>
         </div>
       )}
