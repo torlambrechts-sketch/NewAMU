@@ -5,6 +5,7 @@ import {
   workplaceReportingMenuLinkClass,
   workplaceReportingNavMatch,
 } from '../data/workplaceReportingNav'
+import { WorkplaceReportingCasesSection } from '../components/workplace/WorkplaceReportingCasesSection'
 
 const PAGE = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const CARD =
@@ -62,6 +63,8 @@ export function WorkplaceReportingPage() {
           ))}
         </div>
       </nav>
+
+      <WorkplaceReportingCasesSection />
 
       <section id="oversikt" className="mt-8">
         <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-500">Innganger og verktøy</h2>
