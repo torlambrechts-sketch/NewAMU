@@ -23,6 +23,7 @@ export type TaskSourceType =
   /** Konkret avvik under HMS-inspeksjon */
   | 'hse_inspection_finding'
   | 'hse_incident'
+  | 'hse_sja'
   | 'nav_report'
   | 'labor_metric'
   | 'learning_course'

@@ -318,15 +318,21 @@ export type SjaHazardRow = {
   /** New / additional measures required */
   additionalMeasures: string
   responsible: string
+  /** Ansvarlig for tiltak (OrgEmployee.id) */
+  responsibleEmployeeId?: string
 }
 
-export type SjaStatus = 'draft' | 'approved' | 'closed'
+/** Utkast → venter på alle valgte deltakere (Level 1) → godkjent når alle har signert */
+export type SjaStatus = 'draft' | 'awaiting_participants' | 'approved' | 'closed'
 
 export type SjaSignature = {
   signerName: string
   role: 'foreman' | 'verneombud' | 'worker' | 'management'
   signedAt: string
   level1?: Level1SystemSignatureMeta
+  /** Kobling til ansatt (for deltakersignatur) */
+  signerEmployeeId?: string
+  signerUserId?: string
 }
 
 export type SjaAnalysis = {
@@ -336,8 +342,14 @@ export type SjaAnalysis = {
   jobDescription: string
   location: string
   department: string
+  /** Avdeling/enhet (ID) for rapportering */
+  departmentId?: string
   plannedAt: string
   conductedBy: string
+  /** Arbeidsleder (OrgEmployee.id) */
+  workLeaderEmployeeId?: string
+  /** Deltakere som må signere før jobb (OrgEmployee.id) */
+  participantEmployeeIds?: string[]
   /** Participants who reviewed the SJA */
   participants: string
   rows: SjaHazardRow[]
@@ -345,6 +357,12 @@ export type SjaAnalysis = {
   /** Overall conclusion / approved-by notes */
   conclusion: string
   signatures: SjaSignature[]
+  /** Varmt arbeid — trigger for sjekklister fra dokumentbibliotek (app-integrasjon) */
+  involvesHotWork?: boolean
+  /** Krever LOTO / utkobling */
+  requiresLoto?: boolean
+  /** Merknad om hvilke maler/sjekklister som skal vedlegges (f.eks. fra dokumenter) */
+  permitChecklistNote?: string
   /** Link to related incident (if SJA triggered by an event) */
   relatedIncidentId?: string
   createdAt: string

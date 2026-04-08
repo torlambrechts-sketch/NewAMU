@@ -149,6 +149,13 @@ const STATUS_LABELS: Record<Incident['status'], string> = {
   closed: 'Lukket',
 }
 
+const SJA_STATUS_LABELS: Record<SjaAnalysis['status'], string> = {
+  draft: 'Utkast',
+  awaiting_participants: 'Venter på deltakere',
+  approved: 'Godkjent (alle signert)',
+  closed: 'Avsluttet',
+}
+
 const SICK_STATUS_LABELS: Record<SickLeaveCase['status'], string> = {
   active: 'Sykemeldt (100%)',
   partial: 'Gradert sykemeldt',
@@ -345,19 +352,29 @@ export function HseModule() {
   })
 
   // SJA form
-  const [sjaForm, setSjaForm] = useState({ title: '', jobDescription: '', location: '', department: '', plannedAt: '', conductedBy: '', participants: '' })
+  const [sjaSearch, setSjaSearch] = useState('')
   const [sjaPanelId, setSjaPanelId] = useState<string | null>(null)
-  const [sjaPanelRowDraft, setSjaPanelRowDraft] = useState<Omit<SjaHazardRow, 'id'>>({
+  const [sjaPanelTitle, setSjaPanelTitle] = useState('')
+  const [sjaPanelJobDescription, setSjaPanelJobDescription] = useState('')
+  const [sjaPanelLocation, setSjaPanelLocation] = useState('')
+  const [sjaPanelDepartmentId, setSjaPanelDepartmentId] = useState('')
+  const [sjaPanelPlannedAt, setSjaPanelPlannedAt] = useState('')
+  const [sjaPanelWorkLeaderId, setSjaPanelWorkLeaderId] = useState('')
+  const [sjaPanelParticipantIds, setSjaPanelParticipantIds] = useState<string[]>([])
+  const [sjaPanelInvolvesHotWork, setSjaPanelInvolvesHotWork] = useState(false)
+  const [sjaPanelRequiresLoto, setSjaPanelRequiresLoto] = useState(false)
+  const [sjaPanelPermitNote, setSjaPanelPermitNote] = useState('')
+  const [sjaPanelConclusion, setSjaPanelConclusion] = useState('')
+  const [sjaPanelRowDraft, setSjaPanelRowDraft] = useState<
+    Omit<SjaHazardRow, 'id'> & { responsibleEmployeeId?: string }
+  >({
     step: '',
     hazard: '',
     consequence: '',
     existingControls: '',
     additionalMeasures: '',
     responsible: '',
-  })
-  const [sjaPanelSig, setSjaPanelSig] = useState<{ signerName: string; role: SjaAnalysis['signatures'][0]['role'] }>({
-    signerName: '',
-    role: 'foreman',
+    responsibleEmployeeId: undefined,
   })
 
   // Training form
@@ -382,7 +399,7 @@ export function HseModule() {
 
   const incidentPanelExisting =
     incidentPanelId && incidentPanelId !== '__new__' ? hse.incidents.find((i) => i.id === incidentPanelId) : undefined
-  const sjaPanelSja = sjaPanelId ? hse.sjaAnalyses.find((s) => s.id === sjaPanelId) : undefined
+  const sjaPanelExisting = sjaPanelId && sjaPanelId !== '__new__' ? hse.sjaAnalyses.find((s) => s.id === sjaPanelId) : undefined
   const slPanelCase = slPanelId ? hse.sickLeaveCases.find((s) => s.id === slPanelId) : undefined
   const trainingPanelRec = trainingPanelId ? hse.trainingRecords.find((r) => r.id === trainingPanelId) : undefined
 
@@ -476,8 +493,18 @@ export function HseModule() {
     },
     [incidentViewerCtx],
   )
-  const closeSjaPanel = useCallback(() => {
-    setSjaPanelId(null)
+  const resetSjaPanelForm = useCallback(() => {
+    setSjaPanelTitle('')
+    setSjaPanelJobDescription('')
+    setSjaPanelLocation('')
+    setSjaPanelDepartmentId('')
+    setSjaPanelPlannedAt('')
+    setSjaPanelWorkLeaderId('')
+    setSjaPanelParticipantIds([])
+    setSjaPanelInvolvesHotWork(false)
+    setSjaPanelRequiresLoto(false)
+    setSjaPanelPermitNote('')
+    setSjaPanelConclusion('')
     setSjaPanelRowDraft({
       step: '',
       hazard: '',
@@ -485,9 +512,51 @@ export function HseModule() {
       existingControls: '',
       additionalMeasures: '',
       responsible: '',
+      responsibleEmployeeId: undefined,
     })
-    setSjaPanelSig({ signerName: '', role: 'foreman' })
   }, [])
+
+  const closeSjaPanel = useCallback(() => {
+    setSjaPanelId(null)
+    resetSjaPanelForm()
+  }, [resetSjaPanelForm])
+
+  const openNewSjaPanel = useCallback(() => {
+    resetSjaPanelForm()
+    setSjaPanelId('__new__')
+    const self = viewerEmployeeId ? org.displayEmployees.find((e) => e.id === viewerEmployeeId) : undefined
+    if (self) {
+      setSjaPanelWorkLeaderId(self.id)
+      setSjaPanelParticipantIds([self.id])
+    }
+  }, [resetSjaPanelForm, viewerEmployeeId, org.displayEmployees])
+
+  const openEditSjaPanel = useCallback(
+    (sja: SjaAnalysis) => {
+      setSjaPanelId(sja.id)
+      setSjaPanelTitle(sja.title)
+      setSjaPanelJobDescription(sja.jobDescription)
+      setSjaPanelLocation(sja.location)
+      setSjaPanelDepartmentId(sja.departmentId ?? '')
+      setSjaPanelPlannedAt(isoToDatetimeLocal(sja.plannedAt))
+      setSjaPanelWorkLeaderId(sja.workLeaderEmployeeId ?? '')
+      setSjaPanelParticipantIds(sja.participantEmployeeIds ?? [])
+      setSjaPanelInvolvesHotWork(sja.involvesHotWork ?? false)
+      setSjaPanelRequiresLoto(sja.requiresLoto ?? false)
+      setSjaPanelPermitNote(sja.permitChecklistNote ?? '')
+      setSjaPanelConclusion(sja.conclusion)
+      setSjaPanelRowDraft({
+        step: '',
+        hazard: '',
+        consequence: '',
+        existingControls: '',
+        additionalMeasures: '',
+        responsible: '',
+        responsibleEmployeeId: undefined,
+      })
+    },
+    [],
+  )
   const closeSlPanel = useCallback(() => {
     setSlPanelId(null)
     setSlPanelMsg('')
@@ -824,6 +893,42 @@ export function HseModule() {
     return list
   }, [hse.incidents, incSearch, incidentViewerCtx])
 
+  const sjaStats = useMemo(() => {
+    const list = hse.sjaAnalyses
+    return {
+      total: list.length,
+      draft: list.filter((s) => s.status === 'draft').length,
+      awaiting: list.filter((s) => s.status === 'awaiting_participants').length,
+      approved: list.filter((s) => s.status === 'approved').length,
+    }
+  }, [hse.sjaAnalyses])
+
+  const sjaFiltered = useMemo(() => {
+    const q = sjaSearch.trim().toLowerCase()
+    let list = [...hse.sjaAnalyses]
+    if (q) {
+      list = list.filter(
+        (s) =>
+          s.title.toLowerCase().includes(q) ||
+          s.location.toLowerCase().includes(q) ||
+          (s.jobDescription ?? '').toLowerCase().includes(q) ||
+          (s.department ?? '').toLowerCase().includes(q),
+      )
+    }
+    list.sort((a, b) => b.plannedAt.localeCompare(a.plannedAt))
+    return list
+  }, [hse.sjaAnalyses, sjaSearch])
+
+  function sjaDepartmentLabel(sja: SjaAnalysis) {
+    if (sja.departmentId) {
+      const u = org.units.find((x) => x.id === sja.departmentId)
+      if (u) return u.name
+      const d = departments.find((x) => x.id === sja.departmentId)
+      if (d) return d.name
+    }
+    return sja.department || '—'
+  }
+
   const departmentSelectOptions = useMemo(() => {
     const fromUnits = [...org.units]
       .sort((a, b) => a.name.localeCompare(b.name, 'nb'))
@@ -835,6 +940,54 @@ export function HseModule() {
       .map((d) => ({ value: d.id, label: d.name }))
     return [...fromUnits, ...fromDb]
   }, [org.units, departments])
+
+  function submitSjaPanel(e: React.FormEvent) {
+    e.preventDefault()
+    if (!sjaPanelTitle.trim()) return
+    if (!sjaPanelDepartmentId) {
+      window.alert('Velg avdeling / enhet.')
+      return
+    }
+    const deptName = departmentSelectOptions.find((o) => o.value === sjaPanelDepartmentId)?.label ?? ''
+    const leader = sjaPanelWorkLeaderId ? org.displayEmployees.find((x) => x.id === sjaPanelWorkLeaderId) : undefined
+    const participantNames = sjaPanelParticipantIds
+      .map((id) => org.displayEmployees.find((em) => em.id === id)?.name)
+      .filter(Boolean)
+      .join(', ')
+    const plannedIso = sjaPanelPlannedAt ? new Date(sjaPanelPlannedAt).toISOString() : new Date().toISOString()
+    const baseFields = {
+      title: sjaPanelTitle.trim(),
+      jobDescription: sjaPanelJobDescription,
+      location: sjaPanelLocation.trim() || '—',
+      department: deptName,
+      departmentId: sjaPanelDepartmentId,
+      plannedAt: plannedIso,
+      conductedBy: leader?.name ?? '—',
+      workLeaderEmployeeId: sjaPanelWorkLeaderId || undefined,
+      participantEmployeeIds: sjaPanelParticipantIds,
+      participants: participantNames,
+      conclusion: sjaPanelConclusion,
+      involvesHotWork: sjaPanelInvolvesHotWork,
+      requiresLoto: sjaPanelRequiresLoto,
+      permitChecklistNote: sjaPanelPermitNote.trim() || undefined,
+    }
+    if (sjaPanelId === '__new__') {
+      const created = hse.createSja({ ...baseFields, rows: [], status: 'draft' })
+      closeSjaPanel()
+      openEditSjaPanel(created)
+      return
+    }
+    const editId = sjaPanelId
+    if (!editId || editId === '__new__') return
+    const existing = hse.sjaAnalyses.find((x) => x.id === editId)
+    if (!existing) return
+    hse.updateSja(editId, {
+      ...baseFields,
+      rows: existing.rows,
+      signatures: existing.signatures,
+    })
+    closeSjaPanel()
+  }
 
   function departmentLabelForIncident(inc: Incident) {
     if (inc.departmentId) {
@@ -1879,115 +2032,165 @@ export function HseModule() {
         </div>
       )}
 
-      {/* ── SJA ──────────────────────────────────────────────────────────────── */}
+      {/* ── SJA (samme mønster som inspeksjoner) ──────────────────────────────── */}
       {tab === 'sja' && (
-        <div className="mt-8 space-y-8">
-          <div className="rounded-2xl border border-neutral-200/90 bg-white p-4 shadow-sm">
-            <p className="text-sm text-neutral-700">
-              <strong>Sikker Jobb Analyse (SJA)</strong> er påkrevd for ikke-rutinepregede og høyrisikooperasjoner etter
-              IK-forskriften §5 nr. 2 og AML §3-1. Analysen gjennomføres med berørte arbeidstakere <em>før</em> arbeidet starter.
-            </p>
-          </div>
-
-          {/* New SJA form */}
-          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-neutral-900">Ny SJA</h2>
-              <WizardButton
-                label="Veiviser"
-                def={makeSjaWizard((data) => {
-                  const sja = hse.createSja({
-                    title: String(data.title), jobDescription: String(data.jobDescription),
-                    location: String(data.location), department: String(data.department) || '',
-                    plannedAt: data.plannedAt ? new Date(String(data.plannedAt)).toISOString() : new Date().toISOString(),
-                    conductedBy: String(data.conductedBy), participants: String(data.participants) || '',
-                    rows: [], status: 'draft', conclusion: '',
-                  })
-                  setSjaPanelId(sja.id)
-                })}
-              />
+        <div className="mt-8 space-y-6">
+          <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <h2
+                className="text-2xl font-semibold text-neutral-900 md:text-3xl"
+                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+              >
+                Sikker jobb analyse (SJA)
+              </h2>
+              <p className="mt-3 max-w-2xl rounded-none border border-neutral-200 bg-white p-4 text-sm text-neutral-700">
+                <strong>Sikker Jobb Analyse (SJA)</strong> er påkrevd for <em>ikke-rutinepregede og høyrisikooperasjoner</em> etter
+                IK-forskriften §5 nr. 2 og AML §3-1. Analysen gjennomføres med berørte arbeidstakere <strong>før</strong> arbeidet
+                starter. Deltakere velges fra ansattregisteret og må signere med innlogget bruker (nivå 1) før status blir godkjent.
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                  Totalt <strong className="ml-1 font-semibold">{sjaStats.total}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
+                  Utkast <strong className="ml-1 font-semibold">{sjaStats.draft}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
+                  Venter signatur <strong className="ml-1 font-semibold">{sjaStats.awaiting}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
+                  Godkjent <strong className="ml-1 font-semibold">{sjaStats.approved}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={openNewSjaPanel}
+                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                >
+                  <Plus className="size-4 shrink-0" />
+                  Ny SJA
+                </button>
+                <WizardButton
+                  label="Veiviser"
+                  variant="solid"
+                  className={HERO_ACTION_CLASS}
+                  def={makeSjaWizard((data) => {
+                    const deptStr = String(data.department ?? '').trim()
+                    const deptOpt = departmentSelectOptions.find(
+                      (o) => o.label.trim().toLowerCase() === deptStr.toLowerCase(),
+                    )
+                    const leaderStr = String(data.conductedBy ?? '').trim()
+                    const leaderEmp = org.displayEmployees.find(
+                      (e) => e.name.trim().toLowerCase() === leaderStr.toLowerCase(),
+                    )
+                    const partStr = String(data.participants ?? '')
+                    const partNames = partStr
+                      .split(',')
+                      .map((x) => x.trim())
+                      .filter(Boolean)
+                    const partIds: string[] = []
+                    for (const n of partNames) {
+                      const em = org.displayEmployees.find((e) => e.name.trim().toLowerCase() === n.toLowerCase())
+                      if (em) partIds.push(em.id)
+                    }
+                    if (leaderEmp && !partIds.includes(leaderEmp.id)) partIds.unshift(leaderEmp.id)
+                    const sja = hse.createSja({
+                      title: String(data.title),
+                      jobDescription: String(data.jobDescription),
+                      location: String(data.location),
+                      department: deptOpt?.label ?? deptStr,
+                      departmentId: deptOpt?.value,
+                      plannedAt: data.plannedAt
+                        ? new Date(String(data.plannedAt)).toISOString()
+                        : new Date().toISOString(),
+                      conductedBy: leaderEmp?.name ?? leaderStr,
+                      workLeaderEmployeeId: leaderEmp?.id,
+                      participantEmployeeIds: partIds,
+                      participants: partNames.join(', ') || leaderEmp?.name || '',
+                      rows: [],
+                      status: 'draft',
+                      conclusion: '',
+                    })
+                    openEditSjaPanel(sja)
+                  })}
+                />
+              </div>
             </div>
-            <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
-              e.preventDefault()
-              if (!sjaForm.title.trim()) return
-              const sja = hse.createSja({ title: sjaForm.title.trim(), jobDescription: sjaForm.jobDescription, location: sjaForm.location, department: sjaForm.department, plannedAt: sjaForm.plannedAt ? new Date(sjaForm.plannedAt).toISOString() : new Date().toISOString(), conductedBy: sjaForm.conductedBy, participants: sjaForm.participants, rows: [], status: 'draft', conclusion: '' })
-              setSjaPanelId(sja.id)
-              setSjaForm({ title: '', jobDescription: '', location: '', department: '', plannedAt: '', conductedBy: '', participants: '' })
-            }}>
-              <div className="sm:col-span-2">
-                <label className="text-xs font-medium text-neutral-500">Arbeidsoperasjon / tittel *</label>
-                <input value={sjaForm.title} onChange={(e) => setSjaForm((s) => ({ ...s, title: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs font-medium text-neutral-500">Beskrivelse av jobben</label>
-                <textarea value={sjaForm.jobDescription} onChange={(e) => setSjaForm((s) => ({ ...s, jobDescription: e.target.value }))} rows={2} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Sted</label>
-                <input value={sjaForm.location} onChange={(e) => setSjaForm((s) => ({ ...s, location: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Avdeling</label>
-                <input value={sjaForm.department} onChange={(e) => setSjaForm((s) => ({ ...s, department: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Planlagt dato</label>
-                <input type="datetime-local" value={sjaForm.plannedAt} onChange={(e) => setSjaForm((s) => ({ ...s, plannedAt: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Gjennomført av / arbeidsleder</label>
-                <input value={sjaForm.conductedBy} onChange={(e) => setSjaForm((s) => ({ ...s, conductedBy: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs font-medium text-neutral-500">Deltakere (navn, kommaseparert)</label>
-                <input value={sjaForm.participants} onChange={(e) => setSjaForm((s) => ({ ...s, participants: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2">
-                <ShieldCheck className="size-4" />
-                Opprett SJA
-              </button>
-            </form>
-          </section>
-
-          {/* SJA list — redigering i sidevindu */}
-          <div className="space-y-3">
-            {hse.sjaAnalyses.length === 0 && <p className="text-center text-sm text-neutral-500 py-8">Ingen SJA-er registrert ennå.</p>}
-            {hse.sjaAnalyses.map((sja) => {
-              const stLabel = sja.status === 'draft' ? 'Utkast' : sja.status === 'approved' ? 'Godkjent' : 'Avsluttet'
-              return (
-                <div key={sja.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200/90 bg-white px-4 py-3 shadow-sm">
-                  <div>
-                    <span className="font-semibold text-neutral-900">{sja.title}</span>
-                    <span className="ml-2 text-xs text-neutral-500">
-                      {sja.location}
-                      {sja.department ? ` · ${sja.department}` : ''}
-                    </span>
-                    <div className="mt-1 text-xs text-neutral-500">
-                      {sja.rows.length} fare-rad(er) · {stLabel}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSjaPanelId(sja.id)
-                      setSjaPanelRowDraft({
-                        step: '',
-                        hazard: '',
-                        consequence: '',
-                        existingControls: '',
-                        additionalMeasures: '',
-                        responsible: '',
-                      })
-                      setSjaPanelSig({ signerName: '', role: 'foreman' })
-                    }}
-                    className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
-                  >
-                    Åpne
-                  </button>
-                </div>
-              )
-            })}
           </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{sjaStats.total}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Registrert</div>
+            </div>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{sjaStats.draft}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Utkast</div>
+            </div>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{sjaStats.awaiting}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Venter deltakere</div>
+            </div>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{sjaStats.approved}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Alle signert</div>
+            </div>
+          </div>
+
+          <Mainbox1
+            title="SJA-register"
+            subtitle="Sortert etter planlagt tid. Åpne en rad for skall, faretabell, arbeidstillatelser og signaturer."
+          >
+            <Table1Shell
+              toolbar={
+                <Table1Toolbar
+                  searchSlot={
+                    <div className="min-w-[200px] flex-1">
+                      <label className="sr-only" htmlFor="sja-search">
+                        Søk
+                      </label>
+                      <input
+                        id="sja-search"
+                        value={sjaSearch}
+                        onChange={(e) => setSjaSearch(e.target.value)}
+                        placeholder="Søk i tittel, sted, beskrivelse …"
+                        className={`${SETTINGS_INPUT} bg-white`}
+                      />
+                    </div>
+                  }
+                />
+              }
+            >
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse text-left">
+                  <thead>
+                    <tr className={theadRow}>
+                      <th className={tableCell}>Operasjon</th>
+                      <th className={tableCell}>Planlagt</th>
+                      <th className={tableCell}>Sted / avdeling</th>
+                      <th className={tableCell}>Rader</th>
+                      <th className={tableCell}>Status</th>
+                      <th className={`${tableCell} text-right`}>Handling</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sjaFiltered.map((sja, ri) => (
+                      <SjaTableRow
+                        key={sja.id}
+                        sja={sja}
+                        deptLabel={sjaDepartmentLabel(sja)}
+                        rowClass={table1BodyRowClass(layout, ri)}
+                        cellClass={tableCell}
+                        onOpen={() => openEditSjaPanel(sja)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {sjaFiltered.length === 0 ? (
+                <p className="px-4 py-10 text-center text-sm text-neutral-500">Ingen SJA-er matcher søket.</p>
+              ) : null}
+            </Table1Shell>
+          </Mainbox1>
         </div>
       )}
 
@@ -3003,8 +3206,8 @@ export function HseModule() {
         </>
       ) : null}
 
-      {/* SJA — sidevindu */}
-      {sjaPanelId && sjaPanelSja ? (
+      {/* SJA — sidevindu (skall + analyse + signering) */}
+      {sjaPanelId ? (
         <>
           <button
             type="button"
@@ -3012,179 +3215,489 @@ export function HseModule() {
             className="fixed inset-0 z-[60] bg-black/40"
             onClick={closeSjaPanel}
           />
-          <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[920px] flex-col border-l border-neutral-200 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+          <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[920px] flex-col border-l border-neutral-200 bg-[#f7f6f2] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 bg-[#f7f6f2] px-5 py-4">
               <div>
-                <h2 className="text-lg font-semibold text-neutral-900">{sjaPanelSja.title}</h2>
+                <h2 className="text-lg font-semibold text-neutral-900">
+                  {sjaPanelId === '__new__' ? 'Ny SJA' : sjaPanelExisting?.title ?? 'SJA'}
+                </h2>
                 <p className="text-xs text-neutral-500">
-                  {sjaPanelSja.location}
-                  {sjaPanelSja.department ? ` · ${sjaPanelSja.department}` : ''}
+                  {SJA_STATUS_LABELS[sjaPanelExisting?.status ?? 'draft']}
+                  {sjaPanelExisting ? ` · ${sjaPanelExisting.rows.length} analyse-rad(er)` : ''}
                 </p>
               </div>
               <button type="button" onClick={closeSjaPanel} className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-100`}>
                 <X className="size-5" />
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-              <div className="mb-4">
-                <label className={SETTINGS_FIELD_LABEL}>Status</label>
-                <select
-                  value={sjaPanelSja.status}
-                  onChange={(e) =>
-                    hse.updateSja(sjaPanelSja.id, { status: e.target.value as SjaAnalysis['status'] })
-                  }
-                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
-                >
-                  <option value="draft">Utkast</option>
-                  <option value="approved">Godkjent</option>
-                  <option value="closed">Avsluttet</option>
-                </select>
-              </div>
-              {sjaPanelSja.jobDescription ? (
-                <p className="text-sm text-neutral-700">{sjaPanelSja.jobDescription}</p>
-              ) : null}
-              <div className="mt-6 overflow-x-auto">
-                <p className={SETTINGS_FIELD_LABEL}>Fareidentifikasjon</p>
-                <table className="mt-2 w-full min-w-[640px] border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-neutral-50 text-neutral-600">
-                      {['Steg', 'Fare', 'Konsekvens', 'Eksist.', 'Nye tiltak', 'Ansvarlig'].map((h) => (
-                        <th key={h} className="border border-neutral-200 px-2 py-1.5 text-left font-semibold">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sjaPanelSja.rows.map((row) => (
-                      <tr key={row.id}>
-                        {(['step', 'hazard', 'consequence', 'existingControls', 'additionalMeasures', 'responsible'] as const).map(
-                          (field) => (
-                            <td key={field} className="border border-neutral-200 px-1 py-1">
-                              <input
-                                value={row[field]}
-                                onChange={(e) => hse.updateSjaRow(sjaPanelSja.id, row.id, { [field]: e.target.value })}
-                                className="w-full min-w-[72px] bg-transparent px-1 py-0.5 outline-none"
-                              />
-                            </td>
-                          ),
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                {(['step', 'hazard', 'consequence', 'existingControls', 'additionalMeasures', 'responsible'] as const).map(
-                  (field) => (
+            <form className="flex min-h-0 flex-1 flex-col" onSubmit={submitSjaPanel}>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+                <div className={TASK_PANEL_ROW_GRID}>
+                  <div>
+                    <h3 className="text-base font-semibold text-neutral-900">Grunnlag</h3>
+                    <p className={`${SETTINGS_LEAD} mt-2`}>Operasjon, sted og avdeling fra organisasjonsdata.</p>
+                  </div>
+                  <div className={TASK_PANEL_INSET}>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="sja-title">
+                      Arbeidsoperasjon / tittel *
+                    </label>
                     <input
-                      key={field}
-                      value={sjaPanelRowDraft[field]}
-                      onChange={(e) => setSjaPanelRowDraft((d) => ({ ...d, [field]: e.target.value }))}
-                      placeholder={field}
-                      className={`${SETTINGS_INPUT} text-xs`}
+                      id="sja-title"
+                      value={sjaPanelTitle}
+                      onChange={(e) => setSjaPanelTitle(e.target.value)}
+                      required
+                      className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
                     />
-                  ),
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!sjaPanelRowDraft.step.trim() && !sjaPanelRowDraft.hazard.trim()) return
-                  hse.addSjaRow(sjaPanelSja.id, sjaPanelRowDraft)
-                  setSjaPanelRowDraft({
-                    step: '',
-                    hazard: '',
-                    consequence: '',
-                    existingControls: '',
-                    additionalMeasures: '',
-                    responsible: '',
-                  })
-                }}
-                className={`${HERO_ACTION_CLASS} mt-2 bg-neutral-800 text-white`}
-              >
-                + Legg til rad
-              </button>
-              <div className="mt-6">
-                <label className={SETTINGS_FIELD_LABEL}>Konklusjon</label>
-                <textarea
-                  value={sjaPanelSja.conclusion}
-                  onChange={(e) => hse.updateSja(sjaPanelSja.id, { conclusion: e.target.value })}
-                  rows={3}
-                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
-                />
-              </div>
-              <div className="mt-6">
-                <p className={SETTINGS_FIELD_LABEL}>Signaturer</p>
-                <ul className="mt-2 space-y-1 text-xs text-neutral-600">
-                  {sjaPanelSja.signatures.map((s, i) => {
-                    const l1 = formatLevel1AuditLine(s.level1)
-                    return (
-                      <li key={i} className="whitespace-pre-line">
-                        {s.signerName} ({s.role}) · {formatDate(s.signedAt)}
-                        {l1 ? `\n${l1}` : ''}
-                      </li>
-                    )
-                  })}
-                </ul>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <select
-                    value={sjaPanelSig.role}
-                    onChange={(e) =>
-                      setSjaPanelSig((d) => ({
-                        ...d,
-                        role: e.target.value as SjaAnalysis['signatures'][0]['role'],
-                      }))
-                    }
-                    className={`${SETTINGS_INPUT} w-auto bg-neutral-50 text-xs`}
-                  >
-                    <option value="foreman">Arbeidsleder</option>
-                    <option value="verneombud">Verneombud</option>
-                    <option value="worker">Arbeider</option>
-                    <option value="management">Ledelse</option>
-                  </select>
-                  <input
-                    value={sjaPanelSig.signerName}
-                    onChange={(e) => setSjaPanelSig((d) => ({ ...d, signerName: e.target.value }))}
-                    placeholder="Fullt navn"
-                    className={`${SETTINGS_INPUT} min-w-[160px] flex-1 bg-neutral-50 text-xs`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!sjaPanelSig.signerName.trim()) return
-                      void (async () => {
-                        await hse.signSja(sjaPanelSja.id, sjaPanelSig)
-                        setSjaPanelSig((d) => ({ ...d, signerName: '' }))
-                      })()
-                    }}
-                    className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white`}
-                  >
-                    Signer
-                  </button>
+                    <div className="mt-5">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="sja-job">
+                        Beskrivelse av jobben
+                      </label>
+                      <textarea
+                        id="sja-job"
+                        value={sjaPanelJobDescription}
+                        onChange={(e) => setSjaPanelJobDescription(e.target.value)}
+                        rows={3}
+                        className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                      />
+                    </div>
+                    <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL} htmlFor="sja-loc">
+                          Sted
+                        </label>
+                        <input
+                          id="sja-loc"
+                          value={sjaPanelLocation}
+                          onChange={(e) => setSjaPanelLocation(e.target.value)}
+                          className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                        />
+                      </div>
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL} htmlFor="sja-dept">
+                          Avdeling / enhet *
+                        </label>
+                        <select
+                          id="sja-dept"
+                          value={sjaPanelDepartmentId}
+                          onChange={(e) => setSjaPanelDepartmentId(e.target.value)}
+                          required
+                          className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                        >
+                          <option value="">Velg …</option>
+                          {departmentSelectOptions.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="mt-5">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="sja-when">
+                        Planlagt dato og tid
+                      </label>
+                      <input
+                        id="sja-when"
+                        type="datetime-local"
+                        value={sjaPanelPlannedAt}
+                        onChange={(e) => setSjaPanelPlannedAt(e.target.value)}
+                        className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                      />
+                    </div>
+                    <div className="mt-5">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="sja-leader">
+                        Arbeidsleder
+                      </label>
+                      <select
+                        id="sja-leader"
+                        value={sjaPanelWorkLeaderId}
+                        onChange={(e) => setSjaPanelWorkLeaderId(e.target.value)}
+                        className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                      >
+                        <option value="">Velg …</option>
+                        {employeePickList.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {e.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
+
+                <div className={TASK_PANEL_ROW_GRID}>
+                  <div>
+                    <h3 className="text-base font-semibold text-neutral-900">Deltakere</h3>
+                    <p className={`${SETTINGS_LEAD} mt-2`}>
+                      Velg alle som skal bekrefte at de har forstått analysen. Hver deltaker signerer som innlogget bruker (nivå 1)
+                      før jobben regnes som godkjent.
+                    </p>
+                  </div>
+                  <div className={`${TASK_PANEL_INSET} max-h-56 overflow-y-auto`}>
+                    {employeePickList.map((e) => (
+                      <label key={e.id} className="flex cursor-pointer items-center gap-2 border-b border-neutral-100 py-2 text-sm last:border-0">
+                        <input
+                          type="checkbox"
+                          checked={sjaPanelParticipantIds.includes(e.id)}
+                          onChange={() => {
+                            setSjaPanelParticipantIds((ids) =>
+                              ids.includes(e.id) ? ids.filter((x) => x !== e.id) : [...ids, e.id],
+                            )
+                          }}
+                          className="size-4 rounded border-neutral-300"
+                        />
+                        <span>{e.name}</span>
+                        {e.unitName ? <span className="text-xs text-neutral-500">({e.unitName})</span> : null}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={TASK_PANEL_ROW_GRID}>
+                  <div>
+                    <h3 className="text-base font-semibold text-neutral-900">Arbeidstillatelser</h3>
+                    <p className={`${SETTINGS_LEAD} mt-2`}>
+                      Kryss av ved behov. Knytt til relevante sjekklister i dokumentbiblioteket (referanse under).
+                    </p>
+                  </div>
+                  <div className={`${TASK_PANEL_INSET} space-y-3`}>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={sjaPanelInvolvesHotWork}
+                        onChange={(e) => setSjaPanelInvolvesHotWork(e.target.checked)}
+                        className="size-4 rounded border-neutral-300"
+                      />
+                      Involverer varmt arbeid
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={sjaPanelRequiresLoto}
+                        onChange={(e) => setSjaPanelRequiresLoto(e.target.checked)}
+                        className="size-4 rounded border-neutral-300"
+                      />
+                      Krever utkobling av strøm (LOTO)
+                    </label>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="sja-permit">
+                        Referanse til sjekklister / dokumenter
+                      </label>
+                      <textarea
+                        id="sja-permit"
+                        value={sjaPanelPermitNote}
+                        onChange={(e) => setSjaPanelPermitNote(e.target.value)}
+                        rows={2}
+                        placeholder="f.eks. Dokument «Varmt arbeid» i biblioteket, versjon …"
+                        className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {sjaPanelExisting ? (
+                  <>
+                    <div className={`${TASK_PANEL_ROW_GRID} border-t border-neutral-200`}>
+                      <div>
+                        <h3 className="text-base font-semibold text-neutral-900">Trinnvis analyse</h3>
+                        <p className={`${SETTINGS_LEAD} mt-2`}>
+                          Del-operasjon, fare, konsekvens, eksisterende og nye tiltak, ansvarlig (velg ansatt).
+                        </p>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="mt-2 w-full min-w-[720px] border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-neutral-100 text-neutral-700">
+                              {['Del-operasjon', 'Fare', 'Konsekvens', 'Eksisterende', 'Tiltak', 'Ansvarlig'].map((h) => (
+                                <th key={h} className="border border-neutral-200 px-2 py-2 text-left font-semibold">
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sjaPanelExisting.rows.map((row) => (
+                              <tr key={row.id}>
+                                <td className="border border-neutral-200 p-1">
+                                  <input
+                                    value={row.step}
+                                    onChange={(e) => hse.updateSjaRow(sjaPanelExisting.id, row.id, { step: e.target.value })}
+                                    className={`${SETTINGS_INPUT} bg-white text-xs`}
+                                  />
+                                </td>
+                                <td className="border border-neutral-200 p-1">
+                                  <input
+                                    value={row.hazard}
+                                    onChange={(e) => hse.updateSjaRow(sjaPanelExisting.id, row.id, { hazard: e.target.value })}
+                                    className={`${SETTINGS_INPUT} bg-white text-xs`}
+                                  />
+                                </td>
+                                <td className="border border-neutral-200 p-1">
+                                  <input
+                                    value={row.consequence}
+                                    onChange={(e) =>
+                                      hse.updateSjaRow(sjaPanelExisting.id, row.id, { consequence: e.target.value })
+                                    }
+                                    className={`${SETTINGS_INPUT} bg-white text-xs`}
+                                  />
+                                </td>
+                                <td className="border border-neutral-200 p-1">
+                                  <input
+                                    value={row.existingControls}
+                                    onChange={(e) =>
+                                      hse.updateSjaRow(sjaPanelExisting.id, row.id, { existingControls: e.target.value })
+                                    }
+                                    className={`${SETTINGS_INPUT} bg-white text-xs`}
+                                  />
+                                </td>
+                                <td className="border border-neutral-200 p-1">
+                                  <input
+                                    value={row.additionalMeasures}
+                                    onChange={(e) =>
+                                      hse.updateSjaRow(sjaPanelExisting.id, row.id, { additionalMeasures: e.target.value })
+                                    }
+                                    className={`${SETTINGS_INPUT} bg-white text-xs`}
+                                  />
+                                </td>
+                                <td className="border border-neutral-200 p-1">
+                                  <select
+                                    value={row.responsibleEmployeeId ?? ''}
+                                    onChange={(e) => {
+                                      const id = e.target.value
+                                      const emp = employeePickList.find((x) => x.id === id)
+                                      hse.updateSjaRow(sjaPanelExisting.id, row.id, {
+                                        responsibleEmployeeId: id || undefined,
+                                        responsible: emp?.name ?? row.responsible,
+                                      })
+                                    }}
+                                    className={`${SETTINGS_INPUT} bg-white text-xs`}
+                                  >
+                                    <option value="">—</option>
+                                    {employeePickList.map((em) => (
+                                      <option key={em.id} value={em.id}>
+                                        {em.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          {(['step', 'hazard', 'consequence', 'existingControls', 'additionalMeasures'] as const).map(
+                            (field) => (
+                              <input
+                                key={field}
+                                value={sjaPanelRowDraft[field]}
+                                onChange={(e) => setSjaPanelRowDraft((d) => ({ ...d, [field]: e.target.value }))}
+                                placeholder={
+                                  field === 'step'
+                                    ? 'Del-operasjon'
+                                    : field === 'hazard'
+                                      ? 'Fare'
+                                      : field === 'consequence'
+                                        ? 'Konsekvens'
+                                        : field === 'existingControls'
+                                          ? 'Eksisterende kontroll'
+                                          : 'Tiltak'
+                                }
+                                className={`${SETTINGS_INPUT} text-xs`}
+                              />
+                            ),
+                          )}
+                          <select
+                            value={sjaPanelRowDraft.responsibleEmployeeId ?? ''}
+                            onChange={(e) => {
+                              const id = e.target.value
+                              const emp = employeePickList.find((x) => x.id === id)
+                              setSjaPanelRowDraft((d) => ({
+                                ...d,
+                                responsibleEmployeeId: id || undefined,
+                                responsible: emp?.name ?? d.responsible,
+                              }))
+                            }}
+                            className={`${SETTINGS_INPUT} text-xs`}
+                          >
+                            <option value="">Ansvarlig …</option>
+                            {employeePickList.map((em) => (
+                              <option key={em.id} value={em.id}>
+                                {em.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!sjaPanelRowDraft.step.trim() && !sjaPanelRowDraft.hazard.trim()) return
+                            const emp = sjaPanelRowDraft.responsibleEmployeeId
+                              ? employeePickList.find((x) => x.id === sjaPanelRowDraft.responsibleEmployeeId)
+                              : undefined
+                            hse.addSjaRow(sjaPanelExisting.id, {
+                              ...sjaPanelRowDraft,
+                              responsible: emp?.name ?? sjaPanelRowDraft.responsible,
+                            })
+                            setSjaPanelRowDraft({
+                              step: '',
+                              hazard: '',
+                              consequence: '',
+                              existingControls: '',
+                              additionalMeasures: '',
+                              responsible: '',
+                              responsibleEmployeeId: undefined,
+                            })
+                          }}
+                          className={`${HERO_ACTION_CLASS} mt-3 bg-neutral-800 text-white`}
+                        >
+                          <Plus className="size-4" />
+                          Legg til rad
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className={TASK_PANEL_ROW_GRID}>
+                      <div>
+                        <h3 className="text-base font-semibold text-neutral-900">Konklusjon</h3>
+                      </div>
+                      <div className={TASK_PANEL_INSET}>
+                        <textarea
+                          value={sjaPanelConclusion}
+                          onChange={(e) => setSjaPanelConclusion(e.target.value)}
+                          rows={3}
+                          className={`${SETTINGS_INPUT} bg-white`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className={`${TASK_PANEL_ROW_GRID} border-t border-neutral-200`}>
+                      <div>
+                        <h3 className="text-base font-semibold text-neutral-900">Status og signering</h3>
+                        <p className={`${SETTINGS_LEAD} mt-2`}>
+                          Status oppdateres automatisk til «Venter på deltakere» når deltakere og analyse-rader er på plass, og til
+                          «Godkjent» når alle valgte deltakere og arbeidsleder har signert (nivå 1).
+                        </p>
+                      </div>
+                      <div className={TASK_PANEL_INSET}>
+                        <p className="text-sm font-medium text-neutral-800">
+                          {SJA_STATUS_LABELS[sjaPanelExisting.status]}
+                        </p>
+                        {sjaPanelExisting.status === 'closed' ? (
+                          <p className="mt-2 text-xs text-neutral-500">Avsluttet — ikke endre signaturer.</p>
+                        ) : (
+                          <>
+                            <div className="mt-4">
+                              <p className={SETTINGS_FIELD_LABEL}>Manuell status (valgfritt)</p>
+                              <select
+                                value={sjaPanelExisting.status}
+                                onChange={(e) =>
+                                  hse.updateSja(sjaPanelExisting.id, {
+                                    status: e.target.value as SjaAnalysis['status'],
+                                  })
+                                }
+                                className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                              >
+                                <option value="draft">Utkast</option>
+                                <option value="awaiting_participants">Venter på deltakere</option>
+                                <option value="approved">Godkjent (alle signert)</option>
+                                <option value="closed">Avsluttet</option>
+                              </select>
+                            </div>
+                            <ul className="mt-4 space-y-2 text-xs text-neutral-700">
+                              {sjaPanelExisting.signatures.map((s, i) => {
+                                const l1 = formatLevel1AuditLine(s.level1)
+                                return (
+                                  <li key={i} className="whitespace-pre-line rounded-none border border-neutral-200 bg-white p-2">
+                                    <strong>{s.signerName}</strong> ({s.role}) · {formatWhen(s.signedAt)}
+                                    {l1 ? `\n${l1}` : ''}
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                            {user ? (
+                              <div className="mt-4 flex flex-col gap-2">
+                                {viewerEmployeeId &&
+                                sjaPanelExisting.participantEmployeeIds?.includes(viewerEmployeeId) &&
+                                !sjaPanelExisting.signatures.some(
+                                  (s) => s.signerEmployeeId === viewerEmployeeId && s.role === 'worker',
+                                ) ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      void (async () => {
+                                        const name =
+                                          profile?.display_name?.trim() || user.email?.trim() || 'Bruker'
+                                        await hse.signSja(sjaPanelExisting.id, {
+                                          signerName: name,
+                                          role: 'worker',
+                                          signerEmployeeId: viewerEmployeeId,
+                                        })
+                                      })()
+                                    }}
+                                    className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white`}
+                                  >
+                                    Signer som deltaker (innlogget)
+                                  </button>
+                                ) : null}
+                                {viewerEmployeeId &&
+                                sjaPanelExisting.workLeaderEmployeeId === viewerEmployeeId &&
+                                !sjaPanelExisting.signatures.some(
+                                  (s) => s.signerEmployeeId === viewerEmployeeId && s.role === 'foreman',
+                                ) ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      void (async () => {
+                                        const name =
+                                          profile?.display_name?.trim() || user.email?.trim() || 'Bruker'
+                                        await hse.signSja(sjaPanelExisting.id, {
+                                          signerName: name,
+                                          role: 'foreman',
+                                          signerEmployeeId: viewerEmployeeId,
+                                        })
+                                      })()
+                                    }}
+                                    className={`${HERO_ACTION_CLASS} border border-[#1a3d32] bg-white text-[#1a3d32]`}
+                                  >
+                                    Signer som arbeidsleder (innlogget)
+                                  </button>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <p className="mt-2 text-xs text-red-700">Logg inn for å signere.</p>
+                            )}
+                          </>
+                        )}
+                        <div className="mt-6">
+                          <AddTaskLink
+                            title={`SJA oppfølging: ${sjaPanelExisting.title.slice(0, 60)}`}
+                            module="hse"
+                            sourceType="hse_sja"
+                            sourceId={sjaPanelExisting.id}
+                            sourceLabel={sjaPanelExisting.title}
+                            ownerRole="Arbeidsleder / HMS"
+                            className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-xs text-[#1a3d32]`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
               </div>
-              <div className="mt-6 flex justify-end border-t border-neutral-200 pt-4">
-                <AddTaskLink
-                  title={`SJA oppfølging: ${sjaPanelSja.title.slice(0, 60)}`}
-                  module="hse"
-                  sourceType="hse_incident"
-                  sourceId={sjaPanelSja.id}
-                  sourceLabel={sjaPanelSja.title}
-                  ownerRole="Arbeidsleder / HMS"
-                  className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-xs text-[#1a3d32]`}
-                />
+              <div className="mt-auto flex flex-wrap justify-end gap-2 border-t border-neutral-200 bg-[#f0efe9] px-5 py-4">
+                <button
+                  type="button"
+                  onClick={closeSjaPanel}
+                  className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+                >
+                  Avbryt
+                </button>
+                <button type="submit" className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white hover:bg-[#142e26]`}>
+                  <ShieldCheck className="size-4" />
+                  {sjaPanelId === '__new__' ? 'Opprett og fortsett' : 'Lagre grunnlag'}
+                </button>
               </div>
-            </div>
-            <div className="border-t border-neutral-200 px-5 py-4">
-              <button
-                type="button"
-                onClick={closeSjaPanel}
-                className={`${HERO_ACTION_CLASS} w-full border border-neutral-300 bg-white text-neutral-800`}
-              >
-                Lukk
-              </button>
-            </div>
+            </form>
           </aside>
         </>
       ) : null}
@@ -4186,6 +4699,44 @@ const INSPECTION_KIND_LABEL: Record<Inspection['kind'], string> = {
   internal: 'Intern',
   external: 'Ekstern',
   audit: 'Revisjon',
+}
+
+function SjaTableRow({
+  sja,
+  deptLabel,
+  rowClass,
+  cellClass,
+  onOpen,
+}: {
+  sja: SjaAnalysis
+  deptLabel: string
+  rowClass: string
+  cellClass: string
+  onOpen: () => void
+}) {
+  return (
+    <tr className={rowClass}>
+      <td className={cellClass}>
+        <div className="max-w-[220px] font-medium text-neutral-900">{sja.title}</div>
+      </td>
+      <td className={`${cellClass} text-neutral-600`}>{formatWhen(sja.plannedAt)}</td>
+      <td className={cellClass}>
+        <div>{sja.location}</div>
+        <div className="text-xs text-neutral-500">{deptLabel}</div>
+      </td>
+      <td className={cellClass}>{sja.rows.length}</td>
+      <td className={cellClass}>
+        <span className={`${R_FLAT} border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium`}>
+          {SJA_STATUS_LABELS[sja.status]}
+        </span>
+      </td>
+      <td className={`${cellClass} text-right`}>
+        <button type="button" onClick={onOpen} className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}>
+          Åpne
+        </button>
+      </td>
+    </tr>
+  )
 }
 
 function IncidentTableRow({

@@ -49,6 +49,27 @@ const STORAGE_KEY = 'atics-hse-v2'
 const MODULE_KEY = 'hse' as const
 const PERSIST_DEBOUNCE_MS = 450
 
+function recomputeSjaStatus(merged: SjaAnalysis): SjaAnalysis['status'] {
+  if (merged.status === 'closed') return 'closed'
+  const parts = merged.participantEmployeeIds ?? []
+  const rows = merged.rows ?? []
+  if (parts.length === 0) {
+    if (merged.status === 'approved') return 'approved'
+    return 'draft'
+  }
+  if (rows.length === 0) return 'draft'
+  const allWorkers = parts.every((pid) =>
+    merged.signatures.some((s) => s.signerEmployeeId === pid && s.role === 'worker'),
+  )
+  const leaderOk =
+    !merged.workLeaderEmployeeId ||
+    merged.signatures.some(
+      (s) => s.signerEmployeeId === merged.workLeaderEmployeeId && s.role === 'foreman',
+    )
+  if (allWorkers && leaderOk) return 'approved'
+  return 'awaiting_participants'
+}
+
 type HseState = {
   safetyRounds: SafetyRound[]
   inspections: Inspection[]
@@ -155,7 +176,24 @@ function normalizeParsed(p: HseState): HseState {
           }
         })
       : [],
-    sjaAnalyses: Array.isArray(p.sjaAnalyses) ? p.sjaAnalyses : [],
+    sjaAnalyses: Array.isArray(p.sjaAnalyses)
+      ? p.sjaAnalyses.map((raw) => {
+          const s = raw as SjaAnalysis
+          const rows = (s.rows ?? []).map((r) => ({
+            ...r,
+            responsibleEmployeeId: r.responsibleEmployeeId,
+          }))
+          const base: SjaAnalysis = {
+            ...s,
+            rows,
+            participantEmployeeIds: Array.isArray(s.participantEmployeeIds) ? s.participantEmployeeIds : [],
+            status: (s.status as SjaAnalysis['status']) ?? 'draft',
+            involvesHotWork: s.involvesHotWork ?? false,
+            requiresLoto: s.requiresLoto ?? false,
+          }
+          return { ...base, status: base.status === 'closed' ? 'closed' : recomputeSjaStatus(base) }
+        })
+      : [],
     trainingRecords: Array.isArray(p.trainingRecords) ? p.trainingRecords : [],
     checklistTemplates:
       Array.isArray(p.checklistTemplates) && p.checklistTemplates.length ? p.checklistTemplates : CHECKLIST_TEMPLATES,
@@ -1127,10 +1165,18 @@ export function useHse() {
   const updateSja = useCallback(
     (id: string, patch: Partial<SjaAnalysis>) => {
       setState((s) => {
-        const entry = auditEntry('sja_updated', 'sja', id, 'SJA oppdatert', { status: patch.status ?? null })
+        const cur = s.sjaAnalyses.find((x) => x.id === id)
+        if (!cur) return s
+        const merged: SjaAnalysis = { ...cur, ...patch, updatedAt: new Date().toISOString() }
+        const nextStatus =
+          patch.status === 'closed' || merged.status === 'closed'
+            ? 'closed'
+            : recomputeSjaStatus(merged)
+        const final = { ...merged, status: nextStatus }
+        const entry = auditEntry('sja_updated', 'sja', id, 'SJA oppdatert', { status: final.status })
         return {
           ...s,
-          sjaAnalyses: s.sjaAnalyses.map((x) => (x.id === id ? { ...x, ...patch, updatedAt: new Date().toISOString() } : x)),
+          sjaAnalyses: s.sjaAnalyses.map((x) => (x.id === id ? final : x)),
           auditTrail: [...s.auditTrail, entry],
         }
       })
@@ -1143,9 +1189,11 @@ export function useHse() {
       const newRow: SjaHazardRow = { ...row, id: crypto.randomUUID() }
       setState((s) => ({
         ...s,
-        sjaAnalyses: s.sjaAnalyses.map((x) =>
-          x.id === sjaId ? { ...x, rows: [...x.rows, newRow], updatedAt: new Date().toISOString() } : x,
-        ),
+        sjaAnalyses: s.sjaAnalyses.map((x) => {
+          if (x.id !== sjaId) return x
+          const merged = { ...x, rows: [...x.rows, newRow], updatedAt: new Date().toISOString() }
+          return { ...merged, status: recomputeSjaStatus(merged) }
+        }),
       }))
     },
     [setState],
@@ -1155,15 +1203,15 @@ export function useHse() {
     (sjaId: string, rowId: string, patch: Partial<SjaHazardRow>) => {
       setState((s) => ({
         ...s,
-        sjaAnalyses: s.sjaAnalyses.map((x) =>
-          x.id === sjaId
-            ? {
-                ...x,
-                rows: x.rows.map((r) => (r.id === rowId ? { ...r, ...patch } : r)),
-                updatedAt: new Date().toISOString(),
-              }
-            : x,
-        ),
+        sjaAnalyses: s.sjaAnalyses.map((x) => {
+          if (x.id !== sjaId) return x
+          const merged = {
+            ...x,
+            rows: x.rows.map((r) => (r.id === rowId ? { ...r, ...patch } : r)),
+            updatedAt: new Date().toISOString(),
+          }
+          return { ...merged, status: recomputeSjaStatus(merged) }
+        }),
       }))
     },
     [setState],
@@ -1175,10 +1223,38 @@ export function useHse() {
       if (!sig.signerName.trim()) return false
       const sja = state.sjaAnalyses.find((x) => x.id === sjaId)
       if (!sja) return false
+      if (sig.signerEmployeeId && sig.role === 'worker') {
+        const dup = sja.signatures.some((x) => x.signerEmployeeId === sig.signerEmployeeId && x.role === 'worker')
+        if (dup) return false
+      }
+      if (sig.signerEmployeeId && sig.role === 'foreman' && sja.workLeaderEmployeeId === sig.signerEmployeeId) {
+        const dup = sja.signatures.some(
+          (x) => x.signerEmployeeId === sig.signerEmployeeId && x.role === 'foreman',
+        )
+        if (dup) return false
+      }
       const signedAt = new Date().toISOString()
+      const sigPreview: SjaSignature = {
+        ...sig,
+        signerName: sig.signerName.trim(),
+        signedAt,
+        signerUserId: userId,
+      }
       const proposedSigs = [
-        ...sja.signatures.map(({ signerName: sn, signedAt: sa, role: r }) => ({ signerName: sn, signedAt: sa, role: r })),
-        { signerName: sig.signerName.trim(), signedAt, role: sig.role },
+        ...sja.signatures.map((x) => ({
+          signerName: x.signerName,
+          signedAt: x.signedAt,
+          role: x.role,
+          signerEmployeeId: x.signerEmployeeId,
+          signerUserId: x.signerUserId,
+        })),
+        {
+          signerName: sigPreview.signerName,
+          signedAt,
+          role: sigPreview.role,
+          signerEmployeeId: sigPreview.signerEmployeeId,
+          signerUserId: sigPreview.signerUserId,
+        },
       ]
       const hashPayload = {
         kind: 'hse_sja' as const,
@@ -1187,12 +1263,17 @@ export function useHse() {
         jobDescription: sja.jobDescription,
         location: sja.location,
         department: sja.department,
+        departmentId: sja.departmentId,
         plannedAt: sja.plannedAt,
         conductedBy: sja.conductedBy,
+        workLeaderEmployeeId: sja.workLeaderEmployeeId,
+        participantEmployeeIds: sja.participantEmployeeIds,
         participants: sja.participants,
         rows: sja.rows,
         status: sja.status,
         conclusion: sja.conclusion,
+        involvesHotWork: sja.involvesHotWork,
+        requiresLoto: sja.requiresLoto,
         signatures: proposedSigs,
       }
       const documentHashSha256 = await hashDocumentPayload(hashPayload)
@@ -1204,7 +1285,7 @@ export function useHse() {
           resourceId: sjaId,
           action: `hse_sja_sign_${sig.role}`,
           documentHashSha256,
-          signerDisplayName: sig.signerName.trim(),
+          signerDisplayName: sigPreview.signerName,
           role: sig.role,
           clientIp,
         })
@@ -1214,14 +1295,26 @@ export function useHse() {
         }
         level1 = row.evidence
       }
-      const signature: SjaSignature = { ...sig, signedAt, level1 }
+      const signature: SjaSignature = { ...sigPreview, level1 }
       setState((s) => {
-        const entry = auditEntry('sja_approved', 'sja', sjaId, `SJA signert: ${sig.signerName} (${sig.role})`)
+        const cur = s.sjaAnalyses.find((x) => x.id === sjaId)
+        if (!cur) return s
+        const merged: SjaAnalysis = {
+          ...cur,
+          signatures: [...cur.signatures, signature],
+          updatedAt: new Date().toISOString(),
+        }
+        const nextStatus = recomputeSjaStatus(merged)
+        const final = { ...merged, status: nextStatus }
+        const entry = auditEntry(
+          'sja_approved',
+          'sja',
+          sjaId,
+          `SJA signert: ${signature.signerName} (${signature.role}) — status ${final.status}`,
+        )
         return {
           ...s,
-          sjaAnalyses: s.sjaAnalyses.map((x) =>
-            x.id === sjaId ? { ...x, signatures: [...x.signatures, signature], updatedAt: new Date().toISOString() } : x,
-          ),
+          sjaAnalyses: s.sjaAnalyses.map((x) => (x.id === sjaId ? final : x)),
           auditTrail: [...s.auditTrail, entry],
         }
       })
@@ -1379,7 +1472,7 @@ export function useHse() {
       violence: state.incidents.filter((i) => i.kind === 'violence' || i.kind === 'threat').length,
       openInspections: state.inspections.filter((i) => i.status === 'open').length,
       sjaCount: state.sjaAnalyses.length,
-      openSja: state.sjaAnalyses.filter((s) => s.status === 'draft').length,
+      openSja: state.sjaAnalyses.filter((s) => s.status === 'draft' || s.status === 'awaiting_participants').length,
       trainingRecords: state.trainingRecords.length,
       expiredTraining,
       activeSickLeave: state.sickLeaveCases.filter((c) => c.status === 'active' || c.status === 'partial').length,
