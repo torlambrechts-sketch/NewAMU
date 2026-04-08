@@ -167,26 +167,37 @@ export function makeIncidentWizard(
       },
     ],
     onSubmit: (v) => {
-      onCreate({
-        kind: v.formTemplate === 'deviation' ? 'deviation' : v.formTemplate?.toString().startsWith('violence') ? 'violence' : 'incident',
+      const ft = String(v.formTemplate ?? 'standard')
+      const kind =
+        ft === 'deviation'
+          ? 'deviation'
+          : ft === 'violence_school' || ft === 'violence_health'
+            ? 'violence'
+            : 'incident'
+      const payload: Record<string, string | boolean> = {
+        kind,
         category: 'physical_injury',
-        formTemplate: v.formTemplate ?? 'standard',
-        severity: v.severity ?? 'medium',
-        occurredAt: v.occurredAt ? new Date(v.occurredAt.toString()).toISOString() : new Date().toISOString(),
-        location: v.location ?? '—',
-        department: v.department ?? '',
-        description: v.description ?? '',
-        experienceDetail: v.experienceDetail,
-        injuredPerson: v.injuredPerson,
-        immediateActions: v.immediateActions ?? '',
-        reportedBy: v.reportedBy ?? '—',
-        status: v.status ?? 'reported',
-        correctiveActions: '[]',
-        routeManager: v.routeManager ?? '',
-        routeVerneombud: v.routeVerneombud ?? false,
-        routeAMU: v.routeAMU ?? false,
-        arbeidstilsynetNotified: v.arbeidstilsynetNotified ?? false,
-      })
+        formTemplate: (v.formTemplate ?? 'standard') as string,
+        severity: String(v.severity ?? 'medium'),
+        occurredAt: v.occurredAt ? new Date(String(v.occurredAt)).toISOString() : new Date().toISOString(),
+        location: String(v.location ?? '—'),
+        department: String(v.department ?? ''),
+        description: String(v.description ?? ''),
+        immediateActions: String(v.immediateActions ?? ''),
+        reportedBy: String(v.reportedBy ?? '—'),
+        status: String(v.status ?? 'reported'),
+        routeManager: String(v.routeManager ?? ''),
+        routeVerneombud: Boolean(v.routeVerneombud),
+        routeAMU: Boolean(v.routeAMU),
+        arbeidstilsynetNotified: Boolean(v.arbeidstilsynetNotified),
+      }
+      if (v.experienceDetail != null && String(v.experienceDetail).trim()) {
+        payload.experienceDetail = String(v.experienceDetail)
+      }
+      if (v.injuredPerson != null && String(v.injuredPerson).trim()) {
+        payload.injuredPerson = String(v.injuredPerson)
+      }
+      onCreate(payload)
     },
   }
 }

@@ -146,7 +146,15 @@ function normalizeParsed(p: HseState): HseState {
           }
         })
       : [],
-    incidents: Array.isArray(p.incidents) ? p.incidents : [],
+    incidents: Array.isArray(p.incidents)
+      ? p.incidents.map((raw) => {
+          const inc = raw as Incident
+          return {
+            ...inc,
+            evidencePhotos: Array.isArray(inc.evidencePhotos) ? inc.evidencePhotos : [],
+          }
+        })
+      : [],
     sjaAnalyses: Array.isArray(p.sjaAnalyses) ? p.sjaAnalyses : [],
     trainingRecords: Array.isArray(p.trainingRecords) ? p.trainingRecords : [],
     checklistTemplates:
@@ -967,7 +975,14 @@ export function useHse() {
   const createIncident = useCallback(
     (partial: Omit<Incident, 'id' | 'createdAt' | 'updatedAt'>) => {
       const now = new Date().toISOString()
-      const inc: Incident = { ...partial, id: crypto.randomUUID(), createdAt: now, updatedAt: now }
+      const inc: Incident = {
+        ...partial,
+        evidencePhotos: partial.evidencePhotos ?? [],
+        id: crypto.randomUUID(),
+        createdAt: now,
+        updatedAt: now,
+        createdByUserId: partial.createdByUserId ?? userId,
+      }
       const kindLabels: Record<string, string> = {
         incident: 'Hendelse',
         near_miss: 'Nestenulykke',
@@ -985,7 +1000,7 @@ export function useHse() {
       setState((s) => ({ ...s, incidents: [inc, ...s.incidents], auditTrail: [...s.auditTrail, entry] }))
       return inc
     },
-    [setState],
+    [setState, userId],
   )
 
   const updateIncident = useCallback(
@@ -1262,9 +1277,12 @@ export function useHse() {
         const anonymised = {
           ...inc,
           reportedBy: '[anonymisert]',
+          reportedByEmployeeId: undefined,
+          nearestLeaderEmployeeId: undefined,
           injuredPerson: inc.injuredPerson ? '[anonymisert]' : undefined,
           witnesses: inc.witnesses ? '[anonymisert]' : undefined,
           experienceDetail: inc.experienceDetail ? '[anonymisert]' : undefined,
+          evidencePhotos: [],
           updatedAt: new Date().toISOString(),
         }
         const entry = auditEntry('incident_anonymised', 'incident', id, 'Personopplysninger anonymisert (GDPR)', {

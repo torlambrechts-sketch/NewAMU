@@ -200,6 +200,13 @@ export type IncidentRouting = {
   routedAt: string
 }
 
+/** Bildebevis — bucket `hse_incident_files`, path `{orgId}/incidents/{incidentId}/…` */
+export type IncidentEvidencePhoto = {
+  path: string
+  fileName: string
+  uploadedAt: string
+}
+
 export type Incident = {
   id: string
   kind: IncidentKind
@@ -208,6 +215,9 @@ export type Incident = {
   severity: IncidentSeverity
   occurredAt: string
   location: string
+  /** Avdeling/enhet (relasjonell ID når satt) */
+  departmentId?: string
+  /** Visningsnavn / bakoverkompatibilitet (f.eks. fri tekst fra eldre data) */
   department: string
   description: string
   /** What the person felt/experienced (violence/threat detail) */
@@ -219,10 +229,17 @@ export type Incident = {
   rootCause?: string
   correctiveActions: CorrectiveAction[]
   reportedBy: string
+  /** Kobling til ansatt som meldte (for rapportering / tilgang) */
+  reportedByEmployeeId?: string
+  /** Nærmeste leder som skal varsles (OrgEmployee.id) */
+  nearestLeaderEmployeeId?: string
   status: 'reported' | 'investigating' | 'action_pending' | 'closed'
   routing?: IncidentRouting
   /** Notified Arbeidstilsynet if required (AML §5-2) */
   arbeidstilsynetNotified?: boolean
+  /** Innlogget bruker som opprettet (auth) — brukes til tilgangskontroll i app */
+  createdByUserId?: string
+  evidencePhotos?: IncidentEvidencePhoto[]
   createdAt: string
   updatedAt: string
 }

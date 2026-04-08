@@ -31,6 +31,7 @@ import { useHse } from '../hooks/useHse'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { canEditIncidentRootCause, canViewIncident } from '../lib/incidentAccess'
 import { useTasks } from '../hooks/useTasks'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
@@ -53,6 +54,7 @@ import type {
   InspectionAttachment,
   InspectionFinding,
   InspectionSubjectKind,
+  IncidentEvidencePhoto,
   SafetyRound,
   SjaAnalysis,
   SjaHazardRow,
@@ -74,6 +76,9 @@ const SETTINGS_INPUT =
 const TASK_PANEL_INSET = 'rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6'
 const R_FLAT = 'rounded-none'
 const HSE_INSPECTION_BUCKET = 'hse_inspection_files'
+const HSE_INCIDENT_BUCKET = 'hse_incident_files'
+/** Offisielt meldingsskjema (ekstern) — AML § 5-2 veiledning */
+const ARBEIDSTILSYNET_MELDING_URL = 'https://www.arbeidstilsynet.no/skjema/meldingsskjema/'
 const ROUND_DRAFT_STORAGE_KEY = 'atics-hse-new-round-draft-v1'
 /** Same strip boxes as rapporter / organisasjonsinnsikt */
 const HSE_THRESHOLD_BOX =
@@ -199,7 +204,7 @@ function isoToDatetimeLocal(iso: string) {
 
 export function HseModule() {
   const hse = useHse()
-  const { supabaseConfigured, supabase, organization, profile, user } = useOrgSetupContext()
+  const { supabaseConfigured, supabase, organization, profile, user, isAdmin, departments } = useOrgSetupContext()
   const org = useOrganisation()
   const { addTask } = useTasks()
   const menu1 = useOrgMenu1Styles()
@@ -302,28 +307,30 @@ export function HseModule() {
     return () => window.removeEventListener('keydown', onKey)
   }, [inspectionPanelOpen, closeInspectionPanel])
 
-  // Incident form — rich
-  const [incForm, setIncForm] = useState({
-    kind: 'incident' as Incident['kind'],
-    category: 'physical_injury' as IncidentCategory,
-    formTemplate: 'standard' as IncidentFormTemplate,
-    severity: 'medium' as Incident['severity'],
-    occurredAt: '',
-    location: '',
-    department: '',
-    description: '',
-    experienceDetail: '',
-    witnesses: '',
-    injuredPerson: '',
-    immediateActions: '',
-    rootCause: '',
-    reportedBy: '',
-    status: 'reported' as Incident['status'],
-    arbeidstilsynetNotified: false,
-    routeManager: '',
-    routeVerneombud: false,
-    routeAMU: false,
-  })
+  const [incSearch, setIncSearch] = useState('')
+  const [incPanelKind, setIncPanelKind] = useState<Incident['kind']>('incident')
+  const [incPanelCategory, setIncPanelCategory] = useState<IncidentCategory>('physical_injury')
+  const [incPanelFormTemplate, setIncPanelFormTemplate] = useState<IncidentFormTemplate>('standard')
+  const [incPanelSeverity, setIncPanelSeverity] = useState<Incident['severity']>('medium')
+  const [incPanelOccurredAt, setIncPanelOccurredAt] = useState('')
+  const [incPanelLocation, setIncPanelLocation] = useState('')
+  const [incPanelDepartmentId, setIncPanelDepartmentId] = useState('')
+  const [incPanelDescription, setIncPanelDescription] = useState('')
+  const [incPanelExperienceDetail, setIncPanelExperienceDetail] = useState('')
+  const [incPanelWitnesses, setIncPanelWitnesses] = useState('')
+  const [incPanelInjuredPerson, setIncPanelInjuredPerson] = useState('')
+  const [incPanelImmediateActions, setIncPanelImmediateActions] = useState('')
+  const [incPanelRootCause, setIncPanelRootCause] = useState('')
+  const [incPanelReportedByEmployeeId, setIncPanelReportedByEmployeeId] = useState('')
+  const [incPanelNearestLeaderEmployeeId, setIncPanelNearestLeaderEmployeeId] = useState('')
+  const [incPanelStatus, setIncPanelStatus] = useState<Incident['status']>('reported')
+  const [incPanelRouteVerneombud, setIncPanelRouteVerneombud] = useState(false)
+  const [incPanelRouteAMU, setIncPanelRouteAMU] = useState(false)
+  const [incPanelArbeidstilsynetNotified, setIncPanelArbeidstilsynetNotified] = useState(false)
+  const [incPanelEvidenceQueue, setIncPanelEvidenceQueue] = useState<File[]>([])
+  const [incPanelExistingPhotos, setIncPanelExistingPhotos] = useState<IncidentEvidencePhoto[]>([])
+  const [incFollowTaskTitle, setIncFollowTaskTitle] = useState('')
+  const [incFollowDueDate, setIncFollowDueDate] = useState('')
 
   // Sick leave form
   const [slForm, setSlForm] = useState({
@@ -373,12 +380,102 @@ export function HseModule() {
 
   const sortedAudit = useMemo(() => [...hse.auditTrail].sort((a, b) => a.at.localeCompare(b.at)), [hse.auditTrail])
 
-  const incidentPanelInc = incidentPanelId ? hse.incidents.find((i) => i.id === incidentPanelId) : undefined
+  const incidentPanelExisting =
+    incidentPanelId && incidentPanelId !== '__new__' ? hse.incidents.find((i) => i.id === incidentPanelId) : undefined
   const sjaPanelSja = sjaPanelId ? hse.sjaAnalyses.find((s) => s.id === sjaPanelId) : undefined
   const slPanelCase = slPanelId ? hse.sickLeaveCases.find((s) => s.id === slPanelId) : undefined
   const trainingPanelRec = trainingPanelId ? hse.trainingRecords.find((r) => r.id === trainingPanelId) : undefined
 
-  const closeIncidentPanel = useCallback(() => setIncidentPanelId(null), [])
+  const viewerEmployeeId = useMemo(() => {
+    const email = (profile?.email ?? user?.email)?.trim().toLowerCase()
+    if (!email) return null
+    const e = org.displayEmployees.find((emp) => emp.email?.trim().toLowerCase() === email)
+    return e?.id ?? null
+  }, [profile?.email, user?.email, org.displayEmployees])
+
+  const incidentViewerCtx = useMemo(
+    () => ({
+      userId: user?.id,
+      viewerEmployeeId,
+      isAdmin: Boolean(isAdmin),
+      viewerDisplayName: profile?.display_name ?? null,
+      viewerEmail: profile?.email ?? user?.email ?? null,
+      viewerJobHint: org.displayEmployees.find((e) => e.id === viewerEmployeeId)?.jobTitle ?? null,
+    }),
+    [user?.id, viewerEmployeeId, isAdmin, profile?.display_name, profile?.email, user?.email, org.displayEmployees],
+  )
+
+  const resetIncidentPanelForm = useCallback(() => {
+    setIncPanelKind('incident')
+    setIncPanelCategory('physical_injury')
+    setIncPanelFormTemplate('standard')
+    setIncPanelSeverity('medium')
+    setIncPanelOccurredAt('')
+    setIncPanelLocation('')
+    setIncPanelDepartmentId('')
+    setIncPanelDescription('')
+    setIncPanelExperienceDetail('')
+    setIncPanelWitnesses('')
+    setIncPanelInjuredPerson('')
+    setIncPanelImmediateActions('')
+    setIncPanelRootCause('')
+    setIncPanelReportedByEmployeeId('')
+    setIncPanelNearestLeaderEmployeeId('')
+    setIncPanelStatus('reported')
+    setIncPanelRouteVerneombud(false)
+    setIncPanelRouteAMU(false)
+    setIncPanelArbeidstilsynetNotified(false)
+    setIncPanelEvidenceQueue([])
+    setIncPanelExistingPhotos([])
+    setIncFollowTaskTitle('')
+    setIncFollowDueDate('')
+  }, [])
+
+  const closeIncidentPanel = useCallback(() => {
+    setIncidentPanelId(null)
+    resetIncidentPanelForm()
+  }, [resetIncidentPanelForm])
+
+  const openNewIncidentPanel = useCallback(() => {
+    resetIncidentPanelForm()
+    setIncidentPanelId('__new__')
+    const selfEmp = viewerEmployeeId ? org.displayEmployees.find((e) => e.id === viewerEmployeeId) : undefined
+    if (selfEmp) {
+      setIncPanelReportedByEmployeeId(selfEmp.id)
+      if (selfEmp.reportsToId) setIncPanelNearestLeaderEmployeeId(selfEmp.reportsToId)
+    }
+  }, [resetIncidentPanelForm, viewerEmployeeId, org.displayEmployees])
+
+  const openEditIncidentPanel = useCallback(
+    (inc: Incident) => {
+      if (!canViewIncident(inc, incidentViewerCtx)) return
+      setIncidentPanelId(inc.id)
+      setIncPanelKind(inc.kind)
+      setIncPanelCategory(inc.category)
+      setIncPanelFormTemplate(inc.formTemplate)
+      setIncPanelSeverity(inc.severity)
+      setIncPanelOccurredAt(isoToDatetimeLocal(inc.occurredAt))
+      setIncPanelLocation(inc.location)
+      setIncPanelDepartmentId(inc.departmentId ?? '')
+      setIncPanelDescription(inc.description)
+      setIncPanelExperienceDetail(inc.experienceDetail ?? '')
+      setIncPanelWitnesses(inc.witnesses ?? '')
+      setIncPanelInjuredPerson(inc.injuredPerson ?? '')
+      setIncPanelImmediateActions(inc.immediateActions)
+      setIncPanelRootCause(inc.rootCause ?? '')
+      setIncPanelReportedByEmployeeId(inc.reportedByEmployeeId ?? '')
+      setIncPanelNearestLeaderEmployeeId(inc.nearestLeaderEmployeeId ?? '')
+      setIncPanelStatus(inc.status)
+      setIncPanelRouteVerneombud(inc.routing?.verneombudNotified ?? false)
+      setIncPanelRouteAMU(inc.routing?.amuCaseCreated ?? false)
+      setIncPanelArbeidstilsynetNotified(inc.arbeidstilsynetNotified ?? false)
+      setIncPanelEvidenceQueue([])
+      setIncPanelExistingPhotos(inc.evidencePhotos ?? [])
+      setIncFollowTaskTitle('')
+      setIncFollowDueDate('')
+    },
+    [incidentViewerCtx],
+  )
   const closeSjaPanel = useCallback(() => {
     setSjaPanelId(null)
     setSjaPanelRowDraft({
@@ -701,7 +798,177 @@ export function HseModule() {
     closeInspectionPanel()
   }
 
-  const activeTemplate = FORM_TEMPLATES.find((t) => t.id === incForm.formTemplate)!
+  const incidentStats = useMemo(() => {
+    const list = hse.incidents.filter((i) => canViewIncident(i, incidentViewerCtx))
+    return {
+      total: list.length,
+      open: list.filter((i) => i.status !== 'closed').length,
+      critical: list.filter((i) => i.severity === 'critical').length,
+      high: list.filter((i) => i.severity === 'high').length,
+    }
+  }, [hse.incidents, incidentViewerCtx])
+
+  const incidentsFiltered = useMemo(() => {
+    const q = incSearch.trim().toLowerCase()
+    let list = hse.incidents.filter((i) => canViewIncident(i, incidentViewerCtx))
+    if (q) {
+      list = list.filter(
+        (i) =>
+          i.description.toLowerCase().includes(q) ||
+          i.location.toLowerCase().includes(q) ||
+          (i.department ?? '').toLowerCase().includes(q) ||
+          KIND_LABELS[i.kind].toLowerCase().includes(q),
+      )
+    }
+    list.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+    return list
+  }, [hse.incidents, incSearch, incidentViewerCtx])
+
+  const departmentSelectOptions = useMemo(() => {
+    const fromUnits = [...org.units]
+      .sort((a, b) => a.name.localeCompare(b.name, 'nb'))
+      .map((u) => ({ value: u.id, label: u.name }))
+    const deptRows = departments.filter((d) => !org.units.some((u) => u.id === d.id))
+    const fromDb = deptRows
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, 'nb'))
+      .map((d) => ({ value: d.id, label: d.name }))
+    return [...fromUnits, ...fromDb]
+  }, [org.units, departments])
+
+  function departmentLabelForIncident(inc: Incident) {
+    if (inc.departmentId) {
+      const u = org.units.find((x) => x.id === inc.departmentId)
+      if (u) return u.name
+      const d = departments.find((x) => x.id === inc.departmentId)
+      if (d) return d.name
+    }
+    return inc.department || '—'
+  }
+
+  function employeeLabelById(id: string) {
+    const e = org.displayEmployees.find((x) => x.id === id)
+    return e?.name ?? '—'
+  }
+
+  const uploadIncidentEvidence = useCallback(
+    async (incidentId: string, file: File): Promise<IncidentEvidencePhoto | null> => {
+      const safeName = file.name.replace(/[^\w.-]+/g, '_').slice(0, 120)
+      const rel = `incidents/${incidentId}/${crypto.randomUUID()}-${safeName}`
+      if (supabase && organization?.id) {
+        const path = `${organization.id}/${rel}`
+        const { error } = await supabase.storage.from(HSE_INCIDENT_BUCKET).upload(path, file, {
+          cacheControl: '3600',
+          upsert: false,
+        })
+        if (error) {
+          console.warn('hse_incident_files upload', error.message)
+          return null
+        }
+        return { path, fileName: file.name, uploadedAt: new Date().toISOString() }
+      }
+      return { path: `local/${rel}`, fileName: file.name, uploadedAt: new Date().toISOString() }
+    },
+    [supabase, organization],
+  )
+
+  const openSavedIncidentPhoto = useCallback(
+    async (p: IncidentEvidencePhoto) => {
+      if (!supabase || p.path.startsWith('local/')) {
+        window.alert('Kan ikke åpne bildet uten Supabase eller for lokale opplastinger.')
+        return
+      }
+      const { data, error } = await supabase.storage.from(HSE_INCIDENT_BUCKET).createSignedUrl(p.path, 3600)
+      if (error || !data?.signedUrl) {
+        window.alert('Kunne ikke hente signert URL.')
+        return
+      }
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+    },
+    [supabase],
+  )
+
+  async function submitIncidentPanel(e: React.FormEvent) {
+    e.preventDefault()
+    if (!incPanelDescription.trim()) return
+    if (incidentPanelId === '__new__' && !incPanelDepartmentId) {
+      window.alert('Velg avdeling/enhet fra listen (påkrevd for nye hendelser).')
+      return
+    }
+    const occurredIso = incPanelOccurredAt ? new Date(incPanelOccurredAt).toISOString() : new Date().toISOString()
+    const deptName = incPanelDepartmentId
+      ? departmentSelectOptions.find((o) => o.value === incPanelDepartmentId)?.label ?? ''
+      : ''
+    const reporterName = incPanelReportedByEmployeeId
+      ? employeeLabelById(incPanelReportedByEmployeeId)
+      : profile?.display_name?.trim() || user?.email?.trim() || '—'
+    const leaderName = incPanelNearestLeaderEmployeeId ? employeeLabelById(incPanelNearestLeaderEmployeeId) : ''
+    const routing =
+      leaderName.trim() || reporterName.trim() || incPanelRouteVerneombud || incPanelRouteAMU
+        ? {
+            managerName: leaderName.trim() || reporterName.trim() || '—',
+            verneombudNotified: incPanelRouteVerneombud,
+            amuCaseCreated: incPanelRouteAMU,
+            routedAt: new Date().toISOString(),
+          }
+        : undefined
+
+    const evidence: IncidentEvidencePhoto[] = [...incPanelExistingPhotos]
+    if (incidentPanelId && incidentPanelId !== '__new__') {
+      for (const f of incPanelEvidenceQueue) {
+        const row = await uploadIncidentEvidence(incidentPanelId, f)
+        if (row) evidence.push(row)
+      }
+    }
+
+    const base: Omit<Incident, 'id' | 'createdAt' | 'updatedAt'> = {
+      kind: incPanelKind,
+      category: incPanelCategory,
+      formTemplate: incPanelFormTemplate,
+      severity: incPanelSeverity,
+      occurredAt: occurredIso,
+      location: incPanelLocation.trim() || '—',
+      departmentId: incPanelDepartmentId || undefined,
+      department: deptName || incPanelDepartmentId || '',
+      description: incPanelDescription.trim(),
+      experienceDetail: incPanelExperienceDetail.trim() || undefined,
+      witnesses: incPanelWitnesses.trim() || undefined,
+      injuredPerson: incPanelInjuredPerson.trim() || undefined,
+      immediateActions: incPanelImmediateActions.trim(),
+      rootCause: incPanelRootCause.trim() || undefined,
+      correctiveActions: [],
+      reportedBy: reporterName,
+      reportedByEmployeeId: incPanelReportedByEmployeeId || undefined,
+      nearestLeaderEmployeeId: incPanelNearestLeaderEmployeeId || undefined,
+      status: incPanelStatus,
+      routing,
+      arbeidstilsynetNotified: incPanelArbeidstilsynetNotified,
+      evidencePhotos: evidence,
+    }
+
+    if (incidentPanelId === '__new__') {
+      const created = hse.createIncident({ ...base, evidencePhotos: [] })
+      const uploaded: IncidentEvidencePhoto[] = []
+      for (const f of incPanelEvidenceQueue) {
+        const row = await uploadIncidentEvidence(created.id, f)
+        if (row) uploaded.push(row)
+      }
+      if (uploaded.length) hse.updateIncident(created.id, { evidencePhotos: uploaded })
+      closeIncidentPanel()
+      return
+    }
+
+    const editId = incidentPanelId
+    if (!editId || editId === '__new__') return
+    const existing = hse.incidents.find((x) => x.id === editId)
+    if (!existing) return
+    hse.updateIncident(editId, {
+      ...base,
+      createdByUserId: existing.createdByUserId,
+      evidencePhotos: evidence,
+    })
+    closeIncidentPanel()
+  }
 
   const hseOverviewKpis = useMemo(
     () => [
@@ -710,6 +977,7 @@ export function HseModule() {
         sub: 'Hendelser siste 90 dager',
         value: String(
           hse.incidents.filter((i) => {
+            if (!canViewIncident(i, incidentViewerCtx)) return false
             try {
               return new Date(i.occurredAt).getTime() > overviewTimeAnchor - 90 * 86400000
             } catch {
@@ -739,13 +1007,16 @@ export function HseModule() {
         value: String(hse.stats.activeSickLeave),
       },
     ],
-    [hse.incidents, hse.inspections, hse.safetyRounds, hse.stats.activeSickLeave, overviewTimeAnchor],
+    [hse.incidents, hse.inspections, hse.safetyRounds, hse.stats.activeSickLeave, overviewTimeAnchor, incidentViewerCtx],
   )
 
   const hseIncidentKindSegments = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const k of Object.keys(KIND_LABELS) as Incident['kind'][]) counts[k] = 0
-    for (const i of hse.incidents) counts[i.kind] = (counts[i.kind] ?? 0) + 1
+    for (const i of hse.incidents) {
+      if (!canViewIncident(i, incidentViewerCtx)) continue
+      counts[i.kind] = (counts[i.kind] ?? 0) + 1
+    }
     const palette = ['#1a3d32', '#0284c7', '#d97706', '#dc2626', '#7c3aed', '#0d9488']
     const entries = (Object.keys(KIND_LABELS) as Incident['kind'][])
       .map((k, idx) => ({
@@ -756,7 +1027,7 @@ export function HseModule() {
       .filter((x) => x.value > 0)
     const total = entries.reduce((s, x) => s + x.value, 0)
     return { entries, total }
-  }, [hse.incidents])
+  }, [hse.incidents, incidentViewerCtx])
 
   const hseSeveritySegments = useMemo(() => {
     const counts: Record<Incident['severity'], number> = {
@@ -765,7 +1036,10 @@ export function HseModule() {
       high: 0,
       critical: 0,
     }
-    for (const i of hse.incidents) counts[i.severity] += 1
+    for (const i of hse.incidents) {
+      if (!canViewIncident(i, incidentViewerCtx)) continue
+      counts[i.severity] += 1
+    }
     const entries = [
       { label: SEVERITY_LABELS.low, value: counts.low, color: '#059669' },
       { label: SEVERITY_LABELS.medium, value: counts.medium, color: '#d97706' },
@@ -774,7 +1048,7 @@ export function HseModule() {
     ].filter((x) => x.value > 0)
     const total = entries.reduce((s, x) => s + x.value, 0)
     return { entries, total }
-  }, [hse.incidents])
+  }, [hse.incidents, incidentViewerCtx])
 
   const hseSafetyRoundSegments = useMemo(() => {
     const map: Record<SafetyRound['status'], number> = {
@@ -1431,272 +1705,177 @@ export function HseModule() {
         </div>
       )}
 
-      {/* ── Incidents — expanded ──────────────────────────────────────────────── */}
+      {/* ── Hendelser (samme mønster som inspeksjoner) ───────────────────────── */}
       {tab === 'incidents' && (
-        <div className="mt-8 space-y-8">
-
-          {/* Registration form */}
-          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold text-neutral-900">Registrer hendelse</h2>
-                <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">Lavterskel</span>
+        <div className="mt-8 space-y-6">
+          <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <h2
+                className="text-2xl font-semibold text-neutral-900 md:text-3xl"
+                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+              >
+                Hendelser
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-neutral-600">
+                Registrering i sidevindu med strukturerte felt (avdeling, melder, leder), bildebevis i sikker lagring og
+                tydelig varsel ved høy alvorlighetsgrad (AML § 5-2). Listen viser kun saker du har tilgang til (melder,
+                valgt nærmeste leder, eller administrator).
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                  Synlige <strong className="ml-1 font-semibold">{incidentStats.total}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
+                  Åpne <strong className="ml-1 font-semibold">{incidentStats.open}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
+                  Høy alvor <strong className="ml-1 font-semibold">{incidentStats.high}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-red-100 text-red-900`}>
+                  Kritisk <strong className="ml-1 font-semibold">{incidentStats.critical}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={openNewIncidentPanel}
+                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                >
+                  <Plus className="size-4 shrink-0" />
+                  Ny hendelse
+                </button>
+                <WizardButton
+                  label="Veiviser"
+                  variant="solid"
+                  className={HERO_ACTION_CLASS}
+                  def={makeIncidentWizard((data) => {
+                    const kind = String(data.kind) as Incident['kind']
+                    const ft = String(data.formTemplate) as IncidentFormTemplate
+                    const leaderName = String(data.routeManager ?? '').trim()
+                    const reportedByStr = String(data.reportedBy || '').trim()
+                    const repEmp = org.displayEmployees.find(
+                      (e) => e.name.trim().toLowerCase() === reportedByStr.toLowerCase(),
+                    )
+                    const leaderEmp = leaderName
+                      ? org.displayEmployees.find((e) => e.name.trim().toLowerCase() === leaderName.toLowerCase())
+                      : undefined
+                    const created = hse.createIncident({
+                      kind,
+                      category: 'physical_injury',
+                      formTemplate: ft,
+                      severity: String(data.severity) as Incident['severity'],
+                      occurredAt: data.occurredAt
+                        ? new Date(String(data.occurredAt)).toISOString()
+                        : new Date().toISOString(),
+                      location: String(data.location) || '—',
+                      department: String(data.department ?? ''),
+                      departmentId: undefined,
+                      description: String(data.description) || '',
+                      experienceDetail: data.experienceDetail ? String(data.experienceDetail) : undefined,
+                      injuredPerson: data.injuredPerson ? String(data.injuredPerson) : undefined,
+                      immediateActions: String(data.immediateActions) || '',
+                      reportedBy: repEmp?.name ?? (reportedByStr || '—'),
+                      reportedByEmployeeId: repEmp?.id,
+                      nearestLeaderEmployeeId: leaderEmp?.id,
+                      status: String(data.status) as Incident['status'],
+                      correctiveActions: [],
+                      arbeidstilsynetNotified: Boolean(data.arbeidstilsynetNotified),
+                      routing: leaderName
+                        ? {
+                            managerName: leaderEmp?.name ?? leaderName,
+                            verneombudNotified: Boolean(data.routeVerneombud),
+                            amuCaseCreated: Boolean(data.routeAMU),
+                            routedAt: new Date().toISOString(),
+                          }
+                        : undefined,
+                    })
+                    openEditIncidentPanel(created)
+                  })}
+                />
               </div>
-              <WizardButton
-                label="Veiviser"
-                variant="solid"
-                def={makeIncidentWizard((data) => {
-                  hse.createIncident({
-                    kind: String(data.kind) as Incident['kind'],
-                    category: String(data.category) as IncidentCategory,
-                    formTemplate: String(data.formTemplate) as IncidentFormTemplate,
-                    severity: String(data.severity) as Incident['severity'],
-                    occurredAt: data.occurredAt ? new Date(String(data.occurredAt)).toISOString() : new Date().toISOString(),
-                    location: String(data.location) || '—',
-                    department: String(data.department) || '',
-                    description: String(data.description) || '',
-                    experienceDetail: data.experienceDetail ? String(data.experienceDetail) : undefined,
-                    injuredPerson: data.injuredPerson ? String(data.injuredPerson) : undefined,
-                    immediateActions: String(data.immediateActions) || '',
-                    reportedBy: String(data.reportedBy) || '—',
-                    status: String(data.status) as Incident['status'],
-                    correctiveActions: [],
-                    arbeidstilsynetNotified: Boolean(data.arbeidstilsynetNotified),
-                    routing: data.routeManager ? {
-                      managerName: String(data.routeManager),
-                      verneombudNotified: Boolean(data.routeVerneombud),
-                      amuCaseCreated: Boolean(data.routeAMU),
-                      routedAt: new Date().toISOString(),
-                    } : undefined,
-                  })
-                })}
-              />
             </div>
-
-            {/* Template picker */}
-            <div className="mt-4">
-              <label className="text-xs font-medium text-neutral-500">Skjemamal</label>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {FORM_TEMPLATES.map((tpl) => (
-                  <button key={tpl.id} type="button" onClick={() => {
-                    setIncForm((i) => ({ ...i, formTemplate: tpl.id, kind: tpl.id === 'deviation' ? 'deviation' : tpl.showViolenceFields ? 'violence' : 'incident' }))
-                  }}
-                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${incForm.formTemplate === tpl.id ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}
-                  >
-                    {tpl.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
-              e.preventDefault()
-              if (!incForm.description.trim()) return
-              hse.createIncident({
-                kind: incForm.kind,
-                category: incForm.category,
-                formTemplate: incForm.formTemplate,
-                severity: incForm.severity,
-                occurredAt: incForm.occurredAt ? new Date(incForm.occurredAt).toISOString() : new Date().toISOString(),
-                location: incForm.location || '—',
-                department: incForm.department,
-                description: incForm.description,
-                experienceDetail: incForm.experienceDetail || undefined,
-                witnesses: incForm.witnesses || undefined,
-                injuredPerson: incForm.injuredPerson || undefined,
-                immediateActions: incForm.immediateActions,
-                rootCause: incForm.rootCause || undefined,
-                reportedBy: incForm.reportedBy || '—',
-                status: incForm.status,
-                correctiveActions: [],
-                arbeidstilsynetNotified: incForm.arbeidstilsynetNotified,
-                routing: incForm.routeManager ? { managerName: incForm.routeManager, verneombudNotified: incForm.routeVerneombud, amuCaseCreated: incForm.routeAMU, routedAt: new Date().toISOString() } : undefined,
-              })
-              setIncForm((i) => ({ ...i, description: '', immediateActions: '', experienceDetail: '', witnesses: '', injuredPerson: '', rootCause: '' }))
-            }}>
-              {/* Row 1: type + severity */}
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Type hendelse</label>
-                <select value={incForm.kind} onChange={(e) => setIncForm((i) => ({ ...i, kind: e.target.value as Incident['kind'] }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
-                  <option value="incident">Ulykke / skade</option>
-                  <option value="near_miss">Nestenulykke</option>
-                  <option value="dangerous_cond">Farlige forhold (AML §2-3)</option>
-                  <option value="violence">Vold</option>
-                  <option value="threat">Trussel</option>
-                  <option value="deviation">Avvik</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Alvorlighetsgrad</label>
-                <select value={incForm.severity} onChange={(e) => setIncForm((i) => ({ ...i, severity: e.target.value as Incident['severity'] }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
-                  <option value="low">Lav</option>
-                  <option value="medium">Middels</option>
-                  <option value="high">Høy</option>
-                  <option value="critical">Kritisk (melding til Arbeidstilsynet vurderes)</option>
-                </select>
-              </div>
-
-              {/* Row 2: category + when */}
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Kategori</label>
-                <select value={incForm.category} onChange={(e) => setIncForm((i) => ({ ...i, category: e.target.value as IncidentCategory }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
-                  {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Tidspunkt</label>
-                <input type="datetime-local" value={incForm.occurredAt} onChange={(e) => setIncForm((i) => ({ ...i, occurredAt: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-
-              {/* Row 3: location + department */}
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Sted</label>
-                <input value={incForm.location} onChange={(e) => setIncForm((i) => ({ ...i, location: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Avdeling</label>
-                <input value={incForm.department} onChange={(e) => setIncForm((i) => ({ ...i, department: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-
-              {/* Description */}
-              <div className="sm:col-span-2">
-                <label className="text-xs font-medium text-neutral-500">Beskrivelse av hendelsen *</label>
-                <textarea value={incForm.description} onChange={(e) => setIncForm((i) => ({ ...i, description: e.target.value }))} rows={3} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
-              </div>
-
-              {/* Violence-specific fields */}
-              {activeTemplate.showViolenceFields && (
-                <>
-                  <div className="sm:col-span-2">
-                    <label className="text-xs font-medium text-neutral-500">Hva opplevde du / den berørte? (beskriv adferd)</label>
-                    <textarea value={incForm.experienceDetail} onChange={(e) => setIncForm((i) => ({ ...i, experienceDetail: e.target.value }))} rows={2} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-neutral-500">Berørt person</label>
-                    <input value={incForm.injuredPerson} onChange={(e) => setIncForm((i) => ({ ...i, injuredPerson: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-neutral-500">Vitner (valgfritt)</label>
-                    <input value={incForm.witnesses} onChange={(e) => setIncForm((i) => ({ ...i, witnesses: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-                  </div>
-                </>
-              )}
-
-              {/* Immediate actions + root cause */}
-              <div className="sm:col-span-2">
-                <label className="text-xs font-medium text-neutral-500">Umiddelbare tiltak</label>
-                <textarea value={incForm.immediateActions} onChange={(e) => setIncForm((i) => ({ ...i, immediateActions: e.target.value }))} rows={2} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs font-medium text-neutral-500">Rotårsak (kan fylles ut i etterkant)</label>
-                <input value={incForm.rootCause} onChange={(e) => setIncForm((i) => ({ ...i, rootCause: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-
-              {/* Reporter + status */}
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Meldt av</label>
-                <input value={incForm.reportedBy} onChange={(e) => setIncForm((i) => ({ ...i, reportedBy: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Status</label>
-                <select value={incForm.status} onChange={(e) => setIncForm((i) => ({ ...i, status: e.target.value as Incident['status'] }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
-                  <option value="reported">Meldt</option>
-                  <option value="investigating">Under utredning</option>
-                  <option value="action_pending">Tiltak pågår</option>
-                  <option value="closed">Lukket</option>
-                </select>
-              </div>
-
-              {/* Routing */}
-              <div className="sm:col-span-2 rounded-xl border border-neutral-100 bg-neutral-50 p-3 space-y-2">
-                <p className="text-xs font-semibold text-neutral-600">Automatisk ruting</p>
-                <div>
-                  <label className="text-xs text-neutral-500">Nærmeste leder (varsles)</label>
-                  <input value={incForm.routeManager} onChange={(e) => setIncForm((i) => ({ ...i, routeManager: e.target.value }))} placeholder="Navn på nærmeste leder" className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm" />
-                </div>
-                <div className="flex flex-wrap gap-4">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={incForm.routeVerneombud} onChange={(e) => setIncForm((i) => ({ ...i, routeVerneombud: e.target.checked }))} className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
-                    Varsle verneombud
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={incForm.routeAMU} onChange={(e) => setIncForm((i) => ({ ...i, routeAMU: e.target.checked }))} className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
-                    Opprett AMU-sak
-                  </label>
-                  {incForm.severity === 'critical' && (
-                    <label className="flex items-center gap-2 text-sm text-red-700">
-                      <input type="checkbox" checked={incForm.arbeidstilsynetNotified} onChange={(e) => setIncForm((i) => ({ ...i, arbeidstilsynetNotified: e.target.checked }))} className="size-4 rounded border-red-300 text-red-600 focus:ring-1 focus:ring-red-600" />
-                      Meldt til Arbeidstilsynet (AML §5-2)
-                    </label>
-                  )}
-                </div>
-              </div>
-
-              <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2">
-                <FileWarning className="size-4" />
-                Registrer hendelse
-              </button>
-            </form>
-          </section>
-
-          {/* Incident log */}
-          <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-            <div className="border-b border-neutral-200 bg-neutral-50 px-4 py-3">
-              <h2 className="font-semibold text-neutral-900">Logg — hendelser</h2>
-            </div>
-            {hse.incidents.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen registreringer ennå.</p>
-            ) : (
-              <ul className="divide-y divide-neutral-100">
-                {hse.incidents.map((inc) => (
-                  <li key={inc.id} className="px-4 py-4">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${KIND_COLOURS[inc.kind]}`}>{KIND_LABELS[inc.kind]}</span>
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${SEVERITY_COLOURS[inc.severity]}`}>{SEVERITY_LABELS[inc.severity]}</span>
-                        {inc.formTemplate !== 'standard' && (
-                          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">{FORM_TEMPLATES.find((t) => t.id === inc.formTemplate)?.label}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="rounded-none border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs font-medium text-neutral-800">
-                          {STATUS_LABELS[inc.status]}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIncidentPanelId(inc.id)
-                            setCaDraft((d) => ({
-                              ...d,
-                              [inc.id]: d[inc.id] ?? { description: '', responsible: '', dueDate: '' },
-                            }))
-                          }}
-                          className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
-                        >
-                          Åpne
-                        </button>
-                      </div>
-                    </div>
-                    <p className="mt-1 text-xs text-neutral-500">
-                      {formatWhen(inc.occurredAt)} · {inc.location}{inc.department ? ` · ${inc.department}` : ''}
-                      {inc.reportedBy !== '—' ? ` · Meldt av: ${inc.reportedBy}` : ''}
-                    </p>
-                    <p className="mt-2 line-clamp-2 text-sm text-neutral-800">{inc.description}</p>
-                    {inc.routing && (
-                      <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                        <span className="rounded-full bg-[#1a3d32]/10 px-2 py-0.5 text-[#1a3d32]">→ {inc.routing.managerName}</span>
-                        {inc.routing.verneombudNotified && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">Verneombud varslet</span>}
-                        {inc.routing.amuCaseCreated && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-800">AMU-sak opprettet</span>}
-                      </div>
-                    )}
-                    {inc.arbeidstilsynetNotified && (
-                      <p className="mt-1 text-xs font-medium text-red-700">⚠ Meldt til Arbeidstilsynet (AML §5-2)</p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{incidentStats.total}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">I din liste</div>
+            </div>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{incidentStats.open}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Ikke lukket</div>
+            </div>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{incidentStats.high}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Høy</div>
+            </div>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold">{incidentStats.critical}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Kritisk</div>
+            </div>
+          </div>
+
+          <Mainbox1
+            title="Hendelseslogg"
+            subtitle="Sortert etter tidspunkt. Åpne en rad for full redigering, dokumentasjon og oppfølgingsoppgaver."
+          >
+            <Table1Shell
+              toolbar={
+                <Table1Toolbar
+                  searchSlot={
+                    <div className="min-w-[200px] flex-1">
+                      <label className="sr-only" htmlFor="inc-search">
+                        Søk
+                      </label>
+                      <input
+                        id="inc-search"
+                        value={incSearch}
+                        onChange={(e) => setIncSearch(e.target.value)}
+                        placeholder="Søk i beskrivelse, sted, type …"
+                        className={`${SETTINGS_INPUT} bg-white`}
+                      />
+                    </div>
+                  }
+                />
+              }
+            >
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse text-left">
+                  <thead>
+                    <tr className={theadRow}>
+                      <th className={tableCell}>Type / alvor</th>
+                      <th className={tableCell}>Tidspunkt</th>
+                      <th className={tableCell}>Sted / avdeling</th>
+                      <th className={tableCell}>Melder</th>
+                      <th className={tableCell}>Status</th>
+                      <th className={`${tableCell} text-right`}>Handling</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {incidentsFiltered.map((inc, ri) => (
+                      <IncidentTableRow
+                        key={inc.id}
+                        inc={inc}
+                        deptLabel={departmentLabelForIncident(inc)}
+                        rowClass={table1BodyRowClass(layout, ri)}
+                        cellClass={tableCell}
+                        onOpen={() => {
+                          openEditIncidentPanel(inc)
+                          setCaDraft((d) => ({
+                            ...d,
+                            [inc.id]: d[inc.id] ?? { description: '', responsible: '', dueDate: '' },
+                          }))
+                        }}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {incidentsFiltered.length === 0 ? (
+                <p className="px-4 py-10 text-center text-sm text-neutral-500">
+                  Ingen hendelser å vise (eller ingen treff i søk).
+                </p>
+              ) : null}
+            </Table1Shell>
+          </Mainbox1>
         </div>
       )}
 
@@ -2172,8 +2351,8 @@ export function HseModule() {
         </div>
       )}
 
-      {/* Hendelse — sidevindu */}
-      {incidentPanelId && incidentPanelInc ? (
+      {/* Hendelse — sidevindu (skjema som inspeksjoner) */}
+      {incidentPanelId ? (
         <>
           <button
             type="button"
@@ -2181,181 +2360,645 @@ export function HseModule() {
             className="fixed inset-0 z-[60] bg-black/40"
             onClick={closeIncidentPanel}
           />
-          <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[920px] flex-col border-l border-neutral-200 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+          <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[920px] flex-col border-l border-neutral-200 bg-[#f7f6f2] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 bg-[#f7f6f2] px-5 py-4">
               <div>
-                <h2 className="text-lg font-semibold text-neutral-900">Hendelse / avvik</h2>
-                <p className="text-xs text-neutral-500">{KIND_LABELS[incidentPanelInc.kind]} · {SEVERITY_LABELS[incidentPanelInc.severity]}</p>
+                <h2 className="text-lg font-semibold text-neutral-900">
+                  {incidentPanelId === '__new__' ? 'Ny hendelse' : 'Rediger hendelse'}
+                </h2>
+                <p className="text-xs text-neutral-500">
+                  {KIND_LABELS[incPanelKind]} · {SEVERITY_LABELS[incPanelSeverity]}
+                </p>
               </div>
               <button type="button" onClick={closeIncidentPanel} className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-100`}>
                 <X className="size-5" />
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-              <div className="mb-4">
-                <label className={SETTINGS_FIELD_LABEL}>Status</label>
-                <select
-                  value={incidentPanelInc.status}
-                  onChange={(e) =>
-                    hse.updateIncident(incidentPanelInc.id, { status: e.target.value as Incident['status'] })
-                  }
-                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
-                >
-                  {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                    <option key={k} value={k}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <p className="text-xs text-neutral-500">
-                {formatWhen(incidentPanelInc.occurredAt)} · {incidentPanelInc.location}
-                {incidentPanelInc.department ? ` · ${incidentPanelInc.department}` : ''}
-              </p>
-              <p className="mt-2 text-sm text-neutral-800">{incidentPanelInc.description}</p>
-              {incidentPanelInc.experienceDetail ? (
-                <p className="mt-3 text-sm">
-                  <span className="font-medium text-neutral-700">Opplevelse:</span> {incidentPanelInc.experienceDetail}
-                </p>
-              ) : null}
-              {incidentPanelInc.injuredPerson ? (
-                <p className="mt-2 text-sm">
-                  <span className="font-medium text-neutral-700">Berørt:</span> {incidentPanelInc.injuredPerson}
-                </p>
-              ) : null}
-              {incidentPanelInc.witnesses ? (
-                <p className="mt-2 text-sm">
-                  <span className="font-medium text-neutral-700">Vitner:</span> {incidentPanelInc.witnesses}
-                </p>
-              ) : null}
-              {incidentPanelInc.immediateActions ? (
-                <p className="mt-2 text-sm">
-                  <span className="font-medium text-neutral-700">Umiddelbare tiltak:</span>{' '}
-                  {incidentPanelInc.immediateActions}
-                </p>
-              ) : null}
-              {incidentPanelInc.rootCause ? (
-                <p className="mt-2 text-sm">
-                  <span className="font-medium text-neutral-700">Rotårsak:</span> {incidentPanelInc.rootCause}
-                </p>
-              ) : null}
-              <div className="mt-6 border-t border-neutral-200 pt-4">
-                <p className={SETTINGS_FIELD_LABEL}>Korrigerende tiltak</p>
-                {incidentPanelInc.correctiveActions.map((a) => (
-                  <div key={a.id} className="mt-2 flex items-start gap-2 text-sm">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        hse.updateIncident(incidentPanelInc.id, {
-                          correctiveActions: incidentPanelInc.correctiveActions.map((x) =>
-                            x.id === a.id
-                              ? { ...x, completedAt: x.completedAt ? undefined : new Date().toISOString() }
-                              : x,
-                          ),
-                        })
-                      }
-                      className={`mt-0.5 shrink-0 ${a.completedAt ? 'text-emerald-600' : 'text-neutral-300'}`}
+            <form className="flex min-h-0 flex-1 flex-col" onSubmit={submitIncidentPanel}>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+                <div className={`${SETTINGS_LEAD} mb-4 rounded-none border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-600`}>
+                  Personvern: unngå unødvendige helseopplysninger i bilder. Tilgang til saken er begrenset i appen til melder,
+                  valgt nærmeste leder og administrator. Full rad-nivå RLS krever egen databasetabell for hendelser.
+                </div>
+
+                {(incPanelSeverity === 'high' || incPanelSeverity === 'critical') && (
+                  <div className="mb-4 rounded-none border-2 border-red-600 bg-red-50 px-4 py-3 text-sm text-red-950">
+                    <p className="font-bold">OBS — AML § 5-2</p>
+                    <p className="mt-1">
+                      Ved <strong>alvorlig personskade eller dødsfall</strong> har arbeidsgiver plikt til å varsle{' '}
+                      <strong>Arbeidstilsynet</strong> og <strong>politiet</strong> straks. Dette er ikke erstattet av
+                      registrering i dette systemet.
+                    </p>
+                    <ul className="mt-2 list-inside list-disc text-xs">
+                      <li>Sikre liv og helse — ring 113 ved behov.</li>
+                      <li>Varsle nærmeste leder og verneombud.</li>
+                      <li>Bruk Arbeidstilsynets offisielle meldingskanal uten opphold.</li>
+                    </ul>
+                    <a
+                      href={ARBEIDSTILSYNET_MELDING_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-flex text-xs font-semibold text-red-900 underline"
                     >
-                      <CheckCircle2 className="size-4" />
-                    </button>
-                    <div className={a.completedAt ? 'text-neutral-400 line-through' : ''}>
-                      {a.description} — <span className="text-neutral-500">{a.responsible}</span> · frist{' '}
-                      {formatDate(a.dueDate)}
-                    </div>
+                      Åpne Arbeidstilsynets meldingsskjema (ekstern lenke) →
+                    </a>
                   </div>
-                ))}
-                {(() => {
-                  const ca = caDraft[incidentPanelInc.id] ?? { description: '', responsible: '', dueDate: '' }
-                  return (
-                    <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                      <input
-                        placeholder="Tiltak"
-                        value={ca.description}
-                        onChange={(e) =>
-                          setCaDraft((d) => ({
-                            ...d,
-                            [incidentPanelInc.id]: { ...ca, description: e.target.value },
-                          }))
-                        }
-                        className={`${SETTINGS_INPUT} bg-neutral-50 text-xs`}
-                      />
-                      <input
-                        placeholder="Ansvarlig"
-                        value={ca.responsible}
-                        onChange={(e) =>
-                          setCaDraft((d) => ({
-                            ...d,
-                            [incidentPanelInc.id]: { ...ca, responsible: e.target.value },
-                          }))
-                        }
-                        className={`${SETTINGS_INPUT} bg-neutral-50 text-xs`}
-                      />
-                      <div className="flex gap-1">
-                        <input
-                          type="date"
-                          value={ca.dueDate}
-                          onChange={(e) =>
-                            setCaDraft((d) => ({
-                              ...d,
-                              [incidentPanelInc.id]: { ...ca, dueDate: e.target.value },
-                            }))
-                          }
-                          className={`${SETTINGS_INPUT} min-w-0 flex-1 bg-neutral-50 text-xs`}
-                        />
+                )}
+
+                <div className={TASK_PANEL_ROW_GRID}>
+                  <div>
+                    <h3 className="text-base font-semibold text-neutral-900">Mal og type</h3>
+                    <p className={`${SETTINGS_LEAD} mt-2`}>Velg skjemamal og hendelsestype.</p>
+                  </div>
+                  <div className={TASK_PANEL_INSET}>
+                    <p className={SETTINGS_FIELD_LABEL}>Skjemamal</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {FORM_TEMPLATES.map((tpl) => (
                         <button
+                          key={tpl.id}
                           type="button"
                           onClick={() => {
-                            if (!ca.description.trim() || !ca.dueDate) return
-                            hse.addCorrectiveAction(incidentPanelInc.id, ca)
-                            setCaDraft((d) => ({
-                              ...d,
-                              [incidentPanelInc.id]: { description: '', responsible: '', dueDate: '' },
-                            }))
+                            setIncPanelFormTemplate(tpl.id)
+                            setIncPanelKind(tpl.id === 'deviation' ? 'deviation' : tpl.showViolenceFields ? 'violence' : 'incident')
                           }}
-                          className={`${HERO_ACTION_CLASS} shrink-0 bg-[#1a3d32] text-white`}
+                          className={`${R_FLAT} border px-3 py-1.5 text-xs font-medium ${
+                            incPanelFormTemplate === tpl.id
+                              ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                              : 'border-neutral-200 bg-white text-neutral-700'
+                          }`}
                         >
-                          <Plus className="size-3.5" />
+                          {tpl.label}
                         </button>
+                      ))}
+                    </div>
+                    <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-kind">
+                          Type hendelse
+                        </label>
+                        <select
+                          id="inc-kind"
+                          value={incPanelKind}
+                          onChange={(e) => setIncPanelKind(e.target.value as Incident['kind'])}
+                          className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                        >
+                          <option value="incident">Ulykke / skade</option>
+                          <option value="near_miss">Nestenulykke</option>
+                          <option value="dangerous_cond">Farlige forhold (AML §2-3)</option>
+                          <option value="violence">Vold</option>
+                          <option value="threat">Trussel</option>
+                          <option value="deviation">Avvik</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-severity">
+                          Alvorlighetsgrad
+                        </label>
+                        <select
+                          id="inc-severity"
+                          value={incPanelSeverity}
+                          onChange={(e) => setIncPanelSeverity(e.target.value as Incident['severity'])}
+                          className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                        >
+                          <option value="low">Lav</option>
+                          <option value="medium">Middels</option>
+                          <option value="high">Høy</option>
+                          <option value="critical">Kritisk</option>
+                        </select>
                       </div>
                     </div>
-                  )
-                })()}
+                    <div className="mt-5">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-cat">
+                        Kategori
+                      </label>
+                      <select
+                        id="inc-cat"
+                        value={incPanelCategory}
+                        onChange={(e) => setIncPanelCategory(e.target.value as IncidentCategory)}
+                        className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                      >
+                        {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+                          <option key={k} value={k}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="mt-5">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-when">
+                        Tidspunkt
+                      </label>
+                      <input
+                        id="inc-when"
+                        type="datetime-local"
+                        value={incPanelOccurredAt}
+                        onChange={(e) => setIncPanelOccurredAt(e.target.value)}
+                        className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className={TASK_PANEL_ROW_GRID}>
+                  <div>
+                    <h3 className="text-base font-semibold text-neutral-900">Sted og avdeling</h3>
+                    <p className={`${SETTINGS_LEAD} mt-2`}>Avdeling velges fra organisasjonens enheter / avdelinger (felles nøkkel for rapporter).</p>
+                  </div>
+                  <div className={TASK_PANEL_INSET}>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-loc">
+                        Sted
+                      </label>
+                      <input
+                        id="inc-loc"
+                        value={incPanelLocation}
+                        onChange={(e) => setIncPanelLocation(e.target.value)}
+                        className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                      />
+                    </div>
+                    <div className="mt-5">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-dept">
+                        Avdeling / enhet {incidentPanelId === '__new__' ? '(påkrevd)' : ''}
+                      </label>
+                      <select
+                        id="inc-dept"
+                        value={incPanelDepartmentId}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          setIncPanelDepartmentId(v)
+                          const emp = org.displayEmployees.find((x) => x.id === incPanelReportedByEmployeeId)
+                          if (emp?.reportsToId && !incPanelNearestLeaderEmployeeId) {
+                            setIncPanelNearestLeaderEmployeeId(emp.reportsToId)
+                          }
+                        }}
+                        className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                        required={incidentPanelId === '__new__'}
+                      >
+                        <option value="">Velg …</option>
+                        {departmentSelectOptions.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={TASK_PANEL_ROW_GRID}>
+                  <div>
+                    <h3 className="text-base font-semibold text-neutral-900">Beskrivelse</h3>
+                  </div>
+                  <div className={TASK_PANEL_INSET}>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-desc">
+                      Hva skjedde? *
+                    </label>
+                    <textarea
+                      id="inc-desc"
+                      value={incPanelDescription}
+                      onChange={(e) => setIncPanelDescription(e.target.value)}
+                      rows={4}
+                      required
+                      className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                    />
+                  </div>
+                </div>
+
+                {FORM_TEMPLATES.find((t) => t.id === incPanelFormTemplate)?.showViolenceFields ? (
+                  <div className={TASK_PANEL_ROW_GRID}>
+                    <div>
+                      <h3 className="text-base font-semibold text-neutral-900">Vold / trusler</h3>
+                    </div>
+                    <div className={TASK_PANEL_INSET}>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-exp">
+                        Opplevelse / atferd
+                      </label>
+                      <textarea
+                        id="inc-exp"
+                        value={incPanelExperienceDetail}
+                        onChange={(e) => setIncPanelExperienceDetail(e.target.value)}
+                        rows={2}
+                        className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                      />
+                      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-inj">
+                            Berørt person
+                          </label>
+                          <input
+                            id="inc-inj"
+                            value={incPanelInjuredPerson}
+                            onChange={(e) => setIncPanelInjuredPerson(e.target.value)}
+                            className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                          />
+                        </div>
+                        <div>
+                          <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-wit">
+                            Vitner
+                          </label>
+                          <input
+                            id="inc-wit"
+                            value={incPanelWitnesses}
+                            onChange={(e) => setIncPanelWitnesses(e.target.value)}
+                            className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className={TASK_PANEL_ROW_GRID}>
+                  <div>
+                    <h3 className="text-base font-semibold text-neutral-900">Tiltak og rotårsak</h3>
+                    <p className={`${SETTINGS_LEAD} mt-2`}>
+                      Umiddelbare tiltak kan omsettes til Kanban-oppgave. Rotårsak fylles av nærmeste leder / saksbehandler, ikke
+                      nødvendigvis av melder.
+                    </p>
+                  </div>
+                  <div className={TASK_PANEL_INSET}>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-imm">
+                      Umiddelbare tiltak
+                    </label>
+                    <textarea
+                      id="inc-imm"
+                      value={incPanelImmediateActions}
+                      onChange={(e) => setIncPanelImmediateActions(e.target.value)}
+                      rows={3}
+                      className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                    />
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-ftitle">
+                          Oppgavetittel
+                        </label>
+                        <input
+                          id="inc-ftitle"
+                          value={incFollowTaskTitle}
+                          onChange={(e) => setIncFollowTaskTitle(e.target.value)}
+                          placeholder="f.eks. Sperre av maskin / renhold"
+                          className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                        />
+                      </div>
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-fdue">
+                          Frist
+                        </label>
+                        <input
+                          id="inc-fdue"
+                          type="date"
+                          value={incFollowDueDate}
+                          onChange={(e) => setIncFollowDueDate(e.target.value)}
+                          className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!incPanelImmediateActions.trim()}
+                      onClick={() => {
+                        if (!incPanelImmediateActions.trim()) return
+                        const title =
+                          incFollowTaskTitle.trim() ||
+                          `Oppfølging: ${KIND_LABELS[incPanelKind].slice(0, 40)}`
+                        addTask({
+                          title,
+                          description: incPanelImmediateActions.trim(),
+                          status: 'todo',
+                          assignee: incPanelNearestLeaderEmployeeId
+                            ? employeeLabelById(incPanelNearestLeaderEmployeeId)
+                            : 'HMS',
+                          assigneeEmployeeId: incPanelNearestLeaderEmployeeId || undefined,
+                          dueDate: incFollowDueDate.trim() || '—',
+                          module: 'hse',
+                          sourceType: 'hse_incident',
+                          sourceId: incidentPanelId !== '__new__' ? incidentPanelId : undefined,
+                          sourceLabel: incPanelDescription.slice(0, 120),
+                          ownerRole: 'HMS',
+                          requiresManagementSignOff:
+                            incPanelSeverity === 'high' || incPanelSeverity === 'critical',
+                        })
+                        setIncFollowTaskTitle('')
+                        setIncFollowDueDate('')
+                      }}
+                      className={`${HERO_ACTION_CLASS} mt-3 border border-neutral-300 bg-white text-neutral-800 disabled:opacity-40`}
+                    >
+                      <Plus className="size-4" />
+                      Opprett oppfølgingsoppgave
+                    </button>
+                    <div className="mt-5">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-root">
+                        Rotårsak (saksbehandler)
+                      </label>
+                      <textarea
+                        id="inc-root"
+                        value={incPanelRootCause}
+                        onChange={(e) => setIncPanelRootCause(e.target.value)}
+                        rows={2}
+                        disabled={
+                          !incidentPanelExisting
+                            ? true
+                            : !canEditIncidentRootCause(incidentPanelExisting, incidentViewerCtx)
+                        }
+                        className={`${SETTINGS_INPUT} mt-1.5 bg-white disabled:opacity-60`}
+                      />
+                      {incidentPanelExisting &&
+                      !canEditIncidentRootCause(incidentPanelExisting, incidentViewerCtx) ? (
+                        <p className="mt-1 text-xs text-neutral-500">
+                          Kun nærmeste leder (som er valgt på saken) eller administrator kan oppdatere rotårsak.
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={TASK_PANEL_ROW_GRID}>
+                  <div>
+                    <h3 className="text-base font-semibold text-neutral-900">Melder og leder</h3>
+                  </div>
+                  <div className={TASK_PANEL_INSET}>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-rep">
+                          Meldt av (ansatt)
+                        </label>
+                        <select
+                          id="inc-rep"
+                          value={incPanelReportedByEmployeeId}
+                          onChange={(e) => setIncPanelReportedByEmployeeId(e.target.value)}
+                          className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                        >
+                          <option value="">Velg …</option>
+                          {employeePickList.map((e) => (
+                            <option key={e.id} value={e.id}>
+                              {e.name}
+                              {e.unitName ? ` — ${e.unitName}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-lead">
+                          Nærmeste leder (varsles / oppfølging)
+                        </label>
+                        <select
+                          id="inc-lead"
+                          value={incPanelNearestLeaderEmployeeId}
+                          onChange={(e) => setIncPanelNearestLeaderEmployeeId(e.target.value)}
+                          className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                        >
+                          <option value="">Velg …</option>
+                          {employeePickList.map((e) => (
+                            <option key={e.id} value={e.id}>
+                              {e.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs text-neutral-500">
+                      Navn på melder settes automatisk fra valgt ansatt. Leder kan forhåndsvelges fra organisasjonsdata.
+                    </p>
+                    <div className="mt-5">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-status">
+                        Status
+                      </label>
+                      <select
+                        id="inc-status"
+                        value={incPanelStatus}
+                        onChange={(e) => setIncPanelStatus(e.target.value as Incident['status'])}
+                        className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                      >
+                        {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                          <option key={k} value={k}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={TASK_PANEL_ROW_GRID}>
+                  <div>
+                    <h3 className="text-base font-semibold text-neutral-900">Automatisk ruting</h3>
+                  </div>
+                  <div className={`${TASK_PANEL_INSET} space-y-3`}>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={incPanelRouteVerneombud}
+                        onChange={(e) => setIncPanelRouteVerneombud(e.target.checked)}
+                        className="size-4 rounded border-neutral-300"
+                      />
+                      Varsle verneombud
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={incPanelRouteAMU}
+                        onChange={(e) => setIncPanelRouteAMU(e.target.checked)}
+                        className="size-4 rounded border-neutral-300"
+                      />
+                      Opprett AMU-sak
+                    </label>
+                    {(incPanelSeverity === 'high' || incPanelSeverity === 'critical') && (
+                      <label className="flex items-center gap-2 text-sm text-red-800">
+                        <input
+                          type="checkbox"
+                          checked={incPanelArbeidstilsynetNotified}
+                          onChange={(e) => setIncPanelArbeidstilsynetNotified(e.target.checked)}
+                          className="size-4 rounded border-red-300"
+                        />
+                        Bekreftet at Arbeidstilsynet/politiet er varslet etter behov (intern kontroll)
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                <div className={TASK_PANEL_ROW_GRID}>
+                  <div>
+                    <h3 className="text-base font-semibold text-neutral-900">Bildebevis</h3>
+                    <p className={`${SETTINGS_LEAD} mt-2`}>Dra og slipp bilder (skadested / utstyr). Lagres i bucket «hse_incident_files».</p>
+                  </div>
+                  <div className={TASK_PANEL_INSET}>
+                    <label
+                      className={`${R_FLAT} flex min-h-[100px] cursor-pointer flex-col items-center justify-center border-2 border-dashed border-neutral-300 bg-white px-4 py-6 text-center text-sm text-neutral-600`}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        const files = [...e.dataTransfer.files].filter((f) => f.type.startsWith('image/'))
+                        setIncPanelEvidenceQueue((q) => [...q, ...files])
+                      }}
+                    >
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          const files = [...(e.target.files ?? [])]
+                          setIncPanelEvidenceQueue((q) => [...q, ...files])
+                        }}
+                      />
+                      Slipp bilder her eller klikk for å velge
+                    </label>
+                    {incPanelExistingPhotos.length > 0 ? (
+                      <ul className="mt-3 space-y-1 text-xs">
+                        {incPanelExistingPhotos.map((p) => (
+                          <li key={p.path} className="flex flex-wrap items-center gap-2">
+                            <span className="truncate">{p.fileName}</span>
+                            <button
+                              type="button"
+                              className="text-[#1a3d32] underline"
+                              onClick={() => void openSavedIncidentPhoto(p)}
+                            >
+                              Åpne
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {incPanelEvidenceQueue.length > 0 ? (
+                      <p className="mt-2 text-xs text-neutral-600">
+                        {incPanelEvidenceQueue.length} fil(er) klare for opplasting ved lagring.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                {incidentPanelExisting ? (
+                  <div className="border-b border-neutral-200 px-4 py-4 md:px-5">
+                    <p className={SETTINGS_FIELD_LABEL}>Korrigerende tiltak</p>
+                    {incidentPanelExisting.correctiveActions.map((a) => (
+                      <div key={a.id} className="mt-2 flex items-start gap-2 text-sm">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            hse.updateIncident(incidentPanelExisting.id, {
+                              correctiveActions: incidentPanelExisting.correctiveActions.map((x) =>
+                                x.id === a.id
+                                  ? { ...x, completedAt: x.completedAt ? undefined : new Date().toISOString() }
+                                  : x,
+                              ),
+                            })
+                          }
+                          className={`mt-0.5 shrink-0 ${a.completedAt ? 'text-emerald-600' : 'text-neutral-300'}`}
+                        >
+                          <CheckCircle2 className="size-4" />
+                        </button>
+                        <div className={a.completedAt ? 'text-neutral-400 line-through' : ''}>
+                          {a.description} — <span className="text-neutral-500">{a.responsible}</span> · frist{' '}
+                          {formatDate(a.dueDate)}
+                        </div>
+                      </div>
+                    ))}
+                    {(() => {
+                      const ca = caDraft[incidentPanelExisting.id] ?? { description: '', responsible: '', dueDate: '' }
+                      return (
+                        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                          <input
+                            placeholder="Tiltak"
+                            value={ca.description}
+                            onChange={(e) =>
+                              setCaDraft((d) => ({
+                                ...d,
+                                [incidentPanelExisting.id]: { ...ca, description: e.target.value },
+                              }))
+                            }
+                            className={`${SETTINGS_INPUT} bg-neutral-50 text-xs`}
+                          />
+                          <input
+                            placeholder="Ansvarlig"
+                            value={ca.responsible}
+                            onChange={(e) =>
+                              setCaDraft((d) => ({
+                                ...d,
+                                [incidentPanelExisting.id]: { ...ca, responsible: e.target.value },
+                              }))
+                            }
+                            className={`${SETTINGS_INPUT} bg-neutral-50 text-xs`}
+                          />
+                          <div className="flex gap-1">
+                            <input
+                              type="date"
+                              value={ca.dueDate}
+                              onChange={(e) =>
+                                setCaDraft((d) => ({
+                                  ...d,
+                                  [incidentPanelExisting.id]: { ...ca, dueDate: e.target.value },
+                                }))
+                              }
+                              className={`${SETTINGS_INPUT} min-w-0 flex-1 bg-neutral-50 text-xs`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!ca.description.trim() || !ca.dueDate) return
+                                hse.addCorrectiveAction(incidentPanelExisting.id, ca)
+                                setCaDraft((d) => ({
+                                  ...d,
+                                  [incidentPanelExisting.id]: { description: '', responsible: '', dueDate: '' },
+                                }))
+                              }}
+                              className={`${HERO_ACTION_CLASS} shrink-0 bg-[#1a3d32] text-white`}
+                            >
+                              <Plus className="size-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                ) : null}
+
+                {incidentPanelExisting ? (
+                  <div className="flex flex-wrap gap-2 px-4 py-4 md:px-5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm('Anonymiser personopplysninger? Kan ikke angres.'))
+                          hse.anonymiseIncident(incidentPanelExisting.id)
+                      }}
+                      className={`${HERO_ACTION_CLASS} border border-red-200 bg-red-50 text-red-800`}
+                    >
+                      <Trash2 className="size-3.5" />
+                      Anonymiser (GDPR)
+                    </button>
+                    <AddTaskLink
+                      title={`Oppfølging: ${KIND_LABELS[incidentPanelExisting.kind]}`}
+                      description={incidentPanelExisting.description.slice(0, 200)}
+                      module="hse"
+                      sourceType="hse_incident"
+                      sourceId={incidentPanelExisting.id}
+                      sourceLabel={`${incidentPanelExisting.location} · ${SEVERITY_LABELS[incidentPanelExisting.severity]}`}
+                      ownerRole="HMS / verneombud"
+                      requiresManagementSignOff={
+                        incidentPanelExisting.severity === 'high' ||
+                        incidentPanelExisting.severity === 'critical'
+                      }
+                      className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-xs text-[#1a3d32]`}
+                    />
+                  </div>
+                ) : null}
               </div>
-              <div className="mt-6 flex flex-wrap gap-2 border-t border-neutral-200 pt-4">
+              <div className="mt-auto flex flex-wrap justify-end gap-2 border-t border-neutral-200 bg-[#f0efe9] px-5 py-4">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (confirm('Anonymiser personopplysninger? Kan ikke angres.')) hse.anonymiseIncident(incidentPanelInc.id)
-                  }}
-                  className={`${HERO_ACTION_CLASS} border border-red-200 bg-red-50 text-red-800`}
+                  onClick={closeIncidentPanel}
+                  className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
                 >
-                  <Trash2 className="size-3.5" />
-                  Anonymiser (GDPR)
+                  Avbryt
                 </button>
-                <AddTaskLink
-                  title={`Oppfølging: ${KIND_LABELS[incidentPanelInc.kind]}`}
-                  description={incidentPanelInc.description.slice(0, 200)}
-                  module="hse"
-                  sourceType="hse_incident"
-                  sourceId={incidentPanelInc.id}
-                  sourceLabel={`${incidentPanelInc.location} · ${SEVERITY_LABELS[incidentPanelInc.severity]}`}
-                  ownerRole="HMS / verneombud"
-                  requiresManagementSignOff={
-                    incidentPanelInc.severity === 'high' || incidentPanelInc.severity === 'critical'
-                  }
-                  className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-xs text-[#1a3d32]`}
-                />
+                <button type="submit" className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white hover:bg-[#142e26]`}>
+                  <FileWarning className="size-4" />
+                  Lagre
+                </button>
               </div>
-            </div>
-            <div className="border-t border-neutral-200 px-5 py-4">
-              <button
-                type="button"
-                onClick={closeIncidentPanel}
-                className={`${HERO_ACTION_CLASS} w-full border border-neutral-300 bg-white text-neutral-800`}
-              >
-                Lukk
-              </button>
-            </div>
+            </form>
           </aside>
         </>
       ) : null}
@@ -3543,6 +4186,51 @@ const INSPECTION_KIND_LABEL: Record<Inspection['kind'], string> = {
   internal: 'Intern',
   external: 'Ekstern',
   audit: 'Revisjon',
+}
+
+function IncidentTableRow({
+  inc,
+  deptLabel,
+  rowClass,
+  cellClass,
+  onOpen,
+}: {
+  inc: Incident
+  deptLabel: string
+  rowClass: string
+  cellClass: string
+  onOpen: () => void
+}) {
+  return (
+    <tr className={rowClass}>
+      <td className={cellClass}>
+        <div className="flex flex-wrap gap-1">
+          <span className={`${R_FLAT} border px-2 py-0.5 text-xs font-semibold ${KIND_COLOURS[inc.kind]}`}>
+            {KIND_LABELS[inc.kind]}
+          </span>
+          <span className={`${R_FLAT} border px-2 py-0.5 text-xs font-semibold ${SEVERITY_COLOURS[inc.severity]}`}>
+            {SEVERITY_LABELS[inc.severity]}
+          </span>
+        </div>
+      </td>
+      <td className={`${cellClass} text-neutral-600`}>{formatWhen(inc.occurredAt)}</td>
+      <td className={cellClass}>
+        <div className="max-w-[200px] text-neutral-900">{inc.location}</div>
+        <div className="text-xs text-neutral-500">{deptLabel}</div>
+      </td>
+      <td className={cellClass}>{inc.reportedBy}</td>
+      <td className={cellClass}>
+        <span className={`${R_FLAT} border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium`}>
+          {STATUS_LABELS[inc.status]}
+        </span>
+      </td>
+      <td className={`${cellClass} text-right`}>
+        <button type="button" onClick={onOpen} className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}>
+          Åpne
+        </button>
+      </td>
+    </tr>
+  )
 }
 
 function InspectionTableRow({
