@@ -63,11 +63,6 @@ const tasksSubs: SubItem[] = [
       pathname === '/tasks' &&
       (!new URLSearchParams(search).get('view') || new URLSearchParams(search).get('view') === 'list'),
   },
-  {
-    label: 'Varslingssaker',
-    path: '/tasks?view=whistle',
-    match: ({ pathname, search }) => pathname === '/tasks' && new URLSearchParams(search).get('view') === 'whistle',
-  },
   { label: 'Oppgavelogg', path: '/tasks?view=audit', match: ({ pathname, search }) => pathname === '/tasks' && new URLSearchParams(search).get('view') === 'audit' },
 ]
 
@@ -94,7 +89,6 @@ const hseSubs: SubItem[] = [
   },
   { label: 'Vernerunder', path: '/hse?tab=rounds', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'rounds' },
   { label: 'Inspeksjoner', path: '/hse?tab=inspections', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'inspections' },
-  { label: 'Hendelser', path: '/hse?tab=incidents', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'incidents' },
   { label: 'SJA', path: '/hse?tab=sja', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'sja' },
   { label: 'Opplæring', path: '/hse?tab=training', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'training' },
   { label: 'Sykefravær', path: '/hse?tab=sickness', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'sickness' },
@@ -112,7 +106,6 @@ const orgHealthSubs: SubItem[] = [
   { label: 'Undersøkelser', path: '/org-health?tab=surveys', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'surveys' },
   { label: 'Sykefravær (NAV)', path: '/org-health?tab=nav', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'nav' },
   { label: 'AML-indikatorer', path: '/org-health?tab=metrics', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'metrics' },
-  { label: 'Anonym rapportering', path: '/org-health?tab=reporting', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'reporting' },
   { label: 'Logg', path: '/org-health?tab=audit', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'audit' },
   { label: 'Veikart', path: '/org-health/settings', match: ({ pathname }) => pathname === '/org-health/settings' },
 ]
@@ -165,6 +158,33 @@ const documentsSubs: SubItem[] = [
   },
 ]
 
+const workplaceReportingSubs: SubItem[] = [
+  {
+    label: 'Oversikt',
+    path: '/workplace-reporting',
+    match: ({ pathname }) => pathname === '/workplace-reporting',
+  },
+  {
+    label: 'Hendelser (HSE)',
+    path: '/hse?tab=incidents',
+    match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'incidents',
+    requirePerm: 'module.view.hse',
+  },
+  {
+    label: 'Anonym rapportering',
+    path: '/org-health?tab=reporting',
+    match: ({ pathname, search }) =>
+      pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'reporting',
+    requirePerm: 'module.view.org_health',
+  },
+  {
+    label: 'Varslingssaker',
+    path: '/tasks?view=whistle',
+    match: ({ pathname, search }) => pathname === '/tasks' && new URLSearchParams(search).get('view') === 'whistle',
+    requirePerm: 'module.view.tasks',
+  },
+]
+
 // ─── Navigation groups ────────────────────────────────────────────────────────
 //
 // The four groups from the spec. Each module carries its icon, route, sub-items,
@@ -213,7 +233,7 @@ const navGroups: NavGroup[] = [
         label: 'Oversikt',
         end: true,
         icon: Megaphone,
-        subs: [],
+        subs: workplaceReportingSubs,
         perm: 'module.view.workplace_reporting',
       },
     ],
@@ -280,6 +300,13 @@ function allModulesFrom(groups: NavGroup[]): NavModule[] {
 function activeModuleForPath(modules: NavModule[], pathname: string, search: string): NavModule {
   if (modules.length === 0) {
     return { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [] }
+  }
+  const hub = modules.find((m) => m.to === '/workplace-reporting')
+  if (hub) {
+    const sp = new URLSearchParams(search)
+    if (pathname === '/hse' && sp.get('tab') === 'incidents') return hub
+    if (pathname === '/org-health' && sp.get('tab') === 'reporting') return hub
+    if (pathname === '/tasks' && sp.get('view') === 'whistle') return hub
   }
   // Exact-match first (handles /council?tab=election vs /council)
   for (const mod of modules) {
