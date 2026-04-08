@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Activity,
+  AlertTriangle,
   BarChart3,
   BookMarked,
   CalendarClock,
@@ -9,19 +10,63 @@ import {
   FileSpreadsheet,
   HeartPulse,
   History,
+  Lock,
   Plus,
   Send,
   ShieldAlert,
   Users,
+  X,
 } from 'lucide-react'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
+import { Mainbox1 } from '../components/layout/Mainbox1'
+import { Table1Shell } from '../components/layout/Table1Shell'
+import { Table1Toolbar } from '../components/layout/Table1Toolbar'
 import { AML_REPORT_KINDS, labelForAmlReportKind } from '../data/amlAnonymousReporting'
 import { definitionForKey } from '../data/orgHealthMetrics'
 import { ALL_SURVEY_TEMPLATES, TEMPLATE_CATEGORIES } from '../data/surveyTemplates'
-import { useOrgHealth } from '../hooks/useOrgHealth'
+import { useDocuments } from '../hooks/useDocuments'
+import { useOrgHealth, type SurveyCloseSideEffect } from '../hooks/useOrgHealth'
 import { useOrganisation } from '../hooks/useOrganisation'
+import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { useTasks } from '../hooks/useTasks'
+import { useUiTheme } from '../hooks/useUiTheme'
+import {
+  mergeLayoutPayload,
+  table1BodyRowClass,
+  table1CellPadding,
+  table1HeaderRowClass,
+} from '../lib/layoutLabTokens'
+import {
+  SURVEY_K_ANONYMITY_MIN,
+  countActiveEmployeesInUserGroup,
+  evaluateSurveyAnonymityGate,
+} from '../lib/orgSurveyKAnonymity'
+import type { ContentBlock } from '../types/documents'
 import type { AmlReportKind, LaborMetricKey, Survey, SurveyQuestion, SurveySchedule, SurveyScheduleKind } from '../types/orgHealth'
+
+const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
+const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
+const HERO_ACTION_CLASS =
+  'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-none px-4 text-sm font-medium leading-none'
+const R_FLAT = 'rounded-none'
+const SETTINGS_THRESHOLD_BOX =
+  'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
+const SETTINGS_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-800'
+const SETTINGS_INPUT =
+  'mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900'
+const SETTINGS_LEAD = 'text-sm leading-relaxed text-neutral-600'
+const TASK_PANEL_ROW_GRID =
+  'grid grid-cols-1 gap-4 border-b border-neutral-200 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-5 md:py-5'
+const PANEL_INSET = 'rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6'
+
+function escapeWikiHtml(s: string) {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
 
 const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: HeartPulse },
@@ -45,16 +90,31 @@ function formatWhen(iso: string) {
 
 export function OrgHealthModule() {
   const oh = useOrgHealth()
+  const org = useOrganisation()
+  const { addTask } = useTasks()
+  const docs = useDocuments()
+  const navigate = useNavigate()
+  const menu1 = useOrgMenu1Styles()
+  const { payload: layoutPayload } = useUiTheme()
+  const layout = mergeLayoutPayload(layoutPayload)
+  const tableCell = `${table1CellPadding(layout)} ${TABLE_CELL_BASE}`
+  const theadRow = table1HeaderRowClass(layout)
+
   const { supabaseConfigured } = useOrgSetupContext()
   const [searchParams, setSearchParams] = useSearchParams()
 
   // Check scheduled surveys on every mount
-  useMemo(() => { oh.checkAndTriggerSchedules() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useMemo(() => {
+    oh.checkAndTriggerSchedules()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   type TabId = (typeof tabs)[number]['id']
   const tabParam = searchParams.get('tab')
   const tab: TabId =
     tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
   const setTab = (id: TabId) => setSearchParams({ tab: id }, { replace: true })
+  const [surveySearch, setSurveySearch] = useState('')
+  const [surveyPanelId, setSurveyPanelId] = useState<string | null>(null)
   const [respondSurveyId, setRespondSurveyId] = useState('')
   const [answers, setAnswers] = useState<Record<string, number | string>>({})
   const [navForm, setNavForm] = useState({
@@ -95,8 +155,169 @@ export function OrgHealthModule() {
     ? oh.surveys.find((s) => s.id === respondSurveyId)
     : openSurveys[0]
 
+  const surveysFiltered = useMemo(() => {
+    const q = surveySearch.trim().toLowerCase()
+    let list = [...oh.surveys]
+    if (q) {
+      list = list.filter(
+        (s) =>
+          s.title.toLowerCase().includes(q) ||
+          (s.description ?? '').toLowerCase().includes(q) ||
+          (s.targetGroupLabel ?? '').toLowerCase().includes(q),
+      )
+    }
+    list.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    return list
+  }, [oh.surveys, surveySearch])
+
+  const surveyStats = useMemo(() => {
+    const list = oh.surveys
+    return {
+      total: list.length,
+      open: list.filter((s) => s.status === 'open').length,
+      draft: list.filter((s) => s.status === 'draft').length,
+      closed: list.filter((s) => s.status === 'closed').length,
+    }
+  }, [oh.surveys])
+
+  const closeSurveyPanel = useCallback(() => setSurveyPanelId(null), [setSurveyPanelId])
+
+  const onLowPsychSafetyClose = useCallback(
+    (ev: SurveyCloseSideEffect) => {
+      addTask({
+        title: `Arbeidsmiljøoppfølging: ${ev.targetLabel ?? 'målgruppe'} (psykologisk trygghet)`,
+        description: `Undersøkelse «${ev.surveyTitle}» er lukket med lav gjennomsnittsscore på psykologisk trygghet (snitt ${ev.psychSafetyMean} på skala der høyere er bedre, n=${ev.responseCount}).\n\nI henhold til AML § 3-1 skal arbeidsmiljøet kartlegges og følges opp systematisk. Initier oppfølging i målgruppen og dokumenter tiltak.`,
+        status: 'todo',
+        assignee: 'HR / HMS',
+        dueDate: new Date().toISOString().slice(0, 10),
+        module: 'org_health',
+        sourceType: 'survey',
+        sourceId: ev.surveyId,
+        sourceLabel: ev.surveyTitle,
+        ownerRole: 'HR Manager',
+        requiresManagementSignOff: true,
+      })
+    },
+    [addTask],
+  )
+
+  const handleCloseSurveyFromPanel = useCallback(
+    (id: string) => {
+      oh.closeSurvey(id, { onLowPsychSafety: onLowPsychSafetyClose })
+    },
+    [oh, onLowPsychSafetyClose],
+  )
+
+  const handleAmuShare = useCallback(
+    async (survey: Survey) => {
+      const agg = oh.aggregates[survey.id]
+      const group = survey.targetGroupId ? org.groups.find((g) => g.id === survey.targetGroupId) : undefined
+      const gate = evaluateSurveyAnonymityGate({
+        anonymous: survey.anonymous,
+        targetGroup: group,
+        responseCount: agg?.count ?? 0,
+        employees: org.displayEmployees,
+        units: org.units,
+        orgHeadcountFallback: Math.max(org.totalEmployeeCount, 1),
+      })
+      const lines: string[] = []
+      lines.push(`Generert: ${new Date().toLocaleString('no-NO')}`)
+      lines.push(`Målgruppe: ${survey.targetGroupLabel ?? '—'}`)
+      lines.push(`Svar (n): ${agg?.count ?? 0}`)
+      if (survey.anonymous) {
+        lines.push(
+          gate.canShowDetailedResults
+            ? `k-anonymitet: målgruppe n≥${SURVEY_K_ANONYMITY_MIN} og svar n≥${SURVEY_K_ANONYMITY_MIN} (OK).`
+            : `ADVARSEL: Resultater under k=${SURVEY_K_ANONYMITY_MIN} — vis kun aggregerte tall på høyere nivå. Dette dokumentet inneholder ikke rå fritekst.`,
+        )
+      }
+      if (agg && agg.count > 0) {
+        lines.push('Likert-snitt per spørsmål:')
+        for (const q of survey.questions) {
+          const isL = q.type === 'likert_5' || q.type === 'likert_7' || q.type === 'scale_10'
+          if (!isL) continue
+          const m = agg.likertMeans[q.id]
+          if (m != null) lines.push(`  • ${q.text.slice(0, 120)}${q.text.length > 120 ? '…' : ''}: ${m}`)
+        }
+        const subs = Object.keys(agg.subscaleMeans ?? {})
+        if (subs.length) {
+          lines.push('Del-skala (gjennomsnitt av spørsmålssnitt):')
+          for (const sub of subs.sort()) {
+            lines.push(`  • ${sub}: ${agg.subscaleMeans[sub]}`)
+          }
+        }
+        if (survey.anonymous) {
+          lines.push('Fritekst: ikke vedlagt (anonym modus — kun antall som har levert fritekst i undersøkelsesverktøyet).')
+        }
+      } else {
+        lines.push('Ingen svar å rapportere ennå.')
+      }
+      lines.push('')
+      lines.push('Forslag til AMU-sak: Gjennomgå tallene og beslutte eventuelle tiltak jf. AML § 7-2 og § 4-3.')
+
+      const htmlBody = lines.map((l) => escapeWikiHtml(l)).join('<br/>')
+      const blocks: ContentBlock[] = [
+        {
+          kind: 'alert',
+          variant: 'info',
+          text: 'Dette dokumentet inneholder kun statistikk til bruk i AMU. Rå fritekst fra undersøkelsen er ikke inkludert.',
+        },
+        { kind: 'heading', level: 2, text: 'Sammendrag' },
+        { kind: 'text', body: `<p>${htmlBody}</p>` },
+        {
+          kind: 'law_ref',
+          ref: 'AML § 7-2',
+          description: 'AMU skal delta i arbeidet med å fullføre og holde ajour bedriftens oversikt over risofaktorer i arbeidsmiljøet.',
+        },
+      ]
+
+      const spaceId = docs.spaces[0]?.id
+      if (!spaceId) {
+        window.alert('Opprett minst ett dokumentområde under Dokumenter før du deler til AMU.')
+        return
+      }
+      try {
+        const page = await docs.createPage(
+          spaceId,
+          `AMU — ${survey.title.slice(0, 72)}`,
+          'standard',
+          blocks,
+          {
+            summary: 'Statistisk sammendrag for AMU (uten fritekst).',
+            legalRefs: ['AML § 7-2', 'AML § 4-3'],
+          },
+        )
+        await docs.publishPage(page.id)
+        oh.markSurveyAmuShared(survey.id)
+        navigate(`/documents/page/${page.id}`)
+      } catch (e) {
+        console.warn(e)
+        window.alert('Kunne ikke opprette wiki-side. Prøv igjen eller sjekk tilkobling.')
+      }
+    },
+    [docs, navigate, oh, org.displayEmployees, org.groups, org.totalEmployeeCount, org.units],
+  )
+
+  useEffect(() => {
+    if (!surveyPanelId) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [surveyPanelId])
+
+  useEffect(() => {
+    if (!surveyPanelId) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeSurveyPanel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [surveyPanelId, closeSurveyPanel])
+
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
+    <div className={PAGE_WRAP}>
       <nav className="mb-4 text-sm text-neutral-600">
         <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
           Prosjekter
@@ -215,78 +436,255 @@ export function OrgHealthModule() {
       )}
 
       {tab === 'surveys' && (
-        <div className="mt-8 space-y-8">
-          <SurveyCreator oh={oh} />
-
-
-          <div className="space-y-6">
-            {oh.surveys.map((s) => (
-            <SurveyAdminCard
-              key={s.id}
-              survey={s}
-              aggregate={oh.aggregates[s.id]}
-              onOpen={() => oh.openSurvey(s.id)}
-              onClose={() => oh.closeSurvey(s.id)}
-              onAddQuestion={(text, type, req) => oh.addQuestion(s.id, text, type, req)}
-              onSetSchedule={(sched) => oh.setSchedule(s.id, sched)}
-            />
-            ))}
+        <div className="mt-8 space-y-6">
+          <div className={`${R_FLAT} flex items-start gap-3 border border-sky-200 bg-sky-50 px-4 py-3`}>
+            <Lock className="mt-0.5 size-4 shrink-0 text-sky-800" />
+            <p className="text-sm text-sky-950">
+              <strong>k-anonymitet (n≥{SURVEY_K_ANONYMITY_MIN}):</strong> For anonyme undersøkelser vises detaljerte
+              resultater kun når både målgruppen og antall svar er minst {SURVEY_K_ANONYMITY_MIN}. Ellers må resultater
+              rapporteres på høyere nivå (større enhet eller hele virksomheten) for å redusere risiko for
+              gjenkjenning — jf. Datatilsynets veiledning og GDPR.
+            </p>
           </div>
 
-          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Simuler svar (demo)</h2>
-            <p className="mt-1 text-sm text-neutral-600">
-              Én innsending per nettleserøkt per undersøkelse. Ved anonym undersøkelse vises ikke fritekst i rapport
-              før undersøkelsen er lukket.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <select
-                value={activeRespondSurvey?.id ?? ''}
-                onChange={(e) => {
-                  setRespondSurveyId(e.target.value)
-                  setAnswers({})
-                }}
-                className="rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+          <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <h2
+                className="text-2xl font-semibold text-neutral-900 md:text-3xl"
+                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
               >
-                {openSurveys.length === 0 ? (
-                  <option value="">Ingen åpne undersøkelser</option>
-                ) : (
-                  openSurveys.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.title}
-                    </option>
-                  ))
-                )}
-              </select>
+                Undersøkelser
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-neutral-600">
+                Vitenskapelig forankrede maler (UWES, psykologisk trygghet, re:Work). Resultater og simulering i samme
+                opplegg som rapporter — med sidepanel for administrasjon og k-anonyme visningsregler.
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                  Totalt <strong className="ml-1 font-semibold">{surveyStats.total}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
+                  Åpne <strong className="ml-1 font-semibold">{surveyStats.open}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
+                  Utkast <strong className="ml-1 font-semibold">{surveyStats.draft}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-700`}>
+                  Lukket <strong className="ml-1 font-semibold">{surveyStats.closed}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSurveyPanelId('__new__')}
+                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                >
+                  <Plus className="size-4 shrink-0" />
+                  Ny undersøkelse
+                </button>
+              </div>
             </div>
-            {activeRespondSurvey && activeRespondSurvey.status === 'open' ? (
-              <ResponseForm
-                survey={activeRespondSurvey}
-                answers={answers}
-                setAnswers={setAnswers}
-                onSubmit={() => {
-                  for (const q of activeRespondSurvey.questions) {
-                    if (!q.required) continue
-                    if (q.type === 'likert_5' && answers[q.id] == null) {
-                      alert(`Besvar: ${q.text.slice(0, 80)}…`)
-                      return
-                    }
-                    if (q.type === 'text' && !(typeof answers[q.id] === 'string' && String(answers[q.id]).trim())) {
-                      alert(`Besvar: ${q.text.slice(0, 80)}…`)
-                      return
-                    }
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={`${R_FLAT} ${SETTINGS_THRESHOLD_BOX}`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold tabular-nums">{surveyStats.total}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Registrert</div>
+            </div>
+            <div className={`${R_FLAT} ${SETTINGS_THRESHOLD_BOX}`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold tabular-nums">{surveyStats.open}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Aktive</div>
+            </div>
+            <div className={`${R_FLAT} ${SETTINGS_THRESHOLD_BOX}`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold tabular-nums">{oh.responses.length}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Svar totalt</div>
+            </div>
+            <div className={`${R_FLAT} ${SETTINGS_THRESHOLD_BOX}`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold tabular-nums">{SURVEY_K_ANONYMITY_MIN}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Min. n (k-anonymitet)</div>
+            </div>
+          </div>
+
+          <Mainbox1
+            title="Alle undersøkelser"
+            subtitle="Sortert etter opprettet. Åpne en rad i sidevinduet for plan, spørsmål, resultater og deling til AMU."
+          >
+            <Table1Shell
+              toolbar={
+                <Table1Toolbar
+                  searchSlot={
+                    <div className="min-w-[200px] flex-1">
+                      <label className="sr-only" htmlFor="oh-survey-search">
+                        Søk
+                      </label>
+                      <input
+                        id="oh-survey-search"
+                        value={surveySearch}
+                        onChange={(e) => setSurveySearch(e.target.value)}
+                        placeholder="Søk i tittel, målgruppe …"
+                        className={`${SETTINGS_INPUT} bg-white`}
+                      />
+                    </div>
                   }
-                  const ok = oh.submitResponse(activeRespondSurvey.id, answers)
-                  if (ok) setAnswers({})
-                  else alert('Kunne ikke sende (allerede svart eller lukket).')
-                }}
-              />
-            ) : (
-              <p className="mt-4 text-sm text-neutral-500">Velg en åpen undersøkelse.</p>
-            )}
-          </section>
+                />
+              }
+            >
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse text-left">
+                  <thead>
+                    <tr className={theadRow}>
+                      <th className={tableCell}>Tittel</th>
+                      <th className={tableCell}>Status</th>
+                      <th className={tableCell}>Målgruppe</th>
+                      <th className={tableCell}>Svar</th>
+                      <th className={tableCell}>Personvern</th>
+                      <th className={`${tableCell} text-right`}>Handling</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {surveysFiltered.map((s, ri) => {
+                      const agg = oh.aggregates[s.id]
+                      const n = agg?.count ?? 0
+                      const group = s.targetGroupId ? org.groups.find((g) => g.id === s.targetGroupId) : undefined
+                      const gate = evaluateSurveyAnonymityGate({
+                        anonymous: s.anonymous,
+                        targetGroup: group,
+                        responseCount: n,
+                        employees: org.displayEmployees,
+                        units: org.units,
+                        orgHeadcountFallback: Math.max(org.totalEmployeeCount, 1),
+                      })
+                      return (
+                        <tr key={s.id} className={table1BodyRowClass(layout, ri)}>
+                          <td className={tableCell}>
+                            <div className="max-w-[240px] font-medium text-neutral-900">{s.title}</div>
+                            <div className="text-xs text-neutral-500">{s.questions.length} spørsmål</div>
+                          </td>
+                          <td className={tableCell}>
+                            <span
+                              className={`${R_FLAT} border px-2 py-0.5 text-xs font-medium ${
+                                s.status === 'open'
+                                  ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                                  : s.status === 'draft'
+                                    ? 'border-amber-200 bg-amber-50 text-amber-900'
+                                    : 'border-neutral-200 bg-neutral-100 text-neutral-600'
+                              }`}
+                            >
+                              {s.status === 'open' ? 'Åpen' : s.status === 'draft' ? 'Utkast' : 'Lukket'}
+                            </span>
+                          </td>
+                          <td className={`${tableCell} text-neutral-600`}>
+                            {s.targetGroupLabel ?? '—'}
+                            {s.anonymous && !gate.targetMeetsK ? (
+                              <div className="mt-1 text-xs text-amber-700">Liten målgruppe (n={gate.targetCount})</div>
+                            ) : null}
+                          </td>
+                          <td className={tableCell}>
+                            <span className="tabular-nums">{n}</span>
+                            {s.anonymous && n > 0 && !gate.responsesMeetK ? (
+                              <div className="text-xs text-amber-700">&lt; {SURVEY_K_ANONYMITY_MIN}</div>
+                            ) : null}
+                          </td>
+                          <td className={tableCell}>
+                            {s.anonymous ? (
+                              <span className={`${R_FLAT} border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs`}>
+                                Anonym
+                              </span>
+                            ) : (
+                              <span className="text-xs text-neutral-500">Identifiserbar</span>
+                            )}
+                          </td>
+                          <td className={`${tableCell} text-right`}>
+                            <button
+                              type="button"
+                              onClick={() => setSurveyPanelId(s.id)}
+                              className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+                            >
+                              Åpne
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {surveysFiltered.length === 0 ? (
+                <p className="px-4 py-10 text-center text-sm text-neutral-500">Ingen undersøkelser matcher søket.</p>
+              ) : null}
+            </Table1Shell>
+          </Mainbox1>
+
+          <Mainbox1 title="Simuler svar (demo)" subtitle="Én innsending per nettleserøkt. Anonyme undersøkelser lagrer ikke fritekstinnhold.">
+            <div className="border-t border-neutral-100 px-4 py-4 sm:px-5">
+              <div className="flex flex-wrap gap-3">
+                <select
+                  value={activeRespondSurvey?.id ?? ''}
+                  onChange={(e) => {
+                    setRespondSurveyId(e.target.value)
+                    setAnswers({})
+                  }}
+                  className={`${SETTINGS_INPUT} w-auto max-w-md bg-white`}
+                >
+                  {openSurveys.length === 0 ? (
+                    <option value="">Ingen åpne undersøkelser</option>
+                  ) : (
+                    openSurveys.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.title}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+              {activeRespondSurvey && activeRespondSurvey.status === 'open' ? (
+                <ResponseForm
+                  survey={activeRespondSurvey}
+                  answers={answers}
+                  setAnswers={setAnswers}
+                  onSubmit={() => {
+                    for (const q of activeRespondSurvey.questions) {
+                      if (!q.required) continue
+                      const isLikert = q.type === 'likert_5' || q.type === 'likert_7' || q.type === 'scale_10'
+                      if (isLikert && answers[q.id] == null) {
+                        alert(`Besvar: ${q.text.slice(0, 80)}…`)
+                        return
+                      }
+                      if (q.type === 'yes_no' && answers[q.id] == null) {
+                        alert(`Besvar: ${q.text.slice(0, 80)}…`)
+                        return
+                      }
+                      if (
+                        q.type === 'text' &&
+                        !(typeof answers[q.id] === 'string' && String(answers[q.id]).trim())
+                      ) {
+                        alert(`Besvar: ${q.text.slice(0, 80)}…`)
+                        return
+                      }
+                    }
+                    const ok = oh.submitResponse(activeRespondSurvey.id, answers)
+                    if (ok) setAnswers({})
+                    else alert('Kunne ikke sende (allerede svart eller lukket).')
+                  }}
+                />
+              ) : (
+                <p className="mt-4 text-sm text-neutral-500">Velg en åpen undersøkelse.</p>
+              )}
+            </div>
+          </Mainbox1>
         </div>
       )}
+
+      {surveyPanelId ? (
+        <SurveyAdminPanel
+          mode={surveyPanelId === '__new__' ? 'create' : 'edit'}
+          surveyId={surveyPanelId === '__new__' ? null : surveyPanelId}
+          oh={oh}
+          org={org}
+          onClose={closeSurveyPanel}
+          onCreated={(id) => setSurveyPanelId(id)}
+          onCloseSurvey={handleCloseSurveyFromPanel}
+          onAmuShare={handleAmuShare}
+        />
+      ) : null}
 
       {tab === 'nav' && (
         <div className="mt-8 space-y-6">
@@ -818,198 +1216,367 @@ export function OrgHealthModule() {
   )
 }
 
-function SurveyAdminCard({
-  survey,
-  aggregate,
-  onOpen,
+function SurveyAdminPanel({
+  mode,
+  surveyId,
+  oh,
+  org,
   onClose,
-  onAddQuestion,
-  onSetSchedule,
+  onCreated,
+  onCloseSurvey,
+  onAmuShare,
 }: {
-  survey: Survey
-  aggregate?: {
-    count: number
-    likertMeans: Record<string, number>
-    textSamples: Record<string, string[]>
-    anonymousTextCount?: Record<string, number>
-  }
-  onOpen: () => void
+  mode: 'create' | 'edit'
+  surveyId: string | null
+  oh: ReturnType<typeof useOrgHealth>
+  org: ReturnType<typeof useOrganisation>
   onClose: () => void
-  onAddQuestion: (text: string, type: SurveyQuestion['type'], required: boolean) => void
-  onSetSchedule: (s: SurveySchedule | undefined) => void
+  onCreated: (id: string) => void
+  onCloseSurvey: (id: string) => void
+  onAmuShare: (s: Survey) => void | Promise<void>
 }) {
+  const survey = surveyId ? oh.surveys.find((s) => s.id === surveyId) : undefined
+  const aggregate = surveyId ? oh.aggregates[surveyId] : undefined
   const [qText, setQText] = useState('')
   const [qType, setQType] = useState<SurveyQuestion['type']>('likert_5')
   const [showScheduleEditor, setShowScheduleEditor] = useState(false)
+  const [amuBusy, setAmuBusy] = useState(false)
 
-  const sched = survey.schedule
+  if (mode === 'edit' && surveyId && !survey) {
+    return null
+  }
+
+  const targetGroup = survey?.targetGroupId ? org.groups.find((g) => g.id === survey.targetGroupId) : undefined
+  const targetN = survey
+    ? countActiveEmployeesInUserGroup(
+        targetGroup,
+        org.displayEmployees,
+        org.units,
+        Math.max(org.totalEmployeeCount, 1),
+      )
+    : 0
+  const gate = survey
+    ? evaluateSurveyAnonymityGate({
+        anonymous: survey.anonymous,
+        targetGroup,
+        responseCount: aggregate?.count ?? 0,
+        employees: org.displayEmployees,
+        units: org.units,
+        orgHeadcountFallback: Math.max(org.totalEmployeeCount, 1),
+      })
+    : null
+
+  const sched = survey?.schedule
   const now = new Date()
   const nextRun = sched?.nextRunAt ? new Date(sched.nextRunAt) : null
   const daysUntilNext = nextRun ? Math.ceil((nextRun.getTime() - now.getTime()) / 86400000) : null
   const scheduleLabel = sched ? SCHEDULE_KIND_LABELS[sched.kind] : null
-  return (
-    <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 className="font-semibold text-neutral-900">{survey.title}</h3>
-          <p className="text-sm text-neutral-600">{survey.description}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-            <span>{survey.anonymous ? 'Anonym' : 'Ikke anonym'}</span>
-            <span>·</span>
-            <span className={`rounded-full px-2 py-0.5 font-medium ${survey.status === 'open' ? 'bg-emerald-100 text-emerald-800' : survey.status === 'closed' ? 'bg-neutral-200 text-neutral-600' : 'bg-amber-100 text-amber-800'}`}>
-              {survey.status === 'open' ? 'Åpen' : survey.status === 'closed' ? 'Lukket' : 'Utkast'}
-            </span>
-            <span>· {survey.questions.length} spørsmål</span>
-            {survey.targetGroupLabel && <span>· {survey.targetGroupLabel}</span>}
-          </div>
-          {/* Schedule badge */}
-          {sched && (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${sched.enabled ? 'bg-sky-100 text-sky-800' : 'bg-neutral-100 text-neutral-500'}`}>
-                <CalendarClock className="size-3.5" />
-                {scheduleLabel}
-                {sched.enabled && daysUntilNext != null && (
-                  <span className="ml-1 font-normal">
-                    {daysUntilNext <= 0 ? '— kjøres nå' : `— om ${daysUntilNext}d`}
-                  </span>
-                )}
-                {!sched.enabled && ' (deaktivert)'}
-              </span>
-              {sched.runCount > 0 && (
-                <span className="text-xs text-neutral-400">Kjørt {sched.runCount} gang{sched.runCount !== 1 ? 'er' : ''}</span>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setShowScheduleEditor((v) => !v)}
-            title="Planlegg"
-            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${showScheduleEditor ? 'border-sky-300 bg-sky-50 text-sky-800' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'}`}
-          >
-            <CalendarClock className="inline size-3.5 mr-1" />
-            Plan
-          </button>
-          {survey.status === 'draft' ? (
-            <button type="button" onClick={onOpen} disabled={survey.questions.length === 0}
-              className="rounded-full bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40">
-              Åpne nå
-            </button>
-          ) : null}
-          {survey.status === 'open' ? (
-            <button type="button" onClick={onClose}
-              className="rounded-full border border-neutral-300 px-3 py-1.5 text-xs font-medium">
-              Lukk
-            </button>
-          ) : null}
-        </div>
-      </div>
 
-      {/* Inline schedule editor */}
-      {showScheduleEditor && (
-        <div className="mt-4 border-t border-neutral-100 pt-4">
-          <ScheduleEditor
-            current={survey.schedule}
-            onSave={(s) => { onSetSchedule(s); setShowScheduleEditor(false) }}
-            onRemove={() => { onSetSchedule(undefined); setShowScheduleEditor(false) }}
-          />
-        </div>
-      )}
-      <ul className="mt-4 space-y-2 border-t border-neutral-100 pt-4 text-sm">
-        {survey.questions.map((q) => (
-          <li key={q.id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-[#faf8f4] px-3 py-2">
-            <span>{q.text}</span>
-            <span className="text-xs text-neutral-500">
-              {q.type === 'likert_5' ? 'Likert 1–5' : 'Fritekst'}
-              {aggregate?.likertMeans[q.id] != null ? (
-                <span className="ml-2 font-medium text-[#1a3d32]">
-                  snitt {aggregate.likertMeans[q.id]} (n={aggregate.count})
-                </span>
-              ) : null}
-            </span>
-          </li>
-        ))}
-      </ul>
-      {survey.status === 'draft' && (
-        <div className="mt-4 flex flex-wrap gap-2 border-t border-neutral-100 pt-4">
-          <input
-            value={qText}
-            onChange={(e) => setQText(e.target.value)}
-            placeholder="Nytt spørsmål"
-            className="min-w-[200px] flex-1 rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-          />
-          <select
-            value={qType}
-            onChange={(e) => setQType(e.target.value as SurveyQuestion['type'])}
-            className="rounded-xl border border-neutral-200 px-2 py-2 text-sm"
-          >
-            <option value="likert_5">Likert 1–5</option>
-            <option value="text">Fritekst</option>
-          </select>
-          <button
-            type="button"
-            onClick={() => {
-              if (!qText.trim()) return
-              onAddQuestion(qText, qType, true)
-              setQText('')
-            }}
-            className="rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-          >
-            Legg til
+  function likertLabel(t: SurveyQuestion['type']) {
+    if (t === 'likert_5') return 'Likert 1–5'
+    if (t === 'likert_7') return 'Likert 0–6'
+    if (t === 'scale_10') return 'Skala 0–10'
+    if (t === 'yes_no') return 'Ja/Nei'
+    return 'Fritekst'
+  }
+
+  return (
+    <>
+      <button type="button" aria-label="Lukk" className="fixed inset-0 z-[60] bg-black/40" onClick={onClose} />
+      <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[920px] flex-col border-l border-neutral-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-neutral-900">
+              {mode === 'create' ? 'Ny undersøkelse' : survey?.title ?? 'Undersøkelse'}
+            </h2>
+            <p className="text-xs text-neutral-500">
+              {mode === 'create' ? 'Opprett fra mal eller egendefinert — deretter rediger og åpne.' : survey?.description}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-100`}>
+            <X className="size-5" />
           </button>
         </div>
-      )}
-      {survey.status === 'closed' && aggregate && aggregate.count > 0 ? (
-        <div className="mt-4">
-          <AddTaskLink
-            title={`Tiltak etter undersøkelse: ${survey.title.slice(0, 60)}`}
-            module="org_health"
-            sourceType="survey"
-            sourceId={survey.id}
-            sourceLabel={survey.title}
-            ownerRole="HR / leder"
-            requiresManagementSignOff
-          />
-        </div>
-      ) : null}
-      {aggregate && aggregate.count > 0 && (
-        <div className="mt-4 rounded-xl bg-neutral-50 p-3 text-xs text-neutral-600">
-          {survey.anonymous ? (
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {mode === 'create' ? (
+            <div className="p-5">
+              <SurveyCreator oh={oh} onCreated={onCreated} />
+            </div>
+          ) : survey ? (
             <>
-              <strong className="text-neutral-800">Fritekst (anonym modus):</strong>
-              <p className="mt-1 text-neutral-600">
-                Innhold lagres ikke — kun antall som har levert fritekst vises.
-              </p>
-              {survey.questions
-                .filter((q) => q.type === 'text')
-                .map((q) => (
-                  <p key={q.id} className="mt-2">
-                    {q.text.slice(0, 60)}… —{' '}
-                    <strong>{aggregate.anonymousTextCount?.[q.id] ?? 0}</strong> svar med tekst (av n=
-                    {aggregate.count})
+              <div className={`${TASK_PANEL_ROW_GRID} border-b border-neutral-200`}>
+                <div>
+                  <p className={SETTINGS_LEAD}>
+                    Administrer tidsplan, åpning og resultater. Ved lukking vurderes psykologisk trygghet — ved lav score
+                    (n≥{SURVEY_K_ANONYMITY_MIN}) opprettes oppfølgingsoppgave for HR.
                   </p>
-                ))}
-            </>
-          ) : (
-            <>
-              <strong className="text-neutral-800">Fritekst (utdrag):</strong>
-              {survey.questions
-                .filter((q) => q.type === 'text')
-                .map((q) => (
-                  <div key={q.id} className="mt-2">
-                    {aggregate.textSamples[q.id]?.slice(0, 5).map((t, i) => (
-                      <p key={i} className="mt-1 border-l-2 border-[#c9a227] pl-2">
-                        {t}
-                      </p>
-                    )) ?? <p className="text-neutral-400">Ingen tekst ennå.</p>}
+                </div>
+                <div className={PANEL_INSET}>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowScheduleEditor((v) => !v)}
+                      className={`${HERO_ACTION_CLASS} border border-sky-300 bg-white text-sky-900`}
+                    >
+                      <CalendarClock className="size-4" />
+                      Planlegg
+                    </button>
+                    {survey.status === 'draft' ? (
+                      <button
+                        type="button"
+                        onClick={() => oh.openSurvey(survey.id)}
+                        disabled={survey.questions.length === 0}
+                        className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white disabled:opacity-40`}
+                      >
+                        Åpne for svar
+                      </button>
+                    ) : null}
+                    {survey.status === 'open' ? (
+                      <button
+                        type="button"
+                        onClick={() => onCloseSurvey(survey.id)}
+                        className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+                      >
+                        Lukk undersøkelse
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={amuBusy || (aggregate?.count ?? 0) === 0}
+                      onClick={() => {
+                        void (async () => {
+                          setAmuBusy(true)
+                          try {
+                            await onAmuShare(survey)
+                          } finally {
+                            setAmuBusy(false)
+                          }
+                        })()
+                      }}
+                      className={`${HERO_ACTION_CLASS} border border-[#1a3d32] bg-white text-[#1a3d32] disabled:opacity-40`}
+                    >
+                      Del resultat med AMU
+                    </button>
                   </div>
-                ))}
+                  {survey.amuSharedSummaryAt ? (
+                    <p className="mt-2 text-xs text-emerald-800">
+                      Delt {new Date(survey.amuSharedSummaryAt).toLocaleString('no-NO')} — sjekk dokumentbiblioteket.
+                    </p>
+                  ) : null}
+                  {survey.lowPsychSafetyTaskCreatedAt ? (
+                    <p className="mt-2 text-xs text-amber-800">
+                      Automatisk HR-oppfølgingsoppgave trigget ved lukking (
+                      {new Date(survey.lowPsychSafetyTaskCreatedAt).toLocaleString('no-NO')}).
+                    </p>
+                  ) : null}
+                  {sched && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                      <span
+                        className={`${R_FLAT} inline-flex items-center gap-1 border px-2 py-1 font-medium ${sched.enabled ? 'border-sky-200 bg-sky-50 text-sky-900' : 'border-neutral-200 bg-neutral-50 text-neutral-500'}`}
+                      >
+                        <CalendarClock className="size-3.5" />
+                        {scheduleLabel}
+                        {sched.enabled && daysUntilNext != null ? (
+                          <span>{daysUntilNext <= 0 ? ' — nå' : ` — om ${daysUntilNext}d`}</span>
+                        ) : null}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {showScheduleEditor && (
+                <div className="border-b border-neutral-200 px-5 py-4">
+                  <ScheduleEditor
+                    current={survey.schedule}
+                    onSave={(s) => {
+                      oh.setSchedule(survey.id, s)
+                      setShowScheduleEditor(false)
+                    }}
+                    onRemove={() => {
+                      oh.setSchedule(survey.id, undefined)
+                      setShowScheduleEditor(false)
+                    }}
+                  />
+                </div>
+              )}
+
+              {gate && survey.anonymous ? (
+                <div
+                  className={`mx-5 mt-4 ${R_FLAT} border px-4 py-3 text-sm ${
+                    gate.canShowDetailedResults ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-amber-300 bg-amber-50 text-amber-950'
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                    <div>
+                      <strong>k-anonymitet:</strong> Målgruppe n={gate.targetCount}, svar n={gate.responseCount}.{' '}
+                      {gate.canShowDetailedResults
+                        ? `Begge er ≥ ${SURVEY_K_ANONYMITY_MIN} — detaljerte tall kan vises.`
+                        : 'Resultater skal ikke vises på dette detaljnivået uten oppjustering til større enhet.'}
+                      {!gate.canShowDetailedResults && gate.rollupHint ? (
+                        <p className="mt-2 text-xs">{gate.rollupHint}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="px-5 py-4">
+                <p className={SETTINGS_FIELD_LABEL}>Spørsmål</p>
+                <ul className="mt-2 space-y-2 text-sm">
+                  {survey.questions.map((q) => {
+                    const isLikert = q.type === 'likert_5' || q.type === 'likert_7' || q.type === 'scale_10'
+                    const showMean =
+                      aggregate &&
+                      aggregate.count > 0 &&
+                      (!survey.anonymous || gate?.canShowDetailedResults) &&
+                      isLikert &&
+                      aggregate.likertMeans[q.id] != null
+                    return (
+                      <li key={q.id} className={`${R_FLAT} flex flex-wrap justify-between gap-2 border border-neutral-200 bg-neutral-50/80 px-3 py-2`}>
+                        <span className="max-w-[min(100%,420px)]">{q.text}</span>
+                        <span className="text-xs text-neutral-500">
+                          {likertLabel(q.type)}
+                          {q.subscale ? ` · ${q.subscale}` : ''}
+                          {showMean ? (
+                            <span className="ml-2 font-medium text-[#1a3d32]">
+                              snitt {aggregate!.likertMeans[q.id]} (n={aggregate!.count})
+                            </span>
+                          ) : null}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+
+              {survey.status === 'draft' && (
+                <div className="border-t border-neutral-200 px-5 py-4">
+                  <p className={SETTINGS_FIELD_LABEL}>Legg til spørsmål</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <input
+                      value={qText}
+                      onChange={(e) => setQText(e.target.value)}
+                      placeholder="Nytt spørsmål"
+                      className={`${SETTINGS_INPUT} min-w-[200px] flex-1 bg-white`}
+                    />
+                    <select
+                      value={qType}
+                      onChange={(e) => setQType(e.target.value as SurveyQuestion['type'])}
+                      className={`${SETTINGS_INPUT} w-auto bg-white`}
+                    >
+                      <option value="likert_5">Likert 1–5</option>
+                      <option value="likert_7">Likert 0–6</option>
+                      <option value="scale_10">Skala 0–10</option>
+                      <option value="yes_no">Ja/Nei</option>
+                      <option value="text">Fritekst</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!qText.trim()) return
+                        oh.addQuestion(survey.id, qText, qType, true)
+                        setQText('')
+                      }}
+                      className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+                    >
+                      Legg til
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {aggregate && aggregate.count > 0 && Object.keys(aggregate.subscaleMeans ?? {}).length > 0 ? (
+                <div className="border-t border-neutral-200 px-5 py-4">
+                  <p className={SETTINGS_FIELD_LABEL}>Del-skala (snitt)</p>
+                  {!survey.anonymous || gate?.canShowDetailedResults ? (
+                    <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {Object.entries(aggregate.subscaleMeans).map(([sub, val]) => (
+                        <li key={sub} className={`${R_FLAT} border border-neutral-200 px-3 py-2 text-sm`}>
+                          <span className="font-medium text-neutral-900">{sub}</span>
+                          <span className="ml-2 tabular-nums text-[#1a3d32]">{val}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-sm text-amber-900">
+                      Skjult inntil k-anonymitet er oppfylt (målgruppe og svar n≥{SURVEY_K_ANONYMITY_MIN}).
+                    </p>
+                  )}
+                </div>
+              ) : null}
+
+              {survey.status === 'closed' && aggregate && aggregate.count > 0 ? (
+                <div className="border-t border-neutral-200 px-5 py-4">
+                  <AddTaskLink
+                    title={`Tiltak etter undersøkelse: ${survey.title.slice(0, 60)}`}
+                    module="org_health"
+                    sourceType="survey"
+                    sourceId={survey.id}
+                    sourceLabel={survey.title}
+                    ownerRole="HR / leder"
+                    requiresManagementSignOff
+                  />
+                </div>
+              ) : null}
+
+              {aggregate && aggregate.count > 0 ? (
+                <div className="border-t border-neutral-200 px-5 py-4">
+                  <p className={SETTINGS_FIELD_LABEL}>Fritekst</p>
+                  {survey.anonymous ? (
+                    <div className={`${R_FLAT} mt-2 border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-700`}>
+                      <p>Innhold lagres ikke. Antall som har levert fritekst:</p>
+                      {survey.questions
+                        .filter((q) => q.type === 'text')
+                        .map((q) => (
+                          <p key={q.id} className="mt-2">
+                            {q.text.slice(0, 72)}
+                            {q.text.length > 72 ? '…' : ''} —{' '}
+                            <strong>{aggregate.anonymousTextCount?.[q.id] ?? 0}</strong> (av n={aggregate.count})
+                          </p>
+                        ))}
+                    </div>
+                  ) : (
+                    <div className={`${R_FLAT} mt-2 border border-neutral-200 bg-neutral-50 p-3 text-xs`}>
+                      {survey.questions
+                        .filter((q) => q.type === 'text')
+                        .map((q) => (
+                          <div key={q.id} className="mt-2">
+                            <p className="font-medium text-neutral-800">{q.text.slice(0, 80)}</p>
+                            {aggregate.textSamples[q.id]?.slice(0, 5).map((t, i) => (
+                              <p key={i} className="mt-1 border-l-2 border-[#c9a227] pl-2 text-neutral-700">
+                                {t}
+                              </p>
+                            )) ?? <p className="text-neutral-400">Ingen tekst ennå.</p>}
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              <div className="border-t border-neutral-200 px-5 py-4 text-xs text-neutral-500">
+                <p>
+                  Målgruppe (aktive i scope): ca. <strong className="text-neutral-800">{targetN}</strong> personer.
+                </p>
+              </div>
             </>
-          )}
+          ) : null}
         </div>
-      )}
-    </div>
+
+        <div className="border-t border-neutral-200 bg-[#f0efe9] px-5 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className={`${HERO_ACTION_CLASS} w-full border border-neutral-300 bg-white text-neutral-800`}
+          >
+            Lukk
+          </button>
+        </div>
+      </aside>
+    </>
   )
 }
 
@@ -1072,8 +1639,24 @@ function ResponseForm({
             </div>
           )}
           {(q.type === 'text') && (
-            <textarea value={typeof answers[q.id] === 'string' ? answers[q.id] as string : ''} onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
-              rows={3} className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
+            <div className="mt-2">
+              {survey.anonymous ? (
+                <div className={`${R_FLAT} mb-2 border-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-950`}>
+                  Viktig: Dette er en anonym undersøkelse. Ikke skriv navn, stillingstitler eller identifiserende
+                  opplysninger i dette feltet. Reelle varsler skal meldes via{' '}
+                  <Link to="/tasks?view=whistle" className="underline">
+                    Varslingskanalen
+                  </Link>
+                  .
+                </div>
+              ) : null}
+              <textarea
+                value={typeof answers[q.id] === 'string' ? (answers[q.id] as string) : ''}
+                onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
+                rows={3}
+                className={`${SETTINGS_INPUT} bg-white`}
+              />
+            </div>
           )}
         </div>
       ))}
@@ -1090,7 +1673,13 @@ function ResponseForm({
 
 // ─── SurveyCreator — template picker + group selector ─────────────────────────
 
-function SurveyCreator({ oh }: { oh: ReturnType<typeof useOrgHealth> }) {
+function SurveyCreator({
+  oh,
+  onCreated,
+}: {
+  oh: ReturnType<typeof useOrgHealth>
+  onCreated?: (id: string) => void
+}) {
   const org = useOrganisation()
 
   const [mode, setMode] = useState<'template' | 'custom'>('template')
@@ -1113,7 +1702,7 @@ function SurveyCreator({ oh }: { oh: ReturnType<typeof useOrgHealth> }) {
     const group = org.groups.find((g) => g.id === targetGroupId)
 
     if (mode === 'template' && selectedTemplate) {
-      oh.createSurveyFromTemplate(
+      const s = oh.createSurveyFromTemplate(
         selectedTemplate.id,
         selectedTemplate.questions as SurveyQuestion[],
         displayTitle,
@@ -1122,15 +1711,17 @@ function SurveyCreator({ oh }: { oh: ReturnType<typeof useOrgHealth> }) {
         targetGroupId || undefined,
         group ? org.getGroupLabel(group) : undefined,
       )
+      onCreated?.(s.id)
     } else {
-      oh.createSurvey(displayTitle, description, anonymous, false)
+      const s = oh.createSurvey(displayTitle, description, anonymous, false)
+      onCreated?.(s.id)
     }
     setTitle('')
     setDescription('')
   }
 
   return (
-    <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
+    <section className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-neutral-900">Ny undersøkelse</h2>
         <div className="flex gap-1 rounded-full border border-neutral-200 p-1">

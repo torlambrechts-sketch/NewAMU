@@ -26,6 +26,44 @@ const LEGACY_KEY = 'atics-org-health-v1'
 const MODULE_KEY = 'org_health' as const
 const PERSIST_DEBOUNCE_MS = 450
 
+/** Gjennomsnitt per respondent (snitt av psykologisk trygghet-spørsmål), deretter snitt av respondentene */
+function psychSafetySummaryForSurvey(survey: Survey, responses: SurveyResponse[]): { mean: number | null; n: number } {
+  const qIds = survey.questions
+    .filter((q) => {
+      const sub = (q.subscale ?? '').toLowerCase()
+      return sub.includes('psykologisk') && sub.includes('trygg')
+    })
+    .map((q) => q.id)
+  if (!qIds.length) return { mean: null, n: 0 }
+  const rel = responses.filter((r) => r.surveyId === survey.id)
+  const perResp: number[] = []
+  for (const r of rel) {
+    let s = 0
+    let c = 0
+    for (const qid of qIds) {
+      const v = r.answers[qid]
+      if (typeof v === 'number' && !Number.isNaN(v)) {
+        s += v
+        c += 1
+      }
+    }
+    if (c > 0) perResp.push(s / c)
+  }
+  if (!perResp.length) return { mean: null, n: 0 }
+  const mean = perResp.reduce((a, b) => a + b, 0) / perResp.length
+  return { mean, n: perResp.length }
+}
+
+export type SurveyCloseSideEffect =
+  | {
+      kind: 'low_psychological_safety'
+      surveyId: string
+      surveyTitle: string
+      targetLabel?: string
+      responseCount: number
+      psychSafetyMean: number
+    }
+
 type OrgHealthState = {
   surveys: Survey[]
   responses: SurveyResponse[]
@@ -378,6 +416,22 @@ export function useOrgHealth() {
     [setState],
   )
 
+  const markSurveyAmuShared = useCallback(
+    (surveyId: string) => {
+      const at = new Date().toISOString()
+      setState((st) => ({
+        ...st,
+        surveys: st.surveys.map((s) => (s.id === surveyId ? { ...s, amuSharedSummaryAt: at } : s)),
+      }))
+      appendAudit(
+        'survey_amu_summary_exported',
+        'Statistisk sammendrag klargjort for AMU (uten rå fritekst).',
+        { surveyId },
+      )
+    },
+    [appendAudit, setState],
+  )
+
   const setSchedule = useCallback(
     (surveyId: string, schedule: import('../types/orgHealth').SurveySchedule | undefined) => {
       setState((st) => ({
@@ -466,14 +520,57 @@ export function useOrgHealth() {
   )
 
   const closeSurvey = useCallback(
-    (surveyId: string) => {
-      setState((s) => ({
-        ...s,
-        surveys: s.surveys.map((sv) =>
-          sv.id === surveyId ? { ...sv, status: 'closed' as const, closedAt: new Date().toISOString() } : sv,
-        ),
-      }))
+    (
+      surveyId: string,
+      opts?: {
+        onLowPsychSafety?: (ev: SurveyCloseSideEffect) => void
+      },
+    ) => {
+      const lowSafetyHolder: { current: SurveyCloseSideEffect | null } = { current: null }
+      setState((s) => {
+        const sv = s.surveys.find((x) => x.id === surveyId)
+        if (!sv) return s
+        const closedAt = new Date().toISOString()
+        const responses = s.responses.filter((r) => r.surveyId === surveyId)
+        const { mean, n } = psychSafetySummaryForSurvey(sv, responses)
+        let nextSv: Survey = { ...sv, status: 'closed' as const, closedAt }
+        const triggerLow =
+          mean != null &&
+          mean < 3 &&
+          n >= 5 &&
+          !sv.lowPsychSafetyTaskCreatedAt &&
+          (sv.templateId === 'tpl-google-rework' ||
+            sv.questions.some((q) => (q.subscale ?? '').toLowerCase().includes('psykologisk trygghet')))
+        if (triggerLow) {
+          nextSv = { ...nextSv, lowPsychSafetyTaskCreatedAt: closedAt }
+          lowSafetyHolder.current = {
+            kind: 'low_psychological_safety',
+            surveyId: sv.id,
+            surveyTitle: sv.title,
+            targetLabel: sv.targetGroupLabel,
+            responseCount: n,
+            psychSafetyMean: Math.round(mean * 100) / 100,
+          }
+        }
+        return {
+          ...s,
+          surveys: s.surveys.map((x) => (x.id === surveyId ? nextSv : x)),
+        }
+      })
       appendAudit('survey_closed', 'Undersøkelse lukket.', { surveyId })
+      const effect = lowSafetyHolder.current
+      if (effect) {
+        appendAudit(
+          'survey_auto_followup_task',
+          'Lav score på psykologisk trygghet — oppfølgingsoppgave anbefales (AML § 3-1).',
+          {
+            surveyId,
+            mean: effect.psychSafetyMean,
+            n: effect.responseCount,
+          },
+        )
+        if (opts?.onLowPsychSafety) queueMicrotask(() => opts.onLowPsychSafety?.(effect))
+      }
     },
     [appendAudit, setState],
   )
@@ -562,6 +659,7 @@ export function useOrgHealth() {
       {
         count: number
         likertMeans: Record<string, number>
+        subscaleMeans: Record<string, number>
         textSamples: Record<string, string[]>
         anonymousTextCount: Record<string, number>
       }
@@ -573,6 +671,7 @@ export function useOrgHealth() {
         bySurvey[r.surveyId] = {
           count: 0,
           likertMeans: {},
+          subscaleMeans: {},
           textSamples: {},
           anonymousTextCount: {},
         }
@@ -581,10 +680,9 @@ export function useOrgHealth() {
       agg.count += 1
       for (const q of sv?.questions ?? []) {
         const v = r.answers[q.id]
-        if (q.type === 'likert_5' && typeof v === 'number') {
-          if (!agg.likertMeans[q.id]) {
-            agg.likertMeans[q.id] = 0
-          }
+        const isLikert = q.type === 'likert_5' || q.type === 'likert_7' || q.type === 'scale_10'
+        if (isLikert && typeof v === 'number') {
+          if (agg.likertMeans[q.id] === undefined) agg.likertMeans[q.id] = 0
           agg.likertMeans[q.id] += v
         }
         if (q.type === 'text') {
@@ -605,9 +703,25 @@ export function useOrgHealth() {
       const sv = state.surveys.find((s) => s.id === sid)
       const agg = bySurvey[sid]
       for (const q of sv?.questions ?? []) {
-        if (q.type === 'likert_5' && agg.likertMeans[q.id] !== undefined && agg.count > 0) {
+        const isLikert = q.type === 'likert_5' || q.type === 'likert_7' || q.type === 'scale_10'
+        if (isLikert && agg.likertMeans[q.id] !== undefined && agg.count > 0) {
           agg.likertMeans[q.id] = Math.round((agg.likertMeans[q.id] / agg.count) * 100) / 100
         }
+      }
+      const subSums: Record<string, number> = {}
+      const subCounts: Record<string, number> = {}
+      for (const q of sv?.questions ?? []) {
+        const isLikert = q.type === 'likert_5' || q.type === 'likert_7' || q.type === 'scale_10'
+        const sub = q.subscale?.trim()
+        if (!sub || !isLikert) continue
+        const m = agg.likertMeans[q.id]
+        if (m === undefined) continue
+        subSums[sub] = (subSums[sub] ?? 0) + m
+        subCounts[sub] = (subCounts[sub] ?? 0) + 1
+      }
+      for (const sub of Object.keys(subSums)) {
+        const c = subCounts[sub] ?? 1
+        agg.subscaleMeans[sub] = Math.round((subSums[sub] / c) * 100) / 100
       }
     }
 
@@ -707,6 +821,7 @@ export function useOrgHealth() {
     addLaborMetric,
     submitAnonymousAmlReport,
     resetDemo,
+    markSurveyAmuShared,
     metricDefinitions: LABOR_METRIC_DEFINITIONS,
   }
 }

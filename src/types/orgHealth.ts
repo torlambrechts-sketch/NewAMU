@@ -57,6 +57,10 @@ export type Survey = {
   createdAt: string
   openedAt?: string
   closedAt?: string
+  /** Når automatisk Kanban-oppgave ble opprettet ved lav psykologisk trygghet */
+  lowPsychSafetyTaskCreatedAt?: string
+  /** Når statistisk sammendrag ble delt for AMU (uten rå fritekst) */
+  amuSharedSummaryAt?: string
 }
 
 export type SurveyResponse = {
@@ -142,6 +146,8 @@ export type OrgHealthAuditAction =
   | 'labor_metric_added'
   | 'settings_updated'
   | 'anonymous_aml_report'
+  | 'survey_amu_summary_exported'
+  | 'survey_auto_followup_task'
 
 export type OrgHealthAuditEntry = {
   id: string
