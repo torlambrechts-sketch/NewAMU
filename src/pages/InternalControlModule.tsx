@@ -168,6 +168,8 @@ export function InternalControlModule() {
   const [oRosAmuId, setORosAmuId] = useState('')
   const [oRosVoId, setORosVoId] = useState('')
   const [rosPanelOpen, setRosPanelOpen] = useState(false)
+  const [rosPanelMode, setRosPanelMode] = useState<'create' | 'view'>('create')
+  const [rosViewId, setRosViewId] = useState<string | null>(null)
   const [annualPanelOpen, setAnnualPanelOpen] = useState(false)
   type AnnualFormState = {
     id: string
@@ -205,8 +207,28 @@ export function InternalControlModule() {
 
   const closeRosPanel = useCallback(() => {
     setRosPanelOpen(false)
+    setRosPanelMode('create')
+    setRosViewId(null)
     resetRosPanelForm()
   }, [resetRosPanelForm])
+
+  const openRosViewPanel = useCallback((id: string) => {
+    setRosPanelMode('view')
+    setRosViewId(id)
+    setRosPanelOpen(true)
+  }, [])
+
+  const openNewRosPanel = useCallback(() => {
+    resetRosPanelForm()
+    setRosPanelMode('create')
+    setRosViewId(null)
+    setRosPanelOpen(true)
+  }, [resetRosPanelForm])
+
+  const rosBeingViewed = useMemo(
+    () => (rosViewId ? ic.rosAssessments.find((x) => x.id === rosViewId) : undefined),
+    [ic.rosAssessments, rosViewId],
+  )
 
   useEffect(() => {
     if (!rosPanelOpen) return
@@ -584,10 +606,7 @@ export function InternalControlModule() {
               </span>
               <button
                 type="button"
-                onClick={() => {
-                  resetRosPanelForm()
-                  setRosPanelOpen(true)
-                }}
+                onClick={openNewRosPanel}
                 className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
               >
                 <Plus className="size-4 shrink-0" />
@@ -774,7 +793,7 @@ export function InternalControlModule() {
             <div className="border-b border-neutral-200 px-4 py-3">
               <h2 className="font-semibold text-neutral-900">ROS-vurderinger</h2>
               <p className="mt-1 text-xs text-neutral-500">
-                Åpne dokumentet under for redigering, signering og revisjon. Låste ROS kan kopieres til nytt år.
+                Klikk på en rad for å åpne analysen i sidevinduet. Bruk «Ny ROS» for nytt dokument — samme panel som ved opprettelse.
               </p>
             </div>
             <div className="overflow-x-auto">
@@ -790,7 +809,19 @@ export function InternalControlModule() {
                 </thead>
                 <tbody>
                   {ic.rosAssessments.map((r, ri) => (
-                    <tr key={r.id} className={table1BodyRowClass(layout, ri)}>
+                    <tr
+                      key={r.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openRosViewPanel(r.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          openRosViewPanel(r.id)
+                        }
+                      }}
+                      className={`${table1BodyRowClass(layout, ri)} cursor-pointer transition hover:bg-[#f4f1ea]/80`}
+                    >
                       <td className={`${tableCell} font-medium text-neutral-900`}>{r.title}</td>
                       <td className={tableCell}>{r.department || '—'}</td>
                       <td className={tableCell}>
@@ -813,17 +844,6 @@ export function InternalControlModule() {
             </div>
           </section>
 
-          {ic.rosAssessments.map((ros) => (
-            <RosAssessmentCard
-              key={ros.id}
-              ros={ros}
-              ic={ic}
-              hr={hr}
-              onLocked={handleRosLockTasks}
-              duplicateRevision={ic.duplicateRosRevision}
-            />
-          ))}
-
           {rosPanelOpen ? (
             <div
               className="fixed inset-0 z-[100] flex justify-end bg-black/45 backdrop-blur-[2px]"
@@ -840,23 +860,87 @@ export function InternalControlModule() {
                 onMouseDown={(e) => e.stopPropagation()}
               >
                 <header className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 bg-[#f7f6f2] px-6 py-5 sm:px-8 sm:py-6">
-                  <h2
-                    id="ros-panel-title"
-                    className="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl"
-                    style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-                  >
-                    Ny ROS-vurdering
-                  </h2>
-                  <button
-                    type="button"
-                    onClick={closeRosPanel}
-                    className="rounded-none p-2 text-neutral-500 transition hover:bg-neutral-200/60 hover:text-neutral-800"
-                    aria-label="Lukk"
-                  >
-                    <X className="size-6" />
-                  </button>
+                  <div className="min-w-0 flex-1">
+                    <h2
+                      id="ros-panel-title"
+                      className="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl"
+                      style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+                    >
+                      {rosPanelMode === 'create'
+                        ? 'Ny ROS-vurdering'
+                        : rosBeingViewed
+                          ? rosBeingViewed.title
+                          : 'ROS'}
+                    </h2>
+                    {rosPanelMode === 'view' && rosBeingViewed ? (
+                      <p className="mt-1 text-sm text-neutral-500">
+                        {rosBeingViewed.department || '—'} · {rosBeingViewed.assessedAt}
+                        {rosBeingViewed.locked ? (
+                          <span className="ml-2 rounded-none border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                            Låst
+                          </span>
+                        ) : (
+                          <span className="ml-2 rounded-none border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900">
+                            Utkast
+                          </span>
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {rosPanelMode === 'view' && rosBeingViewed?.locked ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newId = ic.duplicateRosRevision(rosBeingViewed.id)
+                          if (newId) setRosViewId(newId)
+                        }}
+                        className="rounded-none border border-[#1a3d32] bg-[#1a3d32] px-3 py-2 text-xs font-semibold text-white hover:bg-[#142e26]"
+                      >
+                        Ny revisjon
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={closeRosPanel}
+                      className="rounded-none p-2 text-neutral-500 transition hover:bg-neutral-200/60 hover:text-neutral-800"
+                      aria-label="Lukk"
+                    >
+                      <X className="size-6" />
+                    </button>
+                  </div>
                 </header>
 
+                {rosPanelMode === 'view' ? (
+                  rosBeingViewed ? (
+                    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+                      <RosAssessmentCard
+                        ros={rosBeingViewed}
+                        ic={ic}
+                        hr={hr}
+                        onLocked={handleRosLockTasks}
+                        hideDuplicateRevisionButton
+                        duplicateRevision={(lockedSourceId) => {
+                          const newId = ic.duplicateRosRevision(lockedSourceId)
+                          if (newId) setRosViewId(newId)
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex flex-1 flex-col justify-center px-6 py-12 text-center text-sm text-neutral-600">
+                      <p>Fant ikke denne ROS-vurderingen.</p>
+                      <button
+                        type="button"
+                        onClick={closeRosPanel}
+                        className="mx-auto mt-4 rounded-none border border-neutral-300 px-4 py-2 text-sm font-medium"
+                      >
+                        Lukk
+                      </button>
+                    </div>
+                  )
+                ) : null}
+
+                {rosPanelMode === 'create' ? (
                 <form
                   className="flex min-h-0 flex-1 flex-col"
                   onSubmit={(e) => {
@@ -871,7 +955,13 @@ export function InternalControlModule() {
                     if (isO && r && supabaseConfigured && oRosAmuId && oRosVoId) {
                       void hr.upsertRosSignoff(r.id, oRosAmuId, oRosVoId)
                     }
-                    closeRosPanel()
+                    if (r?.id) {
+                      resetRosPanelForm()
+                      setRosPanelMode('view')
+                      setRosViewId(r.id)
+                    } else {
+                      closeRosPanel()
+                    }
                   }}
                 >
                   <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-8">
@@ -1038,6 +1128,7 @@ export function InternalControlModule() {
                     </button>
                   </footer>
                 </form>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -1828,12 +1919,15 @@ function RosAssessmentCard({
   hr,
   onLocked,
   duplicateRevision,
+  hideDuplicateRevisionButton,
 }: {
   ros: RosAssessment
   ic: ReturnType<typeof useInternalControl>
   hr: ReturnType<typeof useHrCompliance>
   onLocked: (ros: RosAssessment) => void
   duplicateRevision: (lockedSourceId: string) => void
+  /** When true, omit «Opprett ny revisjon» in card header (e.g. side panel has its own). */
+  hideDuplicateRevisionButton?: boolean
 }) {
   const [leaderName, setLeaderName] = useState('')
   const [verneombudName, setVerneombudName] = useState('')
@@ -1886,7 +1980,7 @@ function RosAssessmentCard({
           <p className="text-xs text-neutral-500">{ros.department} · {ros.assessor} · {ros.assessedAt}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {isLocked ? (
+          {isLocked && !hideDuplicateRevisionButton ? (
             <button
               type="button"
               onClick={() => duplicateRevision(ros.id)}
@@ -1894,7 +1988,8 @@ function RosAssessmentCard({
             >
               Opprett ny revisjon
             </button>
-          ) : (
+          ) : null}
+          {!isLocked ? (
             <button
               type="button"
               onClick={() => ic.addRosRow(ros.id)}
@@ -1902,7 +1997,7 @@ function RosAssessmentCard({
             >
               + Rad
             </button>
-          )}
+          ) : null}
         </div>
       </div>
 

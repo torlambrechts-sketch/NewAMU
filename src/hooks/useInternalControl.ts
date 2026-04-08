@@ -436,7 +436,8 @@ export function useInternalControl() {
   )
 
   const duplicateRosRevision = useCallback(
-    (lockedSourceId: string) => {
+    (lockedSourceId: string): string | null => {
+      let newId: string | null = null
       setState((s) => {
         const src = s.rosAssessments.find((x) => x.id === lockedSourceId)
         if (!src?.locked) return s
@@ -450,9 +451,11 @@ export function useInternalControl() {
           ...row,
           id: crypto.randomUUID(),
         }))
+        const copyId = crypto.randomUUID()
+        newId = copyId
         const copy: RosAssessment = {
           ...src,
-          id: crypto.randomUUID(),
+          id: copyId,
           title: `${src.title.replace(/\s*\(revisjon v\d+\)\s*$/i, '').trim()} (revisjon v${nextVersion})`,
           assessedAt: new Date().toISOString().slice(0, 10),
           rows: cloneRows,
@@ -475,6 +478,7 @@ export function useInternalControl() {
           ],
         }
       })
+      return newId
     },
     [setState],
   )
