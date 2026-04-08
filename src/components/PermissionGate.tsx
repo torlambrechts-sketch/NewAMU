@@ -27,7 +27,8 @@ export function PermissionGate() {
   }
 
   const required = permissionForPath(location.pathname)
-  if (!can(required)) {
+  const allowed = Array.isArray(required) ? required.some((k) => can(k)) : can(required)
+  if (!allowed) {
     return <Navigate to="/" replace state={{ accessDenied: required }} />
   }
 

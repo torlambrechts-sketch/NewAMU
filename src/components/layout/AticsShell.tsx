@@ -33,6 +33,7 @@ import { LanguageSwitcher } from '../LanguageSwitcher'
 import { useI18n } from '../../hooks/useI18n'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PermissionKey } from '../../lib/permissionKeys'
+import { WORKPLACE_REPORTING_NAV, workplaceReportingNavMatch } from '../../data/workplaceReportingNav'
 
 // ─── Sub-item type ────────────────────────────────────────────────────────────
 
@@ -42,6 +43,8 @@ type SubItem = {
   match: (loc: { pathname: string; search: string }) => boolean
   /** When RBAC is active, hide this sub-link unless the user has the permission. */
   requirePerm?: PermissionKey
+  /** If set, user needs at least one of these (overrides requirePerm when both would apply — use one or the other). */
+  requirePermAny?: PermissionKey[]
 }
 
 function visibleSubs(
@@ -50,7 +53,11 @@ function visibleSubs(
   can: (k: PermissionKey) => boolean,
 ): SubItem[] {
   if (!gateNav) return subs
-  return subs.filter((s) => !s.requirePerm || can(s.requirePerm))
+  return subs.filter((s) => {
+    if (s.requirePermAny?.length) return s.requirePermAny.some((k) => can(k))
+    if (s.requirePerm) return can(s.requirePerm)
+    return true
+  })
 }
 
 // ─── Sub-item lists (all paths/labels unchanged) ──────────────────────────────
@@ -158,32 +165,16 @@ const documentsSubs: SubItem[] = [
   },
 ]
 
-const workplaceReportingSubs: SubItem[] = [
-  {
-    label: 'Oversikt',
-    path: '/workplace-reporting',
-    match: ({ pathname }) => pathname === '/workplace-reporting',
-  },
-  {
-    label: 'Hendelser (HSE)',
-    path: '/hse?tab=incidents',
-    match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'incidents',
-    requirePerm: 'module.view.hse',
-  },
-  {
-    label: 'Anonym rapportering',
-    path: '/org-health?tab=reporting',
-    match: ({ pathname, search }) =>
-      pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'reporting',
-    requirePerm: 'module.view.org_health',
-  },
-  {
-    label: 'Varslingssaker',
-    path: '/tasks?view=whistle',
-    match: ({ pathname, search }) => pathname === '/tasks' && new URLSearchParams(search).get('view') === 'whistle',
-    requirePerm: 'module.view.tasks',
-  },
-]
+const workplaceReportingSubs: SubItem[] = WORKPLACE_REPORTING_NAV.map((item) => {
+  const base: SubItem = {
+    label: item.label,
+    path: item.to,
+    match: ({ pathname, search }) => workplaceReportingNavMatch(item.to, item.end, pathname, search),
+  }
+  if (item.requirePermAny?.length) return { ...base, requirePermAny: item.requirePermAny }
+  if (item.requirePerm) return { ...base, requirePerm: item.requirePerm }
+  return base
+})
 
 // ─── Navigation groups ────────────────────────────────────────────────────────
 //
@@ -304,7 +295,7 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
   const hub = modules.find((m) => m.to === '/workplace-reporting')
   if (hub) {
     const sp = new URLSearchParams(search)
-    if (pathname === '/hse' && sp.get('tab') === 'incidents') return hub
+    if (pathname === '/workplace-reporting/incidents') return hub
     if (pathname === '/org-health' && sp.get('tab') === 'reporting') return hub
     if (pathname === '/tasks' && sp.get('view') === 'whistle') return hub
   }

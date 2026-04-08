@@ -134,7 +134,7 @@ export function AarshjulPage() {
       .filter((i) => new Date(i.occurredAt).getFullYear() === year && (i.severity === 'high' || i.severity === 'critical'))
       .forEach((i) => {
         const { month } = isoToMonthYear(i.occurredAt)
-        all.push({ id: i.id, kind: 'incident', label: `${i.kind === 'violence' ? 'Vold: ' : i.kind === 'threat' ? 'Trussel: ' : ''}${i.location}`, month, year, status: i.status === 'closed' ? 'done' : 'overdue', link: '/hse?tab=incidents' })
+        all.push({ id: i.id, kind: 'incident', label: `${i.kind === 'violence' ? 'Vold: ' : i.kind === 'threat' ? 'Trussel: ' : ''}${i.location}`, month, year, status: i.status === 'closed' ? 'done' : 'overdue', link: '/workplace-reporting/incidents' })
       })
 
     // SJA

@@ -336,7 +336,7 @@
             "moduleName": "action_button",
             "params": {
               "label": "Meld HMS-avvik",
-              "route": "/hse?tab=incidents",
+              "route": "/workplace-reporting/incidents",
               "variant": "danger"
             }
           },
@@ -430,7 +430,7 @@
             "moduleName": "action_button",
             "params": {
               "label": "Registrer hendelse",
-              "route": "/hse?tab=incidents",
+              "route": "/workplace-reporting/incidents",
               "variant": "danger"
             }
           },

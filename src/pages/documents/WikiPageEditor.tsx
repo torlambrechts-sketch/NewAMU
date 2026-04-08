@@ -545,7 +545,7 @@ function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: P
           <input
             value={typeof block.params?.route === 'string' ? block.params.route : ''}
             onChange={(e) => onUpdate({ params: { ...block.params, route: e.target.value } } as Partial<ContentBlock>)}
-            placeholder="Rute (f.eks. /hse?tab=incidents)"
+            placeholder="Rute (f.eks. /workplace-reporting/incidents)"
             className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
           />
         </div>

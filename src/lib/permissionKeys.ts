@@ -84,10 +84,24 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/admin', permission: 'module.view.admin' },
 ]
 
+/** Paths that need any one of several permissions (e.g. hub + underlying module). */
+export const ROUTE_PERMISSION_ANY: { pathPrefix: string; permissions: PermissionKey[] }[] = [
+  {
+    pathPrefix: '/workplace-reporting/incidents',
+    permissions: ['module.view.workplace_reporting', 'module.view.hse'],
+  },
+]
+
 export const DASHBOARD_PERMISSION: PermissionKey = 'module.view.dashboard'
 
-export function permissionForPath(pathname: string): PermissionKey {
+export type RoutePermissionRequirement = PermissionKey | PermissionKey[]
+
+export function permissionForPath(pathname: string): RoutePermissionRequirement {
   if (pathname === '/' || pathname === '' || pathname === '/profile') return DASHBOARD_PERMISSION
+  const anyHit = ROUTE_PERMISSION_ANY.find(
+    (r) => pathname === r.pathPrefix || pathname.startsWith(`${r.pathPrefix}/`),
+  )
+  if (anyHit) return anyHit.permissions
   const hit = ROUTE_PERMISSION.find((r) => pathname === r.pathPrefix || pathname.startsWith(`${r.pathPrefix}/`))
   return hit?.permission ?? DASHBOARD_PERMISSION
 }

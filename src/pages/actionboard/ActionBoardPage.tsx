@@ -197,7 +197,7 @@ export function ActionBoardPage() {
           detail: `${i.kind} · ${i.department || '—'}`,
           status: i.status === 'investigating' ? 'in_progress' : 'todo',
           module: 'hse',
-          link: '/hse?tab=incidents',
+          link: '/workplace-reporting/incidents',
           overdue: i.status === 'reported',
           isDraggable: false,
           severity: i.severity,
