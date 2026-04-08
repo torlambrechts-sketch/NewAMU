@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Check, Filter, Search, Settings } from 'lucide-react'
+import { Check, Filter, Search } from 'lucide-react'
 import type { LayoutLabPayload } from '../../types/layoutLab'
 import { DEFAULT_TABLE_1_TOOLBAR } from '../../types/layoutLab'
 import { mergeLayoutPayload } from '../../lib/layoutLabTokens'
@@ -10,13 +10,15 @@ type Props = {
   payloadOverride?: LayoutLabPayload
   searchSlot?: ReactNode
   segmentSlot?: ReactNode
+  /** Right side of segment row (e.g. list/box layout toggles). */
+  endSlot?: ReactNode
 }
 
 function toolbarFromPayload(p: LayoutLabPayload) {
   return { ...DEFAULT_TABLE_1_TOOLBAR, ...p.table_1?.toolbar }
 }
 
-export function Table1Toolbar({ payloadOverride, searchSlot, segmentSlot }: Props) {
+export function Table1Toolbar({ payloadOverride, searchSlot, segmentSlot, endSlot }: Props) {
   const ctx = useUiThemeOptional()
   const merged = mergeLayoutPayload(payloadOverride ?? ctx?.payload ?? DEFAULT_LAYOUT_LAB)
   const tb = toolbarFromPayload(merged)
@@ -97,14 +99,7 @@ export function Table1Toolbar({ payloadOverride, searchSlot, segmentSlot }: Prop
                   </div>
                 )}
           </div>
-          {(tb.segments || segmentSlot) && (
-            <button
-              type="button"
-              className={`inline-flex shrink-0 items-center gap-1.5 border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold uppercase text-neutral-700 hover:bg-neutral-50 ${rMd}`}
-            >
-              <Settings className="size-3.5" /> Konfigurer
-            </button>
-          )}
+          {endSlot ? <div className="flex shrink-0 items-center gap-1">{endSlot}</div> : null}
         </div>
       )}
     </div>

@@ -6,6 +6,8 @@ import {
   Check,
   CheckCircle2,
   GitBranch,
+  LayoutGrid,
+  List,
   Mail,
   Pencil,
   Phone,
@@ -479,6 +481,7 @@ export function OrganisationPage() {
   const [searchEmp, setSearchEmp] = useState('')
   const [filterUnit, setFilterUnit] = useState('')
   const [empSegment, setEmpSegment] = useState<'all' | 'active' | 'inactive'>('all')
+  const [empLayout, setEmpLayout] = useState<'list' | 'box'>('list')
   const [unitSearch, setUnitSearch] = useState('')
   const [unitKindSeg, setUnitKindSeg] = useState<'all' | OrgUnitKind>('all')
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(() => new Set())
@@ -1069,6 +1072,36 @@ export function OrganisationPage() {
                       })}
                     </div>
                   }
+                  endSlot={
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setEmpLayout('list')}
+                        title="Liste"
+                        className={`inline-flex items-center gap-1.5 rounded-none border px-2.5 py-2 text-xs font-semibold uppercase tracking-wide transition ${
+                          empLayout === 'list'
+                            ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                            : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50'
+                        }`}
+                      >
+                        <List className="size-3.5 shrink-0" aria-hidden />
+                        Liste
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEmpLayout('box')}
+                        title="Bokser"
+                        className={`inline-flex items-center gap-1.5 rounded-none border px-2.5 py-2 text-xs font-semibold uppercase tracking-wide transition ${
+                          empLayout === 'box'
+                            ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                            : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50'
+                        }`}
+                      >
+                        <LayoutGrid className="size-3.5 shrink-0" aria-hidden />
+                        Bokser
+                      </button>
+                    </>
+                  }
                 />
               }
             >
@@ -1100,7 +1133,7 @@ export function OrganisationPage() {
                     </button>
                   </div>
                 </div>
-              ) : (
+              ) : empLayout === 'list' ? (
                 <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                   <thead>
                     <tr className={`text-sm ${theadRow}`}>
@@ -1194,6 +1227,88 @@ export function OrganisationPage() {
                     })}
                   </tbody>
                 </table>
+              ) : (
+                <div className="divide-y divide-neutral-200 border border-neutral-200 bg-white">
+                  {filteredEmployees.map((emp) => {
+                    const bg = avatarColor(emp.name)
+                    const target = storedForEdit(emp, org.employees)
+                    return (
+                      <div key={emp.id} className={SETTINGS_ROW_GRID}>
+                        <div className="flex items-start gap-3">
+                          <div
+                            className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                            style={{ background: bg }}
+                          >
+                            {initials(emp.name)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-neutral-900">{emp.name}</p>
+                            <p className="mt-1 text-xs text-neutral-500">
+                              {[emp.jobTitle, emp.role].filter(Boolean).join(' · ') || '—'} · {emp.unitName ?? 'Ingen enhet'}
+                            </p>
+                            <div className="mt-1 space-y-0.5 text-xs text-neutral-500">
+                              {emp.email ? (
+                                <div className="flex items-center gap-1.5">
+                                  <Mail className="size-3 shrink-0 text-neutral-400" />
+                                  <span className="truncate">{emp.email}</span>
+                                </div>
+                              ) : null}
+                              {emp.phone ? (
+                                <div className="flex items-center gap-1.5">
+                                  <Phone className="size-3 shrink-0 text-neutral-400" />
+                                  {emp.phone}
+                                </div>
+                              ) : null}
+                            </div>
+                            <div className="mt-2">
+                              <span
+                                className={`inline-flex rounded-none px-2.5 py-0.5 text-xs font-medium ${
+                                  emp.active ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-500'
+                                }`}
+                              >
+                                {emp.active ? 'Aktiv' : 'Inaktiv'}
+                              </span>
+                              <span className="ml-2 text-xs text-neutral-500">{EMPLOYMENT_LABELS[emp.employmentType]}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
+                          <div className="min-w-0 sm:text-right">
+                            <span className={SETTINGS_FIELD_LABEL}>Handling</span>
+                            <div className="mt-1.5 flex flex-wrap justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setEmpModal({ mode: 'edit', emp })}
+                                className="inline-flex items-center justify-center gap-1.5 rounded-none border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+                              >
+                                <Pencil className="size-4" />
+                                Rediger
+                              </button>
+                              {emp.active ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (target.id.startsWith('m-')) {
+                                      window.alert(
+                                        'Denne personen finnes bare i medlemslisten. Legg til som ansatt før du deaktiverer.',
+                                      )
+                                      return
+                                    }
+                                    if (confirm(`Deaktiver ${emp.name}?`)) org.deactivateEmployee(target.id)
+                                  }}
+                                  className="inline-flex items-center justify-center gap-1.5 rounded-none border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                                >
+                                  <UserMinus className="size-4" />
+                                  Deaktiver
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </Table1Shell>
           )}
