@@ -16,6 +16,7 @@ import {
   Kanban,
   LayoutGrid,
   Library,
+  Megaphone,
   PanelLeft,
   PanelsTopLeft,
   Search,
@@ -200,6 +201,21 @@ const navGroups: NavGroup[] = [
       { to: '/organisation', label: 'Organisasjon', end: false, icon: Building2, subs: [], perm: 'module.view.dashboard' },
       { to: '/reports', label: 'Rapporter', end: false, icon: BarChart3, subs: [], perm: 'module.view.dashboard' },
       { to: '/admin', label: 'Admin', end: true, icon: Shield, subs: [], perm: 'module.view.admin' },
+    ],
+  },
+  {
+    id: 'workplace_reporting',
+    label: 'Arbeidsplassrapportering',
+    icon: Megaphone,
+    modules: [
+      {
+        to: '/workplace-reporting',
+        label: 'Oversikt',
+        end: true,
+        icon: Megaphone,
+        subs: [],
+        perm: 'module.view.workplace_reporting',
+      },
     ],
   },
   {

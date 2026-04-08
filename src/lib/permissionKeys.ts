@@ -16,6 +16,8 @@ export const PERMISSION_KEYS = [
   'module.view.learning',
   /** Cross-module reporting & compliance exports */
   'module.view.reports',
+  /** Arbeidsplassrapportering — hub for workplace / HSE reporting entry points */
+  'module.view.workplace_reporting',
   /** Workflow automation — view rules & run log */
   'module.view.workflow',
   /** Configure workflow rules and compliance templates */
@@ -51,6 +53,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'module.view.tasks': 'Tasks',
   'module.view.learning': 'E-learning',
   'module.view.reports': 'Rapporter',
+  'module.view.workplace_reporting': 'Arbeidsplassrapportering',
   'module.view.workflow': 'Arbeidsflyt',
   'workflows.manage': 'Arbeidsflyt — konfigurasjon',
   'module.view.hr_compliance': 'HR & rettssikkerhet',
@@ -75,6 +78,7 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/learning', permission: 'module.view.learning' },
   /** Same gate as workspace — report data is still scoped per org in RPCs */
   { pathPrefix: '/reports', permission: 'module.view.dashboard' },
+  { pathPrefix: '/workplace-reporting', permission: 'module.view.workplace_reporting' },
   { pathPrefix: '/workflow', permission: 'module.view.workflow' },
   { pathPrefix: '/hr', permission: 'module.view.hr_compliance' },
   { pathPrefix: '/admin', permission: 'module.view.admin' },
