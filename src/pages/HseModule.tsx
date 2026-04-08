@@ -74,6 +74,12 @@ const SETTINGS_INPUT =
 const TASK_PANEL_INSET = 'rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6'
 const R_FLAT = 'rounded-none'
 const HSE_INSPECTION_BUCKET = 'hse_inspection_files'
+/** Same strip boxes as rapporter / organisasjonsinnsikt */
+const HSE_THRESHOLD_BOX =
+  'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
+const HSE_INSIGHT_CARD =
+  `${R_FLAT} flex flex-col border border-neutral-200/90 bg-white p-5 text-left shadow-sm transition hover:border-neutral-300 hover:shadow`
+const HSE_CARD_TOP_RULE = 'mb-4 h-0.5 w-full shrink-0 bg-[#1a3d32]'
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -342,6 +348,8 @@ export function HseModule() {
 
   // GDPR + export
   const [exportMsg, setExportMsg] = useState('')
+  /** Stable anchor for «siste 90 dager» (unngår Date.now() under render). */
+  const [overviewTimeAnchor] = useState(() => Date.now())
 
   // Expanded incident detail
   const [incidentPanelId, setIncidentPanelId] = useState<string | null>(null)
@@ -599,6 +607,135 @@ export function HseModule() {
 
   const activeTemplate = FORM_TEMPLATES.find((t) => t.id === incForm.formTemplate)!
 
+  const hseOverviewKpis = useMemo(
+    () => [
+      {
+        title: 'Registreringer',
+        sub: 'Hendelser siste 90 dager',
+        value: String(
+          hse.incidents.filter((i) => {
+            try {
+              return new Date(i.occurredAt).getTime() > overviewTimeAnchor - 90 * 86400000
+            } catch {
+              return false
+            }
+          }).length,
+        ),
+      },
+      {
+        title: 'Åpne avvik',
+        sub: 'Inspeksjonsfunn',
+        value: String(
+          hse.inspections.reduce(
+            (n, ins) => n + (ins.concreteFindings ?? []).filter((f) => f.status === 'open').length,
+            0,
+          ),
+        ),
+      },
+      {
+        title: 'Vernerunder',
+        sub: 'Godkjente / totalt',
+        value: `${hse.safetyRounds.filter((r) => r.status === 'approved').length} / ${hse.safetyRounds.length}`,
+      },
+      {
+        title: 'Sykefravær',
+        sub: 'Aktive saker',
+        value: String(hse.stats.activeSickLeave),
+      },
+    ],
+    [hse.incidents, hse.inspections, hse.safetyRounds, hse.stats.activeSickLeave, overviewTimeAnchor],
+  )
+
+  const hseIncidentKindSegments = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const k of Object.keys(KIND_LABELS) as Incident['kind'][]) counts[k] = 0
+    for (const i of hse.incidents) counts[i.kind] = (counts[i.kind] ?? 0) + 1
+    const palette = ['#1a3d32', '#0284c7', '#d97706', '#dc2626', '#7c3aed', '#0d9488']
+    const entries = (Object.keys(KIND_LABELS) as Incident['kind'][])
+      .map((k, idx) => ({
+        label: KIND_LABELS[k],
+        value: counts[k] ?? 0,
+        color: palette[idx % palette.length],
+      }))
+      .filter((x) => x.value > 0)
+    const total = entries.reduce((s, x) => s + x.value, 0)
+    return { entries, total }
+  }, [hse.incidents])
+
+  const hseSeveritySegments = useMemo(() => {
+    const counts: Record<Incident['severity'], number> = {
+      low: 0,
+      medium: 0,
+      high: 0,
+      critical: 0,
+    }
+    for (const i of hse.incidents) counts[i.severity] += 1
+    const entries = [
+      { label: SEVERITY_LABELS.low, value: counts.low, color: '#059669' },
+      { label: SEVERITY_LABELS.medium, value: counts.medium, color: '#d97706' },
+      { label: SEVERITY_LABELS.high, value: counts.high, color: '#ea580c' },
+      { label: SEVERITY_LABELS.critical, value: counts.critical, color: '#b91c1c' },
+    ].filter((x) => x.value > 0)
+    const total = entries.reduce((s, x) => s + x.value, 0)
+    return { entries, total }
+  }, [hse.incidents])
+
+  const hseSafetyRoundSegments = useMemo(() => {
+    const map: Record<SafetyRound['status'], number> = {
+      in_progress: 0,
+      pending_verneombud: 0,
+      pending_approval: 0,
+      approved: 0,
+    }
+    for (const r of hse.safetyRounds) {
+      map[r.status] = (map[r.status] ?? 0) + 1
+    }
+    const label: Record<SafetyRound['status'], string> = {
+      in_progress: 'Pågår',
+      pending_verneombud: 'Venter VO',
+      pending_approval: 'Venter godkjenning',
+      approved: 'Godkjent',
+    }
+    const entries = [
+      { label: label.in_progress, value: map.in_progress, color: '#0284c7' },
+      { label: label.pending_verneombud, value: map.pending_verneombud + map.pending_approval, color: '#d97706' },
+      { label: label.approved, value: map.approved, color: '#1a3d32' },
+    ].filter((x) => x.value > 0)
+    const total = hse.safetyRounds.length
+    return { entries, total }
+  }, [hse.safetyRounds])
+
+  const hseInspectionSegments = useMemo(() => {
+    const internal = hse.inspections.filter((i) => i.kind === 'internal').length
+    const external = hse.inspections.filter((i) => i.kind === 'external').length
+    const audit = hse.inspections.filter((i) => i.kind === 'audit').length
+    const entries = [
+      { label: 'Intern', value: internal, color: '#1a3d32' },
+      { label: 'Ekstern', value: external, color: '#d97706' },
+      { label: 'Revisjon', value: audit, color: '#7c3aed' },
+    ].filter((x) => x.value > 0)
+    const total = hse.inspections.length
+    return { entries, total }
+  }, [hse.inspections])
+
+  const hseTrainingKindEntries = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const r of hse.trainingRecords) {
+      const k = r.trainingKind
+      counts[k] = (counts[k] ?? 0) + 1
+    }
+    const palette = ['#1a3d32', '#0284c7', '#d97706', '#dc2626', '#7c3aed', '#0d9488']
+    const kinds = Object.keys(TRAINING_KIND_LABELS) as TrainingKind[]
+    return kinds
+      .map((k, idx) => ({
+        label: TRAINING_KIND_LABELS[k],
+        value: counts[k] ?? 0,
+        color: palette[idx % palette.length],
+      }))
+      .filter((x) => x.value > 0)
+      .sort((a, b) => b.value - a.value)
+  }, [hse.trainingRecords])
+
   return (
     <div className={PAGE_WRAP}>
       <nav className="mb-4 text-sm text-neutral-600">
@@ -654,26 +791,101 @@ export function HseModule() {
         </div>
       </div>
 
-      {/* ── Overview ──────────────────────────────────────────────────────────── */}
+      {/* ── Overview — boxed layout som rapporter / innsikt + grafer ─────────── */}
       {tab === 'overview' && (
-        <div className="mt-8 grid gap-6 lg:grid-cols-3">
-          <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm lg:col-span-2">
-            <h2 className="text-lg font-semibold text-neutral-900">Hurtigstatus</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-              <StatCard label="Vernerunder" value={hse.stats.rounds} />
-              <StatCard label="Hendelser" value={hse.stats.incidents} colour="neutral" />
-              <StatCard label="Vold / trusler" value={hse.stats.violence} colour={hse.stats.violence > 0 ? 'red' : 'neutral'} />
-              <StatCard label="Åpne SJA" value={hse.stats.openSja} colour={hse.stats.openSja > 0 ? 'amber' : 'neutral'} />
-            </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-4">
-              <StatCard label="Aktive sykefravær" value={hse.stats.activeSickLeave} />
-              <StatCard label="Forfalte frister" value={hse.stats.overdueMilestones} colour={hse.stats.overdueMilestones > 0 ? 'amber' : 'neutral'} />
-              <StatCard label="Opplæringsrekorder" value={hse.stats.trainingRecords} />
-              <StatCard label="Utløpt opplæring" value={hse.stats.expiredTraining} colour={hse.stats.expiredTraining > 0 ? 'red' : 'neutral'} />
-            </div>
+        <div className="mt-6 space-y-10">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {hseOverviewKpis.map((item) => (
+              <div key={item.title} className={HSE_THRESHOLD_BOX} style={menu1.barStyle}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
+                <p className="mt-1 text-xs text-white/70">{item.sub}</p>
+                <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
+              </div>
+            ))}
           </div>
-          <div className="rounded-2xl border border-amber-200/80 bg-amber-50/90 p-5 text-sm text-amber-950">
-            <strong>Revisjonslogg:</strong> Alle opprettelser og endringer logges med tidspunkt (append-only). Sykefraværsdata vises kun i sykefravær-fanen og er logget separat.
+
+          <section>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">HMS-innsikt</h2>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <HseDonutCard
+                title="Hendelser etter type"
+                subtitle="Fordeling i registeret"
+                segments={hseIncidentKindSegments.entries}
+                total={hseIncidentKindSegments.total}
+                emptyHint="Ingen hendelser registrert ennå."
+              />
+              <HseDonutCard
+                title="Alvorlighetsgrad"
+                subtitle="Hendelser etter risikonivå"
+                segments={hseSeveritySegments.entries}
+                total={hseSeveritySegments.total}
+                emptyHint="Ingen hendelser å vise."
+              />
+              <HseDonutCard
+                title="Vernerunder"
+                subtitle="Status på runder"
+                segments={hseSafetyRoundSegments.entries}
+                total={hseSafetyRoundSegments.total}
+                emptyHint="Ingen vernerunder ennå."
+              />
+              <HseDonutCard
+                title="Inspeksjoner"
+                subtitle="Intern / ekstern / revisjon"
+                segments={hseInspectionSegments.entries}
+                total={hseInspectionSegments.total}
+                emptyHint="Ingen inspeksjoner registrert."
+              />
+              <HseFilledListCard
+                title="Opplæring etter type"
+                subtitle="Antall registreringer"
+                rows={hseTrainingKindEntries}
+                emptyHint="Ingen opplæringsdata."
+              />
+              <div className={HSE_INSIGHT_CARD}>
+                <div className={HSE_CARD_TOP_RULE} />
+                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Driftsstatus</p>
+                <p className="mt-3 text-3xl font-semibold tabular-nums text-[#1a3d32]">{hse.stats.openInspections}</p>
+                <p className="mt-1 text-sm text-neutral-600">Åpne inspeksjoner</p>
+                <div className="mt-4 space-y-2 border-t border-neutral-100 pt-4 text-sm text-neutral-700">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-neutral-500">SJA (utkast)</span>
+                    <span className="font-semibold tabular-nums">{hse.stats.openSja}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-neutral-500">Forfalte milepæler (sykefravær)</span>
+                    <span
+                      className={`font-semibold tabular-nums ${hse.stats.overdueMilestones > 0 ? 'text-amber-700' : ''}`}
+                    >
+                      {hse.stats.overdueMilestones}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-neutral-500">Utløpt opplæring</span>
+                    <span className={`font-semibold tabular-nums ${hse.stats.expiredTraining > 0 ? 'text-red-700' : ''}`}>
+                      {hse.stats.expiredTraining}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-neutral-500">Vold / trusler (totalt)</span>
+                    <span className={`font-semibold tabular-nums ${hse.stats.violence > 0 ? 'text-red-700' : ''}`}>
+                      {hse.stats.violence}
+                    </span>
+                  </div>
+                </div>
+                <p className="mt-4 text-[10px] font-bold uppercase tracking-wider text-[#1a3d32]">
+                  <Link to="?tab=incidents" className="hover:underline">
+                    Gå til hendelser →
+                  </Link>
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <div className={`${R_FLAT} border border-amber-200/80 bg-amber-50/90 p-5 text-sm text-amber-950`}>
+            <strong>Revisjonslogg:</strong> Alle opprettelser og endringer logges med tidspunkt (append-only). Sykefraværsdata
+            vises i sykefravær-fanen og er logget separat.
           </div>
         </div>
       )}
@@ -2854,12 +3066,125 @@ export function HseModule() {
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, colour = 'neutral' }: { label: string; value: number; colour?: 'neutral' | 'red' | 'amber' | 'emerald' }) {
-  const cls = colour === 'red' ? 'text-red-700' : colour === 'amber' ? 'text-amber-700' : colour === 'emerald' ? 'text-emerald-700' : 'text-[#1a3d32]'
+type HseSeg = { label: string; value: number; color: string }
+
+function hseConicGradient(segments: HseSeg[], total: number): string {
+  if (total <= 0 || segments.length === 0) {
+    return 'conic-gradient(#e5e7eb 0deg 360deg)'
+  }
+  const parts: string[] = []
+  let from = 0
+  for (const s of segments) {
+    if (s.value <= 0) continue
+    const deg = (s.value / total) * 360
+    const to = from + deg
+    parts.push(`${s.color} ${from}deg ${to}deg`)
+    from = to
+  }
+  if (parts.length === 0) return 'conic-gradient(#e5e7eb 0deg 360deg)'
+  return `conic-gradient(${parts.join(', ')})`
+}
+
+function HseDonutChart({ segments, total }: { segments: HseSeg[]; total: number }) {
+  const bg = hseConicGradient(segments, total)
   return (
-    <div className="rounded-xl bg-[#faf8f4] p-4 ring-1 ring-neutral-100">
-      <div className={`text-2xl font-semibold ${cls}`}>{value}</div>
-      <div className="text-sm text-neutral-600">{label}</div>
+    <div
+      className="relative mx-auto size-36 shrink-0 rounded-full"
+      style={{ background: bg }}
+      aria-hidden
+    >
+      <div className="absolute inset-[22%] flex flex-col items-center justify-center rounded-full bg-white shadow-inner">
+        <span className="text-2xl font-bold tabular-nums text-neutral-900">{total}</span>
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-neutral-400">Totalt</span>
+      </div>
+    </div>
+  )
+}
+
+function HseDonutCard({
+  title,
+  subtitle,
+  segments,
+  total,
+  emptyHint,
+}: {
+  title: string
+  subtitle: string
+  segments: HseSeg[]
+  total: number
+  emptyHint: string
+}) {
+  return (
+    <div className={HSE_INSIGHT_CARD}>
+      <div className={HSE_CARD_TOP_RULE} />
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{title}</p>
+          <p className="mt-1 text-sm leading-relaxed text-neutral-600">{subtitle}</p>
+        </div>
+      </div>
+      {total === 0 ? (
+        <p className="mt-6 text-center text-sm text-neutral-400">{emptyHint}</p>
+      ) : (
+        <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-center">
+          <HseDonutChart segments={segments} total={total} />
+          <ul className="min-w-0 flex-1 space-y-2 text-sm">
+            {segments.map((s) => {
+              const pct = total > 0 ? Math.round((s.value / total) * 1000) / 10 : 0
+              return (
+                <li key={s.label} className="flex items-center justify-between gap-2 border-b border-neutral-100 py-1.5 last:border-0">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+                    <span className="truncate text-neutral-700">{s.label}</span>
+                  </span>
+                  <span className="shrink-0 tabular-nums text-neutral-500">
+                    {s.value}{' '}
+                    <span className="text-neutral-400">({pct}%)</span>
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function HseFilledListCard({
+  title,
+  subtitle,
+  rows,
+  emptyHint,
+}: {
+  title: string
+  subtitle: string
+  rows: HseSeg[]
+  emptyHint: string
+}) {
+  return (
+    <div className={HSE_INSIGHT_CARD}>
+      <div className={HSE_CARD_TOP_RULE} />
+      <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{title}</p>
+      <p className="mt-1 text-sm leading-relaxed text-neutral-600">{subtitle}</p>
+      {rows.length === 0 ? (
+        <p className="mt-6 text-sm text-neutral-400">{emptyHint}</p>
+      ) : (
+        <ul className="mt-4 max-h-52 space-y-0 overflow-y-auto">
+          {rows.map((r) => (
+            <li
+              key={r.label}
+              className="flex items-center justify-between gap-3 border-b border-neutral-100 py-2.5 text-sm last:border-0"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: r.color }} />
+                <span className="truncate font-medium text-neutral-800">{r.label}</span>
+              </span>
+              <span className="shrink-0 font-semibold tabular-nums text-neutral-900">{r.value}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
