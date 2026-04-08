@@ -323,9 +323,19 @@ export function HseModule() {
 
   // SJA form
   const [sjaForm, setSjaForm] = useState({ title: '', jobDescription: '', location: '', department: '', plannedAt: '', conductedBy: '', participants: '' })
-  const [expandedSja, setExpandedSja] = useState<string | null>(null)
-  const [sjaRowDraft, setSjaRowDraft] = useState<Record<string, Omit<SjaHazardRow, 'id'>>>({})
-  const [sjaSignDraft, setSjaSignDraft] = useState<Record<string, { signerName: string; role: SjaAnalysis['signatures'][0]['role'] }>>({})
+  const [sjaPanelId, setSjaPanelId] = useState<string | null>(null)
+  const [sjaPanelRowDraft, setSjaPanelRowDraft] = useState<Omit<SjaHazardRow, 'id'>>({
+    step: '',
+    hazard: '',
+    consequence: '',
+    existingControls: '',
+    additionalMeasures: '',
+    responsible: '',
+  })
+  const [sjaPanelSig, setSjaPanelSig] = useState<{ signerName: string; role: SjaAnalysis['signatures'][0]['role'] }>({
+    signerName: '',
+    role: 'foreman',
+  })
 
   // Training form
   const [trainingForm, setTrainingForm] = useState({ employeeName: '', department: '', role: '', trainingKind: 'hms_40hr' as TrainingKind, customLabel: '', completedAt: '', expiresAt: '', provider: '', certificateRef: '' })
@@ -334,17 +344,66 @@ export function HseModule() {
   const [exportMsg, setExportMsg] = useState('')
 
   // Expanded incident detail
-  const [expandedInc, setExpandedInc] = useState<string | null>(null)
-  // Expanded sick leave
-  const [expandedSL, setExpandedSL] = useState<string | null>(null)
-  // Portal message drafts
-  const [msgDraft, setMsgDraft] = useState<Record<string, string>>({})
-  const [msgRole, setMsgRole] = useState<Record<string, SickLeaveCase['portalMessages'][0]['senderRole']>>({})
-  const [msgName, setMsgName] = useState<Record<string, string>>({})
+  const [incidentPanelId, setIncidentPanelId] = useState<string | null>(null)
+  const [slPanelId, setSlPanelId] = useState<string | null>(null)
+  const [slPanelMsg, setSlPanelMsg] = useState('')
+  const [slPanelRole, setSlPanelRole] = useState<SickLeaveCase['portalMessages'][0]['senderRole']>('manager')
+  const [slPanelName, setSlPanelName] = useState('')
+  const [trainingPanelId, setTrainingPanelId] = useState<string | null>(null)
   // Corrective action draft
   const [caDraft, setCaDraft] = useState<Record<string, { description: string; responsible: string; dueDate: string }>>({})
 
   const sortedAudit = useMemo(() => [...hse.auditTrail].sort((a, b) => a.at.localeCompare(b.at)), [hse.auditTrail])
+
+  const incidentPanelInc = incidentPanelId ? hse.incidents.find((i) => i.id === incidentPanelId) : undefined
+  const sjaPanelSja = sjaPanelId ? hse.sjaAnalyses.find((s) => s.id === sjaPanelId) : undefined
+  const slPanelCase = slPanelId ? hse.sickLeaveCases.find((s) => s.id === slPanelId) : undefined
+  const trainingPanelRec = trainingPanelId ? hse.trainingRecords.find((r) => r.id === trainingPanelId) : undefined
+
+  const closeIncidentPanel = useCallback(() => setIncidentPanelId(null), [])
+  const closeSjaPanel = useCallback(() => {
+    setSjaPanelId(null)
+    setSjaPanelRowDraft({
+      step: '',
+      hazard: '',
+      consequence: '',
+      existingControls: '',
+      additionalMeasures: '',
+      responsible: '',
+    })
+    setSjaPanelSig({ signerName: '', role: 'foreman' })
+  }, [])
+  const closeSlPanel = useCallback(() => {
+    setSlPanelId(null)
+    setSlPanelMsg('')
+    setSlPanelRole('manager')
+    setSlPanelName('')
+  }, [])
+
+  const closeTrainingPanel = useCallback(() => setTrainingPanelId(null), [])
+
+  useEffect(() => {
+    if (!incidentPanelId && !sjaPanelId && !slPanelId && !trainingPanelId) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [incidentPanelId, sjaPanelId, slPanelId, trainingPanelId])
+
+  useEffect(() => {
+    if (!incidentPanelId && !sjaPanelId && !slPanelId && !trainingPanelId) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeIncidentPanel()
+        closeSjaPanel()
+        closeSlPanel()
+        closeTrainingPanel()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [incidentPanelId, sjaPanelId, slPanelId, trainingPanelId, closeIncidentPanel, closeSjaPanel, closeSlPanel, closeTrainingPanel])
 
   const inspectionStats = useMemo(() => {
     const list = hse.inspections
@@ -1027,112 +1086,52 @@ export function HseModule() {
               <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen registreringer ennå.</p>
             ) : (
               <ul className="divide-y divide-neutral-100">
-                {hse.incidents.map((inc) => {
-                  const expanded = expandedInc === inc.id
-                  const ca = caDraft[inc.id] ?? { description: '', responsible: '', dueDate: '' }
-                  return (
-                    <li key={inc.id} className="px-4 py-4">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${KIND_COLOURS[inc.kind]}`}>{KIND_LABELS[inc.kind]}</span>
-                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${SEVERITY_COLOURS[inc.severity]}`}>{SEVERITY_LABELS[inc.severity]}</span>
-                          {inc.formTemplate !== 'standard' && (
-                            <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">{FORM_TEMPLATES.find((t) => t.id === inc.formTemplate)?.label}</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <select value={inc.status} onChange={(e) => hse.updateIncident(inc.id, { status: e.target.value as Incident['status'] })} className="rounded-full border border-neutral-200 px-2 py-1 text-xs">
-                            {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                          </select>
-                          <button type="button" onClick={() => setExpandedInc(expanded ? null : inc.id)} className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 text-xs">
-                            {expanded ? '▲' : '▼'}
-                          </button>
-                        </div>
-                      </div>
-
-                      <p className="mt-1 text-xs text-neutral-500">
-                        {formatWhen(inc.occurredAt)} · {inc.location}{inc.department ? ` · ${inc.department}` : ''}
-                        {inc.reportedBy !== '—' ? ` · Meldt av: ${inc.reportedBy}` : ''}
-                      </p>
-                      <p className="mt-2 text-sm text-neutral-800">{inc.description}</p>
-
-                      {/* Routing badge */}
-                      {inc.routing && (
-                        <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                          <span className="rounded-full bg-[#1a3d32]/10 px-2 py-0.5 text-[#1a3d32]">→ {inc.routing.managerName}</span>
-                          {inc.routing.verneombudNotified && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">Verneombud varslet</span>}
-                          {inc.routing.amuCaseCreated && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-800">AMU-sak opprettet</span>}
-                        </div>
-                      )}
-                      {inc.arbeidstilsynetNotified && (
-                        <p className="mt-1 text-xs font-medium text-red-700">⚠ Meldt til Arbeidstilsynet (AML §5-2)</p>
-                      )}
-
-                      {/* Expanded detail */}
-                      {expanded && (
-                        <div className="mt-4 space-y-3 rounded-xl border border-neutral-100 bg-neutral-50 p-4 text-sm">
-                          {inc.experienceDetail && <div><span className="font-medium text-neutral-700">Opplevelse:</span> {inc.experienceDetail}</div>}
-                          {inc.injuredPerson && <div><span className="font-medium text-neutral-700">Berørt:</span> {inc.injuredPerson}</div>}
-                          {inc.witnesses && <div><span className="font-medium text-neutral-700">Vitner:</span> {inc.witnesses}</div>}
-                          {inc.immediateActions && <div><span className="font-medium text-neutral-700">Umiddelbare tiltak:</span> {inc.immediateActions}</div>}
-                          {inc.rootCause && <div><span className="font-medium text-neutral-700">Rotårsak:</span> {inc.rootCause}</div>}
-
-                          {/* Corrective actions */}
-                          <div>
-                            <p className="font-semibold text-neutral-700 mb-2">Tiltak ({inc.correctiveActions.length})</p>
-                            {inc.correctiveActions.map((a) => (
-                              <div key={a.id} className="flex items-start gap-2 mb-1">
-                                <button type="button" onClick={() => hse.updateIncident(inc.id, { correctiveActions: inc.correctiveActions.map((x) => x.id === a.id ? { ...x, completedAt: x.completedAt ? undefined : new Date().toISOString() } : x) })} className={`mt-0.5 shrink-0 rounded-full p-0.5 ${a.completedAt ? 'text-emerald-600' : 'text-neutral-300'}`}>
-                                  <CheckCircle2 className="size-4" />
-                                </button>
-                                <div className={a.completedAt ? 'line-through text-neutral-400' : ''}>
-                                  {a.description} — <span className="text-neutral-500">{a.responsible}</span> · frist {formatDate(a.dueDate)}
-                                </div>
-                              </div>
-                            ))}
-                            <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                              <input placeholder="Tiltak" value={ca.description} onChange={(e) => setCaDraft((d) => ({ ...d, [inc.id]: { ...ca, description: e.target.value } }))} className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs" />
-                              <input placeholder="Ansvarlig" value={ca.responsible} onChange={(e) => setCaDraft((d) => ({ ...d, [inc.id]: { ...ca, responsible: e.target.value } }))} className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs" />
-                              <div className="flex gap-1">
-                                <input type="date" value={ca.dueDate} onChange={(e) => setCaDraft((d) => ({ ...d, [inc.id]: { ...ca, dueDate: e.target.value } }))} className="flex-1 rounded-lg border border-neutral-200 px-2 py-1.5 text-xs" />
-                                <button type="button" onClick={() => {
-                                  if (!ca.description.trim() || !ca.dueDate) return
-                                  hse.addCorrectiveAction(inc.id, ca)
-                                  setCaDraft((d) => ({ ...d, [inc.id]: { description: '', responsible: '', dueDate: '' } }))
-                                }} className="rounded-lg bg-[#1a3d32] px-2 py-1 text-white">
-                                  <Plus className="size-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                        {expanded && (
-                          <button
-                            type="button"
-                            onClick={() => { if (confirm('Anonymiser personopplysninger? Kan ikke angres.')) hse.anonymiseIncident(inc.id) }}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
-                          >
-                            <Trash2 className="size-3.5" />
-                            Anonymiser (GDPR)
-                          </button>
+                {hse.incidents.map((inc) => (
+                  <li key={inc.id} className="px-4 py-4">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${KIND_COLOURS[inc.kind]}`}>{KIND_LABELS[inc.kind]}</span>
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${SEVERITY_COLOURS[inc.severity]}`}>{SEVERITY_LABELS[inc.severity]}</span>
+                        {inc.formTemplate !== 'standard' && (
+                          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">{FORM_TEMPLATES.find((t) => t.id === inc.formTemplate)?.label}</span>
                         )}
-                        <AddTaskLink
-                          title={`Oppfølging: ${KIND_LABELS[inc.kind]}`}
-                          description={inc.description.slice(0, 200)}
-                          module="hse"
-                          sourceType="hse_incident"
-                          sourceId={inc.id}
-                          sourceLabel={`${inc.location} · ${SEVERITY_LABELS[inc.severity]}`}
-                          ownerRole="HMS / verneombud"
-                          requiresManagementSignOff={inc.severity === 'high' || inc.severity === 'critical'}
-                        />
                       </div>
-                    </li>
-                  )
-                })}
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-none border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs font-medium text-neutral-800">
+                          {STATUS_LABELS[inc.status]}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIncidentPanelId(inc.id)
+                            setCaDraft((d) => ({
+                              ...d,
+                              [inc.id]: d[inc.id] ?? { description: '', responsible: '', dueDate: '' },
+                            }))
+                          }}
+                          className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+                        >
+                          Åpne
+                        </button>
+                      </div>
+                    </div>
+                    <p className="mt-1 text-xs text-neutral-500">
+                      {formatWhen(inc.occurredAt)} · {inc.location}{inc.department ? ` · ${inc.department}` : ''}
+                      {inc.reportedBy !== '—' ? ` · Meldt av: ${inc.reportedBy}` : ''}
+                    </p>
+                    <p className="mt-2 line-clamp-2 text-sm text-neutral-800">{inc.description}</p>
+                    {inc.routing && (
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                        <span className="rounded-full bg-[#1a3d32]/10 px-2 py-0.5 text-[#1a3d32]">→ {inc.routing.managerName}</span>
+                        {inc.routing.verneombudNotified && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">Verneombud varslet</span>}
+                        {inc.routing.amuCaseCreated && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-800">AMU-sak opprettet</span>}
+                      </div>
+                    )}
+                    {inc.arbeidstilsynetNotified && (
+                      <p className="mt-1 text-xs font-medium text-red-700">⚠ Meldt til Arbeidstilsynet (AML §5-2)</p>
+                    )}
+                  </li>
+                ))}
               </ul>
             )}
           </div>
@@ -1163,7 +1162,7 @@ export function HseModule() {
                     conductedBy: String(data.conductedBy), participants: String(data.participants) || '',
                     rows: [], status: 'draft', conclusion: '',
                   })
-                  setExpandedSja(sja.id)
+                  setSjaPanelId(sja.id)
                 })}
               />
             </div>
@@ -1171,7 +1170,7 @@ export function HseModule() {
               e.preventDefault()
               if (!sjaForm.title.trim()) return
               const sja = hse.createSja({ title: sjaForm.title.trim(), jobDescription: sjaForm.jobDescription, location: sjaForm.location, department: sjaForm.department, plannedAt: sjaForm.plannedAt ? new Date(sjaForm.plannedAt).toISOString() : new Date().toISOString(), conductedBy: sjaForm.conductedBy, participants: sjaForm.participants, rows: [], status: 'draft', conclusion: '' })
-              setExpandedSja(sja.id)
+              setSjaPanelId(sja.id)
               setSjaForm({ title: '', jobDescription: '', location: '', department: '', plannedAt: '', conductedBy: '', participants: '' })
             }}>
               <div className="sm:col-span-2">
@@ -1209,124 +1208,41 @@ export function HseModule() {
             </form>
           </section>
 
-          {/* SJA list */}
-          <div className="space-y-4">
+          {/* SJA list — redigering i sidevindu */}
+          <div className="space-y-3">
             {hse.sjaAnalyses.length === 0 && <p className="text-center text-sm text-neutral-500 py-8">Ingen SJA-er registrert ennå.</p>}
             {hse.sjaAnalyses.map((sja) => {
-              const expanded = expandedSja === sja.id
-              const rowDraft = sjaRowDraft[sja.id] ?? { step: '', hazard: '', consequence: '', existingControls: '', additionalMeasures: '', responsible: '' }
-              const sigDraft = sjaSignDraft[sja.id] ?? { signerName: '', role: 'foreman' as const }
+              const stLabel = sja.status === 'draft' ? 'Utkast' : sja.status === 'approved' ? 'Godkjent' : 'Avsluttet'
               return (
-                <div key={sja.id} className="rounded-2xl border border-neutral-200/90 bg-white shadow-sm overflow-hidden">
-                  <div className="flex flex-wrap items-center justify-between gap-3 bg-neutral-50 px-4 py-3 border-b border-neutral-100">
-                    <div>
-                      <span className="font-semibold text-neutral-900">{sja.title}</span>
-                      <span className="ml-2 text-xs text-neutral-500">{sja.location}{sja.department ? ` · ${sja.department}` : ''}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <select value={sja.status} onChange={(e) => hse.updateSja(sja.id, { status: e.target.value as SjaAnalysis['status'] })} className="rounded-full border border-neutral-200 px-2 py-1 text-xs">
-                        <option value="draft">Utkast</option>
-                        <option value="approved">Godkjent</option>
-                        <option value="closed">Avsluttet</option>
-                      </select>
-                      <button type="button" onClick={() => setExpandedSja(expanded ? null : sja.id)} className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-100 text-xs">{expanded ? '▲' : '▼'}</button>
+                <div key={sja.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200/90 bg-white px-4 py-3 shadow-sm">
+                  <div>
+                    <span className="font-semibold text-neutral-900">{sja.title}</span>
+                    <span className="ml-2 text-xs text-neutral-500">
+                      {sja.location}
+                      {sja.department ? ` · ${sja.department}` : ''}
+                    </span>
+                    <div className="mt-1 text-xs text-neutral-500">
+                      {sja.rows.length} fare-rad(er) · {stLabel}
                     </div>
                   </div>
-
-                  {expanded && (
-                    <div className="px-4 py-4 space-y-5">
-                      {sja.jobDescription && <p className="text-sm text-neutral-700">{sja.jobDescription}</p>}
-
-                      {/* Hazard rows table */}
-                      <div>
-                        <p className="text-xs font-semibold text-neutral-600 mb-2">Fareidentifikasjon og tiltak</p>
-                        <div className="overflow-x-auto">
-                          <table className="w-full min-w-[700px] text-xs border-collapse">
-                            <thead>
-                              <tr className="bg-neutral-50 text-neutral-500 uppercase tracking-wide">
-                                {['Arbeidssteg', 'Fare', 'Konsekvens', 'Eksist. tiltak', 'Nye tiltak', 'Ansvarlig'].map((h) => (
-                                  <th key={h} className="border border-neutral-200 px-2 py-1.5 text-left font-semibold">{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {sja.rows.map((row) => (
-                                <tr key={row.id} className="border border-neutral-200">
-                                  {(['step', 'hazard', 'consequence', 'existingControls', 'additionalMeasures', 'responsible'] as const).map((field) => (
-                                    <td key={field} className="border border-neutral-200 px-2 py-1">
-                                      <input
-                                        value={row[field]}
-                                        onChange={(e) => hse.updateSjaRow(sja.id, row.id, { [field]: e.target.value })}
-                                        className="w-full min-w-[80px] bg-transparent text-xs outline-none"
-                                      />
-                                    </td>
-                                  ))}
-                                </tr>
-                              ))}
-                              {/* Add row */}
-                              <tr className="bg-neutral-50/50">
-                                {(['step', 'hazard', 'consequence', 'existingControls', 'additionalMeasures', 'responsible'] as const).map((field) => (
-                                  <td key={field} className="border border-neutral-200 px-2 py-1">
-                                    <input
-                                      value={rowDraft[field]}
-                                      onChange={(e) => setSjaRowDraft((d) => ({ ...d, [sja.id]: { ...rowDraft, [field]: e.target.value } }))}
-                                      placeholder={field === 'step' ? '+ Nytt steg' : ''}
-                                      className="w-full min-w-[80px] bg-transparent text-xs outline-none placeholder:text-neutral-400"
-                                    />
-                                  </td>
-                                ))}
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                        <button type="button" onClick={() => {
-                          if (!rowDraft.step.trim() && !rowDraft.hazard.trim()) return
-                          hse.addSjaRow(sja.id, rowDraft)
-                          setSjaRowDraft((d) => ({ ...d, [sja.id]: { step: '', hazard: '', consequence: '', existingControls: '', additionalMeasures: '', responsible: '' } }))
-                        }} className="mt-2 text-xs font-medium text-[#1a3d32] hover:underline">+ Legg til rad</button>
-                      </div>
-
-                      {/* Conclusion */}
-                      <div>
-                        <label className="text-xs font-semibold text-neutral-600">Konklusjon / godkjenning</label>
-                        <textarea value={sja.conclusion} onChange={(e) => hse.updateSja(sja.id, { conclusion: e.target.value })} rows={2} className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" placeholder="Totalvurdering og godkjenning av arbeidet …" />
-                      </div>
-
-                      {/* Signatures */}
-                      <div>
-                        <p className="text-xs font-semibold text-neutral-600 mb-2">Signaturer ({sja.signatures.length})</p>
-                        {sja.signatures.map((s, i) => {
-                          const l1 = formatLevel1AuditLine(s.level1)
-                          return (
-                            <div key={i} className="whitespace-pre-line text-xs text-neutral-600">
-                              {s.signerName} ({s.role}) · {formatDate(s.signedAt)}
-                              {l1 ? `\n${l1}` : ''}
-                            </div>
-                          )
-                        })}
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <select value={sigDraft.role} onChange={(e) => setSjaSignDraft((d) => ({ ...d, [sja.id]: { ...sigDraft, role: e.target.value as typeof sigDraft.role } }))} className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs">
-                            <option value="foreman">Arbeidsleder</option>
-                            <option value="verneombud">Verneombud</option>
-                            <option value="worker">Arbeider</option>
-                            <option value="management">Ledelse</option>
-                          </select>
-                          <input value={sigDraft.signerName} onChange={(e) => setSjaSignDraft((d) => ({ ...d, [sja.id]: { ...sigDraft, signerName: e.target.value } }))} placeholder="Fullt navn" className="flex-1 min-w-[140px] rounded-lg border border-neutral-200 px-2 py-1.5 text-xs" />
-                          <button type="button" onClick={() => {
-                            if (!sigDraft.signerName.trim()) return
-                            void (async () => {
-                              await hse.signSja(sja.id, sigDraft)
-                              setSjaSignDraft((d) => ({ ...d, [sja.id]: { signerName: '', role: 'worker' } }))
-                            })()
-                          }} className="rounded-lg bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white">Signer</button>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end">
-                        <AddTaskLink title={`SJA oppfølging: ${sja.title.slice(0, 60)}`} module="hse" sourceType="hse_incident" sourceId={sja.id} sourceLabel={sja.title} ownerRole="Arbeidsleder / HMS" />
-                      </div>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSjaPanelId(sja.id)
+                      setSjaPanelRowDraft({
+                        step: '',
+                        hazard: '',
+                        consequence: '',
+                        existingControls: '',
+                        additionalMeasures: '',
+                        responsible: '',
+                      })
+                      setSjaPanelSig({ signerName: '', role: 'foreman' })
+                    }}
+                    className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+                  >
+                    Åpne
+                  </button>
                 </div>
               )
             })}
@@ -1418,6 +1334,7 @@ export function HseModule() {
                       <th className="px-4 py-3">Gjennomført</th>
                       <th className="px-4 py-3">Utløper</th>
                       <th className="px-4 py-3">Sertifikat</th>
+                      <th className="px-4 py-3 text-right">Handling</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-100">
@@ -1441,6 +1358,15 @@ export function HseModule() {
                             ) : '—'}
                           </td>
                           <td className="px-4 py-3 font-mono text-xs text-neutral-500">{rec.certificateRef ?? '—'}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setTrainingPanelId(rec.id)}
+                              className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+                            >
+                              Åpne
+                            </button>
+                          </td>
                         </tr>
                       )
                     })}
@@ -1553,150 +1479,38 @@ export function HseModule() {
             </form>
           </section>
 
-          {/* Active cases */}
-          <div className="space-y-6">
+          {/* Active cases — detaljer i sidevindu */}
+          <div className="space-y-4">
             {hse.sickLeaveCases.map((sc) => {
               const today = new Date().toISOString().slice(0, 10)
-              const expanded = expandedSL === sc.id
-              const msg = msgDraft[sc.id] ?? ''
-              const role = msgRole[sc.id] ?? 'manager'
-              const name = msgName[sc.id] ?? ''
               const overdue = sc.milestones.filter((m) => !m.completedAt && m.dueAt < today)
-              const upcoming = sc.milestones.filter((m) => !m.completedAt && m.dueAt >= today).slice(0, 3)
+              const upcoming = sc.milestones.filter((m) => !m.completedAt && m.dueAt >= today)
               const done = sc.milestones.filter((m) => m.completedAt)
-
               return (
-                <div key={sc.id} className="rounded-2xl border border-neutral-200/90 bg-white shadow-sm overflow-hidden">
-                  {/* Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 bg-neutral-50 px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="font-semibold text-neutral-900">{sc.employeeName}</span>
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${SICK_STATUS_COLOURS[sc.status]}`}>{SICK_STATUS_LABELS[sc.status]}</span>
-                      <span className="text-xs text-neutral-500">{sc.sicknessDegree}% · {sc.department}</span>
+                <div key={sc.id} className="rounded-2xl border border-neutral-200/90 bg-white px-4 py-4 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-neutral-900">{sc.employeeName}</span>
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${SICK_STATUS_COLOURS[sc.status]}`}>
+                          {SICK_STATUS_LABELS[sc.status]}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-neutral-500">
+                        {sc.sicknessDegree}% · {sc.department} · Sykemeldt fra {formatDate(sc.sickFrom)} · Leder: {sc.managerName}
+                      </p>
+                      <p className="mt-2 text-xs text-neutral-600">
+                        Milepæler: {done.length} fullført · {overdue.length} forfalt · {upcoming.length} åpne
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <select value={sc.status} onChange={(e) => hse.updateSickLeaveCase(sc.id, { status: e.target.value as SickLeaveCase['status'] })} className="rounded-full border border-neutral-200 px-2 py-1 text-xs">
-                        <option value="active">Sykemeldt</option>
-                        <option value="partial">Gradert</option>
-                        <option value="returning">I retur</option>
-                        <option value="closed">Avsluttet</option>
-                      </select>
-                      <button type="button" onClick={() => setExpandedSL(expanded ? null : sc.id)} className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100">
-                        {expanded ? '▲' : '▼'}
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSlPanelId(sc.id)}
+                      className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+                    >
+                      Åpne
+                    </button>
                   </div>
-
-                  <div className="px-4 py-3">
-                    <p className="text-xs text-neutral-500">Sykemeldt fra: {formatDate(sc.sickFrom)} · Leder: {sc.managerName}</p>
-
-                    {/* Overdue alert */}
-                    {overdue.length > 0 && (
-                      <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                        <p className="text-xs font-semibold text-amber-900 mb-1">Forfalt ({overdue.length})</p>
-                        {overdue.map((m) => (
-                          <div key={m.kind} className="flex items-center justify-between gap-2 text-xs text-amber-800">
-                            <span>{m.label}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-amber-600">Frist: {formatDate(m.dueAt)} ({Math.abs(daysUntil(m.dueAt))} dager siden)</span>
-                              <button type="button" onClick={() => hse.completeMilestone(sc.id, m.kind as SickLeaveMilestoneKind)} className="rounded bg-amber-700 px-2 py-0.5 text-white">Fullført</button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Upcoming milestones */}
-                    {upcoming.length > 0 && (
-                      <div className="mt-3">
-                        <p className="text-xs font-semibold text-neutral-600 mb-1">Kommende frister</p>
-                        <div className="space-y-1.5">
-                          {upcoming.map((m) => {
-                            const days = daysUntil(m.dueAt)
-                            const urgent = days <= 7
-                            return (
-                              <div key={m.kind} className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${urgent ? 'bg-amber-50 border border-amber-200' : 'bg-neutral-50 border border-neutral-100'}`}>
-                                <div>
-                                  <span className="font-medium text-neutral-800">{m.label}</span>
-                                  <span className="ml-2 text-neutral-400">{m.lawRef}</span>
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <span className={urgent ? 'font-semibold text-amber-700' : 'text-neutral-500'}>{formatDate(m.dueAt)} ({days}d)</span>
-                                  <button type="button" onClick={() => hse.completeMilestone(sc.id, m.kind as SickLeaveMilestoneKind)} className="rounded-full bg-[#1a3d32] px-2 py-0.5 text-white text-[10px]">Fullført</button>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Completed milestones */}
-                    {done.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {done.map((m) => (
-                          <span key={m.kind} className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-800">
-                            <CheckCircle2 className="size-3" />{m.label}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Expanded: accommodation notes + portal */}
-                  {expanded && (
-                    <div className="border-t border-neutral-100 px-4 py-4 space-y-4">
-                      {/* Accommodation notes */}
-                      <div>
-                        <label className="text-xs font-semibold text-neutral-700 flex items-center gap-1">
-                          <Lock className="size-3.5" /> Tilretteleggingsnotater (konfidensielt)
-                        </label>
-                        <textarea
-                          value={sc.accommodationNotes}
-                          onChange={(e) => hse.updateSickLeaveCase(sc.id, { accommodationNotes: e.target.value })}
-                          rows={3}
-                          placeholder="Tilretteleggingsbehov, avtaler, plan …"
-                          className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                        />
-                      </div>
-
-                      {/* Secure portal messages */}
-                      <div>
-                        <p className="text-xs font-semibold text-neutral-700 flex items-center gap-1 mb-2">
-                          <MessageSquare className="size-3.5" /> Sikker dialog (leder ↔ ansatt)
-                        </p>
-                        <div className="max-h-48 overflow-y-auto space-y-2 mb-3">
-                          {sc.portalMessages.length === 0 ? (
-                            <p className="text-xs text-neutral-400">Ingen meldinger ennå.</p>
-                          ) : sc.portalMessages.map((m) => (
-                            <div key={m.id} className={`rounded-lg px-3 py-2 text-sm ${m.senderRole === 'manager' ? 'bg-[#1a3d32]/8 ml-4' : 'bg-neutral-100 mr-4'}`}>
-                              <div className="text-[10px] text-neutral-500 mb-1">{m.senderName} ({m.senderRole === 'manager' ? 'Leder' : 'Ansatt'}) · {formatWhen(m.sentAt)}</div>
-                              <p className="text-neutral-800">{m.text}</p>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex gap-2">
-                            <select value={role} onChange={(e) => setMsgRole((r) => ({ ...r, [sc.id]: e.target.value as typeof role }))} className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs">
-                              <option value="manager">Leder</option>
-                              <option value="employee">Ansatt</option>
-                            </select>
-                            <input value={name} onChange={(e) => setMsgName((n) => ({ ...n, [sc.id]: e.target.value }))} placeholder="Navn" className="min-w-[120px] flex-1 rounded-lg border border-neutral-200 px-2 py-1.5 text-xs" />
-                          </div>
-                          <div className="flex gap-2">
-                            <textarea value={msg} onChange={(e) => setMsgDraft((d) => ({ ...d, [sc.id]: e.target.value }))} placeholder="Skriv melding …" rows={2} className="flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm" />
-                            <button type="button" onClick={() => {
-                              if (!msg.trim()) return
-                              hse.addPortalMessage(sc.id, role, name || (role === 'manager' ? 'Leder' : 'Ansatt'), msg)
-                              setMsgDraft((d) => ({ ...d, [sc.id]: '' }))
-                            }} className="self-end rounded-lg bg-[#1a3d32] px-3 py-2 text-sm font-medium text-white hover:bg-[#142e26]">
-                              Send
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )
             })}
@@ -1795,6 +1609,723 @@ export function HseModule() {
           </div>
         </div>
       )}
+
+      {/* Hendelse — sidevindu */}
+      {incidentPanelId && incidentPanelInc ? (
+        <>
+          <button
+            type="button"
+            aria-label="Lukk"
+            className="fixed inset-0 z-[60] bg-black/40"
+            onClick={closeIncidentPanel}
+          />
+          <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[920px] flex-col border-l border-neutral-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-neutral-900">Hendelse / avvik</h2>
+                <p className="text-xs text-neutral-500">{KIND_LABELS[incidentPanelInc.kind]} · {SEVERITY_LABELS[incidentPanelInc.severity]}</p>
+              </div>
+              <button type="button" onClick={closeIncidentPanel} className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-100`}>
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              <div className="mb-4">
+                <label className={SETTINGS_FIELD_LABEL}>Status</label>
+                <select
+                  value={incidentPanelInc.status}
+                  onChange={(e) =>
+                    hse.updateIncident(incidentPanelInc.id, { status: e.target.value as Incident['status'] })
+                  }
+                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                >
+                  {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-xs text-neutral-500">
+                {formatWhen(incidentPanelInc.occurredAt)} · {incidentPanelInc.location}
+                {incidentPanelInc.department ? ` · ${incidentPanelInc.department}` : ''}
+              </p>
+              <p className="mt-2 text-sm text-neutral-800">{incidentPanelInc.description}</p>
+              {incidentPanelInc.experienceDetail ? (
+                <p className="mt-3 text-sm">
+                  <span className="font-medium text-neutral-700">Opplevelse:</span> {incidentPanelInc.experienceDetail}
+                </p>
+              ) : null}
+              {incidentPanelInc.injuredPerson ? (
+                <p className="mt-2 text-sm">
+                  <span className="font-medium text-neutral-700">Berørt:</span> {incidentPanelInc.injuredPerson}
+                </p>
+              ) : null}
+              {incidentPanelInc.witnesses ? (
+                <p className="mt-2 text-sm">
+                  <span className="font-medium text-neutral-700">Vitner:</span> {incidentPanelInc.witnesses}
+                </p>
+              ) : null}
+              {incidentPanelInc.immediateActions ? (
+                <p className="mt-2 text-sm">
+                  <span className="font-medium text-neutral-700">Umiddelbare tiltak:</span>{' '}
+                  {incidentPanelInc.immediateActions}
+                </p>
+              ) : null}
+              {incidentPanelInc.rootCause ? (
+                <p className="mt-2 text-sm">
+                  <span className="font-medium text-neutral-700">Rotårsak:</span> {incidentPanelInc.rootCause}
+                </p>
+              ) : null}
+              <div className="mt-6 border-t border-neutral-200 pt-4">
+                <p className={SETTINGS_FIELD_LABEL}>Korrigerende tiltak</p>
+                {incidentPanelInc.correctiveActions.map((a) => (
+                  <div key={a.id} className="mt-2 flex items-start gap-2 text-sm">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        hse.updateIncident(incidentPanelInc.id, {
+                          correctiveActions: incidentPanelInc.correctiveActions.map((x) =>
+                            x.id === a.id
+                              ? { ...x, completedAt: x.completedAt ? undefined : new Date().toISOString() }
+                              : x,
+                          ),
+                        })
+                      }
+                      className={`mt-0.5 shrink-0 ${a.completedAt ? 'text-emerald-600' : 'text-neutral-300'}`}
+                    >
+                      <CheckCircle2 className="size-4" />
+                    </button>
+                    <div className={a.completedAt ? 'text-neutral-400 line-through' : ''}>
+                      {a.description} — <span className="text-neutral-500">{a.responsible}</span> · frist{' '}
+                      {formatDate(a.dueDate)}
+                    </div>
+                  </div>
+                ))}
+                {(() => {
+                  const ca = caDraft[incidentPanelInc.id] ?? { description: '', responsible: '', dueDate: '' }
+                  return (
+                    <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                      <input
+                        placeholder="Tiltak"
+                        value={ca.description}
+                        onChange={(e) =>
+                          setCaDraft((d) => ({
+                            ...d,
+                            [incidentPanelInc.id]: { ...ca, description: e.target.value },
+                          }))
+                        }
+                        className={`${SETTINGS_INPUT} bg-neutral-50 text-xs`}
+                      />
+                      <input
+                        placeholder="Ansvarlig"
+                        value={ca.responsible}
+                        onChange={(e) =>
+                          setCaDraft((d) => ({
+                            ...d,
+                            [incidentPanelInc.id]: { ...ca, responsible: e.target.value },
+                          }))
+                        }
+                        className={`${SETTINGS_INPUT} bg-neutral-50 text-xs`}
+                      />
+                      <div className="flex gap-1">
+                        <input
+                          type="date"
+                          value={ca.dueDate}
+                          onChange={(e) =>
+                            setCaDraft((d) => ({
+                              ...d,
+                              [incidentPanelInc.id]: { ...ca, dueDate: e.target.value },
+                            }))
+                          }
+                          className={`${SETTINGS_INPUT} min-w-0 flex-1 bg-neutral-50 text-xs`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!ca.description.trim() || !ca.dueDate) return
+                            hse.addCorrectiveAction(incidentPanelInc.id, ca)
+                            setCaDraft((d) => ({
+                              ...d,
+                              [incidentPanelInc.id]: { description: '', responsible: '', dueDate: '' },
+                            }))
+                          }}
+                          className={`${HERO_ACTION_CLASS} shrink-0 bg-[#1a3d32] text-white`}
+                        >
+                          <Plus className="size-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+              <div className="mt-6 flex flex-wrap gap-2 border-t border-neutral-200 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Anonymiser personopplysninger? Kan ikke angres.')) hse.anonymiseIncident(incidentPanelInc.id)
+                  }}
+                  className={`${HERO_ACTION_CLASS} border border-red-200 bg-red-50 text-red-800`}
+                >
+                  <Trash2 className="size-3.5" />
+                  Anonymiser (GDPR)
+                </button>
+                <AddTaskLink
+                  title={`Oppfølging: ${KIND_LABELS[incidentPanelInc.kind]}`}
+                  description={incidentPanelInc.description.slice(0, 200)}
+                  module="hse"
+                  sourceType="hse_incident"
+                  sourceId={incidentPanelInc.id}
+                  sourceLabel={`${incidentPanelInc.location} · ${SEVERITY_LABELS[incidentPanelInc.severity]}`}
+                  ownerRole="HMS / verneombud"
+                  requiresManagementSignOff={
+                    incidentPanelInc.severity === 'high' || incidentPanelInc.severity === 'critical'
+                  }
+                  className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-xs text-[#1a3d32]`}
+                />
+              </div>
+            </div>
+            <div className="border-t border-neutral-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={closeIncidentPanel}
+                className={`${HERO_ACTION_CLASS} w-full border border-neutral-300 bg-white text-neutral-800`}
+              >
+                Lukk
+              </button>
+            </div>
+          </aside>
+        </>
+      ) : null}
+
+      {/* SJA — sidevindu */}
+      {sjaPanelId && sjaPanelSja ? (
+        <>
+          <button
+            type="button"
+            aria-label="Lukk"
+            className="fixed inset-0 z-[60] bg-black/40"
+            onClick={closeSjaPanel}
+          />
+          <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[920px] flex-col border-l border-neutral-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-neutral-900">{sjaPanelSja.title}</h2>
+                <p className="text-xs text-neutral-500">
+                  {sjaPanelSja.location}
+                  {sjaPanelSja.department ? ` · ${sjaPanelSja.department}` : ''}
+                </p>
+              </div>
+              <button type="button" onClick={closeSjaPanel} className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-100`}>
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              <div className="mb-4">
+                <label className={SETTINGS_FIELD_LABEL}>Status</label>
+                <select
+                  value={sjaPanelSja.status}
+                  onChange={(e) =>
+                    hse.updateSja(sjaPanelSja.id, { status: e.target.value as SjaAnalysis['status'] })
+                  }
+                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                >
+                  <option value="draft">Utkast</option>
+                  <option value="approved">Godkjent</option>
+                  <option value="closed">Avsluttet</option>
+                </select>
+              </div>
+              {sjaPanelSja.jobDescription ? (
+                <p className="text-sm text-neutral-700">{sjaPanelSja.jobDescription}</p>
+              ) : null}
+              <div className="mt-6 overflow-x-auto">
+                <p className={SETTINGS_FIELD_LABEL}>Fareidentifikasjon</p>
+                <table className="mt-2 w-full min-w-[640px] border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-neutral-50 text-neutral-600">
+                      {['Steg', 'Fare', 'Konsekvens', 'Eksist.', 'Nye tiltak', 'Ansvarlig'].map((h) => (
+                        <th key={h} className="border border-neutral-200 px-2 py-1.5 text-left font-semibold">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sjaPanelSja.rows.map((row) => (
+                      <tr key={row.id}>
+                        {(['step', 'hazard', 'consequence', 'existingControls', 'additionalMeasures', 'responsible'] as const).map(
+                          (field) => (
+                            <td key={field} className="border border-neutral-200 px-1 py-1">
+                              <input
+                                value={row[field]}
+                                onChange={(e) => hse.updateSjaRow(sjaPanelSja.id, row.id, { [field]: e.target.value })}
+                                className="w-full min-w-[72px] bg-transparent px-1 py-0.5 outline-none"
+                              />
+                            </td>
+                          ),
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                {(['step', 'hazard', 'consequence', 'existingControls', 'additionalMeasures', 'responsible'] as const).map(
+                  (field) => (
+                    <input
+                      key={field}
+                      value={sjaPanelRowDraft[field]}
+                      onChange={(e) => setSjaPanelRowDraft((d) => ({ ...d, [field]: e.target.value }))}
+                      placeholder={field}
+                      className={`${SETTINGS_INPUT} text-xs`}
+                    />
+                  ),
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!sjaPanelRowDraft.step.trim() && !sjaPanelRowDraft.hazard.trim()) return
+                  hse.addSjaRow(sjaPanelSja.id, sjaPanelRowDraft)
+                  setSjaPanelRowDraft({
+                    step: '',
+                    hazard: '',
+                    consequence: '',
+                    existingControls: '',
+                    additionalMeasures: '',
+                    responsible: '',
+                  })
+                }}
+                className={`${HERO_ACTION_CLASS} mt-2 bg-neutral-800 text-white`}
+              >
+                + Legg til rad
+              </button>
+              <div className="mt-6">
+                <label className={SETTINGS_FIELD_LABEL}>Konklusjon</label>
+                <textarea
+                  value={sjaPanelSja.conclusion}
+                  onChange={(e) => hse.updateSja(sjaPanelSja.id, { conclusion: e.target.value })}
+                  rows={3}
+                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                />
+              </div>
+              <div className="mt-6">
+                <p className={SETTINGS_FIELD_LABEL}>Signaturer</p>
+                <ul className="mt-2 space-y-1 text-xs text-neutral-600">
+                  {sjaPanelSja.signatures.map((s, i) => {
+                    const l1 = formatLevel1AuditLine(s.level1)
+                    return (
+                      <li key={i} className="whitespace-pre-line">
+                        {s.signerName} ({s.role}) · {formatDate(s.signedAt)}
+                        {l1 ? `\n${l1}` : ''}
+                      </li>
+                    )
+                  })}
+                </ul>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <select
+                    value={sjaPanelSig.role}
+                    onChange={(e) =>
+                      setSjaPanelSig((d) => ({
+                        ...d,
+                        role: e.target.value as SjaAnalysis['signatures'][0]['role'],
+                      }))
+                    }
+                    className={`${SETTINGS_INPUT} w-auto bg-neutral-50 text-xs`}
+                  >
+                    <option value="foreman">Arbeidsleder</option>
+                    <option value="verneombud">Verneombud</option>
+                    <option value="worker">Arbeider</option>
+                    <option value="management">Ledelse</option>
+                  </select>
+                  <input
+                    value={sjaPanelSig.signerName}
+                    onChange={(e) => setSjaPanelSig((d) => ({ ...d, signerName: e.target.value }))}
+                    placeholder="Fullt navn"
+                    className={`${SETTINGS_INPUT} min-w-[160px] flex-1 bg-neutral-50 text-xs`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!sjaPanelSig.signerName.trim()) return
+                      void (async () => {
+                        await hse.signSja(sjaPanelSja.id, sjaPanelSig)
+                        setSjaPanelSig((d) => ({ ...d, signerName: '' }))
+                      })()
+                    }}
+                    className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white`}
+                  >
+                    Signer
+                  </button>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end border-t border-neutral-200 pt-4">
+                <AddTaskLink
+                  title={`SJA oppfølging: ${sjaPanelSja.title.slice(0, 60)}`}
+                  module="hse"
+                  sourceType="hse_incident"
+                  sourceId={sjaPanelSja.id}
+                  sourceLabel={sjaPanelSja.title}
+                  ownerRole="Arbeidsleder / HMS"
+                  className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-xs text-[#1a3d32]`}
+                />
+              </div>
+            </div>
+            <div className="border-t border-neutral-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={closeSjaPanel}
+                className={`${HERO_ACTION_CLASS} w-full border border-neutral-300 bg-white text-neutral-800`}
+              >
+                Lukk
+              </button>
+            </div>
+          </aside>
+        </>
+      ) : null}
+
+      {/* Sykefravær — sidevindu */}
+      {slPanelId && slPanelCase ? (
+        <>
+          <button
+            type="button"
+            aria-label="Lukk"
+            className="fixed inset-0 z-[60] bg-black/40"
+            onClick={closeSlPanel}
+          />
+          <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[920px] flex-col border-l border-neutral-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-neutral-900">{slPanelCase.employeeName}</h2>
+                <p className="text-xs text-neutral-500">
+                  {SICK_STATUS_LABELS[slPanelCase.status]} · {slPanelCase.sicknessDegree}% · {slPanelCase.department}
+                </p>
+              </div>
+              <button type="button" onClick={closeSlPanel} className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-100`}>
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              <div className="mb-4">
+                <label className={SETTINGS_FIELD_LABEL}>Status</label>
+                <select
+                  value={slPanelCase.status}
+                  onChange={(e) =>
+                    hse.updateSickLeaveCase(slPanelCase.id, { status: e.target.value as SickLeaveCase['status'] })
+                  }
+                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                >
+                  <option value="active">Sykemeldt</option>
+                  <option value="partial">Gradert</option>
+                  <option value="returning">I retur</option>
+                  <option value="closed">Avsluttet</option>
+                </select>
+              </div>
+              <p className="text-xs text-neutral-500">
+                Sykemeldt fra: {formatDate(slPanelCase.sickFrom)} · Leder: {slPanelCase.managerName}
+              </p>
+              {(() => {
+                const today = new Date().toISOString().slice(0, 10)
+                const overdue = slPanelCase.milestones.filter((m) => !m.completedAt && m.dueAt < today)
+                const upcoming = slPanelCase.milestones.filter((m) => !m.completedAt && m.dueAt >= today)
+                const done = slPanelCase.milestones.filter((m) => m.completedAt)
+                return (
+                  <div className="mt-4 space-y-4">
+                    {overdue.length > 0 && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                        <p className="text-xs font-semibold text-amber-900">Forfalt ({overdue.length})</p>
+                        {overdue.map((m) => (
+                          <div key={m.kind} className="mt-2 flex items-center justify-between gap-2 text-xs text-amber-800">
+                            <span>{m.label}</span>
+                            <button
+                              type="button"
+                              onClick={() => hse.completeMilestone(slPanelCase.id, m.kind as SickLeaveMilestoneKind)}
+                              className="rounded bg-amber-700 px-2 py-0.5 text-white"
+                            >
+                              Fullført
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {upcoming.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-neutral-600">Kommende frister</p>
+                        <div className="mt-2 space-y-2">
+                          {upcoming.map((m) => {
+                            const days = daysUntil(m.dueAt)
+                            return (
+                              <div
+                                key={m.kind}
+                                className="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 text-xs"
+                              >
+                                <span className="font-medium text-neutral-800">{m.label}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-neutral-500">
+                                    {formatDate(m.dueAt)} ({days}d)
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      hse.completeMilestone(slPanelCase.id, m.kind as SickLeaveMilestoneKind)
+                                    }
+                                    className="rounded-none bg-[#1a3d32] px-2 py-0.5 text-[10px] text-white"
+                                  >
+                                    Fullført
+                                  </button>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {done.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {done.map((m) => (
+                          <span
+                            key={m.kind}
+                            className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-800"
+                          >
+                            <CheckCircle2 className="size-3" />
+                            {m.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+              <div className="mt-6">
+                <label className="text-xs font-semibold text-neutral-700 flex items-center gap-1">
+                  <Lock className="size-3.5" /> Tilretteleggingsnotater
+                </label>
+                <textarea
+                  value={slPanelCase.accommodationNotes}
+                  onChange={(e) =>
+                    hse.updateSickLeaveCase(slPanelCase.id, { accommodationNotes: e.target.value })
+                  }
+                  rows={4}
+                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                />
+              </div>
+              <div className="mt-6">
+                <p className="text-xs font-semibold text-neutral-700 flex items-center gap-1 mb-2">
+                  <MessageSquare className="size-3.5" /> Dialog
+                </p>
+                <div className="max-h-48 space-y-2 overflow-y-auto rounded-none border border-neutral-200 bg-neutral-50 p-3 text-sm">
+                  {slPanelCase.portalMessages.length === 0 ? (
+                    <p className="text-xs text-neutral-400">Ingen meldinger ennå.</p>
+                  ) : (
+                    slPanelCase.portalMessages.map((m) => (
+                      <div
+                        key={m.id}
+                        className={`rounded-lg px-3 py-2 ${m.senderRole === 'manager' ? 'ml-4 bg-[#1a3d32]/8' : 'mr-4 bg-white'}`}
+                      >
+                        <div className="mb-1 text-[10px] text-neutral-500">
+                          {m.senderName} ({m.senderRole === 'manager' ? 'Leder' : 'Ansatt'}) · {formatWhen(m.sentAt)}
+                        </div>
+                        <p className="text-neutral-800">{m.text}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <select
+                    value={slPanelRole}
+                    onChange={(e) =>
+                      setSlPanelRole(e.target.value as SickLeaveCase['portalMessages'][0]['senderRole'])
+                    }
+                    className={`${SETTINGS_INPUT} w-auto bg-white text-xs`}
+                  >
+                    <option value="manager">Leder</option>
+                    <option value="employee">Ansatt</option>
+                  </select>
+                  <input
+                    value={slPanelName}
+                    onChange={(e) => setSlPanelName(e.target.value)}
+                    placeholder="Navn"
+                    className={`${SETTINGS_INPUT} min-w-[120px] flex-1 text-xs`}
+                  />
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <textarea
+                    value={slPanelMsg}
+                    onChange={(e) => setSlPanelMsg(e.target.value)}
+                    placeholder="Skriv melding …"
+                    rows={2}
+                    className={`${SETTINGS_INPUT} min-h-0 flex-1 bg-white text-sm`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const t = slPanelMsg.trim()
+                      if (!t) return
+                      hse.addPortalMessage(
+                        slPanelCase.id,
+                        slPanelRole,
+                        slPanelName.trim() || (slPanelRole === 'manager' ? 'Leder' : 'Ansatt'),
+                        t,
+                      )
+                      setSlPanelMsg('')
+                    }}
+                    className={`${HERO_ACTION_CLASS} shrink-0 self-end bg-[#1a3d32] text-white`}
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="border-t border-neutral-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={closeSlPanel}
+                className={`${HERO_ACTION_CLASS} w-full border border-neutral-300 bg-white text-neutral-800`}
+              >
+                Lukk
+              </button>
+            </div>
+          </aside>
+        </>
+      ) : null}
+
+      {/* Opplæringspost — sidevindu */}
+      {trainingPanelId && trainingPanelRec ? (
+        <>
+          <button
+            type="button"
+            aria-label="Lukk"
+            className="fixed inset-0 z-[60] bg-black/40"
+            onClick={closeTrainingPanel}
+          />
+          <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[640px] flex-col border-l border-neutral-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+              <h2 className="text-lg font-semibold text-neutral-900">Rediger opplæring</h2>
+              <button type="button" onClick={closeTrainingPanel} className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-100`}>
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+              <div>
+                <label className={SETTINGS_FIELD_LABEL}>Ansatt</label>
+                <input
+                  value={trainingPanelRec.employeeName}
+                  onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { employeeName: e.target.value })}
+                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={SETTINGS_FIELD_LABEL}>Avdeling</label>
+                  <input
+                    value={trainingPanelRec.department}
+                    onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { department: e.target.value })}
+                    className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                  />
+                </div>
+                <div>
+                  <label className={SETTINGS_FIELD_LABEL}>Rolle</label>
+                  <input
+                    value={trainingPanelRec.role}
+                    onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { role: e.target.value })}
+                    className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className={SETTINGS_FIELD_LABEL}>Type</label>
+                <select
+                  value={trainingPanelRec.trainingKind}
+                  onChange={(e) =>
+                    hse.updateTrainingRecord(trainingPanelRec.id, {
+                      trainingKind: e.target.value as TrainingKind,
+                    })
+                  }
+                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                >
+                  {Object.entries(TRAINING_KIND_LABELS).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {trainingPanelRec.trainingKind === 'custom' && (
+                <div>
+                  <label className={SETTINGS_FIELD_LABEL}>Egendefinert</label>
+                  <input
+                    value={trainingPanelRec.customLabel ?? ''}
+                    onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { customLabel: e.target.value })}
+                    className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                  />
+                </div>
+              )}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={SETTINGS_FIELD_LABEL}>Gjennomført</label>
+                  <input
+                    type="date"
+                    value={trainingPanelRec.completedAt ?? ''}
+                    onChange={(e) =>
+                      hse.updateTrainingRecord(trainingPanelRec.id, {
+                        completedAt: e.target.value || undefined,
+                      })
+                    }
+                    className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                  />
+                </div>
+                <div>
+                  <label className={SETTINGS_FIELD_LABEL}>Utløper</label>
+                  <input
+                    type="date"
+                    value={trainingPanelRec.expiresAt ?? ''}
+                    onChange={(e) =>
+                      hse.updateTrainingRecord(trainingPanelRec.id, {
+                        expiresAt: e.target.value || undefined,
+                      })
+                    }
+                    className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className={SETTINGS_FIELD_LABEL}>Leverandør</label>
+                <input
+                  value={trainingPanelRec.provider ?? ''}
+                  onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { provider: e.target.value })}
+                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                />
+              </div>
+              <div>
+                <label className={SETTINGS_FIELD_LABEL}>Sertifikat / ref.</label>
+                <input
+                  value={trainingPanelRec.certificateRef ?? ''}
+                  onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { certificateRef: e.target.value })}
+                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                />
+              </div>
+              <div>
+                <label className={SETTINGS_FIELD_LABEL}>Notater</label>
+                <textarea
+                  value={trainingPanelRec.notes ?? ''}
+                  onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { notes: e.target.value })}
+                  rows={3}
+                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                />
+              </div>
+            </div>
+            <div className="border-t border-neutral-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={closeTrainingPanel}
+                className={`${HERO_ACTION_CLASS} w-full border border-neutral-300 bg-white text-neutral-800`}
+              >
+                Lukk
+              </button>
+            </div>
+          </aside>
+        </>
+      ) : null}
 
       {/* Ny inspeksjon — sidepanel (samme mønster som oppgaver) */}
       {inspectionPanelOpen && (

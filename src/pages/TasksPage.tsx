@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Calendar, Check, History, LayoutList, Pencil, Plus, Scale, Search, Trash2, X } from 'lucide-react'
+import { Calendar, Check, History, LayoutList, Plus, Scale, Search, Trash2, X } from 'lucide-react'
 import { MODULE_LABELS } from '../lib/taskNavigation'
 import { useTasks } from '../hooks/useTasks'
 import { useOrganisation } from '../hooks/useOrganisation'
@@ -164,7 +164,7 @@ export function TasksPage() {
   const [sourceLabel, setSourceLabel] = useState('')
   const [requiresMgmt, setRequiresMgmt] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [signName, setSignName] = useState<Record<string, string>>({})
+  const [panelSignName, setPanelSignName] = useState('')
   const [taskPanelOpen, setTaskPanelOpen] = useState(false)
 
   const [whistlePanelOpen, setWhistlePanelOpen] = useState(false)
@@ -177,9 +177,10 @@ export function TasksPage() {
   const [wContact, setWContact] = useState('')
   const [wFiles, setWFiles] = useState('')
   const [wSubmitKey, setWSubmitKey] = useState<string | null>(null)
-  const [noteDraft, setNoteDraft] = useState<Record<string, string>>({})
   const [closeModalCaseId, setCloseModalCaseId] = useState<string | null>(null)
   const [closeSummary, setCloseSummary] = useState('')
+  const [whistleCasePanelId, setWhistleCasePanelId] = useState<string | null>(null)
+  const [whistlePanelNote, setWhistlePanelNote] = useState('')
   const [nowMs, setNowMs] = useState(() => Date.now())
 
   // eslint-disable-next-line react-hooks/preserve-manual-memoization -- React setState identities are stable
@@ -197,6 +198,7 @@ export function TasksPage() {
     setSourceLabel('')
     setRequiresMgmt(false)
     setEditingId(null)
+    setPanelSignName('')
   }, [])
 
   // eslint-disable-next-line react-hooks/preserve-manual-memoization -- React setState identities are stable
@@ -401,13 +403,18 @@ export function TasksPage() {
     setSourceId(task.sourceId ?? '')
     setSourceLabel(task.sourceLabel ?? '')
     setRequiresMgmt(task.requiresManagementSignOff)
+    setPanelSignName('')
     setTaskPanelOpen(true)
   }
 
   function openNewTaskPanel() {
     resetTaskForm()
+    setPanelSignName('')
     setTaskPanelOpen(true)
   }
+
+  const taskBeingEdited = editingId ? tasks.find((t) => t.id === editingId) : undefined
+  const whistleCaseOpen = whistleCasePanelId ? wb.cases.find((c) => c.id === whistleCasePanelId) : undefined
 
   function formatSig(s?: { signerName: string; signedAt: string; level1?: Level1SystemSignatureMeta }) {
     if (!s) return null
@@ -632,18 +639,9 @@ export function TasksPage() {
                                 ) : null}
                               </td>
                               <td className={`${tableCell} align-top`}>
-                                <select
-                                  value={c.status}
-                                  disabled={c.status === 'closed'}
-                                  onChange={(e) => void wb.updateStatus(c.id, e.target.value as WhistleblowingCaseStatus)}
-                                  className="rounded-none border border-neutral-200 px-2 py-1 text-xs"
-                                >
-                                  {(Object.keys(WHISTLE_STATUS_LABELS) as WhistleblowingCaseStatus[]).map((s) => (
-                                    <option key={s} value={s}>
-                                      {WHISTLE_STATUS_LABELS[s]}
-                                    </option>
-                                  ))}
-                                </select>
+                                <span className="rounded-none border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs font-medium text-neutral-800">
+                                  {WHISTLE_STATUS_LABELS[c.status]}
+                                </span>
                               </td>
                               <td className={`${tableCell} align-top text-xs text-neutral-600`}>
                                 {new Date(c.received_at).toLocaleString('no-NO', {
@@ -659,76 +657,22 @@ export function TasksPage() {
                                     : `Gjenstår ca. ${daysLeft} d`}
                                 </div>
                               </td>
-                              <td className={`${tableCell} align-top max-w-[280px]`}>
-                                <ul className="max-h-24 space-y-1 overflow-y-auto text-[11px] text-neutral-600">
-                                  {(wb.notesByCase[c.id] ?? []).map((n) => (
-                                    <li key={n.id} className="border-b border-neutral-100 pb-1">
-                                      <span className="text-neutral-400">
-                                        {new Date(n.created_at).toLocaleString('no-NO', { dateStyle: 'short' })}:{' '}
-                                      </span>
-                                      {n.body}
-                                    </li>
-                                  ))}
-                                </ul>
-                                <textarea
-                                  value={noteDraft[c.id] ?? ''}
-                                  onChange={(e) => setNoteDraft((d) => ({ ...d, [c.id]: e.target.value }))}
-                                  rows={2}
-                                  placeholder="Nytt notat (lagres som ny rad)…"
-                                  className="mt-2 w-full rounded-none border border-neutral-200 px-2 py-1 text-xs"
-                                />
+                              <td className={`${tableCell} align-top max-w-[240px]`}>
+                                <p className="text-[11px] text-neutral-500">
+                                  {(wb.notesByCase[c.id] ?? []).length} notat(er)
+                                </p>
+                              </td>
+                              <td className={`${tableCell} align-top text-right`}>
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const t = noteDraft[c.id]?.trim()
-                                    if (!t) return
-                                    void wb.appendNote(c.id, t).then(() =>
-                                      setNoteDraft((d) => ({ ...d, [c.id]: '' })),
-                                    )
+                                    setWhistleCasePanelId(c.id)
+                                    setWhistlePanelNote('')
                                   }}
-                                  className="mt-1 rounded-none bg-neutral-800 px-2 py-1 text-[11px] font-medium text-white"
+                                  className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
                                 >
-                                  Legg til notat
+                                  Åpne
                                 </button>
-                              </td>
-                              <td className={`${tableCell} align-top text-right`}>
-                                <div className="flex flex-col items-end gap-2">
-                                  {c.status !== 'internal_review' && c.status !== 'closed' ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => void wb.updateStatus(c.id, 'internal_review')}
-                                      className="rounded-none border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-950"
-                                    >
-                                      Intern revisjon
-                                    </button>
-                                  ) : null}
-                                  {c.status !== 'closed' ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setCloseModalCaseId(c.id)
-                                        setCloseSummary('')
-                                      }}
-                                      className="rounded-none border border-neutral-300 px-2 py-1 text-xs"
-                                    >
-                                      Lukk sak
-                                    </button>
-                                  ) : (
-                                    <span className="text-xs text-neutral-500">Avsluttet</span>
-                                  )}
-                                  <AddTaskLink
-                                    title={`Varsling: ${c.title.slice(0, 50)}`}
-                                    module="general"
-                                    sourceType="manual"
-                                    sourceId={c.id}
-                                    sourceLabel={`Varsling ${c.id.slice(0, 8)}`}
-                                    ownerRole="Varslingsmottak"
-                                    requiresManagementSignOff
-                                    className="inline-flex rounded-none border border-neutral-200 px-2 py-1 text-xs"
-                                  >
-                                    Oppgave
-                                  </AddTaskLink>
-                                </div>
                               </td>
                             </tr>
                           )
@@ -881,30 +825,28 @@ export function TasksPage() {
                           </td>
                           <td className={`${tableCell} align-top text-neutral-600`}>{t.dueDate}</td>
                           <td className={`${tableCell} align-top`}>
-                            <select
-                              value={t.status}
-                              onChange={(e) => setStatus(t.id, e.target.value as TaskStatus)}
-                              className={`rounded-none border-0 px-2 py-1 text-xs font-medium ${statusStyle(t.status)}`}
+                            <span
+                              className={`inline-block rounded-none px-2 py-1 text-xs font-medium ${statusStyle(t.status)}`}
                             >
-                              {(Object.keys(statusLabels) as TaskStatus[]).map((s) => (
-                                <option key={s} value={s}>
-                                  {statusLabels[s]}
-                                </option>
-                              ))}
-                            </select>
+                              {statusLabels[t.status]}
+                            </span>
                           </td>
                           <td className={`${tableCell} align-top text-xs`}>
                             <div className="space-y-1">
-                              <div className="whitespace-pre-line">
+                              <div>
                                 <span className="text-neutral-500">Utfører: </span>
-                                {formatSig(t.assigneeSignature) ?? (
+                                {t.assigneeSignature ? (
+                                  <span className="text-emerald-800">Signert</span>
+                                ) : (
                                   <span className="text-amber-700">Ikke signert</span>
                                 )}
                               </div>
                               {t.requiresManagementSignOff ? (
-                                <div className="whitespace-pre-line">
+                                <div>
                                   <span className="text-neutral-500">Leder: </span>
-                                  {formatSig(t.managementSignature) ?? (
+                                  {t.managementSignature ? (
+                                    <span className="text-emerald-800">Signert</span>
+                                  ) : (
                                     <span className="text-amber-700">Mangler</span>
                                   )}
                                 </div>
@@ -912,62 +854,26 @@ export function TasksPage() {
                                 <span className="text-neutral-400">—</span>
                               )}
                             </div>
-                            <div className="mt-2 flex flex-col gap-1">
-                              <div className="flex gap-1">
-                                <input
-                                  value={signName[t.id] ?? ''}
-                                  onChange={(e) =>
-                                    setSignName((s) => ({ ...s, [t.id]: e.target.value }))
-                                  }
-                                  placeholder="Fullt navn"
-                                  className="min-w-0 flex-1 rounded-none border border-neutral-200 px-1.5 py-0.5 text-xs"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    void (async () => {
-                                      const ok = await signAsAssignee(t.id, signName[t.id] ?? '')
-                                      if (ok) setSignName((s) => ({ ...s, [t.id]: '' }))
-                                    })()
-                                  }}
-                                  className="shrink-0 rounded-none bg-[#1a3d32] px-2 py-0.5 text-xs text-white"
-                                >
-                                  Signer utfører
-                                </button>
-                              </div>
-                              {t.requiresManagementSignOff ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    void (async () => {
-                                      const ok = await signManagement(t.id, signName[t.id] ?? '')
-                                      if (ok) setSignName((s) => ({ ...s, [t.id]: '' }))
-                                    })()
-                                  }}
-                                  className="rounded-none border border-neutral-300 px-2 py-0.5 text-xs"
-                                >
-                                  Ledelsessignatur
-                                </button>
-                              ) : null}
-                            </div>
+                            <p className="mt-1 text-[10px] text-neutral-400">Signering i sidevindu</p>
                           </td>
                           <td className={`${tableCell} align-top text-right`}>
-                            <button
-                              type="button"
-                              onClick={() => startEdit(t)}
-                              className="inline-flex rounded-none p-2 text-neutral-600 hover:bg-neutral-100"
-                              aria-label="Rediger"
-                            >
-                              <Pencil className="size-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => deleteTask(t.id)}
-                              className="inline-flex rounded-none p-2 text-red-600 hover:bg-red-50"
-                              aria-label="Slett"
-                            >
-                              <Trash2 className="size-4" />
-                            </button>
+                            <div className="flex flex-col items-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => startEdit(t)}
+                                className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+                              >
+                                Åpne
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deleteTask(t.id)}
+                                className="inline-flex rounded-none p-2 text-red-600 hover:bg-red-50"
+                                aria-label="Slett"
+                              >
+                                <Trash2 className="size-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1048,6 +954,171 @@ export function TasksPage() {
                 Bekreft lukking
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {whistleCasePanelId && whistleCaseOpen && pageTab === 'whistle' && wb.canAccessVault ? (
+        <div
+          className="fixed inset-0 z-[110] flex justify-end bg-black/45 backdrop-blur-[2px]"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setWhistleCasePanelId(null)
+              setWhistlePanelNote('')
+            }
+          }}
+        >
+          <div
+            className="flex h-full w-full max-w-[min(100vw,920px)] flex-col border-l border-neutral-200 bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="whistle-case-panel-title"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 bg-[#f7f6f2] px-6 py-5 sm:px-8">
+              <div>
+                <h2
+                  id="whistle-case-panel-title"
+                  className="text-xl font-semibold tracking-tight text-neutral-900 sm:text-2xl"
+                  style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+                >
+                  Varslingssak
+                </h2>
+                <p className="mt-1 text-sm font-medium text-neutral-900">{whistleCaseOpen.title}</p>
+                <p className="mt-0.5 text-xs text-neutral-500">{whistleCaseOpen.category}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setWhistleCasePanelId(null)
+                  setWhistlePanelNote('')
+                }}
+                className="rounded-none p-2 text-neutral-500 transition hover:bg-neutral-200/60"
+                aria-label="Lukk"
+              >
+                <X className="size-6" />
+              </button>
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
+              {whistleCaseOpen.description ? (
+                <p className="text-sm text-neutral-700">{whistleCaseOpen.description}</p>
+              ) : null}
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <div className={TASK_PANEL_INSET}>
+                  <label className={SETTINGS_FIELD_LABEL}>Status</label>
+                  <select
+                    value={whistleCaseOpen.status}
+                    disabled={whistleCaseOpen.status === 'closed'}
+                    onChange={(e) =>
+                      void wb.updateStatus(whistleCaseOpen.id, e.target.value as WhistleblowingCaseStatus)
+                    }
+                    className={`${TASK_PANEL_SELECT} mt-2`}
+                  >
+                    {(Object.keys(WHISTLE_STATUS_LABELS) as WhistleblowingCaseStatus[]).map((s) => (
+                      <option key={s} value={s}>
+                        {WHISTLE_STATUS_LABELS[s]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className={TASK_PANEL_INSET}>
+                  <p className={SETTINGS_FIELD_LABEL}>Frist bekreftelse</p>
+                  <p className="mt-2 text-sm text-neutral-800">
+                    {new Date(whistleCaseOpen.acknowledgement_due_at).toLocaleDateString('no-NO')}
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Mottatt:{' '}
+                    {new Date(whistleCaseOpen.received_at).toLocaleString('no-NO', {
+                      dateStyle: 'short',
+                      timeStyle: 'short',
+                    })}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold text-neutral-900">Notater</h3>
+                <ul className="mt-2 max-h-48 space-y-2 overflow-y-auto rounded-none border border-neutral-200 bg-white p-3 text-xs text-neutral-700">
+                  {(wb.notesByCase[whistleCaseOpen.id] ?? []).length === 0 ? (
+                    <li className="text-neutral-400">Ingen notater ennå.</li>
+                  ) : (
+                    (wb.notesByCase[whistleCaseOpen.id] ?? []).map((n) => (
+                      <li key={n.id} className="border-b border-neutral-100 pb-2 last:border-0">
+                        <span className="text-neutral-400">
+                          {new Date(n.created_at).toLocaleString('no-NO', { dateStyle: 'short' })}:{' '}
+                        </span>
+                        {n.body}
+                      </li>
+                    ))
+                  )}
+                </ul>
+                <textarea
+                  value={whistlePanelNote}
+                  onChange={(e) => setWhistlePanelNote(e.target.value)}
+                  rows={3}
+                  placeholder="Nytt notat (lagres som ny rad)…"
+                  className={`${TASK_PANEL_SELECT} mt-3`}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = whistlePanelNote.trim()
+                    if (!t) return
+                    void wb.appendNote(whistleCaseOpen.id, t).then(() => setWhistlePanelNote(''))
+                  }}
+                  className="mt-2 rounded-none bg-neutral-800 px-4 py-2 text-xs font-medium text-white"
+                >
+                  Legg til notat
+                </button>
+              </div>
+              <div className="mt-8 flex flex-wrap gap-2 border-t border-neutral-200/90 pt-6">
+                {whistleCaseOpen.status !== 'internal_review' && whistleCaseOpen.status !== 'closed' ? (
+                  <button
+                    type="button"
+                    onClick={() => void wb.updateStatus(whistleCaseOpen.id, 'internal_review')}
+                    className="rounded-none border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-950"
+                  >
+                    Intern revisjon
+                  </button>
+                ) : null}
+                {whistleCaseOpen.status !== 'closed' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCloseModalCaseId(whistleCaseOpen.id)
+                      setCloseSummary('')
+                    }}
+                    className="rounded-none border border-neutral-300 bg-white px-4 py-2 text-xs font-medium text-neutral-800"
+                  >
+                    Lukk sak
+                  </button>
+                ) : null}
+                <AddTaskLink
+                  title={`Varsling: ${whistleCaseOpen.title.slice(0, 50)}`}
+                  module="general"
+                  sourceType="manual"
+                  sourceId={whistleCaseOpen.id}
+                  sourceLabel={`Varsling ${whistleCaseOpen.id.slice(0, 8)}`}
+                  ownerRole="Varslingsmottak"
+                  requiresManagementSignOff
+                  className="inline-flex items-center rounded-none border border-neutral-200 bg-white px-4 py-2 text-xs font-medium text-[#1a3d32]"
+                >
+                  Oppgave
+                </AddTaskLink>
+              </div>
+            </div>
+            <footer className="shrink-0 border-t border-neutral-200/90 bg-[#f0efe9] px-6 py-4 sm:px-8">
+              <button
+                type="button"
+                onClick={() => {
+                  setWhistleCasePanelId(null)
+                  setWhistlePanelNote('')
+                }}
+                className="w-full rounded-none border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              >
+                Lukk panel
+              </button>
+            </footer>
           </div>
         </div>
       ) : null}
@@ -1474,6 +1545,96 @@ export function TasksPage() {
                     ) : null}
                   </div>
                 </div>
+
+                {editingId && taskBeingEdited ? (
+                  <>
+                    <div className="my-8 border-t border-neutral-200/90" />
+                    <div className={TASK_PANEL_ROW_GRID}>
+                      <div>
+                        <h3 className="text-base font-semibold text-neutral-900">Status og signatur</h3>
+                        <p className={`${SETTINGS_LEAD} mt-2`}>
+                          Status og digitale signaturer håndteres her — ikke i tabellraden. Nivå 1-signatur loggføres
+                          når Supabase er konfigurert.
+                        </p>
+                      </div>
+                      <div className={TASK_PANEL_INSET}>
+                        <div>
+                          <label className={SETTINGS_FIELD_LABEL} htmlFor="task-panel-status">
+                            Status
+                          </label>
+                          <select
+                            id="task-panel-status"
+                            value={taskBeingEdited.status}
+                            onChange={(e) => setStatus(taskBeingEdited.id, e.target.value as TaskStatus)}
+                            className={TASK_PANEL_SELECT}
+                          >
+                            {(Object.keys(statusLabels) as TaskStatus[]).map((s) => (
+                              <option key={s} value={s}>
+                                {statusLabels[s]}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="mt-5 space-y-2 text-xs">
+                          <div className="whitespace-pre-line text-neutral-700">
+                            <span className="font-medium text-neutral-500">Utfører: </span>
+                            {formatSig(taskBeingEdited.assigneeSignature) ?? (
+                              <span className="text-amber-700">Ikke signert</span>
+                            )}
+                          </div>
+                          {taskBeingEdited.requiresManagementSignOff ? (
+                            <div className="whitespace-pre-line text-neutral-700">
+                              <span className="font-medium text-neutral-500">Leder: </span>
+                              {formatSig(taskBeingEdited.managementSignature) ?? (
+                                <span className="text-amber-700">Mangler</span>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="mt-5">
+                          <label className={SETTINGS_FIELD_LABEL} htmlFor="task-panel-sign-name">
+                            Fullt navn (signatur)
+                          </label>
+                          <input
+                            id="task-panel-sign-name"
+                            value={panelSignName}
+                            onChange={(e) => setPanelSignName(e.target.value)}
+                            className={`${TASK_PANEL_SELECT} mt-1.5`}
+                            placeholder="Navn som skal stå på signatur"
+                          />
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className="rounded-none bg-[#1a3d32] px-4 py-2 text-xs font-medium text-white hover:bg-[#142e26]"
+                            onClick={() => {
+                              void (async () => {
+                                const ok = await signAsAssignee(taskBeingEdited.id, panelSignName)
+                                if (ok) setPanelSignName('')
+                              })()
+                            }}
+                          >
+                            Signer utfører
+                          </button>
+                          {taskBeingEdited.requiresManagementSignOff ? (
+                            <button
+                              type="button"
+                              className="rounded-none border border-neutral-300 bg-white px-4 py-2 text-xs font-medium text-neutral-800 hover:bg-neutral-50"
+                              onClick={() => {
+                                void (async () => {
+                                  const ok = await signManagement(taskBeingEdited.id, panelSignName)
+                                  if (ok) setPanelSignName('')
+                                })()
+                              }}
+                            >
+                              Ledelsessignatur
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
 
                 <div className="my-8 border-t border-neutral-200/90" />
 

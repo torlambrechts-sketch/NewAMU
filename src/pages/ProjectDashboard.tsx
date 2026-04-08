@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -12,6 +12,7 @@ import {
   Search,
   Settings2,
   SlidersHorizontal,
+  X,
 } from 'lucide-react'
 import type { DepartmentRow } from '../data/departments'
 import { useHse } from '../hooks/useHse'
@@ -73,7 +74,7 @@ export function ProjectDashboard() {
   const tableCompact = workspace.tableCompact
   const [searchParams, setSearchParams] = useSearchParams()
   const [region, setRegion] = useState<'all' | 'usa' | 'europe'>('all')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [dashboardDetailId, setDashboardDetailId] = useState<string | null>(null)
   const [privateOn, setPrivateOn] = useState(true)
   const [showCostSettings, setShowCostSettings] = useState(false)
   const hse = useHse()
@@ -82,6 +83,18 @@ export function ProjectDashboard() {
   const orgDisplayName = organization?.name ?? org.settings.orgName ?? 'Arbeidsområde'
 
   const departmentRows = useMemo(() => buildDepartmentRowsFromOrg(org), [org])
+  const dashboardDetailRow = dashboardDetailId
+    ? departmentRows.find((r) => r.id === dashboardDetailId)
+    : undefined
+
+  useEffect(() => {
+    if (!dashboardDetailId) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [dashboardDetailId])
 
   const memberAvatars = useMemo(() => {
     const list = orgMembers.slice(0, 12)
@@ -456,113 +469,55 @@ export function ProjectDashboard() {
                     </th>
                     <th className={`${cellPad} font-medium`}>Status</th>
                     <th className={`${cellPad} font-medium`}>Recruiter</th>
+                    <th className={`${cellPad} w-24 text-right font-medium`} />
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((row) => (
-                    <Fragment key={row.id}>
-                      <tr className="border-b border-neutral-100 hover:bg-neutral-50/80">
-                        <td className={`${cellPad} align-top`}>
-                          <input type="checkbox" className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
-                        </td>
-                        <td className={`${cellPad} align-top`}>
-                          <button
-                            type="button"
-                            className="text-left"
-                            onClick={() =>
-                              setExpandedId((id) => (id === row.id ? null : row.id))
-                            }
-                          >
-                            <div className="font-semibold text-neutral-900">{row.department}</div>
-                            <div className="text-neutral-500">{row.country}</div>
-                          </button>
-                        </td>
-                        <td className={`${cellPad} align-top text-neutral-800`}>
-                          {row.hireEmployees.toLocaleString()}
-                        </td>
-                        <td className={`${cellPad} align-top text-neutral-700`}>{row.deadline}</td>
-                        <td className={`${cellPad} align-top`}>
-                          <StatusBadge status={row.status} />
-                        </td>
-                        <td className={`${cellPad} align-top`}>
-                          <div className="flex items-center gap-2">
-                            {row.recruiter.initials ? (
-                              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-300 text-xs font-semibold text-neutral-800">
-                                {row.recruiter.initials}
-                              </span>
-                            ) : (
-                              <img
-                                src={`https://i.pravatar.cc/40?u=${encodeURIComponent(row.recruiter.email)}`}
-                                alt=""
-                                className="size-9 rounded-full"
-                              />
-                            )}
-                            <div className="min-w-0">
-                              <div className="font-medium text-neutral-900">{row.recruiter.name}</div>
-                              <div className="truncate text-xs text-neutral-500">{row.recruiter.email}</div>
-                            </div>
+                    <tr key={row.id} className="border-b border-neutral-100 hover:bg-neutral-50/80">
+                      <td className={`${cellPad} align-top`}>
+                        <input type="checkbox" className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
+                      </td>
+                      <td className={`${cellPad} align-top`}>
+                        <div className="font-semibold text-neutral-900">{row.department}</div>
+                        <div className="text-neutral-500">{row.country}</div>
+                      </td>
+                      <td className={`${cellPad} align-top text-neutral-800`}>
+                        {row.hireEmployees.toLocaleString()}
+                      </td>
+                      <td className={`${cellPad} align-top text-neutral-700`}>{row.deadline}</td>
+                      <td className={`${cellPad} align-top`}>
+                        <StatusBadge status={row.status} />
+                      </td>
+                      <td className={`${cellPad} align-top`}>
+                        <div className="flex items-center gap-2">
+                          {row.recruiter.initials ? (
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-300 text-xs font-semibold text-neutral-800">
+                              {row.recruiter.initials}
+                            </span>
+                          ) : (
+                            <img
+                              src={`https://i.pravatar.cc/40?u=${encodeURIComponent(row.recruiter.email)}`}
+                              alt=""
+                              className="size-9 rounded-full"
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-medium text-neutral-900">{row.recruiter.name}</div>
+                            <div className="truncate text-xs text-neutral-500">{row.recruiter.email}</div>
                           </div>
-                        </td>
-                      </tr>
-                      {expandedId === row.id && (
-                        <tr className="bg-[#faf8f4]">
-                          <td colSpan={6} className="px-4 py-5">
-                            <div className="rounded-xl border border-neutral-200/80 bg-white p-4 shadow-sm">
-                              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                                <div className="flex items-center gap-2 text-lg font-semibold text-neutral-900">
-                                  8,000 Employees
-                                  <Link2 className="size-4 text-neutral-400" />
-                                </div>
-                              </div>
-                              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                                <div>
-                                  <p className="text-sm text-neutral-600">
-                                    Hired <span className="font-semibold text-[#1a3d32]">74%</span>{' '}
-                                    (5,321)
-                                  </p>
-                                  <p className="text-sm text-neutral-600">
-                                    Processing <span className="font-semibold">38%</span> (2,679)
-                                  </p>
-                                  <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-neutral-200">
-                                    <div className="h-full w-[74%] bg-[#1a3d32]" />
-                                    <div className="h-full flex-1 bg-neutral-300" />
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                                <div className="rounded-lg border border-neutral-100 bg-[#faf8f4] p-3">
-                                  <div className="text-xl font-semibold text-neutral-900">1,216</div>
-                                  <div className="text-xs text-neutral-600">27% On staff</div>
-                                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-neutral-200">
-                                    <div className="h-full w-[27%] bg-[#d4a84b]" />
-                                  </div>
-                                </div>
-                                <div className="rounded-lg border border-neutral-100 bg-[#faf8f4] p-3">
-                                  <div className="text-xl font-semibold text-neutral-900">1,791</div>
-                                  <div className="text-xs text-neutral-600">31% Out source</div>
-                                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-neutral-200">
-                                    <div className="h-full w-[31%] bg-orange-400" />
-                                  </div>
-                                </div>
-                                <div className="rounded-lg border border-neutral-100 bg-[#faf8f4] p-3">
-                                  <div className="text-xl font-semibold text-neutral-900">2,467</div>
-                                  <div className="text-xs text-neutral-600">42% Out staff</div>
-                                  <div className="mt-3 flex h-16 items-end justify-center gap-1">
-                                    {[40, 55, 35, 70, 45, 60, 50].map((h, i) => (
-                                      <div
-                                        key={i}
-                                        className="w-2 rounded-t bg-[#1a3d32]/40"
-                                        style={{ height: `${h}%` }}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
+                        </div>
+                      </td>
+                      <td className={`${cellPad} align-top text-right`}>
+                        <button
+                          type="button"
+                          onClick={() => setDashboardDetailId(row.id)}
+                          className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-50"
+                        >
+                          Åpne
+                        </button>
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
@@ -628,6 +583,86 @@ export function ProjectDashboard() {
           </div>
         </aside>
       </div>
+
+      {dashboardDetailId && dashboardDetailRow ? (
+        <>
+          <button
+            type="button"
+            aria-label="Lukk"
+            className="fixed inset-0 z-[80] bg-black/40"
+            onClick={() => setDashboardDetailId(null)}
+          />
+          <aside className="fixed inset-y-0 right-0 z-[90] flex w-full max-w-md flex-col border-l border-neutral-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
+              <div>
+                <h2 className="text-base font-semibold text-neutral-900">{dashboardDetailRow.department}</h2>
+                <p className="text-xs text-neutral-500">{dashboardDetailRow.country}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDashboardDetailId(null)}
+                className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100"
+                aria-label="Lukk"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <div className="rounded-xl border border-neutral-200/80 bg-[#faf8f4] p-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="flex items-center gap-2 text-lg font-semibold text-neutral-900">
+                    8,000 Employees
+                    <Link2 className="size-4 text-neutral-400" />
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-4 sm:grid-cols-1">
+                  <div>
+                    <p className="text-sm text-neutral-600">
+                      Hired <span className="font-semibold text-[#1a3d32]">74%</span> (5,321)
+                    </p>
+                    <p className="text-sm text-neutral-600">
+                      Processing <span className="font-semibold">38%</span> (2,679)
+                    </p>
+                    <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-neutral-200">
+                      <div className="h-full w-[74%] bg-[#1a3d32]" />
+                      <div className="h-full flex-1 bg-neutral-300" />
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-6 grid gap-3 sm:grid-cols-1">
+                  <div className="rounded-lg border border-neutral-100 bg-white p-3">
+                    <div className="text-xl font-semibold text-neutral-900">1,216</div>
+                    <div className="text-xs text-neutral-600">27% On staff</div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-neutral-200">
+                      <div className="h-full w-[27%] bg-[#d4a84b]" />
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-neutral-100 bg-white p-3">
+                    <div className="text-xl font-semibold text-neutral-900">1,791</div>
+                    <div className="text-xs text-neutral-600">31% Out source</div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-neutral-200">
+                      <div className="h-full w-[31%] bg-orange-400" />
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-neutral-100 bg-white p-3">
+                    <div className="text-xl font-semibold text-neutral-900">2,467</div>
+                    <div className="text-xs text-neutral-600">42% Out staff</div>
+                    <div className="mt-3 flex h-16 items-end justify-center gap-1">
+                      {[40, 55, 35, 70, 45, 60, 50].map((h, i) => (
+                        <div
+                          key={i}
+                          className="w-2 rounded-t bg-[#1a3d32]/40"
+                          style={{ height: `${h}%` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </>
+      ) : null}
     </div>
   )
 }
