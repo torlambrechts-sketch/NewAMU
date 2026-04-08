@@ -271,13 +271,21 @@ export type SickLeaveStatus =
   | 'returning'           // i retur
   | 'closed'              // tilbake i jobb / avsluttet
 
+/** Fraværstype for statistikk og oppfølging */
+export type SickLeaveAbsenceType = 'self_reported' | 'sick_child' | 'medical_certificate'
+
 export type SickLeaveCase = {
   id: string
   /** Employee name — stored separately from medical details */
   employeeName: string
   employeeId?: string
   department: string
+  /** Avdeling/enhet (ID) for rapportering */
+  departmentId?: string
   managerName: string
+  /** Nærmeste leder (OrgEmployee.id) — brukes til Kanban og fremtidig RLS */
+  managerEmployeeId?: string
+  absenceType?: SickLeaveAbsenceType
   /** Sick-from date (ISO) */
   sickFrom: string
   /** Projected or actual return date */
@@ -290,8 +298,14 @@ export type SickLeaveCase = {
   /** Messages exchanged in the secure portal (append-only) */
   portalMessages: SickLeaveMessage[]
   milestones: SickLeaveMilestone[]
-  /** Explicit consent to record medical context */
+  /**
+   * Arbeidstaker er informert om registreringen (personvernerklæring).
+   * Juridisk grunnlag for fraværsregistrering er ofte AML / folketrygdloven;
+   * samtykke kan fortsatt kreves for deling med BHT/NAV.
+   */
   consentRecorded: boolean
+  /** Lovpålagte milepæler er sendt til Kanban for nærmeste leder */
+  kanbanMilestonesSynced?: boolean
   createdAt: string
   updatedAt: string
 }

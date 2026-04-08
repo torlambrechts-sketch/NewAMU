@@ -306,15 +306,15 @@ export function makeSickLeaveWizard(
               • Dag 4 — Kontakt med ansatt<br>
               • 4 uker — Oppfølgingsplan (AML §4-6 nr. 1)<br>
               • 7 uker — Dialogmøte 1 (AML §4-6 nr. 2)<br>
-              • 9 uker — Melding til NAV<br>
+              • 8 uker — NAV-vurdering / utvidet legeerklæring (sykepenger)<br>
               • 26 uker — Dialogmøte 2
             `,
           },
           {
             id: 'consentRecorded',
-            label: 'Samtykke til behandling av personopplysninger er registrert',
+            label: 'Arbeidstaker er informert om registreringen (personvernerklæring)',
             kind: 'checkbox',
-            hint: 'Krev skriftlig samtykke fra ansatt (GDPR art. 9).',
+            hint: 'Arbeidsgiver har ofte hjemmel i AML og folketrygdloven for fraværsregistrering. Samtykke kan fortsatt kreves for deling med BHT eller NAV.',
           },
         ],
       },

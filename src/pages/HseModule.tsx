@@ -26,11 +26,12 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { useHse } from '../hooks/useHse'
+import { mergeSickLeaveMilestonesOnDateChange, useHse } from '../hooks/useHse'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { canEditIncidentRootCause, canViewIncident } from '../lib/incidentAccess'
+import { canViewSickLeaveCase } from '../lib/sickLeaveAccess'
 import { useTasks } from '../hooks/useTasks'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
@@ -57,6 +58,7 @@ import type {
   SafetyRound,
   SjaAnalysis,
   SjaHazardRow,
+  SickLeaveAbsenceType,
   SickLeaveCase,
   SickLeaveMilestoneKind,
   TrainingKind,
@@ -166,6 +168,12 @@ const SICK_STATUS_COLOURS: Record<SickLeaveCase['status'], string> = {
   partial: 'bg-amber-100 text-amber-800',
   returning: 'bg-emerald-100 text-emerald-800',
   closed: 'bg-neutral-100 text-neutral-600',
+}
+
+const SL_ABSENCE_LABELS: Record<SickLeaveAbsenceType, string> = {
+  self_reported: 'Egenmelding',
+  sick_child: 'Sykt barn',
+  medical_certificate: 'Sykemelding (lege)',
 }
 
 // ─── Form templates — dynamic fields ─────────────────────────────────────────
@@ -337,17 +345,18 @@ export function HseModule() {
   const [incFollowTaskTitle, setIncFollowTaskTitle] = useState('')
   const [incFollowDueDate, setIncFollowDueDate] = useState('')
 
-  // Sick leave form
-  const [slForm, setSlForm] = useState({
-    employeeName: '',
-    department: '',
-    managerName: '',
-    sickFrom: '',
-    sicknessDegree: '100',
-    returnDate: '',
-    status: 'active' as SickLeaveCase['status'],
-    consentRecorded: false,
-  })
+  const [slSearch, setSlSearch] = useState('')
+  const [slPanelId, setSlPanelId] = useState<string | null>(null)
+  const [slPanelEmployeeId, setSlPanelEmployeeId] = useState('')
+  const [slPanelDepartmentId, setSlPanelDepartmentId] = useState('')
+  const [slPanelManagerId, setSlPanelManagerId] = useState('')
+  const [slPanelAbsenceType, setSlPanelAbsenceType] = useState<SickLeaveAbsenceType>('medical_certificate')
+  const [slPanelSickFrom, setSlPanelSickFrom] = useState('')
+  const [slPanelReturnDate, setSlPanelReturnDate] = useState('')
+  const [slPanelSicknessDegree, setSlPanelSicknessDegree] = useState('100')
+  const [slPanelStatus, setSlPanelStatus] = useState<SickLeaveCase['status']>('active')
+  const [slPanelConsent, setSlPanelConsent] = useState(false)
+  const [slPanelSeedKanban, setSlPanelSeedKanban] = useState(true)
 
   // SJA form
   const [sjaSearch, setSjaSearch] = useState('')
@@ -385,7 +394,6 @@ export function HseModule() {
 
   // Expanded incident detail
   const [incidentPanelId, setIncidentPanelId] = useState<string | null>(null)
-  const [slPanelId, setSlPanelId] = useState<string | null>(null)
   const [slPanelMsg, setSlPanelMsg] = useState('')
   const [slPanelRole, setSlPanelRole] = useState<SickLeaveCase['portalMessages'][0]['senderRole']>('manager')
   const [slPanelName, setSlPanelName] = useState('')
@@ -398,7 +406,9 @@ export function HseModule() {
   const incidentPanelExisting =
     incidentPanelId && incidentPanelId !== '__new__' ? hse.incidents.find((i) => i.id === incidentPanelId) : undefined
   const sjaPanelExisting = sjaPanelId && sjaPanelId !== '__new__' ? hse.sjaAnalyses.find((s) => s.id === sjaPanelId) : undefined
-  const slPanelCase = slPanelId ? hse.sickLeaveCases.find((s) => s.id === slPanelId) : undefined
+  /** Oppdatert rad fra state (milepæler / dialog etter lagring i panelet). */
+  const slPanelLive =
+    slPanelId && slPanelId !== '__new__' ? hse.sickLeaveCases.find((s) => s.id === slPanelId) : undefined
   const trainingPanelRec = trainingPanelId ? hse.trainingRecords.find((r) => r.id === trainingPanelId) : undefined
 
   const viewerEmployeeId = useMemo(() => {
@@ -418,6 +428,25 @@ export function HseModule() {
       viewerJobHint: org.displayEmployees.find((e) => e.id === viewerEmployeeId)?.jobTitle ?? null,
     }),
     [user?.id, viewerEmployeeId, isAdmin, profile?.display_name, profile?.email, user?.email, org.displayEmployees],
+  )
+
+  const sickLeaveEmployeeRefs = useMemo(
+    () =>
+      org.displayEmployees.map((e) => ({
+        id: e.id,
+        reportsToId: e.reportsToId,
+        unitId: e.unitId,
+      })),
+    [org.displayEmployees],
+  )
+
+  const sickLeaveViewerCtx = useMemo(
+    () => ({
+      viewerEmployeeId,
+      isAdmin: Boolean(isAdmin),
+      viewerJobHint: org.displayEmployees.find((e) => e.id === viewerEmployeeId)?.jobTitle ?? null,
+    }),
+    [viewerEmployeeId, isAdmin, org.displayEmployees],
   )
 
   const resetIncidentPanelForm = useCallback(() => {
@@ -555,8 +584,50 @@ export function HseModule() {
     },
     [],
   )
+  const resetSlPanelForm = useCallback(() => {
+    setSlPanelEmployeeId('')
+    setSlPanelDepartmentId('')
+    setSlPanelManagerId('')
+    setSlPanelAbsenceType('medical_certificate')
+    setSlPanelSickFrom('')
+    setSlPanelReturnDate('')
+    setSlPanelSicknessDegree('100')
+    setSlPanelStatus('active')
+    setSlPanelConsent(false)
+    setSlPanelSeedKanban(true)
+    setSlPanelMsg('')
+    setSlPanelRole('manager')
+    setSlPanelName('')
+  }, [])
+
   const closeSlPanel = useCallback(() => {
     setSlPanelId(null)
+    resetSlPanelForm()
+  }, [resetSlPanelForm])
+
+  const openNewSickLeavePanel = useCallback(() => {
+    resetSlPanelForm()
+    setSlPanelId('__new__')
+    const self = viewerEmployeeId ? org.displayEmployees.find((e) => e.id === viewerEmployeeId) : undefined
+    if (self) {
+      setSlPanelEmployeeId(self.id)
+      if (self.reportsToId) setSlPanelManagerId(self.reportsToId)
+      if (self.unitId) setSlPanelDepartmentId(self.unitId)
+    }
+  }, [resetSlPanelForm, viewerEmployeeId, org.displayEmployees])
+
+  const openEditSickLeavePanel = useCallback((sc: SickLeaveCase) => {
+    setSlPanelId(sc.id)
+    setSlPanelEmployeeId(sc.employeeId ?? '')
+    setSlPanelDepartmentId(sc.departmentId ?? '')
+    setSlPanelManagerId(sc.managerEmployeeId ?? '')
+    setSlPanelAbsenceType(sc.absenceType ?? 'medical_certificate')
+    setSlPanelSickFrom(sc.sickFrom)
+    setSlPanelReturnDate(sc.returnDate ?? '')
+    setSlPanelSicknessDegree(String(sc.sicknessDegree))
+    setSlPanelStatus(sc.status)
+    setSlPanelConsent(sc.consentRecorded)
+    setSlPanelSeedKanban(!sc.kanbanMilestonesSynced)
     setSlPanelMsg('')
     setSlPanelRole('manager')
     setSlPanelName('')
@@ -985,6 +1056,155 @@ export function HseModule() {
       signatures: existing.signatures,
     })
     closeSjaPanel()
+  }
+
+  const slStats = useMemo(() => {
+    const list = hse.sickLeaveCases.filter((sc) => canViewSickLeaveCase(sc, sickLeaveViewerCtx, sickLeaveEmployeeRefs))
+    const today = new Date(overviewTimeAnchor).toISOString().slice(0, 10)
+    const overdue = list.reduce(
+      (n, sc) => n + sc.milestones.filter((m) => !m.completedAt && m.dueAt < today).length,
+      0,
+    )
+    return {
+      total: list.length,
+      active: list.filter((s) => s.status === 'active' || s.status === 'partial').length,
+      overdue,
+    }
+  }, [hse.sickLeaveCases, overviewTimeAnchor, sickLeaveViewerCtx, sickLeaveEmployeeRefs])
+
+  const slFiltered = useMemo(() => {
+    const q = slSearch.trim().toLowerCase()
+    let list = hse.sickLeaveCases.filter((sc) => canViewSickLeaveCase(sc, sickLeaveViewerCtx, sickLeaveEmployeeRefs))
+    if (q) {
+      list = list.filter(
+        (s) =>
+          s.employeeName.toLowerCase().includes(q) ||
+          s.managerName.toLowerCase().includes(q) ||
+          (s.department ?? '').toLowerCase().includes(q) ||
+          SL_ABSENCE_LABELS[s.absenceType ?? 'medical_certificate'].toLowerCase().includes(q),
+      )
+    }
+    list.sort((a, b) => b.sickFrom.localeCompare(a.sickFrom))
+    return list
+  }, [hse.sickLeaveCases, slSearch, sickLeaveViewerCtx, sickLeaveEmployeeRefs])
+
+  function seedKanbanMilestoneTasks(sc: SickLeaveCase) {
+    const leaderEmp = sc.managerEmployeeId
+      ? org.displayEmployees.find((e) => e.id === sc.managerEmployeeId)
+      : undefined
+    const assignee = leaderEmp?.name?.trim() || sc.managerName.trim() || 'Nærmeste leder'
+    for (const m of sc.milestones) {
+      if (m.completedAt) continue
+      addTask({
+        title: `Sykefravær: ${m.label}`,
+        description: `Sak: ${sc.employeeName} (fra ${formatDate(sc.sickFrom)}).\n${m.lawRef}\nFrist: ${formatDate(m.dueAt)}`,
+        status: 'todo',
+        assignee,
+        assigneeEmployeeId: sc.managerEmployeeId,
+        dueDate: m.dueAt,
+        module: 'hse',
+        sourceType: 'hse_sick_leave_milestone',
+        sourceId: `${sc.id}:${m.kind}`,
+        sourceLabel: sc.employeeName,
+        ownerRole: 'Nærmeste leder',
+        requiresManagementSignOff: false,
+      })
+    }
+  }
+
+  function submitSickLeavePanel(e: React.FormEvent) {
+    e.preventDefault()
+    if (!slPanelSickFrom) return
+    if (slPanelId === '__new__') {
+      if (!slPanelEmployeeId) {
+        window.alert('Velg ansatt fra listen.')
+        return
+      }
+      if (!slPanelManagerId) {
+        window.alert('Velg nærmeste leder.')
+        return
+      }
+    }
+    const emp = slPanelEmployeeId ? org.displayEmployees.find((x) => x.id === slPanelEmployeeId) : undefined
+    const deptName = slPanelDepartmentId
+      ? departmentSelectOptions.find((o) => o.value === slPanelDepartmentId)?.label ?? ''
+      : emp?.unitName ?? ''
+    const mgr = slPanelManagerId ? org.displayEmployees.find((x) => x.id === slPanelManagerId) : undefined
+    if (slPanelId === '__new__') {
+      const created = hse.createSickLeaveCase({
+        employeeName: emp?.name?.trim() || 'Ukjent ansatt',
+        employeeId: slPanelEmployeeId || undefined,
+        department: deptName,
+        departmentId: slPanelDepartmentId || emp?.unitId,
+        managerName: mgr?.name?.trim() || '—',
+        managerEmployeeId: slPanelManagerId || undefined,
+        absenceType: slPanelAbsenceType,
+        sickFrom: slPanelSickFrom,
+        returnDate: slPanelReturnDate.trim() || undefined,
+        status: slPanelStatus,
+        sicknessDegree: Number(slPanelSicknessDegree) || 100,
+        accommodationNotes: '',
+        consentRecorded: slPanelConsent,
+        kanbanMilestonesSynced: false,
+      })
+      if (slPanelSeedKanban) {
+        seedKanbanMilestoneTasks(created)
+        hse.updateSickLeaveCase(created.id, { kanbanMilestonesSynced: true })
+      }
+      closeSlPanel()
+      return
+    }
+
+    const editId = slPanelId
+    if (!editId || editId === '__new__') return
+    const existing = hse.sickLeaveCases.find((x) => x.id === editId)
+    if (!existing) return
+
+    const milestonesNext =
+      slPanelSickFrom !== existing.sickFrom
+        ? mergeSickLeaveMilestonesOnDateChange(existing.milestones, slPanelSickFrom)
+        : existing.milestones
+
+    hse.updateSickLeaveCase(editId, {
+      employeeName: emp?.name?.trim() || existing.employeeName,
+      employeeId: slPanelEmployeeId || undefined,
+      department: deptName || existing.department,
+      departmentId: slPanelDepartmentId || emp?.unitId || existing.departmentId,
+      managerName: mgr?.name?.trim() || existing.managerName,
+      managerEmployeeId: slPanelManagerId || undefined,
+      absenceType: slPanelAbsenceType,
+      sickFrom: slPanelSickFrom,
+      returnDate: slPanelReturnDate.trim() || undefined,
+      status: slPanelStatus,
+      sicknessDegree: Number(slPanelSicknessDegree) || 100,
+      consentRecorded: slPanelConsent,
+      milestones: milestonesNext,
+    })
+
+    const mergedMilestones = milestonesNext
+    const afterPatch: SickLeaveCase = {
+      ...existing,
+      employeeName: emp?.name?.trim() || existing.employeeName,
+      employeeId: slPanelEmployeeId || existing.employeeId,
+      department: deptName || existing.department,
+      departmentId: slPanelDepartmentId || emp?.unitId || existing.departmentId,
+      managerName: mgr?.name?.trim() || existing.managerName,
+      managerEmployeeId: slPanelManagerId ?? existing.managerEmployeeId,
+      absenceType: slPanelAbsenceType,
+      sickFrom: slPanelSickFrom,
+      returnDate: slPanelReturnDate.trim() || existing.returnDate,
+      status: slPanelStatus,
+      sicknessDegree: Number(slPanelSicknessDegree) || 100,
+      consentRecorded: slPanelConsent,
+      milestones: mergedMilestones,
+    }
+
+    if (slPanelSeedKanban && !existing.kanbanMilestonesSynced) {
+      seedKanbanMilestoneTasks(afterPatch)
+      hse.updateSickLeaveCase(editId, { kanbanMilestonesSynced: true })
+    }
+
+    closeSlPanel()
   }
 
   function departmentLabelForIncident(inc: Incident) {
@@ -2320,146 +2540,171 @@ export function HseModule() {
         </div>
       )}
 
-      {/* ── Sykefravær ────────────────────────────────────────────────────────── */}
+      {/* ── Sykefravær (samme mønster som inspeksjoner) ───────────────────────── */}
       {tab === 'sickness' && (
-        <div className="mt-8 space-y-8">
-          {/* Confidentiality notice */}
-          <div className="flex items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3">
+        <div className="mt-8 space-y-6">
+          <div className={`${R_FLAT} flex items-start gap-3 border border-sky-200 bg-sky-50 px-4 py-3`}>
             <Lock className="mt-0.5 size-4 shrink-0 text-sky-700" />
             <p className="text-sm text-sky-900">
-              <strong>Taushetsbelagt sone.</strong> Sykefraværsdata og tilretteleggingsdialog er strengt
-              adskilt fra avviksregistreringen. Kun leder og HR med tilgang ser disse postene. Alle visninger logges separat.{' '}
-              <span className="text-xs">(AML §4-6, Personopplysningsloven §9)</span>
+              <strong>Taushetsbelagt sone.</strong> Sykefraværsdata er adskilt fra avviksregistreringen. Tilgang styres i
+              appen: administrator ser alle; nærmeste leder ser egne saker; verneombud ser normalt ikke individuelle
+              fraværslinjer. <span className="text-xs">(AML §4-6, GDPR / helseopplysninger)</span>
             </p>
           </div>
 
-          {/* Overdue milestones alert */}
-          {hse.stats.overdueMilestones > 0 && (
-            <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          {slStats.overdue > 0 && (
+            <div className={`${R_FLAT} flex items-start gap-3 border border-amber-200 bg-amber-50 px-4 py-3`}>
               <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700" />
               <p className="text-sm text-amber-900">
-                <strong>{hse.stats.overdueMilestones} forfalte lovpålagte milepæler</strong> — se sakene nedenfor og marker fullført.
+                <strong>{slStats.overdue} åpne milepæler er forfalt</strong> i saker du har tilgang til — åpne saken og
+                marker fullført, eller oppdater frister ved behov.
               </p>
             </div>
           )}
 
-          {/* New sick leave case form */}
-          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-neutral-900">Ny sykefraværssak</h2>
-                <p className="mt-0.5 text-sm text-neutral-600">Lovpålagte frister genereres automatisk (AML §4-6).</p>
+          <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <h2
+                className="text-2xl font-semibold text-neutral-900 md:text-3xl"
+                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+              >
+                Sykefravær
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-neutral-600">
+                Liste og detaljer i sidevindu. Lovpålagte milepæler (kontakt, oppfølgingsplan, dialogmøter, NAV-vurdering
+                m.m.) kan sendes til Kanban for nærmeste leder. Fraværstype og kobling til ansatt/leder gir bedre
+                rapportering enn fritekst.
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                  Synlige <strong className="ml-1 font-semibold">{slStats.total}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
+                  Aktive <strong className="ml-1 font-semibold">{slStats.active}</strong>
+                </span>
+                <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
+                  Forfalte milepæler <strong className="ml-1 font-semibold">{slStats.overdue}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={openNewSickLeavePanel}
+                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                >
+                  <Plus className="size-4 shrink-0" />
+                  Ny sykefraværssak
+                </button>
+                <WizardButton
+                  label="Veiviser"
+                  variant="solid"
+                  className={HERO_ACTION_CLASS}
+                  def={makeSickLeaveWizard((data) => {
+                    const nameStr = String(data.employeeName ?? '').trim()
+                    const mgrStr = String(data.managerName ?? '').trim()
+                    const emp = org.displayEmployees.find((e) => e.name.trim().toLowerCase() === nameStr.toLowerCase())
+                    const mgr = org.displayEmployees.find((e) => e.name.trim().toLowerCase() === mgrStr.toLowerCase())
+                    const deptName = String(data.department ?? '').trim()
+                    const unitFromName = deptName
+                      ? org.units.find((u) => u.name.trim().toLowerCase() === deptName.toLowerCase())
+                      : undefined
+                    const created = hse.createSickLeaveCase({
+                      employeeName: (emp?.name ?? nameStr) || 'Ukjent ansatt',
+                      employeeId: emp?.id,
+                      department: unitFromName?.name ?? deptName,
+                      departmentId: unitFromName?.id ?? emp?.unitId,
+                      managerName: (mgr?.name ?? mgrStr) || '—',
+                      managerEmployeeId: mgr?.id,
+                      absenceType: 'medical_certificate',
+                      sickFrom: String(data.sickFrom),
+                      status: String(data.status) as SickLeaveCase['status'],
+                      sicknessDegree: Number(data.sicknessDegree) || 100,
+                      accommodationNotes: '',
+                      consentRecorded: Boolean(data.consentRecorded),
+                      kanbanMilestonesSynced: false,
+                    })
+                    openEditSickLeavePanel(created)
+                  })}
+                />
               </div>
-              <WizardButton
-                label="Veiviser"
-                def={makeSickLeaveWizard((data) => hse.createSickLeaveCase({
-                  employeeName: String(data.employeeName),
-                  department:   String(data.department) || '',
-                  managerName:  String(data.managerName),
-                  sickFrom:     String(data.sickFrom),
-                  status:       String(data.status) as SickLeaveCase['status'],
-                  sicknessDegree: Number(data.sicknessDegree) || 100,
-                  accommodationNotes: '',
-                  consentRecorded: Boolean(data.consentRecorded),
-                }))}
-              />
             </div>
-            <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
-              e.preventDefault()
-              if (!slForm.employeeName.trim() || !slForm.sickFrom) return
-              hse.createSickLeaveCase({
-                employeeName: slForm.employeeName.trim(),
-                department: slForm.department,
-                managerName: slForm.managerName,
-                sickFrom: slForm.sickFrom,
-                returnDate: slForm.returnDate || undefined,
-                status: slForm.status,
-                sicknessDegree: Number(slForm.sicknessDegree) || 100,
-                accommodationNotes: '',
-                consentRecorded: slForm.consentRecorded,
-              })
-              setSlForm({ employeeName: '', department: '', managerName: '', sickFrom: '', sicknessDegree: '100', returnDate: '', status: 'active', consentRecorded: false })
-            }}>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Ansatt navn</label>
-                <input value={slForm.employeeName} onChange={(e) => setSlForm((s) => ({ ...s, employeeName: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Avdeling</label>
-                <input value={slForm.department} onChange={(e) => setSlForm((s) => ({ ...s, department: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Nærmeste leder</label>
-                <input value={slForm.managerName} onChange={(e) => setSlForm((s) => ({ ...s, managerName: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Sykemeldt fra</label>
-                <input type="date" value={slForm.sickFrom} onChange={(e) => setSlForm((s) => ({ ...s, sickFrom: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Grad (%)</label>
-                <input type="number" min={1} max={100} value={slForm.sicknessDegree} onChange={(e) => setSlForm((s) => ({ ...s, sicknessDegree: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Status</label>
-                <select value={slForm.status} onChange={(e) => setSlForm((s) => ({ ...s, status: e.target.value as SickLeaveCase['status'] }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
-                  <option value="active">Sykemeldt (100%)</option>
-                  <option value="partial">Gradert sykemeldt</option>
-                  <option value="returning">I retur</option>
-                </select>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={slForm.consentRecorded} onChange={(e) => setSlForm((s) => ({ ...s, consentRecorded: e.target.checked }))} className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
-                  Samtykke til behandling av personopplysninger er registrert (GDPR)
-                </label>
-              </div>
-              <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2">
-                <Calendar className="size-4" />
-                Opprett sak og generer frister
-              </button>
-            </form>
-          </section>
-
-          {/* Active cases — detaljer i sidevindu */}
-          <div className="space-y-4">
-            {hse.sickLeaveCases.map((sc) => {
-              const today = new Date().toISOString().slice(0, 10)
-              const overdue = sc.milestones.filter((m) => !m.completedAt && m.dueAt < today)
-              const upcoming = sc.milestones.filter((m) => !m.completedAt && m.dueAt >= today)
-              const done = sc.milestones.filter((m) => m.completedAt)
-              return (
-                <div key={sc.id} className="rounded-2xl border border-neutral-200/90 bg-white px-4 py-4 shadow-sm">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold text-neutral-900">{sc.employeeName}</span>
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${SICK_STATUS_COLOURS[sc.status]}`}>
-                          {SICK_STATUS_LABELS[sc.status]}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-neutral-500">
-                        {sc.sicknessDegree}% · {sc.department} · Sykemeldt fra {formatDate(sc.sickFrom)} · Leder: {sc.managerName}
-                      </p>
-                      <p className="mt-2 text-xs text-neutral-600">
-                        Milepæler: {done.length} fullført · {overdue.length} forfalt · {upcoming.length} åpne
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSlPanelId(sc.id)}
-                      className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
-                    >
-                      Åpne
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-            {hse.sickLeaveCases.length === 0 && (
-              <p className="text-center text-sm text-neutral-500 py-8">Ingen sykefraværssaker registrert.</p>
-            )}
           </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold tabular-nums">{slStats.total}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Saker (din tilgang)</div>
+            </div>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold tabular-nums">{slStats.active}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Aktive / gradert</div>
+            </div>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold tabular-nums">{slStats.overdue}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Forfalte milepæler</div>
+            </div>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+              <div className="text-2xl font-semibold tabular-nums">{hse.sickLeaveCases.length}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Totalt i org. (alle roller)</div>
+            </div>
+          </div>
+
+          <Mainbox1
+            title="Sykefraværssaker"
+            subtitle="Sortert etter startdato. Åpne en rad for milepæler, tilrettelegging og dialog."
+          >
+            <Table1Shell
+              toolbar={
+                <Table1Toolbar
+                  searchSlot={
+                    <div className="min-w-[200px] flex-1">
+                      <label className="sr-only" htmlFor="sl-search">
+                        Søk
+                      </label>
+                      <input
+                        id="sl-search"
+                        value={slSearch}
+                        onChange={(e) => setSlSearch(e.target.value)}
+                        placeholder="Søk i navn, leder, avdeling, fraværstype …"
+                        className={`${SETTINGS_INPUT} bg-white`}
+                      />
+                    </div>
+                  }
+                />
+              }
+            >
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse text-left">
+                  <thead>
+                    <tr className={theadRow}>
+                      <th className={tableCell}>Ansatt</th>
+                      <th className={tableCell}>Fraværstype</th>
+                      <th className={tableCell}>Fra dato</th>
+                      <th className={tableCell}>Avdeling</th>
+                      <th className={tableCell}>Leder</th>
+                      <th className={tableCell}>Milepæler</th>
+                      <th className={tableCell}>Status</th>
+                      <th className={`${tableCell} text-right`}>Handling</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {slFiltered.map((sc, ri) => (
+                      <SickLeaveTableRow
+                        key={sc.id}
+                        sc={sc}
+                        rowClass={table1BodyRowClass(layout, ri)}
+                        cellClass={tableCell}
+                        onOpen={() => openEditSickLeavePanel(sc)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {slFiltered.length === 0 ? (
+                <p className="px-4 py-10 text-center text-sm text-neutral-500">
+                  Ingen sykefraværssaker å vise (eller ingen treff i søket).
+                </p>
+              ) : null}
+            </Table1Shell>
+          </Mainbox1>
         </div>
       )}
 
@@ -3679,8 +3924,8 @@ export function HseModule() {
         </>
       ) : null}
 
-      {/* Sykefravær — sidevindu */}
-      {slPanelId && slPanelCase ? (
+      {/* Sykefravær — sidevindu (ny / rediger + milepæler + dialog) */}
+      {slPanelId ? (
         <>
           <button
             type="button"
@@ -3689,197 +3934,370 @@ export function HseModule() {
             onClick={closeSlPanel}
           />
           <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[920px] flex-col border-l border-neutral-200 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
-              <div>
-                <h2 className="text-lg font-semibold text-neutral-900">{slPanelCase.employeeName}</h2>
-                <p className="text-xs text-neutral-500">
-                  {SICK_STATUS_LABELS[slPanelCase.status]} · {slPanelCase.sicknessDegree}% · {slPanelCase.department}
-                </p>
+            <form
+              className="flex min-h-0 flex-1 flex-col"
+              onSubmit={submitSickLeavePanel}
+            >
+              <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-neutral-900">
+                    {slPanelId === '__new__' ? 'Ny sykefraværssak' : slPanelLive?.employeeName ?? 'Sykefravær'}
+                  </h2>
+                  <p className="text-xs text-neutral-500">
+                    {slPanelId === '__new__'
+                      ? 'Relasjonelle felt og milepæler — samme mønster som inspeksjoner.'
+                      : `${SICK_STATUS_LABELS[slPanelLive?.status ?? 'active']} · ${slPanelLive?.sicknessDegree ?? '—'}% · ${slPanelLive?.department ?? '—'}`}
+                  </p>
+                </div>
+                <button type="button" onClick={closeSlPanel} className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-100`}>
+                  <X className="size-5" />
+                </button>
               </div>
-              <button type="button" onClick={closeSlPanel} className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-100`}>
-                <X className="size-5" />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-              <div className="mb-4">
-                <label className={SETTINGS_FIELD_LABEL}>Status</label>
-                <select
-                  value={slPanelCase.status}
-                  onChange={(e) =>
-                    hse.updateSickLeaveCase(slPanelCase.id, { status: e.target.value as SickLeaveCase['status'] })
-                  }
-                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
-                >
-                  <option value="active">Sykemeldt</option>
-                  <option value="partial">Gradert</option>
-                  <option value="returning">I retur</option>
-                  <option value="closed">Avsluttet</option>
-                </select>
-              </div>
-              <p className="text-xs text-neutral-500">
-                Sykemeldt fra: {formatDate(slPanelCase.sickFrom)} · Leder: {slPanelCase.managerName}
-              </p>
-              {(() => {
-                const today = new Date().toISOString().slice(0, 10)
-                const overdue = slPanelCase.milestones.filter((m) => !m.completedAt && m.dueAt < today)
-                const upcoming = slPanelCase.milestones.filter((m) => !m.completedAt && m.dueAt >= today)
-                const done = slPanelCase.milestones.filter((m) => m.completedAt)
-                return (
-                  <div className="mt-4 space-y-4">
-                    {overdue.length > 0 && (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                        <p className="text-xs font-semibold text-amber-900">Forfalt ({overdue.length})</p>
-                        {overdue.map((m) => (
-                          <div key={m.kind} className="mt-2 flex items-center justify-between gap-2 text-xs text-amber-800">
-                            <span>{m.label}</span>
-                            <button
-                              type="button"
-                              onClick={() => hse.completeMilestone(slPanelCase.id, m.kind as SickLeaveMilestoneKind)}
-                              className="rounded bg-amber-700 px-2 py-0.5 text-white"
-                            >
-                              Fullført
-                            </button>
-                          </div>
-                        ))}
+
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <div className={TASK_PANEL_ROW_GRID}>
+                  <div>
+                    <p className={SETTINGS_LEAD}>
+                      Velg ansatt og nærmeste leder fra organisasjonen. Startdato styrer alle lovpålagte milepæler. Du kan
+                      sende åpne milepæler til Kanban for lederen (én gang per sak, med mindre du krysser av på nytt etter
+                      endring av startdato).
+                    </p>
+                  </div>
+                  <div className={TASK_PANEL_INSET}>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="sm:col-span-2">
+                        <label className={SETTINGS_FIELD_LABEL}>Ansatt</label>
+                        <select
+                          value={slPanelEmployeeId}
+                          onChange={(e) => {
+                            const id = e.target.value
+                            setSlPanelEmployeeId(id)
+                            const row = org.displayEmployees.find((x) => x.id === id)
+                            if (row?.reportsToId) setSlPanelManagerId(row.reportsToId)
+                            if (row?.unitId) setSlPanelDepartmentId(row.unitId)
+                          }}
+                          required={slPanelId === '__new__'}
+                          className={`${SETTINGS_INPUT} bg-white`}
+                        >
+                          <option value="">Velg ansatt …</option>
+                          {employeePickList.map((e) => (
+                            <option key={e.id} value={e.id}>
+                              {e.name}
+                              {e.unitName ? ` · ${e.unitName}` : ''}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                    )}
-                    {upcoming.length > 0 && (
+                      <div className="sm:col-span-2">
+                        <label className={SETTINGS_FIELD_LABEL}>Avdeling / enhet</label>
+                        <select
+                          value={slPanelDepartmentId}
+                          onChange={(e) => setSlPanelDepartmentId(e.target.value)}
+                          className={`${SETTINGS_INPUT} bg-white`}
+                        >
+                          <option value="">Velg enhet …</option>
+                          {departmentSelectOptions.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className={SETTINGS_FIELD_LABEL}>Nærmeste leder</label>
+                        <select
+                          value={slPanelManagerId}
+                          onChange={(e) => setSlPanelManagerId(e.target.value)}
+                          required={slPanelId === '__new__'}
+                          className={`${SETTINGS_INPUT} bg-white`}
+                        >
+                          <option value="">Velg leder …</option>
+                          {employeePickList.map((e) => (
+                            <option key={e.id} value={e.id}>
+                              {e.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                       <div>
-                        <p className="text-xs font-semibold text-neutral-600">Kommende frister</p>
-                        <div className="mt-2 space-y-2">
-                          {upcoming.map((m) => {
-                            const days = daysUntil(m.dueAt)
-                            return (
-                              <div
-                                key={m.kind}
-                                className="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 text-xs"
-                              >
-                                <span className="font-medium text-neutral-800">{m.label}</span>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-neutral-500">
-                                    {formatDate(m.dueAt)} ({days}d)
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      hse.completeMilestone(slPanelCase.id, m.kind as SickLeaveMilestoneKind)
-                                    }
-                                    className="rounded-none bg-[#1a3d32] px-2 py-0.5 text-[10px] text-white"
-                                  >
-                                    Fullført
-                                  </button>
+                        <label className={SETTINGS_FIELD_LABEL}>Fraværstype</label>
+                        <select
+                          value={slPanelAbsenceType}
+                          onChange={(e) => setSlPanelAbsenceType(e.target.value as SickLeaveAbsenceType)}
+                          className={`${SETTINGS_INPUT} bg-white`}
+                        >
+                          {(Object.keys(SL_ABSENCE_LABELS) as SickLeaveAbsenceType[]).map((k) => (
+                            <option key={k} value={k}>
+                              {SL_ABSENCE_LABELS[k]}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL}>Status</label>
+                        <select
+                          value={slPanelStatus}
+                          onChange={(e) => setSlPanelStatus(e.target.value as SickLeaveCase['status'])}
+                          className={`${SETTINGS_INPUT} bg-white`}
+                        >
+                          <option value="active">Sykemeldt</option>
+                          <option value="partial">Gradert</option>
+                          <option value="returning">I retur</option>
+                          <option value="closed">Avsluttet</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL}>Sykemeldt fra</label>
+                        <input
+                          type="date"
+                          value={slPanelSickFrom}
+                          onChange={(e) => setSlPanelSickFrom(e.target.value)}
+                          required
+                          className={`${SETTINGS_INPUT} bg-white`}
+                        />
+                      </div>
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL}>Forventet retur (valgfritt)</label>
+                        <input
+                          type="date"
+                          value={slPanelReturnDate}
+                          onChange={(e) => setSlPanelReturnDate(e.target.value)}
+                          className={`${SETTINGS_INPUT} bg-white`}
+                        />
+                      </div>
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL}>Grad (%)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={slPanelSicknessDegree}
+                          onChange={(e) => setSlPanelSicknessDegree(e.target.value)}
+                          className={`${SETTINGS_INPUT} bg-white`}
+                        />
+                      </div>
+                    </div>
+                    <label className="mt-4 flex items-start gap-2 text-sm text-neutral-700">
+                      <input
+                        type="checkbox"
+                        checked={slPanelConsent}
+                        onChange={(e) => setSlPanelConsent(e.target.checked)}
+                        className="mt-1 size-4 rounded-none border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+                      />
+                      <span>
+                        Arbeidstaker er informert om registreringen (ihht. personvernerklæringen). Deling med BHT eller NAV
+                        kan kreve eget samtykke.
+                      </span>
+                    </label>
+                    <label className="mt-3 flex items-start gap-2 text-sm text-neutral-700">
+                      <input
+                        type="checkbox"
+                        checked={slPanelSeedKanban}
+                        onChange={(e) => setSlPanelSeedKanban(e.target.checked)}
+                        className="mt-1 size-4 rounded-none border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+                      />
+                      <span>
+                        Opprett åpne milepæler som oppgaver på Kanban for nærmeste leder (anbefales ved nye saker eller ny
+                        startdato).
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                {slPanelId !== '__new__' && slPanelLive ? (
+                  <>
+                    <div className="border-t border-neutral-200 px-5 py-5">
+                      <p className={SETTINGS_FIELD_LABEL}>Lovpålagte milepæler</p>
+                      <p className="mt-1 text-xs text-neutral-500">
+                        Frister beregnes fra {formatDate(slPanelLive.sickFrom)}. Marker fullført når kravet er oppfylt.
+                      </p>
+                      {(() => {
+                        const today = new Date().toISOString().slice(0, 10)
+                        const overdue = slPanelLive.milestones.filter((m) => !m.completedAt && m.dueAt < today)
+                        const upcoming = slPanelLive.milestones.filter((m) => !m.completedAt && m.dueAt >= today)
+                        const done = slPanelLive.milestones.filter((m) => m.completedAt)
+                        return (
+                          <div className="mt-4 space-y-4">
+                            {overdue.length > 0 && (
+                              <div className={`${R_FLAT} border border-amber-200 bg-amber-50 px-3 py-2`}>
+                                <p className="text-xs font-semibold text-amber-900">Forfalt ({overdue.length})</p>
+                                {overdue.map((m) => (
+                                  <div key={m.kind} className="mt-2 flex items-center justify-between gap-2 text-xs text-amber-800">
+                                    <span>{m.label}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        hse.completeMilestone(slPanelLive.id, m.kind as SickLeaveMilestoneKind)
+                                      }
+                                      className={`${HERO_ACTION_CLASS} bg-amber-700 text-white`}
+                                    >
+                                      Fullført
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {upcoming.length > 0 && (
+                              <div>
+                                <p className="text-xs font-semibold text-neutral-600">Kommende frister</p>
+                                <div className="mt-2 space-y-2">
+                                  {upcoming.map((m) => {
+                                    const days = daysUntil(m.dueAt)
+                                    return (
+                                      <div
+                                        key={m.kind}
+                                        className={`${R_FLAT} flex items-center justify-between border border-neutral-200 px-3 py-2 text-xs`}
+                                      >
+                                        <span className="font-medium text-neutral-800">{m.label}</span>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-neutral-500">
+                                            {formatDate(m.dueAt)} ({days}d)
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              hse.completeMilestone(slPanelLive.id, m.kind as SickLeaveMilestoneKind)
+                                            }
+                                            className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-[10px] text-white`}
+                                          >
+                                            Fullført
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
                                 </div>
                               </div>
-                            )
-                          })}
-                        </div>
+                            )}
+                            {done.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {done.map((m) => (
+                                  <span
+                                    key={m.kind}
+                                    className={`${R_FLAT} inline-flex items-center gap-1 border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-800`}
+                                  >
+                                    <CheckCircle2 className="size-3" />
+                                    {m.label}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
+                    </div>
+
+                    <div className={`${TASK_PANEL_ROW_GRID} border-t border-neutral-200`}>
+                      <div>
+                        <p className={SETTINGS_LEAD}>
+                          Tilretteleggingsnotater er taushetsbelagte. Bruk dialogfeltet for strukturert kommunikasjon i saken.
+                        </p>
                       </div>
-                    )}
-                    {done.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {done.map((m) => (
-                          <span
-                            key={m.kind}
-                            className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-800"
+                      <div className={TASK_PANEL_INSET}>
+                        <label className={`${SETTINGS_FIELD_LABEL} flex items-center gap-1`}>
+                          <Lock className="size-3.5" /> Tilretteleggingsnotater
+                        </label>
+                        <textarea
+                          value={slPanelLive.accommodationNotes}
+                          onChange={(e) =>
+                            hse.updateSickLeaveCase(slPanelLive.id, { accommodationNotes: e.target.value })
+                          }
+                          rows={4}
+                          className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className={`${TASK_PANEL_ROW_GRID} border-t border-neutral-200`}>
+                      <div>
+                        <p className={`${SETTINGS_FIELD_LABEL} flex items-center gap-1`}>
+                          <MessageSquare className="size-3.5" /> Dialog
+                        </p>
+                        <p className="mt-1 text-xs text-neutral-500">Meldinger logges i saken.</p>
+                      </div>
+                      <div className={TASK_PANEL_INSET}>
+                        <div className="max-h-48 space-y-2 overflow-y-auto border border-neutral-200 bg-neutral-50 p-3 text-sm">
+                          {slPanelLive.portalMessages.length === 0 ? (
+                            <p className="text-xs text-neutral-400">Ingen meldinger ennå.</p>
+                          ) : (
+                            slPanelLive.portalMessages.map((m) => (
+                              <div
+                                key={m.id}
+                                className={`${R_FLAT} px-3 py-2 ${m.senderRole === 'manager' ? 'ml-4 bg-[#1a3d32]/8' : 'mr-4 bg-white'}`}
+                              >
+                                <div className="mb-1 text-[10px] text-neutral-500">
+                                  {m.senderName} ({m.senderRole === 'manager' ? 'Leder' : 'Ansatt'}) ·{' '}
+                                  {formatWhen(m.sentAt)}
+                                </div>
+                                <p className="text-neutral-800">{m.text}</p>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <select
+                            value={slPanelRole}
+                            onChange={(e) =>
+                              setSlPanelRole(e.target.value as SickLeaveCase['portalMessages'][0]['senderRole'])
+                            }
+                            className={`${SETTINGS_INPUT} w-auto bg-white text-xs`}
                           >
-                            <CheckCircle2 className="size-3" />
-                            {m.label}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
-              <div className="mt-6">
-                <label className="text-xs font-semibold text-neutral-700 flex items-center gap-1">
-                  <Lock className="size-3.5" /> Tilretteleggingsnotater
-                </label>
-                <textarea
-                  value={slPanelCase.accommodationNotes}
-                  onChange={(e) =>
-                    hse.updateSickLeaveCase(slPanelCase.id, { accommodationNotes: e.target.value })
-                  }
-                  rows={4}
-                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
-                />
-              </div>
-              <div className="mt-6">
-                <p className="text-xs font-semibold text-neutral-700 flex items-center gap-1 mb-2">
-                  <MessageSquare className="size-3.5" /> Dialog
-                </p>
-                <div className="max-h-48 space-y-2 overflow-y-auto rounded-none border border-neutral-200 bg-neutral-50 p-3 text-sm">
-                  {slPanelCase.portalMessages.length === 0 ? (
-                    <p className="text-xs text-neutral-400">Ingen meldinger ennå.</p>
-                  ) : (
-                    slPanelCase.portalMessages.map((m) => (
-                      <div
-                        key={m.id}
-                        className={`rounded-lg px-3 py-2 ${m.senderRole === 'manager' ? 'ml-4 bg-[#1a3d32]/8' : 'mr-4 bg-white'}`}
-                      >
-                        <div className="mb-1 text-[10px] text-neutral-500">
-                          {m.senderName} ({m.senderRole === 'manager' ? 'Leder' : 'Ansatt'}) · {formatWhen(m.sentAt)}
+                            <option value="manager">Leder</option>
+                            <option value="employee">Ansatt</option>
+                          </select>
+                          <input
+                            value={slPanelName}
+                            onChange={(e) => setSlPanelName(e.target.value)}
+                            placeholder="Navn"
+                            className={`${SETTINGS_INPUT} min-w-[120px] flex-1 text-xs`}
+                          />
                         </div>
-                        <p className="text-neutral-800">{m.text}</p>
+                        <div className="mt-2 flex gap-2">
+                          <textarea
+                            value={slPanelMsg}
+                            onChange={(e) => setSlPanelMsg(e.target.value)}
+                            placeholder="Skriv melding …"
+                            rows={2}
+                            className={`${SETTINGS_INPUT} min-h-0 flex-1 bg-white text-sm`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const t = slPanelMsg.trim()
+                              if (!t) return
+                              hse.addPortalMessage(
+                                slPanelLive.id,
+                                slPanelRole,
+                                slPanelName.trim() || (slPanelRole === 'manager' ? 'Leder' : 'Ansatt'),
+                                t,
+                              )
+                              setSlPanelMsg('')
+                            }}
+                            className={`${HERO_ACTION_CLASS} shrink-0 self-end bg-[#1a3d32] text-white`}
+                          >
+                            Send
+                          </button>
+                        </div>
                       </div>
-                    ))
-                  )}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <select
-                    value={slPanelRole}
-                    onChange={(e) =>
-                      setSlPanelRole(e.target.value as SickLeaveCase['portalMessages'][0]['senderRole'])
-                    }
-                    className={`${SETTINGS_INPUT} w-auto bg-white text-xs`}
-                  >
-                    <option value="manager">Leder</option>
-                    <option value="employee">Ansatt</option>
-                  </select>
-                  <input
-                    value={slPanelName}
-                    onChange={(e) => setSlPanelName(e.target.value)}
-                    placeholder="Navn"
-                    className={`${SETTINGS_INPUT} min-w-[120px] flex-1 text-xs`}
-                  />
-                </div>
-                <div className="mt-2 flex gap-2">
-                  <textarea
-                    value={slPanelMsg}
-                    onChange={(e) => setSlPanelMsg(e.target.value)}
-                    placeholder="Skriv melding …"
-                    rows={2}
-                    className={`${SETTINGS_INPUT} min-h-0 flex-1 bg-white text-sm`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const t = slPanelMsg.trim()
-                      if (!t) return
-                      hse.addPortalMessage(
-                        slPanelCase.id,
-                        slPanelRole,
-                        slPanelName.trim() || (slPanelRole === 'manager' ? 'Leder' : 'Ansatt'),
-                        t,
-                      )
-                      setSlPanelMsg('')
-                    }}
-                    className={`${HERO_ACTION_CLASS} shrink-0 self-end bg-[#1a3d32] text-white`}
-                  >
-                    Send
-                  </button>
-                </div>
+                    </div>
+                  </>
+                ) : null}
               </div>
-            </div>
-            <div className="border-t border-neutral-200 px-5 py-4">
-              <button
-                type="button"
-                onClick={closeSlPanel}
-                className={`${HERO_ACTION_CLASS} w-full border border-neutral-300 bg-white text-neutral-800`}
-              >
-                Lukk
-              </button>
-            </div>
+
+              <div className="mt-auto flex flex-wrap justify-end gap-2 border-t border-neutral-200 bg-[#f0efe9] px-5 py-4">
+                <button
+                  type="button"
+                  onClick={closeSlPanel}
+                  className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+                >
+                  Avbryt
+                </button>
+                <button type="submit" className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}>
+                  <Calendar className="size-4" />
+                  {slPanelId === '__new__' ? 'Opprett sak' : 'Lagre'}
+                </button>
+              </div>
+            </form>
           </aside>
         </>
       ) : null}
@@ -4705,6 +5123,51 @@ function SjaTableRow({
       <td className={cellClass}>
         <span className={`${R_FLAT} border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium`}>
           {SJA_STATUS_LABELS[sja.status]}
+        </span>
+      </td>
+      <td className={`${cellClass} text-right`}>
+        <button type="button" onClick={onOpen} className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}>
+          Åpne
+        </button>
+      </td>
+    </tr>
+  )
+}
+
+function SickLeaveTableRow({
+  sc,
+  rowClass,
+  cellClass,
+  onOpen,
+}: {
+  sc: SickLeaveCase
+  rowClass: string
+  cellClass: string
+  onOpen: () => void
+}) {
+  const today = new Date().toISOString().slice(0, 10)
+  const overdue = sc.milestones.filter((m) => !m.completedAt && m.dueAt < today).length
+  const upcoming = sc.milestones.filter((m) => !m.completedAt && m.dueAt >= today).length
+  const done = sc.milestones.filter((m) => m.completedAt).length
+  return (
+    <tr className={rowClass}>
+      <td className={cellClass}>
+        <div className="max-w-[200px] font-medium text-neutral-900">{sc.employeeName}</div>
+      </td>
+      <td className={cellClass}>
+        <span className={`${R_FLAT} border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs`}>
+          {SL_ABSENCE_LABELS[sc.absenceType ?? 'medical_certificate']}
+        </span>
+      </td>
+      <td className={`${cellClass} text-neutral-600`}>{formatDate(sc.sickFrom)}</td>
+      <td className={cellClass}>{sc.department || '—'}</td>
+      <td className={cellClass}>{sc.managerName || '—'}</td>
+      <td className={`${cellClass} text-xs text-neutral-600`}>
+        {done} fullført · {overdue} forfalt · {upcoming} åpne
+      </td>
+      <td className={cellClass}>
+        <span className={`${R_FLAT} border px-2 py-0.5 text-xs font-medium ${SICK_STATUS_COLOURS[sc.status]}`}>
+          {SICK_STATUS_LABELS[sc.status]}
         </span>
       </td>
       <td className={`${cellClass} text-right`}>

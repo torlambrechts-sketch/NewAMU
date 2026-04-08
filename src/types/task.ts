@@ -24,6 +24,8 @@ export type TaskSourceType =
   | 'hse_inspection_finding'
   | 'hse_incident'
   | 'hse_sja'
+  /** Oppgave generert fra sykefravær-milepæl (NAV/AML-frist) */
+  | 'hse_sick_leave_milestone'
   | 'nav_report'
   | 'labor_metric'
   | 'learning_course'

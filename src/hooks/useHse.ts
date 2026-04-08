@@ -38,6 +38,7 @@ import type {
   SickLeaveMilestone,
   SickLeaveMilestoneKind,
   SickLeaveMessage,
+  SickLeaveAbsenceType,
   TrainingRecord,
 } from '../types/hse'
 import type { Task as KanbanTask } from '../types/task'
@@ -115,12 +116,17 @@ const MILESTONE_DEFS: { kind: SickLeaveMilestoneKind; label: string; lawRef: str
   { kind: 'contact_day_4', label: 'Kontakt med ansatt (dag 4)', lawRef: 'AML §4-6 nr. 1, NAV-krav', daysOffset: 4 },
   { kind: 'followup_plan_4wk', label: 'Oppfølgingsplan utarbeidet (4 uker)', lawRef: 'AML §4-6 nr. 1 — frist 4 uker', daysOffset: 28 },
   { kind: 'dialog_meeting_7wk', label: 'Dialogmøte 1 avholdt (7 uker)', lawRef: 'AML §4-6 nr. 2 — frist 7 uker', daysOffset: 49 },
-  { kind: 'nav_report_9wk', label: 'Meldt til NAV (9 uker)', lawRef: 'Sykmeldingsforskriften §8, 9-ukersmelding', daysOffset: 63 },
+  {
+    kind: 'nav_report_9wk',
+    label: 'NAV-vurdering / utvidet legeerklæring (8 uker)',
+    lawRef: 'Sykmeldingsforskriften — vurdering sykepenger (ca. 8 uker)',
+    daysOffset: 56,
+  },
   { kind: 'dialog_meeting_26wk', label: 'Dialogmøte 2 (26 uker)', lawRef: 'AML §4-6 nr. 3 — frist 26 uker', daysOffset: 182 },
   { kind: 'activity_plan_1yr', label: 'Aktivitetsplan vurdert (12 måneder)', lawRef: 'AML §4-6 — langtidssykmelding', daysOffset: 365 },
 ]
 
-function buildMilestones(sickFrom: string): SickLeaveMilestone[] {
+export function buildSickLeaveMilestones(sickFrom: string): SickLeaveMilestone[] {
   const base = new Date(sickFrom)
   return MILESTONE_DEFS.map((def) => {
     const due = new Date(base)
@@ -131,6 +137,17 @@ function buildMilestones(sickFrom: string): SickLeaveMilestone[] {
       lawRef: def.lawRef,
       dueAt: due.toISOString().slice(0, 10),
     }
+  })
+}
+
+export function mergeSickLeaveMilestonesOnDateChange(
+  previous: SickLeaveMilestone[],
+  sickFrom: string,
+): SickLeaveMilestone[] {
+  const fresh = buildSickLeaveMilestones(sickFrom)
+  return fresh.map((m) => {
+    const old = previous.find((x) => x.kind === m.kind)
+    return old?.completedAt ? { ...m, completedAt: old.completedAt, note: old.note, planRef: old.planRef } : m
   })
 }
 
@@ -196,7 +213,18 @@ function normalizeParsed(p: HseState): HseState {
     trainingRecords: Array.isArray(p.trainingRecords) ? p.trainingRecords : [],
     checklistTemplates:
       Array.isArray(p.checklistTemplates) && p.checklistTemplates.length ? p.checklistTemplates : CHECKLIST_TEMPLATES,
-    sickLeaveCases: Array.isArray(p.sickLeaveCases) ? p.sickLeaveCases : [],
+    sickLeaveCases: Array.isArray(p.sickLeaveCases)
+      ? p.sickLeaveCases.map((raw) => {
+          const sc = raw as SickLeaveCase
+          const absenceType = (sc.absenceType as SickLeaveAbsenceType | undefined) ?? 'medical_certificate'
+          return {
+            ...sc,
+            absenceType,
+            kanbanMilestonesSynced: sc.kanbanMilestonesSynced ?? false,
+            milestones: Array.isArray(sc.milestones) ? sc.milestones : buildSickLeaveMilestones(sc.sickFrom),
+          }
+        })
+      : [],
     auditTrail: Array.isArray(p.auditTrail) ? p.auditTrail : [],
   }
 }
@@ -223,12 +251,13 @@ function seedDemoHse(): HseState {
     employeeName: 'Demo Ansatt',
     department: 'Avdeling A',
     managerName: 'Demo Leder',
+    absenceType: 'medical_certificate',
     sickFrom: demoSickFromStr,
     status: 'active',
     sicknessDegree: 100,
     accommodationNotes: '',
     portalMessages: [],
-    milestones: buildMilestones(demoSickFromStr),
+    milestones: buildSickLeaveMilestones(demoSickFromStr),
     consentRecorded: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -1077,8 +1106,10 @@ export function useHse() {
       const now = new Date().toISOString()
       const sc: SickLeaveCase = {
         ...partial,
+        absenceType: partial.absenceType ?? 'medical_certificate',
+        kanbanMilestonesSynced: partial.kanbanMilestonesSynced ?? false,
         id: crypto.randomUUID(),
-        milestones: buildMilestones(partial.sickFrom),
+        milestones: buildSickLeaveMilestones(partial.sickFrom),
         portalMessages: [],
         createdAt: now,
         updatedAt: now,
@@ -1097,12 +1128,26 @@ export function useHse() {
   const updateSickLeaveCase = useCallback(
     (id: string, patch: Partial<SickLeaveCase>) => {
       setState((s) => {
-        const entry = auditEntry('sick_leave_updated', 'sick_leave', id, 'Sykefraværssak oppdatert', { status: patch.status ?? null })
+        const cur = s.sickLeaveCases.find((x) => x.id === id)
+        if (!cur) return s
+        const nextSickFrom = patch.sickFrom ?? cur.sickFrom
+        const milestones =
+          patch.sickFrom && patch.sickFrom !== cur.sickFrom
+            ? mergeSickLeaveMilestonesOnDateChange(cur.milestones, nextSickFrom)
+            : patch.milestones ?? cur.milestones
+        const merged: SickLeaveCase = {
+          ...cur,
+          ...patch,
+          sickFrom: nextSickFrom,
+          milestones,
+          updatedAt: new Date().toISOString(),
+        }
+        const entry = auditEntry('sick_leave_updated', 'sick_leave', id, 'Sykefraværssak oppdatert', {
+          status: merged.status,
+        })
         return {
           ...s,
-          sickLeaveCases: s.sickLeaveCases.map((x) =>
-            x.id === id ? { ...x, ...patch, updatedAt: new Date().toISOString() } : x,
-          ),
+          sickLeaveCases: s.sickLeaveCases.map((x) => (x.id === id ? merged : x)),
           auditTrail: [...s.auditTrail, entry],
         }
       })
