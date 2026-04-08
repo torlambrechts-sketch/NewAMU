@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { GitBranch, Loader2, Pencil, Plus, Trash2, Zap } from 'lucide-react'
+import { GitBranch, Loader2, Pencil, Plus, Trash2, X, Zap } from 'lucide-react'
 import { WorkflowFlowBuilder } from '../components/workflow/WorkflowFlowBuilder'
 import { flowDocumentFromLegacy } from '../lib/workflowFlowFromLegacy'
 import {
@@ -152,6 +152,24 @@ export function WorkflowModulePage() {
     setEditingRuleId(null)
   }, [])
 
+  useEffect(() => {
+    if (!editorOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [editorOpen])
+
+  useEffect(() => {
+    if (!editorOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeEditor()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [editorOpen, closeEditor])
+
   const handleSaveRule = useCallback(async () => {
     setFormErr(null)
     let cond: WorkflowCondition
@@ -302,133 +320,154 @@ export function WorkflowModulePage() {
           </div>
 
           {editorOpen && wf.canManage && (
-            <div className={CARD}>
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <h3 className="font-semibold text-neutral-900">
-                  {editingRuleId === 'new' ? 'Ny regel' : 'Rediger regel'}
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDesignSubtab('canvas')}
-                    className={`rounded-none border px-3 py-1.5 text-sm font-medium ${
-                      designSubtab === 'canvas' ? 'border-[#1a3d32] bg-[#1a3d32] text-white' : 'border-neutral-200'
-                    }`}
-                  >
-                    Visuell flyt
+            <>
+              <button
+                type="button"
+                aria-label="Lukk"
+                className="fixed inset-0 z-[60] bg-black/40"
+                onClick={closeEditor}
+              />
+              <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[min(100vw,1200px)] flex-col border-l border-neutral-200 bg-[#f7f6f2] shadow-2xl">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-neutral-200 bg-[#f7f6f2] px-5 py-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-neutral-900">
+                      {editingRuleId === 'new' ? 'Ny regel' : 'Rediger regel'}
+                    </h3>
+                    <p className="text-xs text-neutral-500">Visuell flyt · dra betingelser og handlinger · lagre når du er ferdig</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDesignSubtab('canvas')}
+                      className={`rounded-none border px-3 py-1.5 text-sm font-medium ${
+                        designSubtab === 'canvas' ? 'border-[#1a3d32] bg-[#1a3d32] text-white' : 'border-neutral-200 bg-white'
+                      }`}
+                    >
+                      Visuell flyt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDesignSubtab('advanced')
+                        setConditionText(JSON.stringify(conditionJson, null, 2))
+                        setActionsText(actionsToJsonString(actionsPayload))
+                      }}
+                      className={`rounded-none border px-3 py-1.5 text-sm font-medium ${
+                        designSubtab === 'advanced' ? 'border-[#1a3d32] bg-[#1a3d32] text-white' : 'border-neutral-200 bg-white'
+                      }`}
+                    >
+                      Avansert JSON
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeEditor}
+                      className="rounded-none p-2 text-neutral-500 hover:bg-neutral-100"
+                      aria-label="Lukk"
+                    >
+                      <X className="size-5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+                  {formErr && <p className="mb-3 text-sm text-red-700">{formErr}</p>}
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="block text-sm">
+                      <span className="text-neutral-600">Navn</span>
+                      <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="mt-1 w-full rounded-none border border-neutral-200 bg-white px-3 py-2 text-sm"
+                        placeholder="F.eks. Kritisk hendelse → HMS-oppgave"
+                      />
+                    </label>
+                    <label className="block text-sm">
+                      <span className="text-neutral-600">Slug (ID)</span>
+                      <input
+                        value={slug}
+                        onChange={(e) => setSlug(e.target.value)}
+                        className="mt-1 w-full rounded-none border border-neutral-200 bg-white px-3 py-2 font-mono text-xs"
+                        placeholder="auto fra navn hvis tom"
+                      />
+                    </label>
+                    <label className="block text-sm">
+                      <span className="text-neutral-600">Kilde (modul)</span>
+                      <select
+                        value={sourceModule}
+                        onChange={(e) => setSourceModule(e.target.value)}
+                        className="mt-1 w-full rounded-none border border-neutral-200 bg-white px-3 py-2 text-sm"
+                      >
+                        {WORKFLOW_SOURCE_MODULES.map((m) => (
+                          <option key={m.value} value={m.value}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block text-sm">
+                      <span className="text-neutral-600">Utløser</span>
+                      <select
+                        value={triggerOn}
+                        onChange={(e) => setTriggerOn(e.target.value as 'insert' | 'update' | 'both')}
+                        className="mt-1 w-full rounded-none border border-neutral-200 bg-white px-3 py-2 text-sm"
+                      >
+                        <option value="both">Lagring (ny + oppdatering)</option>
+                        <option value="insert">Kun første lagring</option>
+                        <option value="update">Kun oppdateringer</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  {designSubtab === 'canvas' ? (
+                    <div className="mt-6 border-t border-neutral-200/80 pt-6">
+                      <WorkflowFlowBuilder
+                        value={flowDoc}
+                        onChange={handleFlowDocChange}
+                        sourceModule={sourceModule}
+                        compileError={compileErr}
+                      />
+                      <p className="mt-4 text-xs text-neutral-500">
+                        Kompilert betingelse: <code className="break-all">{JSON.stringify(conditionJson)}</code>
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-6 space-y-4 border-t border-neutral-200/80 pt-6">
+                      <button type="button" onClick={applyAdvancedToFlow} className={BTN_SEC}>
+                        Synkroniser JSON → visuell flyt
+                      </button>
+                      <label className="block text-sm">
+                        <span className="text-neutral-600">Betingelse (JSON)</span>
+                        <textarea
+                          value={conditionText}
+                          onChange={(e) => setConditionText(e.target.value)}
+                          rows={8}
+                          className="mt-1 w-full rounded-none border border-neutral-200 bg-white px-3 py-2 font-mono text-xs"
+                        />
+                      </label>
+                      <label className="block text-sm">
+                        <span className="text-neutral-600">Handlinger (array eller xor_branches)</span>
+                        <textarea
+                          value={actionsText}
+                          onChange={(e) => setActionsText(e.target.value)}
+                          rows={14}
+                          className="mt-1 w-full rounded-none border border-neutral-200 bg-white px-3 py-2 font-mono text-xs"
+                        />
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-neutral-200 bg-[#f0efe9] px-5 py-4">
+                  <button type="button" onClick={closeEditor} className={BTN_SEC}>
+                    Avbryt
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDesignSubtab('advanced')
-                      setConditionText(JSON.stringify(conditionJson, null, 2))
-                      setActionsText(actionsToJsonString(actionsPayload))
-                    }}
-                    className={`rounded-none border px-3 py-1.5 text-sm font-medium ${
-                      designSubtab === 'advanced' ? 'border-[#1a3d32] bg-[#1a3d32] text-white' : 'border-neutral-200'
-                    }`}
-                  >
-                    Avansert JSON
+                  <button type="button" onClick={() => void handleSaveRule()} className={BTN_PRI}>
+                    Lagre regel (av som standard)
                   </button>
                 </div>
-              </div>
-
-              {formErr && <p className="mt-2 text-sm text-red-700">{formErr}</p>}
-
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <label className="block text-sm">
-                  <span className="text-neutral-600">Navn</span>
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm"
-                    placeholder="F.eks. Kritisk hendelse → HMS-oppgave"
-                  />
-                </label>
-                <label className="block text-sm">
-                  <span className="text-neutral-600">Slug (ID)</span>
-                  <input
-                    value={slug}
-                    onChange={(e) => setSlug(e.target.value)}
-                    className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 font-mono text-xs"
-                    placeholder="auto fra navn hvis tom"
-                  />
-                </label>
-                <label className="block text-sm">
-                  <span className="text-neutral-600">Kilde (modul)</span>
-                  <select
-                    value={sourceModule}
-                    onChange={(e) => setSourceModule(e.target.value)}
-                    className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm"
-                  >
-                    {WORKFLOW_SOURCE_MODULES.map((m) => (
-                      <option key={m.value} value={m.value}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block text-sm">
-                  <span className="text-neutral-600">Utløser</span>
-                  <select
-                    value={triggerOn}
-                    onChange={(e) => setTriggerOn(e.target.value as 'insert' | 'update' | 'both')}
-                    className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm"
-                  >
-                    <option value="both">Lagring (ny + oppdatering)</option>
-                    <option value="insert">Kun første lagring</option>
-                    <option value="update">Kun oppdateringer</option>
-                  </select>
-                </label>
-              </div>
-
-              {designSubtab === 'canvas' ? (
-                <div className="mt-6 border-t border-neutral-100 pt-6">
-                  <WorkflowFlowBuilder
-                    value={flowDoc}
-                    onChange={handleFlowDocChange}
-                    sourceModule={sourceModule}
-                    compileError={compileErr}
-                  />
-                  <p className="mt-4 text-xs text-neutral-500">
-                    Kompilert betingelse: <code className="break-all">{JSON.stringify(conditionJson)}</code>
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-6 space-y-4 border-t border-neutral-100 pt-6">
-                  <button type="button" onClick={applyAdvancedToFlow} className={BTN_SEC}>
-                    Synkroniser JSON → visuell flyt
-                  </button>
-                  <label className="block text-sm">
-                    <span className="text-neutral-600">Betingelse (JSON)</span>
-                    <textarea
-                      value={conditionText}
-                      onChange={(e) => setConditionText(e.target.value)}
-                      rows={8}
-                      className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 font-mono text-xs"
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <span className="text-neutral-600">Handlinger (array eller xor_branches)</span>
-                    <textarea
-                      value={actionsText}
-                      onChange={(e) => setActionsText(e.target.value)}
-                      rows={14}
-                      className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 font-mono text-xs"
-                    />
-                  </label>
-                </div>
-              )}
-
-              <div className="mt-6 flex flex-wrap gap-2 border-t border-neutral-100 pt-4">
-                <button type="button" onClick={() => void handleSaveRule()} className={BTN_PRI}>
-                  Lagre regel (av som standard)
-                </button>
-                <button type="button" onClick={closeEditor} className={BTN_SEC}>
-                  Avbryt
-                </button>
-              </div>
-            </div>
+              </aside>
+            </>
           )}
 
           <div className="overflow-x-auto rounded-none border border-neutral-200/90">
@@ -581,7 +620,9 @@ export function WorkflowModulePage() {
           <div className="rounded-none border border-neutral-200 bg-neutral-50/80 p-4 text-sm text-neutral-700">
             <strong className="text-neutral-900">Migrasjon:</strong> Kjør{' '}
             <code className="rounded bg-white px-1">20260508120000_workflow_xor_branches.sql</code> for XOR-grener og{' '}
-            <code className="rounded bg-white px-1">flow_graph_json</code>.
+            <code className="rounded bg-white px-1">flow_graph_json</code>. For e-post / webhook / varsling i databasen:{' '}
+            <code className="rounded bg-white px-1">20260511120000_workflow_extended_actions.sql</code> (logger i{' '}
+            <code className="rounded bg-white px-1">workflow_runs</code>; faktisk SMTP/HTTP krever Edge Function).
           </div>
         </div>
       )}

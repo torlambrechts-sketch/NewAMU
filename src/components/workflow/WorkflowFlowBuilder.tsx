@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { GripVertical, Plus, Split, Trash2, Workflow } from 'lucide-react'
+import { FileText, GripVertical, Mail, Plus, Radio, Split, Trash2, Webhook, Workflow } from 'lucide-react'
 import type { WorkflowAction, WorkflowCondition } from '../../types/workflow'
 import {
   defaultWorkflowFlowDocument,
@@ -8,6 +8,15 @@ import {
   type WorkflowFlowDocument,
   type WorkflowFlowStep,
 } from '../../lib/workflowFlowTypes'
+import { WorkflowActionsEditor } from './WorkflowActionsEditor'
+import {
+  defaultWebhookAction,
+  defaultLogOnlyAction,
+  defaultNotificationAction,
+  defaultSendEmailAction,
+  defaultTaskAction,
+  summarizeAction,
+} from './workflowActionDefaults'
 
 const R = 'rounded-none'
 const BTN =
@@ -33,23 +42,38 @@ const INPUT_PRESETS: { label: string; module: string; condition: WorkflowConditi
   },
 ]
 
-function defaultTaskAction(): WorkflowAction {
-  return {
-    type: 'create_task',
-    title: 'Oppfølgingsoppgave',
-    description: 'Automatisert fra arbeidsflyt',
-    assignee: 'HMS',
-    dueInDays: 7,
-    module: 'hse',
-    sourceType: 'manual',
-    requiresManagementSignOff: false,
+type DragPayload =
+  | { kind: 'palette_condition'; condition: WorkflowCondition; label: string }
+  | { kind: 'palette_actions'; template: 'task' | 'email' | 'notification' | 'webhook' | 'log' }
+  | { kind: 'reorder'; stepId: string; branchId?: string }
+
+function actionsForPaletteTemplate(template: 'task' | 'email' | 'notification' | 'webhook' | 'log'): WorkflowAction[] {
+  switch (template) {
+    case 'task':
+      return [defaultTaskAction()]
+    case 'email':
+      return [defaultSendEmailAction()]
+    case 'notification':
+      return [defaultNotificationAction()]
+    case 'webhook':
+      return [defaultWebhookAction()]
+    case 'log':
+      return [defaultLogOnlyAction()]
+    default:
+      return [defaultTaskAction()]
   }
 }
 
-type DragPayload =
-  | { kind: 'palette_condition'; condition: WorkflowCondition; label: string }
-  | { kind: 'palette_actions' }
-  | { kind: 'reorder'; stepId: string; branchId?: string }
+function actionBlockLabel(template: 'task' | 'email' | 'notification' | 'webhook' | 'log'): string {
+  const m: Record<string, string> = {
+    task: 'Oppgave',
+    email: 'E-post',
+    notification: 'Varsling',
+    webhook: 'Webhook',
+    log: 'Logg',
+  }
+  return m[template] ?? 'Handlinger'
+}
 
 function readDrag(e: React.DragEvent): DragPayload | null {
   try {
@@ -59,6 +83,17 @@ function readDrag(e: React.DragEvent): DragPayload | null {
   } catch {
     return null
   }
+}
+
+function FlowConnector() {
+  return (
+    <div className="flex justify-center py-1" aria-hidden>
+      <div className="flex flex-col items-center gap-0.5 text-[#1a3d32]/70">
+        <div className="h-4 w-px bg-current" />
+        <div className="size-0 border-x-[5px] border-t-[6px] border-x-transparent border-t-current" />
+      </div>
+    </div>
+  )
 }
 
 function StepCard({
@@ -94,7 +129,11 @@ function StepCard({
           {step.kind === 'condition' ? (
             <code className="break-all">{JSON.stringify(step.condition)}</code>
           ) : (
-            <span>{step.actions.length} handling(er)</span>
+            <ul className="list-inside list-disc space-y-0.5">
+              {step.actions.map((a, i) => (
+                <li key={i}>{summarizeAction(a)}</li>
+              ))}
+            </ul>
           )}
         </div>
       </div>
@@ -189,77 +228,6 @@ function ConditionEditor({
           </label>
         </>
       )}
-    </div>
-  )
-}
-
-type WorkflowActionCreateTask = Extract<WorkflowAction, { type: 'create_task' }>
-
-function ActionsEditor({
-  actions,
-  onChange,
-}: {
-  actions: WorkflowAction[]
-  onChange: (a: WorkflowAction[]) => void
-}) {
-  const first = actions[0]
-  if (!first || first.type !== 'create_task') {
-    return (
-      <p className="text-xs text-neutral-500">
-        Kun redigering av første «create_task»-handling i byggeren. Bruk JSON-fanen for avansert.
-      </p>
-    )
-  }
-  const t = first
-  const patch = (p: Partial<WorkflowActionCreateTask>) => {
-    onChange([{ ...t, ...p }, ...actions.slice(1)])
-  }
-  return (
-    <div className="space-y-2 text-sm">
-      <label className="block">
-        <span className="text-xs text-neutral-600">Tittel</span>
-        <input
-          value={t.title}
-          onChange={(e) => patch({ title: e.target.value })}
-          className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2`}
-        />
-      </label>
-      <label className="block">
-        <span className="text-xs text-neutral-600">Beskrivelse</span>
-        <textarea
-          value={t.description ?? ''}
-          onChange={(e) => patch({ description: e.target.value })}
-          rows={2}
-          className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2`}
-        />
-      </label>
-      <label className="block">
-        <span className="text-xs text-neutral-600">Ansvarlig (tekst)</span>
-        <input
-          value={t.assignee ?? ''}
-          onChange={(e) => patch({ assignee: e.target.value })}
-          className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2`}
-        />
-      </label>
-      <label className="block">
-        <span className="text-xs text-neutral-600">Frist (dager)</span>
-        <input
-          type="number"
-          min={0}
-          value={t.dueInDays ?? 7}
-          onChange={(e) => patch({ dueInDays: Number(e.target.value) || 0 })}
-          className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2`}
-        />
-      </label>
-      <label className="flex items-center gap-2 text-xs">
-        <input
-          type="checkbox"
-          checked={Boolean(t.requiresManagementSignOff)}
-          onChange={(e) => patch({ requiresManagementSignOff: e.target.checked })}
-          className="size-4"
-        />
-        Krever ledelsessignatur
-      </label>
     </div>
   )
 }
@@ -374,11 +342,12 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
       return
     }
     if (p.kind === 'palette_actions') {
+      const tmpl = p.template
       insertStep(branchId, dropIndex, {
         id: newFlowStepId(),
         kind: 'actions',
-        label: 'Oppgave',
-        actions: [defaultTaskAction()],
+        label: actionBlockLabel(tmpl),
+        actions: actionsForPaletteTemplate(tmpl),
       })
       return
     }
@@ -446,18 +415,33 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
             </div>
           ))}
         </div>
-        <div
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData(
-              'application/x-atics-workflow',
-              JSON.stringify({ kind: 'palette_actions' } satisfies DragPayload),
-            )
-            e.dataTransfer.effectAllowed = 'copy'
-          }}
-          className={`${R} cursor-grab border-2 border-dashed border-[#1a3d32] bg-[#1a3d32]/5 px-2 py-3 text-center text-xs font-medium text-[#1a3d32] active:cursor-grabbing`}
-        >
-          + Handlingsblokk (Kanban-oppgave)
+        <div className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Handlinger (dra inn)</div>
+        <div className="grid grid-cols-1 gap-2">
+          {(
+            [
+              { t: 'task' as const, icon: Plus, label: 'Kanban-oppgave' },
+              { t: 'email' as const, icon: Mail, label: 'E-post' },
+              { t: 'notification' as const, icon: Radio, label: 'Varsling' },
+              { t: 'webhook' as const, icon: Webhook, label: 'Webhook' },
+              { t: 'log' as const, icon: FileText, label: 'Kun logg' },
+            ] as const
+          ).map(({ t, icon: Icon, label }) => (
+            <div
+              key={t}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData(
+                  'application/x-atics-workflow',
+                  JSON.stringify({ kind: 'palette_actions', template: t } satisfies DragPayload),
+                )
+                e.dataTransfer.effectAllowed = 'copy'
+              }}
+              className={`${R} flex cursor-grab items-center gap-2 border border-dashed border-[#1a3d32]/50 bg-[#1a3d32]/5 px-2 py-2 text-xs font-medium text-[#1a3d32] active:cursor-grabbing`}
+            >
+              <Icon className="size-4 shrink-0" aria-hidden />
+              {label}
+            </div>
+          ))}
         </div>
       </div>
 
@@ -502,30 +486,32 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
             onDrop={(e) => handleDropOnList(e, undefined, value.linearSteps.length)}
           >
             <p className="mb-3 text-xs font-semibold text-neutral-500">Flyt (dra for å omorganisere)</p>
-            <div className="space-y-2">
+            <div className="space-y-0">
               {value.linearSteps.map((step, i) => (
-                <div
-                  key={step.id}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData(
-                      'application/x-atics-workflow',
-                      JSON.stringify({ kind: 'reorder', stepId: step.id } satisfies DragPayload),
-                    )
-                    e.dataTransfer.effectAllowed = 'move'
-                  }}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.stopPropagation()
-                    handleDropOnList(e, undefined, i)
-                  }}
-                >
-                  <StepCard
-                    step={step}
-                    selected={selectedPath?.stepId === step.id && !selectedPath.branchId}
-                    onSelect={() => setSelectedPath({ stepId: step.id })}
-                    onDelete={() => removeStep(undefined, step.id)}
-                  />
+                <div key={step.id}>
+                  {i > 0 ? <FlowConnector /> : null}
+                  <div
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData(
+                        'application/x-atics-workflow',
+                        JSON.stringify({ kind: 'reorder', stepId: step.id } satisfies DragPayload),
+                      )
+                      e.dataTransfer.effectAllowed = 'move'
+                    }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.stopPropagation()
+                      handleDropOnList(e, undefined, i)
+                    }}
+                  >
+                    <StepCard
+                      step={step}
+                      selected={selectedPath?.stepId === step.id && !selectedPath.branchId}
+                      onSelect={() => setSelectedPath({ stepId: step.id })}
+                      onDelete={() => removeStep(undefined, step.id)}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -586,35 +572,37 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
                     onDrop={(e) => handleDropOnList(e, branch.id, branch.steps.length)}
                   >
                     {branch.steps.map((step, i) => (
-                      <div
-                        key={step.id}
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData(
-                            'application/x-atics-workflow',
-                            JSON.stringify({
-                              kind: 'reorder',
-                              stepId: step.id,
-                              branchId: branch.id,
-                            } satisfies DragPayload),
-                          )
-                          e.dataTransfer.effectAllowed = 'move'
-                        }}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                          e.stopPropagation()
-                          handleDropOnList(e, branch.id, i)
-                        }}
-                        className="mb-2"
-                      >
-                        <StepCard
-                          step={step}
-                          selected={
-                            selectedPath?.stepId === step.id && selectedPath.branchId === branch.id
-                          }
-                          onSelect={() => setSelectedPath({ branchId: branch.id, stepId: step.id })}
-                          onDelete={() => removeStep(branch.id, step.id)}
-                        />
+                      <div key={step.id}>
+                        {i > 0 ? <FlowConnector /> : null}
+                        <div
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData(
+                              'application/x-atics-workflow',
+                              JSON.stringify({
+                                kind: 'reorder',
+                                stepId: step.id,
+                                branchId: branch.id,
+                              } satisfies DragPayload),
+                            )
+                            e.dataTransfer.effectAllowed = 'move'
+                          }}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            e.stopPropagation()
+                            handleDropOnList(e, branch.id, i)
+                          }}
+                          className="mb-0"
+                        >
+                          <StepCard
+                            step={step}
+                            selected={
+                              selectedPath?.stepId === step.id && selectedPath.branchId === branch.id
+                            }
+                            onSelect={() => setSelectedPath({ branchId: branch.id, stepId: step.id })}
+                            onDelete={() => removeStep(branch.id, step.id)}
+                          />
+                        </div>
                       </div>
                     ))}
                     <p className="py-4 text-center text-xs text-neutral-400">Slipp inndata eller handlinger her</p>
@@ -662,7 +650,7 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
               className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2 text-sm`}
             />
             <div className="mt-3">
-              <ActionsEditor
+              <WorkflowActionsEditor
                 actions={selectedStep.actions}
                 onChange={(a) => patchSelectedStep({ ...selectedStep, actions: a })}
               />

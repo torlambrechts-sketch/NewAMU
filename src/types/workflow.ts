@@ -21,7 +21,41 @@ export type WorkflowActionCreateTask = {
   requiresManagementSignOff?: boolean
 }
 
-export type WorkflowAction = WorkflowActionCreateTask | { type: 'log_only'; note?: string }
+/** Logges i workflow_runs — faktisk e-post krever server/Edge Function (se roadmap). */
+export type WorkflowActionSendEmail = {
+  type: 'send_email'
+  fromAddress: string
+  toAddress: string
+  subject: string
+  body: string
+  contentType?: 'text/plain' | 'text/html'
+}
+
+/** Logges som planlagt in-app / kategorisert varsel (klientvarsler bruker egne prefs). */
+export type WorkflowActionSendNotification = {
+  type: 'send_notification'
+  title: string
+  body: string
+  category?: string
+  channels?: string[]
+}
+
+/** Logges med URL — HTTP-kall krever server (ikke fra Postgres). */
+export type WorkflowActionCallWebhook = {
+  type: 'call_webhook'
+  url: string
+  method?: 'POST' | 'PUT' | 'GET'
+  /** JSON-streng for ekstra headers, f.eks. {"Authorization":"Bearer …"} */
+  headersJson?: string
+  body?: string
+}
+
+export type WorkflowAction =
+  | WorkflowActionCreateTask
+  | WorkflowActionSendEmail
+  | WorkflowActionSendNotification
+  | WorkflowActionCallWebhook
+  | { type: 'log_only'; note?: string }
 
 /** actions_json når XOR-grener har hver sine handlinger */
 export type WorkflowXorActionsEnvelope = {
