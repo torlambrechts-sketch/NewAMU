@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AML_VERNEOMBUD_STRUCTURE,
   CHECKLIST_TEMPLATES,
   DEFAULT_SAFETY_ROUND_CHECKLIST,
   SAFETY_ROUND_TEMPLATE_ID,
@@ -1482,12 +1481,10 @@ export function useHse() {
   }, [state])
 
   const checklistTemplate = DEFAULT_SAFETY_ROUND_CHECKLIST
-  const amlStructure = AML_VERNEOMBUD_STRUCTURE
 
   return {
     ...state,
     checklistTemplate,
-    amlStructure,
     stats,
     loading: useRemote ? loading : false,
     error: useRemote ? error : null,

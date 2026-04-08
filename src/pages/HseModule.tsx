@@ -6,7 +6,6 @@ import { Table1Shell } from '../components/layout/Table1Shell'
 import { Table1Toolbar } from '../components/layout/Table1Toolbar'
 import {
   AlertTriangle,
-  BookOpen,
   Calendar,
   CheckCircle2,
   Download,
@@ -97,7 +96,6 @@ const tabs = [
   { id: 'sja'        as const, label: 'SJA',                 icon: ShieldCheck   },
   { id: 'training'   as const, label: 'Opplæring',           icon: GraduationCap },
   { id: 'sickness'   as const, label: 'Sykefravær',          icon: Users         },
-  { id: 'aml'        as const, label: 'AML & verneombud',    icon: BookOpen      },
   { id: 'audit'      as const, label: 'Revisjonslogg',       icon: History       },
 ]
 
@@ -2461,27 +2459,6 @@ export function HseModule() {
             {hse.sickLeaveCases.length === 0 && (
               <p className="text-center text-sm text-neutral-500 py-8">Ingen sykefraværssaker registrert.</p>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* ── AML ───────────────────────────────────────────────────────────────── */}
-      {tab === 'aml' && (
-        <div className="mt-8 space-y-6">
-          <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Struktur etter arbeidsmiljøloven (oversikt)</h2>
-            <p className="mt-2 text-sm text-neutral-600">Forenklet struktur for dokumentasjon og verneroller — tilpass til virksomhetens risikovurdering og bransje.</p>
-            <ul className="mt-4 space-y-4">
-              {hse.amlStructure.map((block) => (
-                <li key={block.title} className="rounded-xl border border-neutral-100 bg-[#faf8f4] p-4">
-                  <div className="font-medium text-neutral-900">{block.title}</div>
-                  <div className="text-xs text-[#1a3d32]/90">{block.lawRef}</div>
-                  <ul className="mt-2 list-inside list-disc text-sm text-neutral-700">
-                    {block.points.map((p) => <li key={p}>{p}</li>)}
-                  </ul>
-                </li>
-              ))}
-            </ul>
           </div>
         </div>
       )}
