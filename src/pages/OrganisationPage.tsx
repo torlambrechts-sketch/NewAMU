@@ -1228,86 +1228,74 @@ export function OrganisationPage() {
                   </tbody>
                 </table>
               ) : (
-                <div className="divide-y divide-neutral-200 border border-neutral-200 bg-white">
-                  {filteredEmployees.map((emp) => {
-                    const bg = avatarColor(emp.name)
-                    const target = storedForEdit(emp, org.employees)
-                    return (
-                      <div key={emp.id} className={SETTINGS_ROW_GRID}>
-                        <div className="flex items-start gap-3">
-                          <div
-                            className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                            style={{ background: bg }}
-                          >
-                            {initials(emp.name)}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-neutral-900">{emp.name}</p>
-                            <p className="mt-1 text-xs text-neutral-500">
-                              {[emp.jobTitle, emp.role].filter(Boolean).join(' · ') || '—'} · {emp.unitName ?? 'Ingen enhet'}
-                            </p>
-                            <div className="mt-1 space-y-0.5 text-xs text-neutral-500">
-                              {emp.email ? (
-                                <div className="flex items-center gap-1.5">
-                                  <Mail className="size-3 shrink-0 text-neutral-400" />
-                                  <span className="truncate">{emp.email}</span>
-                                </div>
-                              ) : null}
-                              {emp.phone ? (
-                                <div className="flex items-center gap-1.5">
-                                  <Phone className="size-3 shrink-0 text-neutral-400" />
-                                  {emp.phone}
-                                </div>
-                              ) : null}
+                <div className="p-4 md:px-5 md:pb-5">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {filteredEmployees.map((emp) => {
+                      const bg = avatarColor(emp.name)
+                      const target = storedForEdit(emp, org.employees)
+                      const roleLine = [emp.jobTitle, emp.role].filter(Boolean).join(' · ') || '—'
+                      const contactBits: string[] = []
+                      if (emp.email) contactBits.push(emp.email)
+                      if (emp.phone) contactBits.push(emp.phone)
+                      const detailLines = [
+                        `${roleLine}`,
+                        emp.unitName ? `Enhet: ${emp.unitName}` : 'Enhet: —',
+                        `${emp.active ? 'Aktiv' : 'Inaktiv'} · ${EMPLOYMENT_LABELS[emp.employmentType]}`,
+                        ...(contactBits.length ? [`Kontakt: ${contactBits.join(' · ')}`] : []),
+                      ]
+                      return (
+                        <div
+                          key={emp.id}
+                          className={`${R_ORG_FLAT} flex flex-col border border-neutral-200/90 bg-white p-5 text-left shadow-sm transition hover:border-neutral-300 hover:shadow`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div
+                              className="flex size-11 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                              style={{ background: bg }}
+                            >
+                              {initials(emp.name)}
                             </div>
-                            <div className="mt-2">
-                              <span
-                                className={`inline-flex rounded-none px-2.5 py-0.5 text-xs font-medium ${
-                                  emp.active ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-500'
-                                }`}
-                              >
-                                {emp.active ? 'Aktiv' : 'Inaktiv'}
-                              </span>
-                              <span className="ml-2 text-xs text-neutral-500">{EMPLOYMENT_LABELS[emp.employmentType]}</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-neutral-900">{emp.name}</p>
+                              <div className="mt-2 space-y-1.5 text-sm leading-relaxed text-neutral-600">
+                                {detailLines.map((line, li) => (
+                                  <p key={li}>{line}</p>
+                                ))}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
-                          <div className="min-w-0 sm:text-right">
-                            <span className={SETTINGS_FIELD_LABEL}>Handling</span>
-                            <div className="mt-1.5 flex flex-wrap justify-end gap-1">
+                          <div className="mt-4 flex flex-wrap gap-2 border-t border-neutral-100 pt-4">
+                            <button
+                              type="button"
+                              onClick={() => setEmpModal({ mode: 'edit', emp })}
+                              className={`${R_ORG_FLAT} inline-flex flex-1 items-center justify-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 sm:flex-none`}
+                            >
+                              <Pencil className="size-4 shrink-0" />
+                              Rediger
+                            </button>
+                            {emp.active ? (
                               <button
                                 type="button"
-                                onClick={() => setEmpModal({ mode: 'edit', emp })}
-                                className="inline-flex items-center justify-center gap-1.5 rounded-none border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+                                onClick={() => {
+                                  if (target.id.startsWith('m-')) {
+                                    window.alert(
+                                      'Denne personen finnes bare i medlemslisten. Legg til som ansatt før du deaktiverer.',
+                                    )
+                                    return
+                                  }
+                                  if (confirm(`Deaktiver ${emp.name}?`)) org.deactivateEmployee(target.id)
+                                }}
+                                className={`${R_ORG_FLAT} inline-flex flex-1 items-center justify-center gap-1.5 border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 sm:flex-none`}
                               >
-                                <Pencil className="size-4" />
-                                Rediger
+                                <UserMinus className="size-4 shrink-0" />
+                                Deaktiver
                               </button>
-                              {emp.active ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (target.id.startsWith('m-')) {
-                                      window.alert(
-                                        'Denne personen finnes bare i medlemslisten. Legg til som ansatt før du deaktiverer.',
-                                      )
-                                      return
-                                    }
-                                    if (confirm(`Deaktiver ${emp.name}?`)) org.deactivateEmployee(target.id)
-                                  }}
-                                  className="inline-flex items-center justify-center gap-1.5 rounded-none border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-                                >
-                                  <UserMinus className="size-4" />
-                                  Deaktiver
-                                </button>
-                              ) : null}
-                            </div>
+                            ) : null}
                           </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </Table1Shell>
