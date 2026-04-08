@@ -7,6 +7,7 @@ import {
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { RichTextEditor } from '../../components/learning/RichTextEditor'
+import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
 import type { AcknowledgementAudience, ContentBlock, ModuleBlock } from '../../types/documents'
 
 type AddKind = ContentBlock['kind']
@@ -200,37 +201,44 @@ export function WikiPageEditor() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-      {/* Breadcrumb */}
-      <nav className="mb-4 flex flex-wrap items-center gap-2 text-sm text-neutral-500">
-        <Link to="/documents" className="hover:text-[#1a3d32]">Documents</Link>
-        {space && (
-          <>
-            <span>›</span>
-            <Link to={`/documents/space/${space.id}`} className="hover:text-[#1a3d32]">{space.title}</Link>
-          </>
-        )}
-        <span>›</span>
-        <span className="text-neutral-800">{original.title}</span>
-        <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Redigerer</span>
-      </nav>
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+    <DocumentsModuleLayout
+      subHeader={
+        <nav className="mt-6 flex flex-wrap items-center gap-2 border-b border-neutral-200/80 pb-6 text-sm text-neutral-600">
+          <Link to="/documents" className="text-neutral-500 hover:text-[#1a3d32]">
+            Bibliotek
+          </Link>
+          <span className="text-neutral-400">→</span>
+          {space && (
+            <>
+              <Link to={`/documents/space/${space.id}`} className="text-neutral-500 hover:text-[#1a3d32]">
+                {space.title}
+              </Link>
+              <span className="text-neutral-400">→</span>
+            </>
+          )}
+          <span className="font-medium text-neutral-800">{original.title}</span>
+          <span className="ml-1 rounded-none border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900">
+            Redigerer
+          </span>
+        </nav>
+      }
+    >
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_280px]">
         {/* ── Left: editor ──────────────────────────────────────────────── */}
         <div className="space-y-4">
           {/* Title + summary */}
-          <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <div className="rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
             <label className="text-xs font-medium text-neutral-500">Tittel</label>
             <input
               value={title}
               onChange={(e) => { setTitle(e.target.value); markDirty() }}
-              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-base font-semibold focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+              className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-base font-semibold focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
             />
             <label className="mt-3 block text-xs font-medium text-neutral-500">Kort beskrivelse</label>
             <input
               value={summary}
               onChange={(e) => { setSummary(e.target.value); markDirty() }}
-              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+              className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
               placeholder="Valgfri beskrivelse vist i mappevisningen"
             />
           </div>
@@ -253,14 +261,14 @@ export function WikiPageEditor() {
           </div>
 
           {/* Add block buttons */}
-          <div className="flex flex-wrap gap-2 rounded-xl border border-dashed border-neutral-300 bg-white p-3">
+          <div className="flex flex-wrap gap-2 rounded-none border border-dashed border-neutral-300 bg-white p-3">
             <span className="w-full text-xs font-medium text-neutral-400">Legg til blokk</span>
             {ADD_BLOCKS.map((a) => (
               <button
                 key={a.kind}
                 type="button"
                 onClick={() => addBlock(a.kind)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                className="inline-flex items-center gap-1.5 rounded-none border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
               >
                 <span className="font-mono text-neutral-400">{a.icon}</span>
                 {a.label}
@@ -271,7 +279,7 @@ export function WikiPageEditor() {
 
         {/* ── Right: settings + actions ─────────────────────────────────── */}
         <div className="space-y-4">
-          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <div className="rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
             <h3 className="mb-3 text-sm font-semibold text-neutral-700">Sidestatus</h3>
             <div className="space-y-3">
               <div>
@@ -279,7 +287,7 @@ export function WikiPageEditor() {
                 <select
                   value={template}
                   onChange={(e) => { setTemplate(e.target.value as typeof template); markDirty() }}
-                  className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                  className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
                 >
                   <option value="standard">Standard</option>
                   <option value="wide">Bred</option>
@@ -292,7 +300,7 @@ export function WikiPageEditor() {
                   value={legalRefs}
                   onChange={(e) => { setLegalRefs(e.target.value); markDirty() }}
                   placeholder="IK-f §5 nr. 1a, AML §3-1"
-                  className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+                  className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
                 />
               </div>
               <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -314,7 +322,7 @@ export function WikiPageEditor() {
                         setAckAudience(e.target.value as AcknowledgementAudience)
                         markDirty()
                       }}
-                      className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                      className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
                     >
                       <option value="all_employees">Alle ansatte</option>
                       <option value="leaders_only">Kun ledere (org.admin)</option>
@@ -328,7 +336,7 @@ export function WikiPageEditor() {
                       <select
                         value={ackDeptId}
                         onChange={(e) => { setAckDeptId(e.target.value); markDirty() }}
-                        className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                        className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
                       >
                         <option value="">Velg avdeling…</option>
                         {departments.map((d) => (
@@ -346,7 +354,7 @@ export function WikiPageEditor() {
                   min={1}
                   value={revisionMonths}
                   onChange={(e) => { setRevisionMonths(e.target.value); markDirty() }}
-                  className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                  className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
                 />
               </div>
               <div>
@@ -355,7 +363,7 @@ export function WikiPageEditor() {
                   type="date"
                   value={nextRevision}
                   onChange={(e) => { setNextRevision(e.target.value); markDirty() }}
-                  className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                  className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
                 />
                 <p className="mt-1 text-[11px] text-neutral-400">
                   Ved publisering settes neste frist automatisk ut fra intervall (IK-f §5 — systematisk gjennomgang).
@@ -364,7 +372,7 @@ export function WikiPageEditor() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <div className="rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
             <h3 className="mb-2 text-sm font-semibold text-neutral-700">Versjonshistorikk</h3>
             <p className="text-xs text-neutral-500">
               Hver gang du publiserer, lagres gjeldende versjon som et fryst arkiv før versjonsnummer økes.
@@ -387,7 +395,7 @@ export function WikiPageEditor() {
               type="button"
               onClick={() => void handleSave()}
               disabled={!dirty}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-[#1a3d32] py-2.5 text-sm font-medium text-white disabled:opacity-40 hover:bg-[#142e26]"
+              className="flex w-full items-center justify-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] py-2.5 text-sm font-medium text-white hover:bg-[#142e26] disabled:opacity-40"
             >
               <Save className="size-4" />
               Lagre utkast
@@ -395,14 +403,14 @@ export function WikiPageEditor() {
             <button
               type="button"
               onClick={() => void handlePublish()}
-              className="flex w-full items-center justify-center gap-2 rounded-full border border-emerald-600 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+              className="flex w-full items-center justify-center gap-2 rounded-none border border-emerald-600 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
             >
               <CheckCircle2 className="size-4" />
               Lagre og publiser
             </button>
             <Link
               to={`/documents/page/${original.id}`}
-              className="flex items-center justify-center gap-2 rounded-full border border-neutral-200 py-2.5 text-sm text-neutral-600 hover:bg-neutral-50"
+              className="flex items-center justify-center gap-2 rounded-none border border-neutral-200 py-2.5 text-sm text-neutral-600 hover:bg-neutral-50"
             >
               <Eye className="size-4" />
               Forhåndsvis
@@ -410,13 +418,13 @@ export function WikiPageEditor() {
           </div>
 
           {savedMsg && (
-            <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            <div className="flex items-center gap-2 rounded-none border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
               <CheckCircle2 className="size-4" /> Lagret
             </div>
           )}
         </div>
       </div>
-    </div>
+    </DocumentsModuleLayout>
   )
 }
 
@@ -440,7 +448,7 @@ function BlockItem({
   }
 
   return (
-    <div className={`rounded-xl border bg-white shadow-sm ${selected ? 'border-[#1a3d32]' : 'border-neutral-200'}`}>
+    <div className={`rounded-none border bg-white shadow-sm ${selected ? 'border-[#1a3d32]' : 'border-neutral-200'}`}>
       {/* Header row */}
       <div
         className="flex cursor-pointer items-center gap-2 px-3 py-2"

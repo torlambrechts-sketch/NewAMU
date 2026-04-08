@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, NavLink, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   Bell,
@@ -9,6 +9,7 @@ import {
   FileText,
   Gavel,
   History,
+  LayoutList,
   Link2,
   ListChecks,
   ListOrdered,
@@ -20,6 +21,7 @@ import {
   ShieldAlert,
   Users,
   Vote,
+  X,
 } from 'lucide-react'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { GovernanceWheel } from '../components/council/GovernanceWheel'
@@ -41,6 +43,18 @@ import type {
   QuarterSlot,
 } from '../types/council'
 import type { RepElection, RepresentativeMember, RepresentativeOfficeRole } from '../types/representatives'
+import { workplaceReportingMenuLinkClass } from '../data/workplaceReportingNav'
+
+function useBodyScrollLock(active: boolean) {
+  useEffect(() => {
+    if (!active) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [active])
+}
 
 const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: ClipboardList },
@@ -184,6 +198,37 @@ export function CouncilModule() {
   const [itemMinutes, setItemMinutes] = useState<Record<string, { summary: string; decision: string }>>({})
   // Decisions search
   const [decisionSearch, setDecisionSearch] = useState('')
+  const [newMeetingOpen, setNewMeetingOpen] = useState(false)
+  const [meetingDetailOpen, setMeetingDetailOpen] = useState(false)
+  const [decisionPanelId, setDecisionPanelId] = useState<string | null>(null)
+
+  const councilOverlayOpen =
+    (tab === 'meetings' && (newMeetingOpen || meetingDetailOpen)) ||
+    (tab === 'decisions' && Boolean(decisionPanelId))
+  useBodyScrollLock(councilOverlayOpen)
+
+  useEffect(() => {
+    if (!councilOverlayOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setNewMeetingOpen(false)
+        setMeetingDetailOpen(false)
+        setDecisionPanelId(null)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [councilOverlayOpen])
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      if (tab !== 'meetings') {
+        setNewMeetingOpen(false)
+        setMeetingDetailOpen(false)
+      }
+      if (tab !== 'decisions') setDecisionPanelId(null)
+    })
+  }, [tab])
 
   // Representative / Members state
   const [repElectionForm, setRepElectionForm] = useState({
@@ -257,6 +302,7 @@ export function CouncilModule() {
         location: '',
         agendaText: '',
       }))
+      setNewMeetingOpen(false)
     } catch (err) {
       console.error(err)
     }
@@ -266,12 +312,18 @@ export function CouncilModule() {
     ? council.meetings.find((m) => m.id === selectedMeetingId)
     : null
 
+  const decisionPanel = useMemo(
+    () =>
+      decisionPanelId ? council.allDecisions.find((d) => d.id === decisionPanelId) ?? null : null,
+    [council.allDecisions, decisionPanelId],
+  )
+
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
       <nav className="mb-4 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
         <span>
           <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
-            Prosjekter
+            Workspace
           </Link>
           <span className="mx-2 text-neutral-400">→</span>
           <span className="font-medium text-neutral-800">Arbeidsmiljøråd</span>
@@ -335,6 +387,29 @@ export function CouncilModule() {
           ) : null}
         </div>
       </div>
+
+      <nav
+        className="mt-6 flex flex-col gap-3 border-b border-neutral-200/80 pb-6 sm:flex-row sm:flex-wrap sm:items-center"
+        aria-label="Arbeidsmiljøråd"
+      >
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
+          <LayoutList className="size-4" aria-hidden />
+          Meny
+        </div>
+        <div className="flex flex-wrap gap-2 sm:ml-2">
+          {tabs.map(({ id, label, icon: Icon }) => (
+            <NavLink
+              key={id}
+              to={`/council?tab=${id}`}
+              replace
+              className={() => workplaceReportingMenuLinkClass(tab === id)}
+            >
+              <Icon className="size-4 shrink-0" aria-hidden />
+              {label}
+            </NavLink>
+          ))}
+        </div>
+      </nav>
 
       {tab === 'overview' && (
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
@@ -923,216 +998,248 @@ export function CouncilModule() {
                   type="number"
                   value={wheelYear}
                   onChange={(e) => setWheelYear(Number(e.target.value) || new Date().getFullYear())}
-                  className="ml-2 w-24 rounded-lg border border-neutral-200 px-2 py-1 text-sm"
+                  className="ml-2 w-24 rounded-none border border-neutral-200 px-2 py-1 text-sm"
                 />
               </label>
             </div>
+            <button
+              type="button"
+              onClick={() => setNewMeetingOpen(true)}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] px-4 text-sm font-medium text-white hover:bg-[#142e26]"
+            >
+              <Plus className="size-4 shrink-0" aria-hidden />
+              Nytt møte
+            </button>
           </div>
 
           <GovernanceWheel
             year={wheelYear}
             meetings={council.meetings}
-            onQuarterClick={(q) => setMeetingForm((s) => ({ ...s, quarterSlot: q }))}
+            onQuarterClick={(q) => {
+              setMeetingForm((s) => ({ ...s, quarterSlot: q }))
+              setNewMeetingOpen(true)
+            }}
           />
 
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]">
-            <form
-              onSubmit={handleAddMeeting}
-              className="h-fit rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm"
-            >
-              <h2 className="text-lg font-semibold text-neutral-900">Nytt møte</h2>
-              <p className="mt-1 text-sm text-neutral-600">
-                Knytt møtet til et kvartal i årshjulet og velg foreslått agenda (kan redigeres etterpå).
-              </p>
-              <div className="mt-4 space-y-3">
-                <div>
-                  <label className="text-xs font-medium text-neutral-500">Tittel</label>
-                  <input
-                    value={meetingForm.title}
-                    onChange={(e) => setMeetingForm((s) => ({ ...s, title: e.target.value }))}
-                    className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-neutral-500">Starttid</label>
-                  <input
-                    type="datetime-local"
-                    value={meetingForm.startsAt}
-                    onChange={(e) => setMeetingForm((s) => ({ ...s, startsAt: e.target.value }))}
-                    className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-neutral-500">Sted / lenke</label>
-                  <input
-                    value={meetingForm.location}
-                    onChange={(e) => setMeetingForm((s) => ({ ...s, location: e.target.value }))}
-                    className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-neutral-500">Kalenderår</label>
-                    <input
-                      type="number"
-                      value={meetingForm.governanceYear}
-                      onChange={(e) =>
-                        setMeetingForm((s) => ({
-                          ...s,
-                          governanceYear: Number(e.target.value) || wheelYear,
-                        }))
-                      }
-                      className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-neutral-500">Kvartal</label>
-                    <select
-                      value={meetingForm.quarterSlot}
-                      onChange={(e) =>
-                        setMeetingForm((s) => ({
-                          ...s,
-                          quarterSlot: Number(e.target.value) as QuarterSlot,
-                        }))
-                      }
-                      className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                    >
-                      <option value={1}>Q1</option>
-                      <option value={2}>Q2</option>
-                      <option value={3}>Q3</option>
-                      <option value={4}>Q4</option>
-                    </select>
-                  </div>
-                </div>
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-                  <input
-                    type="checkbox"
-                    checked={meetingForm.applySuggestedAgenda}
-                    onChange={(e) =>
-                      setMeetingForm((s) => ({ ...s, applySuggestedAgenda: e.target.checked }))
-                    }
-                    className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
-                  />
-                  Bruk foreslått agenda for valgt kvartal
-                </label>
-                {!meetingForm.applySuggestedAgenda ? (
-                  <div>
-                    <label className="text-xs font-medium text-neutral-500">Agenda (én linje per punkt)</label>
-                    <textarea
-                      value={meetingForm.agendaText}
-                      onChange={(e) => setMeetingForm((s) => ({ ...s, agendaText: e.target.value }))}
-                      rows={4}
-                      className="mt-1 w-full resize-y rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                      placeholder="1. Åpning&#10;2. …"
-                    />
-                  </div>
+          <div className="min-w-0 space-y-4">
+            <div className="overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
+              <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">
+                <h2 className="font-semibold text-neutral-900">Alle møter</h2>
+                <p className="text-xs text-neutral-500">Klikk en rad for å åpne agenda og revisjonslogg.</p>
+              </div>
+              <div className="overflow-x-auto">
+                {council.meetings.length === 0 ? (
+                  <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen møter ennå.</p>
                 ) : (
-                  <div className="rounded-lg bg-[#faf8f4] p-3 text-xs text-neutral-700">
-                    <strong>Forslag for Q{meetingForm.quarterSlot}:</strong>
-                    <ul className="mt-2 list-inside list-disc space-y-1">
-                      {suggestedAgendaItems(meetingForm.quarterSlot).map((s) => (
-                        <li key={s.title}>{s.title}</li>
-                      ))}
-                    </ul>
-                  </div>
+                  <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                        <th className="px-4 py-2.5">Møte</th>
+                        <th className="px-4 py-2.5">Tid</th>
+                        <th className="px-4 py-2.5">År / kv.</th>
+                        <th className="px-4 py-2.5">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {council.meetings.map((m) => {
+                        const statusStyle =
+                          m.status === 'completed'
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                            : m.status === 'cancelled'
+                              ? 'border-neutral-200 bg-neutral-100 text-neutral-700'
+                              : 'border-sky-200 bg-sky-50 text-sky-900'
+                        return (
+                          <tr
+                            key={m.id}
+                            className="cursor-pointer border-b border-neutral-100 transition-colors hover:bg-neutral-50"
+                            onClick={() => {
+                              setSelectedMeetingId(m.id)
+                              setMeetingDetailOpen(true)
+                            }}
+                          >
+                            <td className="px-4 py-2 align-top font-medium text-[#1a3d32]">{m.title}</td>
+                            <td className="px-4 py-2 align-top text-neutral-700">{formatWhen(m.startsAt)}</td>
+                            <td className="px-4 py-2 align-top text-neutral-600">
+                              {m.governanceYear ?? '—'} · {m.quarterSlot ? `Q${m.quarterSlot}` : '—'}
+                            </td>
+                            <td className="px-4 py-2 align-top">
+                              <span className={`inline-flex rounded-none border px-2.5 py-0.5 text-xs font-medium ${statusStyle}`}>
+                                {m.status === 'planned'
+                                  ? 'Planlagt'
+                                  : m.status === 'completed'
+                                    ? 'Gjennomført'
+                                    : 'Avlyst'}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 )}
               </div>
-              <button
-                type="submit"
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1a3d32] py-2.5 text-sm font-medium text-white hover:bg-[#142e26]"
-              >
-                <Calendar className="size-4" />
-                Legg til møte
-              </button>
-            </form>
+            </div>
+          </div>
 
-            <div className="min-w-0 space-y-4">
-              <div className="overflow-hidden rounded-2xl border border-[#1a3d32]/15 bg-white shadow-sm">
-                <div className="border-b border-[#1a3d32]/20 bg-gradient-to-r from-[#1a3d32] to-[#234d42] px-4 py-3">
-                  <h2 className="font-semibold text-white">Alle møter</h2>
+          {tab === 'meetings' && (newMeetingOpen || meetingDetailOpen) && (
+            <div className="fixed inset-0 z-[60] flex justify-end">
+              <button
+                type="button"
+                aria-label="Lukk"
+                className="absolute inset-0 bg-black/40"
+                onClick={() => {
+                  setNewMeetingOpen(false)
+                  setMeetingDetailOpen(false)
+                }}
+              />
+              <div
+                className="relative flex h-full w-full max-w-xl flex-col border-l border-neutral-200 bg-white shadow-xl"
+                role="dialog"
+                aria-modal="true"
+              >
+                <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
+                  <h2 className="text-sm font-semibold text-neutral-900">
+                    {newMeetingOpen ? 'Nytt møte' : selectedMeeting?.title ?? 'Møte'}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewMeetingOpen(false)
+                      setMeetingDetailOpen(false)
+                    }}
+                    className="rounded-none p-2 text-neutral-500 hover:bg-neutral-100"
+                  >
+                    <X className="size-5" />
+                  </button>
                 </div>
-                <div className="overflow-x-auto">
-                  {council.meetings.length === 0 ? (
-                    <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen møter ennå.</p>
-                  ) : (
-                    <table className="w-full min-w-[520px] border-collapse text-left text-sm">
-                      <thead>
-                        <tr className="border-b border-amber-200/60 bg-amber-50/90 text-xs font-semibold uppercase tracking-wide text-[#1a3d32]/90">
-                          <th className="px-4 py-2.5">Møte</th>
-                          <th className="px-4 py-2.5">Tid</th>
-                          <th className="px-4 py-2.5">År / kv.</th>
-                          <th className="px-4 py-2.5">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {council.meetings.map((m, rowIdx) => {
-                          const sel = selectedMeetingId === m.id
-                          const statusStyle =
-                            m.status === 'completed'
-                              ? 'bg-emerald-100 text-emerald-900'
-                              : m.status === 'cancelled'
-                                ? 'bg-neutral-200 text-neutral-700'
-                                : 'bg-sky-100 text-sky-900'
-                          return (
-                            <tr
-                              key={m.id}
-                              className={`border-b border-neutral-100 transition-colors hover:bg-emerald-50/70 ${
-                                sel ? 'bg-[#c9a227]/12' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#faf8f4]/90'
-                              }`}
-                            >
-                              <td className="px-4 py-2 align-top">
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedMeetingId((id) => (id === m.id ? null : m.id))}
-                                  className="text-left font-medium text-[#1a3d32] underline-offset-2 hover:underline"
-                                >
-                                  {m.title}
-                                </button>
-                              </td>
-                              <td className="px-4 py-2 align-top text-neutral-700">{formatWhen(m.startsAt)}</td>
-                              <td className="px-4 py-2 align-top text-neutral-600">
-                                {m.governanceYear ?? '—'} · {m.quarterSlot ? `Q${m.quarterSlot}` : '—'}
-                              </td>
-                              <td className="px-4 py-2 align-top">
-                                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyle}`}>
-                                  {m.status === 'planned'
-                                    ? 'Planlagt'
-                                    : m.status === 'completed'
-                                      ? 'Gjennomført'
-                                      : 'Avlyst'}
-                                </span>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
+                <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                  {newMeetingOpen && (
+                    <form onSubmit={(e) => void handleAddMeeting(e)} className="space-y-3">
+                      <p className="text-sm text-neutral-600">
+                        Knytt møtet til et kvartal i årshjulet og velg foreslått agenda (kan redigeres etterpå).
+                      </p>
+                      <div>
+                        <label className="text-xs font-medium text-neutral-500">Tittel</label>
+                        <input
+                          value={meetingForm.title}
+                          onChange={(e) => setMeetingForm((s) => ({ ...s, title: e.target.value }))}
+                          className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-neutral-500">Starttid</label>
+                        <input
+                          type="datetime-local"
+                          value={meetingForm.startsAt}
+                          onChange={(e) => setMeetingForm((s) => ({ ...s, startsAt: e.target.value }))}
+                          className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-neutral-500">Sted / lenke</label>
+                        <input
+                          value={meetingForm.location}
+                          onChange={(e) => setMeetingForm((s) => ({ ...s, location: e.target.value }))}
+                          className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-medium text-neutral-500">Kalenderår</label>
+                          <input
+                            type="number"
+                            value={meetingForm.governanceYear}
+                            onChange={(e) =>
+                              setMeetingForm((s) => ({
+                                ...s,
+                                governanceYear: Number(e.target.value) || wheelYear,
+                              }))
+                            }
+                            className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-neutral-500">Kvartal</label>
+                          <select
+                            value={meetingForm.quarterSlot}
+                            onChange={(e) =>
+                              setMeetingForm((s) => ({
+                                ...s,
+                                quarterSlot: Number(e.target.value) as QuarterSlot,
+                              }))
+                            }
+                            className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm"
+                          >
+                            <option value={1}>Q1</option>
+                            <option value={2}>Q2</option>
+                            <option value={3}>Q3</option>
+                            <option value={4}>Q4</option>
+                          </select>
+                        </div>
+                      </div>
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
+                        <input
+                          type="checkbox"
+                          checked={meetingForm.applySuggestedAgenda}
+                          onChange={(e) =>
+                            setMeetingForm((s) => ({ ...s, applySuggestedAgenda: e.target.checked }))
+                          }
+                          className="size-4 rounded-none border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+                        />
+                        Bruk foreslått agenda for valgt kvartal
+                      </label>
+                      {!meetingForm.applySuggestedAgenda ? (
+                        <div>
+                          <label className="text-xs font-medium text-neutral-500">Agenda (én linje per punkt)</label>
+                          <textarea
+                            value={meetingForm.agendaText}
+                            onChange={(e) => setMeetingForm((s) => ({ ...s, agendaText: e.target.value }))}
+                            rows={4}
+                            className="mt-1 w-full resize-y rounded-none border border-neutral-200 px-3 py-2 text-sm"
+                            placeholder="1. Åpning&#10;2. …"
+                          />
+                        </div>
+                      ) : (
+                        <div className="rounded-none border border-neutral-200 bg-[#faf8f4] p-3 text-xs text-neutral-700">
+                          <strong>Forslag for Q{meetingForm.quarterSlot}:</strong>
+                          <ul className="mt-2 list-inside list-disc space-y-1">
+                            {suggestedAgendaItems(meetingForm.quarterSlot).map((s) => (
+                              <li key={s.title}>{s.title}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      <button
+                        type="submit"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] py-2.5 text-sm font-medium text-white hover:bg-[#142e26]"
+                      >
+                        <Calendar className="size-4" />
+                        Legg til møte
+                      </button>
+                    </form>
+                  )}
+                  {meetingDetailOpen && selectedMeeting && !newMeetingOpen && (
+                    <MeetingDetailPanel
+                      meeting={selectedMeeting}
+                      council={council}
+                      auditDraft={auditDraft}
+                      setAuditDraft={setAuditDraft}
+                      inviteRecipientsDraft={inviteRecipients[selectedMeeting.id] ?? ''}
+                      setInviteRecipientsDraft={(v) => setInviteRecipients((r) => ({ ...r, [selectedMeeting.id]: v }))}
+                      attendeesDraft={attendeesInput[selectedMeeting.id] ?? ''}
+                      setAttendeesDraft={(v) => setAttendeesInput((r) => ({ ...r, [selectedMeeting.id]: v }))}
+                      quorumDraft={quorumInput[selectedMeeting.id] ?? false}
+                      setQuorumDraft={(v) => setQuorumInput((r) => ({ ...r, [selectedMeeting.id]: v }))}
+                      itemMinutesDraft={itemMinutes}
+                      setItemMinutesDraft={setItemMinutes}
+                    />
                   )}
                 </div>
               </div>
-
-              {selectedMeeting ? (
-                <MeetingDetailPanel
-                  meeting={selectedMeeting}
-                  council={council}
-                  auditDraft={auditDraft}
-                  setAuditDraft={setAuditDraft}
-                  inviteRecipientsDraft={inviteRecipients[selectedMeeting.id] ?? ''}
-                  setInviteRecipientsDraft={(v) => setInviteRecipients((r) => ({ ...r, [selectedMeeting.id]: v }))}
-                  attendeesDraft={attendeesInput[selectedMeeting.id] ?? ''}
-                  setAttendeesDraft={(v) => setAttendeesInput((r) => ({ ...r, [selectedMeeting.id]: v }))}
-                  quorumDraft={quorumInput[selectedMeeting.id] ?? false}
-                  setQuorumDraft={(v) => setQuorumInput((r) => ({ ...r, [selectedMeeting.id]: v }))}
-                  itemMinutesDraft={itemMinutes}
-                  setItemMinutesDraft={setItemMinutes}
-                />
-              ) : (
-                <p className="text-sm text-neutral-500">Velg et møte for å se agenda, forberedelse og revisjonslogg.</p>
-              )}
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -1316,9 +1423,9 @@ export function CouncilModule() {
       {/* ── Vedtaksregister ───────────────────────────────────────────────── */}
       {tab === 'decisions' && (
         <div className="mt-8 space-y-6">
-          <div className="rounded-2xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+          <div className="rounded-none border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
             Vedtaksregisteret samler alle formelle vedtak på tvers av AMU-møter (fra revisjonslogg og per-punkt-referater).
-            Bruk søkefeltet for å finne et spesifikt vedtak for tilsyn eller internkontroll.
+            Bruk søkefeltet og klikk en rad for full tekst.
           </div>
 
           <div className="relative max-w-md">
@@ -1326,13 +1433,13 @@ export function CouncilModule() {
               value={decisionSearch}
               onChange={(e) => setDecisionSearch(e.target.value)}
               placeholder="Søk i vedtak…"
-              className="w-full rounded-full border border-neutral-200 bg-white py-2 pl-10 pr-4 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+              className="w-full rounded-none border border-neutral-200 bg-white py-2 pl-10 pr-4 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
             />
             <ScrollText className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-            <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3 flex items-center justify-between">
+          <div className="overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-neutral-100 bg-neutral-50 px-4 py-3">
               <h2 className="font-semibold text-neutral-900">Alle vedtak</h2>
               <span className="text-xs text-neutral-500">{council.allDecisions.length} totalt</span>
             </div>
@@ -1341,32 +1448,82 @@ export function CouncilModule() {
                 Ingen vedtak ennå. Registrer vedtak under «Vedtak»-typen i revisjonsloggen, eller legg til formelt vedtak per agendapunkt under Møter.
               </p>
             ) : (
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-neutral-100 bg-neutral-50/80 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    <th className="px-4 py-3">Dato</th>
-                    <th className="px-4 py-3">Møte</th>
-                    <th className="px-4 py-3">Agendapunkt</th>
-                    <th className="px-4 py-3">Vedtak</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100">
-                  {council.allDecisions
-                    .filter((d) => !decisionSearch || d.decision.toLowerCase().includes(decisionSearch.toLowerCase()) || d.meetingTitle.toLowerCase().includes(decisionSearch.toLowerCase()))
-                    .map((d) => (
-                      <tr key={d.id} className="hover:bg-neutral-50">
-                        <td className="px-4 py-3 text-xs text-neutral-500 whitespace-nowrap">
-                          {new Date(d.meetingDate).toLocaleDateString('no-NO', { dateStyle: 'short' })}
-                        </td>
-                        <td className="px-4 py-3 font-medium text-neutral-800">{d.meetingTitle}</td>
-                        <td className="px-4 py-3 text-xs text-neutral-500">{d.agendaItemTitle || '—'}</td>
-                        <td className="px-4 py-3 text-neutral-900">{d.decision}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      <th className="px-4 py-3">Dato</th>
+                      <th className="px-4 py-3">Møte</th>
+                      <th className="px-4 py-3">Agendapunkt</th>
+                      <th className="px-4 py-3">Vedtak</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100">
+                    {council.allDecisions
+                      .filter(
+                        (d) =>
+                          !decisionSearch ||
+                          d.decision.toLowerCase().includes(decisionSearch.toLowerCase()) ||
+                          d.meetingTitle.toLowerCase().includes(decisionSearch.toLowerCase()),
+                      )
+                      .map((d) => (
+                        <tr
+                          key={d.id}
+                          className="cursor-pointer transition-colors hover:bg-neutral-50"
+                          onClick={() => setDecisionPanelId(d.id)}
+                        >
+                          <td className="whitespace-nowrap px-4 py-3 text-xs text-neutral-500">
+                            {new Date(d.meetingDate).toLocaleDateString('no-NO', { dateStyle: 'short' })}
+                          </td>
+                          <td className="px-4 py-3 font-medium text-neutral-800">{d.meetingTitle}</td>
+                          <td className="px-4 py-3 text-xs text-neutral-500">{d.agendaItemTitle || '—'}</td>
+                          <td className="max-w-[280px] truncate px-4 py-3 text-neutral-900">{d.decision}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
+
+          {decisionPanel && (
+            <div className="fixed inset-0 z-[60] flex justify-end">
+              <button
+                type="button"
+                aria-label="Lukk"
+                className="absolute inset-0 bg-black/40"
+                onClick={() => setDecisionPanelId(null)}
+              />
+              <div
+                className="relative flex h-full w-full max-w-lg flex-col border-l border-neutral-200 bg-white shadow-xl"
+                role="dialog"
+                aria-modal="true"
+              >
+                <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
+                  <h2 className="text-sm font-semibold text-neutral-900">Vedtak</h2>
+                  <button
+                    type="button"
+                    onClick={() => setDecisionPanelId(null)}
+                    className="rounded-none p-2 text-neutral-500 hover:bg-neutral-100"
+                  >
+                    <X className="size-5" />
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 text-sm">
+                  <p className="text-xs text-neutral-500">
+                    {new Date(decisionPanel.meetingDate).toLocaleDateString('no-NO', { dateStyle: 'medium' })}
+                  </p>
+                  <p className="font-medium text-neutral-900">{decisionPanel.meetingTitle}</p>
+                  <p className="text-xs text-neutral-500">
+                    Agendapunkt: <span className="text-neutral-800">{decisionPanel.agendaItemTitle || '—'}</span>
+                  </p>
+                  <div className="rounded-none border border-neutral-200 bg-neutral-50 p-3 text-neutral-900">
+                    {decisionPanel.decision}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -4,6 +4,7 @@ import { CheckCircle2, Clock, History, Loader2, Pencil } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { WikiBlockRenderer } from './WikiBlockRenderer'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
+import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
 
 const TEMPLATE_CLASS = {
   standard: 'max-w-3xl',
@@ -89,21 +90,26 @@ export function WikiPageView() {
   const revisionSoon = due != null && daysToDue != null && daysToDue <= 60
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-      {/* Breadcrumb */}
-      <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-neutral-500">
-        <Link to="/documents" className="hover:text-[#1a3d32]">Documents</Link>
-        {space && (
-          <>
-            <span>›</span>
-            <Link to={`/documents/space/${space.id}`} className="hover:text-[#1a3d32]">{space.title}</Link>
-          </>
-        )}
-        <span>›</span>
-        <span className="text-neutral-800">{page.title}</span>
-      </nav>
-
-      <div className={`${TEMPLATE_CLASS[templateKey]} mx-auto`}>
+    <DocumentsModuleLayout
+      subHeader={
+        <nav className="mt-6 flex flex-wrap items-center gap-2 border-b border-neutral-200/80 pb-6 text-sm text-neutral-600">
+          <Link to="/documents" className="text-neutral-500 hover:text-[#1a3d32]">
+            Bibliotek
+          </Link>
+          <span className="text-neutral-400">→</span>
+          {space && (
+            <>
+              <Link to={`/documents/space/${space.id}`} className="text-neutral-500 hover:text-[#1a3d32]">
+                {space.title}
+              </Link>
+              <span className="text-neutral-400">→</span>
+            </>
+          )}
+          <span className="font-medium text-neutral-800">{page.title}</span>
+        </nav>
+      }
+    >
+      <div className={`${TEMPLATE_CLASS[templateKey]} mx-auto mt-6`}>
         {/* Page header */}
         <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div className="flex-1">
@@ -114,15 +120,15 @@ export function WikiPageView() {
               >
                 {page.title}
               </h1>
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${
-                page.status === 'published' ? 'bg-emerald-100 text-emerald-800'
-                : page.status === 'draft' ? 'bg-amber-100 text-amber-800'
-                : 'bg-neutral-200 text-neutral-600'
+              <span className={`rounded-none border px-2.5 py-0.5 text-xs font-semibold uppercase ${
+                page.status === 'published' ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : page.status === 'draft' ? 'border-amber-200 bg-amber-50 text-amber-800'
+                : 'border-neutral-200 bg-neutral-100 text-neutral-600'
               }`}>
                 {page.status === 'published' ? 'Publisert' : page.status === 'draft' ? 'Utkast' : 'Arkivert'}
               </span>
               {showSignBadge && alreadySigned && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#1a3d32]/10 px-2.5 py-0.5 text-xs font-medium text-[#1a3d32]">
+                <span className="inline-flex items-center gap-1 rounded-none border border-[#1a3d32]/30 bg-[#1a3d32]/10 px-2.5 py-0.5 text-xs font-medium text-[#1a3d32]">
                   <CheckCircle2 className="size-3.5" /> Signert
                 </span>
               )}
@@ -136,19 +142,21 @@ export function WikiPageView() {
               <span>v{page.version}</span>
               {page.nextRevisionDueAt && (
                 <span
-                  className={`rounded-full px-2 py-0.5 font-medium ${
+                  className={`rounded-none border px-2 py-0.5 font-medium ${
                     daysToDue != null && daysToDue < 0
-                      ? 'bg-red-100 text-red-800'
+                      ? 'border-red-200 bg-red-50 text-red-800'
                       : daysToDue != null && daysToDue <= 60
-                        ? 'bg-amber-100 text-amber-900'
-                        : 'bg-neutral-100 text-neutral-700'
+                        ? 'border-amber-200 bg-amber-50 text-amber-900'
+                        : 'border-neutral-200 bg-neutral-100 text-neutral-700'
                   }`}
                 >
                   Neste revisjon: {new Date(page.nextRevisionDueAt).toLocaleDateString('no-NO')}
                 </span>
               )}
               {legalRefs.map((r) => (
-                <span key={r} className="rounded bg-[#1a3d32]/8 px-1.5 py-0.5 font-mono text-[#1a3d32]">{r}</span>
+                <span key={r} className="rounded-none bg-[#1a3d32]/10 px-1.5 py-0.5 font-mono text-[#1a3d32]">
+                  {r}
+                </span>
               ))}
             </div>
             {page.status === 'published' && revisionSoon && (
@@ -169,7 +177,7 @@ export function WikiPageView() {
           <button
             type="button"
             onClick={() => navigate(`/documents/page/${page.id}/edit`)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            className="inline-flex items-center gap-1.5 rounded-none border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
           >
             <Pencil className="size-3.5" />
             Rediger
@@ -180,7 +188,7 @@ export function WikiPageView() {
         <WikiBlockRenderer blocks={Array.isArray(page.blocks) ? page.blocks : []} pageId={page.id} pageVersion={page.version} />
 
         {versions.length > 0 && (
-          <div className="mt-10 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <div className="mt-10 rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-neutral-800">
               <History className="size-4 text-[#1a3d32]" />
               Publiserte versjoner (arkiv)
@@ -203,6 +211,6 @@ export function WikiPageView() {
           </div>
         )}
       </div>
-    </div>
+    </DocumentsModuleLayout>
   )
 }

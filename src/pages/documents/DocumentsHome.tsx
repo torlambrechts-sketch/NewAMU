@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BookOpen, CheckCircle2, Clock, FileText, Plus, Settings2, ShieldCheck } from 'lucide-react'
+import { BookOpen, CheckCircle2, Clock, FileText, Plus } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
-import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PageTemplate, WikiSpace } from '../../types/documents'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
+import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
 
 const CATEGORY_LABELS: Record<WikiSpace['category'], string> = {
   hms_handbook: 'HMS-håndbok',
@@ -22,11 +22,18 @@ const CATEGORY_ICONS: Record<WikiSpace['category'], string> = {
   template_library: '🗂️',
 }
 
+const CARD =
+  'rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm transition hover:border-neutral-300'
+const BTN_PRIMARY =
+  'inline-flex h-10 items-center justify-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] px-4 text-sm font-medium text-white hover:bg-[#142e26]'
+const BTN_OUTLINE =
+  'inline-flex h-10 items-center justify-center gap-2 rounded-none border border-neutral-300 bg-white px-4 text-sm font-medium text-neutral-800 hover:bg-neutral-50'
+const INPUT =
+  'rounded-none border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]'
+
 export function DocumentsHome() {
   const docs = useDocuments()
   const navigate = useNavigate()
-  const { can } = useOrgSetupContext()
-  const canManageTemplates = can('documents.manage')
 
   const [showNewSpace, setShowNewSpace] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -53,66 +60,31 @@ export function DocumentsHome() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-200/80 pb-6">
-        <div>
-          <h1
-            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
-            Documents & Wiki
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-neutral-600">
-            HMS-håndbok, policyer og prosedyrer. Bygd for å oppfylle kravene i{' '}
-            <strong>Internkontrollforskriften §5</strong> og <strong>Arbeidsmiljøloven §3-1</strong>.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canManageTemplates && (
-            <Link
-              to="/documents/templates"
-              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-            >
-              <Settings2 className="size-4 text-[#1a3d32]" />
-              Malinnstillinger
-            </Link>
-          )}
-          <Link
-            to="/documents/compliance"
-            className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-          >
-            <ShieldCheck className="size-4 text-emerald-600" />
-            Samsvarsstatus
-          </Link>
-          <button
-            type="button"
-            onClick={() => setShowNewSpace(true)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26]"
-          >
-            <Plus className="size-4" />
+    <DocumentsModuleLayout
+      subHeader={
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-2 border-b border-neutral-200/80 pb-6">
+          <button type="button" onClick={() => setShowNewSpace(true)} className={BTN_PRIMARY}>
+            <Plus className="size-4 shrink-0" aria-hidden />
             Ny mappe
           </button>
         </div>
-      </div>
-
+      }
+    >
       {docs.error && (
-        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <div className="mt-4 rounded-none border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           {docs.error}
         </div>
       )}
 
-      {/* Stats row */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Publiserte sider" value={docs.stats.published} icon={<FileText className="size-5 text-emerald-600" />} />
         <StatCard label="Utkast" value={docs.stats.drafts} icon={<BookOpen className="size-5 text-amber-500" />} />
-        <StatCard label="Krever signatur" value={docs.stats.requireAck} icon={<ShieldCheck className="size-5 text-[#1a3d32]" />} />
+        <StatCard label="Krever signatur" value={docs.stats.requireAck} icon={<FileText className="size-5 text-[#1a3d32]" />} />
         <StatCard label="Compliance-kvitteringer" value={docs.stats.acknowledged} icon={<CheckCircle2 className="size-5 text-emerald-600" />} />
       </div>
 
-      {/* New space form */}
       {showNewSpace && (
-        <form onSubmit={(e) => void handleCreateSpace(e)} className="mt-6 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+        <form onSubmit={(e) => void handleCreateSpace(e)} className={`${CARD} mt-6`}>
           <h2 className="mb-4 text-sm font-semibold text-neutral-800">Ny dokumentmappe</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <input
@@ -120,85 +92,75 @@ export function DocumentsHome() {
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="Tittel"
               required
-              className="rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+              className={INPUT}
             />
             <select
               value={newCategory}
               onChange={(e) => setNewCategory(e.target.value as WikiSpace['category'])}
-              className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+              className={`${INPUT} bg-white`}
             >
               {(Object.keys(CATEGORY_LABELS) as WikiSpace['category'][]).map((c) => (
-                <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+                <option key={c} value={c}>
+                  {CATEGORY_LABELS[c]}
+                </option>
               ))}
             </select>
             <input
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
               placeholder="Kort beskrivelse"
-              className="rounded-lg border border-neutral-200 px-3 py-2 text-sm sm:col-span-2 focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+              className={`${INPUT} sm:col-span-2`}
             />
           </div>
-          <div className="mt-3 flex gap-2">
-            <button
-              type="submit"
-              disabled={savingSpace}
-              className="rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] disabled:opacity-50"
-            >
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="submit" disabled={savingSpace} className={BTN_PRIMARY}>
               {savingSpace ? 'Oppretter…' : 'Opprett'}
             </button>
-            <button type="button" onClick={() => setShowNewSpace(false)} className="rounded-full border border-neutral-200 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50">
+            <button type="button" onClick={() => setShowNewSpace(false)} className={BTN_OUTLINE}>
               Avbryt
             </button>
           </div>
         </form>
       )}
 
-      {/* Spaces grid */}
       <div className="mt-8">
-        <h2 className="mb-4 text-base font-semibold text-neutral-700">Mapper</h2>
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+        <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-neutral-500">Mapper</h2>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {activeSpaces.map((space) => {
             const pagesInSpace = docs.pages.filter((p) => p.spaceId === space.id)
             const published = pagesInSpace.filter((p) => p.status === 'published').length
             return (
-              <Link
-                key={space.id}
-                to={`/documents/space/${space.id}`}
-                className="group flex flex-col overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm transition-shadow hover:shadow-md"
-              >
-                <div className="relative flex h-32 shrink-0 items-end bg-gradient-to-br from-[#1a3d32] via-[#234d3f] to-[#2f6b52] px-4 pb-3">
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#1a3d32]/95 to-[#143528] opacity-95" />
-                  <span className="relative text-3xl drop-shadow">{space.icon}</span>
-                  <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#1a3d32]">
-                    {CATEGORY_LABELS[space.category]}
+              <Link key={space.id} to={`/documents/space/${space.id}`} className={CARD}>
+                <div className="flex items-start gap-3 border-b border-neutral-100 pb-3">
+                  <span className="text-2xl">{space.icon}</span>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">
+                      {CATEGORY_LABELS[space.category]}
+                    </span>
+                    <div className="mt-1 font-serif text-lg font-semibold leading-snug text-[#1a3d32]">{space.title}</div>
+                  </div>
+                </div>
+                <p className="mt-3 line-clamp-2 text-sm text-neutral-600">{space.description}</p>
+                <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-neutral-600">
+                  <span className="inline-flex items-center gap-1.5">
+                    <BookOpen className="size-3.5 shrink-0" style={{ color: PIN_GREEN }} />
+                    {pagesInSpace.length} {pagesInSpace.length === 1 ? 'side' : 'sider'}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clock className="size-3.5 shrink-0" style={{ color: PIN_GREEN }} />
+                    {published} publisert
                   </span>
                 </div>
-                <div className="flex flex-1 flex-col p-4">
-                  <div className="font-serif text-lg font-semibold leading-snug text-[#1a3d32] group-hover:underline">
-                    {space.title}
-                  </div>
-                  <p className="mt-2 line-clamp-2 text-sm text-neutral-600">{space.description}</p>
-                  <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-neutral-600">
-                    <span className="inline-flex items-center gap-1.5">
-                      <BookOpen className="size-3.5 shrink-0" style={{ color: PIN_GREEN }} />
-                      {pagesInSpace.length} {pagesInSpace.length === 1 ? 'side' : 'sider'}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Clock className="size-3.5 shrink-0" style={{ color: PIN_GREEN }} />
-                      {published} publisert
-                    </span>
-                  </div>
-                </div>
+                <span className={`${BTN_OUTLINE} mt-4 w-full sm:w-auto`}>Åpne mappe →</span>
               </Link>
             )
           })}
         </div>
       </div>
 
-      {/* Template library */}
       <div className="mt-10">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-neutral-700">Malbibliotek</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-500">Malbibliotek</h2>
           <span className="text-xs text-neutral-500">
             {docs.pageTemplates.length} {docs.backend === 'supabase' ? 'tilgjengelige maler' : 'mal(er) (demo lokalt)'}
           </span>
@@ -215,7 +177,11 @@ export function DocumentsHome() {
                   tpl.page.title,
                   tpl.page.template,
                   tpl.page.blocks,
-                  { legalRefs: tpl.page.legalRefs, requiresAcknowledgement: tpl.page.requiresAcknowledgement, summary: tpl.page.summary },
+                  {
+                    legalRefs: tpl.page.legalRefs,
+                    requiresAcknowledgement: tpl.page.requiresAcknowledgement,
+                    summary: tpl.page.summary,
+                  },
                 )
                 navigate(`/documents/page/${page.id}/edit`)
               }}
@@ -223,16 +189,14 @@ export function DocumentsHome() {
           ))}
         </div>
       </div>
-    </div>
+    </DocumentsModuleLayout>
   )
 }
 
 function StatCard({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-neutral-50">
-        {icon}
-      </div>
+    <div className="flex items-center gap-4 rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-none bg-neutral-50">{icon}</div>
       <div>
         <div className="text-2xl font-semibold tabular-nums text-neutral-900">{value}</div>
         <div className="text-sm text-neutral-500">{label}</div>
@@ -254,15 +218,19 @@ function TemplateCard({
   const [selected, setSelected] = useState(spaces[0]?.id ?? '')
   const [busy, setBusy] = useState(false)
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+    <div className="rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
       <div className="font-medium text-neutral-900">{tpl.label}</div>
       <p className="mt-1 text-xs text-neutral-500 line-clamp-2">{tpl.description}</p>
       <div className="mt-2 flex flex-wrap gap-1">
         {tpl.legalBasis.slice(0, 2).map((ref) => (
-          <span key={ref} className="rounded bg-[#1a3d32]/8 px-1.5 py-0.5 font-mono text-[10px] text-[#1a3d32]">{ref}</span>
+          <span key={ref} className="rounded-none bg-[#1a3d32]/10 px-1.5 py-0.5 font-mono text-[10px] text-[#1a3d32]">
+            {ref}
+          </span>
         ))}
         {tpl.legalBasis.length > 2 && (
-          <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-500">+{tpl.legalBasis.length - 2}</span>
+          <span className="rounded-none bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-500">
+            +{tpl.legalBasis.length - 2}
+          </span>
         )}
       </div>
       {open ? (
@@ -270,11 +238,15 @@ function TemplateCard({
           <select
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
-            className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+            className="w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
           >
-            {spaces.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
+            {spaces.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.title}
+              </option>
+            ))}
           </select>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               disabled={busy || !selected}
@@ -285,11 +257,15 @@ function TemplateCard({
                   setOpen(false)
                 })
               }}
-              className="flex-1 rounded-lg bg-[#1a3d32] py-1.5 text-xs font-medium text-white hover:bg-[#142e26] disabled:opacity-50"
+              className="flex-1 rounded-none border border-[#1a3d32] bg-[#1a3d32] py-1.5 text-xs font-medium text-white hover:bg-[#142e26] disabled:opacity-50"
             >
               {busy ? '…' : 'Bruk mal'}
             </button>
-            <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-none border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50"
+            >
               Avbryt
             </button>
           </div>
@@ -297,9 +273,12 @@ function TemplateCard({
       ) : (
         <button
           type="button"
-          onClick={() => { setSelected(spaces[0]?.id ?? ''); setOpen(true) }}
+          onClick={() => {
+            setSelected(spaces[0]?.id ?? '')
+            setOpen(true)
+          }}
           disabled={spaces.length === 0}
-          className="mt-3 w-full rounded-lg border border-neutral-200 py-1.5 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+          className="mt-3 w-full rounded-none border border-neutral-200 py-1.5 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
         >
           + Bruk mal
         </button>
