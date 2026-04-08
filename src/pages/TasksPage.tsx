@@ -77,6 +77,7 @@ function parseModule(s: string | null): TaskModule | null {
 function parseSource(s: string | null): TaskSourceType | null {
   const allowed: TaskSourceType[] = [
     'manual',
+    'task_cosign_request',
     'council_meeting',
     'council_compliance',
     'representatives',
@@ -110,7 +111,7 @@ export function TasksPage() {
   const tableCell = `${table1CellPadding(layout)} ${TABLE_CELL_BASE}`
   const theadRow = table1HeaderRowClass(layout)
 
-  const { supabaseConfigured, organization } = useOrgSetupContext()
+  const { supabaseConfigured, organization, profile, user } = useOrgSetupContext()
   const org = useOrganisation()
   const wb = useWhistleblowing()
   const {
@@ -164,7 +165,6 @@ export function TasksPage() {
   const [sourceLabel, setSourceLabel] = useState('')
   const [requiresMgmt, setRequiresMgmt] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [panelSignName, setPanelSignName] = useState('')
   const [taskPanelOpen, setTaskPanelOpen] = useState(false)
 
   const [whistlePanelOpen, setWhistlePanelOpen] = useState(false)
@@ -198,7 +198,6 @@ export function TasksPage() {
     setSourceLabel('')
     setRequiresMgmt(false)
     setEditingId(null)
-    setPanelSignName('')
   }, [])
 
   // eslint-disable-next-line react-hooks/preserve-manual-memoization -- React setState identities are stable
@@ -356,9 +355,18 @@ export function TasksPage() {
     return { total: list.length, todo, prog, done }
   }, [tasks, moduleFilter])
 
+  function normSignerEmail(s: string | null | undefined) {
+    const t = s?.trim().toLowerCase()
+    return t || undefined
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
+    const assigneeEmp = assigneeEmployeeId
+      ? org.employees.find((e) => e.id === assigneeEmployeeId) ??
+        org.displayEmployees.find((e) => e.id === assigneeEmployeeId)
+      : undefined
     const leaderEmp = leaderEmployeeId
       ? org.employees.find((e) => e.id === leaderEmployeeId) ?? org.displayEmployees.find((e) => e.id === leaderEmployeeId)
       : undefined
@@ -367,9 +375,12 @@ export function TasksPage() {
       description: description.trim(),
       assignee: assignee.trim() || 'Unassigned',
       assigneeEmployeeId: assigneeEmployeeId || undefined,
+      assigneeSignerEmail: normSignerEmail(assigneeEmp?.email),
       ownerRole: ownerRole.trim() || 'Ansvarlig',
       leaderEmployeeId: requiresMgmt ? leaderEmployeeId || undefined : undefined,
       leaderName: requiresMgmt && leaderEmp ? leaderEmp.name : undefined,
+      managementSignerEmail: requiresMgmt ? normSignerEmail(leaderEmp?.email) : undefined,
+      managementSignerName: requiresMgmt && leaderEmp ? leaderEmp.name : undefined,
       dueDate: dueDate || '—',
       module: formModule,
       sourceType: formSource,
@@ -403,17 +414,80 @@ export function TasksPage() {
     setSourceId(task.sourceId ?? '')
     setSourceLabel(task.sourceLabel ?? '')
     setRequiresMgmt(task.requiresManagementSignOff)
-    setPanelSignName('')
     setTaskPanelOpen(true)
   }
 
   function openNewTaskPanel() {
     resetTaskForm()
-    setPanelSignName('')
     setTaskPanelOpen(true)
   }
 
   const taskBeingEdited = editingId ? tasks.find((t) => t.id === editingId) : undefined
+  const userSignerEmail = normSignerEmail(profile?.email ?? user?.email ?? undefined) ?? null
+
+  const signUi = useMemo(() => {
+    const t = taskBeingEdited
+    if (!t) return null
+    if (t.sourceType === 'task_cosign_request') {
+      const parent = t.cosignParentTaskId ? tasks.find((x) => x.id === t.cosignParentTaskId) : undefined
+      const expectedMgmt =
+        parent?.managementSignerEmail ??
+        (parent?.leaderEmployeeId
+          ? normSignerEmail(
+              org.employees.find((e) => e.id === parent.leaderEmployeeId)?.email ??
+                org.displayEmployees.find((e) => e.id === parent.leaderEmployeeId)?.email,
+            )
+          : undefined)
+      const canSignParent =
+        !!parent?.requiresManagementSignOff &&
+        !!expectedMgmt &&
+        !!userSignerEmail &&
+        expectedMgmt === userSignerEmail &&
+        !!parent.assigneeSignature &&
+        !parent.managementSignature
+      return {
+        mode: 'cosign_reminder' as const,
+        parentTitle: parent?.title,
+        canSignParent,
+        missingAssigneeOnParent: !parent?.assigneeSignature,
+      }
+    }
+    const expectedAssignee =
+      t.assigneeSignerEmail ??
+      (t.assigneeEmployeeId
+        ? normSignerEmail(
+            org.employees.find((e) => e.id === t.assigneeEmployeeId)?.email ??
+              org.displayEmployees.find((e) => e.id === t.assigneeEmployeeId)?.email,
+          )
+        : undefined)
+    const expectedMgmt =
+      t.managementSignerEmail ??
+      (t.leaderEmployeeId
+        ? normSignerEmail(
+            org.employees.find((e) => e.id === t.leaderEmployeeId)?.email ??
+              org.displayEmployees.find((e) => e.id === t.leaderEmployeeId)?.email,
+          )
+        : undefined)
+    const canSignAssignee =
+      !!expectedAssignee && !!userSignerEmail && expectedAssignee === userSignerEmail && !t.assigneeSignature
+    const canSignMgmt =
+      t.requiresManagementSignOff &&
+      !!expectedMgmt &&
+      !!userSignerEmail &&
+      expectedMgmt === userSignerEmail &&
+      !!t.assigneeSignature &&
+      !t.managementSignature
+    return {
+      mode: 'normal' as const,
+      expectedAssignee,
+      expectedMgmt,
+      canSignAssignee,
+      canSignMgmt,
+      missingAssigneeEmail: !!t.assigneeEmployeeId && !expectedAssignee,
+      missingLeaderEmail: t.requiresManagementSignOff && !!t.leaderEmployeeId && !expectedMgmt,
+    }
+  }, [taskBeingEdited, tasks, userSignerEmail, org.employees, org.displayEmployees])
+
   const whistleCaseOpen = whistleCasePanelId ? wb.cases.find((c) => c.id === whistleCasePanelId) : undefined
 
   function formatSig(s?: { signerName: string; signedAt: string; level1?: Level1SystemSignatureMeta }) {
@@ -1553,8 +1627,9 @@ export function TasksPage() {
                       <div>
                         <h3 className="text-base font-semibold text-neutral-900">Status og signatur</h3>
                         <p className={`${SETTINGS_LEAD} mt-2`}>
-                          Status og digitale signaturer håndteres her — ikke i tabellraden. Nivå 1-signatur loggføres
-                          når Supabase er konfigurert.
+                          Signatur bruker innlogget bruker (ikke fritekstnavn). Kun valgt ansvarlig / valgt leder kan
+                          signere — e-post på profilen må samsvare med ansattens e-post. Nivå 1 loggføres når Supabase
+                          er konfigurert.
                         </p>
                       </div>
                       <div className={TASK_PANEL_INSET}>
@@ -1591,45 +1666,81 @@ export function TasksPage() {
                             </div>
                           ) : null}
                         </div>
-                        <div className="mt-5">
-                          <label className={SETTINGS_FIELD_LABEL} htmlFor="task-panel-sign-name">
-                            Fullt navn (signatur)
-                          </label>
-                          <input
-                            id="task-panel-sign-name"
-                            value={panelSignName}
-                            onChange={(e) => setPanelSignName(e.target.value)}
-                            className={`${TASK_PANEL_SELECT} mt-1.5`}
-                            placeholder="Navn som skal stå på signatur"
-                          />
-                        </div>
+                        {signUi?.mode === 'cosign_reminder' ? (
+                          <div className="mt-5 space-y-3 rounded-none border border-amber-200/90 bg-amber-50/80 p-4 text-xs text-amber-950">
+                            <p className="font-medium">
+                              Påminnelse om medsignatur
+                              {signUi.parentTitle ? ` for «${signUi.parentTitle}»` : ''}.
+                            </p>
+                            {signUi.missingAssigneeOnParent ? (
+                              <p>Hovedoppgaven er ikke signert av utfører ennå.</p>
+                            ) : signUi.canSignParent ? (
+                              <p>Du er innlogget som leder som skal godkjenne. Bruk knappen under.</p>
+                            ) : (
+                              <p>Logg inn som valgt leder (samme e-post som på ansattkortet) for å signere.</p>
+                            )}
+                          </div>
+                        ) : signUi ? (
+                          <div className="mt-5 space-y-2 text-xs text-neutral-600">
+                            {!userSignerEmail ? (
+                              <p className="text-amber-800">Profilen din mangler e-post — signatur er ikke tilgjengelig.</p>
+                            ) : null}
+                            {signUi.missingAssigneeEmail ? (
+                              <p className="text-amber-800">
+                                Ansvarlig mangler e-post i organisasjonen. Oppdater ansatt eller velg en annen.
+                              </p>
+                            ) : null}
+                            {signUi.missingLeaderEmail ? (
+                              <p className="text-amber-800">
+                                Leder mangler e-post i organisasjonen. Oppdater ansatt eller velg en annen leder.
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : null}
                         <div className="mt-4 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            className="rounded-none bg-[#1a3d32] px-4 py-2 text-xs font-medium text-white hover:bg-[#142e26]"
-                            onClick={() => {
-                              void (async () => {
-                                const ok = await signAsAssignee(taskBeingEdited.id, panelSignName)
-                                if (ok) setPanelSignName('')
-                              })()
-                            }}
-                          >
-                            Signer utfører
-                          </button>
-                          {taskBeingEdited.requiresManagementSignOff ? (
+                          {signUi?.mode === 'cosign_reminder' ? (
                             <button
                               type="button"
-                              className="rounded-none border border-neutral-300 bg-white px-4 py-2 text-xs font-medium text-neutral-800 hover:bg-neutral-50"
+                              disabled={!signUi.canSignParent}
+                              className="rounded-none bg-[#1a3d32] px-4 py-2 text-xs font-medium text-white hover:bg-[#142e26] disabled:cursor-not-allowed disabled:opacity-50"
                               onClick={() => {
                                 void (async () => {
-                                  const ok = await signManagement(taskBeingEdited.id, panelSignName)
-                                  if (ok) setPanelSignName('')
+                                  await signManagement(taskBeingEdited.id)
                                 })()
                               }}
                             >
-                              Ledelsessignatur
+                              Signer som leder (hovedoppgave)
                             </button>
-                          ) : null}
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                disabled={!signUi?.canSignAssignee}
+                                className="rounded-none bg-[#1a3d32] px-4 py-2 text-xs font-medium text-white hover:bg-[#142e26] disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={() => {
+                                  void (async () => {
+                                    await signAsAssignee(taskBeingEdited.id)
+                                  })()
+                                }}
+                              >
+                                Signer utfører
+                              </button>
+                              {taskBeingEdited.requiresManagementSignOff ? (
+                                <button
+                                  type="button"
+                                  disabled={!signUi?.canSignMgmt}
+                                  className="rounded-none border border-neutral-300 bg-white px-4 py-2 text-xs font-medium text-neutral-800 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                  onClick={() => {
+                                    void (async () => {
+                                      await signManagement(taskBeingEdited.id)
+                                    })()
+                                  }}
+                                >
+                                  Ledelsessignatur
+                                </button>
+                              ) : null}
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>

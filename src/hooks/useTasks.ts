@@ -10,6 +10,7 @@ import {
   type OrgModulePayloadKey,
 } from '../lib/orgModulePayload'
 import { useOrgSetupContext } from './useOrgSetupContext'
+import { useOrganisation } from './useOrganisation'
 import { fetchClientIpBestEffort, hashDocumentPayload } from '../lib/level1Signature'
 import { insertSystemSignatureEvent } from '../lib/recordSystemSignature'
 
@@ -55,6 +56,7 @@ const ALL_MODULES: TaskModule[] = [
 ]
 const ALL_SOURCES: TaskSourceType[] = [
   'manual',
+  'task_cosign_request',
   'council_meeting',
   'council_compliance',
   'representatives',
@@ -92,6 +94,10 @@ function migrateLegacyTask(raw: Record<string, unknown>): Task {
     requiresManagementSignOff: Boolean(raw.requiresManagementSignOff),
     assigneeSignature: raw.assigneeSignature as DigitalSignature | undefined,
     managementSignature: raw.managementSignature as DigitalSignature | undefined,
+    assigneeSignerEmail: raw.assigneeSignerEmail ? String(raw.assigneeSignerEmail).trim().toLowerCase() : undefined,
+    managementSignerEmail: raw.managementSignerEmail ? String(raw.managementSignerEmail).trim().toLowerCase() : undefined,
+    managementSignerName: raw.managementSignerName ? String(raw.managementSignerName) : undefined,
+    cosignParentTaskId: raw.cosignParentTaskId ? String(raw.cosignParentTaskId) : undefined,
   }
 }
 
@@ -182,11 +188,40 @@ function saveLocal(store: TaskStore) {
 
 export type AddTaskInput = Omit<Task, 'id' | 'createdAt'> & Partial<Pick<Task, 'id' | 'createdAt'>>
 
+function normEmail(s: string | null | undefined) {
+  const t = s?.trim().toLowerCase()
+  return t || undefined
+}
+
 export function useTasks() {
-  const { supabase, organization, user } = useOrgSetupContext()
+  const { supabase, organization, user, profile } = useOrgSetupContext()
+  const org = useOrganisation()
   const orgId = organization?.id
   const userId = user?.id
   const useRemote = !!(supabase && orgId && userId)
+  const userSignerEmail = normEmail(profile?.email ?? user?.email ?? undefined) ?? null
+
+  const employeeEmailById = useCallback(
+    (employeeId: string | undefined) => {
+      if (!employeeId) return undefined
+      const e =
+        org.employees.find((x) => x.id === employeeId) ??
+        org.displayEmployees.find((x) => x.id === employeeId)
+      return normEmail(e?.email)
+    },
+    [org.employees, org.displayEmployees],
+  )
+
+  const employeeNameById = useCallback(
+    (employeeId: string | undefined) => {
+      if (!employeeId) return undefined
+      const e =
+        org.employees.find((x) => x.id === employeeId) ??
+        org.displayEmployees.find((x) => x.id === employeeId)
+      return e?.name
+    },
+    [org.employees, org.displayEmployees],
+  )
 
   const initialRemote =
     useRemote && orgId && userId ? readOrgModuleSnap<TaskStore>(MODULE_KEY, orgId, userId) : null
@@ -281,6 +316,14 @@ export function useTasks() {
         requiresManagementSignOff: partial.requiresManagementSignOff ?? false,
         assigneeSignature: partial.assigneeSignature,
         managementSignature: partial.managementSignature,
+        assigneeSignerEmail: partial.assigneeSignerEmail
+          ? String(partial.assigneeSignerEmail).trim().toLowerCase()
+          : undefined,
+        managementSignerEmail: partial.managementSignerEmail
+          ? String(partial.managementSignerEmail).trim().toLowerCase()
+          : undefined,
+        managementSignerName: partial.managementSignerName,
+        cosignParentTaskId: partial.cosignParentTaskId,
         id: partial.id ?? crypto.randomUUID(),
         createdAt: partial.createdAt ?? new Date().toISOString(),
       }
@@ -323,24 +366,61 @@ export function useTasks() {
     [updateTask],
   )
 
-  function taskPayloadForLevel1(task: Task, kind: 'assignee' | 'management', signerName: string, signedAt: string) {
+  function taskPayloadForLevel1(
+    task: Task,
+    kind: 'assignee' | 'management',
+    signerName: string,
+    signedAt: string,
+    signerUserId: string,
+  ) {
     const { assigneeSignature, managementSignature, ...rest } = task
     const assigneeSignatureNext =
-      kind === 'assignee' ? { signerName, signedAt } : assigneeSignature ?? null
+      kind === 'assignee'
+        ? { signerName, signedAt, signerUserId }
+        : assigneeSignature ?? null
     const managementSignatureNext =
-      kind === 'management' ? { signerName, signedAt } : managementSignature ?? null
+      kind === 'management'
+        ? { signerName, signedAt, signerUserId }
+        : managementSignature ?? null
     return { ...rest, assigneeSignature: assigneeSignatureNext, managementSignature: managementSignatureNext }
   }
 
   const signAsAssignee = useCallback(
-    async (id: string, signerName: string) => {
-      const name = signerName.trim()
-      if (!name) return false
+    async (id: string) => {
       setError(null)
+      if (!userId) {
+        setError('Du må være innlogget for å signere.')
+        return false
+      }
       const task = store.tasks.find((t) => t.id === id)
       if (!task) return false
+      if (task.sourceType === 'task_cosign_request') {
+        setError('Denne oppgaven er en påminnelse om medsignatur. Bruk «Signer som leder» for hovedoppgaven.')
+        return false
+      }
+      const expectedAssigneeEmail =
+        task.assigneeSignerEmail ?? employeeEmailById(task.assigneeEmployeeId)
+      if (!userSignerEmail) {
+        setError('Profilen din mangler e-postadresse. Oppdater profil for å signere.')
+        return false
+      }
+      if (!expectedAssigneeEmail) {
+        setError('Koble ansvarlig til en ansatt med e-post i listen for å signere.')
+        return false
+      }
+      if (expectedAssigneeEmail !== userSignerEmail) {
+        setError('Bare den valgte ansvarlige kan signere som utfører (innlogget e-post samsvarer ikke).')
+        return false
+      }
+      const name = (
+        profile?.display_name?.trim() ||
+        org.employees.find((x) => x.id === task.assigneeEmployeeId)?.name ||
+        task.assignee?.trim() ||
+        userSignerEmail ||
+        'Bruker'
+      ).trim()
       const signedAt = new Date().toISOString()
-      const payload = taskPayloadForLevel1(task, 'assignee', name, signedAt)
+      const payload = taskPayloadForLevel1(task, 'assignee', name, signedAt, userId)
       const documentHashSha256 = await hashDocumentPayload(payload)
       let level1: DigitalSignature['level1'] | undefined
       if (useRemote && supabase && orgId && userId) {
@@ -360,33 +440,129 @@ export function useTasks() {
         }
         level1 = ins.evidence
       }
-      const sig: DigitalSignature = { signerName: name, signedAt, level1 }
-      setStore((s) => ({
-        ...s,
-        tasks: s.tasks.map((t) => (t.id === id ? { ...t, assigneeSignature: sig } : t)),
-        auditLog: [...s.auditLog, auditEntry(id, 'sign_assignee', `Signert av ansvarlig: ${name}`)],
-      }))
+      const sig: DigitalSignature = { signerName: name, signerUserId: userId, signedAt, level1 }
+
+      const needsCosignReminder =
+        task.requiresManagementSignOff &&
+        !!task.leaderEmployeeId &&
+        !!(task.managementSignerEmail ?? employeeEmailById(task.leaderEmployeeId))
+
+      setStore((s) => {
+        let nextTasks = s.tasks.map((t) => (t.id === id ? { ...t, assigneeSignature: sig } : t))
+        if (needsCosignReminder) {
+          const hasOpenReminder = nextTasks.some(
+            (t) =>
+              t.sourceType === 'task_cosign_request' &&
+              t.cosignParentTaskId === id &&
+              t.status !== 'done',
+          )
+          if (!hasOpenReminder) {
+            const leaderId = task.leaderEmployeeId!
+            const leaderEmail = task.managementSignerEmail ?? employeeEmailById(leaderId)
+            const leaderName =
+              task.managementSignerName ?? employeeNameById(leaderId) ?? 'Leder'
+            const reminder: Task = {
+              id: crypto.randomUUID(),
+              title: `Medsignatur: ${task.title}`,
+              description:
+                'Hovedoppgaven er signert av utfører. Signer som leder for å fullføre.',
+              status: 'todo',
+              assignee: leaderName,
+              assigneeEmployeeId: leaderId,
+              assigneeSignerEmail: leaderEmail,
+              ownerRole: 'Leder',
+              leaderEmployeeId: undefined,
+              leaderName: undefined,
+              dueDate: task.dueDate,
+              createdAt: new Date().toISOString(),
+              module: task.module,
+              sourceType: 'task_cosign_request',
+              sourceId: id,
+              sourceLabel: task.title,
+              requiresManagementSignOff: false,
+              cosignParentTaskId: id,
+            }
+            nextTasks = [reminder, ...nextTasks]
+          }
+        }
+        return {
+          ...s,
+          tasks: nextTasks,
+          auditLog: [...s.auditLog, auditEntry(id, 'sign_assignee', `Signert av ansvarlig: ${name}`)],
+        }
+      })
       return true
     },
-    [setStore, setError, store.tasks, supabase, orgId, userId, useRemote],
+    [
+      setStore,
+      setError,
+      store.tasks,
+      supabase,
+      orgId,
+      userId,
+      useRemote,
+      userSignerEmail,
+      employeeEmailById,
+      employeeNameById,
+      profile,
+      org.employees,
+    ],
   )
 
   const signManagement = useCallback(
-    async (id: string, signerName: string) => {
-      const name = signerName.trim()
-      if (!name) return false
+    async (id: string) => {
       setError(null)
-      const task = store.tasks.find((t) => t.id === id)
+      if (!userId) {
+        setError('Du må være innlogget for å signere.')
+        return false
+      }
+      let task = store.tasks.find((t) => t.id === id)
       if (!task) return false
+      let targetId = id
+      if (task.sourceType === 'task_cosign_request' && task.cosignParentTaskId) {
+        targetId = task.cosignParentTaskId
+        task = store.tasks.find((t) => t.id === targetId)
+        if (!task) return false
+      }
+      if (!task.requiresManagementSignOff) {
+        setError('Denne oppgaven krever ikke ledelsessignatur.')
+        return false
+      }
+      const expectedMgmtEmail =
+        task.managementSignerEmail ?? employeeEmailById(task.leaderEmployeeId)
+      if (!userSignerEmail) {
+        setError('Profilen din mangler e-postadresse. Oppdater profil for å signere.')
+        return false
+      }
+      if (!expectedMgmtEmail) {
+        setError('Velg leder (godkjenner) med e-post før medsignatur.')
+        return false
+      }
+      if (expectedMgmtEmail !== userSignerEmail) {
+        setError('Bare valgt leder kan signere (innlogget e-post samsvarer ikke).')
+        return false
+      }
+      if (!task.assigneeSignature) {
+        setError('Utfører må signere før leder kan godkjenne.')
+        return false
+      }
+      const name = (
+        profile?.display_name?.trim() ||
+        org.employees.find((x) => x.id === task.leaderEmployeeId)?.name ||
+        task.managementSignerName?.trim() ||
+        task.leaderName?.trim() ||
+        userSignerEmail ||
+        'Leder'
+      ).trim()
       const signedAt = new Date().toISOString()
-      const payload = taskPayloadForLevel1(task, 'management', name, signedAt)
+      const payload = taskPayloadForLevel1(task, 'management', name, signedAt, userId)
       const documentHashSha256 = await hashDocumentPayload(payload)
       let level1: DigitalSignature['level1'] | undefined
       if (useRemote && supabase && orgId && userId) {
         const clientIp = await fetchClientIpBestEffort()
         const ins = await insertSystemSignatureEvent(supabase, orgId, userId, {
           resourceType: 'task',
-          resourceId: id,
+          resourceId: targetId,
           action: 'task_sign_management',
           documentHashSha256,
           signerDisplayName: name,
@@ -399,15 +575,36 @@ export function useTasks() {
         }
         level1 = ins.evidence
       }
-      const sig: DigitalSignature = { signerName: name, signedAt, level1 }
+      const sig: DigitalSignature = { signerName: name, signerUserId: userId, signedAt, level1 }
       setStore((s) => ({
         ...s,
-        tasks: s.tasks.map((t) => (t.id === id ? { ...t, managementSignature: sig } : t)),
-        auditLog: [...s.auditLog, auditEntry(id, 'sign_management', `Ledelsessignatur: ${name}`)],
+        tasks: s.tasks.map((t) => {
+          if (t.id === targetId) return { ...t, managementSignature: sig }
+          if (
+            t.sourceType === 'task_cosign_request' &&
+            t.cosignParentTaskId === targetId
+          ) {
+            return { ...t, status: 'done' as TaskStatus }
+          }
+          return t
+        }),
+        auditLog: [...s.auditLog, auditEntry(targetId, 'sign_management', `Ledelsessignatur: ${name}`)],
       }))
       return true
     },
-    [setStore, setError, store.tasks, supabase, orgId, userId, useRemote],
+    [
+      setStore,
+      setError,
+      store.tasks,
+      supabase,
+      orgId,
+      userId,
+      useRemote,
+      userSignerEmail,
+      employeeEmailById,
+      profile,
+      org.employees,
+    ],
   )
 
   const resetDemo = useCallback(async () => {

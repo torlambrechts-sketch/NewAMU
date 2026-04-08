@@ -13,6 +13,7 @@ export type TaskModule =
 
 export type TaskSourceType =
   | 'manual'
+  | 'task_cosign_request'
   | 'council_meeting'
   | 'council_compliance'
   | 'representatives'
@@ -32,6 +33,8 @@ export type TaskSourceType =
 
 export type DigitalSignature = {
   signerName: string
+  /** Innlogget bruker som signerte (auth.users.id / profiles.id) */
+  signerUserId?: string
   signedAt: string
   /** Level 1 system signature (SHA-256 + auth.uid audit) */
   level1?: Level1SystemSignatureMeta
@@ -63,4 +66,15 @@ export type Task = {
   assigneeSignature?: DigitalSignature
   /** Ledelses godkjenning når påkrevd */
   managementSignature?: DigitalSignature
+  /**
+   * E-post (normalisert lowercase) for hvem som kan signere som utfører.
+   * Satt fra valgt ansatt eller innlogget bruker ved opprettelse.
+   */
+  assigneeSignerEmail?: string
+  /** E-post for hvem som kan signere som leder/medgodkjenner */
+  managementSignerEmail?: string
+  /** Visningsnavn for leder (til påminnelsesoppgave) */
+  managementSignerName?: string
+  /** Hvis satt: påminnelse om medsignatur for hovedoppgaven med denne id */
+  cosignParentTaskId?: string
 }
