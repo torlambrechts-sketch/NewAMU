@@ -6,6 +6,7 @@ import {
   FileText,
   HardHat,
   HeartPulse,
+  LayoutDashboard,
   LayoutList,
   ShieldAlert,
 } from 'lucide-react'
@@ -29,6 +30,14 @@ export const WORKPLACE_REPORTING_NAV: readonly WorkplaceReportingNavItem[] = [
     end: true,
     desc: 'Samlet inngang til arbeidsplassrapportering og snarveier.',
     icon: LayoutList,
+  },
+  {
+    to: '/workplace-reporting/dashboard',
+    label: 'Dashbord',
+    end: false,
+    desc: 'Tilpassbare faner og rutenett med rapport-widgets (samme som Rapporter).',
+    icon: LayoutDashboard,
+    requirePerm: 'module.view.workplace_reporting',
   },
   {
     to: '/workplace-reporting/incidents',
@@ -98,6 +107,7 @@ export function workplaceReportingNavMatch(
   if (!to.includes('?')) {
     if (end) return pathname === to
     if (to === '/reports') return pathname === '/reports' || pathname.startsWith('/reports/')
+    if (to === '/workplace-reporting/dashboard') return pathname === to
     return pathname === to
   }
   const [path, qs] = to.split('?')

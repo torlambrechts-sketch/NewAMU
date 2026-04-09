@@ -4,7 +4,6 @@ import {
   ChevronDown,
   Download,
   FileDown,
-  GripVertical,
   History,
   Info,
   LayoutGrid,
@@ -12,9 +11,7 @@ import {
   Mail,
   Plus,
   RefreshCw,
-  Search,
   Settings2,
-  Trash2,
   Wrench,
   X,
 } from 'lucide-react'
@@ -28,20 +25,14 @@ import { useTasks } from '../hooks/useTasks'
 import { useReportBuilder } from '../hooks/useReportBuilder'
 import { STANDARD_REPORT_CATEGORIES, type StandardReportId } from '../data/standardReports'
 import { buildReportDatasets } from '../lib/reportDatasets'
-import {
-  BAR_SERIES_PRESETS,
-  createDefaultModule,
-  DATASET_OPTIONS,
-  KPI_PATHS,
-  newModuleId,
-  TABLE_COLUMNS,
-} from '../lib/reportModuleCatalog'
-import type { CustomReportTemplate, ReportModule, ReportModuleKind } from '../types/reportBuilder'
+import { createDefaultModule, newModuleId } from '../lib/reportModuleCatalog'
+import type { CustomReportTemplate, ReportModule } from '../types/reportBuilder'
 import { CustomReportPreview } from '../components/reports/CustomReportPreview'
 import { Mainbox1 } from '../components/layout/Mainbox1'
 import { StandardReportDashboard } from '../components/reports/StandardReportDashboard'
 import { ShareSensitiveDataModal } from '../components/reports/ShareSensitiveDataModal'
 import { buildStandardReportVisualModel } from '../lib/standardReportVisualModel'
+import { ReportModuleDesigner } from '../components/dashboard/ReportModuleDesigner'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const HERO_ACTION_CLASS =
@@ -150,7 +141,6 @@ export function ReportingEnginePage() {
   const [draft, setDraft] = useState<CustomReportTemplate | null>(null)
   const [previewData, setPreviewData] = useState<Record<string, unknown>>({})
   const [previewLoading, setPreviewLoading] = useState(false)
-  const [moduleSearch, setModuleSearch] = useState('')
   const [history, setHistory] = useState<RunEntry[]>(() => readHistory())
 
   const [amu, setAmu] = useState<unknown>(null)
@@ -394,7 +384,6 @@ export function ReportingEnginePage() {
   function closeBuilder() {
     setBuilderOpen(false)
     setDraft(null)
-    setModuleSearch('')
   }
 
   function saveDraft() {
@@ -439,45 +428,6 @@ export function ReportingEnginePage() {
       ] as const,
     [],
   )
-
-  const filteredModules = useMemo(() => {
-    if (!draft) return []
-    const q = moduleSearch.trim().toLowerCase()
-    return draft.modules.filter((m) => !q || m.title.toLowerCase().includes(q))
-  }, [draft, moduleSearch])
-
-  function updateModule(mid: string, patch: Partial<ReportModule>) {
-    setDraft((d) =>
-      d
-        ? {
-            ...d,
-            modules: d.modules.map((m) => (m.id === mid ? ({ ...m, ...patch } as ReportModule) : m)),
-          }
-        : null,
-    )
-  }
-
-  function removeModule(mid: string) {
-    setDraft((d) => (d ? { ...d, modules: d.modules.filter((m) => m.id !== mid) } : null))
-  }
-
-  function moveModule(mid: string, dir: -1 | 1) {
-    setDraft((d) => {
-      if (!d) return null
-      const i = d.modules.findIndex((m) => m.id === mid)
-      const j = i + dir
-      if (i < 0 || j < 0 || j >= d.modules.length) return d
-      const next = [...d.modules]
-      const t = next[i]!
-      next[i] = next[j]!
-      next[j] = t
-      return { ...d, modules: next }
-    })
-  }
-
-  function addModuleKind(kind: ReportModuleKind) {
-    setDraft((d) => (d ? { ...d, modules: [...d.modules, createDefaultModule(kind)] } : null))
-  }
 
   return (
     <div className={PAGE_WRAP}>
@@ -1077,179 +1027,10 @@ export function ReportingEnginePage() {
               <div className="my-8 border-t border-neutral-200/90" />
 
               <div className="grid min-h-[min(70vh,640px)] grid-cols-1 gap-6 lg:grid-cols-[minmax(0,40%)_minmax(0,60%)]">
-                <div className="flex min-h-0 flex-col rounded-none border border-neutral-200/90 bg-[#f4f1ea]">
-                  <div className="border-b border-neutral-200/80 p-4">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Rediger moduler</p>
-                    <div className="relative mt-3">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-                      <input
-                        value={moduleSearch}
-                        onChange={(e) => setModuleSearch(e.target.value)}
-                        placeholder="Søk i moduler…"
-                        className={`${SETTINGS_INPUT} bg-white pl-10`}
-                      />
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {(['kpi', 'table', 'bar', 'donut'] as const).map((k) => (
-                        <button
-                          key={k}
-                          type="button"
-                          onClick={() => addModuleKind(k)}
-                          className={`${R_FLAT} border border-neutral-300 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50`}
-                        >
-                          + {k}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-                    {filteredModules.map((m) => (
-                      <li
-                        key={m.id}
-                        className={`${R_FLAT} border border-neutral-200 bg-white p-3 shadow-sm`}
-                      >
-                        <div className="flex items-start gap-2">
-                          <div className="mt-0.5 text-neutral-400">
-                            <GripVertical className="size-4" />
-                          </div>
-                          <div className="min-w-0 flex-1 space-y-2">
-                            <input
-                              value={m.title}
-                              onChange={(e) => updateModule(m.id, { title: e.target.value })}
-                              className="w-full rounded-none border border-neutral-200 px-2 py-1 text-sm font-medium"
-                            />
-                            <div className="flex flex-wrap gap-1">
-                              <span className="text-[10px] font-bold uppercase text-neutral-500">{m.kind}</span>
-                            </div>
-                            <label className={SETTINGS_FIELD_LABEL}>Datasett</label>
-                            <select
-                              value={m.datasetKey}
-                              onChange={(e) => {
-                                const dk = e.target.value as ReportModule['datasetKey']
-                                if (m.kind === 'kpi') {
-                                  const opts = KPI_PATHS[dk]
-                                  updateModule(m.id, {
-                                    datasetKey: dk,
-                                    valuePath: opts?.[0]?.path ?? m.valuePath,
-                                    subtitle: opts?.[0]?.label ?? m.subtitle,
-                                  })
-                                } else if (m.kind === 'table') {
-                                  const cols = TABLE_COLUMNS[dk]
-                                  updateModule(m.id, {
-                                    datasetKey: dk,
-                                    rowKeys: cols ? cols.slice(0, 4) : m.rowKeys,
-                                  })
-                                } else if (m.kind === 'bar') {
-                                  const s = BAR_SERIES_PRESETS[dk]
-                                  updateModule(m.id, {
-                                    datasetKey: dk,
-                                    seriesKeys: s ? [...s] : m.seriesKeys,
-                                  })
-                                } else {
-                                  updateModule(m.id, { datasetKey: dk })
-                                }
-                              }}
-                              className={`${SETTINGS_INPUT} bg-white text-xs`}
-                            >
-                              {DATASET_OPTIONS.map((o) => (
-                                <option key={o.value} value={o.value}>
-                                  {o.label}
-                                </option>
-                              ))}
-                            </select>
-                            {m.kind === 'kpi' ? (
-                              <>
-                                <label className={SETTINGS_FIELD_LABEL}>Verdifelt</label>
-                                <select
-                                  value={m.valuePath}
-                                  onChange={(e) => updateModule(m.id, { valuePath: e.target.value })}
-                                  className={`${SETTINGS_INPUT} bg-white text-xs`}
-                                >
-                                  {(KPI_PATHS[m.datasetKey] ?? [{ path: m.valuePath, label: m.valuePath }]).map(
-                                    (o) => (
-                                      <option key={o.path} value={o.path}>
-                                        {o.label}
-                                      </option>
-                                    ),
-                                  )}
-                                </select>
-                                <label className={SETTINGS_FIELD_LABEL}>Undertittel</label>
-                                <input
-                                  value={m.subtitle ?? ''}
-                                  onChange={(e) => updateModule(m.id, { subtitle: e.target.value })}
-                                  className={`${SETTINGS_INPUT} bg-white text-xs`}
-                                />
-                              </>
-                            ) : null}
-                            {m.kind === 'table' ? (
-                              <>
-                                <label className={SETTINGS_FIELD_LABEL}>Kolonner (kommaseparert)</label>
-                                <input
-                                  value={m.rowKeys.join(', ')}
-                                  onChange={(e) =>
-                                    updateModule(m.id, {
-                                      rowKeys: e.target.value.split(',').map((x) => x.trim()).filter(Boolean),
-                                    })
-                                  }
-                                  className={`${SETTINGS_INPUT} bg-white font-mono text-xs`}
-                                />
-                              </>
-                            ) : null}
-                            {m.kind === 'bar' ? (
-                              <>
-                                <label className={SETTINGS_FIELD_LABEL}>Serienøkler (kommaseparert)</label>
-                                <input
-                                  value={m.seriesKeys.join(', ')}
-                                  onChange={(e) =>
-                                    updateModule(m.id, {
-                                      seriesKeys: e.target.value.split(',').map((x) => x.trim()).filter(Boolean),
-                                    })
-                                  }
-                                  className={`${SETTINGS_INPUT} bg-white font-mono text-xs`}
-                                />
-                              </>
-                            ) : null}
-                            {m.kind === 'donut' ? (
-                              <>
-                                <label className={SETTINGS_FIELD_LABEL}>Sti til segmenter (valgfri)</label>
-                                <input
-                                  value={m.segmentsPath}
-                                  onChange={(e) => updateModule(m.id, { segmentsPath: e.target.value })}
-                                  className={`${SETTINGS_INPUT} bg-white font-mono text-xs`}
-                                  placeholder="f.eks. nested.path"
-                                />
-                              </>
-                            ) : null}
-                          </div>
-                          <div className="flex shrink-0 flex-col gap-1">
-                            <button
-                              type="button"
-                              onClick={() => moveModule(m.id, -1)}
-                              className="rounded-none px-1 text-xs text-neutral-500 hover:bg-neutral-100"
-                            >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => moveModule(m.id, 1)}
-                              className="rounded-none px-1 text-xs text-neutral-500 hover:bg-neutral-100"
-                            >
-                              ↓
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeModule(m.id)}
-                              className="rounded-none p-1 text-red-600 hover:bg-red-50"
-                              aria-label="Fjern"
-                            >
-                              <Trash2 className="size-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                <ReportModuleDesigner
+                  modules={draft.modules}
+                  onModulesChange={(next) => setDraft((d) => (d ? { ...d, modules: next } : null))}
+                />
 
                 <div className="flex min-h-0 flex-col">
                   <div className="mb-3 flex items-center justify-between gap-2">

@@ -11,6 +11,7 @@ export type OrgModulePayloadKey =
   | 'workspace'
   | 'report_builder'
   | 'workplace_reporting'
+  | 'workplace_dashboard'
 
 export function orgModuleSnapKey(moduleKey: OrgModulePayloadKey, orgId: string, userId: string) {
   return `atics-org-mod:${moduleKey}:${orgId}:${userId}`

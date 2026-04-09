@@ -296,6 +296,7 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
   if (hub) {
     const sp = new URLSearchParams(search)
     if (pathname === '/workplace-reporting/incidents') return hub
+    if (pathname === '/workplace-reporting/dashboard') return hub
     if (pathname === '/org-health' && sp.get('tab') === 'reporting') return hub
     if (pathname === '/tasks' && sp.get('view') === 'whistle') return hub
   }

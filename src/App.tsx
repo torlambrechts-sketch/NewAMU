@@ -13,6 +13,7 @@ import { ProfilePage } from './pages/ProfilePage'
 import { ReportingEnginePage } from './pages/ReportingEnginePage'
 import { WorkflowModulePage } from './pages/WorkflowModulePage'
 import { WorkplaceReportingPage } from './pages/WorkplaceReportingPage'
+import { WorkplaceDashboardPage } from './pages/WorkplaceDashboardPage'
 import { WorkplaceIncidentsPage } from './pages/WorkplaceIncidentsPage'
 import { HrComplianceHub } from './pages/hr/HrComplianceHub'
 import { HrDiscussionPage } from './pages/hr/HrDiscussionPage'
@@ -102,6 +103,7 @@ function App() {
                   <Route path="organisation" element={<OrganisationPage />} />
                   <Route path="reports" element={<ReportingEnginePage />} />
                   <Route path="workplace-reporting" element={<WorkplaceReportingPage />} />
+                  <Route path="workplace-reporting/dashboard" element={<WorkplaceDashboardPage />} />
                   <Route path="workplace-reporting/incidents" element={<WorkplaceIncidentsPage />} />
                   <Route path="aarshjul" element={<AarshjulPage />} />
                   <Route path="action-board" element={<ActionBoardPage />} />
