@@ -31,6 +31,8 @@ const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
 const HERO_ACTION_CLASS =
   'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-none px-4 text-sm font-medium leading-none'
+const MENU1_ICON_ONLY_TAB =
+  '!h-8 !w-8 !min-h-0 !min-w-0 !max-h-8 !max-w-8 !flex-none shrink-0 !justify-center !gap-0 !p-0'
 const R_FLAT = 'rounded-none'
 const SETTINGS_THRESHOLD_BOX =
   'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
@@ -709,7 +711,7 @@ export function TasksPage() {
                 key={id}
                 type="button"
                 onClick={() => setPageTab(id)}
-                className={tb.className}
+                className={`${tb.className} ${iconOnly ? MENU1_ICON_ONLY_TAB : ''}`}
                 style={tb.style}
                 title={label}
                 aria-label={iconOnly ? label : undefined}

@@ -587,16 +587,20 @@ export function AticsShell() {
                               to={item.path}
                               title={item.label}
                               aria-label={iconOnly ? item.label : undefined}
-                              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors ${
+                              className={`flex items-center gap-2 rounded-md text-xs transition-colors ${
                                 active
                                   ? 'font-semibold text-white'
                                   : 'text-white/50 hover:bg-white/5 hover:text-white/80'
-                              } ${iconOnly ? 'justify-center px-1.5' : ''}`}
+                              } ${
+                                iconOnly
+                                  ? 'size-8 shrink-0 justify-center p-0'
+                                  : 'px-2 py-1.5'
+                              }`}
                             >
-                              {active && (
+                              {!iconOnly && active && (
                                 <span className="h-3 w-0.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
                               )}
-                              {!active && <span className="h-3 w-0.5 shrink-0" aria-hidden />}
+                              {!iconOnly && !active && <span className="h-3 w-0.5 shrink-0" aria-hidden />}
                               {iconOnly ? (
                                 <SubIcon className="size-4 shrink-0 opacity-90" aria-hidden />
                               ) : (
@@ -813,11 +817,15 @@ export function AticsShell() {
                       to={item.path}
                       title={item.label}
                       aria-label={iconOnly ? item.label : undefined}
-                      className={`whitespace-nowrap rounded-md px-3 py-1 text-sm transition-colors ${
+                      className={`whitespace-nowrap rounded-md text-sm transition-colors ${
                         active
                           ? 'bg-white/10 font-medium text-white'
                           : 'text-white/55 hover:bg-white/5 hover:text-white/90'
-                      } ${iconOnly ? 'inline-flex items-center justify-center px-2' : ''}`}
+                      } ${
+                        iconOnly
+                          ? 'inline-flex size-8 shrink-0 items-center justify-center p-0'
+                          : 'px-3 py-1'
+                      }`}
                     >
                       {iconOnly ? (
                         <SubIcon className="size-[1.125rem] shrink-0 opacity-90" aria-hidden />

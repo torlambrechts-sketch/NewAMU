@@ -83,6 +83,8 @@ const SETTINGS_THRESHOLD_BOX =
   'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
 /** Same strip boxes as HSE oversikt / rapporter */
 const IC_THRESHOLD_STRIP = SETTINGS_THRESHOLD_BOX
+const MENU1_ICON_ONLY_TAB =
+  '!h-8 !w-8 !min-h-0 !min-w-0 !max-h-8 !max-w-8 !flex-none shrink-0 !justify-center !gap-0 !p-0'
 
 const ROS_WORKSPACE_LABELS: Record<RosWorkspaceCategory, string> = {
   general: 'Generelt',
@@ -770,7 +772,7 @@ export function InternalControlModule() {
                 key={id}
                 type="button"
                 onClick={() => setTab(id)}
-                className={tb.className}
+                className={`${tb.className} ${iconOnly ? MENU1_ICON_ONLY_TAB : ''}`}
                 style={tb.style}
                 title={label}
                 aria-label={iconOnly ? label : undefined}

@@ -78,6 +78,9 @@ const HSE_THRESHOLD_BOX =
 const HSE_INSIGHT_CARD =
   `${R_FLAT} flex flex-col border border-neutral-200/90 bg-white p-5 text-left shadow-sm transition hover:border-neutral-300 hover:shadow`
 const HSE_CARD_TOP_RULE = 'mb-4 h-0.5 w-full shrink-0 bg-[#1a3d32]'
+/** Revisjonslogg tab: icon-only, compact hit target (overrides menu_1 flex-1 / min-height). */
+const MENU1_ICON_ONLY_TAB =
+  '!h-8 !w-8 !min-h-0 !min-w-0 !max-h-8 !max-w-8 !flex-none shrink-0 !justify-center !gap-0 !p-0'
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -1266,7 +1269,7 @@ export function HseModule() {
               <Link
                 key={id}
                 to={`?tab=${id}`}
-                className={tb.className}
+                className={`${tb.className} ${iconOnly ? MENU1_ICON_ONLY_TAB : ''}`}
                 style={tb.style}
                 title={label}
                 aria-label={iconOnly ? label : undefined}
