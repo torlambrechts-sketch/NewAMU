@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import type { WorkflowCondition } from '../../types/workflow'
 import { WHERE_FIELDS_BY_PATH, WORKFLOW_ARRAY_PATHS, type WhereFieldOption } from '../../data/workflowConditionFields'
+import { WF_FIELD_INPUT, WF_FIELD_LABEL, WF_LEAD } from './workflowPanelStyles'
 
 const R = 'rounded-none'
-const LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-600'
 
 type Props = {
   value: WorkflowCondition
@@ -53,7 +53,7 @@ function WhereValueInput({
       <select
         value={typeof current === 'string' ? current : ''}
         onChange={(e) => onChange(e.target.value)}
-        className={`${R} w-full border border-neutral-300 bg-white px-2 py-2 text-sm`}
+        className={WF_FIELD_INPUT}
       >
         <option value="">— Velg —</option>
         {field.options.map((o) => (
@@ -68,7 +68,7 @@ function WhereValueInput({
     <input
       value={current != null ? String(current) : ''}
       onChange={(e) => onChange(e.target.value)}
-      className={`${R} w-full border border-neutral-300 px-2 py-2 text-sm`}
+      className={WF_FIELD_INPUT}
       placeholder="Verdi"
     />
   )
@@ -84,36 +84,40 @@ export function WorkflowConditionForm({ value, onChange, sourceModule }: Props) 
 
   if (m === 'always') {
     return (
-      <p className="text-sm text-neutral-600">
-        Denne regelen kjører ved hver lagring i valgt kilde. Velg en annen inndata-mal eller bytt match-type under
-        for å filtrere.
+      <p className={WF_LEAD}>
+        Denne regelen kjører ved hver lagring i valgt kilde. Velg en annen inndata-mal eller bytt match-type over for å
+        filtrere.
       </p>
     )
   }
 
   if (m === 'field_equals') {
     return (
-      <div className="space-y-3 text-sm">
-        <p className="text-xs text-neutral-500">
-          Brukes sjelden — sammenligner én verdi i JSON-lasten (punktum-notasjon).
-        </p>
-        <label className="block">
-          <span className={LABEL}>Feltsti</span>
+      <div className="space-y-4 text-sm">
+        <p className={WF_LEAD}>Brukes sjelden — sammenligner én verdi i data (punktum-notasjon).</p>
+        <div>
+          <label className={WF_FIELD_LABEL} htmlFor="wf-fe-path">
+            Feltsti
+          </label>
           <input
+            id="wf-fe-path"
             value={value.path}
             onChange={(e) => onChange({ ...value, path: e.target.value })}
-            className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2 font-mono text-xs`}
+            className={`${WF_FIELD_INPUT} font-mono text-xs`}
             placeholder="f.eks. tasks.0.status"
           />
-        </label>
-        <label className="block">
-          <span className={LABEL}>Verdi</span>
+        </div>
+        <div>
+          <label className={WF_FIELD_LABEL} htmlFor="wf-fe-val">
+            Verdi
+          </label>
           <input
+            id="wf-fe-val"
             value={value.value}
             onChange={(e) => onChange({ ...value, value: e.target.value })}
-            className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2`}
+            className={WF_FIELD_INPUT}
           />
-        </label>
+        </div>
       </div>
     )
   }
@@ -169,15 +173,18 @@ function ArrayAnyEditor({
 
   return (
     <div className="space-y-4 text-sm">
-      <label className="block">
-        <span className={LABEL}>Hvilken liste?</span>
+      <div>
+        <label className={WF_FIELD_LABEL} htmlFor="wf-array-path">
+          Hvilken liste?
+        </label>
         <select
+          id="wf-array-path"
           value={path}
           onChange={(e) => {
             const p = e.target.value
             onChange({ match: 'array_any', path: p, where: {} })
           }}
-          className={`${R} mt-1 w-full border border-neutral-300 bg-white px-2 py-2`}
+          className={WF_FIELD_INPUT}
         >
           <option value="">— Velg datatype —</option>
           {pathOptions.map((o) => (
@@ -186,16 +193,16 @@ function ArrayAnyEditor({
             </option>
           ))}
         </select>
-      </label>
+      </div>
 
       {path ? (
         <>
-          <p className="text-xs text-neutral-500">
-            Regelen kjører når <strong>minst ett element</strong> i listen oppfyller alle valgte kriterier. Tomt kriterie
-            = «enhver ny eller oppdatert rad» i listen.
+          <p className={WF_LEAD}>
+            Regelen kjører når <strong className="font-semibold">minst ett element</strong> i listen oppfyller alle valgte
+            kriterier. Tomt kriterie = «enhver ny eller oppdatert rad» i listen.
           </p>
-          <div className="space-y-3 border border-neutral-200 bg-neutral-50/80 p-3">
-            <p className={`${LABEL} text-neutral-500`}>Kriterier</p>
+          <div className={`${R} space-y-3 border border-neutral-200/90 bg-white p-4`}>
+            <p className={WF_FIELD_LABEL}>Kriterier</p>
             {fieldDefs.length === 0 ? (
               <p className="text-xs text-amber-800">
                 Ingen forhåndsdefinerte felter for denne listen — bruk egendefinert nedenfor, eller la stå tomt for «alle
@@ -203,8 +210,8 @@ function ArrayAnyEditor({
               </p>
             ) : (
               fieldDefs.map((f) => (
-                <div key={f.key} className="grid gap-1 sm:grid-cols-[1fr_1.2fr] sm:items-end">
-                  <span className="text-xs font-medium text-neutral-700">{f.label}</span>
+                <div key={f.key} className="grid gap-2 sm:grid-cols-[1fr_1.2fr] sm:items-end">
+                  <span className={`${WF_FIELD_LABEL} normal-case tracking-normal text-neutral-700`}>{f.label}</span>
                   <WhereValueInput
                     field={f}
                     current={where[f.key]}
@@ -219,25 +226,25 @@ function ArrayAnyEditor({
                 </div>
               ))
             )}
-            <div className="border-t border-neutral-200 pt-3">
-              <span className={LABEL}>Egendefinert felt</span>
+            <div className="border-t border-neutral-200/80 pt-4">
+              <p className={WF_FIELD_LABEL}>Egendefinert felt</p>
               <div className="mt-2 flex flex-wrap items-end gap-2">
                 <input
                   value={customKey}
                   onChange={(e) => setCustomKey(e.target.value)}
                   placeholder="Feltnavn"
-                  className={`${R} min-w-[8rem] flex-1 border border-neutral-300 px-2 py-2 text-xs`}
+                  className={`${WF_FIELD_INPUT} min-w-[8rem] flex-1 text-xs`}
                 />
                 <input
                   value={customVal}
                   onChange={(e) => setCustomVal(e.target.value)}
                   placeholder="Verdi (valgfritt)"
-                  className={`${R} min-w-[8rem] flex-1 border border-neutral-300 px-2 py-2 text-xs`}
+                  className={`${WF_FIELD_INPUT} min-w-[8rem] flex-1 text-xs`}
                 />
                 <button
                   type="button"
                   onClick={addCustomCriterion}
-                  className={`${R} border border-neutral-400 bg-white px-3 py-2 text-xs font-medium hover:bg-neutral-50`}
+                  className={`${R} border border-neutral-800 bg-[#1a3d32] px-4 py-2.5 text-xs font-medium text-white hover:bg-[#142e26]`}
                 >
                   Legg til
                 </button>

@@ -20,11 +20,12 @@ import {
   defaultTaskAction,
   summarizeAction,
 } from './workflowActionDefaults'
+import { WF_FIELD_INPUT, WF_FIELD_LABEL, WF_LEAD, WF_PANEL_INSET, WF_PANEL_ROW_GRID } from './workflowPanelStyles'
 
 const R = 'rounded-none'
 const BTN =
-  'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 border px-3 text-sm font-medium leading-none'
-const CARD = `${R} border border-neutral-200 bg-white p-3 text-sm shadow-sm`
+  'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-none border px-3 text-sm font-medium leading-none'
+const STEP_CARD = `${R} border border-neutral-200/90 bg-white p-3 text-sm`
 
 type DragPayload =
   | { kind: 'palette_condition'; condition: WorkflowCondition; label: string }
@@ -113,7 +114,7 @@ function StepRow({
 
   return (
     <div
-      className={`${CARD} flex items-stretch gap-2 pl-1 ${selected ? 'ring-2 ring-[#1a3d32] ring-offset-2' : ''}`}
+      className={`${STEP_CARD} flex items-stretch gap-2 pl-1 ${selected ? 'ring-2 ring-[#1a3d32] ring-offset-1' : ''}`}
     >
       <span
         draggable
@@ -305,11 +306,11 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
 
   const renderFlowColumn = (branchId: string | undefined, steps: WorkflowFlowStep[]) => (
     <div
-      className={`${R} min-h-[220px] border-2 border-dashed border-neutral-200 bg-[#faf9f6] p-4`}
+      className={`${R} min-h-[200px] border border-dashed border-neutral-300 bg-neutral-50/80 p-4`}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => handleDropOnList(e, branchId, steps.length)}
     >
-      <p className="mb-3 text-xs font-semibold text-neutral-600">Flyt — dra inn steg eller flytt med håndtaket</p>
+      <p className={`${WF_FIELD_LABEL} mb-3 text-neutral-600`}>Rekkefølge</p>
       <div className="space-y-0">
         {steps.length === 0 ? (
           <p className="py-8 text-center text-sm text-neutral-400">Slipp «Når» eller «Så» her</p>
@@ -346,225 +347,247 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
   )
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(280px,380px)_1fr] lg:items-start">
-      {/* Left: palette + sequence */}
-      <div className="space-y-5">
-        <div className={`${R} border border-neutral-200 bg-white p-4 shadow-sm`}>
-          <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">Dra nytt steg inn i flyten</p>
-          <p className="mt-1 text-xs text-neutral-500">
-            Velg <strong>Når</strong> (hva som utløser) og <strong>Så</strong> (hva som skjer). Kilden er valgt over —
-            «Når» filtrerer data i den modulen.
-          </p>
-          <div className="mt-3 space-y-2">
-            <p className="text-[10px] font-bold uppercase text-neutral-500">Når — inndata</p>
-            <div className="flex flex-wrap gap-2">
-              {inputPresets.map((pr) => {
-                const Icon = pr.icon
-                return (
-                  <div
-                    key={pr.id}
-                    draggable
-                    title={pr.description}
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData(
-                        'application/x-atics-workflow',
-                        JSON.stringify({
-                          kind: 'palette_condition',
-                          condition: pr.condition,
-                          label: pr.label,
-                        } satisfies DragPayload),
-                      )
-                      e.dataTransfer.effectAllowed = 'copy'
-                    }}
-                    className={`${R} flex size-[4.5rem] cursor-grab flex-col items-center justify-center gap-1 border border-dashed border-neutral-300 bg-neutral-50 text-center text-[10px] font-medium leading-tight text-neutral-700 active:cursor-grabbing`}
-                  >
-                    <Icon className="size-5 shrink-0 text-[#1a3d32]" aria-hidden />
-                    <span className="line-clamp-2 px-0.5">{pr.label}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-          <div className="mt-4 space-y-2 border-t border-neutral-100 pt-4">
-            <p className="text-[10px] font-bold uppercase text-neutral-500">Så — handlinger</p>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  { t: 'task' as const, icon: Plus, label: 'Oppgave' },
-                  { t: 'email' as const, icon: Mail, label: 'E-post' },
-                  { t: 'notification' as const, icon: Radio, label: 'Varsling' },
-                  { t: 'webhook' as const, icon: Webhook, label: 'Webhook' },
-                  { t: 'log' as const, icon: FileText, label: 'Logg' },
-                ] as const
-              ).map(({ t, icon: Icon, label }) => (
+    <div className="w-full space-y-0">
+      {/* Full-width palette (above flyt + spesifikasjon) */}
+      <div className={`${WF_PANEL_INSET} w-full max-w-none border-neutral-200/90`}>
+        <p className={WF_FIELD_LABEL}>Dra nytt steg inn i flyten</p>
+        <p className={`${WF_LEAD} mt-2`}>
+          Velg <strong>Når</strong> (hva som utløser) og <strong>Så</strong> (hva som skjer). Kilden velges i feltene over —
+          «Når» filtrerer data i den modulen. Slipp kortene i rekkefølgen under.
+        </p>
+        <div className="mt-5 space-y-3">
+          <p className={WF_FIELD_LABEL}>Når — inndata</p>
+          <div className="flex flex-wrap gap-2">
+            {inputPresets.map((pr) => {
+              const Icon = pr.icon
+              return (
                 <div
-                  key={t}
+                  key={pr.id}
                   draggable
+                  title={pr.description}
                   onDragStart={(e) => {
                     e.dataTransfer.setData(
                       'application/x-atics-workflow',
-                      JSON.stringify({ kind: 'palette_actions', template: t } satisfies DragPayload),
+                      JSON.stringify({
+                        kind: 'palette_condition',
+                        condition: pr.condition,
+                        label: pr.label,
+                      } satisfies DragPayload),
                     )
                     e.dataTransfer.effectAllowed = 'copy'
                   }}
-                  className={`${R} flex size-[4.5rem] cursor-grab flex-col items-center justify-center gap-1 border border-dashed border-[#1a3d32]/40 bg-[#1a3d32]/5 text-center text-[10px] font-semibold text-[#1a3d32] active:cursor-grabbing`}
+                  className={`${R} flex size-[4.5rem] cursor-grab flex-col items-center justify-center gap-1 border border-dashed border-neutral-300 bg-white text-center text-[10px] font-medium leading-tight text-neutral-700 active:cursor-grabbing`}
                 >
-                  <Icon className="size-5 shrink-0" aria-hidden />
-                  {label}
+                  <Icon className="size-5 shrink-0 text-[#1a3d32]" aria-hidden />
+                  <span className="line-clamp-2 px-0.5">{pr.label}</span>
                 </div>
-              ))}
-            </div>
+              )
+            })}
           </div>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-neutral-600">Flyt-modus</span>
-          <button
-            type="button"
-            onClick={() => {
-              const d = { ...value, mode: 'linear' as const }
-              if (d.linearSteps.length === 0) d.linearSteps = defaultWorkflowFlowDocument().linearSteps
-              updateDoc(d)
-            }}
-            className={`${BTN} ${value.mode === 'linear' ? 'border-[#1a3d32] bg-[#1a3d32] text-white' : 'border-neutral-200 bg-white'}`}
-          >
-            Lineær
-          </button>
-          <button
-            type="button"
-            onClick={() => updateDoc({ ...value, mode: 'xor' })}
-            className={`${BTN} ${value.mode === 'xor' ? 'border-[#1a3d32] bg-[#1a3d32] text-white' : 'border-neutral-200 bg-white'}`}
-          >
-            <Split className="size-4" />
-            XOR
-          </button>
-        </div>
-        {value.mode === 'xor' ? (
-          <p className="text-xs text-amber-900">
-            <strong>XOR:</strong> Nøyaktig én gren skal matche. 0 eller flere = ingen handling.
-          </p>
-        ) : (
-          <p className="text-xs text-neutral-600">Alle «Når»-steg må være oppfylt (OG), deretter kjøres «Så»-steg.</p>
-        )}
-
-        {value.mode === 'linear' ? (
-          renderFlowColumn(undefined, value.linearSteps)
-        ) : (
-          <div className="space-y-4">
-            <button
-              type="button"
-              onClick={() =>
-                updateDoc({
-                  ...value,
-                  xorBranches: [
-                    ...value.xorBranches,
-                    { id: newBranchId(), label: `Gren ${value.xorBranches.length + 1}`, steps: [] },
-                  ],
-                })
-              }
-              className={`${BTN} border-neutral-200 bg-white text-neutral-800`}
-            >
-              <Plus className="size-4" />
-              Ny gren
-            </button>
-            <div className="space-y-4">
-              {value.xorBranches.map((branch) => (
-                <div key={branch.id} className={`${R} border border-neutral-200 bg-white p-3`}>
-                  <input
-                    value={branch.label}
-                    onChange={(e) =>
-                      updateDoc({
-                        ...value,
-                        xorBranches: value.xorBranches.map((b) =>
-                          b.id === branch.id ? { ...b, label: e.target.value } : b,
-                        ),
-                      })
-                    }
-                    className={`${R} mb-2 w-full border border-neutral-300 bg-neutral-50 px-2 py-1.5 text-sm font-semibold`}
-                  />
-                  {value.xorBranches.length > 2 ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateDoc({
-                          ...value,
-                          xorBranches: value.xorBranches.filter((b) => b.id !== branch.id),
-                        })
-                      }
-                      className="mb-2 text-xs text-red-600 hover:underline"
-                    >
-                      Slett gren
-                    </button>
-                  ) : null}
-                  {renderFlowColumn(branch.id, branch.steps)}
-                </div>
-              ))}
-            </div>
+        <div className="mt-6 space-y-3 border-t border-neutral-200/80 pt-5">
+          <p className={WF_FIELD_LABEL}>Så — handlinger</p>
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                { t: 'task' as const, icon: Plus, label: 'Oppgave' },
+                { t: 'email' as const, icon: Mail, label: 'E-post' },
+                { t: 'notification' as const, icon: Radio, label: 'Varsling' },
+                { t: 'webhook' as const, icon: Webhook, label: 'Webhook' },
+                { t: 'log' as const, icon: FileText, label: 'Logg' },
+              ] as const
+            ).map(({ t, icon: Icon, label }) => (
+              <div
+                key={t}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(
+                    'application/x-atics-workflow',
+                    JSON.stringify({ kind: 'palette_actions', template: t } satisfies DragPayload),
+                  )
+                  e.dataTransfer.effectAllowed = 'copy'
+                }}
+                className={`${R} flex size-[4.5rem] cursor-grab flex-col items-center justify-center gap-1 border border-dashed border-[#1a3d32]/45 bg-white text-center text-[10px] font-semibold text-[#1a3d32] active:cursor-grabbing`}
+              >
+                <Icon className="size-5 shrink-0" aria-hidden />
+                {label}
+              </div>
+            ))}
           </div>
-        )}
-
-        {compileError ? (
-          <p className={`${R} border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800`}>{compileError}</p>
-        ) : null}
+        </div>
       </div>
 
-      {/* Right: specification */}
-      <div className={`${R} min-h-[320px] border border-neutral-200 bg-white p-5 shadow-sm lg:min-h-[480px]`}>
-        <h4 className="text-xs font-bold uppercase tracking-wide text-neutral-600">Spesifikasjon</h4>
-        {!selectedStep ? (
-          <p className="mt-12 text-center text-sm text-neutral-500">Velg et steg i flyten til venstre for å redigere.</p>
-        ) : selectedStep.kind === 'condition' ? (
-          <div className="mt-4 space-y-4">
-            <label className="block text-sm">
-              <span className="text-xs font-semibold text-neutral-600">Visningsnavn</span>
-              <input
-                value={selectedStep.label ?? ''}
-                onChange={(e) => patchSelectedStep({ ...selectedStep, label: e.target.value })}
-                className={`${R} mt-1 w-full border border-neutral-300 px-3 py-2`}
-                placeholder="F.eks. Kritisk hendelse"
-              />
-            </label>
-            <div>
-              <span className="text-xs font-semibold text-neutral-600">Når skal dette gjelde?</span>
-              <select
-                value={selectedStep.condition.match}
-                onChange={(e) => {
-                  const v = e.target.value
-                  if (v === 'always') patchSelectedStep({ ...selectedStep, condition: { match: 'always' } })
-                  if (v === 'field_equals')
-                    patchSelectedStep({ ...selectedStep, condition: { match: 'field_equals', path: '', value: '' } })
-                  if (v === 'array_any')
-                    patchSelectedStep({ ...selectedStep, condition: { match: 'array_any', path: '', where: {} } })
-                }}
-                className={`${R} mt-2 w-full border border-neutral-300 bg-white px-2 py-2 text-sm`}
+      {/* Same 40/60 split as «Ny oppgave»: flyt | spesifikasjon */}
+      <div className={WF_PANEL_ROW_GRID}>
+        <div className="min-w-0 space-y-4">
+          <div>
+            <p className={WF_FIELD_LABEL}>Flyt</p>
+            <p className={`${WF_LEAD} mt-2`}>
+              Bygg rekkefølgen her. Klikk et steg for å redigere detaljer i spesifikasjonen til høyre — samme mønster som
+              når du oppretter en ny oppgave.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`${WF_FIELD_LABEL} mr-1 text-neutral-600`}>Modus</span>
+            <button
+              type="button"
+              onClick={() => {
+                const d = { ...value, mode: 'linear' as const }
+                if (d.linearSteps.length === 0) d.linearSteps = defaultWorkflowFlowDocument().linearSteps
+                updateDoc(d)
+              }}
+              className={`${BTN} ${value.mode === 'linear' ? 'border-[#1a3d32] bg-[#1a3d32] text-white' : 'border-neutral-300 bg-white'}`}
+            >
+              Lineær
+            </button>
+            <button
+              type="button"
+              onClick={() => updateDoc({ ...value, mode: 'xor' })}
+              className={`${BTN} ${value.mode === 'xor' ? 'border-[#1a3d32] bg-[#1a3d32] text-white' : 'border-neutral-300 bg-white'}`}
+            >
+              <Split className="size-4" />
+              XOR
+            </button>
+          </div>
+
+          {value.mode === 'xor' ? (
+            <p className={`${WF_LEAD} text-amber-950`}>
+              <strong className="font-semibold">XOR:</strong> Nøyaktig én gren skal matche. 0 eller flere treff = ingen
+              handling.
+            </p>
+          ) : (
+            <p className={WF_LEAD}>Alle «Når»-steg kombineres med <strong className="font-semibold">OG</strong>, deretter kjøres «Så»-steg.</p>
+          )}
+
+          {value.mode === 'linear' ? (
+            renderFlowColumn(undefined, value.linearSteps)
+          ) : (
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() =>
+                  updateDoc({
+                    ...value,
+                    xorBranches: [
+                      ...value.xorBranches,
+                      { id: newBranchId(), label: `Gren ${value.xorBranches.length + 1}`, steps: [] },
+                    ],
+                  })
+                }
+                className={`${BTN} border-neutral-300 bg-white text-neutral-800`}
               >
-                <option value="always">Alltid (alle lagringer i kilden)</option>
-                <option value="array_any">Når data i en liste matcher…</option>
-                <option value="field_equals">Når ett felt er lik en verdi (avansert)</option>
-              </select>
+                <Plus className="size-4" />
+                Ny gren
+              </button>
+              <div className="space-y-4">
+                {value.xorBranches.map((branch) => (
+                  <div key={branch.id} className={`${R} border border-neutral-200/90 bg-white p-4`}>
+                    <label className={WF_FIELD_LABEL}>Grenenavn</label>
+                    <input
+                      value={branch.label}
+                      onChange={(e) =>
+                        updateDoc({
+                          ...value,
+                          xorBranches: value.xorBranches.map((b) =>
+                            b.id === branch.id ? { ...b, label: e.target.value } : b,
+                          ),
+                        })
+                      }
+                      className={`${WF_FIELD_INPUT} mt-1.5 font-semibold`}
+                    />
+                    {value.xorBranches.length > 2 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateDoc({
+                            ...value,
+                            xorBranches: value.xorBranches.filter((b) => b.id !== branch.id),
+                          })
+                        }
+                        className="mt-2 text-xs font-medium text-red-700 hover:underline"
+                      >
+                        Slett gren
+                      </button>
+                    ) : null}
+                    <div className="mt-3">{renderFlowColumn(branch.id, branch.steps)}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <WorkflowConditionForm
-              value={selectedStep.condition}
-              onChange={(c) => patchSelectedStep({ ...selectedStep, condition: c })}
-              sourceModule={sourceModule}
-            />
-          </div>
-        ) : (
-          <div className="mt-4 space-y-3">
-            <label className="block text-sm">
-              <span className="text-xs font-semibold text-neutral-600">Visningsnavn</span>
-              <input
-                value={selectedStep.label ?? ''}
-                onChange={(e) => patchSelectedStep({ ...selectedStep, label: e.target.value })}
-                className={`${R} mt-1 w-full border border-neutral-300 px-3 py-2`}
+          )}
+
+          {compileError ? (
+            <p className={`${R} border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800`}>{compileError}</p>
+          ) : null}
+        </div>
+
+        <div className={`${WF_PANEL_INSET} min-h-[min(70vh,36rem)]`}>
+          <h4 className={WF_FIELD_LABEL}>Spesifikasjon</h4>
+          {!selectedStep ? (
+            <p className={`${WF_LEAD} mt-10 text-center`}>Velg et steg i flyten til venstre for å redigere.</p>
+          ) : selectedStep.kind === 'condition' ? (
+            <div className="mt-5 space-y-5">
+              <div>
+                <label className={WF_FIELD_LABEL} htmlFor="wf-step-label-cond">
+                  Visningsnavn
+                </label>
+                <input
+                  id="wf-step-label-cond"
+                  value={selectedStep.label ?? ''}
+                  onChange={(e) => patchSelectedStep({ ...selectedStep, label: e.target.value })}
+                  className={WF_FIELD_INPUT}
+                  placeholder="F.eks. Kritisk hendelse"
+                />
+              </div>
+              <div>
+                <label className={WF_FIELD_LABEL} htmlFor="wf-cond-match">
+                  Når skal dette gjelde?
+                </label>
+                <select
+                  id="wf-cond-match"
+                  value={selectedStep.condition.match}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    if (v === 'always') patchSelectedStep({ ...selectedStep, condition: { match: 'always' } })
+                    if (v === 'field_equals')
+                      patchSelectedStep({ ...selectedStep, condition: { match: 'field_equals', path: '', value: '' } })
+                    if (v === 'array_any')
+                      patchSelectedStep({ ...selectedStep, condition: { match: 'array_any', path: '', where: {} } })
+                  }}
+                  className={WF_FIELD_INPUT}
+                >
+                  <option value="always">Alltid (alle lagringer i kilden)</option>
+                  <option value="array_any">Når data i en liste matcher…</option>
+                  <option value="field_equals">Når ett felt er lik en verdi (avansert)</option>
+                </select>
+              </div>
+              <WorkflowConditionForm
+                value={selectedStep.condition}
+                onChange={(c) => patchSelectedStep({ ...selectedStep, condition: c })}
+                sourceModule={sourceModule}
               />
-            </label>
-            <WorkflowActionsEditor
-              actions={selectedStep.actions}
-              onChange={(a) => patchSelectedStep({ ...selectedStep, actions: a })}
-            />
-          </div>
-        )}
+            </div>
+          ) : (
+            <div className="mt-5 space-y-5">
+              <div>
+                <label className={WF_FIELD_LABEL} htmlFor="wf-step-label-act">
+                  Visningsnavn
+                </label>
+                <input
+                  id="wf-step-label-act"
+                  value={selectedStep.label ?? ''}
+                  onChange={(e) => patchSelectedStep({ ...selectedStep, label: e.target.value })}
+                  className={WF_FIELD_INPUT}
+                />
+              </div>
+              <WorkflowActionsEditor
+                actions={selectedStep.actions}
+                onChange={(a) => patchSelectedStep({ ...selectedStep, actions: a })}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

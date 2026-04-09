@@ -9,10 +9,11 @@ import {
   defaultTaskAction,
   summarizeAction,
 } from './workflowActionDefaults'
+import { WF_FIELD_INPUT, WF_FIELD_LABEL, WF_LEAD } from './workflowPanelStyles'
 
 const R = 'rounded-none'
 const BTN =
-  'inline-flex h-8 shrink-0 items-center justify-center gap-1 border border-neutral-300 bg-white px-2 text-xs font-medium text-neutral-800 hover:bg-neutral-50'
+  'inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-none border border-neutral-300 bg-white px-2 text-xs font-medium text-neutral-800 hover:bg-neutral-50'
 
 type DialogKind = 'email' | 'notification' | 'webhook' | null
 
@@ -29,43 +30,43 @@ function TaskFields({
   onPatch: (p: Partial<WorkflowActionCreateTask>) => void
 }) {
   return (
-    <div className="space-y-2 text-sm">
-      <label className="block">
-        <span className="text-xs text-neutral-600">Tittel</span>
+    <div className="space-y-4 text-sm">
+      <div>
+        <label className={WF_FIELD_LABEL}>Tittel</label>
         <input
           value={t.title}
           onChange={(e) => onPatch({ title: e.target.value })}
-          className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2`}
+          className={WF_FIELD_INPUT}
         />
-      </label>
-      <label className="block">
-        <span className="text-xs text-neutral-600">Beskrivelse</span>
+      </div>
+      <div>
+        <label className={WF_FIELD_LABEL}>Beskrivelse</label>
         <textarea
           value={t.description ?? ''}
           onChange={(e) => onPatch({ description: e.target.value })}
           rows={2}
-          className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2`}
+          className={WF_FIELD_INPUT}
         />
-      </label>
-      <label className="block">
-        <span className="text-xs text-neutral-600">Ansvarlig (tekst)</span>
+      </div>
+      <div>
+        <label className={WF_FIELD_LABEL}>Ansvarlig (tekst)</label>
         <input
           value={t.assignee ?? ''}
           onChange={(e) => onPatch({ assignee: e.target.value })}
-          className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2`}
+          className={WF_FIELD_INPUT}
         />
-      </label>
-      <label className="block">
-        <span className="text-xs text-neutral-600">Frist (dager)</span>
+      </div>
+      <div>
+        <label className={WF_FIELD_LABEL}>Frist (dager)</label>
         <input
           type="number"
           min={0}
           value={t.dueInDays ?? 7}
           onChange={(e) => onPatch({ dueInDays: Number(e.target.value) || 0 })}
-          className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2`}
+          className={WF_FIELD_INPUT}
         />
-      </label>
-      <label className="flex items-center gap-2 text-xs">
+      </div>
+      <label className={`flex items-center gap-2 ${WF_LEAD}`}>
         <input
           type="checkbox"
           checked={Boolean(t.requiresManagementSignOff)}
@@ -222,7 +223,7 @@ export function WorkflowActionsEditor({
 
       <ul className="space-y-2">
         {actions.map((a, i) => (
-          <li key={i} className={`${R} flex flex-wrap items-start gap-2 border border-neutral-200 bg-neutral-50/80 p-2`}>
+          <li key={i} className={`${R} flex flex-wrap items-start gap-2 border border-neutral-200/90 bg-white p-3`}>
             <span className="shrink-0 rounded-none bg-white px-1.5 py-0.5 text-[10px] font-bold uppercase text-neutral-600">
               {a.type.replace('_', ' ')}
             </span>
@@ -243,12 +244,12 @@ export function WorkflowActionsEditor({
               </div>
             ) : null}
             {a.type === 'log_only' ? (
-              <div className="w-full border-t border-neutral-200 pt-2">
-                <label className="block text-xs text-neutral-600">Merknad</label>
+              <div className="w-full border-t border-neutral-200/80 pt-3">
+                <label className={WF_FIELD_LABEL}>Merknad</label>
                 <input
                   value={a.note ?? ''}
                   onChange={(e) => patchLog(i, e.target.value)}
-                  className={`${R} mt-1 w-full border border-neutral-300 px-2 py-1.5 text-xs`}
+                  className={WF_FIELD_INPUT}
                 />
               </div>
             ) : null}
@@ -266,49 +267,49 @@ export function WorkflowActionsEditor({
             className="fixed inset-0 z-[80] bg-black/40"
             onClick={closeDialog}
           />
-          <div className="fixed left-1/2 top-1/2 z-[90] w-[min(100%,28rem)] -translate-x-1/2 -translate-y-1/2 border border-neutral-200 bg-white p-5 shadow-xl">
+          <div className="fixed left-1/2 top-1/2 z-[90] w-[min(100%,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 shadow-xl">
             {dialog === 'email' ? (
               <>
                 <h4 className="text-sm font-semibold text-neutral-900">
                   {editIndex !== null ? 'Rediger e-post' : 'Send e-post (planlagt)'}
                 </h4>
-                <p className="mt-1 text-xs text-neutral-500">
+                <p className={`${WF_LEAD} mt-2`}>
                   Fra / til og innhold lagres i regelen. Faktisk utsending krever server (Edge Function).
                 </p>
-                <div className="mt-4 space-y-2">
-                  <label className="block text-xs">
-                    Fra (e-post)
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <label className={WF_FIELD_LABEL}>Fra (e-post)</label>
                     <input
                       value={emailForm.fromAddress}
                       onChange={(e) => setEmailForm((f: WorkflowSendEmail) => ({ ...f, fromAddress: e.target.value }))}
-                      className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2 text-sm`}
+                      className={WF_FIELD_INPUT}
                     />
-                  </label>
-                  <label className="block text-xs">
-                    Til (e-post)
+                  </div>
+                  <div>
+                    <label className={WF_FIELD_LABEL}>Til (e-post)</label>
                     <input
                       value={emailForm.toAddress}
                       onChange={(e) => setEmailForm((f: WorkflowSendEmail) => ({ ...f, toAddress: e.target.value }))}
-                      className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2 text-sm`}
+                      className={WF_FIELD_INPUT}
                     />
-                  </label>
-                  <label className="block text-xs">
-                    Emne
+                  </div>
+                  <div>
+                    <label className={WF_FIELD_LABEL}>Emne</label>
                     <input
                       value={emailForm.subject}
                       onChange={(e) => setEmailForm((f: WorkflowSendEmail) => ({ ...f, subject: e.target.value }))}
-                      className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2 text-sm`}
+                      className={WF_FIELD_INPUT}
                     />
-                  </label>
-                  <label className="block text-xs">
-                    Innhold
+                  </div>
+                  <div>
+                    <label className={WF_FIELD_LABEL}>Innhold</label>
                     <textarea
                       value={emailForm.body}
                       onChange={(e) => setEmailForm((f: WorkflowSendEmail) => ({ ...f, body: e.target.value }))}
                       rows={5}
-                      className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2 text-sm`}
+                      className={WF_FIELD_INPUT}
                     />
-                  </label>
+                  </div>
                 </div>
                 <div className="mt-4 flex justify-end gap-2">
                   <button type="button" className={BTN} onClick={closeDialog}>
@@ -328,36 +329,36 @@ export function WorkflowActionsEditor({
             {dialog === 'notification' ? (
               <>
                 <h4 className="text-sm font-semibold text-neutral-900">Varsling (logges)</h4>
-                <p className="mt-1 text-xs text-neutral-500">
+                <p className={`${WF_LEAD} mt-2`}>
                   Registreres ved kjøring. In-app toasts styres av brukerinnstillinger.
                 </p>
-                <div className="mt-4 space-y-2">
-                  <label className="block text-xs">
-                    Tittel
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <label className={WF_FIELD_LABEL}>Tittel</label>
                     <input
                       value={notifForm.title}
                       onChange={(e) => setNotifForm((f: WorkflowSendNotification) => ({ ...f, title: e.target.value }))}
-                      className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2 text-sm`}
+                      className={WF_FIELD_INPUT}
                     />
-                  </label>
-                  <label className="block text-xs">
-                    Tekst
+                  </div>
+                  <div>
+                    <label className={WF_FIELD_LABEL}>Tekst</label>
                     <textarea
                       value={notifForm.body}
                       onChange={(e) => setNotifForm((f: WorkflowSendNotification) => ({ ...f, body: e.target.value }))}
                       rows={3}
-                      className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2 text-sm`}
+                      className={WF_FIELD_INPUT}
                     />
-                  </label>
-                  <label className="block text-xs">
-                    Kategori
+                  </div>
+                  <div>
+                    <label className={WF_FIELD_LABEL}>Kategori</label>
                     <input
                       value={notifForm.category ?? ''}
                       onChange={(e) => setNotifForm((f: WorkflowSendNotification) => ({ ...f, category: e.target.value }))}
-                      className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2 text-sm`}
+                      className={WF_FIELD_INPUT}
                       placeholder="workflow"
                     />
-                  </label>
+                  </div>
                 </div>
                 <div className="mt-4 flex justify-end gap-2">
                   <button type="button" className={BTN} onClick={closeDialog}>
@@ -377,20 +378,20 @@ export function WorkflowActionsEditor({
             {dialog === 'webhook' ? (
               <>
                 <h4 className="text-sm font-semibold text-neutral-900">Webhook (planlagt kall)</h4>
-                <p className="mt-1 text-xs text-neutral-500">
+                <p className={`${WF_LEAD} mt-2`}>
                   URL og payload lagres. HTTP fra Postgres kjøres ikke — bruk Edge Function for produksjon.
                 </p>
-                <div className="mt-4 space-y-2">
-                  <label className="block text-xs">
-                    URL
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <label className={WF_FIELD_LABEL}>URL</label>
                     <input
                       value={webhookForm.url}
                       onChange={(e) => setWebhookForm((f: WorkflowCallWebhook) => ({ ...f, url: e.target.value }))}
-                      className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2 font-mono text-xs`}
+                      className={`${WF_FIELD_INPUT} font-mono text-xs`}
                     />
-                  </label>
-                  <label className="block text-xs">
-                    Metode
+                  </div>
+                  <div>
+                    <label className={WF_FIELD_LABEL}>Metode</label>
                     <select
                       value={webhookForm.method ?? 'POST'}
                       onChange={(e) =>
@@ -399,31 +400,31 @@ export function WorkflowActionsEditor({
                           method: e.target.value as 'POST' | 'PUT' | 'GET',
                         }))
                       }
-                      className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2 text-sm`}
+                      className={WF_FIELD_INPUT}
                     >
                       <option value="POST">POST</option>
                       <option value="PUT">PUT</option>
                       <option value="GET">GET</option>
                     </select>
-                  </label>
-                  <label className="block text-xs">
-                    Headers (JSON)
+                  </div>
+                  <div>
+                    <label className={WF_FIELD_LABEL}>Headers (JSON)</label>
                     <textarea
                       value={webhookForm.headersJson ?? '{}'}
                       onChange={(e) => setWebhookForm((f: WorkflowCallWebhook) => ({ ...f, headersJson: e.target.value }))}
                       rows={2}
-                      className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2 font-mono text-xs`}
+                      className={`${WF_FIELD_INPUT} font-mono text-xs`}
                     />
-                  </label>
-                  <label className="block text-xs">
-                    Body
+                  </div>
+                  <div>
+                    <label className={WF_FIELD_LABEL}>Body</label>
                     <textarea
                       value={webhookForm.body ?? ''}
                       onChange={(e) => setWebhookForm((f: WorkflowCallWebhook) => ({ ...f, body: e.target.value }))}
                       rows={3}
-                      className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2 font-mono text-xs`}
+                      className={`${WF_FIELD_INPUT} font-mono text-xs`}
                     />
-                  </label>
+                  </div>
                 </div>
                 <div className="mt-4 flex justify-end gap-2">
                   <button type="button" className={BTN} onClick={closeDialog}>
