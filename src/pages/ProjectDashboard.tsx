@@ -7,12 +7,14 @@ import {
   BookOpen,
   Calendar,
   CalendarRange,
+  CheckCircle2,
   ClipboardList,
   FileText,
   GraduationCap,
   HardHat,
   HeartPulse,
   Kanban,
+  ListChecks,
   Scale,
   ShieldAlert,
   TrendingUp,
@@ -29,11 +31,10 @@ import { useTasks } from '../hooks/useTasks'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { mergeLayoutPayload } from '../lib/layoutLabTokens'
 
-// ─── Layout tokens — matches WorkplaceDashboardPage / OrganisationPage ────────
-
 const PAGE = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
-const CARD = 'rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm'
-const CARD_URGENT = 'rounded-none border border-red-200 bg-red-50/40 p-5 shadow-sm'
+
+const today = new Date()
+const todayStr = today.toISOString().slice(0, 10)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -49,31 +50,31 @@ function daysUntil(iso: string) {
   return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000)
 }
 
-const today = new Date()
-const todayStr = today.toISOString().slice(0, 10)
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function SectionHeader({ title, to }: { title: string; to?: string }) {
-  return (
-    <div className="mb-3 flex items-center justify-between border-b border-neutral-100 pb-2">
-      <h2 className="text-xs font-bold uppercase tracking-wide text-neutral-500">{title}</h2>
-      {to && (
-        <Link to={to} className="text-xs font-medium text-[#1a3d32] hover:underline">
-          Se alle →
-        </Link>
-      )}
-    </div>
-  )
-}
-
-function StatTile({
-  value, label, urgent, to,
-}: { value: number | string; label: string; urgent?: boolean; to?: string }) {
+function KpiCard({
+  label, value, sub, icon: Icon, iconBg, iconFg = 'text-white', to, urgent,
+}: {
+  label: string
+  value: number | string
+  sub?: string
+  icon: React.ComponentType<{ className?: string }>
+  iconBg: string
+  iconFg?: string
+  to?: string
+  urgent?: boolean
+}) {
   const inner = (
-    <div className={`group flex flex-col gap-1 rounded-none border p-4 transition hover:border-neutral-300 ${urgent ? 'border-red-200 bg-red-50/40' : 'border-neutral-200/90 bg-white'}`}>
-      <span className={`text-3xl font-bold tabular-nums leading-none ${urgent ? 'text-red-700' : 'text-neutral-900'}`}>{value}</span>
-      <span className="text-xs text-neutral-500 leading-tight">{label}</span>
+    <div className={`group flex items-start gap-4 border bg-white p-5 shadow-sm transition-shadow hover:shadow-md ${urgent ? 'border-red-200' : 'border-neutral-200/90'}`}>
+      <div className={`flex size-11 shrink-0 items-center justify-center ${iconBg}`}>
+        <Icon className={`size-5 ${iconFg}`} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className={`text-3xl font-bold tabular-nums leading-none ${urgent ? 'text-red-700' : 'text-neutral-900'}`}>
+          {value}
+        </div>
+        <div className="mt-1 text-sm font-medium text-neutral-700">{label}</div>
+        {sub && <div className={`mt-0.5 text-xs ${urgent ? 'text-red-500 font-medium' : 'text-neutral-400'}`}>{sub}</div>}
+      </div>
+      {to && <ArrowRight className="mt-1 size-4 shrink-0 text-neutral-300 transition-colors group-hover:text-neutral-500" />}
     </div>
   )
   return to ? <Link to={to}>{inner}</Link> : inner
@@ -97,23 +98,30 @@ export function ProjectDashboard() {
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const openTasks = useMemo(
-    () => ts.tasks.filter((t) => t.status !== 'done').sort((a, b) => (a.dueDate || '9999') < (b.dueDate || '9999') ? -1 : 1),
+    () => ts.tasks.filter((t) => t.status !== 'done')
+      .sort((a, b) => (a.dueDate || '9999') < (b.dueDate || '9999') ? -1 : 1),
     [ts.tasks],
   )
   const overdueTasks = useMemo(() => openTasks.filter((t) => t.dueDate && t.dueDate < todayStr), [openTasks])
 
   const upcomingMeetings = useMemo(
-    () => council.meetings.filter((m) => m.status === 'planned' && m.startsAt > today.toISOString())
-      .sort((a, b) => a.startsAt.localeCompare(b.startsAt)).slice(0, 5),
+    () => council.meetings
+      .filter((m) => m.status === 'planned' && m.startsAt > today.toISOString())
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+      .slice(0, 5),
     [council.meetings],
   )
   const nextMeeting = upcomingMeetings[0]
 
-  const activeSickLeave = useMemo(() => hse.sickLeaveCases.filter((c) => c.status === 'active' || c.status === 'partial'), [hse.sickLeaveCases])
+  const activeSickLeave = useMemo(
+    () => hse.sickLeaveCases.filter((c) => c.status === 'active' || c.status === 'partial'),
+    [hse.sickLeaveCases],
+  )
 
   const overdueMilestones = useMemo(
     () => activeSickLeave.flatMap((c) =>
-      c.milestones.filter((m) => !m.completedAt && m.dueAt < todayStr)
+      c.milestones
+        .filter((m) => !m.completedAt && m.dueAt < todayStr)
         .map((m) => ({ ...m, employeeName: c.employeeName, caseId: c.id })),
     ).slice(0, 4),
     [activeSickLeave],
@@ -121,24 +129,27 @@ export function ProjectDashboard() {
 
   const openHighRisks = useMemo(
     () => ic.rosAssessments
-      .flatMap((r) => r.rows.filter((row) => !row.done && (row.status ?? 'open') !== 'closed' && row.riskScore >= 12)
+      .flatMap((r) => r.rows
+        .filter((row) => !row.done && (row.status ?? 'open') !== 'closed' && row.riskScore >= 12)
         .map((row) => ({ ...row, assessmentTitle: r.title })))
-      .sort((a, b) => b.riskScore - a.riskScore).slice(0, 4),
+      .sort((a, b) => b.riskScore - a.riskScore)
+      .slice(0, 4),
     [ic.rosAssessments],
   )
 
   const annualEvents = useMemo(() => {
-    const evts: { label: string; date: string; kind: string; to: string }[] = []
-    council.meetings.filter((m) => m.status === 'planned' && m.startsAt > today.toISOString())
-      .forEach((m) => evts.push({ label: m.title, date: m.startsAt, kind: 'AMU-møte', to: '/council?tab=meetings' }))
+    const evts: { label: string; date: string; kind: string; colour: string; to: string }[] = []
+    council.meetings
+      .filter((m) => m.status === 'planned' && m.startsAt > today.toISOString())
+      .forEach((m) => evts.push({ label: m.title, date: m.startsAt, kind: 'AMU-møte', colour: '#1a3d32', to: '/council?tab=meetings' }))
     activeSickLeave.forEach((c) =>
       c.milestones.filter((m) => !m.completedAt && m.dueAt >= todayStr)
-        .forEach((m) => evts.push({ label: `${c.employeeName}: ${m.label}`, date: m.dueAt, kind: 'Sykefravær', to: '/hse?tab=sickness' })),
+        .forEach((m) => evts.push({ label: `${c.employeeName}: ${m.label}`, date: m.dueAt, kind: 'Sykefravær', colour: '#f59e0b', to: '/hse?tab=sickness' })),
     )
     hse.trainingRecords.filter((r) => r.expiresAt && r.expiresAt >= todayStr)
-      .forEach((r) => evts.push({ label: `${r.employeeName}: ${r.trainingKind}`, date: r.expiresAt!, kind: 'Opplæring', to: '/hse?tab=training' }))
+      .forEach((r) => evts.push({ label: `${r.employeeName}: ${r.trainingKind}`, date: r.expiresAt!, kind: 'Opplæring', colour: '#e11d48', to: '/hse?tab=training' }))
     oh.surveys.filter((s) => s.schedule?.enabled && s.schedule.nextRunAt && s.schedule.nextRunAt >= todayStr)
-      .forEach((s) => evts.push({ label: s.title, date: s.schedule!.nextRunAt!, kind: 'Undersøkelse', to: '/org-health?tab=surveys' }))
+      .forEach((s) => evts.push({ label: s.title, date: s.schedule!.nextRunAt!, kind: 'Undersøkelse', colour: '#0d9488', to: '/org-health?tab=surveys' }))
     return evts.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 8)
   }, [council.meetings, activeSickLeave, hse.trainingRecords, oh.surveys])
 
@@ -155,14 +166,13 @@ export function ProjectDashboard() {
     })
   }, [council.meetings, activeSickLeave])
 
-  const KIND_DOT: Record<string, string> = {
-    'AMU-møte': '#1a3d32', 'Sykefravær': '#f59e0b', 'Opplæring': '#ef4444', 'Undersøkelse': '#0d9488',
-  }
+  const openComplianceDone = council.compliance.filter((c) => c.done).length
+  const openComplianceTotal = council.compliance.length
 
   return (
     <div className={PAGE}>
 
-      {/* ── Breadcrumb ──────────────────────────────────────────────────── */}
+      {/* ── Breadcrumb + toolbar ─────────────────────────────────────────── */}
       <nav className="mb-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
         <span>
           <span className="text-neutral-500">Workspace</span>
@@ -171,18 +181,20 @@ export function ProjectDashboard() {
         </span>
         <div className="ml-auto flex flex-wrap gap-2">
           <Link to="/action-board"
-            className="inline-flex h-8 items-center gap-1.5 rounded-none border border-neutral-300 bg-white px-3 text-xs font-medium text-neutral-800 hover:bg-neutral-50">
-            <Kanban className="size-3.5" />Action Board
+            className="inline-flex h-8 items-center gap-1.5 border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-800 shadow-sm hover:bg-neutral-50">
+            <Kanban className="size-3.5 text-violet-600" />
+            Action Board
           </Link>
           <Link to="/aarshjul"
-            className="inline-flex h-8 items-center gap-1.5 rounded-none border border-neutral-300 bg-white px-3 text-xs font-medium text-neutral-800 hover:bg-neutral-50">
-            <CalendarRange className="size-3.5" />Årshjul
+            className="inline-flex h-8 items-center gap-1.5 border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-800 shadow-sm hover:bg-neutral-50">
+            <CalendarRange className="size-3.5 text-amber-500" />
+            Årshjul
           </Link>
         </div>
       </nav>
 
-      {/* ── Page header ─────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-4 border-b border-neutral-200/80 pb-7 sm:flex-row sm:items-start sm:justify-between">
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-3 border-b border-neutral-200/80 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-neutral-900 md:text-3xl"
             style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
@@ -190,71 +202,81 @@ export function ProjectDashboard() {
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
             {today.toLocaleDateString('no-NO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            {nextMeeting && (
-              <span className="ml-3 inline-flex items-center gap-1.5 rounded-none border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-700">
-                <Calendar className="size-3" style={{ color: accent }} />
-                Neste AMU: {fmtDate(nextMeeting.startsAt)} kl. {fmtTime(nextMeeting.startsAt)}
-              </span>
-            )}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-neutral-500">{org.settings.orgName}</span>
-          <span className="inline-flex h-7 items-center gap-1.5 rounded-none border border-neutral-200 bg-white px-2.5 text-xs text-neutral-600">
-            <span className="size-2 rounded-full" style={{ background: accent }} />
-            {org.totalEmployeeCount} ansatte
-          </span>
-        </div>
+        {nextMeeting && (
+          <Link to="/council?tab=meetings"
+            className="inline-flex items-center gap-2 border border-[#1a3d32]/20 bg-[#1a3d32]/5 px-3 py-2 text-xs font-medium text-[#1a3d32] hover:bg-[#1a3d32]/10 transition-colors">
+            <Calendar className="size-3.5" />
+            Neste AMU: {fmtDate(nextMeeting.startsAt)} kl. {fmtTime(nextMeeting.startsAt)}
+          </Link>
+        )}
       </div>
 
-      {/* ── KPI strip ───────────────────────────────────────────────────── */}
-      <div className="mt-6 grid grid-cols-2 gap-px bg-neutral-200/90 border border-neutral-200/90 sm:grid-cols-4">
-        <StatTile
+      {/* ── KPI row — 4 coloured tiles ───────────────────────────────────── */}
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          label="Åpne oppgaver"
           value={openTasks.length}
-          label={overdueTasks.length > 0 ? `Åpne oppgaver · ${overdueTasks.length} forfalt` : 'Åpne oppgaver'}
-          urgent={overdueTasks.length > 0}
+          sub={overdueTasks.length > 0 ? `${overdueTasks.length} forfalt` : 'Ingen forfalte'}
+          icon={ListChecks}
+          iconBg="bg-[#1a3d32]"
           to="/tasks"
+          urgent={overdueTasks.length > 0}
         />
-        <StatTile
+        <KpiCard
+          label="Aktive sykefravær"
           value={hse.stats.activeSickLeave}
-          label={hse.stats.overdueMilestones > 0 ? `Aktive sykefravær · ${hse.stats.overdueMilestones} frister forfalt` : 'Aktive sykefravær'}
-          urgent={hse.stats.overdueMilestones > 0}
+          sub={hse.stats.overdueMilestones > 0 ? `${hse.stats.overdueMilestones} frister forfalt` : 'Alle frister OK'}
+          icon={Users}
+          iconBg="bg-amber-500"
           to="/hse?tab=sickness"
+          urgent={hse.stats.overdueMilestones > 0}
         />
-        <StatTile
+        <KpiCard
+          label="HMS-hendelser åpne"
           value={hse.incidents.filter((i) => i.status !== 'closed').length}
-          label={hse.stats.violence > 0 ? `HMS-hendelser åpne · ${hse.stats.violence} vold/trusler` : 'HMS-hendelser åpne'}
-          urgent={hse.stats.violence > 0}
+          sub={hse.stats.violence > 0 ? `${hse.stats.violence} vold/trusler` : 'Ingen vold/trusler'}
+          icon={ShieldAlert}
+          iconBg={hse.stats.violence > 0 ? 'bg-red-600' : 'bg-orange-500'}
           to="/hse?tab=incidents"
+          urgent={hse.stats.violence > 0}
         />
-        <StatTile
-          value={`${council.compliance.filter((c) => c.done).length}/${council.compliance.length}`}
-          label="Compliance fullført"
+        <KpiCard
+          label="Compliance"
+          value={`${openComplianceDone}/${openComplianceTotal}`}
+          sub={`${openComplianceTotal - openComplianceDone} gjenstår`}
+          icon={CheckCircle2}
+          iconBg={openComplianceDone === openComplianceTotal ? 'bg-emerald-600' : 'bg-sky-600'}
           to="/council?tab=compliance"
         />
       </div>
 
       {/* ── Two-column layout ────────────────────────────────────────────── */}
-      <div className="mt-7 grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
 
-        {/* LEFT */}
-        <div className="space-y-6">
+        {/* LEFT COLUMN */}
+        <div className="space-y-5">
 
-          {/* Weekly calendar */}
-          <div className={CARD}>
-            <SectionHeader title="Denne uken" />
-            <div className="grid grid-cols-7 gap-px bg-neutral-100 border border-neutral-100">
+          {/* Weekly calendar — coloured today, coloured dots */}
+          <div className="border border-neutral-200/90 bg-white shadow-sm">
+            <div className="border-b border-neutral-100 px-5 py-3 flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wide text-neutral-500">Denne uken</h2>
+            </div>
+            <div className="grid grid-cols-7 divide-x divide-neutral-100">
               {weekDays.map(({ iso, dayName, dayNum, meetings, milestones, isToday }) => (
                 <div key={iso}
-                  className={`flex flex-col items-center gap-1 p-2 text-center ${isToday ? 'bg-neutral-900 text-white' : 'bg-white'}`}>
-                  <div className={`text-[9px] font-semibold uppercase ${isToday ? 'text-white/60' : 'text-neutral-400'}`}>{dayName}</div>
-                  <div className={`text-base font-bold tabular-nums ${isToday ? 'text-white' : 'text-neutral-800'}`}>{dayNum}</div>
-                  <div className="flex flex-wrap justify-center gap-0.5 min-h-[10px]">
+                  className={`flex flex-col items-center gap-1.5 px-1 py-3 text-center ${isToday ? 'bg-[#1a3d32]' : 'bg-white hover:bg-neutral-50'} transition-colors`}>
+                  <span className={`text-[9px] font-semibold uppercase ${isToday ? 'text-white/60' : 'text-neutral-400'}`}>{dayName}</span>
+                  <span className={`text-base font-bold tabular-nums ${isToday ? 'text-white' : 'text-neutral-800'}`}>{dayNum}</span>
+                  <div className="flex flex-wrap justify-center gap-0.5 min-h-[8px]">
                     {meetings.slice(0, 3).map((m) => (
-                      <span key={m.id} className="size-1.5 rounded-full block" style={{ background: isToday ? 'rgba(255,255,255,0.7)' : accent }} title={m.title} />
+                      <span key={m.id} title={m.title}
+                        className="size-1.5 block"
+                        style={{ background: isToday ? 'rgba(201,162,39,0.9)' : accent }} />
                     ))}
                     {milestones.slice(0, 2).map((_, i) => (
-                      <span key={i} className="size-1.5 rounded-full block" style={{ background: isToday ? 'rgba(255,180,0,0.8)' : '#f59e0b' }} />
+                      <span key={i} className="size-1.5 block bg-amber-400" />
                     ))}
                   </div>
                 </div>
@@ -262,34 +284,38 @@ export function ProjectDashboard() {
             </div>
           </div>
 
-          {/* Upcoming AMU meetings */}
-          <div className={CARD}>
-            <SectionHeader title="Kommende AMU-møter" to="/council?tab=meetings" />
+          {/* Upcoming meetings — coloured date badges */}
+          <div className="border border-neutral-200/90 bg-white shadow-sm">
+            <div className="border-b border-neutral-100 px-5 py-3 flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wide text-neutral-500">Kommende AMU-møter</h2>
+              <Link to="/council?tab=meetings" className="text-xs font-medium text-[#1a3d32] hover:underline">Se alle →</Link>
+            </div>
             {upcomingMeetings.length === 0 ? (
-              <p className="py-4 text-center text-sm text-neutral-400">Ingen planlagte møter.</p>
+              <p className="px-5 py-6 text-center text-sm text-neutral-400">Ingen planlagte møter.</p>
             ) : (
               <div className="divide-y divide-neutral-100">
                 {upcomingMeetings.map((m) => {
                   const d = daysUntil(m.startsAt)
                   return (
                     <Link key={m.id} to="/council?tab=meetings"
-                      className="flex items-center gap-4 py-3 hover:bg-neutral-50 transition-colors -mx-5 px-5">
-                      <div className="flex size-10 shrink-0 flex-col items-center justify-center border border-neutral-200 bg-neutral-50 text-neutral-800">
-                        <span className="text-[9px] font-semibold uppercase leading-none text-neutral-400">
+                      className="flex items-center gap-4 px-5 py-3.5 hover:bg-neutral-50 transition-colors">
+                      {/* Coloured date box */}
+                      <div className="flex size-11 shrink-0 flex-col items-center justify-center bg-[#1a3d32] text-white">
+                        <span className="text-[9px] font-semibold uppercase leading-none text-[#c9a227]">
                           {new Date(m.startsAt).toLocaleDateString('no-NO', { month: 'short' })}
                         </span>
-                        <span className="text-base font-bold leading-tight tabular-nums">
+                        <span className="text-lg font-bold tabular-nums leading-tight">
                           {new Date(m.startsAt).getDate()}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-neutral-900 truncate">{m.title}</div>
+                        <div className="text-sm font-semibold text-neutral-900 truncate">{m.title}</div>
                         <div className="text-xs text-neutral-400">
                           kl. {fmtTime(m.startsAt)} · {m.location}
                           {m.quarterSlot ? ` · Q${m.quarterSlot}` : ''}
                         </div>
                       </div>
-                      <span className={`shrink-0 rounded-none px-2 py-0.5 text-xs font-semibold ${d <= 3 ? 'bg-red-100 text-red-700' : d <= 7 ? 'bg-amber-100 text-amber-700' : 'bg-neutral-100 text-neutral-600'}`}>
+                      <span className={`shrink-0 px-2 py-0.5 text-xs font-bold ${d <= 3 ? 'bg-red-500 text-white' : d <= 7 ? 'bg-amber-400 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
                         {d === 0 ? 'I dag' : d === 1 ? 'I morgen' : `${d}d`}
                       </span>
                     </Link>
@@ -299,11 +325,14 @@ export function ProjectDashboard() {
             )}
           </div>
 
-          {/* Open tasks */}
-          <div className={CARD}>
-            <SectionHeader title="Åpne oppgaver" to="/tasks" />
+          {/* Open tasks — coloured status dots */}
+          <div className="border border-neutral-200/90 bg-white shadow-sm">
+            <div className="border-b border-neutral-100 px-5 py-3 flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wide text-neutral-500">Åpne oppgaver</h2>
+              <Link to="/tasks" className="text-xs font-medium text-[#1a3d32] hover:underline">Se alle →</Link>
+            </div>
             {openTasks.length === 0 ? (
-              <p className="py-4 text-center text-sm text-neutral-400">Ingen åpne oppgaver.</p>
+              <p className="px-5 py-6 text-center text-sm text-neutral-400">Ingen åpne oppgaver.</p>
             ) : (
               <div className="divide-y divide-neutral-100">
                 {openTasks.slice(0, 7).map((task) => {
@@ -311,14 +340,17 @@ export function ProjectDashboard() {
                   const d = task.dueDate ? daysUntil(task.dueDate) : null
                   return (
                     <Link key={task.id} to="/tasks"
-                      className={`flex items-center gap-3 py-2.5 -mx-5 px-5 hover:bg-neutral-50 transition-colors ${overdue ? 'bg-red-50/30' : ''}`}>
-                      <span className={`size-2 shrink-0 rounded-full ${task.status === 'in_progress' ? 'bg-sky-500' : 'bg-neutral-300'}`} />
+                      className={`flex items-center gap-3 px-5 py-3 hover:bg-neutral-50 transition-colors ${overdue ? 'bg-red-50/40' : ''}`}>
+                      <span className={`size-2.5 shrink-0 ${task.status === 'in_progress' ? 'bg-sky-500' : 'bg-neutral-300'}`} />
                       <div className="flex-1 min-w-0">
                         <span className="text-sm text-neutral-900 truncate">{task.title}</span>
                         {task.ownerRole && <span className="ml-2 text-xs text-neutral-400">{task.ownerRole}</span>}
                       </div>
+                      {task.status === 'in_progress' && (
+                        <span className="shrink-0 bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">Pågår</span>
+                      )}
                       {d !== null && (
-                        <span className={`shrink-0 text-xs font-medium ${overdue ? 'text-red-600' : d <= 3 ? 'text-amber-600' : 'text-neutral-400'}`}>
+                        <span className={`shrink-0 text-xs font-semibold ${overdue ? 'text-red-600' : d <= 3 ? 'text-amber-600' : 'text-neutral-400'}`}>
                           {overdue ? `${Math.abs(d)}d forfalt` : d === 0 ? 'I dag' : `${d}d`}
                         </span>
                       )}
@@ -326,25 +358,33 @@ export function ProjectDashboard() {
                   )
                 })}
                 {openTasks.length > 7 && (
-                  <Link to="/tasks" className="block py-2.5 text-center text-xs font-medium text-[#1a3d32] hover:underline -mx-5 px-5">
-                    + {openTasks.length - 7} til
+                  <Link to="/tasks" className="block px-5 py-2.5 text-center text-xs font-medium text-[#1a3d32] hover:underline bg-neutral-50">
+                    + {openTasks.length - 7} flere oppgaver
                   </Link>
                 )}
               </div>
             )}
           </div>
 
-          {/* High risks */}
+          {/* High risks — coloured score badges */}
           {openHighRisks.length > 0 && (
-            <div className={CARD}>
-              <SectionHeader title="Høyrisikoer (ROS ≥ 12)" to="/internal-control?tab=ros" />
-              <div className="divide-y divide-neutral-100">
+            <div className="border border-amber-200/80 bg-white shadow-sm">
+              <div className="border-b border-amber-100 bg-amber-50/60 px-5 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="size-4 text-amber-500" />
+                  <h2 className="text-xs font-bold uppercase tracking-wide text-amber-700">Høyrisikoer (ROS ≥ 12)</h2>
+                </div>
+                <Link to="/internal-control?tab=ros" className="text-xs font-medium text-amber-700 hover:underline">Se alle →</Link>
+              </div>
+              <div className="divide-y divide-amber-100">
                 {openHighRisks.map((row) => (
                   <Link key={row.id} to="/internal-control?tab=ros"
-                    className="flex items-center gap-3 py-2.5 -mx-5 px-5 hover:bg-neutral-50 transition-colors">
-                    <span className={`shrink-0 rounded-none border px-2 py-0.5 text-xs font-bold tabular-nums ${row.riskScore >= 15 ? 'border-red-200 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>{row.riskScore}</span>
+                    className="flex items-center gap-3 px-5 py-3 hover:bg-amber-50/40 transition-colors">
+                    <span className={`shrink-0 w-10 px-2 py-0.5 text-center text-xs font-bold ${row.riskScore >= 15 ? 'bg-red-500 text-white' : 'bg-amber-400 text-white'}`}>
+                      {row.riskScore}
+                    </span>
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm text-neutral-900 truncate">{row.hazard}</span>
+                      <span className="text-sm font-medium text-neutral-900 truncate">{row.hazard}</span>
                       <span className="ml-2 text-xs text-neutral-400">{row.assessmentTitle}</span>
                     </div>
                     <ArrowRight className="size-3.5 text-neutral-300 shrink-0" />
@@ -354,21 +394,27 @@ export function ProjectDashboard() {
             </div>
           )}
 
-          {/* Overdue milestones */}
+          {/* Overdue milestones — red */}
           {overdueMilestones.length > 0 && (
-            <div className={CARD_URGENT}>
-              <SectionHeader title="Forfalte sykefravær-frister" to="/hse?tab=sickness" />
+            <div className="border border-red-200 bg-red-50/30 shadow-sm">
+              <div className="border-b border-red-200 bg-red-50/70 px-5 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="size-4 text-red-500" />
+                  <h2 className="text-xs font-bold uppercase tracking-wide text-red-700">Forfalte sykefravær-frister</h2>
+                </div>
+                <Link to="/hse?tab=sickness" className="text-xs font-medium text-red-700 hover:underline">Åpne →</Link>
+              </div>
               <div className="divide-y divide-red-100">
                 {overdueMilestones.map((m) => (
                   <Link key={`${m.caseId}-${m.kind}`} to="/hse?tab=sickness"
-                    className="flex items-center gap-3 py-2.5 -mx-5 px-5 hover:bg-red-50/60 transition-colors">
-                    <AlertTriangle className="size-4 shrink-0 text-red-500" />
+                    className="flex items-center gap-3 px-5 py-3 hover:bg-red-50/60 transition-colors">
+                    <AlertTriangle className="size-4 shrink-0 text-red-400" />
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-medium text-neutral-900 truncate">{m.label}</span>
                       <span className="ml-2 text-xs text-neutral-500">{m.employeeName}</span>
                     </div>
-                    <span className="shrink-0 rounded-none bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-                      {Math.abs(daysUntil(m.dueAt))}d forfalt
+                    <span className="shrink-0 bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                      {Math.abs(daysUntil(m.dueAt))}d
                     </span>
                   </Link>
                 ))}
@@ -379,98 +425,123 @@ export function ProjectDashboard() {
         </div>
 
         {/* RIGHT SIDEBAR */}
-        <div className="space-y-5">
+        <div className="space-y-4">
 
-          {/* Org snapshot */}
-          <div className={CARD}>
-            <SectionHeader title="Virksomhet" />
-            <div className="flex items-center gap-3 mb-4">
-              <Scale className="size-5 shrink-0" style={{ color: accent }} />
+          {/* Org snapshot — dark brand header */}
+          <div className="border border-neutral-200/90 bg-white shadow-sm overflow-hidden">
+            <div className="bg-[#1a3d32] px-5 py-4 flex items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center bg-[#c9a227]/20">
+                <Scale className="size-5 text-[#c9a227]" />
+              </div>
               <div>
-                <div className="text-sm font-semibold text-neutral-900">{org.settings.orgName}</div>
-                <div className="text-xs text-neutral-400">{org.totalEmployeeCount} ansatte · {rep.members.length} repr.</div>
+                <div className="text-sm font-semibold text-white">{org.settings.orgName}</div>
+                <div className="text-xs text-white/50">{org.totalEmployeeCount} ansatte · {rep.members.length} repr.</div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-px bg-neutral-100 border border-neutral-100">
+            <div className="grid grid-cols-2 divide-x divide-y divide-neutral-100">
               {[
-                { label: 'AMU-møter i år', value: council.meetings.filter((m) => m.governanceYear === today.getFullYear()).length, to: '/council?tab=meetings' },
-                { label: 'Vernerunder', value: hse.stats.rounds, to: '/hse?tab=rounds' },
-                { label: 'Inspeksjoner åpne', value: hse.stats.openInspections, to: '/hse?tab=inspections' },
-                { label: 'ROS-vurderinger', value: ic.stats.rosCount, to: '/internal-control?tab=ros' },
-              ].map(({ label, value, to }) => (
-                <Link key={label} to={to} className="group bg-white px-3 py-2.5 hover:bg-neutral-50 transition-colors">
-                  <div className="text-xl font-bold tabular-nums text-neutral-900">{value}</div>
+                { label: 'AMU-møter i år', value: council.meetings.filter((m) => m.governanceYear === today.getFullYear()).length, colour: 'text-[#1a3d32]', to: '/council?tab=meetings' },
+                { label: 'Vernerunder', value: hse.stats.rounds, colour: 'text-emerald-700', to: '/hse?tab=rounds' },
+                { label: 'Inspeksjoner åpne', value: hse.stats.openInspections, colour: hse.stats.openInspections > 0 ? 'text-amber-600' : 'text-neutral-700', to: '/hse?tab=inspections' },
+                { label: 'ROS-vurderinger', value: ic.stats.rosCount, colour: 'text-sky-700', to: '/internal-control?tab=ros' },
+              ].map(({ label, value, colour, to }) => (
+                <Link key={label} to={to} className="px-4 py-3 hover:bg-neutral-50 transition-colors">
+                  <div className={`text-2xl font-bold tabular-nums ${colour}`}>{value}</div>
                   <div className="text-[10px] text-neutral-500 leading-tight">{label}</div>
                 </Link>
               ))}
             </div>
           </div>
 
-          {/* E-learning */}
-          <div className={CARD}>
-            <SectionHeader title="E-læring" to="/learning" />
-            <div className="grid grid-cols-2 gap-px bg-neutral-100 border border-neutral-100 mb-4">
-              <div className="bg-white px-3 py-2.5">
-                <div className="text-xl font-bold tabular-nums text-neutral-900">{learning.courses.filter((c) => c.status === 'published').length}</div>
-                <div className="text-[10px] text-neutral-500">Kurs publisert</div>
+          {/* E-learning — teal accent */}
+          <div className="border border-neutral-200/90 bg-white shadow-sm overflow-hidden">
+            <div className="border-b border-teal-100 bg-teal-600 px-5 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="size-4 text-white" />
+                <h2 className="text-xs font-bold uppercase tracking-wide text-white">E-læring</h2>
               </div>
-              <div className="bg-white px-3 py-2.5">
-                <div className="text-xl font-bold tabular-nums text-neutral-900">{learning.certificates.length}</div>
-                <div className="text-[10px] text-neutral-500">Sertifikater</div>
+              <Link to="/learning" className="text-xs font-medium text-teal-100 hover:underline">Se alle →</Link>
+            </div>
+            <div className="grid grid-cols-2 divide-x divide-neutral-100 border-b border-neutral-100">
+              <div className="px-4 py-3 bg-teal-50/50">
+                <div className="text-2xl font-bold tabular-nums text-teal-700">{learning.courses.filter((c) => c.status === 'published').length}</div>
+                <div className="text-[10px] text-teal-600">Publiserte kurs</div>
+              </div>
+              <div className="px-4 py-3 bg-sky-50/50">
+                <div className="text-2xl font-bold tabular-nums text-sky-700">{learning.certificates.length}</div>
+                <div className="text-[10px] text-sky-600">Sertifikater</div>
               </div>
             </div>
-            {learning.courses.filter((c) => c.status === 'published').slice(0, 3).map((c) => (
-              <Link key={c.id} to={`/learning/play/${c.id}`}
-                className="flex items-center gap-2 py-1.5 text-xs text-neutral-700 hover:text-[#1a3d32] transition-colors">
-                <GraduationCap className="size-3.5 shrink-0 text-neutral-400" />
-                <span className="flex-1 truncate">{c.title}</span>
-                <ArrowRight className="size-3 text-neutral-300 shrink-0" />
-              </Link>
-            ))}
+            <div className="divide-y divide-neutral-100">
+              {learning.courses.filter((c) => c.status === 'published').slice(0, 3).map((c) => (
+                <Link key={c.id} to={`/learning/play/${c.id}`}
+                  className="flex items-center gap-2 px-5 py-2.5 hover:bg-neutral-50 transition-colors">
+                  <GraduationCap className="size-3.5 shrink-0 text-teal-500" />
+                  <span className="flex-1 truncate text-xs text-neutral-700">{c.title}</span>
+                  <ArrowRight className="size-3 text-neutral-300 shrink-0" />
+                </Link>
+              ))}
+            </div>
           </div>
 
-          {/* Org health */}
-          <div className={CARD}>
-            <SectionHeader title="Organisasjonshelse" to="/org-health" />
-            <div className="space-y-3">
+          {/* Org health — pink/rose accent */}
+          <div className="border border-neutral-200/90 bg-white shadow-sm overflow-hidden">
+            <div className="border-b border-pink-100 bg-pink-600 px-5 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <HeartPulse className="size-4 text-white" />
+                <h2 className="text-xs font-bold uppercase tracking-wide text-white">Organisasjonshelse</h2>
+              </div>
+              <Link to="/org-health" className="text-xs font-medium text-pink-100 hover:underline">Se alt →</Link>
+            </div>
+            <div className="divide-y divide-neutral-100">
               {[
-                { label: 'Sykefravær siste', value: oh.navSummary.latestPercent != null ? `${oh.navSummary.latestPercent}%` : '—', icon: HeartPulse },
-                { label: 'Anon. meldinger', value: String(oh.amlReportStats.total), icon: BarChart3 },
-                { label: 'Undersøkelser', value: String(oh.surveys.length), icon: ClipboardList },
-              ].map(({ label, value, icon: Icon }) => (
-                <div key={label} className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-neutral-600"><Icon className="size-3.5 text-neutral-400" />{label}</span>
-                  <span className="font-semibold text-neutral-900 tabular-nums">{value}</span>
+                { label: 'Sykefravær siste', value: oh.navSummary.latestPercent != null ? `${oh.navSummary.latestPercent}%` : '—', icon: HeartPulse, iconCls: 'text-pink-500' },
+                { label: 'Anon. meldinger', value: String(oh.amlReportStats.total), icon: BarChart3, iconCls: 'text-sky-500' },
+                { label: 'Undersøkelser', value: String(oh.surveys.length), icon: ClipboardList, iconCls: 'text-teal-500' },
+              ].map(({ label, value, icon: Icon, iconCls }) => (
+                <div key={label} className="flex items-center justify-between px-5 py-2.5 text-sm">
+                  <span className="flex items-center gap-2 text-neutral-600">
+                    <Icon className={`size-3.5 ${iconCls}`} />
+                    {label}
+                  </span>
+                  <span className="font-bold tabular-nums text-neutral-900">{value}</span>
                 </div>
               ))}
               {oh.surveys.filter((s) => s.status === 'open').length > 0 && (
                 <Link to="/org-health?tab=surveys"
-                  className="mt-1 block rounded-none border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-800 hover:bg-neutral-100 transition-colors">
+                  className="flex items-center gap-2 bg-teal-50 px-5 py-2.5 text-xs font-medium text-teal-800 hover:bg-teal-100 transition-colors">
+                  <span className="size-2 bg-teal-500" />
                   {oh.surveys.filter((s) => s.status === 'open').length} åpen undersøkelse pågår →
                 </Link>
               )}
             </div>
           </div>
 
-          {/* Årshjul upcoming */}
-          <div className={CARD}>
-            <SectionHeader title="Kommende i årshjulet" to="/aarshjul" />
+          {/* Årshjul — coloured kind dots */}
+          <div className="border border-neutral-200/90 bg-white shadow-sm overflow-hidden">
+            <div className="border-b border-neutral-100 px-5 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CalendarRange className="size-4 text-amber-500" />
+                <h2 className="text-xs font-bold uppercase tracking-wide text-neutral-500">Årshjulet — kommende</h2>
+              </div>
+              <Link to="/aarshjul" className="text-xs font-medium text-[#1a3d32] hover:underline">Åpne →</Link>
+            </div>
             {annualEvents.length === 0 ? (
-              <p className="py-3 text-center text-xs text-neutral-400">Ingen kommende hendelser.</p>
+              <p className="px-5 py-5 text-center text-xs text-neutral-400">Ingen kommende hendelser.</p>
             ) : (
-              <div className="space-y-0 divide-y divide-neutral-100">
+              <div className="divide-y divide-neutral-100">
                 {annualEvents.map((evt, i) => {
                   const d = daysUntil(evt.date)
-                  const dot = KIND_DOT[evt.kind] ?? '#9ca3af'
                   return (
                     <Link key={i} to={evt.to}
-                      className="flex items-center gap-2.5 py-2 hover:bg-neutral-50 -mx-5 px-5 transition-colors">
-                      <span className="size-2 shrink-0 rounded-full" style={{ background: dot }} />
+                      className="flex items-start gap-2.5 px-5 py-2.5 hover:bg-neutral-50 transition-colors">
+                      <span className="mt-1.5 size-2 shrink-0" style={{ background: evt.colour }} />
                       <div className="flex-1 min-w-0">
                         <span className="text-xs font-medium text-neutral-800 truncate block">{evt.label}</span>
-                        <span className="text-[10px] text-neutral-400">{evt.kind} · {fmtDate(evt.date)}</span>
+                        <span className="text-[10px]" style={{ color: evt.colour }}>{evt.kind}</span>
+                        <span className="text-[10px] text-neutral-400"> · {fmtDate(evt.date)}</span>
                       </div>
-                      <span className={`shrink-0 text-[10px] font-semibold tabular-nums ${d <= 7 ? 'text-red-500' : d <= 30 ? 'text-amber-500' : 'text-neutral-400'}`}>
+                      <span className={`shrink-0 text-[10px] font-bold tabular-nums ${d <= 7 ? 'text-red-600' : d <= 30 ? 'text-amber-500' : 'text-neutral-400'}`}>
                         {d === 0 ? 'i dag' : `${d}d`}
                       </span>
                     </Link>
@@ -480,22 +551,26 @@ export function ProjectDashboard() {
             )}
           </div>
 
-          {/* Quick links */}
-          <div className={CARD}>
-            <SectionHeader title="Snarveier" />
-            <div className="grid grid-cols-2 gap-1">
+          {/* Quick links — coloured icons */}
+          <div className="border border-neutral-200/90 bg-white shadow-sm">
+            <div className="border-b border-neutral-100 px-5 py-3">
+              <h2 className="text-xs font-bold uppercase tracking-wide text-neutral-500">Snarveier</h2>
+            </div>
+            <div className="grid grid-cols-2 divide-x divide-y divide-neutral-100">
               {[
-                { label: 'Meld hendelse', to: '/hse?tab=incidents', icon: ShieldAlert },
-                { label: 'Ny ROS', to: '/internal-control?tab=ros', icon: AlertTriangle },
-                { label: 'Council', to: '/council', icon: Scale },
-                { label: 'Internkontroll', to: '/internal-control', icon: ClipboardList },
-                { label: 'Documents', to: '/documents', icon: FileText },
-                { label: 'Organisasjon', to: '/organisation', icon: Users },
-              ].map(({ label, to, icon: Icon }) => (
+                { label: 'Meld hendelse', to: '/hse?tab=incidents', icon: ShieldAlert, iconCls: 'text-red-500', bg: 'bg-red-50' },
+                { label: 'Ny ROS', to: '/internal-control?tab=ros', icon: AlertTriangle, iconCls: 'text-amber-500', bg: 'bg-amber-50' },
+                { label: 'Council', to: '/council', icon: Scale, iconCls: 'text-[#1a3d32]', bg: 'bg-emerald-50' },
+                { label: 'Internkontroll', to: '/internal-control', icon: ClipboardList, iconCls: 'text-violet-600', bg: 'bg-violet-50' },
+                { label: 'Documents', to: '/documents', icon: FileText, iconCls: 'text-sky-600', bg: 'bg-sky-50' },
+                { label: 'Organisasjon', to: '/organisation', icon: Users, iconCls: 'text-emerald-600', bg: 'bg-emerald-50' },
+              ].map(({ label, to, icon: Icon, iconCls, bg }) => (
                 <Link key={to} to={to}
-                  className="flex items-center gap-2 rounded-none border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50 transition-colors">
-                  <Icon className="size-3.5 shrink-0 text-neutral-400" />
-                  {label}
+                  className="flex items-center gap-2.5 px-4 py-3 hover:bg-neutral-50 transition-colors">
+                  <span className={`flex size-7 shrink-0 items-center justify-center ${bg}`}>
+                    <Icon className={`size-4 ${iconCls}`} />
+                  </span>
+                  <span className="text-xs font-medium text-neutral-700">{label}</span>
                 </Link>
               ))}
             </div>
@@ -504,19 +579,21 @@ export function ProjectDashboard() {
         </div>
       </div>
 
-      {/* ── Bottom metric bar ────────────────────────────────────────────── */}
-      <div className="mt-6 grid grid-cols-2 gap-px bg-neutral-200/90 border border-neutral-200/90 sm:grid-cols-4">
+      {/* ── Bottom metrics — coloured icons ─────────────────────────────── */}
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { value: hse.stats.expiredTraining, label: 'Utløpt opplæring', urgent: hse.stats.expiredTraining > 0, to: '/hse?tab=training', icon: GraduationCap },
-          { value: ic.stats.rosCount, label: 'ROS-vurderinger', to: '/internal-control?tab=ros', icon: TrendingUp },
-          { value: hse.stats.rounds, label: 'Vernerunder totalt', to: '/hse?tab=rounds', icon: HardHat },
-          { value: oh.surveys.filter((s) => s.status === 'open').length, label: 'Aktive undersøkelser', to: '/org-health?tab=surveys', icon: BookOpen },
-        ].map(({ value, label, urgent, to, icon: Icon }) => (
+          { value: hse.stats.expiredTraining, label: 'Utløpt opplæring', iconBg: 'bg-rose-500', icon: GraduationCap, urgent: hse.stats.expiredTraining > 0, to: '/hse?tab=training' },
+          { value: ic.stats.rosCount, label: 'ROS-vurderinger', iconBg: 'bg-amber-500', icon: TrendingUp, to: '/internal-control?tab=ros' },
+          { value: hse.stats.rounds, label: 'Vernerunder totalt', iconBg: 'bg-emerald-600', icon: HardHat, to: '/hse?tab=rounds' },
+          { value: oh.surveys.filter((s) => s.status === 'open').length, label: 'Aktive undersøkelser', iconBg: 'bg-teal-600', icon: BookOpen, to: '/org-health?tab=surveys' },
+        ].map(({ value, label, iconBg, icon: Icon, urgent, to }) => (
           <Link key={label} to={to}
-            className={`group flex items-center gap-3 bg-white px-4 py-3 hover:bg-neutral-50 transition-colors ${urgent ? 'bg-red-50/40' : ''}`}>
-            <Icon className={`size-4 shrink-0 ${urgent ? 'text-red-500' : 'text-neutral-400'}`} />
+            className={`group flex items-center gap-3 border bg-white p-4 shadow-sm transition-shadow hover:shadow-md ${urgent ? 'border-red-200' : 'border-neutral-200/90'}`}>
+            <div className={`flex size-10 shrink-0 items-center justify-center ${iconBg}`}>
+              <Icon className="size-5 text-white" />
+            </div>
             <div>
-              <div className={`text-xl font-bold tabular-nums ${urgent ? 'text-red-700' : 'text-neutral-900'}`}>{value}</div>
+              <div className={`text-2xl font-bold tabular-nums ${urgent ? 'text-red-700' : 'text-neutral-900'}`}>{value}</div>
               <div className="text-[10px] text-neutral-500 leading-tight">{label}</div>
             </div>
           </Link>
