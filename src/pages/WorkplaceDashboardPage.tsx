@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { GripVertical, LayoutDashboard, Loader2, Pencil, Plus, X } from 'lucide-react'
+import { Link, NavLink, useLocation, useSearchParams } from 'react-router-dom'
+import { GripVertical, LayoutDashboard, LayoutList, Loader2, Pencil, Plus, Save, X } from 'lucide-react'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useReporting } from '../hooks/useReporting'
@@ -70,6 +70,8 @@ export function WorkplaceDashboardPage() {
 
   const wd = useWorkplaceDashboard()
   const [editMode, setEditMode] = useState(false)
+  const [saveBusy, setSaveBusy] = useState(false)
+  const [saveHint, setSaveHint] = useState<string | null>(null)
   const year = new Date().getFullYear()
   const [y, setY] = useState(year)
   const [datasets, setDatasets] = useState<Record<string, unknown>>({})
@@ -194,6 +196,20 @@ export function WorkplaceDashboardPage() {
   const placed = activeTab ? placedModuleIds(activeTab.rows) : new Set<string>()
   const unplacedModules = activeTab?.inventory.filter((m) => !placed.has(m.id)) ?? []
 
+  async function handleSaveDashboard() {
+    setSaveBusy(true)
+    setSaveHint(null)
+    try {
+      await wd.flushSave()
+      setSaveHint(supabaseConfigured ? 'Lagret til organisasjonen.' : 'Lagret lokalt (økt).')
+      window.setTimeout(() => setSaveHint(null), 4000)
+    } catch {
+      /* wd.error set in hook */
+    } finally {
+      setSaveBusy(false)
+    }
+  }
+
   function onDropCell(e: React.DragEvent, rowId: string, cellId: string) {
     e.preventDefault()
     if (!activeTab) return
@@ -239,49 +255,61 @@ export function WorkplaceDashboardPage() {
       </nav>
 
       <header className="border-b border-neutral-200/80 pb-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1
-              className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-            >
-              Arbeidsplass-dashbord
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-neutral-600">
-              Bygg faner med rutenett (12 kolonner), dra rapport-widgets inn fra paletten — samme modultyper som under
-              Rapporter. Data hentes med samme datasett-motor som rapportbyggeren.
-            </p>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1
+                className="text-2xl font-semibold text-neutral-900 md:text-3xl"
+                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+              >
+                Arbeidsplass-dashbord
+              </h1>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-neutral-600">
+                Bygg faner med rutenett (12 kolonner), dra rapport-widgets inn fra paletten — samme modultyper som under
+                Rapporter. Data hentes med samme datasett-motor som rapportbyggeren.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className={`${BTN} cursor-pointer`}>
+                År{' '}
+                <input
+                  type="number"
+                  value={y}
+                  min={2000}
+                  max={2100}
+                  onChange={(e) => setY(Number(e.target.value))}
+                  className="ml-2 w-[4.5rem] rounded-none border border-neutral-200 bg-white px-2 py-1 text-center text-sm tabular-nums"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => void refreshData()}
+                disabled={dataLoading}
+                className={BTN}
+              >
+                {dataLoading ? <Loader2 className="size-4 animate-spin" /> : null}
+                Oppdater data
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSaveDashboard()}
+                disabled={saveBusy}
+                className={BTN_PRI}
+              >
+                {saveBusy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4 shrink-0" />}
+                Lagre dashbord
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditMode((v) => !v)}
+                className={editMode ? `${BTN_PRI} border-[#1a3d32]` : BTN}
+              >
+                <Pencil className="size-4 shrink-0" />
+                {editMode ? 'Visning' : 'Rediger layout'}
+              </button>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className={`${BTN} cursor-pointer`}>
-              År{' '}
-              <input
-                type="number"
-                value={y}
-                min={2000}
-                max={2100}
-                onChange={(e) => setY(Number(e.target.value))}
-                className="ml-2 w-[4.5rem] rounded-none border border-neutral-200 bg-white px-2 py-1 text-center text-sm tabular-nums"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={() => void refreshData()}
-              disabled={dataLoading}
-              className={BTN}
-            >
-              {dataLoading ? <Loader2 className="size-4 animate-spin" /> : null}
-              Oppdater data
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditMode((v) => !v)}
-              className={editMode ? `${BTN_PRI} border-[#1a3d32]` : BTN}
-            >
-              <Pencil className="size-4 shrink-0" />
-              {editMode ? 'Visning' : 'Rediger layout'}
-            </button>
-          </div>
+          {saveHint ? <p className="text-sm text-emerald-800">{saveHint}</p> : null}
         </div>
       </header>
 
@@ -289,17 +317,24 @@ export function WorkplaceDashboardPage() {
         className="mt-6 flex flex-col gap-3 border-b border-neutral-200/80 pb-6 sm:flex-row sm:flex-wrap sm:items-center"
         aria-label="Arbeidsplassrapportering"
       >
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
+          <LayoutList className="size-4" aria-hidden />
+          Meny
+        </div>
+        <div className="flex flex-wrap gap-2 sm:ml-2">
           {WORKPLACE_REPORTING_NAV.map(({ to, label, end }) => (
-            <Link
+            <NavLink
               key={to}
               to={to}
-              className={workplaceReportingMenuLinkClass(
-                workplaceReportingNavMatch(to, end, location.pathname, location.search),
-              )}
+              end={end}
+              className={() =>
+                workplaceReportingMenuLinkClass(
+                  workplaceReportingNavMatch(to, end, location.pathname, location.search),
+                )
+              }
             >
               {label}
-            </Link>
+            </NavLink>
           ))}
         </div>
       </nav>

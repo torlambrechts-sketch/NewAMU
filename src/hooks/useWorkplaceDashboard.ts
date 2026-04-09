@@ -118,6 +118,28 @@ export function useWorkplaceDashboard() {
     [useRemote, supabase, orgId],
   )
 
+  /** Write current payload immediately (for explicit «Lagre»; also clears pending debounced save). */
+  const flushSave = useCallback(async (): Promise<void> => {
+    const next = payloadRef.current
+    if (persistTimer.current) {
+      clearTimeout(persistTimer.current)
+      persistTimer.current = null
+    }
+    if (!useRemote) {
+      writeLocal(orgId, next)
+      return
+    }
+    if (!supabase || !orgId) return
+    try {
+      await upsertOrgModulePayload(supabase, orgId, MODULE_KEY, next)
+      writeOrgModuleSnap(MODULE_KEY, orgId, SNAP_USER, next)
+      setError(null)
+    } catch (e) {
+      setError(getSupabaseErrorMessage(e))
+      throw e
+    }
+  }, [useRemote, supabase, orgId])
+
   const setPayloadAndPersist = useCallback(
     (updater: (prev: WorkplaceDashboardPayload) => WorkplaceDashboardPayload) => {
       setPayload((prev) => {
@@ -133,10 +155,11 @@ export function useWorkplaceDashboard() {
     () => ({
       payload,
       setPayloadAndPersist,
+      flushSave,
       loading: useRemote ? loading : false,
       error: useRemote ? error : null,
       refresh,
     }),
-    [payload, setPayloadAndPersist, loading, error, refresh, useRemote],
+    [payload, setPayloadAndPersist, flushSave, loading, error, refresh, useRemote],
   )
 }
