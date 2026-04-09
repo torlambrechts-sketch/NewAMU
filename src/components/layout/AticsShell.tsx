@@ -419,6 +419,7 @@ export function AticsShell() {
     setNavMode(mode)
     saveNavMode(mode)
     setSettingsOpen(false)
+    if (mode === 'sidebar') setSubNavCollapsed(false)
   }
 
   // ── Sidebar layout ──────────────────────────────────────────────────────────
@@ -464,6 +465,25 @@ export function AticsShell() {
               )
             })}
           </nav>
+
+          {/* Section rail toggle — always on this column (mid rail can be absent before activeGroup resolves) */}
+          <div className="border-t border-white/10 px-2 py-2">
+            <button
+              type="button"
+              onClick={() => setSubNavCollapsed((c) => !c)}
+              className={`flex w-full items-center justify-center rounded-lg p-3 transition-colors ${
+                subNavCollapsed ? 'bg-white/15 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'
+              }`}
+              aria-label={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
+              title={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
+            >
+              {subNavCollapsed ? (
+                <PanelRight className="size-[1.125rem] shrink-0" aria-hidden />
+              ) : (
+                <PanelLeft className="size-[1.125rem] shrink-0" aria-hidden />
+              )}
+            </button>
+          </div>
 
           {/* Bottom: layout switcher */}
           <div className="flex flex-col gap-1.5 border-t border-white/10 px-2 py-4">
