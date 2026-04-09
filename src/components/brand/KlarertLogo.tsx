@@ -1,27 +1,44 @@
 import type { SVGProps } from 'react'
 
-function KlarertMark({
-  size = 28,
-  className = '',
-  ...svgProps
-}: { size?: number; className?: string } & Omit<SVGProps<SVGSVGElement>, 'width' | 'height' | 'viewBox'>) {
+const NAVY = '#0c1929'
+const TEAL = '#2dd4bf'
+
+type MarkProps = {
+  size?: number
+  className?: string
+  /** Dark bar (white K) vs light page (navy K). */
+  variant: 'onLight' | 'onDark'
+} & Omit<SVGProps<SVGSVGElement>, 'width' | 'height' | 'viewBox'>
+
+/** Icon only — dynamic K + check (Forslag 1). */
+function KlarertMark({ size = 28, className = '', variant, ...svgProps }: MarkProps) {
+  const kColor = variant === 'onDark' ? '#fafafa' : NAVY
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 32 32"
+      viewBox="0 0 48 52"
       className={`shrink-0 ${className}`}
       aria-hidden
       {...svgProps}
     >
-      <rect width="32" height="32" rx="6" className="fill-[#1a3d32]" />
+      {/* Blocky vertical stem */}
+      <rect x="5" y="4" width="11" height="44" rx="2.2" fill={kColor} />
+      {/* Lower-right leg of K */}
       <path
-        d="M8.5 16.2l4.8 4.8L23.5 10"
-        className="stroke-[#c9a227]"
-        strokeWidth="2.4"
+        d="M 14.5 31 L 42 49"
+        stroke={kColor}
+        strokeWidth="10.5"
+        strokeLinecap="round"
+      />
+      {/* Teal check = upper diagonal of K */}
+      <path
+        d="M 13 29 L 24.5 41.5 L 44.5 9"
+        fill="none"
+        stroke={TEAL}
+        strokeWidth="8.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        fill="none"
       />
     </svg>
   )
@@ -31,24 +48,36 @@ type Props = {
   size?: number
   className?: string
   markOnly?: boolean
+  variant?: 'onLight' | 'onDark'
 } & Omit<SVGProps<SVGSVGElement>, 'width' | 'height' | 'viewBox'>
 
 /**
- * Klarert wordmark + mark (or mark only for compact rail).
+ * Klarert.com — lockup matching Forslag 1 (sans wordmark + icon).
  */
-export function KlarertLogo({ size = 28, className = '', markOnly = false, ...svgProps }: Props) {
+export function KlarertLogo({
+  size = 28,
+  className = '',
+  markOnly = false,
+  variant = 'onLight',
+  ...svgProps
+}: Props) {
   if (markOnly) {
-    return <KlarertMark size={size} className={className} {...svgProps} />
+    return <KlarertMark size={size} className={className} variant={variant} {...svgProps} />
   }
 
+  const isDark = variant === 'onDark'
+
   return (
-    <span className={`inline-flex items-center gap-2 ${className}`}>
-      <KlarertMark size={size} {...svgProps} />
+    <span className={`inline-flex items-center gap-2.5 ${className}`}>
+      <KlarertMark size={size} variant={variant} {...svgProps} />
       <span
-        className="font-serif text-xl tracking-wide text-[#c9a227] md:text-2xl"
-        style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+        className={`inline-flex items-baseline gap-0 text-xl font-bold tracking-tight md:text-2xl ${
+          isDark ? 'text-white' : 'text-[#0c1929]'
+        }`}
+        style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
       >
         Klarert
+        <span className={isDark ? 'text-white/85' : 'text-[#0c1929]/90'}>.com</span>
       </span>
     </span>
   )

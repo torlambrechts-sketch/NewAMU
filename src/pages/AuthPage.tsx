@@ -148,7 +148,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
     <div className="min-h-screen bg-[#f5f0e8] px-4 py-16">
       <div className="mx-auto mb-8 flex max-w-md justify-center">
         <Link to="/" className="rounded-none p-1 hover:opacity-90" aria-label="Klarert — hjem">
-          <KlarertLogo size={32} className="text-[#1a3d32]" />
+          <KlarertLogo size={36} />
         </Link>
       </div>
       <div className="mx-auto w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">

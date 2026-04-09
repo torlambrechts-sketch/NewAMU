@@ -437,7 +437,7 @@ export function AticsShell() {
               aria-label={t('shell.homeAria')}
               className="flex items-center justify-center rounded-lg p-1.5 hover:bg-white/10"
             >
-              <KlarertLogo size={22} markOnly />
+              <KlarertLogo size={22} markOnly variant="onDark" />
             </NavLink>
           </div>
 
@@ -645,7 +645,7 @@ export function AticsShell() {
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 md:px-8">
           {/* Logo */}
           <NavLink to="/" className="flex shrink-0 items-center gap-2" aria-label={t('shell.homeAria')}>
-            <KlarertLogo size={28} />
+            <KlarertLogo size={28} variant="onDark" />
           </NavLink>
 
           {/* Group tabs — one per group, navigates to first module in group */}
