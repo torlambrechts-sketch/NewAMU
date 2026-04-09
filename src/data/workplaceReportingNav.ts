@@ -1,15 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import {
-  AlertTriangle,
-  BarChart3,
-  ClipboardList,
-  FileText,
-  HardHat,
-  HeartPulse,
-  LayoutDashboard,
-  LayoutList,
-  ShieldAlert,
-} from 'lucide-react'
+import { AlertTriangle, HardHat, LayoutDashboard, LayoutList, ShieldAlert } from 'lucide-react'
 import type { PermissionKey } from '../lib/permissionKeys'
 
 export type WorkplaceReportingNavItem = {
@@ -63,38 +53,6 @@ export const WORKPLACE_REPORTING_NAV: readonly WorkplaceReportingNavItem[] = [
     icon: AlertTriangle,
     requirePerm: 'module.view.tasks',
   },
-  {
-    to: '/reports',
-    label: 'Rapporter',
-    end: false,
-    desc: 'Standardrapporter, egendefinerte rapporter og verktøy (AMU, IK, ARP).',
-    icon: BarChart3,
-    requirePerm: 'module.view.dashboard',
-  },
-  {
-    to: '/hse?tab=inspections',
-    label: 'Inspeksjoner (HSE)',
-    end: false,
-    desc: 'Interne og eksterne inspeksjoner med sporbar dokumentasjon.',
-    icon: ClipboardList,
-    requirePerm: 'module.view.hse',
-  },
-  {
-    to: '/org-health?tab=metrics',
-    label: 'AML-indikatorer',
-    end: false,
-    desc: 'Indikatorer knyttet til arbeidsmiljøloven og internkontroll.',
-    icon: HeartPulse,
-    requirePerm: 'module.view.org_health',
-  },
-  {
-    to: '/documents/compliance',
-    label: 'Samsvar (dokumenter)',
-    end: false,
-    desc: 'Oversikt over dokumenter, revisjoner og «lest og forstått».',
-    icon: FileText,
-    requirePerm: 'module.view.dashboard',
-  },
 ]
 
 /** Match NavLink / subnav active state for a hub item. */
@@ -115,7 +73,6 @@ export function workplaceReportingNavMatch(
 ): boolean {
   if (!to.includes('?')) {
     if (end) return pathname === to
-    if (to === '/reports') return pathname === '/reports' || pathname.startsWith('/reports/')
     if (to === '/workplace-reporting/dashboard') return pathname === to
     return pathname === to
   }
