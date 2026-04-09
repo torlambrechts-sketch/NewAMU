@@ -49,11 +49,11 @@ import { useUiTheme } from '../hooks/useUiTheme'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
 
 const tabs = [
-  { id: 'overview' as const, label: 'Oversikt', icon: LayoutDashboard },
-  { id: 'ros' as const, label: 'ROS / risiko', icon: ClipboardList },
-  { id: 'annual' as const, label: 'Årsgjennomgang', icon: Calendar },
-  { id: 'audit' as const, label: 'Logg', icon: History },
-]
+  { id: 'overview' as const, label: 'Oversikt', icon: LayoutDashboard, iconOnly: false as const },
+  { id: 'ros' as const, label: 'ROS / risiko', icon: ClipboardList, iconOnly: false as const },
+  { id: 'annual' as const, label: 'Årsgjennomgang', icon: Calendar, iconOnly: false as const },
+  { id: 'audit' as const, label: 'Revisjonslogg', icon: History, iconOnly: true as const },
+] as const
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
@@ -619,7 +619,7 @@ export function InternalControlModule() {
 
       <div className={menu1.barOuterClass} style={menu1.barStyle}>
         <div className={menu1.innerRowClass}>
-          {tabs.map(({ id, label, icon: Icon }) => {
+          {tabs.map(({ id, label, icon: Icon, iconOnly }) => {
             const active = tab === id
             const tb = menu1.tabButton(active)
             return (
@@ -629,9 +629,11 @@ export function InternalControlModule() {
                 onClick={() => setTab(id)}
                 className={tb.className}
                 style={tb.style}
+                title={label}
+                aria-label={iconOnly ? label : undefined}
               >
-                <Icon className="size-4 shrink-0 opacity-90" />
-                <span className="whitespace-nowrap">{label}</span>
+                <Icon className="size-4 shrink-0 opacity-90" aria-hidden={!!iconOnly} />
+                {!iconOnly ? <span className="whitespace-nowrap">{label}</span> : null}
               </button>
             )
           })}
@@ -1775,7 +1777,7 @@ export function InternalControlModule() {
 
           <section className="overflow-hidden rounded-none border border-neutral-200 bg-white">
             <div className="border-b border-neutral-200 px-4 py-3">
-              <h2 className="font-semibold text-neutral-900">Hendelseslogg</h2>
+              <h2 className="font-semibold text-neutral-900">Revisjonslogg</h2>
               <p className="mt-1 text-xs text-neutral-500">
                 Kronologisk sporbarhet for internkontroll. Bruk søk og segment som på organisasjon/oppgaver.
               </p>

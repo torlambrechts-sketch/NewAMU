@@ -69,13 +69,13 @@ function escapeWikiHtml(s: string) {
 }
 
 const tabs = [
-  { id: 'overview' as const, label: 'Oversikt', icon: HeartPulse },
-  { id: 'surveys' as const, label: 'Undersøkelser', icon: ClipboardCheck },
-  { id: 'nav' as const, label: 'Sykefravær (NAV)', icon: FileSpreadsheet },
-  { id: 'metrics' as const, label: 'AML-indikatorer', icon: BarChart3 },
-  { id: 'reporting' as const, label: 'Anonym rapportering', icon: ShieldAlert },
-  { id: 'audit' as const, label: 'Logg', icon: History },
-]
+  { id: 'overview' as const, label: 'Oversikt', icon: HeartPulse, iconOnly: false as const },
+  { id: 'surveys' as const, label: 'Undersøkelser', icon: ClipboardCheck, iconOnly: false as const },
+  { id: 'nav' as const, label: 'Sykefravær (NAV)', icon: FileSpreadsheet, iconOnly: false as const },
+  { id: 'metrics' as const, label: 'AML-indikatorer', icon: BarChart3, iconOnly: false as const },
+  { id: 'reporting' as const, label: 'Anonym rapportering', icon: ShieldAlert, iconOnly: false as const },
+  { id: 'audit' as const, label: 'Revisjonslogg', icon: History, iconOnly: true as const },
+] as const
 
 function formatWhen(iso: string) {
   try {

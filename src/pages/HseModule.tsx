@@ -82,14 +82,14 @@ const HSE_CARD_TOP_RULE = 'mb-4 h-0.5 w-full shrink-0 bg-[#1a3d32]'
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
 const tabs = [
-  { id: 'overview'   as const, label: 'Oversikt',           icon: HardHat       },
-  { id: 'rounds'     as const, label: 'Vernerunder',         icon: ListChecks    },
-  { id: 'inspections'as const, label: 'Inspeksjoner',        icon: Search        },
-  { id: 'sja'        as const, label: 'SJA',                 icon: ShieldCheck   },
-  { id: 'training'   as const, label: 'Opplæring',           icon: GraduationCap },
-  { id: 'sickness'   as const, label: 'Sykefravær',          icon: Users         },
-  { id: 'audit'      as const, label: 'Revisjonslogg',       icon: History       },
-]
+  { id: 'overview' as const, label: 'Oversikt', icon: HardHat, iconOnly: false as const },
+  { id: 'rounds' as const, label: 'Vernerunder', icon: ListChecks, iconOnly: false as const },
+  { id: 'inspections' as const, label: 'Inspeksjoner', icon: Search, iconOnly: false as const },
+  { id: 'sja' as const, label: 'SJA', icon: ShieldCheck, iconOnly: false as const },
+  { id: 'training' as const, label: 'Opplæring', icon: GraduationCap, iconOnly: false as const },
+  { id: 'sickness' as const, label: 'Sykefravær', icon: Users, iconOnly: false as const },
+  { id: 'audit' as const, label: 'Revisjonslogg', icon: History, iconOnly: true as const },
+] as const
 
 // ─── Label helpers ─────────────────────────────────────────────────────────────
 
@@ -1202,13 +1202,20 @@ export function HseModule() {
 
       <div className={menu1.barOuterClass} style={menu1.barStyle}>
         <div className={menu1.innerRowClass}>
-          {tabs.map(({ id, label, icon: Icon }) => {
+          {tabs.map(({ id, label, icon: Icon, iconOnly }) => {
             const active = tab === id
             const tb = menu1.tabButton(active)
             return (
-              <Link key={id} to={`?tab=${id}`} className={tb.className} style={tb.style}>
-                <Icon className="size-4 shrink-0 opacity-90" />
-                <span className="whitespace-nowrap">{label}</span>
+              <Link
+                key={id}
+                to={`?tab=${id}`}
+                className={tb.className}
+                style={tb.style}
+                title={label}
+                aria-label={iconOnly ? label : undefined}
+              >
+                <Icon className="size-4 shrink-0 opacity-90" aria-hidden={!!iconOnly} />
+                {!iconOnly ? <span className="whitespace-nowrap">{label}</span> : null}
                 {id === 'sja' && hse.stats.openSja > 0 && (
                   <span className="ml-0.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.openSja}</span>
                 )}
@@ -2269,7 +2276,7 @@ export function HseModule() {
 
           <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-3">
-              <h2 className="font-semibold text-neutral-900">Streng revisjonslogg (append-only)</h2>
+              <h2 className="font-semibold text-neutral-900">Revisjonslogg</h2>
               <button type="button" onClick={() => { if (confirm('Tilbakestill HSE-demodata? Revisjonslogg regenereres.')) hse.resetDemo() }} className="text-xs text-neutral-500 hover:underline">
                 Tilbakestill demo
               </button>

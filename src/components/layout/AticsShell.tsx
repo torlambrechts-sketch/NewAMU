@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ComponentType } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   BarChart3,
@@ -11,6 +11,7 @@ import {
   FileText,
   GraduationCap,
   HardHat,
+  History,
   HeartPulse,
   Home,
   Kanban,
@@ -46,6 +47,9 @@ type SubItem = {
   requirePerm?: PermissionKey
   /** If set, user needs at least one of these (overrides requirePerm when both would apply — use one or the other). */
   requirePermAny?: PermissionKey[]
+  /** Save horizontal space: show only `Icon` in the nav row; `label` is used for tooltip and accessibility. */
+  iconOnly?: boolean
+  Icon?: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
 }
 
 function visibleSubs(
@@ -71,7 +75,13 @@ const tasksSubs: SubItem[] = [
       pathname === '/tasks' &&
       (!new URLSearchParams(search).get('view') || new URLSearchParams(search).get('view') === 'list'),
   },
-  { label: 'Oppgavelogg', path: '/tasks?view=audit', match: ({ pathname, search }) => pathname === '/tasks' && new URLSearchParams(search).get('view') === 'audit' },
+  {
+    label: 'Revisjonslogg',
+    path: '/tasks?view=audit',
+    match: ({ pathname, search }) => pathname === '/tasks' && new URLSearchParams(search).get('view') === 'audit',
+    iconOnly: true,
+    Icon: History,
+  },
 ]
 
 const internalControlSubs: SubItem[] = [
@@ -84,7 +94,13 @@ const internalControlSubs: SubItem[] = [
   },
   { label: 'ROS', path: '/internal-control?tab=ros', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'ros' },
   { label: 'Årsgjennomgang', path: '/internal-control?tab=annual', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'annual' },
-  { label: 'Logg', path: '/internal-control?tab=audit', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'audit' },
+  {
+    label: 'Revisjonslogg',
+    path: '/internal-control?tab=audit',
+    match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'audit',
+    iconOnly: true,
+    Icon: History,
+  },
 ]
 
 const hseSubs: SubItem[] = [
@@ -100,7 +116,13 @@ const hseSubs: SubItem[] = [
   { label: 'SJA', path: '/hse?tab=sja', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'sja' },
   { label: 'Opplæring', path: '/hse?tab=training', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'training' },
   { label: 'Sykefravær', path: '/hse?tab=sickness', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'sickness' },
-  { label: 'Revisjonslogg', path: '/hse?tab=audit', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'audit' },
+  {
+    label: 'Revisjonslogg',
+    path: '/hse?tab=audit',
+    match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'audit',
+    iconOnly: true,
+    Icon: History,
+  },
 ]
 
 const orgHealthSubs: SubItem[] = [
@@ -114,7 +136,13 @@ const orgHealthSubs: SubItem[] = [
   { label: 'Undersøkelser', path: '/org-health?tab=surveys', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'surveys' },
   { label: 'Sykefravær (NAV)', path: '/org-health?tab=nav', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'nav' },
   { label: 'AML-indikatorer', path: '/org-health?tab=metrics', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'metrics' },
-  { label: 'Logg', path: '/org-health?tab=audit', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'audit' },
+  {
+    label: 'Revisjonslogg',
+    path: '/org-health?tab=audit',
+    match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'audit',
+    iconOnly: true,
+    Icon: History,
+  },
   { label: 'Veikart', path: '/org-health/settings', match: ({ pathname }) => pathname === '/org-health/settings' },
 ]
 
@@ -553,21 +581,29 @@ export function AticsShell() {
                       <div className="mb-1 ml-4 mt-0.5 border-l border-white/10 pl-3">
                         {modSubs.map((item) => {
                           const active = item.match({ pathname: location.pathname, search: location.search })
+                          const SubIcon = item.Icon
+                          const iconOnly = item.iconOnly && SubIcon
                           return (
                             <NavLink
                               key={item.path + item.label}
                               to={item.path}
+                              title={item.label}
+                              aria-label={iconOnly ? item.label : undefined}
                               className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors ${
                                 active
                                   ? 'font-semibold text-white'
                                   : 'text-white/50 hover:bg-white/5 hover:text-white/80'
-                              }`}
+                              } ${iconOnly ? 'justify-center px-1.5' : ''}`}
                             >
                               {active && (
                                 <span className="h-3 w-0.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
                               )}
                               {!active && <span className="h-3 w-0.5 shrink-0" aria-hidden />}
-                              {item.label}
+                              {iconOnly ? (
+                                <SubIcon className="size-4 shrink-0 opacity-90" aria-hidden />
+                              ) : (
+                                item.label
+                              )}
                             </NavLink>
                           )
                         })}
@@ -771,17 +807,25 @@ export function AticsShell() {
               <nav className="flex min-w-0 flex-1 flex-wrap gap-x-1 gap-y-1" aria-label="Section">
                 {subItems.map((item) => {
                   const active = item.match({ pathname: location.pathname, search: location.search })
+                  const SubIcon = item.Icon
+                  const iconOnly = item.iconOnly && SubIcon
                   return (
                     <NavLink
                       key={item.path + item.label}
                       to={item.path}
+                      title={item.label}
+                      aria-label={iconOnly ? item.label : undefined}
                       className={`whitespace-nowrap rounded-md px-3 py-1 text-sm transition-colors ${
                         active
                           ? 'bg-white/10 font-medium text-white'
                           : 'text-white/55 hover:bg-white/5 hover:text-white/90'
-                      }`}
+                      } ${iconOnly ? 'inline-flex items-center justify-center px-2' : ''}`}
                     >
-                      {item.label}
+                      {iconOnly ? (
+                        <SubIcon className="size-[1.125rem] shrink-0 opacity-90" aria-hidden />
+                      ) : (
+                        item.label
+                      )}
                     </NavLink>
                   )
                 })}

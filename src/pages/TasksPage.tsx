@@ -697,11 +697,11 @@ export function TasksPage() {
         <div className={menu1.innerRowClass}>
           {(
             [
-              { id: 'list' as const, label: 'Oppgaver', Icon: LayoutList },
-              { id: 'whistle' as const, label: 'Varslingssaker', Icon: Scale },
-              { id: 'audit' as const, label: 'Oppgavelogg', Icon: History },
+              { id: 'list' as const, label: 'Oppgaver', Icon: LayoutList, iconOnly: false as const },
+              { id: 'whistle' as const, label: 'Varslingssaker', Icon: Scale, iconOnly: false as const },
+              { id: 'audit' as const, label: 'Revisjonslogg', Icon: History, iconOnly: true as const },
             ] as const
-          ).map(({ id, label, Icon }) => {
+          ).map(({ id, label, Icon, iconOnly }) => {
             const active = pageTab === id
             const tb = menu1.tabButton(active)
             return (
@@ -711,9 +711,11 @@ export function TasksPage() {
                 onClick={() => setPageTab(id)}
                 className={tb.className}
                 style={tb.style}
+                title={label}
+                aria-label={iconOnly ? label : undefined}
               >
-                <Icon className="size-4 shrink-0 opacity-90" />
-                <span className="whitespace-nowrap">{label}</span>
+                <Icon className="size-4 shrink-0 opacity-90" aria-hidden={!!iconOnly} />
+                {!iconOnly ? <span className="whitespace-nowrap">{label}</span> : null}
               </button>
             )
           })}
@@ -1073,7 +1075,7 @@ export function TasksPage() {
       {pageTab === 'audit' && (
         <section className="mt-8 w-full">
           <Mainbox1
-            title="Oppgavelogg"
+            title="Revisjonslogg"
             subtitle="Nye hendelser legges til. Sletting av oppgaver logges."
           >
             <ul className="max-h-[min(70vh,520px)] space-y-1 overflow-y-auto text-xs text-neutral-700">
