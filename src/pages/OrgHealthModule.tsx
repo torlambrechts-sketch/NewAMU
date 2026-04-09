@@ -42,6 +42,13 @@ import {
   countActiveEmployeesInUserGroup,
   evaluateSurveyAnonymityGate,
 } from '../lib/orgSurveyKAnonymity'
+import {
+  INSIGHT_CARD,
+  INSIGHT_CARD_TOP_RULE,
+  ModuleDonutCard,
+  ModuleFilledListCard,
+  type InsightSeg,
+} from '../components/insights/ModuleInsightCharts'
 import type { ContentBlock } from '../types/documents'
 import type { AmlReportKind, LaborMetricKey, Survey, SurveyQuestion, SurveySchedule, SurveyScheduleKind } from '../types/orgHealth'
 
@@ -59,6 +66,11 @@ const SETTINGS_LEAD = 'text-sm leading-relaxed text-neutral-600'
 const TASK_PANEL_ROW_GRID =
   'grid grid-cols-1 gap-4 border-b border-neutral-200 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-5 md:py-5'
 const PANEL_INSET = 'rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6'
+
+/** Same strip boxes as HSE oversikt */
+const OH_THRESHOLD_STRIP = SETTINGS_THRESHOLD_BOX
+
+const SURVEY_STATUS_LABELS = { draft: 'Utkast', open: 'Åpen', closed: 'Lukket' } as const
 
 function escapeWikiHtml(s: string) {
   return s
@@ -179,6 +191,102 @@ export function OrgHealthModule() {
       closed: list.filter((s) => s.status === 'closed').length,
     }
   }, [oh.surveys])
+
+  const ohOverviewKpis = useMemo(
+    () => [
+      {
+        title: 'Undersøkelser',
+        sub: 'Åpne / totalt',
+        value: `${surveyStats.open} / ${surveyStats.total}`,
+      },
+      {
+        title: 'Svar',
+        sub: 'Innsendte svar (totalt)',
+        value: String(oh.responses.length),
+      },
+      {
+        title: 'Sykefravær (NAV)',
+        sub: 'Siste registrerte %',
+        value: oh.navSummary.latestPercent != null ? `${oh.navSummary.latestPercent}%` : '—',
+      },
+      {
+        title: 'Anonym AML',
+        sub: 'Henvendelser (totalt)',
+        value: String(oh.amlReportStats.total),
+      },
+    ],
+    [oh.amlReportStats.total, oh.navSummary.latestPercent, oh.responses.length, surveyStats],
+  )
+
+  const ohSurveyStatusSegments = useMemo(() => {
+    const palette = ['#94a3b8', '#059669', '#64748b']
+    const entries: InsightSeg[] = [
+      { label: SURVEY_STATUS_LABELS.draft, value: surveyStats.draft, color: palette[0] },
+      { label: SURVEY_STATUS_LABELS.open, value: surveyStats.open, color: palette[1] },
+      { label: SURVEY_STATUS_LABELS.closed, value: surveyStats.closed, color: palette[2] },
+    ].filter((x) => x.value > 0)
+    const total = entries.reduce((s, x) => s + x.value, 0)
+    return { entries, total }
+  }, [surveyStats])
+
+  const ohSurveyAnonSegments = useMemo(() => {
+    const palette = ['#1a3d32', '#0284c7']
+    let anon = 0
+    let named = 0
+    for (const s of oh.surveys) {
+      if (s.anonymous) anon += 1
+      else named += 1
+    }
+    const entries: InsightSeg[] = [
+      { label: 'Anonyme', value: anon, color: palette[0] },
+      { label: 'Navngitte', value: named, color: palette[1] },
+    ].filter((x) => x.value > 0)
+    const total = entries.reduce((s, x) => s + x.value, 0)
+    return { entries, total }
+  }, [oh.surveys])
+
+  const ohAmlKindSegments = useMemo(() => {
+    const palette = ['#1a3d32', '#0284c7', '#d97706', '#dc2626', '#7c3aed', '#0d9488', '#64748b']
+    const kinds = AML_REPORT_KINDS.map((k) => k.id)
+    const entries: InsightSeg[] = kinds
+      .map((kind, idx) => ({
+        label: labelForAmlReportKind(kind),
+        value: oh.amlReportStats.byKind[kind] ?? 0,
+        color: palette[idx % palette.length],
+      }))
+      .filter((x) => x.value > 0)
+    const total = entries.reduce((s, x) => s + x.value, 0)
+    return { entries, total }
+  }, [oh.amlReportStats.byKind])
+
+  const ohNavPeriodRows = useMemo(() => {
+    const palette = ['#1a3d32', '#0284c7', '#d97706', '#0d9488', '#7c3aed', '#dc2626']
+    const rows: InsightSeg[] = oh.navReports
+      .filter((r) => r.sickLeavePercent != null)
+      .slice(0, 8)
+      .map((r, idx) => ({
+        label: r.periodLabel || `${r.periodStart}–${r.periodEnd}`,
+        value: r.sickLeavePercent ?? 0,
+        color: palette[idx % palette.length],
+      }))
+    return rows
+  }, [oh.navReports])
+
+  const ohMetricKeyRows = useMemo(() => {
+    const palette = ['#1a3d32', '#0284c7', '#d97706', '#0d9488', '#7c3aed', '#dc2626', '#64748b']
+    const byKey = new Map<LaborMetricKey, number>()
+    for (const e of oh.laborMetrics) {
+      byKey.set(e.metricKey, (byKey.get(e.metricKey) ?? 0) + 1)
+    }
+    const rows: InsightSeg[] = Array.from(byKey.entries())
+      .map(([key, count], idx) => ({
+        label: definitionForKey(key)?.label ?? key,
+        value: count,
+        color: palette[idx % palette.length],
+      }))
+      .sort((a, b) => b.value - a.value)
+    return rows
+  }, [oh.laborMetrics])
 
   const closeSurveyPanel = useCallback(() => setSurveyPanelId(null), [setSurveyPanelId])
 
@@ -353,84 +461,129 @@ export function OrgHealthModule() {
       </div>
 
       {tab === 'overview' && (
-        <div className="mt-8 grid gap-6 lg:grid-cols-3">
-          <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm lg:col-span-2">
-            <h2 className="text-lg font-semibold text-neutral-900">Hurtigstatus</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-xl bg-[#faf8f4] p-4 ring-1 ring-neutral-100">
-                <div className="text-2xl font-semibold text-[#1a3d32]">{openSurveys.length}</div>
-                <div className="text-sm text-neutral-600">Åpne undersøkelser</div>
+        <div className="mt-6 space-y-10">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {ohOverviewKpis.map((item) => (
+              <div key={item.title} className={OH_THRESHOLD_STRIP} style={menu1.barStyle}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
+                <p className="mt-1 text-xs text-white/70">{item.sub}</p>
+                <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
               </div>
-              <div className="rounded-xl bg-[#faf8f4] p-4 ring-1 ring-neutral-100">
-                <div className="text-2xl font-semibold text-[#1a3d32]">{oh.responses.length}</div>
-                <div className="text-sm text-neutral-600">Innsendte svar (totalt)</div>
-              </div>
-              <div className="rounded-xl bg-[#faf8f4] p-4 ring-1 ring-neutral-100">
-                <div className="text-2xl font-semibold text-[#1a3d32]">
-                  {oh.navSummary.latestPercent != null ? `${oh.navSummary.latestPercent}%` : '—'}
-                </div>
-                <div className="text-sm text-neutral-600">Siste sykefravær (NAV-felt)</div>
-              </div>
-              <div className="rounded-xl bg-amber-50/90 p-4 ring-1 ring-amber-200/80 sm:col-span-3">
-                <div className="text-2xl font-semibold text-[#1a3d32]">{oh.amlReportStats.total}</div>
-                <div className="text-sm text-neutral-600">Anonyme AML-henvendelser (totalt)</div>
-              </div>
-            </div>
-            <p className="mt-4 text-sm text-neutral-600">
-              Gjennomsnitt sykefravær registrert:{' '}
-              <strong>{oh.navSummary.avgPercent != null ? `${oh.navSummary.avgPercent}%` : '—'}</strong>
-            </p>
+            ))}
           </div>
-          <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Snarveier</h2>
-            <button
-              type="button"
-              onClick={() => setTab('surveys')}
-              className="mt-4 w-full rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
-            >
-              Undersøkelser
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab('nav')}
-              className="mt-2 w-full rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
-            >
-              Sykefravær
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab('metrics')}
-              className="mt-2 w-full rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
-            >
-              AML-indikatorer
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab('reporting')}
-              className="mt-2 w-full rounded-xl border border-amber-200/90 bg-amber-50/80 py-2.5 text-sm font-medium text-[#1a3d32] hover:bg-amber-50"
-            >
-              Anonym rapportering (AML)
-            </button>
-            <Link
-              to="/org-health/settings"
-              className="mt-2 block w-full rounded-xl border border-neutral-200 py-2.5 text-center text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
-            >
-              Veikart & planer
-            </Link>
-            <Link
-              to="/internal-control"
-              className="mt-2 block w-full rounded-xl border border-neutral-200 py-2.5 text-center text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
-            >
-              Internkontroll og oppfølging
-            </Link>
-            <div className="mt-3 flex justify-center">
-              <AddTaskLink
-                title="Oppfølging organisasjonshelse"
-                module="org_health"
-                sourceType="manual"
-                ownerRole="HR / HMS"
-              />
+
+          <section>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Organisasjonshelse-innsikt</h2>
             </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <ModuleDonutCard
+                title="Undersøkelser etter status"
+                subtitle="Utkast, åpne og lukkede"
+                segments={ohSurveyStatusSegments.entries}
+                total={ohSurveyStatusSegments.total}
+                emptyHint="Ingen undersøkelser ennå."
+              />
+              <ModuleDonutCard
+                title="Undersøkelser"
+                subtitle="Anonyme vs. navngitte"
+                segments={ohSurveyAnonSegments.entries}
+                total={ohSurveyAnonSegments.total}
+                emptyHint="Ingen undersøkelser å vise."
+              />
+              <ModuleDonutCard
+                title="Anonyme AML-henvendelser"
+                subtitle="Fordeling etter kategori (uten fritekst)"
+                segments={ohAmlKindSegments.entries}
+                total={ohAmlKindSegments.total}
+                emptyHint="Ingen anonyme henvendelser registrert."
+              />
+              <ModuleFilledListCard
+                title="Sykefravær per periode"
+                subtitle="Siste NAV-rader med prosent (nyeste først)"
+                rows={ohNavPeriodRows}
+                emptyHint="Ingen sykefraværsrader med prosent."
+                valueSuffix="%"
+              />
+              <ModuleFilledListCard
+                title="AML-indikatorer"
+                subtitle="Antall registreringer per indikator"
+                rows={ohMetricKeyRows}
+                emptyHint="Ingen indikatorer registrert ennå."
+              />
+              <div className={INSIGHT_CARD}>
+                <div className={INSIGHT_CARD_TOP_RULE} />
+                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Drift og snarveier</p>
+                <p className="mt-3 text-3xl font-semibold tabular-nums text-[#1a3d32]">
+                  {oh.navSummary.avgPercent != null ? `${oh.navSummary.avgPercent}%` : '—'}
+                </p>
+                <p className="mt-1 text-sm text-neutral-600">Gjennomsnitt sykefravær (NAV-felt)</p>
+                <div className="mt-4 space-y-2 border-t border-neutral-100 pt-4 text-sm text-neutral-700">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-neutral-500">Åpne undersøkelser</span>
+                    <span className="font-semibold tabular-nums">{surveyStats.open}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-neutral-500">Lukket med lav psyk. trygghet (oppgaver)</span>
+                    <span className="font-semibold tabular-nums text-amber-800">
+                      {oh.surveys.filter((s) => s.lowPsychSafetyTaskCreatedAt).length}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-col gap-2 border-t border-neutral-100 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setTab('surveys')}
+                    className="text-left text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline"
+                  >
+                    Undersøkelser →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab('nav')}
+                    className="text-left text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline"
+                  >
+                    Sykefravær (NAV) →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab('metrics')}
+                    className="text-left text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline"
+                  >
+                    AML-indikatorer →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab('reporting')}
+                    className="text-left text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline"
+                  >
+                    Anonym rapportering →
+                  </button>
+                  <Link
+                    to="/org-health/settings"
+                    className="text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline"
+                  >
+                    Veikart & planer →
+                  </Link>
+                  <Link to="/internal-control" className="text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline">
+                    Internkontroll →
+                  </Link>
+                </div>
+                <div className="mt-4 border-t border-neutral-100 pt-4">
+                  <AddTaskLink
+                    title="Oppfølging organisasjonshelse"
+                    module="org_health"
+                    sourceType="manual"
+                    ownerRole="HR / HMS"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div className={`${R_FLAT} border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950`}>
+            <strong>k-anonymitet:</strong> Ved anonyme undersøkelser vises detaljerte resultater først når terskelen n≥
+            {SURVEY_K_ANONYMITY_MIN} er oppfylt — se fanen Undersøkelser.
           </div>
         </div>
       )}

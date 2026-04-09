@@ -47,6 +47,12 @@ import {
 import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
+import {
+  INSIGHT_CARD,
+  INSIGHT_CARD_TOP_RULE,
+  ModuleDonutCard,
+  type InsightSeg,
+} from '../components/insights/ModuleInsightCharts'
 
 const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: LayoutDashboard, iconOnly: false as const },
@@ -75,6 +81,17 @@ const ORG_MERGED_COL = 'min-w-0 flex-1 sm:max-w-[min(100%,280px)]'
 const ORG_MERGED_ACTION_COL = 'flex w-full shrink-0 flex-col justify-end sm:w-auto sm:min-w-[160px]'
 const SETTINGS_THRESHOLD_BOX =
   'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
+/** Same strip boxes as HSE oversikt / rapporter */
+const IC_THRESHOLD_STRIP = SETTINGS_THRESHOLD_BOX
+
+const ROS_WORKSPACE_LABELS: Record<RosWorkspaceCategory, string> = {
+  general: 'Generelt',
+  production: 'Produksjon',
+  office: 'Kontor',
+  warehouse: 'Lager / logistikk',
+  construction: 'Bygg / anlegg',
+  healthcare: 'Helse / omsorg',
+}
 const LOG_FILTER_INPUT =
   'w-full min-w-[200px] max-w-md rounded-none border border-neutral-200/90 bg-white px-4 py-2.5 text-sm shadow-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]'
 const LOG_SEG_BTN =
@@ -159,6 +176,7 @@ export function InternalControlModule() {
   const tab: TabId =
     tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
   const setTab = (id: TabId) => setSearchParams({ tab: id }, { replace: true })
+  const [overviewTimeAnchor] = useState(() => Date.now())
 
   const [rosTitle, setRosTitle] = useState('')
   const [rosDept, setRosDept] = useState('')
@@ -269,6 +287,18 @@ export function InternalControlModule() {
     }
   }, [ic.auditTrail])
 
+  const auditEntriesLast90 = useMemo(
+    () =>
+      ic.auditTrail.filter((a) => {
+        try {
+          return new Date(a.at).getTime() > overviewTimeAnchor - 90 * 86400000
+        } catch {
+          return false
+        }
+      }),
+    [ic.auditTrail, overviewTimeAnchor],
+  )
+
   const filteredAudit = useMemo(() => {
     const q = auditSearch.trim().toLowerCase()
     return sortedAudit.filter((a) => {
@@ -301,6 +331,119 @@ export function InternalControlModule() {
       locked: list.filter((a) => a.locked || a.status === 'locked').length,
     }
   }, [ic.annualReviews])
+
+  const icOverviewKpis = useMemo(
+    () => [
+      {
+        title: 'ROS',
+        sub: 'Totalt / låst',
+        value: `${rosStats.total} / ${rosStats.locked}`,
+      },
+      {
+        title: 'Årsgjennomgang',
+        sub: 'Låst / pågår',
+        value: `${annualStats.locked} / ${annualStats.draft + annualStats.pending}`,
+      },
+      {
+        title: 'Logg (90 d.)',
+        sub: 'Hendelser i revisjonslogg',
+        value: String(auditEntriesLast90.length),
+      },
+      {
+        title: 'Åpne ROS-rader',
+        sub: 'Tiltak / risiko som ikke er lukket',
+        value: String(
+          ic.rosAssessments.reduce(
+            (n, r) => n + r.rows.filter((row) => row.status !== 'closed').length,
+            0,
+          ),
+        ),
+      },
+    ],
+    [annualStats, auditEntriesLast90.length, ic.rosAssessments, rosStats],
+  )
+
+  const icRosCategorySegments = useMemo(() => {
+    const palette = ['#1a3d32', '#7c3aed']
+    const general = ic.rosAssessments.filter((r) => (r.rosCategory ?? 'general') === 'general').length
+    const org = ic.rosAssessments.filter((r) => r.rosCategory === 'organizational_change').length
+    const entries: InsightSeg[] = [
+      { label: 'Generell ROS', value: general, color: palette[0] },
+      { label: 'O-ROS (endring)', value: org, color: palette[1] },
+    ].filter((x) => x.value > 0)
+    const total = entries.reduce((s, x) => s + x.value, 0)
+    return { entries, total }
+  }, [ic.rosAssessments])
+
+  const icRosWorkspaceSegments = useMemo(() => {
+    const palette = ['#1a3d32', '#0284c7', '#d97706', '#0d9488', '#dc2626', '#7c3aed']
+    const keys = Object.keys(ROS_WORKSPACE_LABELS) as RosWorkspaceCategory[]
+    const counts: Record<RosWorkspaceCategory, number> = {
+      general: 0,
+      production: 0,
+      office: 0,
+      warehouse: 0,
+      construction: 0,
+      healthcare: 0,
+    }
+    for (const r of ic.rosAssessments) {
+      const w = r.workspaceCategory ?? 'general'
+      counts[w] = (counts[w] ?? 0) + 1
+    }
+    const entries: InsightSeg[] = keys
+      .map((k, idx) => ({
+        label: ROS_WORKSPACE_LABELS[k],
+        value: counts[k] ?? 0,
+        color: palette[idx % palette.length],
+      }))
+      .filter((x) => x.value > 0)
+    const total = entries.reduce((s, x) => s + x.value, 0)
+    return { entries, total }
+  }, [ic.rosAssessments])
+
+  const icAnnualStatusSegments = useMemo(() => {
+    const palette = ['#94a3b8', '#0284c7', '#059669']
+    const entries: InsightSeg[] = [
+      { label: 'Utkast', value: annualStats.draft, color: palette[0] },
+      { label: 'Venter VO', value: annualStats.pending, color: palette[1] },
+      { label: 'Låst', value: annualStats.locked, color: palette[2] },
+    ].filter((x) => x.value > 0)
+    const total = entries.reduce((s, x) => s + x.value, 0)
+    return { entries, total }
+  }, [annualStats])
+
+  const icRosRowRiskSegments = useMemo(() => {
+    const palette = ['#059669', '#f59e0b', '#dc2626']
+    let green = 0
+    let yellow = 0
+    let red = 0
+    for (const r of ic.rosAssessments) {
+      for (const row of r.rows) {
+        const c = riskColour(row.riskScore)
+        if (c === 'green') green += 1
+        else if (c === 'yellow') yellow += 1
+        else red += 1
+      }
+    }
+    const entries: InsightSeg[] = [
+      { label: RISK_COLOUR_CLASSES.green.label, value: green, color: palette[0] },
+      { label: RISK_COLOUR_CLASSES.yellow.label, value: yellow, color: palette[1] },
+      { label: RISK_COLOUR_CLASSES.red.label, value: red, color: palette[2] },
+    ].filter((x) => x.value > 0)
+    const total = entries.reduce((s, x) => s + x.value, 0)
+    return { entries, total }
+  }, [ic.rosAssessments])
+
+  const icAuditSegmentSlices = useMemo(() => {
+    const palette = ['#0284c7', '#d97706', '#64748b', '#94a3b8']
+    const entries: InsightSeg[] = [
+      { label: 'ROS-relatert', value: auditStats.ros, color: palette[0] },
+      { label: 'Årsgjennomgang', value: auditStats.annual, color: palette[1] },
+      { label: 'Øvrig', value: auditStats.other, color: palette[2] },
+    ].filter((x) => x.value > 0)
+    const total = entries.reduce((s, x) => s + x.value, 0)
+    return { entries, total }
+  }, [auditStats])
 
   const sortedAnnuals = useMemo(
     () => [...ic.annualReviews].sort((a, b) => b.year - a.year || b.reviewedAt.localeCompare(a.reviewedAt)),
@@ -660,54 +803,103 @@ export function InternalControlModule() {
       ) : null}
 
       {tab === 'overview' && (
-        <div className="mt-8 grid gap-6 lg:grid-cols-3">
-          <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm lg:col-span-2">
-            <h2 className="text-lg font-semibold text-neutral-900">Status</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl bg-[#faf8f4] p-4 ring-1 ring-neutral-100">
-                <div className="text-2xl font-semibold text-[#1a3d32]">{ic.stats.rosCount}</div>
-                <div className="text-sm text-neutral-600">ROS-vurderinger</div>
+        <div className="mt-6 space-y-10">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {icOverviewKpis.map((item) => (
+              <div key={item.title} className={IC_THRESHOLD_STRIP} style={menu1.barStyle}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
+                <p className="mt-1 text-xs text-white/70">{item.sub}</p>
+                <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
               </div>
-              <div className="rounded-xl bg-[#faf8f4] p-4 ring-1 ring-neutral-100">
-                <div className="text-2xl font-semibold text-[#1a3d32]">{ic.stats.annualCount}</div>
-                <div className="text-sm text-neutral-600">Årsgjennomganger</div>
-              </div>
-            </div>
-            <div className="mt-6 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setTab('ros')}
-                className="rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26]"
-              >
-                Ny ROS
-              </button>
-              <Link
-                to="/tasks?view=whistle"
-                className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
-              >
-                Varslingssaker (lukket hvelv)
-              </Link>
-              <Link
-                to="/org-health?tab=reporting"
-                className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
-              >
-                Anonym rapportering (org.health)
-              </Link>
-            </div>
+            ))}
           </div>
-          <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Meldingsflyt (oversikt)</h2>
-            <ol className="mt-3 list-inside list-decimal space-y-2 text-sm text-neutral-700">
-              <li>Mottatt → vurdering → undersøkelse</li>
-              <li>
-                <strong>Intern revisjon</strong> når saken etter rutine skal behandles av HR/ledelse/revisor
-              </li>
-              <li>Avsluttet når dokumentert oppfølging er gjort</li>
-            </ol>
-            <p className="mt-4 text-xs text-neutral-500">
-              Kobling fra anonym AML-melding oppretter sak med referanse-ID — innholdet fra anonym innsending lagres ikke
-              i org.health.
-            </p>
+
+          <section>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Internkontroll-innsikt</h2>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <ModuleDonutCard
+                title="ROS etter type"
+                subtitle="Generell vs. organisatorisk endring"
+                segments={icRosCategorySegments.entries}
+                total={icRosCategorySegments.total}
+                emptyHint="Ingen ROS registrert ennå."
+              />
+              <ModuleDonutCard
+                title="ROS etter arbeidsområde"
+                subtitle="Fordeling i registeret"
+                segments={icRosWorkspaceSegments.entries}
+                total={icRosWorkspaceSegments.total}
+                emptyHint="Ingen ROS å vise."
+              />
+              <ModuleDonutCard
+                title="Årsgjennomgang"
+                subtitle="Status på år"
+                segments={icAnnualStatusSegments.entries}
+                total={icAnnualStatusSegments.total}
+                emptyHint="Ingen årsgjennomgang registrert."
+              />
+              <ModuleDonutCard
+                title="ROS-rader etter risiko (brutto)"
+                subtitle="Alle rader i alle ROS"
+                segments={icRosRowRiskSegments.entries}
+                total={icRosRowRiskSegments.total}
+                emptyHint="Ingen risikorader."
+              />
+              <ModuleDonutCard
+                title="Revisjonslogg (kategorier)"
+                subtitle="Totalt i loggen fordelt"
+                segments={icAuditSegmentSlices.entries}
+                total={icAuditSegmentSlices.total}
+                emptyHint="Loggen er tom."
+              />
+              <div className={INSIGHT_CARD}>
+                <div className={INSIGHT_CARD_TOP_RULE} />
+                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Drift og koblinger</p>
+                <p className="mt-3 text-3xl font-semibold tabular-nums text-[#1a3d32]">{rosStats.drafts}</p>
+                <p className="mt-1 text-sm text-neutral-600">ROS-utkast (åpne)</p>
+                <div className="mt-4 space-y-2 border-t border-neutral-100 pt-4 text-sm text-neutral-700">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-neutral-500">Årsgj. utkast / venter VO</span>
+                    <span className="font-semibold tabular-nums">
+                      {annualStats.draft} / {annualStats.pending}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-neutral-500">Hendelser i logg (90 d.)</span>
+                    <span className="font-semibold tabular-nums">{auditEntriesLast90.length}</span>
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-col gap-2 border-t border-neutral-100 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setTab('ros')}
+                    className="text-left text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline"
+                  >
+                    Gå til ROS →
+                  </button>
+                  <Link to="/tasks?view=whistle" className="text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline">
+                    Varslingssaker →
+                  </Link>
+                  <Link to="/org-health?tab=reporting" className="text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline">
+                    Anonym rapportering →
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setTab('audit')}
+                    className="text-left text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline"
+                  >
+                    Revisjonslogg →
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div className="rounded-none border border-amber-200/80 bg-amber-50/90 p-5 text-sm text-amber-950">
+            <strong>Meldingsflyt:</strong> Mottatt → vurdering → undersøkelse → intern revisjon ved behov → avsluttet når
+            dokumentert. Anonym AML-innsending gir referanse-ID; fritekst lagres ikke i organisasjonshelse.
           </div>
         </div>
       )}
