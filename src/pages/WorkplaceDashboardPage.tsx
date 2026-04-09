@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, NavLink, useLocation, useSearchParams } from 'react-router-dom'
-import { GripVertical, LayoutDashboard, LayoutList, Loader2, Pencil, Plus, Save, X } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { GripVertical, LayoutDashboard, Loader2, Pencil, Plus, Save, X } from 'lucide-react'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useReporting } from '../hooks/useReporting'
@@ -25,11 +25,7 @@ import {
 } from '../lib/dashboardLayoutHelpers'
 import { ReportModuleWidget } from '../components/reports/ReportModuleWidget'
 import { ReportModuleDesigner } from '../components/dashboard/ReportModuleDesigner'
-import {
-  WORKPLACE_REPORTING_NAV,
-  workplaceReportingMenuLinkClass,
-  workplaceReportingNavMatch,
-} from '../data/workplaceReportingNav'
+import { WorkplaceReportingHubMenu } from '../components/workplace/WorkplaceReportingHubMenu'
 
 const PAGE = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const R = 'rounded-none'
@@ -58,7 +54,6 @@ function collectDatasetKeys(tab: WorkplaceDashboardTab): ReportDatasetKey[] {
 }
 
 export function WorkplaceDashboardPage() {
-  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const { supabaseConfigured } = useOrgSetupContext()
   const org = useOrganisation()
@@ -313,31 +308,9 @@ export function WorkplaceDashboardPage() {
         </div>
       </header>
 
-      <nav
-        className="mt-6 flex flex-col gap-3 border-b border-neutral-200/80 pb-6 sm:flex-row sm:flex-wrap sm:items-center"
-        aria-label="Arbeidsplassrapportering"
-      >
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
-          <LayoutList className="size-4" aria-hidden />
-          Meny
-        </div>
-        <div className="flex flex-wrap gap-2 sm:ml-2">
-          {WORKPLACE_REPORTING_NAV.map(({ to, label, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={() =>
-                workplaceReportingMenuLinkClass(
-                  workplaceReportingNavMatch(to, end, location.pathname, location.search),
-                )
-              }
-            >
-              {label}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
+      <div className="mt-6">
+        <WorkplaceReportingHubMenu />
+      </div>
 
       {(wd.error || rep.error) && (
         <p className="mt-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">

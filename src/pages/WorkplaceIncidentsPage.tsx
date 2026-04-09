@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { Mainbox1 } from '../components/layout/Mainbox1'
 import { Table1Shell } from '../components/layout/Table1Shell'
 import { Table1Toolbar } from '../components/layout/Table1Toolbar'
-import { CheckCircle2, FileWarning, LayoutList, Plus, Trash2, X } from 'lucide-react'
+import { CheckCircle2, FileWarning, Plus, Trash2, X } from 'lucide-react'
 import { useHse } from '../hooks/useHse'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
@@ -26,11 +26,7 @@ import type {
   IncidentFormTemplate,
   IncidentEvidencePhoto,
 } from '../types/hse'
-import {
-  WORKPLACE_REPORTING_NAV,
-  workplaceReportingMenuLinkClass,
-  workplaceReportingNavMatch,
-} from '../data/workplaceReportingNav'
+import { WorkplaceReportingHubMenu } from '../components/workplace/WorkplaceReportingHubMenu'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
@@ -131,7 +127,6 @@ function isoToDatetimeLocal(iso: string) {
 }
 
 export function WorkplaceIncidentsPage() {
-  const location = useLocation()
   const hse = useHse()
   const { supabaseConfigured, supabase, organization, profile, user, isAdmin, departments } = useOrgSetupContext()
   const org = useOrganisation()
@@ -210,6 +205,16 @@ export function WorkplaceIncidentsPage() {
     }),
     [user?.id, viewerEmployeeId, isAdmin, profile?.display_name, profile?.email, user?.email, org.displayEmployees],
   )
+
+  const incidentStats = useMemo(() => {
+    const list = hse.incidents.filter((i) => canViewIncident(i, incidentViewerCtx))
+    return {
+      total: list.length,
+      open: list.filter((i) => i.status !== 'closed').length,
+      critical: list.filter((i) => i.severity === 'critical').length,
+      high: list.filter((i) => i.severity === 'high').length,
+    }
+  }, [hse.incidents, incidentViewerCtx])
 
   const resetIncidentPanelForm = useCallback(() => {
     setIncPanelKind('incident')
@@ -300,16 +305,6 @@ export function WorkplaceIncidentsPage() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [incidentPanelId, closeIncidentPanel])
-
-  const incidentStats = useMemo(() => {
-    const list = hse.incidents.filter((i) => canViewIncident(i, incidentViewerCtx))
-    return {
-      total: list.length,
-      open: list.filter((i) => i.status !== 'closed').length,
-      critical: list.filter((i) => i.severity === 'critical').length,
-      high: list.filter((i) => i.severity === 'high').length,
-    }
-  }, [hse.incidents, incidentViewerCtx])
 
   const incidentsFiltered = useMemo(() => {
     const q = incSearch.trim().toLowerCase()
@@ -495,31 +490,9 @@ export function WorkplaceIncidentsPage() {
         </div>
       </div>
 
-      <nav
-        className="mt-6 flex flex-col gap-3 border-b border-neutral-200/80 pb-6 sm:flex-row sm:flex-wrap sm:items-center"
-        aria-label="Arbeidsplassrapportering"
-      >
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
-          <LayoutList className="size-4" aria-hidden />
-          Meny
-        </div>
-        <div className="flex flex-wrap gap-2 sm:ml-2">
-          {WORKPLACE_REPORTING_NAV.map(({ to, label, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={() =>
-                workplaceReportingMenuLinkClass(
-                  workplaceReportingNavMatch(to, end, location.pathname, location.search),
-                )
-              }
-            >
-              {label}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
+      <div className="mt-6">
+        <WorkplaceReportingHubMenu incidentsBadgeCount={incidentStats.open} />
+      </div>
 
       <div className="mt-8 space-y-6">
         <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between">

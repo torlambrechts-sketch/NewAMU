@@ -1,11 +1,7 @@
-import { Link, NavLink, useLocation } from 'react-router-dom'
-import { LayoutList } from 'lucide-react'
-import {
-  WORKPLACE_REPORTING_NAV,
-  workplaceReportingMenuLinkClass,
-  workplaceReportingNavMatch,
-} from '../data/workplaceReportingNav'
+import { Link } from 'react-router-dom'
+import { WORKPLACE_REPORTING_NAV } from '../data/workplaceReportingNav'
 import { WorkplaceReportingCasesSection } from '../components/workplace/WorkplaceReportingCasesSection'
+import { WorkplaceReportingHubMenu } from '../components/workplace/WorkplaceReportingHubMenu'
 
 const PAGE = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const CARD =
@@ -14,7 +10,6 @@ const HERO_BTN =
   'inline-flex h-10 items-center justify-center gap-2 rounded-none border border-neutral-300 bg-white px-4 text-sm font-medium text-neutral-800 hover:bg-neutral-50'
 
 export function WorkplaceReportingPage() {
-  const location = useLocation()
   return (
     <div className={PAGE}>
       <nav className="mb-4 text-sm text-neutral-600">
@@ -38,31 +33,9 @@ export function WorkplaceReportingPage() {
         </p>
       </header>
 
-      <nav
-        className="mt-6 flex flex-col gap-3 border-b border-neutral-200/80 pb-6 sm:flex-row sm:flex-wrap sm:items-center"
-        aria-label="Arbeidsplassrapportering"
-      >
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
-          <LayoutList className="size-4" aria-hidden />
-          Meny
-        </div>
-        <div className="flex flex-wrap gap-2 sm:ml-2">
-          {WORKPLACE_REPORTING_NAV.map(({ to, label, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={() =>
-                workplaceReportingMenuLinkClass(
-                  workplaceReportingNavMatch(to, end, location.pathname, location.search),
-                )
-              }
-            >
-              {label}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
+      <div className="mt-6">
+        <WorkplaceReportingHubMenu />
+      </div>
 
       <WorkplaceReportingCasesSection />
 

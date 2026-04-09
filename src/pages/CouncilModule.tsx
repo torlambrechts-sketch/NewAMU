@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, NavLink, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   Bell,
@@ -9,7 +9,6 @@ import {
   FileText,
   Gavel,
   History,
-  LayoutList,
   Link2,
   ListChecks,
   ListOrdered,
@@ -43,7 +42,7 @@ import type {
   QuarterSlot,
 } from '../types/council'
 import type { RepElection, RepresentativeMember, RepresentativeOfficeRole } from '../types/representatives'
-import { workplaceReportingMenuLinkClass } from '../data/workplaceReportingNav'
+import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
 
 function useBodyScrollLock(active: boolean) {
   useEffect(() => {
@@ -171,6 +170,18 @@ export function CouncilModule() {
   const setTab = (id: TabId) => {
     setSearchParams({ tab: id }, { replace: true })
   }
+
+  const councilMenuItems = useMemo((): HubMenu1Item[] => {
+    const openElections = council.elections.filter((e) => e.status === 'open').length
+    return tabs.map(({ id, label, icon }) => ({
+      key: id,
+      label,
+      icon,
+      active: tab === id,
+      onClick: () => setTab(id),
+      badgeCount: id === 'election' ? openElections : undefined,
+    }))
+  }, [tab, council.elections])
 
   // Council state
   const [wheelYear, setWheelYear] = useState(() => new Date().getFullYear())
@@ -388,28 +399,9 @@ export function CouncilModule() {
         </div>
       </div>
 
-      <nav
-        className="mt-6 flex flex-col gap-3 border-b border-neutral-200/80 pb-6 sm:flex-row sm:flex-wrap sm:items-center"
-        aria-label="Arbeidsmiljøråd"
-      >
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
-          <LayoutList className="size-4" aria-hidden />
-          Meny
-        </div>
-        <div className="flex flex-wrap gap-2 sm:ml-2">
-          {tabs.map(({ id, label, icon: Icon }) => (
-            <NavLink
-              key={id}
-              to={`/council?tab=${id}`}
-              replace
-              className={() => workplaceReportingMenuLinkClass(tab === id)}
-            >
-              <Icon className="size-4 shrink-0" aria-hidden />
-              {label}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
+      <div className="mt-6">
+        <HubMenu1Bar ariaLabel="Arbeidsmiljøråd" items={councilMenuItems} />
+      </div>
 
       {tab === 'overview' && (
         <div className="mt-8 grid gap-6 lg:grid-cols-3">

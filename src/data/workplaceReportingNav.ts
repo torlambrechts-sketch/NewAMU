@@ -98,6 +98,15 @@ export const WORKPLACE_REPORTING_NAV: readonly WorkplaceReportingNavItem[] = [
 ]
 
 /** Match NavLink / subnav active state for a hub item. */
+export function canAccessWorkplaceReportingItem(
+  item: WorkplaceReportingNavItem,
+  can: (k: PermissionKey) => boolean,
+): boolean {
+  if (item.requirePermAny?.length) return item.requirePermAny.some((k) => can(k))
+  if (item.requirePerm) return can(item.requirePerm)
+  return true
+}
+
 export function workplaceReportingNavMatch(
   to: string,
   end: boolean,

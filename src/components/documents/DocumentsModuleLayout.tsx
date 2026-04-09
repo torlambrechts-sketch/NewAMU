@@ -1,11 +1,13 @@
-import { Link, NavLink } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import {
   DOCUMENTS_MODULE_DESC,
   DOCUMENTS_MODULE_TITLE,
   DOCUMENTS_NAV,
-  documentsMenuLinkClass,
+  documentsNavActiveId,
 } from '../../data/documentsNav'
+import { HubMenu1Bar } from '../layout/HubMenu1Bar'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 
 const PAGE = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 
@@ -16,6 +18,22 @@ type Props = {
 }
 
 export function DocumentsModuleLayout({ children, subHeader }: Props) {
+  const location = useLocation()
+  const { can } = useOrgSetupContext()
+  const activeId = documentsNavActiveId(location.pathname)
+
+  const menuItems = DOCUMENTS_NAV.filter((n) => {
+    if (n.id === 'templates') return can('documents.manage')
+    return true
+  }).map((n) => ({
+    key: n.id,
+    label: n.label,
+    icon: n.icon,
+    active: activeId === n.id,
+    to: n.to,
+    end: n.to === '/documents',
+  }))
+
   return (
     <div className={PAGE}>
       <nav className="mb-4 text-sm text-neutral-600">
@@ -36,24 +54,9 @@ export function DocumentsModuleLayout({ children, subHeader }: Props) {
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-neutral-600">{DOCUMENTS_MODULE_DESC}</p>
       </header>
 
-      <nav
-        className="mt-6 flex flex-col gap-3 border-b border-neutral-200/80 pb-6 sm:flex-row sm:flex-wrap sm:items-center"
-        aria-label="Bibliotek og wiki"
-      >
-        <div className="flex flex-wrap gap-2">
-          {DOCUMENTS_NAV.map(({ to, label, id, icon: Icon }) => (
-            <NavLink
-              key={id}
-              to={to}
-              end={to === '/documents'}
-              className={({ isActive }) => documentsMenuLinkClass(isActive)}
-            >
-              <Icon className="size-4 shrink-0" aria-hidden />
-              {label}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
+      <div className="mt-6">
+        <HubMenu1Bar ariaLabel="Bibliotek og wiki" items={menuItems} />
+      </div>
 
       {subHeader}
 
