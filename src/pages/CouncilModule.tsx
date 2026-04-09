@@ -6,11 +6,9 @@ import {
   Calendar,
   CheckCircle2,
   ClipboardList,
-  FileText,
   Gavel,
   History,
   Link2,
-  ListChecks,
   ListOrdered,
   MoreHorizontal,
   Plus,
@@ -24,15 +22,17 @@ import {
 } from 'lucide-react'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { GovernanceWheel } from '../components/council/GovernanceWheel'
-import { MEETINGS_PER_YEAR, suggestedAgendaItems } from '../data/meetingGovernance'
+import { MEETINGS_PER_YEAR } from '../data/meetingGovernance'
 import { useCouncil } from '../hooks/useCouncil'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useRepresentatives } from '../hooks/useRepresentatives'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useLearning } from '../hooks/useLearning'
+import { useHse } from '../hooks/useHse'
+import { useInternalControl } from '../hooks/useInternalControl'
+import { useTasks } from '../hooks/useTasks'
 import { avatarUrlFromSeed } from '../lib/avatarUrl'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
-import { REPRESENTATIVE_ROLE_REQUIREMENTS, requirementsForRole } from '../data/representativeRules'
 import type {
   AgendaItem,
   AuditEntryKind,
@@ -56,52 +56,38 @@ function useBodyScrollLock(active: boolean) {
 }
 
 const tabs = [
-  { id: 'overview' as const, label: 'Oversikt', icon: ClipboardList },
-  { id: 'board' as const, label: 'Styre og valg', icon: Users },
-  { id: 'election' as const, label: 'Valg representanter', icon: Vote },
-  { id: 'requirements' as const, label: 'Krav og opplæring', icon: ListChecks },
-  { id: 'meetings' as const, label: 'Møter og årshjul', icon: Calendar },
-  { id: 'preparation' as const, label: 'Møteforberedelse', icon: FileText },
-  { id: 'compliance' as const, label: 'Arbeidsrett og sjekkliste', icon: Gavel },
-  { id: 'decisions' as const, label: 'Vedtaksregister', icon: ScrollText },
+  { id: 'overview'   as const, label: 'Oversikt',           icon: ClipboardList },
+  { id: 'board'      as const, label: 'Styre og medlemmer', icon: Users },
+  { id: 'election'   as const, label: 'Valgmodul',          icon: Vote },
+  { id: 'meetings'   as const, label: 'Møter',              icon: Calendar },
+  { id: 'compliance' as const, label: 'Sjekkliste',         icon: Gavel },
+  { id: 'decisions'  as const, label: 'Vedtaksregister',    icon: ScrollText },
 ]
 
 const tabBlurbs: Record<(typeof tabs)[number]['id'], { kicker: string; description: string }> = {
   overview: {
     kicker: 'Status og fremdrift',
-    description:
-      'Oversikt over styret, åpne valg og samsvar. Bruk fanene over eller sekundærmenyen for detaljer.',
+    description: 'Oversikt over styret, åpne valg og samsvar.',
   },
   board: {
-    kicker: 'Styre og valg',
-    description:
-      'Valgt arbeidsmiljøråd, interne valg og AMU-sammensetting (50/50). Oppdateres når et valg avsluttes.',
+    kicker: 'Styre og medlemmer',
+    description: 'Valgt AMU-styre med 50/50-krav, verneombud, rolleoversikt og opplæringsstatus.',
   },
   election: {
-    kicker: 'Valg av representanter',
-    description:
-      'Gjennomfør anonyme eller åpne valg av arbeidstakerrepresentanter, knytt til perioder og se revisjonslogg.',
-  },
-  requirements: {
-    kicker: 'Krav og opplæring',
-    description:
-      'Matrise over roller og krav etter AML kap. 7. Kryss av opplæring per representant.',
+    kicker: 'Valgmodul',
+    description: 'Anonymt digitalt valg av arbeidstakerrepresentanter med 2-årsperiodekontroll og 90-dagersvarsel.',
   },
   meetings: {
-    kicker: 'Årshjul og møter',
-    description: 'Planlegg ordinære møter, agenda og protokoll — knyttet til kvartal og AML-forventninger.',
-  },
-  preparation: {
-    kicker: 'Forberedelse',
-    description: 'Sjekkliste og notater før neste møte — samme innhold som når møtet er valgt under «Møter».',
+    kicker: 'Møter og årshjul',
+    description: 'Data-drevet møteplanlegger — auto-injisert agenda, distribusjonskontroll og oppgavegenerering.',
   },
   compliance: {
-    kicker: 'Samsvar og oppgaver',
-    description: 'Strukturert sjekkliste med henvisninger; legg til egne punkter og send oppfølging til oppgaver.',
+    kicker: 'Sjekkliste og samsvar',
+    description: 'Strukturert sjekkliste med lovhenvisninger; legg til egne punkter.',
   },
   decisions: {
     kicker: 'Vedtaksregister',
-    description: 'Alle formelle vedtak på tvers av møter — søkbart og filtrerbart.',
+    description: 'Alle formelle vedtak på tvers av møter — søkbart, filtrerbart og koblet til Kanban.',
   },
 }
 
@@ -159,6 +145,9 @@ export function CouncilModule() {
   const rep = useRepresentatives()
   const org = useOrganisation()
   const learning = useLearning()
+  const hse = useHse()
+  const ic = useInternalControl()
+  const { addTask } = useTasks()
   const { complianceThresholds: ct } = org
 
   const [searchParams, setSearchParams] = useSearchParams()
@@ -186,7 +175,7 @@ export function CouncilModule() {
   // Council state
   const [wheelYear, setWheelYear] = useState(() => new Date().getFullYear())
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null)
-  const [prepMeetingId, setPrepMeetingId] = useState<string | null>(null)
+  const [_prepMeetingId, _setPrepMeetingId] = useState<string | null>(null)
   const [newElectionTitle, setNewElectionTitle] = useState('')
   const [candidateInputs, setCandidateInputs] = useState<Record<string, string>>({})
   const [meetingForm, setMeetingForm] = useState({
@@ -274,14 +263,6 @@ export function CouncilModule() {
     ).length
   }, [council.meetings, wheelYear])
 
-  const prepMeeting = useMemo(() => {
-    const list = council.meetings.filter((m) => m.status === 'planned')
-    const byId = prepMeetingId ? list.find((m) => m.id === prepMeetingId) : null
-    if (byId) return byId
-    const next = [...list].sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0]
-    return next ?? null
-  }, [council.meetings, prepMeetingId])
-
   async function handleNewElection(e: React.FormEvent) {
     e.preventDefault()
     if (!newElectionTitle.trim()) return
@@ -328,6 +309,89 @@ export function CouncilModule() {
       decisionPanelId ? council.allDecisions.find((d) => d.id === decisionPanelId) ?? null : null,
     [council.allDecisions, decisionPanelId],
   )
+
+  // ── Live data for agenda injection ──────────────────────────────────────────
+
+  // Last completed meeting date (for "since last meeting" context)
+  const lastMeetingDate = useMemo(() => {
+    const completed = council.meetings
+      .filter((m) => m.status === 'completed')
+      .sort((a, b) => b.startsAt.localeCompare(a.startsAt))
+    return completed[0]?.startsAt ?? null
+  }, [council.meetings])
+
+  // Incidents since last meeting
+  const incidentsSinceLastMeeting = useMemo(() => {
+    if (!lastMeetingDate) return hse.incidents
+    return hse.incidents.filter((i) => i.createdAt > lastMeetingDate)
+  }, [hse.incidents, lastMeetingDate])
+
+  const highSeverityIncidents = useMemo(
+    () => incidentsSinceLastMeeting.filter((i) => i.severity === 'high' || i.severity === 'critical'),
+    [incidentsSinceLastMeeting],
+  )
+
+  // Latest sick leave %
+  const latestSickLeavePct = useMemo(() => {
+    const active = hse.sickLeaveCases.filter((c) => c.status === 'active' || c.status === 'partial')
+    return active.length
+  }, [hse.sickLeaveCases])
+
+  // Open high ROS risks
+  const openHighRisks = useMemo(
+    () => ic.rosAssessments
+      .flatMap((r) => r.rows.filter((row) => !row.done && row.riskScore >= 12)
+        .map((row) => ({ ...row, assessment: r.title }))),
+    [ic.rosAssessments],
+  )
+
+  // 90-day term expiry warning for representatives
+  const expiringReps = useMemo(() => {
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() + 90)
+    return rep.members.filter((m) => {
+      if (!m.termUntil) return false
+      const expiry = new Date(m.termUntil)
+      return expiry <= cutoff && expiry >= new Date()
+    })
+  }, [rep.members])
+
+  // Chairman rotation check (12-month rule)
+  const chairmanRotationNeeded = useMemo(() => {
+    const chair = council.board.find((m) => m.role === 'leader')
+    if (!chair?.electedAt) return false
+    const elapsed = (Date.now() - new Date(chair.electedAt).getTime()) / (1000 * 60 * 60 * 24 * 365)
+    return elapsed >= 1
+  }, [council.board])
+
+  // 7-day agenda distribution warning for upcoming meetings
+  const meetingsNeedingDistribution = useMemo(() => {
+    const now = new Date()
+    const sevenDaysFromNow = new Date(now)
+    sevenDaysFromNow.setDate(now.getDate() + 7)
+    return council.meetings.filter((m) => {
+      if (m.status !== 'planned') return false
+      if (m.invitationSentAt) return false
+      const meetingDate = new Date(m.startsAt)
+      return meetingDate <= sevenDaysFromNow && meetingDate > now
+    })
+  }, [council.meetings])
+
+  // ── Task generator from agenda decisions ─────────────────────────────────────
+
+  function createTaskFromDecision(description: string, responsible: string, dueDate: string, meetingTitle: string) {
+    addTask({
+      title: description.slice(0, 120),
+      description: `Vedtak fra AMU-møte: ${meetingTitle}`,
+      status: 'todo',
+      assignee: responsible,
+      ownerRole: 'AMU-vedtak',
+      dueDate,
+      module: 'council',
+      sourceType: 'council_meeting',
+      requiresManagementSignOff: false,
+    })
+  }
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
@@ -423,9 +487,29 @@ export function CouncilModule() {
                 <div className="text-sm text-neutral-600">Sjekkliste fullført</div>
               </div>
             </div>
+
+            {/* Live data widgets */}
+            <div className="mt-5 grid gap-3 sm:grid-cols-3 border-t border-neutral-100 pt-4">
+              <div className={`rounded-xl p-4 ring-1 ${highSeverityIncidents.length > 0 ? 'bg-red-50 ring-red-200' : 'bg-[#faf8f4] ring-neutral-100'}`}>
+                <div className={`text-2xl font-semibold ${highSeverityIncidents.length > 0 ? 'text-red-700' : 'text-[#1a3d32]'}`}>{incidentsSinceLastMeeting.length}</div>
+                <div className="text-xs text-neutral-600 mt-0.5">Hendelser siden siste møte</div>
+                {highSeverityIncidents.length > 0 && (
+                  <div className="mt-1 text-xs font-medium text-red-600">{highSeverityIncidents.length} høy/kritisk</div>
+                )}
+              </div>
+              <div className={`rounded-xl p-4 ring-1 ${latestSickLeavePct > 0 ? 'bg-amber-50 ring-amber-200' : 'bg-[#faf8f4] ring-neutral-100'}`}>
+                <div className="text-2xl font-semibold text-amber-700">{latestSickLeavePct}</div>
+                <div className="text-xs text-neutral-600 mt-0.5">Aktive sykefravær</div>
+              </div>
+              <div className={`rounded-xl p-4 ring-1 ${openHighRisks.length > 0 ? 'bg-orange-50 ring-orange-200' : 'bg-[#faf8f4] ring-neutral-100'}`}>
+                <div className="text-2xl font-semibold text-orange-700">{openHighRisks.length}</div>
+                <div className="text-xs text-neutral-600 mt-0.5">ROS høyrisikoer (≥12)</div>
+              </div>
+            </div>
+
             <p className="mt-4 text-sm text-neutral-600">
               Registrerte ordinære møter i {wheelYear}: <strong>{meetingsThisYear}</strong> / {MEETINGS_PER_YEAR}{' '}
-              (justér år under «Møter og årshjul»).
+              (justér år under «Møter»).
             </p>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-neutral-200">
               <div
@@ -708,12 +792,44 @@ export function CouncilModule() {
 
       {tab === 'election' && (
         <div className="mt-8 space-y-8">
+
+          {/* ── 90-day term expiry alert ──────────────────────────────────── */}
+          {expiringReps.length > 0 && (
+            <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-600" />
+              <div>
+                <p className="text-sm font-semibold text-amber-900">
+                  Verv utløper innen 90 dager — start nytt valg
+                </p>
+                <p className="mt-1 text-xs text-amber-700">
+                  {expiringReps.map((m) => `${m.name} (${m.termUntil})`).join(' · ')}
+                  {' '}— Lovpålagt 2-årsperiode (AML §6-1 og org.forskriften §3-4).
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ── Chairman rotation alert ───────────────────────────────────── */}
+          {chairmanRotationNeeded && (
+            <div className="flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+              <Vote className="mt-0.5 size-5 shrink-0 text-sky-600" />
+              <div>
+                <p className="text-sm font-semibold text-sky-900">
+                  Møtelederrollen bør roteres (12-månedersregelen)
+                </p>
+                <p className="mt-1 text-xs text-sky-700">
+                  Nåværende møteleder har hatt rollen i over 12 måneder. Rollen bør alternere mellom
+                  arbeidsgiver- og arbeidstakersiden. Gå til «Styre og medlemmer» for å justere.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* New representative election form */}
           <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-neutral-900">Nytt valg (arbeidstakerrepresentanter)</h2>
             <p className="mt-1 text-sm text-neutral-600">
-              Legg til kandidater, åpne for stemmer, avslutt for å tildele roller (leder, nestleder, medlem) etter
-              stemmetall. Ved anonymt valg vises ikke navn før valget er lukket.
+              Anonymt digitalt valg — kandidater legges til, stemmelenker sendes til ansatte, og resultater registreres etter at valget er lukket. Loven krever hemmelighet og 2-årsperiode.
             </p>
             <form
               className="mt-4 grid gap-3 md:grid-cols-2"
@@ -909,79 +1025,77 @@ export function CouncilModule() {
         </div>
       )}
 
-      {tab === 'requirements' && (
-        <div className="mt-8 space-y-6">
-          <div className="rounded-2xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
-            Kravene nedenfor er <strong>illustrative</strong> og knyttet til typiske plikter under AML kap. 7.
-            Tilpass til bedriftens størrelse og avtaler.
-          </div>
-          <section className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-            <div className="border-b border-neutral-200 bg-neutral-50 px-4 py-3">
-              <h2 className="font-semibold text-neutral-900">Matrise: roller og krav</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-neutral-200 text-neutral-600">
-                    <th className="px-4 py-3 font-medium">Rolle</th>
-                    <th className="px-4 py-3 font-medium">Krav / opplæring</th>
-                    <th className="px-4 py-3 font-medium">Henvisning</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100">
-                  {REPRESENTATIVE_ROLE_REQUIREMENTS.map((r) => (
-                    <tr key={r.id}>
-                      <td className="px-4 py-3 align-top text-xs text-neutral-500">
-                        {r.roleKeys.map((k) => officeLabel(k as RepresentativeOfficeRole)).join(', ')}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-neutral-900">{r.title}</div>
-                        <div className="mt-1 text-neutral-600">{r.description}</div>
-                      </td>
-                      <td className="px-4 py-3 align-top text-xs text-[#1a3d32]/90">{r.lawRef}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Oppfølging per representant</h2>
-            <p className="mt-1 text-sm text-neutral-600">
-              Kryss av når kravet er dokumentert gjennomført (internt spor, ikke juridisk bevis).
-            </p>
-            <ul className="mt-4 space-y-6">
-              {rep.members.map((m) => (
-                <li key={m.id} className="rounded-xl border border-neutral-100 bg-[#faf8f4] p-4">
-                  <div className="font-medium text-neutral-900">
-                    {m.name} · {officeLabel(m.officeRole)}
-                  </div>
-                  <ul className="mt-2 space-y-2">
-                    {requirementsForRole(m.officeRole).map((req) => (
-                      <li key={req.id} className="flex items-start gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={m.trainingChecklist[req.id] ?? false}
-                          onChange={() => rep.toggleTraining(m.id, req.id)}
-                          className="mt-0.5 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
-                        />
-                        <span>
-                          <span className="font-medium text-neutral-800">{req.title}</span>
-                          <span className="block text-xs text-neutral-600">{req.description}</span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </div>
-      )}
 
       {tab === 'meetings' && (
         <div className="mt-8 space-y-8">
+
+          {/* ── 7-day distribution warning ───────────────────────────────── */}
+          {meetingsNeedingDistribution.length > 0 && (
+            <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-600" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-amber-900">
+                  Frist for utsending av saksliste — {meetingsNeedingDistribution.length} møte{meetingsNeedingDistribution.length > 1 ? 'r' : ''}
+                </p>
+                <p className="mt-1 text-xs text-amber-700">
+                  Innkalling og agenda skal sendes til AMU-medlemmene minst 7 dager før møtet
+                  (Forskrift om organisering, ledelse og medvirkning §3-2).
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {meetingsNeedingDistribution.map((m) => {
+                    const days = Math.ceil((new Date(m.startsAt).getTime() - Date.now()) / 86400000)
+                    return (
+                      <li key={m.id} className="flex items-center gap-2 text-xs text-amber-800">
+                        <span className="font-medium">{m.title}</span>
+                        <span>— om {days} dag{days !== 1 ? 'er' : ''}</span>
+                        <button
+                          type="button"
+                          onClick={() => council.sendInvitation(m.id, ['AMU-medlemmer'])}
+                          className="ml-2 rounded-full bg-amber-600 px-2 py-0.5 text-white hover:bg-amber-700"
+                        >
+                          Send innkalling nå
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* ── Data-driven agenda context panel ────────────────────────── */}
+          {(incidentsSinceLastMeeting.length > 0 || latestSickLeavePct > 0 || openHighRisks.length > 0) && (
+            <div className="rounded-xl border border-neutral-200 bg-[#faf8f4] p-4">
+              <p className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-500">
+                Auto-injisert agendagrunnlag — siden siste møte
+                {lastMeetingDate && <span className="ml-1 font-normal text-neutral-400">({new Date(lastMeetingDate).toLocaleDateString('no-NO')})</span>}
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {incidentsSinceLastMeeting.length > 0 && (
+                  <Link to="/hse?tab=incidents" className="group block rounded-lg border border-neutral-200 bg-white p-3 hover:border-red-200 hover:bg-red-50/30 transition-colors">
+                    <div className={`text-2xl font-bold ${highSeverityIncidents.length > 0 ? 'text-red-700' : 'text-neutral-800'}`}>{incidentsSinceLastMeeting.length}</div>
+                    <div className="text-xs text-neutral-600">Hendelser siden siste møte</div>
+                    {highSeverityIncidents.length > 0 && (
+                      <div className="mt-1 text-xs font-semibold text-red-600">{highSeverityIncidents.length} høy/kritisk — gjennomgå</div>
+                    )}
+                  </Link>
+                )}
+                {latestSickLeavePct > 0 && (
+                  <Link to="/hse?tab=sickness" className="block rounded-lg border border-neutral-200 bg-white p-3 hover:border-amber-200 hover:bg-amber-50/30 transition-colors">
+                    <div className="text-2xl font-bold text-amber-700">{latestSickLeavePct}</div>
+                    <div className="text-xs text-neutral-600">Aktive sykefravær</div>
+                  </Link>
+                )}
+                {openHighRisks.length > 0 && (
+                  <Link to="/internal-control?tab=ros" className="block rounded-lg border border-neutral-200 bg-white p-3 hover:border-orange-200 hover:bg-orange-50/30 transition-colors">
+                    <div className="text-2xl font-bold text-orange-700">{openHighRisks.length}</div>
+                    <div className="text-xs text-neutral-600">ROS høyrisikoer (≥12) til gjennomgang</div>
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3">
               <label className="text-sm text-neutral-600">
@@ -1170,40 +1284,7 @@ export function CouncilModule() {
                             <option value={4}>Q4</option>
                           </select>
                         </div>
-                      </div>
-                      <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-                        <input
-                          type="checkbox"
-                          checked={meetingForm.applySuggestedAgenda}
-                          onChange={(e) =>
-                            setMeetingForm((s) => ({ ...s, applySuggestedAgenda: e.target.checked }))
-                          }
-                          className="size-4 rounded-none border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
-                        />
-                        Bruk foreslått agenda for valgt kvartal
-                      </label>
-                      {!meetingForm.applySuggestedAgenda ? (
-                        <div>
-                          <label className="text-xs font-medium text-neutral-500">Agenda (én linje per punkt)</label>
-                          <textarea
-                            value={meetingForm.agendaText}
-                            onChange={(e) => setMeetingForm((s) => ({ ...s, agendaText: e.target.value }))}
-                            rows={4}
-                            className="mt-1 w-full resize-y rounded-none border border-neutral-200 px-3 py-2 text-sm"
-                            placeholder="1. Åpning&#10;2. …"
-                          />
-                        </div>
-                      ) : (
-                        <div className="rounded-none border border-neutral-200 bg-[#faf8f4] p-3 text-xs text-neutral-700">
-                          <strong>Forslag for Q{meetingForm.quarterSlot}:</strong>
-                          <ul className="mt-2 list-inside list-disc space-y-1">
-                            {suggestedAgendaItems(meetingForm.quarterSlot).map((s) => (
-                              <li key={s.title}>{s.title}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      <button
+                      </div>                      <button
                         type="submit"
                         className="inline-flex w-full items-center justify-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] py-2.5 text-sm font-medium text-white hover:bg-[#142e26]"
                       >
@@ -1226,6 +1307,7 @@ export function CouncilModule() {
                       setQuorumDraft={(v) => setQuorumInput((r) => ({ ...r, [selectedMeeting.id]: v }))}
                       itemMinutesDraft={itemMinutes}
                       setItemMinutesDraft={setItemMinutes}
+                      onCreateTask={createTaskFromDecision}
                     />
                   )}
                 </div>
@@ -1235,41 +1317,6 @@ export function CouncilModule() {
         </div>
       )}
 
-      {tab === 'preparation' && (
-        <div className="mt-8 space-y-6">
-          <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Møteforberedelse</h2>
-            <p className="mt-1 text-sm text-neutral-600">
-              Forbered saksgrunnlag, sjekkliste og notater før møtet. Samme data finnes under «Møter og årshjul» når
-              møtet er valgt.
-            </p>
-            <div className="mt-4">
-              <label className="text-xs font-medium text-neutral-500">Velg møte (planlagte først)</label>
-              <select
-                value={prepMeeting?.id ?? ''}
-                onChange={(e) => setPrepMeetingId(e.target.value || null)}
-                className="mt-1 w-full max-w-md rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-              >
-                <option value="">Neste planlagte (standard)</option>
-                {council.meetings
-                  .slice()
-                  .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
-                  .map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.title} — {formatWhen(m.startsAt)} ({m.status})
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
-
-          {prepMeeting ? (
-            <PreparationPanel meeting={prepMeeting} council={council} />
-          ) : (
-            <p className="text-sm text-neutral-500">Opprett et møte under «Møter og årshjul».</p>
-          )}
-        </div>
-      )}
 
       {tab === 'compliance' && (
         <div className="mt-8 space-y-6">
@@ -1735,95 +1782,13 @@ function MemberColumn({
   )
 }
 
-// ─── Preparation and meeting-detail panels (unchanged) ──────────────────────
-
-function PreparationPanel({
-  meeting,
-  council,
-}: {
-  meeting: CouncilMeeting
-  council: ReturnType<typeof useCouncil>
-}) {
-  return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-        <h3 className="font-semibold text-neutral-900">{meeting.title}</h3>
-        <p className="text-sm text-neutral-600">{formatWhen(meeting.startsAt)} · {meeting.location}</p>
-      </div>
-      <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-neutral-900">Forberedende notater</h3>
-        <textarea
-          value={meeting.preparationNotes}
-          onChange={(e) => council.setPreparationNotes(meeting.id, e.target.value)}
-          rows={5}
-          className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-          placeholder="Saksliste, lenker til dokumenter, spørsmål til ledelsen …"
-        />
-      </div>
-      <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-neutral-900">Sjekkliste før møtet</h3>
-        <ul className="mt-3 space-y-2">
-          {meeting.preparationChecklist.map((p) => (
-            <li key={p.id} className="flex items-start gap-2">
-              <input
-                type="checkbox"
-                checked={p.done}
-                onChange={() => council.togglePrepChecklist(meeting.id, p.id)}
-                className="mt-0.5 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
-              />
-              <span className={`text-sm ${p.done ? 'text-neutral-500 line-through' : 'text-neutral-800'}`}>
-                {p.label}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            const fd = new FormData(e.currentTarget)
-            const label = String(fd.get('extra') ?? '').trim()
-            if (!label) return
-            council.addPrepChecklistItem(meeting.id, label)
-            e.currentTarget.reset()
-          }}
-          className="mt-4 flex flex-wrap gap-2"
-        >
-          <input
-            name="extra"
-            placeholder="Nytt sjekkpunkt"
-            className="min-w-[200px] flex-1 rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
-          />
-          <button
-            type="submit"
-            className="rounded-lg bg-[#1a3d32] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#142e26]"
-          >
-            Legg til
-          </button>
-        </form>
-      </div>
-      <div className="rounded-2xl border border-neutral-200/90 bg-[#faf8f4] p-5">
-        <h3 className="text-sm font-semibold text-neutral-900">Agenda (oversikt)</h3>
-        <ol className="mt-2 list-inside list-decimal space-y-1 text-sm text-neutral-700">
-          {meeting.agendaItems.length === 0 ? (
-            <li>Ingen punkter — rediger under «Møter og årshjul».</li>
-          ) : (
-            meeting.agendaItems
-              .slice()
-              .sort((a, b) => a.order - b.order)
-              .map((a) => <li key={a.id}>{a.title}</li>)
-          )}
-        </ol>
-      </div>
-    </div>
-  )
-}
-
 function MeetingDetailPanel({
   meeting, council, auditDraft, setAuditDraft,
   inviteRecipientsDraft, setInviteRecipientsDraft,
   attendeesDraft, setAttendeesDraft,
   quorumDraft, setQuorumDraft,
   itemMinutesDraft, setItemMinutesDraft,
+  onCreateTask,
 }: {
   meeting: CouncilMeeting
   council: ReturnType<typeof useCouncil>
@@ -1837,6 +1802,7 @@ function MeetingDetailPanel({
   setQuorumDraft: (v: boolean) => void
   itemMinutesDraft: Record<string, { summary: string; decision: string }>
   setItemMinutesDraft: React.Dispatch<React.SetStateAction<Record<string, { summary: string; decision: string }>>>
+  onCreateTask: (description: string, responsible: string, dueDate: string, meetingTitle: string) => void
 }) {
   const [protoName, setProtoName] = useState('')
   const [protoRole, setProtoRole] = useState<'chair' | 'secretary' | 'management'>('chair')
@@ -2008,12 +1974,24 @@ function MeetingDetailPanel({
                             className="mt-1 w-full resize-y rounded-lg border border-neutral-200 px-2 py-1 text-xs"
                           />
                         </div>
+                        <div className="flex gap-2 flex-wrap">
                         <button type="button" onClick={() => {
                           const draft = itemMinutesDraft[item.id]
                           if (draft) updateAgendaItem(item.id, { minutesSummary: draft.summary, decision: draft.decision || undefined })
                         }} className="rounded-full bg-[#1a3d32] px-3 py-1 text-xs font-medium text-white hover:bg-[#142e26]">
                           Lagre referat
                         </button>
+                        {/* 1-click task from decision */}
+                        {(itemMinutesDraft[item.id]?.decision || item.decision) && (
+                          <button type="button" onClick={() => {
+                            const decisionText = itemMinutesDraft[item.id]?.decision || item.decision || ''
+                            onCreateTask(decisionText, '', '', meeting.title)
+                          }}
+                          className="rounded-full border border-emerald-600 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50">
+                            + Opprett oppgave fra vedtak
+                          </button>
+                        )}
+                        </div>
                       </div>
                     </details>
                     <button

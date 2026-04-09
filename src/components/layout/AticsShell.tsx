@@ -154,12 +154,10 @@ const councilSubs: SubItem[] = [
       pathname === '/council' &&
       (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
   },
-  { label: 'Styre og valg', path: '/council?tab=board', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'board' },
-  { label: 'Valg representanter', path: '/council?tab=election', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'election' },
-  { label: 'Krav og opplæring', path: '/council?tab=requirements', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'requirements' },
-  { label: 'Møter og årshjul', path: '/council?tab=meetings', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'meetings' },
-  { label: 'Møteforberedelse', path: '/council?tab=preparation', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'preparation' },
-  { label: 'Arbeidsrett og sjekkliste', path: '/council?tab=compliance', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'compliance' },
+  { label: 'Styre og medlemmer', path: '/council?tab=board', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'board' },
+  { label: 'Valgmodul', path: '/council?tab=election', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'election' },
+  { label: 'Møter', path: '/council?tab=meetings', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'meetings' },
+  { label: 'Sjekkliste', path: '/council?tab=compliance', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'compliance' },
   { label: 'Vedtaksregister', path: '/council?tab=decisions', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'decisions' },
 ]
 
