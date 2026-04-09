@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
-import { FileText, GripVertical, Mail, Pencil, Plus, Radio, Split, Trash2, Webhook, Workflow } from 'lucide-react'
-import type { WorkflowAction, WorkflowCondition } from '../../types/workflow'
+import { GripVertical, Pencil, Plus, Split, Trash2, Workflow } from 'lucide-react'
+import type { WorkflowAction } from '../../types/workflow'
 import {
   defaultWorkflowFlowDocument,
   newBranchId,
@@ -9,7 +9,7 @@ import {
   type WorkflowFlowStep,
 } from '../../lib/workflowFlowTypes'
 import { summarizeCondition } from '../../lib/workflowConditionSummary'
-import { presetsForSourceModule } from '../../data/workflowInputPresets'
+import { presetsForSourceModule, type WorkflowInputPreset } from '../../data/workflowInputPresets'
 import { WorkflowActionsEditor } from './WorkflowActionsEditor'
 import { WorkflowConditionForm } from './WorkflowConditionForm'
 import {
@@ -27,12 +27,11 @@ const BTN =
   'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-none border px-3 text-sm font-medium leading-none'
 const STEP_CARD = `${R} border border-neutral-200/90 bg-white p-3 text-sm`
 
-type DragPayload =
-  | { kind: 'palette_condition'; condition: WorkflowCondition; label: string }
-  | { kind: 'palette_actions'; template: 'task' | 'email' | 'notification' | 'webhook' | 'log' }
-  | { kind: 'reorder'; stepId: string; branchId?: string }
+type ReorderPayload = { kind: 'reorder'; stepId: string; branchId?: string }
 
-function actionsForPaletteTemplate(template: 'task' | 'email' | 'notification' | 'webhook' | 'log'): WorkflowAction[] {
+type ActionTemplate = 'task' | 'email' | 'notification' | 'webhook' | 'log'
+
+function actionsForTemplate(template: ActionTemplate): WorkflowAction[] {
   switch (template) {
     case 'task':
       return [defaultTaskAction()]
@@ -49,22 +48,23 @@ function actionsForPaletteTemplate(template: 'task' | 'email' | 'notification' |
   }
 }
 
-function actionBlockLabel(template: 'task' | 'email' | 'notification' | 'webhook' | 'log'): string {
-  const m: Record<string, string> = {
+function actionBlockLabel(template: ActionTemplate): string {
+  const m: Record<ActionTemplate, string> = {
     task: 'Oppgave',
     email: 'E-post',
     notification: 'Varsling',
     webhook: 'Webhook',
     log: 'Logg',
   }
-  return m[template] ?? 'Handlinger'
+  return m[template]
 }
 
-function readDrag(e: React.DragEvent): DragPayload | null {
+function readReorderDrag(e: React.DragEvent): ReorderPayload | null {
   try {
     const raw = e.dataTransfer.getData('application/x-atics-workflow')
     if (!raw) return null
-    return JSON.parse(raw) as DragPayload
+    const p = JSON.parse(raw) as ReorderPayload
+    return p?.kind === 'reorder' ? p : null
   } catch {
     return null
   }
@@ -103,7 +103,7 @@ function StepRow({
   selected: boolean
   onSelect: () => void
   onDelete: () => void
-  dragPayload: DragPayload
+  dragPayload: ReorderPayload
 }) {
   const IconBox =
     step.kind === 'condition' ? (
@@ -123,7 +123,7 @@ function StepRow({
           e.dataTransfer.effectAllowed = 'move'
         }}
         className="flex w-8 shrink-0 cursor-grab items-center justify-center text-neutral-400 active:cursor-grabbing"
-        title="Dra for å flytte"
+        title="Dra for å flytte rekkefølge"
         aria-hidden
       >
         <GripVertical className="size-5" />
@@ -138,7 +138,7 @@ function StepRow({
         </span>
         <span className="min-w-0 flex-1">
           <span className="font-semibold text-neutral-900">
-            {step.kind === 'condition' ? 'Når (betingelse)' : 'Så (handlinger)'}
+            {step.kind === 'condition' ? 'Når' : 'Så'}
             {step.label ? <span className="ml-2 font-normal text-neutral-500">— {step.label}</span> : null}
           </span>
           <span className="mt-1 line-clamp-2 block text-xs text-neutral-600">{stepSummaryLine(step)}</span>
@@ -167,6 +167,170 @@ function StepRow({
         >
           <Trash2 className="size-4" />
         </button>
+      </div>
+    </div>
+  )
+}
+
+const ACTION_OPTIONS: { value: ActionTemplate; label: string }[] = [
+  { value: 'task', label: 'Oppgave' },
+  { value: 'email', label: 'E-post' },
+  { value: 'notification', label: 'Varsling' },
+  { value: 'webhook', label: 'Webhook' },
+  { value: 'log', label: 'Kun logg' },
+]
+
+function FlowStepsBlock({
+  branchId,
+  steps,
+  inputPresets,
+  selectedPath,
+  setSelectedPath,
+  removeStep,
+  insertStep,
+  moveStep,
+}: {
+  branchId?: string
+  steps: WorkflowFlowStep[]
+  inputPresets: WorkflowInputPreset[]
+  selectedPath: { branchId?: string; stepId: string } | null
+  setSelectedPath: (p: { branchId?: string; stepId: string } | null) => void
+  removeStep: (branchId: string | undefined, stepId: string) => void
+  insertStep: (branchId: string | undefined, index: number, step: WorkflowFlowStep) => void
+  moveStep: (branchId: string | undefined, from: number, to: number) => void
+}) {
+  const [whenPick, setWhenPick] = useState('')
+  const [actPick, setActPick] = useState('')
+
+  const handleDropOnList = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault()
+    const p = readReorderDrag(e)
+    if (!p) return
+    const list = steps
+    const from = list.findIndex((s) => s.id === p.stepId)
+    if (from < 0) return
+    let to = dropIndex
+    if (from < to) to -= 1
+    moveStep(branchId, from, Math.max(0, to))
+  }
+
+  function addWhenPreset(presetId: string) {
+    if (!presetId) return
+    const pr = inputPresets.find((p) => p.id === presetId)
+    if (!pr) return
+    insertStep(branchId, steps.length, {
+      id: newFlowStepId(),
+      kind: 'condition',
+      label: pr.label,
+      condition: pr.condition,
+    })
+    setWhenPick('')
+  }
+
+  function addActionTemplate(tmpl: string) {
+    if (!tmpl) return
+    const template = tmpl as ActionTemplate
+    insertStep(branchId, steps.length, {
+      id: newFlowStepId(),
+      kind: 'actions',
+      label: actionBlockLabel(template),
+      actions: actionsForTemplate(template),
+    })
+    setActPick('')
+  }
+
+  const whenSelectId = branchId ? `wf-when-${branchId}` : 'wf-when-linear'
+  const actSelectId = branchId ? `wf-act-${branchId}` : 'wf-act-linear'
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="min-w-0 flex-1">
+          <label className={WF_FIELD_LABEL} htmlFor={whenSelectId}>
+            Legg til inndata (når)
+          </label>
+          <select
+            id={whenSelectId}
+            value={whenPick}
+            onChange={(e) => {
+              const v = e.target.value
+              setWhenPick(v)
+              addWhenPreset(v)
+            }}
+            className={WF_FIELD_INPUT}
+          >
+            <option value="">Velg…</option>
+            {inputPresets.map((pr) => (
+              <option key={pr.id} value={pr.id}>
+                {pr.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="min-w-0 flex-1">
+          <label className={WF_FIELD_LABEL} htmlFor={actSelectId}>
+            Legg til handling (så)
+          </label>
+          <select
+            id={actSelectId}
+            value={actPick}
+            onChange={(e) => {
+              const v = e.target.value
+              setActPick(v)
+              addActionTemplate(v)
+            }}
+            className={WF_FIELD_INPUT}
+          >
+            <option value="">Velg…</option>
+            {ACTION_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div
+        className={`${R} min-h-[140px] border border-neutral-200/90 bg-white p-3`}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => handleDropOnList(e, steps.length)}
+      >
+        <p className={`${WF_FIELD_LABEL} mb-2 text-neutral-500`}>Rekkefølge</p>
+        <div className="space-y-0">
+          {steps.length === 0 ? (
+            <p className={`${WF_LEAD} py-6 text-center text-neutral-500`}>
+              Ingen steg ennå. Velg inndata eller handling over.
+            </p>
+          ) : null}
+          {steps.map((step, i) => (
+            <div key={step.id}>
+              {i > 0 ? <FlowConnector /> : null}
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.stopPropagation()
+                  handleDropOnList(e, i)
+                }}
+              >
+                <StepRow
+                  step={step}
+                  selected={
+                    selectedPath?.stepId === step.id &&
+                    (branchId === undefined ? !selectedPath.branchId : selectedPath.branchId === branchId)
+                  }
+                  onSelect={() => setSelectedPath(branchId ? { branchId, stepId: step.id } : { stepId: step.id })}
+                  onDelete={() => removeStep(branchId, step.id)}
+                  dragPayload={{
+                    kind: 'reorder',
+                    stepId: step.id,
+                    branchId: branchId ?? undefined,
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -253,40 +417,6 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
     }
   }
 
-  const handleDropOnList = (e: React.DragEvent, branchId: string | undefined, dropIndex: number) => {
-    e.preventDefault()
-    const p = readDrag(e)
-    if (!p) return
-    if (p.kind === 'palette_condition') {
-      insertStep(branchId, dropIndex, {
-        id: newFlowStepId(),
-        kind: 'condition',
-        label: p.label,
-        condition: p.condition,
-      })
-      return
-    }
-    if (p.kind === 'palette_actions') {
-      const tmpl = p.template
-      insertStep(branchId, dropIndex, {
-        id: newFlowStepId(),
-        kind: 'actions',
-        label: actionBlockLabel(tmpl),
-        actions: actionsForPaletteTemplate(tmpl),
-      })
-      return
-    }
-    if (p.kind === 'reorder') {
-      const list =
-        value.mode === 'linear' ? value.linearSteps : value.xorBranches.find((b) => b.id === branchId)?.steps ?? []
-      const from = list.findIndex((s) => s.id === p.stepId)
-      if (from < 0) return
-      let to = dropIndex
-      if (from < to) to -= 1
-      moveStep(branchId, from, Math.max(0, to))
-    }
-  }
-
   function patchSelectedStep(next: WorkflowFlowStep) {
     if (!selectedPath) return
     if (value.mode === 'linear') {
@@ -304,127 +434,14 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
     }
   }
 
-  const renderFlowColumn = (branchId: string | undefined, steps: WorkflowFlowStep[]) => (
-    <div
-      className={`${R} min-h-[200px] border border-dashed border-neutral-300 bg-neutral-50/80 p-4`}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => handleDropOnList(e, branchId, steps.length)}
-    >
-      <p className={`${WF_FIELD_LABEL} mb-3 text-neutral-600`}>Rekkefølge</p>
-      <div className="space-y-0">
-        {steps.length === 0 ? (
-          <p className="py-8 text-center text-sm text-neutral-400">Slipp «Når» eller «Så» her</p>
-        ) : null}
-        {steps.map((step, i) => (
-          <div key={step.id}>
-            {i > 0 ? <FlowConnector /> : null}
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.stopPropagation()
-                handleDropOnList(e, branchId, i)
-              }}
-            >
-              <StepRow
-                step={step}
-                selected={
-                  selectedPath?.stepId === step.id &&
-                  (branchId === undefined ? !selectedPath.branchId : selectedPath.branchId === branchId)
-                }
-                onSelect={() => setSelectedPath(branchId ? { branchId, stepId: step.id } : { stepId: step.id })}
-                onDelete={() => removeStep(branchId, step.id)}
-                dragPayload={{
-                  kind: 'reorder',
-                  stepId: step.id,
-                  branchId: branchId ?? undefined,
-                }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-
   return (
     <div className="w-full space-y-0">
-      {/* Full-width palette (above flyt + spesifikasjon) */}
-      <div className={`${WF_PANEL_INSET} w-full max-w-none border-neutral-200/90`}>
-        <p className={WF_FIELD_LABEL}>Dra nytt steg inn i flyten</p>
-        <p className={`${WF_LEAD} mt-2`}>
-          Velg <strong>Når</strong> (hva som utløser) og <strong>Så</strong> (hva som skjer). Kilden velges i feltene over —
-          «Når» filtrerer data i den modulen. Slipp kortene i rekkefølgen under.
-        </p>
-        <div className="mt-5 space-y-3">
-          <p className={WF_FIELD_LABEL}>Når — inndata</p>
-          <div className="flex flex-wrap gap-2">
-            {inputPresets.map((pr) => {
-              const Icon = pr.icon
-              return (
-                <div
-                  key={pr.id}
-                  draggable
-                  title={pr.description}
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData(
-                      'application/x-atics-workflow',
-                      JSON.stringify({
-                        kind: 'palette_condition',
-                        condition: pr.condition,
-                        label: pr.label,
-                      } satisfies DragPayload),
-                    )
-                    e.dataTransfer.effectAllowed = 'copy'
-                  }}
-                  className={`${R} flex size-[4.5rem] cursor-grab flex-col items-center justify-center gap-1 border border-dashed border-neutral-300 bg-white text-center text-[10px] font-medium leading-tight text-neutral-700 active:cursor-grabbing`}
-                >
-                  <Icon className="size-5 shrink-0 text-[#1a3d32]" aria-hidden />
-                  <span className="line-clamp-2 px-0.5">{pr.label}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-        <div className="mt-6 space-y-3 border-t border-neutral-200/80 pt-5">
-          <p className={WF_FIELD_LABEL}>Så — handlinger</p>
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                { t: 'task' as const, icon: Plus, label: 'Oppgave' },
-                { t: 'email' as const, icon: Mail, label: 'E-post' },
-                { t: 'notification' as const, icon: Radio, label: 'Varsling' },
-                { t: 'webhook' as const, icon: Webhook, label: 'Webhook' },
-                { t: 'log' as const, icon: FileText, label: 'Logg' },
-              ] as const
-            ).map(({ t, icon: Icon, label }) => (
-              <div
-                key={t}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData(
-                    'application/x-atics-workflow',
-                    JSON.stringify({ kind: 'palette_actions', template: t } satisfies DragPayload),
-                  )
-                  e.dataTransfer.effectAllowed = 'copy'
-                }}
-                className={`${R} flex size-[4.5rem] cursor-grab flex-col items-center justify-center gap-1 border border-dashed border-[#1a3d32]/45 bg-white text-center text-[10px] font-semibold text-[#1a3d32] active:cursor-grabbing`}
-              >
-                <Icon className="size-5 shrink-0" aria-hidden />
-                {label}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Same 40/60 split as «Ny oppgave»: flyt | spesifikasjon */}
       <div className={WF_PANEL_ROW_GRID}>
         <div className="min-w-0 space-y-4">
           <div>
             <p className={WF_FIELD_LABEL}>Flyt</p>
             <p className={`${WF_LEAD} mt-2`}>
-              Bygg rekkefølgen her. Klikk et steg for å redigere detaljer i spesifikasjonen til høyre — samme mønster som
-              når du oppretter en ny oppgave.
+              Legg til steg med menyene under. Juster detaljer til høyre. Du kan dra steg for å endre rekkefølge.
             </p>
           </div>
 
@@ -453,15 +470,25 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
 
           {value.mode === 'xor' ? (
             <p className={`${WF_LEAD} text-amber-950`}>
-              <strong className="font-semibold">XOR:</strong> Nøyaktig én gren skal matche. 0 eller flere treff = ingen
-              handling.
+              <strong className="font-semibold">XOR:</strong> nøyaktig én gren skal matche.
             </p>
           ) : (
-            <p className={WF_LEAD}>Alle «Når»-steg kombineres med <strong className="font-semibold">OG</strong>, deretter kjøres «Så»-steg.</p>
+            <p className={WF_LEAD}>
+              Alle <strong className="font-semibold">Når</strong>-steg kombineres med og, deretter kjøres{' '}
+              <strong className="font-semibold">Så</strong>-steg.
+            </p>
           )}
 
           {value.mode === 'linear' ? (
-            renderFlowColumn(undefined, value.linearSteps)
+            <FlowStepsBlock
+              steps={value.linearSteps}
+              inputPresets={inputPresets}
+              selectedPath={selectedPath}
+              setSelectedPath={setSelectedPath}
+              removeStep={removeStep}
+              insertStep={insertStep}
+              moveStep={moveStep}
+            />
           ) : (
             <div className="space-y-4">
               <button
@@ -510,7 +537,18 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
                         Slett gren
                       </button>
                     ) : null}
-                    <div className="mt-3">{renderFlowColumn(branch.id, branch.steps)}</div>
+                    <div className="mt-4">
+                      <FlowStepsBlock
+                        branchId={branch.id}
+                        steps={branch.steps}
+                        inputPresets={inputPresets}
+                        selectedPath={selectedPath}
+                        setSelectedPath={setSelectedPath}
+                        removeStep={removeStep}
+                        insertStep={insertStep}
+                        moveStep={moveStep}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -525,7 +563,7 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
         <div className={`${WF_PANEL_INSET} min-h-[min(70vh,36rem)]`}>
           <h4 className={WF_FIELD_LABEL}>Spesifikasjon</h4>
           {!selectedStep ? (
-            <p className={`${WF_LEAD} mt-10 text-center`}>Velg et steg i flyten til venstre for å redigere.</p>
+            <p className={`${WF_LEAD} mt-10 text-center`}>Velg et steg i listen for å redigere.</p>
           ) : selectedStep.kind === 'condition' ? (
             <div className="mt-5 space-y-5">
               <div>
@@ -537,7 +575,7 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
                   value={selectedStep.label ?? ''}
                   onChange={(e) => patchSelectedStep({ ...selectedStep, label: e.target.value })}
                   className={WF_FIELD_INPUT}
-                  placeholder="F.eks. Kritisk hendelse"
+                  placeholder="Valgfritt kort navn"
                 />
               </div>
               <div>
@@ -557,9 +595,9 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
                   }}
                   className={WF_FIELD_INPUT}
                 >
-                  <option value="always">Alltid (alle lagringer i kilden)</option>
+                  <option value="always">Alltid</option>
                   <option value="array_any">Når data i en liste matcher…</option>
-                  <option value="field_equals">Når ett felt er lik en verdi (avansert)</option>
+                  <option value="field_equals">Når ett felt er lik en verdi</option>
                 </select>
               </div>
               <WorkflowConditionForm
