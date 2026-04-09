@@ -334,7 +334,7 @@ function loadNavMode(): NavMode {
     const v = localStorage.getItem('atics-nav-mode')
     if (v === 'sidebar' || v === 'topbar') return v
   } catch { /* ignore */ }
-  return 'topbar'
+  return 'sidebar'
 }
 
 function saveNavMode(mode: NavMode) {
