@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { Mainbox1 } from '../components/layout/Mainbox1'
@@ -315,8 +315,19 @@ export function HseModule() {
     responsibleEmployeeId: undefined,
   })
 
-  // Training form
-  const [trainingForm, setTrainingForm] = useState({ employeeName: '', department: '', role: '', trainingKind: 'hms_40hr' as TrainingKind, customLabel: '', completedAt: '', expiresAt: '', provider: '', certificateRef: '' })
+  // Training form (side panel — ny registrering)
+  const [trainingForm, setTrainingForm] = useState({
+    employeeName: '',
+    department: '',
+    role: '',
+    trainingKind: 'hms_40hr' as TrainingKind,
+    customLabel: '',
+    completedAt: '',
+    expiresAt: '',
+    provider: '',
+    certificateRef: '',
+    notes: '',
+  })
 
   // GDPR + export
   const [exportMsg, setExportMsg] = useState('')
@@ -333,7 +344,9 @@ export function HseModule() {
   /** Oppdatert rad fra state (milepæler / dialog etter lagring i panelet). */
   const slPanelLive =
     slPanelId && slPanelId !== '__new__' ? hse.sickLeaveCases.find((s) => s.id === slPanelId) : undefined
-  const trainingPanelRec = trainingPanelId ? hse.trainingRecords.find((r) => r.id === trainingPanelId) : undefined
+  const trainingPanelIsNew = trainingPanelId === '__new__'
+  const trainingPanelRec =
+    trainingPanelId && !trainingPanelIsNew ? hse.trainingRecords.find((r) => r.id === trainingPanelId) : undefined
 
   const viewerEmployeeId = useMemo(() => {
     const email = (profile?.email ?? user?.email)?.trim().toLowerCase()
@@ -486,7 +499,51 @@ export function HseModule() {
     setSlPanelName('')
   }, [])
 
-  const closeTrainingPanel = useCallback(() => setTrainingPanelId(null), [])
+  const resetTrainingForm = useCallback(() => {
+    setTrainingForm({
+      employeeName: '',
+      department: '',
+      role: '',
+      trainingKind: 'hms_40hr',
+      customLabel: '',
+      completedAt: '',
+      expiresAt: '',
+      provider: '',
+      certificateRef: '',
+      notes: '',
+    })
+  }, [])
+
+  const closeTrainingPanel = useCallback(() => {
+    setTrainingPanelId(null)
+    resetTrainingForm()
+  }, [resetTrainingForm])
+
+  const openNewTrainingPanel = useCallback(() => {
+    resetTrainingForm()
+    setTrainingPanelId('__new__')
+  }, [resetTrainingForm])
+
+  const submitNewTrainingFromPanel = useCallback(
+    (e: FormEvent) => {
+      e.preventDefault()
+      if (!trainingForm.employeeName.trim()) return
+      hse.createTrainingRecord({
+        employeeName: trainingForm.employeeName.trim(),
+        department: trainingForm.department,
+        role: trainingForm.role,
+        trainingKind: trainingForm.trainingKind,
+        customLabel: trainingForm.customLabel.trim() || undefined,
+        completedAt: trainingForm.completedAt || undefined,
+        expiresAt: trainingForm.expiresAt || undefined,
+        provider: trainingForm.provider.trim() || undefined,
+        certificateRef: trainingForm.certificateRef.trim() || undefined,
+        notes: trainingForm.notes.trim() || undefined,
+      })
+      closeTrainingPanel()
+    },
+    [trainingForm, hse, closeTrainingPanel],
+  )
 
   useEffect(() => {
     if (!sjaPanelId && !slPanelId && !trainingPanelId) return
@@ -1939,113 +1996,89 @@ export function HseModule() {
 
       {/* ── Training register ─────────────────────────────────────────────────── */}
       {tab === 'training' && (
-        <div className="mt-8 space-y-8">
-          <div className="rounded-2xl border border-neutral-200/90 bg-white p-4 shadow-sm">
+        <div className="mt-8 space-y-6">
+          <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-4`}>
             <p className="text-sm text-neutral-700">
               Lovpålagt opplæringsoversikt. Verneombud og ledere har krav på <strong>40 timers HMS-kurs</strong> (AML §3-5 og §6-5).
               Systemet varsler med rød badge når sertifiseringer er utløpt.
             </p>
           </div>
 
-          {/* New training record form */}
-          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Registrer opplæring</h2>
-            <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
-              e.preventDefault()
-              if (!trainingForm.employeeName.trim()) return
-              hse.createTrainingRecord({ employeeName: trainingForm.employeeName.trim(), department: trainingForm.department, role: trainingForm.role, trainingKind: trainingForm.trainingKind, customLabel: trainingForm.customLabel || undefined, completedAt: trainingForm.completedAt || undefined, expiresAt: trainingForm.expiresAt || undefined, provider: trainingForm.provider || undefined, certificateRef: trainingForm.certificateRef || undefined })
-              setTrainingForm((f) => ({ ...f, employeeName: '', certificateRef: '' }))
-            }}>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Ansatt navn *</label>
-                <input value={trainingForm.employeeName} onChange={(e) => setTrainingForm((f) => ({ ...f, employeeName: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" required />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Avdeling</label>
-                <input value={trainingForm.department} onChange={(e) => setTrainingForm((f) => ({ ...f, department: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Rolle / stilling</label>
-                <input value={trainingForm.role} onChange={(e) => setTrainingForm((f) => ({ ...f, role: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Type opplæring</label>
-                <select value={trainingForm.trainingKind} onChange={(e) => setTrainingForm((f) => ({ ...f, trainingKind: e.target.value as TrainingKind }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm">
-                  {Object.entries(TRAINING_KIND_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
-              </div>
-              {trainingForm.trainingKind === 'custom' && (
-                <div className="sm:col-span-2">
-                  <label className="text-xs font-medium text-neutral-500">Egendefinert label</label>
-                  <input value={trainingForm.customLabel} onChange={(e) => setTrainingForm((f) => ({ ...f, customLabel: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-                </div>
-              )}
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Gjennomført dato</label>
-                <input type="date" value={trainingForm.completedAt} onChange={(e) => setTrainingForm((f) => ({ ...f, completedAt: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Utløper dato</label>
-                <input type="date" value={trainingForm.expiresAt} onChange={(e) => setTrainingForm((f) => ({ ...f, expiresAt: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Leverandør / kursholder</label>
-                <input value={trainingForm.provider} onChange={(e) => setTrainingForm((f) => ({ ...f, provider: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Sertifikat / referansenr.</label>
-                <input value={trainingForm.certificateRef} onChange={(e) => setTrainingForm((f) => ({ ...f, certificateRef: e.target.value }))} className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" />
-              </div>
-              <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2">
-                <GraduationCap className="size-4" />
-                Registrer opplæring
-              </button>
-            </form>
-          </section>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2
+              className="text-xl font-semibold text-neutral-900 md:text-2xl"
+              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+            >
+              Opplæringsmatrise
+            </h2>
+            <button
+              type="button"
+              onClick={openNewTrainingPanel}
+              className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+            >
+              <Plus className="size-4 shrink-0" />
+              Registrer opplæring
+            </button>
+          </div>
 
-          {/* Training matrix table */}
-          <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-            <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">
-              <h2 className="font-semibold text-neutral-900">Opplæringsmatrise</h2>
-            </div>
+          <Mainbox1
+            title="Registrerte kurs og sertifiseringer"
+            subtitle="Klikk «Åpne» for å redigere i sidevinduet. Utløpte og forfallende rader er markert."
+          >
             {hse.trainingRecords.length === 0 ? (
               <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen opplæringsrekorder ennå.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[700px] text-left text-sm">
+                <table className="w-full min-w-[700px] border-collapse text-left text-sm">
                   <thead>
-                    <tr className="border-b border-neutral-100 bg-neutral-50/80 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                      <th className="px-4 py-3">Ansatt</th>
-                      <th className="px-4 py-3">Avdeling / Rolle</th>
-                      <th className="px-4 py-3">Type opplæring</th>
-                      <th className="px-4 py-3">Gjennomført</th>
-                      <th className="px-4 py-3">Utløper</th>
-                      <th className="px-4 py-3">Sertifikat</th>
-                      <th className="px-4 py-3 text-right">Handling</th>
+                    <tr className={theadRow}>
+                      <th className={`${tableCell} font-medium`}>Ansatt</th>
+                      <th className={`${tableCell} font-medium`}>Avdeling / rolle</th>
+                      <th className={`${tableCell} font-medium`}>Type opplæring</th>
+                      <th className={`${tableCell} font-medium`}>Gjennomført</th>
+                      <th className={`${tableCell} font-medium`}>Utløper</th>
+                      <th className={`${tableCell} font-medium`}>Sertifikat</th>
+                      <th className={`${tableCell} text-right font-medium`}>Handling</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-100">
-                    {hse.trainingRecords.map((rec) => {
+                  <tbody>
+                    {hse.trainingRecords.map((rec, ri) => {
                       const today = new Date().toISOString().slice(0, 10)
                       const expired = rec.expiresAt && rec.expiresAt < today
                       const expiringSoon = rec.expiresAt && !expired && daysUntil(rec.expiresAt) <= 30
                       return (
-                        <tr key={rec.id} className={expired ? 'bg-red-50' : expiringSoon ? 'bg-amber-50' : ''}>
-                          <td className="px-4 py-3 font-medium text-neutral-900">{rec.employeeName}</td>
-                          <td className="px-4 py-3 text-neutral-600">{rec.department}{rec.role ? ` · ${rec.role}` : ''}</td>
-                          <td className="px-4 py-3 text-neutral-700">
+                        <tr key={rec.id} className={table1BodyRowClass(layout, ri)}>
+                          <td className={`${tableCell} font-medium text-neutral-900`}>{rec.employeeName}</td>
+                          <td className={`${tableCell} text-neutral-600`}>
+                            {rec.department}
+                            {rec.role ? ` · ${rec.role}` : ''}
+                          </td>
+                          <td className={`${tableCell} text-neutral-700`}>
                             {rec.trainingKind === 'custom' ? rec.customLabel : TRAINING_KIND_LABELS[rec.trainingKind]}
                           </td>
-                          <td className="px-4 py-3 text-neutral-500">{rec.completedAt ? formatDate(rec.completedAt) : '—'}</td>
-                          <td className="px-4 py-3">
-                            {rec.expiresAt ? (
-                              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${expired ? 'bg-red-100 text-red-800' : expiringSoon ? 'bg-amber-100 text-amber-800' : 'bg-neutral-100 text-neutral-600'}`}>
-                                {expired ? 'Utløpt: ' : ''}{formatDate(rec.expiresAt)}
-                              </span>
-                            ) : '—'}
+                          <td className={`${tableCell} text-neutral-500`}>
+                            {rec.completedAt ? formatDate(rec.completedAt) : '—'}
                           </td>
-                          <td className="px-4 py-3 font-mono text-xs text-neutral-500">{rec.certificateRef ?? '—'}</td>
-                          <td className="px-4 py-3 text-right">
+                          <td className={tableCell}>
+                            {rec.expiresAt ? (
+                              <span
+                                className={`rounded-none px-2 py-0.5 text-xs font-medium ${
+                                  expired
+                                    ? 'bg-red-100 text-red-800'
+                                    : expiringSoon
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-neutral-100 text-neutral-600'
+                                }`}
+                              >
+                                {expired ? 'Utløpt: ' : ''}
+                                {formatDate(rec.expiresAt)}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td className={`${tableCell} font-mono text-xs text-neutral-500`}>{rec.certificateRef ?? '—'}</td>
+                          <td className={`${tableCell} text-right`}>
                             <button
                               type="button"
                               onClick={() => setTrainingPanelId(rec.id)}
@@ -2061,7 +2094,7 @@ export function HseModule() {
                 </table>
               </div>
             )}
-          </div>
+          </Mainbox1>
         </div>
       )}
 
@@ -3175,8 +3208,8 @@ export function HseModule() {
         </>
       ) : null}
 
-      {/* Opplæringspost — sidevindu */}
-      {trainingPanelId && trainingPanelRec ? (
+      {/* Opplæring — sidevindu (samme mønster som oppgaver / inspeksjon) */}
+      {trainingPanelId && (trainingPanelIsNew || trainingPanelRec) ? (
         <>
           <button
             type="button"
@@ -3184,131 +3217,342 @@ export function HseModule() {
             className="fixed inset-0 z-[60] bg-black/40"
             onClick={closeTrainingPanel}
           />
-          <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[640px] flex-col border-l border-neutral-200 bg-white shadow-2xl">
+          <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[920px] flex-col border-l border-neutral-200 bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
-              <h2 className="text-lg font-semibold text-neutral-900">Rediger opplæring</h2>
-              <button type="button" onClick={closeTrainingPanel} className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-100`}>
-                <X className="size-5" />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
               <div>
-                <label className={SETTINGS_FIELD_LABEL}>Ansatt</label>
-                <input
-                  value={trainingPanelRec.employeeName}
-                  onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { employeeName: e.target.value })}
-                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
-                />
+                <h2 className="text-lg font-semibold text-neutral-900">
+                  {trainingPanelIsNew ? 'Registrer opplæring' : 'Rediger opplæring'}
+                </h2>
+                {!trainingPanelIsNew && trainingPanelRec ? (
+                  <p className="text-xs text-neutral-500">ID: {trainingPanelRec.id.slice(0, 8)}…</p>
+                ) : null}
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className={SETTINGS_FIELD_LABEL}>Avdeling</label>
-                  <input
-                    value={trainingPanelRec.department}
-                    onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { department: e.target.value })}
-                    className={`${SETTINGS_INPUT} mt-2 bg-white`}
-                  />
-                </div>
-                <div>
-                  <label className={SETTINGS_FIELD_LABEL}>Rolle</label>
-                  <input
-                    value={trainingPanelRec.role}
-                    onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { role: e.target.value })}
-                    className={`${SETTINGS_INPUT} mt-2 bg-white`}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className={SETTINGS_FIELD_LABEL}>Type</label>
-                <select
-                  value={trainingPanelRec.trainingKind}
-                  onChange={(e) =>
-                    hse.updateTrainingRecord(trainingPanelRec.id, {
-                      trainingKind: e.target.value as TrainingKind,
-                    })
-                  }
-                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
-                >
-                  {Object.entries(TRAINING_KIND_LABELS).map(([k, v]) => (
-                    <option key={k} value={k}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {trainingPanelRec.trainingKind === 'custom' && (
-                <div>
-                  <label className={SETTINGS_FIELD_LABEL}>Egendefinert</label>
-                  <input
-                    value={trainingPanelRec.customLabel ?? ''}
-                    onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { customLabel: e.target.value })}
-                    className={`${SETTINGS_INPUT} mt-2 bg-white`}
-                  />
-                </div>
-              )}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className={SETTINGS_FIELD_LABEL}>Gjennomført</label>
-                  <input
-                    type="date"
-                    value={trainingPanelRec.completedAt ?? ''}
-                    onChange={(e) =>
-                      hse.updateTrainingRecord(trainingPanelRec.id, {
-                        completedAt: e.target.value || undefined,
-                      })
-                    }
-                    className={`${SETTINGS_INPUT} mt-2 bg-white`}
-                  />
-                </div>
-                <div>
-                  <label className={SETTINGS_FIELD_LABEL}>Utløper</label>
-                  <input
-                    type="date"
-                    value={trainingPanelRec.expiresAt ?? ''}
-                    onChange={(e) =>
-                      hse.updateTrainingRecord(trainingPanelRec.id, {
-                        expiresAt: e.target.value || undefined,
-                      })
-                    }
-                    className={`${SETTINGS_INPUT} mt-2 bg-white`}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className={SETTINGS_FIELD_LABEL}>Leverandør</label>
-                <input
-                  value={trainingPanelRec.provider ?? ''}
-                  onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { provider: e.target.value })}
-                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
-                />
-              </div>
-              <div>
-                <label className={SETTINGS_FIELD_LABEL}>Sertifikat / ref.</label>
-                <input
-                  value={trainingPanelRec.certificateRef ?? ''}
-                  onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { certificateRef: e.target.value })}
-                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
-                />
-              </div>
-              <div>
-                <label className={SETTINGS_FIELD_LABEL}>Notater</label>
-                <textarea
-                  value={trainingPanelRec.notes ?? ''}
-                  onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { notes: e.target.value })}
-                  rows={3}
-                  className={`${SETTINGS_INPUT} mt-2 bg-white`}
-                />
-              </div>
-            </div>
-            <div className="border-t border-neutral-200 px-5 py-4">
               <button
                 type="button"
                 onClick={closeTrainingPanel}
-                className={`${HERO_ACTION_CLASS} w-full border border-neutral-300 bg-white text-neutral-800`}
+                className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-100`}
               >
-                Lukk
+                <X className="size-5" />
               </button>
             </div>
+            <form
+              onSubmit={
+                trainingPanelIsNew
+                  ? submitNewTrainingFromPanel
+                  : (e) => {
+                      e.preventDefault()
+                    }
+              }
+              className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+            >
+              <div className={TASK_PANEL_ROW_GRID}>
+                <div>
+                  <p className={SETTINGS_LEAD}>
+                    Registrer lovpålagt og annen HMS-relatert opplæring. Verneombud og ledere har krav på{' '}
+                    <strong>40 timers HMS-kurs</strong> (AML §3-5 og §6-5). Utløpsdato gir varsel i oversikten.
+                  </p>
+                </div>
+                <div className={`${TASK_PANEL_INSET} flex flex-col gap-4`}>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="train-panel-employee">
+                      Ansatt navn *
+                    </label>
+                    {trainingPanelIsNew ? (
+                      <input
+                        id="train-panel-employee"
+                        value={trainingForm.employeeName}
+                        onChange={(e) => setTrainingForm((f) => ({ ...f, employeeName: e.target.value }))}
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                        required
+                      />
+                    ) : trainingPanelRec ? (
+                      <input
+                        id="train-panel-employee"
+                        value={trainingPanelRec.employeeName}
+                        onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { employeeName: e.target.value })}
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                      />
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className={TASK_PANEL_ROW_GRID}>
+                <div>
+                  <p className={SETTINGS_LEAD}>Avdeling og rolle for sporbarhet i matrisen og rapporter.</p>
+                </div>
+                <div className={`${TASK_PANEL_INSET} grid gap-4 sm:grid-cols-2`}>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="train-panel-dept">
+                      Avdeling
+                    </label>
+                    {trainingPanelIsNew ? (
+                      <input
+                        id="train-panel-dept"
+                        value={trainingForm.department}
+                        onChange={(e) => setTrainingForm((f) => ({ ...f, department: e.target.value }))}
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                      />
+                    ) : trainingPanelRec ? (
+                      <input
+                        id="train-panel-dept"
+                        value={trainingPanelRec.department}
+                        onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { department: e.target.value })}
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                      />
+                    ) : null}
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="train-panel-role">
+                      Rolle / stilling
+                    </label>
+                    {trainingPanelIsNew ? (
+                      <input
+                        id="train-panel-role"
+                        value={trainingForm.role}
+                        onChange={(e) => setTrainingForm((f) => ({ ...f, role: e.target.value }))}
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                      />
+                    ) : trainingPanelRec ? (
+                      <input
+                        id="train-panel-role"
+                        value={trainingPanelRec.role}
+                        onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { role: e.target.value })}
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                      />
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className={TASK_PANEL_ROW_GRID}>
+                <div>
+                  <p className={SETTINGS_LEAD}>Velg kurstype. Ved egendefinert kurs, fyll inn visningsnavn.</p>
+                </div>
+                <div className={`${TASK_PANEL_INSET} flex flex-col gap-4`}>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="train-panel-kind">
+                      Type opplæring
+                    </label>
+                    {trainingPanelIsNew ? (
+                      <select
+                        id="train-panel-kind"
+                        value={trainingForm.trainingKind}
+                        onChange={(e) =>
+                          setTrainingForm((f) => ({ ...f, trainingKind: e.target.value as TrainingKind }))
+                        }
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                      >
+                        {Object.entries(TRAINING_KIND_LABELS).map(([k, v]) => (
+                          <option key={k} value={k}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    ) : trainingPanelRec ? (
+                      <select
+                        id="train-panel-kind"
+                        value={trainingPanelRec.trainingKind}
+                        onChange={(e) =>
+                          hse.updateTrainingRecord(trainingPanelRec.id, {
+                            trainingKind: e.target.value as TrainingKind,
+                          })
+                        }
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                      >
+                        {Object.entries(TRAINING_KIND_LABELS).map(([k, v]) => (
+                          <option key={k} value={k}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
+                  </div>
+                  {(trainingPanelIsNew ? trainingForm.trainingKind === 'custom' : trainingPanelRec?.trainingKind === 'custom') ? (
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="train-panel-custom">
+                        Egendefinert label
+                      </label>
+                      {trainingPanelIsNew ? (
+                        <input
+                          id="train-panel-custom"
+                          value={trainingForm.customLabel}
+                          onChange={(e) => setTrainingForm((f) => ({ ...f, customLabel: e.target.value }))}
+                          className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                        />
+                      ) : trainingPanelRec ? (
+                        <input
+                          id="train-panel-custom"
+                          value={trainingPanelRec.customLabel ?? ''}
+                          onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { customLabel: e.target.value })}
+                          className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                        />
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className={TASK_PANEL_ROW_GRID}>
+                <div>
+                  <p className={SETTINGS_LEAD}>Dato for gjennomføring og eventuell utløp (f.eks. førstehjelp).</p>
+                </div>
+                <div className={`${TASK_PANEL_INSET} grid gap-4 sm:grid-cols-2`}>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="train-panel-done">
+                      Gjennomført
+                    </label>
+                    {trainingPanelIsNew ? (
+                      <input
+                        id="train-panel-done"
+                        type="date"
+                        value={trainingForm.completedAt}
+                        onChange={(e) => setTrainingForm((f) => ({ ...f, completedAt: e.target.value }))}
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                      />
+                    ) : trainingPanelRec ? (
+                      <input
+                        id="train-panel-done"
+                        type="date"
+                        value={trainingPanelRec.completedAt ?? ''}
+                        onChange={(e) =>
+                          hse.updateTrainingRecord(trainingPanelRec.id, {
+                            completedAt: e.target.value || undefined,
+                          })
+                        }
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                      />
+                    ) : null}
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="train-panel-exp">
+                      Utløper
+                    </label>
+                    {trainingPanelIsNew ? (
+                      <input
+                        id="train-panel-exp"
+                        type="date"
+                        value={trainingForm.expiresAt}
+                        onChange={(e) => setTrainingForm((f) => ({ ...f, expiresAt: e.target.value }))}
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                      />
+                    ) : trainingPanelRec ? (
+                      <input
+                        id="train-panel-exp"
+                        type="date"
+                        value={trainingPanelRec.expiresAt ?? ''}
+                        onChange={(e) =>
+                          hse.updateTrainingRecord(trainingPanelRec.id, {
+                            expiresAt: e.target.value || undefined,
+                          })
+                        }
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                      />
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className={TASK_PANEL_ROW_GRID}>
+                <div>
+                  <p className={SETTINGS_LEAD}>Kursholder og dokumentreferanse for revisjon.</p>
+                </div>
+                <div className={`${TASK_PANEL_INSET} grid gap-4 sm:grid-cols-2`}>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="train-panel-provider">
+                      Leverandør / kursholder
+                    </label>
+                    {trainingPanelIsNew ? (
+                      <input
+                        id="train-panel-provider"
+                        value={trainingForm.provider}
+                        onChange={(e) => setTrainingForm((f) => ({ ...f, provider: e.target.value }))}
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                      />
+                    ) : trainingPanelRec ? (
+                      <input
+                        id="train-panel-provider"
+                        value={trainingPanelRec.provider ?? ''}
+                        onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { provider: e.target.value })}
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                      />
+                    ) : null}
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="train-panel-cert">
+                      Sertifikat / referansenr.
+                    </label>
+                    {trainingPanelIsNew ? (
+                      <input
+                        id="train-panel-cert"
+                        value={trainingForm.certificateRef}
+                        onChange={(e) => setTrainingForm((f) => ({ ...f, certificateRef: e.target.value }))}
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                      />
+                    ) : trainingPanelRec ? (
+                      <input
+                        id="train-panel-cert"
+                        value={trainingPanelRec.certificateRef ?? ''}
+                        onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { certificateRef: e.target.value })}
+                        className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                      />
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className={TASK_PANEL_ROW_GRID}>
+                <div>
+                  <p className={SETTINGS_LEAD}>Valgfrie interne notater (synlige kun for autoriserte brukere).</p>
+                </div>
+                <div className={TASK_PANEL_INSET}>
+                  <label className={SETTINGS_FIELD_LABEL} htmlFor="train-panel-notes">
+                    Notater
+                  </label>
+                  {trainingPanelIsNew ? (
+                    <textarea
+                      id="train-panel-notes"
+                      value={trainingForm.notes}
+                      onChange={(e) => setTrainingForm((f) => ({ ...f, notes: e.target.value }))}
+                      rows={4}
+                      className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                    />
+                  ) : trainingPanelRec ? (
+                    <textarea
+                      id="train-panel-notes"
+                      value={trainingPanelRec.notes ?? ''}
+                      onChange={(e) => hse.updateTrainingRecord(trainingPanelRec.id, { notes: e.target.value })}
+                      rows={4}
+                      className={`${SETTINGS_INPUT} mt-2 bg-white`}
+                    />
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-auto flex flex-wrap justify-end gap-2 border-t border-neutral-200 bg-[#f0efe9] px-5 py-4">
+                <button
+                  type="button"
+                  onClick={closeTrainingPanel}
+                  className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+                >
+                  Avbryt
+                </button>
+                {trainingPanelIsNew ? (
+                  <button type="submit" className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}>
+                    <GraduationCap className="size-4 shrink-0" />
+                    Registrer opplæring
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={closeTrainingPanel}
+                    className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                  >
+                    Ferdig
+                  </button>
+                )}
+              </div>
+            </form>
           </aside>
         </>
       ) : null}
