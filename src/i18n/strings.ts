@@ -12,6 +12,8 @@ type Bundle = Record<string, string>
 
 const nb: Bundle = {
   'shell.homeAria': 'Klarert — hjem',
+  'shell.collapseSectionNav': 'Skjul seksjonsmeny',
+  'shell.expandSectionNav': 'Vis seksjonsmeny',
   'shell.findAnything': 'Finn noe',
   'shell.subnavHint': 'Velg en hovedmodul over (Council, Org health, …)',
   'shell.logOut': 'Logg ut',
@@ -83,6 +85,8 @@ const nb: Bundle = {
 
 const en: Bundle = {
   'shell.homeAria': 'Klarert — home',
+  'shell.collapseSectionNav': 'Hide section menu',
+  'shell.expandSectionNav': 'Show section menu',
   'shell.findAnything': 'Find anything',
   'shell.subnavHint': 'Choose a module above (Council, Org health, …)',
   'shell.logOut': 'Log out',

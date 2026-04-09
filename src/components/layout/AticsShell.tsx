@@ -18,6 +18,7 @@ import {
   Library,
   Megaphone,
   PanelLeft,
+  PanelRight,
   PanelsTopLeft,
   Search,
   Settings,
@@ -490,14 +491,23 @@ export function AticsShell() {
         {/* ── Rail 2: Modules + sub-items for active group ─────────────────── */}
         {!subNavCollapsed && activeGroup && (
           <aside className="flex w-52 shrink-0 flex-col overflow-hidden bg-[var(--ui-nav-rail-mid)]">
-            {/* Group name header */}
-            <div className="flex h-14 shrink-0 items-center border-b border-white/10 px-4">
+            {/* Group name header + collapse (always visible on this rail) */}
+            <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3">
               <span
-                className="text-sm font-semibold text-white"
+                className="min-w-0 truncate text-sm font-semibold text-white"
                 style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
               >
                 {activeGroup.label}
               </span>
+              <button
+                type="button"
+                onClick={() => setSubNavCollapsed(true)}
+                className="shrink-0 rounded-lg border border-white/15 p-2 text-white/85 hover:bg-white/10 hover:text-white"
+                aria-label={t('shell.collapseSectionNav')}
+                title={t('shell.collapseSectionNav')}
+              >
+                <PanelLeft className="size-4" aria-hidden />
+              </button>
             </div>
 
             {/* Module list — each module can expand to show its sub-items */}
@@ -559,6 +569,19 @@ export function AticsShell() {
           </aside>
         )}
 
+        {/* Floating expand when section rail hidden — easy to miss if only in top bar */}
+        {subNavCollapsed && activeGroup ? (
+          <button
+            type="button"
+            onClick={() => setSubNavCollapsed(false)}
+            className="fixed left-[3.75rem] top-[4.5rem] z-40 flex items-center gap-1 rounded-r-md border border-l-0 border-neutral-300/80 bg-[var(--ui-nav-rail-mid)] px-2 py-3 text-white shadow-md hover:bg-[color-mix(in_srgb,var(--ui-nav-rail-mid)_92%,white)]"
+            aria-label={t('shell.expandSectionNav')}
+            title={t('shell.expandSectionNav')}
+          >
+            <PanelRight className="size-4 shrink-0" aria-hidden />
+          </button>
+        ) : null}
+
         {/* ── Content area ─────────────────────────────────────────────────── */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Utility bar — page background colour */}
@@ -566,11 +589,11 @@ export function AticsShell() {
             <button
               type="button"
               onClick={() => setSubNavCollapsed((c) => !c)}
-              className="rounded-lg p-1.5 text-neutral-500 hover:bg-black/5 hover:text-neutral-800"
-              aria-label={subNavCollapsed ? 'Expand navigation' : 'Collapse navigation'}
-              title={subNavCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+              className="shrink-0 rounded-lg border border-neutral-300/80 bg-white p-2 text-neutral-600 shadow-sm hover:bg-neutral-50 hover:text-neutral-900"
+              aria-label={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
+              title={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
             >
-              <PanelLeft className="size-4" />
+              {subNavCollapsed ? <PanelRight className="size-4" aria-hidden /> : <PanelLeft className="size-4" aria-hidden />}
             </button>
             <div className="relative flex-1 max-w-sm">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
