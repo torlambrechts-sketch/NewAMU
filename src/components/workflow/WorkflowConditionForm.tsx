@@ -1,0 +1,251 @@
+import { useMemo, useState } from 'react'
+import type { WorkflowCondition } from '../../types/workflow'
+import { WHERE_FIELDS_BY_PATH, WORKFLOW_ARRAY_PATHS, type WhereFieldOption } from '../../data/workflowConditionFields'
+
+const R = 'rounded-none'
+const LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-600'
+
+type Props = {
+  value: WorkflowCondition
+  onChange: (c: WorkflowCondition) => void
+  /** Selected workflow source module (org payload key or wiki_published). */
+  sourceModule: string
+}
+
+function mergeWhere(
+  base: Record<string, unknown>,
+  key: string,
+  val: unknown,
+): Record<string, unknown> {
+  const next = { ...base }
+  if (val === '' || val === undefined) {
+    delete next[key]
+  } else {
+    next[key] = val
+  }
+  return next
+}
+
+function WhereValueInput({
+  field,
+  current,
+  onChange,
+}: {
+  field: WhereFieldOption
+  current: unknown
+  onChange: (v: unknown) => void
+}) {
+  if (field.valueKind === 'bool') {
+    return (
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="size-4"
+          checked={current === true}
+          onChange={(e) => onChange(e.target.checked ? true : false)}
+        />
+        Ja
+      </label>
+    )
+  }
+  if (field.valueKind === 'enum' && field.options) {
+    return (
+      <select
+        value={typeof current === 'string' ? current : ''}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${R} w-full border border-neutral-300 bg-white px-2 py-2 text-sm`}
+      >
+        <option value="">— Velg —</option>
+        {field.options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    )
+  }
+  return (
+    <input
+      value={current != null ? String(current) : ''}
+      onChange={(e) => onChange(e.target.value)}
+      className={`${R} w-full border border-neutral-300 px-2 py-2 text-sm`}
+      placeholder="Verdi"
+    />
+  )
+}
+
+export function WorkflowConditionForm({ value, onChange, sourceModule }: Props) {
+  const pathOptions = useMemo(() => {
+    if (sourceModule === 'wiki_published') return [] as { value: string; label: string }[]
+    return WORKFLOW_ARRAY_PATHS[sourceModule] ?? []
+  }, [sourceModule])
+
+  const m = value.match
+
+  if (m === 'always') {
+    return (
+      <p className="text-sm text-neutral-600">
+        Denne regelen kjører ved hver lagring i valgt kilde. Velg en annen inndata-mal eller bytt match-type under
+        for å filtrere.
+      </p>
+    )
+  }
+
+  if (m === 'field_equals') {
+    return (
+      <div className="space-y-3 text-sm">
+        <p className="text-xs text-neutral-500">
+          Brukes sjelden — sammenligner én verdi i JSON-lasten (punktum-notasjon).
+        </p>
+        <label className="block">
+          <span className={LABEL}>Feltsti</span>
+          <input
+            value={value.path}
+            onChange={(e) => onChange({ ...value, path: e.target.value })}
+            className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2 font-mono text-xs`}
+            placeholder="f.eks. tasks.0.status"
+          />
+        </label>
+        <label className="block">
+          <span className={LABEL}>Verdi</span>
+          <input
+            value={value.value}
+            onChange={(e) => onChange({ ...value, value: e.target.value })}
+            className={`${R} mt-1 w-full border border-neutral-300 px-2 py-2`}
+          />
+        </label>
+      </div>
+    )
+  }
+
+  if (m === 'array_any') {
+    return (
+      <ArrayAnyEditor
+        value={value}
+        onChange={onChange}
+        pathOptions={pathOptions}
+      />
+    )
+  }
+
+  if (m === 'and' || m === 'or' || m === 'xor') {
+    return (
+      <p className="text-sm text-amber-900">
+        Denne betingelsen er sammensatt ({m}). Rediger under fanen «Avansert» eller bygg flyten på nytt i lineær/XOR-modus.
+      </p>
+    )
+  }
+
+  return <p className="text-sm text-neutral-500">Ukjent betingelsestype.</p>
+}
+
+function ArrayAnyEditor({
+  value,
+  onChange,
+  pathOptions,
+}: {
+  value: Extract<WorkflowCondition, { match: 'array_any' }>
+  onChange: (c: WorkflowCondition) => void
+  pathOptions: { value: string; label: string }[]
+}) {
+  const [customKey, setCustomKey] = useState('')
+  const [customVal, setCustomVal] = useState('')
+  const path = value.path
+  const where = (value.where && typeof value.where === 'object' ? value.where : {}) as Record<string, unknown>
+  const fieldDefs = path ? WHERE_FIELDS_BY_PATH[path] ?? [] : []
+
+  function addCustomCriterion() {
+    const k = customKey.trim()
+    if (!k) return
+    const v = customVal.trim()
+    onChange({
+      match: 'array_any',
+      path,
+      where: mergeWhere(where, k, v === '' ? true : v),
+    })
+    setCustomKey('')
+    setCustomVal('')
+  }
+
+  return (
+    <div className="space-y-4 text-sm">
+      <label className="block">
+        <span className={LABEL}>Hvilken liste?</span>
+        <select
+          value={path}
+          onChange={(e) => {
+            const p = e.target.value
+            onChange({ match: 'array_any', path: p, where: {} })
+          }}
+          className={`${R} mt-1 w-full border border-neutral-300 bg-white px-2 py-2`}
+        >
+          <option value="">— Velg datatype —</option>
+          {pathOptions.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {path ? (
+        <>
+          <p className="text-xs text-neutral-500">
+            Regelen kjører når <strong>minst ett element</strong> i listen oppfyller alle valgte kriterier. Tomt kriterie
+            = «enhver ny eller oppdatert rad» i listen.
+          </p>
+          <div className="space-y-3 border border-neutral-200 bg-neutral-50/80 p-3">
+            <p className={`${LABEL} text-neutral-500`}>Kriterier</p>
+            {fieldDefs.length === 0 ? (
+              <p className="text-xs text-amber-800">
+                Ingen forhåndsdefinerte felter for denne listen — bruk egendefinert nedenfor, eller la stå tomt for «alle
+                rader».
+              </p>
+            ) : (
+              fieldDefs.map((f) => (
+                <div key={f.key} className="grid gap-1 sm:grid-cols-[1fr_1.2fr] sm:items-end">
+                  <span className="text-xs font-medium text-neutral-700">{f.label}</span>
+                  <WhereValueInput
+                    field={f}
+                    current={where[f.key]}
+                    onChange={(v) =>
+                      onChange({
+                        match: 'array_any',
+                        path,
+                        where: mergeWhere(where, f.key, v),
+                      })
+                    }
+                  />
+                </div>
+              ))
+            )}
+            <div className="border-t border-neutral-200 pt-3">
+              <span className={LABEL}>Egendefinert felt</span>
+              <div className="mt-2 flex flex-wrap items-end gap-2">
+                <input
+                  value={customKey}
+                  onChange={(e) => setCustomKey(e.target.value)}
+                  placeholder="Feltnavn"
+                  className={`${R} min-w-[8rem] flex-1 border border-neutral-300 px-2 py-2 text-xs`}
+                />
+                <input
+                  value={customVal}
+                  onChange={(e) => setCustomVal(e.target.value)}
+                  placeholder="Verdi (valgfritt)"
+                  className={`${R} min-w-[8rem] flex-1 border border-neutral-300 px-2 py-2 text-xs`}
+                />
+                <button
+                  type="button"
+                  onClick={addCustomCriterion}
+                  className={`${R} border border-neutral-400 bg-white px-3 py-2 text-xs font-medium hover:bg-neutral-50`}
+                >
+                  Legg til
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
+    </div>
+  )
+}

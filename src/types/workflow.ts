@@ -93,9 +93,10 @@ export type WorkflowRunRow = {
 }
 
 export const WORKFLOW_SOURCE_MODULES = [
-  { value: 'hse', label: 'HSE (hendelser, sykefravær, …)' },
-  { value: 'internal_control', label: 'Internkontroll (ROS, årsgjennomgang, …)' },
-  { value: 'org_health', label: 'Organisasjonshelse' },
-  { value: 'tasks', label: 'Oppgaver (JSON)' },
+  { value: 'hse', label: 'HSE (hendelser, SJA, vernerunder, inspeksjoner, …)' },
+  { value: 'internal_control', label: 'Internkontroll (ROS, årsgjennomgang)' },
+  { value: 'org_health', label: 'Organisasjonshelse (undersøkelser, anonym AML, …)' },
+  { value: 'tasks', label: 'Oppgaver' },
+  { value: 'workplace_reporting', label: 'Arbeidsplassrapportering (saker)' },
   { value: 'wiki_published', label: 'Wiki — side publisert' },
 ] as const
