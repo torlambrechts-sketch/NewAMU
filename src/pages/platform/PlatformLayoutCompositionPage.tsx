@@ -115,7 +115,7 @@ export function PlatformLayoutCompositionPage() {
         .order('updated_at', { ascending: false })
       if (e) throw e
       setLibrary(
-        (data ?? []).map((row) => {
+        (data ?? []).map((row: { reference_key: string; display_name: string; payload: unknown }) => {
           const raw = row.payload
           const kind = inferDesignerKindFromUnknown(raw)
           const payload = mergePayload(clonePayloadForKind(kind), raw as object)
@@ -146,7 +146,7 @@ export function PlatformLayoutCompositionPage() {
         .eq('user_id', userId)
         .order('updated_at', { ascending: false })
       if (e) throw e
-      const rows = data ?? []
+      const rows = (data ?? []) as { id: string; reference_key: string; display_name: string; payload: unknown }[]
       if (rows.length === 0) {
         setTabs([
           {

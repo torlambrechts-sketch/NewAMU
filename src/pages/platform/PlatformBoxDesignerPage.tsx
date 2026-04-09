@@ -94,7 +94,7 @@ export function PlatformBoxDesignerPage() {
         .order('updated_at', { ascending: false })
 
       if (e) throw e
-      const rows = data ?? []
+      const rows = (data ?? []) as { id: string; reference_key: string; display_name: string; payload: unknown }[]
       if (rows.length === 0) {
         setTabs([
           {

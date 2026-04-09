@@ -157,7 +157,7 @@ export function ProfilePage() {
     if (!supabase || !user) return
     const { data: files } = await supabase.storage.from(AVATAR_BUCKET).list(user.id)
     if (files?.length) {
-      const paths = files.map((f) => `${user.id}/${f.name}`)
+      const paths = files.map((f: { name: string }) => `${user.id}/${f.name}`)
       await supabase.storage.from(AVATAR_BUCKET).remove(paths)
     }
   }, [supabase, user])

@@ -12,7 +12,7 @@
     "db:gen-learning-system": "node scripts/generate-learning-system-migration.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.101.1",
+    "@supabase/supabase-js": "^2.103.0",
     "dompurify": "^3.3.3",
     "lucide-react": "^1.7.0",
     "quill": "^2.0.3",

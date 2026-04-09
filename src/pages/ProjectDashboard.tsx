@@ -1,668 +1,611 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
+  ArrowRight,
+  BarChart3,
+  BookOpen,
   Calendar,
   CalendarRange,
   CheckCircle2,
+  ClipboardList,
+  FileText,
+  GraduationCap,
+  HardHat,
+  HeartPulse,
   Kanban,
-  Link2,
-  Lock,
-  MoreHorizontal,
-  Search,
-  Settings2,
-  SlidersHorizontal,
-  X,
+  ListChecks,
+  Scale,
+  ShieldAlert,
+  TrendingUp,
+  Users,
 } from 'lucide-react'
-import type { DepartmentRow } from '../data/departments'
+import { useCouncil } from '../hooks/useCouncil'
 import { useHse } from '../hooks/useHse'
-import { useCostSettings } from '../hooks/useCostSettings'
-import { useI18n } from '../hooks/useI18n'
+import { useInternalControl } from '../hooks/useInternalControl'
+import { useLearning } from '../hooks/useLearning'
+import { useOrgHealth } from '../hooks/useOrgHealth'
 import { useOrganisation } from '../hooks/useOrganisation'
-import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
-import { useWorkspacePrefs } from '../hooks/useWorkspacePrefs'
+import { useRepresentatives } from '../hooks/useRepresentatives'
+import { useTasks } from '../hooks/useTasks'
 
-const AVATAR_BG = ['bg-[#d4a84b]', 'bg-neutral-400', 'bg-orange-400', 'bg-[#e8dcc8]', 'bg-emerald-600', 'bg-neutral-500']
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function buildDepartmentRowsFromOrg(org: ReturnType<typeof useOrganisation>): DepartmentRow[] {
-  const units = org.units.filter((u) => u.kind === 'department' || u.kind === 'team')
-  if (units.length === 0) return []
-  return units.map((u, i) => {
-    const inUnit = org.activeEmployees.filter((e) => e.unitId === u.id)
-    const head = inUnit[0]
-    const count = inUnit.length || u.memberCount || 0
-    return {
-      id: u.id,
-      department: u.name,
-      country: head?.location ?? '—',
-      hireEmployees: Math.max(count, 1),
-      deadline: '—',
-      status: i % 2 === 0 ? ('Success' as const) : ('Processing' as const),
-      recruiter: head
-        ? { name: head.name, email: head.email ?? '', initials: org.initials(head.name) }
-        : { name: '—', email: '', initials: '—' },
-    }
-  })
+function fmtDate(iso: string) {
+  try {
+    return new Date(iso).toLocaleDateString('no-NO', { dateStyle: 'medium' })
+  } catch { return iso }
 }
 
-function StatusBadge({ status }: { status: 'Success' | 'Processing' }) {
-  if (status === 'Success') {
-    return (
-      <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
-        Success
-      </span>
-    )
-  }
+function fmtTime(iso: string) {
+  try {
+    return new Date(iso).toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })
+  } catch { return '' }
+}
+
+function daysUntil(iso: string) {
+  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000)
+}
+
+const today = new Date()
+const todayStr = today.toISOString().slice(0, 10)
+
+// ─── Mini components ──────────────────────────────────────────────────────────
+
+function KpiCard({
+  label, value, sub, icon: Icon, colour, to, urgent,
+}: {
+  label: string; value: number | string; sub?: string
+  icon: React.ComponentType<{ className?: string }>
+  colour: string; to?: string; urgent?: boolean
+}) {
+  const inner = (
+    <div className={`group flex items-start gap-4 rounded-2xl border bg-white p-5 shadow-sm transition-all hover:shadow-md ${urgent ? 'border-red-200 bg-red-50/30' : 'border-neutral-200/80'}`}>
+      <div className={`flex size-12 shrink-0 items-center justify-center rounded-xl ${colour}`}>
+        <Icon className="size-5 text-white" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className={`text-3xl font-bold tabular-nums leading-none ${urgent ? 'text-red-700' : 'text-neutral-900'}`}>{value}</div>
+        <div className="mt-1 text-sm font-medium text-neutral-700">{label}</div>
+        {sub && <div className="mt-0.5 text-xs text-neutral-400">{sub}</div>}
+      </div>
+      {to && <ArrowRight className="size-4 shrink-0 text-neutral-300 group-hover:text-neutral-500 mt-1 transition-colors" />}
+    </div>
+  )
+  return to ? <Link to={to}>{inner}</Link> : inner
+}
+
+function SectionHeader({ title, to }: { title: string; to?: string }) {
   return (
-    <span className="inline-flex rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-medium text-sky-800">
-      Processing
-    </span>
+    <div className="mb-3 flex items-center justify-between">
+      <h2 className="text-base font-semibold text-neutral-800">{title}</h2>
+      {to && (
+        <Link to={to} className="text-xs font-medium text-[#1a3d32] hover:underline">
+          Se alle →
+        </Link>
+      )}
+    </div>
   )
 }
 
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-neutral-200 bg-white px-4 py-5 text-center text-sm text-neutral-400">
+      {label}
+    </div>
+  )
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
 export function ProjectDashboard() {
-  const { t } = useI18n()
-  const { needsOnboarding, supabaseConfigured, organization, members: orgMembers } = useOrgSetupContext()
-  const org = useOrganisation()
-  const {
-    prefs: workspace,
-    setSetupOpen: persistSetupOpen,
-    setTableCompact: setCompact,
-    error: workspacePrefsError,
-  } = useWorkspacePrefs()
-  const setupOpen = workspace.setupOpen
-  const tableCompact = workspace.tableCompact
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [region, setRegion] = useState<'all' | 'usa' | 'europe'>('all')
-  const [dashboardDetailId, setDashboardDetailId] = useState<string | null>(null)
-  const [privateOn, setPrivateOn] = useState(true)
-  const [showCostSettings, setShowCostSettings] = useState(false)
-  const hse = useHse()
-  const cost = useCostSettings()
+  const council   = useCouncil()
+  const hse       = useHse()
+  const ic        = useInternalControl()
+  const learning  = useLearning()
+  const oh        = useOrgHealth()
+  const org       = useOrganisation()
+  const rep       = useRepresentatives()
+  const taskStore = useTasks()
 
-  const orgDisplayName = organization?.name ?? org.settings.orgName ?? 'Arbeidsområde'
+  const [_calView] = useState<'week' | 'month'>('week')
 
-  const departmentRows = useMemo(() => buildDepartmentRowsFromOrg(org), [org])
-  const dashboardDetailRow = dashboardDetailId
-    ? departmentRows.find((r) => r.id === dashboardDetailId)
-    : undefined
+  // ── Derived data ─────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (!dashboardDetailId) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prev
-    }
-  }, [dashboardDetailId])
+  const openTasks = useMemo(
+    () => taskStore.tasks.filter((t) => t.status !== 'done').sort((a, b) => (a.dueDate || '9999') < (b.dueDate || '9999') ? -1 : 1),
+    [taskStore.tasks],
+  )
+  const overdueTasks = useMemo(
+    () => openTasks.filter((t) => t.dueDate && t.dueDate < todayStr),
+    [openTasks],
+  )
 
-  const memberAvatars = useMemo(() => {
-    const list = orgMembers.slice(0, 12)
-    return list.map((m, i) => ({
-      type: 'initials' as const,
-      text:
-        m.display_name
-          .split(' ')
-          .map((w) => w[0])
-          .join('')
-          .slice(0, 2)
-          .toUpperCase() || '?',
-      bg: AVATAR_BG[i % AVATAR_BG.length],
-    }))
-  }, [orgMembers])
+  const upcomingMeetings = useMemo(
+    () => council.meetings
+      .filter((m) => m.status === 'planned' && m.startsAt > today.toISOString())
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+      .slice(0, 5),
+    [council.meetings],
+  )
+  const nextMeeting = upcomingMeetings[0]
 
-  useEffect(() => {
-    if (searchParams.get('setup') !== '1') return
-    queueMicrotask(() => {
-      persistSetupOpen(true)
+  const activeSickLeave = useMemo(
+    () => hse.sickLeaveCases.filter((c) => c.status === 'active' || c.status === 'partial'),
+    [hse.sickLeaveCases],
+  )
+
+  const overdueMilestones = useMemo(
+    () => activeSickLeave.flatMap((c) =>
+      c.milestones.filter((m) => !m.completedAt && m.dueAt < todayStr).map((m) => ({ ...m, employeeName: c.employeeName, caseId: c.id })),
+    ).slice(0, 4),
+    [activeSickLeave],
+  )
+
+  const openHighRisks = useMemo(
+    () => ic.rosAssessments
+      .flatMap((r) => r.rows.filter((row) => !row.done && (row.status ?? 'open') !== 'closed' && row.riskScore >= 12)
+        .map((row) => ({ ...row, assessmentTitle: r.title })))
+      .sort((a, b) => b.riskScore - a.riskScore)
+      .slice(0, 4),
+    [ic.rosAssessments],
+  )
+
+  const openIncidents = useMemo(
+    () => hse.incidents.filter((i) => i.status !== 'closed').slice(0, 5),
+    [hse.incidents],
+  )
+
+  const openComplianceItems = useMemo(
+    () => council.compliance.filter((c) => !c.done).length,
+    [council.compliance],
+  )
+
+  const { complianceThresholds: ct } = org
+
+  const certCount = learning.certificates.length
+  const activeCourses = learning.courses.filter((c) => c.status === 'published').length
+
+  // Årshjul — next 3 upcoming events across all modules
+  const annualEvents = useMemo(() => {
+    const evts: { label: string; date: string; kind: string; to: string }[] = []
+    council.meetings.filter((m) => m.status === 'planned' && m.startsAt > today.toISOString()).forEach((m) => {
+      evts.push({ label: m.title, date: m.startsAt, kind: 'AMU-møte', to: '/council?tab=meetings' })
     })
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        next.delete('setup')
-        return next
-      },
-      { replace: true },
-    )
-  }, [searchParams, setSearchParams, persistSetupOpen])
+    hse.sickLeaveCases.filter((c) => c.status === 'active' || c.status === 'partial').forEach((c) => {
+      c.milestones.filter((m) => !m.completedAt && m.dueAt >= todayStr).forEach((m) => {
+        evts.push({ label: `${c.employeeName}: ${m.label}`, date: m.dueAt, kind: 'Sykefravær', to: '/hse?tab=sickness' })
+      })
+    })
+    hse.trainingRecords.filter((r) => r.expiresAt && r.expiresAt >= todayStr).forEach((r) => {
+      evts.push({ label: `${r.employeeName}: ${r.trainingKind}`, date: r.expiresAt!, kind: 'Opplæring', to: '/hse?tab=training' })
+    })
+    oh.surveys.filter((s) => s.schedule?.enabled && s.schedule.nextRunAt && s.schedule.nextRunAt >= todayStr).forEach((s) => {
+      evts.push({ label: s.title, date: s.schedule!.nextRunAt!, kind: 'Undersøkelse', to: '/org-health?tab=surveys' })
+    })
+    return evts.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 8)
+  }, [council.meetings, hse.sickLeaveCases, hse.trainingRecords, oh.surveys])
 
-  const cellPad = tableCompact ? 'px-2 py-2' : 'px-3 py-3'
+  // ── Calendar week strip ───────────────────────────────────────────────────
+  const weekDays = useMemo(() => {
+    const start = new Date(today)
+    start.setDate(today.getDate() - today.getDay() + 1) // Monday
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start)
+      d.setDate(start.getDate() + i)
+      const iso = d.toISOString().slice(0, 10)
+      const meetings = council.meetings.filter((m) => m.startsAt.startsWith(iso) && m.status !== 'cancelled')
+      const milestones = activeSickLeave.flatMap((c) => c.milestones.filter((m) => !m.completedAt && m.dueAt === iso))
+      return { d, iso, dayName: d.toLocaleDateString('no-NO', { weekday: 'short' }), dayNum: d.getDate(), meetings, milestones, isToday: iso === todayStr }
+    })
+  }, [council.meetings, activeSickLeave])
 
-  const filtered = departmentRows.filter((row) => {
-    if (region === 'usa') return row.country === 'India'
-    if (region === 'europe')
-      return ['The Netherlands', 'Poland', 'Norge', 'Norway'].includes(row.country)
-    return true
-  })
+  const KIND_COLOUR: Record<string, string> = {
+    'AMU-møte':     'bg-[#1a3d32] text-white',
+    'Sykefravær':   'bg-amber-100 text-amber-800',
+    'Opplæring':    'bg-rose-100 text-rose-800',
+    'Undersøkelse': 'bg-teal-100 text-teal-800',
+  }
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-      <nav className="mb-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
-        <span>
-          <span className="text-neutral-500">Workspace</span>
-          <span className="mx-2 text-neutral-400">→</span>
-          <span className="font-medium text-neutral-800">{orgDisplayName}</span>
-        </span>
-        <div className="ml-auto flex flex-wrap gap-2">
-          <Link
-            to="/council"
-            className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
-          >
-            Council
-          </Link>
-          <Link
-            to="/members"
-            className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
-          >
-            Members
-          </Link>
-          <Link
-            to="/org-health"
-            className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
-          >
-            Org health
-          </Link>
-          <Link
-            to="/hse"
-            className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
-          >
-            HSE
-          </Link>
-          <Link
-            to="/internal-control"
-            className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
-          >
-            Internkontroll
-          </Link>
-          <Link
-            to="/learning"
-            className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
-          >
-            Learning
-          </Link>
-          <Link
-            to="/hrm/employees"
-            className="rounded-full border border-neutral-200/90 bg-white px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50"
-          >
-            HRM module
-          </Link>
-          <Link to="/action-board" className="inline-flex items-center gap-1 rounded-full border border-[#1a3d32]/20 bg-[#1a3d32]/5 px-3 py-1 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-[#1a3d32]/10">
-            <Kanban className="size-3.5" /> Action Board
-          </Link>
-          <Link to="/aarshjul" className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900 shadow-sm hover:bg-amber-100">
-            <CalendarRange className="size-3.5" /> Årshjul
-          </Link>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-[#f5f0e8]">
+      <div className="mx-auto max-w-[1400px] px-4 py-8 md:px-8">
 
-      {/* ── Cost summary widget ───────────────────────────────────────────── */}
-      {(cost.error || org.error || workspacePrefsError || hse.error) && (
-        <div className="mb-4 space-y-2">
-          {cost.error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{cost.error}</p>
-          )}
-          {org.error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{org.error}</p>
-          )}
-          {workspacePrefsError && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{workspacePrefsError}</p>
-          )}
-          {hse.error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{hse.error}</p>
-          )}
-        </div>
-      )}
-
-      {cost.settings.enabled && (
-        <div className="mb-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="size-5 text-amber-500" />
-              <span className="font-semibold text-neutral-800">Estimerte kostnader — arbeidsmiljø</span>
-            </div>
-            <button type="button" onClick={() => setShowCostSettings((v) => !v)}
-              className="flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-700">
-              <Settings2 className="size-3.5" /> Innstillinger
-            </button>
+        {/* ── Greeting header ────────────────────────────────────────────── */}
+        <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-neutral-900 md:text-4xl" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
+              Velkommen tilbake
+            </h1>
+            <p className="mt-1 text-sm text-neutral-500">
+              {today.toLocaleDateString('no-NO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              {nextMeeting && (
+                <span className="ml-3 inline-flex items-center gap-1.5 rounded-full bg-[#1a3d32]/10 px-2.5 py-0.5 text-xs font-medium text-[#1a3d32]">
+                  <Calendar className="size-3" />
+                  Neste møte: {fmtDate(nextMeeting.startsAt)} kl. {fmtTime(nextMeeting.startsAt)}
+                </span>
+              )}
+            </p>
           </div>
-          {showCostSettings && (
-            <div className="mt-4 grid gap-3 rounded-xl border border-neutral-100 bg-neutral-50 p-4 sm:grid-cols-2">
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Timesats (NOK inkl. sosiale kostnader)</label>
-                <input type="number" min={100} max={5000} value={cost.settings.hourlyRateNok}
-                  onChange={(e) => cost.update({ hourlyRateNok: Number(e.target.value) || 650 })}
-                  className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Arbeidstimer per dag</label>
-                <input type="number" min={4} max={12} step={0.5} value={cost.settings.hoursPerDay}
-                  onChange={(e) => cost.update({ hoursPerDay: Number(e.target.value) || 7.5 })}
-                  className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm" />
-              </div>
-            </div>
-          )}
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            {(() => {
-              const activeSickDays = hse.sickLeaveCases
-                .filter((c) => c.status === 'active' || c.status === 'partial')
-                .reduce((acc, c) => {
-                  const days = Math.max(0, Math.ceil((Date.now() - new Date(c.sickFrom).getTime()) / 86400000))
-                  return acc + days * (c.sicknessDegree / 100)
-                }, 0)
-              const sickCost = cost.sickLeaveCost(Math.round(activeSickDays))
-              const openHighInc = hse.incidents.filter((i) => i.status !== 'closed' && (i.severity === 'high' || i.severity === 'critical')).length
-              const incCost = cost.incidentCost(openHighInc * 8)
-              return (
-                <>
-                  <div className="rounded-xl bg-orange-50 border border-orange-200 p-3">
-                    <div className="text-xl font-bold tabular-nums text-orange-800">kr {sickCost.toLocaleString('no-NO')}</div>
-                    <div className="text-xs text-neutral-600">Aktive sykefravær (~{Math.round(activeSickDays)} dagsverk)</div>
-                  </div>
-                  <div className="rounded-xl bg-red-50 border border-red-200 p-3">
-                    <div className="text-xl font-bold tabular-nums text-red-800">kr {incCost.toLocaleString('no-NO')}</div>
-                    <div className="text-xs text-neutral-600">{openHighInc} åpne alvorlige hendelser (est. 8t/stk)</div>
-                  </div>
-                  <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-3 flex items-center gap-3">
-                    <Calendar className="size-5 text-neutral-400 shrink-0" />
-                    <div>
-                      <Link to="/action-board" className="text-sm font-semibold text-[#1a3d32] hover:underline">
-                        {hse.stats.overdueMilestones + hse.stats.openInspections} forfalte punkter →
-                      </Link>
-                      <div className="text-xs text-neutral-500">Se Action Board for full oversikt</div>
-                    </div>
-                  </div>
-                </>
-              )
-            })()}
+          <div className="flex flex-wrap gap-2">
+            <Link to="/action-board" className="inline-flex items-center gap-1.5 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26]">
+              <Kanban className="size-4" /> Action Board
+            </Link>
+            <Link to="/aarshjul" className="inline-flex items-center gap-1.5 rounded-full border border-[#1a3d32]/20 bg-white px-4 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50">
+              <CalendarRange className="size-4" /> Årshjul
+            </Link>
           </div>
-          <p className="mt-2 text-[10px] text-neutral-400">Estimat basert på kr {cost.settings.hourlyRateNok}/t × {cost.settings.hoursPerDay}t/dag. Ikke regnskapsmessig nøyaktig — kun indikativt for ledelsesformål.</p>
-        </div>
-      )}
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-start gap-4 border-b border-neutral-200/80 pb-6">
-            <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-[#1a3d32] text-2xl font-bold text-[#c9a227]">
-              {orgDisplayName.slice(0, 2).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1
-                  className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-                  style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-                >
-                  {orgDisplayName}
-                </h1>
-                <CheckCircle2 className="size-5 text-neutral-400" aria-hidden />
-                <button type="button" className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100">
-                  <Link2 className="size-5" />
-                </button>
-                <button type="button" className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100">
-                  <MoreHorizontal className="size-5" />
-                </button>
-              </div>
-              <p className="mt-1 text-sm text-neutral-500">
-                {org.activeEmployees.length} aktive i org.kart · {org.totalEmployeeCount} i innstillinger
-              </p>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-600">
-                Oversikt over arbeidsmiljø og aktivitet for {orgDisplayName}. Koblinger til Council, HSE, internkontroll og
-                opplæring ligger i menyen.
-              </p>
-              <div className="mt-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                  Medlemmer (org.)
-                </p>
-                <div className="mt-2 flex flex-wrap gap-6">
-                  {orgMembers.slice(0, 4).map((m) => (
-                    <div key={m.id} className="flex items-center gap-2">
-                      <div
-                        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#1a3d32]/10 text-xs font-semibold text-[#1a3d32]"
-                        aria-hidden
-                      >
-                        {m.display_name
-                          .split(' ')
-                          .map((w) => w[0])
-                          .join('')
-                          .slice(0, 2)
-                          .toUpperCase()}
-                      </div>
-                      <span className="text-sm font-medium text-neutral-800">{m.display_name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <section id="dashboard-setup" className="mt-6 rounded-2xl border border-neutral-200/90 bg-white p-4 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold text-neutral-900">{t('dashboard.setup.title')}</h2>
-                <p className="mt-1 text-sm text-neutral-600">{t('dashboard.setup.hint')}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => persistSetupOpen(!setupOpen)}
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium shadow-sm ${
-                  setupOpen
-                    ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                    : 'border-neutral-200 bg-white text-neutral-800 hover:bg-neutral-50'
-                }`}
-              >
-                <SlidersHorizontal className="size-4" />
-                {t('dashboard.setup.open')}
-              </button>
-            </div>
-            {setupOpen ? (
-              <div className="mt-4 space-y-4 border-t border-neutral-100 pt-4">
-                <div>
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
-                    {t('dashboard.setup.density')}
-                  </p>
-                  <div className="inline-flex rounded-full bg-neutral-200/80 p-1">
-                    <button
-                      type="button"
-                      onClick={() => setCompact(false)}
-                      className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                        !tableCompact ? 'bg-[#1a3d32] text-white' : 'text-neutral-600 hover:text-neutral-900'
-                      }`}
-                    >
-                      {t('dashboard.setup.comfortable')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCompact(true)}
-                      className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                        tableCompact ? 'bg-[#1a3d32] text-white' : 'text-neutral-600 hover:text-neutral-900'
-                      }`}
-                    >
-                      {t('dashboard.setup.compact')}
-                    </button>
-                  </div>
-                </div>
-                {supabaseConfigured ? (
-                  <Link
-                    to={needsOnboarding ? '/onboarding' : '/profile'}
-                    className="inline-flex text-sm font-medium text-[#1a3d32] underline-offset-2 hover:underline"
-                  >
-                    {needsOnboarding ? t('dashboard.setup.orgLinkOnboarding') : t('dashboard.setup.orgLinkProfile')}
-                  </Link>
-                ) : null}
-              </div>
-            ) : null}
-          </section>
-
-          <section className="mt-8">
-            <h2 className="text-lg font-semibold text-neutral-900">Departments</h2>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-full bg-neutral-200/80 p-1">
-                {(
-                  [
-                    ['all', t('dashboard.setup.regionAll')],
-                    ['usa', t('dashboard.setup.regionUsa')],
-                    ['europe', t('dashboard.setup.regionEurope')],
-                  ] as const
-                ).map(([key, label]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setRegion(key)}
-                    className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                      region === key
-                        ? 'bg-[#1a3d32] text-white'
-                        : 'text-neutral-600 hover:text-neutral-900'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <div className="ml-auto flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  className="flex size-9 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 shadow-sm hover:bg-neutral-50"
-                  aria-label="Search departments"
-                >
-                  <Search className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 shadow-sm hover:bg-neutral-50"
-                >
-                  <Calendar className="size-4 text-neutral-500" />
-                  May 11, 2022 – Aug 18, 2022
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    persistSetupOpen(true)
-                    queueMicrotask(() =>
-                      document.getElementById('dashboard-setup')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
-                    )
-                  }}
-                  className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50"
-                >
-                  <SlidersHorizontal className="size-4" />
-                  {t('dashboard.filters')}
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-              <table
-                className={`w-full min-w-[640px] border-collapse text-left ${tableCompact ? 'text-xs' : 'text-sm'}`}
-              >
-                <thead>
-                  <tr className="border-b border-neutral-200 bg-neutral-50/80 text-neutral-600">
-                    <th className={`w-10 ${cellPad}`}>
-                      <input type="checkbox" className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" aria-label="Select all" />
-                    </th>
-                    <th className={`${cellPad} font-medium`}>Departments, Country</th>
-                    <th className={`${cellPad} font-medium`}>Hire employees</th>
-                    <th className={`${cellPad} font-medium`}>
-                      <span className="inline-flex items-center gap-1">
-                        Deadline
-                        <span className="text-neutral-400" aria-hidden>
-                          ↓
-                        </span>
-                      </span>
-                    </th>
-                    <th className={`${cellPad} font-medium`}>Status</th>
-                    <th className={`${cellPad} font-medium`}>Recruiter</th>
-                    <th className={`${cellPad} w-24 text-right font-medium`} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((row) => (
-                    <tr key={row.id} className="border-b border-neutral-100 hover:bg-neutral-50/80">
-                      <td className={`${cellPad} align-top`}>
-                        <input type="checkbox" className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]" />
-                      </td>
-                      <td className={`${cellPad} align-top`}>
-                        <div className="font-semibold text-neutral-900">{row.department}</div>
-                        <div className="text-neutral-500">{row.country}</div>
-                      </td>
-                      <td className={`${cellPad} align-top text-neutral-800`}>
-                        {row.hireEmployees.toLocaleString()}
-                      </td>
-                      <td className={`${cellPad} align-top text-neutral-700`}>{row.deadline}</td>
-                      <td className={`${cellPad} align-top`}>
-                        <StatusBadge status={row.status} />
-                      </td>
-                      <td className={`${cellPad} align-top`}>
-                        <div className="flex items-center gap-2">
-                          {row.recruiter.initials ? (
-                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-300 text-xs font-semibold text-neutral-800">
-                              {row.recruiter.initials}
-                            </span>
-                          ) : (
-                            <img
-                              src={`https://i.pravatar.cc/40?u=${encodeURIComponent(row.recruiter.email)}`}
-                              alt=""
-                              className="size-9 rounded-full"
-                            />
-                          )}
-                          <div className="min-w-0">
-                            <div className="font-medium text-neutral-900">{row.recruiter.name}</div>
-                            <div className="truncate text-xs text-neutral-500">{row.recruiter.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className={`${cellPad} align-top text-right`}>
-                        <button
-                          type="button"
-                          onClick={() => setDashboardDetailId(row.id)}
-                          className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-50"
-                        >
-                          Åpne
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
         </div>
 
-        <aside className="h-fit rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-base font-semibold text-neutral-900">
-              Medlemmer <span className="text-neutral-400">|</span>{' '}
-              <span className="font-normal text-neutral-600">{orgMembers.length}</span>
-            </h3>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 shadow-sm hover:bg-neutral-50"
-            >
-              <span className="text-lg leading-none">+</span> Invite
-            </button>
-          </div>
-          <div className="mt-4 grid grid-cols-4 gap-2">
-            {memberAvatars.length > 0 ? (
-              memberAvatars.map((m, i) => (
-                <div
-                  key={i}
-                  className={`flex aspect-square w-full items-center justify-center rounded-full text-xs font-semibold text-white ${m.bg}`}
-                >
-                  {m.text}
-                </div>
-              ))
-            ) : (
-              <p className="col-span-4 text-xs text-neutral-500">Ingen org.medlemmer ennå.</p>
-            )}
-          </div>
-          <div className="mt-5 space-y-3 border-t border-neutral-100 pt-4">
-            <button
-              type="button"
-              className="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
-            >
-              <span aria-hidden>🏳️</span> Hire Employees
-            </button>
-            <div className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2">
-              <span className="flex items-center gap-2 text-sm text-neutral-700">
-                <Lock className="size-4 text-neutral-500" />
-                Private
-              </span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={privateOn}
-                onClick={() => setPrivateOn(!privateOn)}
-                className={`relative h-7 w-12 rounded-full transition-colors ${
-                  privateOn ? 'bg-orange-400' : 'bg-neutral-300'
-                }`}
-              >
-                <span
-                  className={`absolute top-1 size-5 rounded-full bg-white shadow transition-transform ${
-                    privateOn ? 'left-6' : 'left-1'
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-        </aside>
-      </div>
-
-      {dashboardDetailId && dashboardDetailRow ? (
-        <>
-          <button
-            type="button"
-            aria-label="Lukk"
-            className="fixed inset-0 z-[80] bg-black/40"
-            onClick={() => setDashboardDetailId(null)}
+        {/* ── KPI row ────────────────────────────────────────────────────── */}
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard
+            label="Åpne oppgaver"
+            value={openTasks.length}
+            sub={overdueTasks.length > 0 ? `${overdueTasks.length} forfalt` : 'Ingen forfalte'}
+            icon={ListChecks}
+            colour="bg-[#1a3d32]"
+            to="/tasks"
+            urgent={overdueTasks.length > 0}
           />
-          <aside className="fixed inset-y-0 right-0 z-[90] flex w-full max-w-md flex-col border-l border-neutral-200 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
-              <div>
-                <h2 className="text-base font-semibold text-neutral-900">{dashboardDetailRow.department}</h2>
-                <p className="text-xs text-neutral-500">{dashboardDetailRow.country}</p>
+          <KpiCard
+            label="Aktive sykefravær"
+            value={hse.stats.activeSickLeave}
+            sub={hse.stats.overdueMilestones > 0 ? `${hse.stats.overdueMilestones} forfalte frister` : 'Alle frister OK'}
+            icon={Users}
+            colour="bg-amber-500"
+            to="/hse?tab=sickness"
+            urgent={hse.stats.overdueMilestones > 0}
+          />
+          <KpiCard
+            label="Åpne HMS-hendelser"
+            value={openIncidents.length}
+            sub={`${hse.stats.violence > 0 ? `${hse.stats.violence} vold/trusler` : 'Ingen vold/trusler'}`}
+            icon={ShieldAlert}
+            colour={hse.stats.violence > 0 ? 'bg-red-600' : 'bg-orange-500'}
+            to="/hse?tab=incidents"
+            urgent={hse.stats.violence > 0}
+          />
+          <KpiCard
+            label="Compliance sjekkliste"
+            value={`${council.compliance.filter((c) => c.done).length}/${council.compliance.length}`}
+            sub={`${openComplianceItems} gjenstår`}
+            icon={CheckCircle2}
+            colour={openComplianceItems === 0 ? 'bg-emerald-600' : 'bg-sky-600'}
+            to="/council?tab=compliance"
+          />
+        </div>
+
+        {/* ── Main grid: left content + right sidebar ─────────────────────── */}
+        <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+
+          {/* LEFT COLUMN */}
+          <div className="space-y-6">
+
+            {/* Calendar week strip */}
+            <div className="rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-neutral-800">Denne uken</h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setDashboardDetailId(null)}
-                className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100"
-                aria-label="Lukk"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              <div className="rounded-xl border border-neutral-200/80 bg-[#faf8f4] p-4">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <div className="flex items-center gap-2 text-lg font-semibold text-neutral-900">
-                    8,000 Employees
-                    <Link2 className="size-4 text-neutral-400" />
-                  </div>
-                </div>
-                <div className="mt-4 grid gap-4 sm:grid-cols-1">
-                  <div>
-                    <p className="text-sm text-neutral-600">
-                      Hired <span className="font-semibold text-[#1a3d32]">74%</span> (5,321)
-                    </p>
-                    <p className="text-sm text-neutral-600">
-                      Processing <span className="font-semibold">38%</span> (2,679)
-                    </p>
-                    <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-neutral-200">
-                      <div className="h-full w-[74%] bg-[#1a3d32]" />
-                      <div className="h-full flex-1 bg-neutral-300" />
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-6 grid gap-3 sm:grid-cols-1">
-                  <div className="rounded-lg border border-neutral-100 bg-white p-3">
-                    <div className="text-xl font-semibold text-neutral-900">1,216</div>
-                    <div className="text-xs text-neutral-600">27% On staff</div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-neutral-200">
-                      <div className="h-full w-[27%] bg-[#d4a84b]" />
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-neutral-100 bg-white p-3">
-                    <div className="text-xl font-semibold text-neutral-900">1,791</div>
-                    <div className="text-xs text-neutral-600">31% Out source</div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-neutral-200">
-                      <div className="h-full w-[31%] bg-orange-400" />
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-neutral-100 bg-white p-3">
-                    <div className="text-xl font-semibold text-neutral-900">2,467</div>
-                    <div className="text-xs text-neutral-600">42% Out staff</div>
-                    <div className="mt-3 flex h-16 items-end justify-center gap-1">
-                      {[40, 55, 35, 70, 45, 60, 50].map((h, i) => (
-                        <div
-                          key={i}
-                          className="w-2 rounded-t bg-[#1a3d32]/40"
-                          style={{ height: `${h}%` }}
-                        />
+              <div className="grid grid-cols-7 gap-1">
+                {weekDays.map(({ iso, dayName, dayNum, meetings, milestones, isToday }) => (
+                  <div key={iso} className={`rounded-xl p-2 text-center ${isToday ? 'bg-[#1a3d32] text-white' : 'bg-neutral-50 hover:bg-neutral-100'} transition-colors`}>
+                    <div className={`text-[10px] font-semibold uppercase ${isToday ? 'text-white/70' : 'text-neutral-400'}`}>{dayName}</div>
+                    <div className={`text-lg font-bold leading-tight ${isToday ? 'text-white' : 'text-neutral-800'}`}>{dayNum}</div>
+                    <div className="mt-1 space-y-0.5">
+                      {meetings.slice(0, 2).map((m) => (
+                        <div key={m.id} className={`rounded px-1 py-0.5 text-[9px] font-medium truncate ${isToday ? 'bg-white/20 text-white' : 'bg-[#1a3d32]/10 text-[#1a3d32]'}`} title={m.title}>
+                          {m.title.slice(0, 8)}
+                        </div>
+                      ))}
+                      {milestones.slice(0, 1).map((_m, i) => (
+                        <div key={i} className={`rounded px-1 py-0.5 text-[9px] font-medium ${isToday ? 'bg-amber-400/50 text-white' : 'bg-amber-100 text-amber-800'}`}>
+                          Frist
+                        </div>
                       ))}
                     </div>
                   </div>
-                </div>
+                ))}
               </div>
             </div>
-          </aside>
-        </>
-      ) : null}
+
+            {/* Upcoming meetings */}
+            <div className="rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+              <SectionHeader title="Kommende AMU-møter" to="/council?tab=meetings" />
+              {upcomingMeetings.length === 0 ? (
+                <EmptyState label="Ingen planlagte møter. Gå til Council for å planlegge." />
+              ) : (
+                <div className="space-y-2">
+                  {upcomingMeetings.map((m) => {
+                    const d = daysUntil(m.startsAt)
+                    return (
+                      <Link key={m.id} to="/council?tab=meetings"
+                        className="flex items-center gap-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 hover:border-neutral-200 hover:bg-white transition-all">
+                        <div className="flex size-11 shrink-0 flex-col items-center justify-center rounded-xl bg-[#1a3d32] text-white">
+                          <div className="text-[10px] font-semibold uppercase leading-none opacity-70">
+                            {new Date(m.startsAt).toLocaleDateString('no-NO', { month: 'short' })}
+                          </div>
+                          <div className="text-lg font-bold leading-tight">
+                            {new Date(m.startsAt).getDate()}
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-neutral-900 truncate">{m.title}</div>
+                          <div className="text-xs text-neutral-500">
+                            {fmtDate(m.startsAt)} kl. {fmtTime(m.startsAt)} · {m.location}
+                          </div>
+                          {m.quarterSlot && <div className="text-[10px] text-neutral-400">Q{m.quarterSlot} {m.governanceYear}</div>}
+                        </div>
+                        <div className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${d <= 3 ? 'bg-red-100 text-red-700' : d <= 7 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                          {d === 0 ? 'I dag' : d === 1 ? 'I morgen' : `${d}d`}
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Open tasks */}
+            <div className="rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+              <SectionHeader title="Åpne oppgaver" to="/tasks" />
+              {openTasks.length === 0 ? (
+                <EmptyState label="Ingen åpne oppgaver — bra jobba! 🎉" />
+              ) : (
+                <div className="space-y-2">
+                  {openTasks.slice(0, 6).map((task) => {
+                    const overdue = task.dueDate && task.dueDate < todayStr
+                    const d = task.dueDate ? daysUntil(task.dueDate) : null
+                    const statusColour = task.status === 'in_progress' ? 'bg-sky-100 text-sky-800' : 'bg-neutral-100 text-neutral-600'
+                    const statusLabel = task.status === 'in_progress' ? 'Pågår' : 'Å gjøre'
+                    return (
+                      <Link key={task.id} to="/tasks"
+                        className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-all hover:shadow-sm ${overdue ? 'border-red-200 bg-red-50/40' : 'border-neutral-100 bg-neutral-50 hover:bg-white'}`}>
+                        <div className={`size-2.5 shrink-0 rounded-full ${task.status === 'in_progress' ? 'bg-sky-500' : 'bg-neutral-300'}`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-neutral-900 truncate">{task.title}</div>
+                          <div className="text-xs text-neutral-400">{task.ownerRole || task.assignee || '—'}</div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColour}`}>{statusLabel}</span>
+                          {d !== null && (
+                            <span className={`text-xs font-medium ${overdue ? 'text-red-600' : d <= 3 ? 'text-amber-600' : 'text-neutral-400'}`}>
+                              {overdue ? `${Math.abs(d)}d forfalt` : d === 0 ? 'I dag' : `${d}d`}
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    )
+                  })}
+                  {openTasks.length > 6 && (
+                    <Link to="/tasks" className="block text-center text-xs font-medium text-[#1a3d32] hover:underline py-2">
+                      + {openTasks.length - 6} flere oppgaver
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* High risks */}
+            {openHighRisks.length > 0 && (
+              <div className="rounded-2xl border border-amber-200/80 bg-amber-50/50 p-5 shadow-sm">
+                <SectionHeader title="Høyrisikoer (ROS)" to="/internal-control?tab=ros" />
+                <div className="space-y-2">
+                  {openHighRisks.map((row) => {
+                    const col = row.riskScore >= 15 ? 'bg-red-100 text-red-800 border-red-200' : 'bg-amber-100 text-amber-800 border-amber-200'
+                    return (
+                      <Link key={row.id} to="/internal-control?tab=ros"
+                        className="flex items-center gap-3 rounded-xl border border-amber-200 bg-white px-4 py-3 hover:shadow-sm transition-all">
+                        <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-bold ${col}`}>{row.riskScore}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-neutral-900 truncate">{row.hazard}</div>
+                          <div className="text-xs text-neutral-400 truncate">{row.assessmentTitle}</div>
+                        </div>
+                        <ArrowRight className="size-3.5 text-neutral-400 shrink-0" />
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Sickleave milestones */}
+            {overdueMilestones.length > 0 && (
+              <div className="rounded-2xl border border-red-200/80 bg-red-50/40 p-5 shadow-sm">
+                <SectionHeader title="Forfalte sykefravær-frister" to="/hse?tab=sickness" />
+                <div className="space-y-2">
+                  {overdueMilestones.map((m) => (
+                    <Link key={`${m.caseId}-${m.kind}`} to="/hse?tab=sickness"
+                      className="flex items-center gap-3 rounded-xl border border-red-200 bg-white px-4 py-3 hover:shadow-sm transition-all">
+                      <AlertTriangle className="size-4 shrink-0 text-red-500" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-neutral-900 truncate">{m.label}</div>
+                        <div className="text-xs text-neutral-400">{m.employeeName} · frist {fmtDate(m.dueAt)}</div>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                        {Math.abs(daysUntil(m.dueAt))}d forfalt
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          </div>
+
+          {/* RIGHT SIDEBAR */}
+          <div className="space-y-5">
+
+            {/* Org stats */}
+            <div className="rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex size-9 items-center justify-center rounded-xl bg-[#1a3d32]">
+                  <Scale className="size-4 text-[#c9a227]" />
+                </div>
+                <div>
+                  <div className="font-semibold text-neutral-900 text-sm">{org.settings.orgName}</div>
+                  <div className="text-xs text-neutral-400">{ct.totalEmployeeCount} ansatte</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'AMU-møter i år', value: council.meetings.filter((m) => m.governanceYear === today.getFullYear()).length, to: '/council?tab=meetings' },
+                  { label: 'Repr. valgt', value: rep.members.length, to: '/council?tab=election' },
+                  { label: 'Vernerunder', value: hse.stats.rounds, to: '/hse?tab=rounds' },
+                  { label: 'Inspeksjoner åpne', value: hse.stats.openInspections, to: '/hse?tab=inspections' },
+                ].map(({ label, value, to }) => (
+                  <Link key={label} to={to} className="group rounded-xl bg-neutral-50 p-3 hover:bg-neutral-100 transition-colors">
+                    <div className="text-2xl font-bold tabular-nums text-neutral-900">{value}</div>
+                    <div className="text-[10px] text-neutral-500 leading-tight">{label}</div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* E-learning */}
+            <div className="rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+              <SectionHeader title="E-læring" to="/learning" />
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="rounded-xl bg-emerald-50 p-3">
+                  <div className="text-2xl font-bold text-emerald-700">{activeCourses}</div>
+                  <div className="text-[10px] text-emerald-600">Publiserte kurs</div>
+                </div>
+                <div className="rounded-xl bg-sky-50 p-3">
+                  <div className="text-2xl font-bold text-sky-700">{certCount}</div>
+                  <div className="text-[10px] text-sky-600">Sertifikater</div>
+                </div>
+              </div>
+              {learning.courses.filter((c) => c.status === 'published').slice(0, 3).map((c) => (
+                <Link key={c.id} to={`/learning/play/${c.id}`}
+                  className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-neutral-50 transition-colors">
+                  <GraduationCap className="size-3.5 shrink-0 text-[#1a3d32]" />
+                  <span className="text-xs text-neutral-700 truncate flex-1">{c.title}</span>
+                  <ArrowRight className="size-3 text-neutral-300 shrink-0" />
+                </Link>
+              ))}
+            </div>
+
+            {/* Org health pulse */}
+            <div className="rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+              <SectionHeader title="Organisasjonshelse" to="/org-health" />
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-neutral-600 flex items-center gap-1.5"><HeartPulse className="size-3.5 text-pink-500" />Sykefravær (siste)</span>
+                  <span className="font-semibold text-neutral-900">
+                    {oh.navSummary.latestPercent != null ? `${oh.navSummary.latestPercent}%` : '—'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-neutral-600 flex items-center gap-1.5"><BarChart3 className="size-3.5 text-sky-500" />Anon. meldinger</span>
+                  <span className="font-semibold text-neutral-900">{oh.amlReportStats.total}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-neutral-600 flex items-center gap-1.5"><ClipboardList className="size-3.5 text-teal-500" />Undersøkelser</span>
+                  <span className="font-semibold text-neutral-900">{oh.surveys.length}</span>
+                </div>
+                {oh.surveys.filter((s) => s.status === 'open').length > 0 && (
+                  <Link to="/org-health?tab=surveys" className="block rounded-lg bg-teal-50 px-3 py-2 text-xs font-medium text-teal-800 hover:bg-teal-100 transition-colors">
+                    {oh.surveys.filter((s) => s.status === 'open').length} åpen undersøkelse aktiv →
+                  </Link>
+                )}
+              </div>
+            </div>
+
+            {/* Årshjul upcoming */}
+            <div className="rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+              <SectionHeader title="Kommende i årshjulet" to="/aarshjul" />
+              {annualEvents.length === 0 ? (
+                <EmptyState label="Ingen kommende hendelser registrert." />
+              ) : (
+                <div className="space-y-2">
+                  {annualEvents.map((evt, i) => {
+                    const d = daysUntil(evt.date)
+                    const cls = KIND_COLOUR[evt.kind] ?? 'bg-neutral-100 text-neutral-600'
+                    return (
+                      <Link key={i} to={evt.to}
+                        className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-neutral-50 transition-colors">
+                        <div className="mt-0.5 flex flex-col items-center">
+                          <div className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${cls} whitespace-nowrap`}>{evt.kind}</div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-medium text-neutral-800 truncate">{evt.label}</div>
+                          <div className="text-[10px] text-neutral-400">{fmtDate(evt.date)}</div>
+                        </div>
+                        <span className={`shrink-0 text-xs font-semibold ${d <= 7 ? 'text-red-500' : d <= 30 ? 'text-amber-500' : 'text-neutral-400'}`}>
+                          {d === 0 ? 'I dag' : `${d}d`}
+                        </span>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Quick links */}
+            <div className="rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-neutral-700">Snarveier</h2>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'Meld hendelse', to: '/hse?tab=incidents', icon: ShieldAlert, colour: 'text-red-600 bg-red-50 hover:bg-red-100' },
+                  { label: 'Ny ROS', to: '/internal-control?tab=ros', icon: AlertTriangle, colour: 'text-amber-600 bg-amber-50 hover:bg-amber-100' },
+                  { label: 'Council', to: '/council', icon: Scale, colour: 'text-[#1a3d32] bg-[#1a3d32]/5 hover:bg-[#1a3d32]/10' },
+                  { label: 'Internkontroll', to: '/internal-control', icon: ClipboardList, colour: 'text-purple-600 bg-purple-50 hover:bg-purple-100' },
+                  { label: 'Documents', to: '/documents', icon: FileText, colour: 'text-sky-600 bg-sky-50 hover:bg-sky-100' },
+                  { label: 'Org.kart', to: '/organisation', icon: Users, colour: 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' },
+                ].map(({ label, to, icon: Icon, colour }) => (
+                  <Link key={to} to={to}
+                    className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors ${colour}`}>
+                    <Icon className="size-4 shrink-0" />
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* ── Bottom metrics bar ──────────────────────────────────────────── */}
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Link to="/hse?tab=training" className="group rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm hover:shadow-md transition-all flex items-center gap-4">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-rose-100">
+              <GraduationCap className="size-5 text-rose-600" />
+            </div>
+            <div>
+              <div className={`text-2xl font-bold ${hse.stats.expiredTraining > 0 ? 'text-red-600' : 'text-neutral-800'}`}>{hse.stats.expiredTraining}</div>
+              <div className="text-xs text-neutral-500">Utløpt opplæring</div>
+            </div>
+          </Link>
+          <Link to="/documents/compliance" className="group rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm hover:shadow-md transition-all flex items-center gap-4">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-100">
+              <TrendingUp className="size-5 text-emerald-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-neutral-800">{ic.stats.rosCount}</div>
+              <div className="text-xs text-neutral-500">ROS-vurderinger</div>
+            </div>
+          </Link>
+          <Link to="/council?tab=compliance" className="group rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm hover:shadow-md transition-all flex items-center gap-4">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-sky-100">
+              <HardHat className="size-5 text-sky-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-neutral-800">{hse.stats.rounds}</div>
+              <div className="text-xs text-neutral-500">Vernerunder totalt</div>
+            </div>
+          </Link>
+          <Link to="/org-health?tab=surveys" className="group rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm hover:shadow-md transition-all flex items-center gap-4">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-teal-100">
+              <BookOpen className="size-5 text-teal-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-neutral-800">{oh.surveys.filter((s) => s.status === 'open').length}</div>
+              <div className="text-xs text-neutral-500">Aktive undersøkelser</div>
+            </div>
+          </Link>
+        </div>
+
+      </div>
     </div>
   )
 }
