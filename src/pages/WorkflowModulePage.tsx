@@ -17,6 +17,7 @@ import {
   summarizeRuleCondition,
   triggerLabel,
 } from '../lib/workflowRuleSummary'
+import { WF_FIELD_INPUT, WF_FIELD_LABEL, WF_LEAD, WF_PANEL_INSET } from '../components/workflow/workflowPanelStyles'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const CARD = 'rounded-none border border-neutral-200/90 bg-white p-6 shadow-sm'
@@ -300,19 +301,24 @@ export function WorkflowModulePage() {
                 className="fixed inset-0 z-[60] bg-black/40"
                 onClick={closeEditor}
               />
-              <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[min(100vw,1200px)] flex-col border-l border-neutral-200 bg-[#f7f6f2] shadow-2xl">
-                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-neutral-200 bg-[#f7f6f2] px-5 py-4">
+              <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[min(100vw,1200px)] flex-col border-l border-neutral-200/90 bg-[#f7f6f2] shadow-2xl">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-neutral-200/90 bg-[#f4f1ea] px-5 py-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-neutral-900">
+                    <h3
+                      className="text-lg font-semibold text-neutral-900"
+                      style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+                    >
                       {editingRuleId === 'new' ? 'Ny regel' : 'Rediger regel'}
                     </h3>
-                    <p className="text-xs text-neutral-500">Dra steg inn i flyten · rediger detaljer til høyre</p>
+                    <p className={`${WF_LEAD} mt-1.5`}>
+                      Fyll inn grunninfo under. Bygg flyten med menyene til venstre og rediger detaljer til høyre.
+                    </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={closeEditor}
-                      className="rounded-none p-2 text-neutral-500 hover:bg-neutral-100"
+                      className="rounded-none border border-transparent p-2 text-neutral-500 hover:bg-white/80 hover:text-neutral-800"
                       aria-label="Lukk"
                     >
                       <X className="size-5" />
@@ -320,54 +326,77 @@ export function WorkflowModulePage() {
                   </div>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-                  {formErr && <p className="mb-3 text-sm text-red-700">{formErr}</p>}
+                <div className="min-h-0 flex-1 overflow-y-auto bg-[#f7f6f2] px-4 py-4 sm:px-5">
+                  {formErr && (
+                    <p className="mb-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                      {formErr}
+                    </p>
+                  )}
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <label className="block text-sm">
-                      <span className="text-neutral-600">Navn</span>
-                      <input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="mt-1 w-full rounded-none border border-neutral-200 bg-white px-3 py-2 text-sm"
-                        placeholder="F.eks. Kritisk hendelse → HMS-oppgave"
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="text-neutral-600">Slug (ID)</span>
-                      <input
-                        value={slug}
-                        onChange={(e) => setSlug(e.target.value)}
-                        className="mt-1 w-full rounded-none border border-neutral-200 bg-white px-3 py-2 font-mono text-xs"
-                        placeholder="auto fra navn hvis tom"
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="text-neutral-600">Kilde (modul)</span>
-                      <select
-                        value={sourceModule}
-                        onChange={(e) => setSourceModule(e.target.value)}
-                        className="mt-1 w-full rounded-none border border-neutral-200 bg-white px-3 py-2 text-sm"
-                      >
-                        {WORKFLOW_SOURCE_MODULES.map((m) => (
-                          <option key={m.value} value={m.value}>
-                            {m.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block text-sm">
-                      <span className="text-neutral-600">Utløser</span>
-                      <select
-                        value={triggerOn}
-                        onChange={(e) => setTriggerOn(e.target.value as 'insert' | 'update' | 'both')}
-                        className="mt-1 w-full rounded-none border border-neutral-200 bg-white px-3 py-2 text-sm"
-                      >
-                        <option value="both">Lagring (ny + oppdatering)</option>
-                        <option value="insert">Kun første lagring</option>
-                        <option value="update">Kun oppdateringer</option>
-                      </select>
-                    </label>
+                  <div className={`${WF_PANEL_INSET} border-neutral-200/90`}>
+                    <p className={WF_FIELD_LABEL}>Grunninfo</p>
+                    <p className={`${WF_LEAD} mt-2`}>
+                      Navn og teknisk ID (slug) for regelen. Kilde bestemmer hvilke data som utløser flyten; utløser styrer
+                      om den skal reagere på nye rader, oppdateringer eller begge deler.
+                    </p>
+                    <div className="mt-5 grid gap-5 md:grid-cols-2">
+                      <div>
+                        <label className={WF_FIELD_LABEL} htmlFor="wf-rule-name">
+                          Navn
+                        </label>
+                        <input
+                          id="wf-rule-name"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          className={WF_FIELD_INPUT}
+                          placeholder="F.eks. Kritisk hendelse → HMS-oppgave"
+                        />
+                      </div>
+                      <div>
+                        <label className={WF_FIELD_LABEL} htmlFor="wf-rule-slug">
+                          Slug (ID)
+                        </label>
+                        <input
+                          id="wf-rule-slug"
+                          value={slug}
+                          onChange={(e) => setSlug(e.target.value)}
+                          className={`${WF_FIELD_INPUT} font-mono text-xs`}
+                          placeholder="auto fra navn hvis tom"
+                        />
+                      </div>
+                      <div>
+                        <label className={WF_FIELD_LABEL} htmlFor="wf-rule-source">
+                          Kilde (modul)
+                        </label>
+                        <select
+                          id="wf-rule-source"
+                          value={sourceModule}
+                          onChange={(e) => setSourceModule(e.target.value)}
+                          className={WF_FIELD_INPUT}
+                        >
+                          {WORKFLOW_SOURCE_MODULES.map((m) => (
+                            <option key={m.value} value={m.value}>
+                              {m.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={WF_FIELD_LABEL} htmlFor="wf-rule-trigger">
+                          Utløser
+                        </label>
+                        <select
+                          id="wf-rule-trigger"
+                          value={triggerOn}
+                          onChange={(e) => setTriggerOn(e.target.value as 'insert' | 'update' | 'both')}
+                          className={WF_FIELD_INPUT}
+                        >
+                          <option value="both">Lagring (ny + oppdatering)</option>
+                          <option value="insert">Kun første lagring</option>
+                          <option value="update">Kun oppdateringer</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="mt-6 border-t border-neutral-200/80 pt-6">
@@ -380,60 +409,78 @@ export function WorkflowModulePage() {
                   </div>
 
                   <div className="mt-6 border-t border-neutral-200/80 pt-4">
-                    <button
-                      type="button"
-                      onClick={() => setDevJsonOpen((o) => !o)}
-                      className="flex w-full items-center justify-between gap-2 rounded-none border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100"
-                    >
-                      <span>Utvikler: JSON (import / eksport)</span>
-                      <ChevronDown className={`size-4 shrink-0 transition ${devJsonOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                    {devJsonOpen ? (
-                      <div className="mt-3 space-y-3">
-                        <p className="text-xs text-neutral-500">
-                          Kun for feilsøking eller migrering. «Synkroniser til flyt» overskriver den visuelle byggeren.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setConditionText(JSON.stringify(conditionJson, null, 2))
-                            setActionsText(actionsToJsonString(actionsPayload))
-                          }}
-                          className={BTN_SEC}
-                        >
-                          Oppdater tekstfelt fra flyt
-                        </button>
-                        <button type="button" onClick={applyAdvancedToFlow} className={`${BTN_SEC} ml-2`}>
-                          Synkroniser JSON → flyt
-                        </button>
-                        <label className="block text-sm">
-                          <span className="text-neutral-600">Betingelse (JSON)</span>
-                          <textarea
-                            value={conditionText}
-                            onChange={(e) => setConditionText(e.target.value)}
-                            rows={6}
-                            className="mt-1 w-full rounded-none border border-neutral-200 bg-white px-3 py-2 font-mono text-xs"
-                          />
-                        </label>
-                        <label className="block text-sm">
-                          <span className="text-neutral-600">Handlinger (JSON)</span>
-                          <textarea
-                            value={actionsText}
-                            onChange={(e) => setActionsText(e.target.value)}
-                            rows={10}
-                            className="mt-1 w-full rounded-none border border-neutral-200 bg-white px-3 py-2 font-mono text-xs"
-                          />
-                        </label>
-                      </div>
-                    ) : null}
+                    <div className={`${WF_PANEL_INSET} border-neutral-200/90`}>
+                      <button
+                        type="button"
+                        onClick={() => setDevJsonOpen((o) => !o)}
+                        className="flex w-full items-center justify-between gap-2 rounded-none border border-neutral-200/90 bg-white px-3 py-2.5 text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+                      >
+                        <span className="text-sm font-semibold text-neutral-900">Utvikler: JSON (import / eksport)</span>
+                        <ChevronDown className={`size-4 shrink-0 text-neutral-500 transition ${devJsonOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      {devJsonOpen ? (
+                        <div className="mt-4 space-y-4 border-t border-neutral-200/80 pt-4">
+                          <p className={WF_LEAD}>
+                            Kun for feilsøking eller migrering. «Synkroniser til flyt» overskriver den visuelle byggeren.
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setConditionText(JSON.stringify(conditionJson, null, 2))
+                                setActionsText(actionsToJsonString(actionsPayload))
+                              }}
+                              className={BTN_SEC}
+                            >
+                              Oppdater tekstfelt fra flyt
+                            </button>
+                            <button type="button" onClick={applyAdvancedToFlow} className={BTN_SEC}>
+                              Synkroniser JSON → flyt
+                            </button>
+                          </div>
+                          <div>
+                            <label className={WF_FIELD_LABEL} htmlFor="wf-dev-cond">
+                              Betingelse (JSON)
+                            </label>
+                            <textarea
+                              id="wf-dev-cond"
+                              value={conditionText}
+                              onChange={(e) => setConditionText(e.target.value)}
+                              rows={6}
+                              className={`${WF_FIELD_INPUT} font-mono text-xs`}
+                            />
+                          </div>
+                          <div>
+                            <label className={WF_FIELD_LABEL} htmlFor="wf-dev-act">
+                              Handlinger (JSON)
+                            </label>
+                            <textarea
+                              id="wf-dev-act"
+                              value={actionsText}
+                              onChange={(e) => setActionsText(e.target.value)}
+                              rows={10}
+                              className={`${WF_FIELD_INPUT} font-mono text-xs`}
+                            />
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-neutral-200 bg-[#f0efe9] px-5 py-4">
-                  <button type="button" onClick={closeEditor} className={BTN_SEC}>
+                <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-neutral-200/90 bg-[#f4f1ea] px-5 py-4">
+                  <button
+                    type="button"
+                    onClick={closeEditor}
+                    className="inline-flex items-center gap-2 rounded-none border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-800 shadow-none hover:bg-neutral-50"
+                  >
                     Avbryt
                   </button>
-                  <button type="button" onClick={() => void handleSaveRule()} className={BTN_PRI}>
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveRule()}
+                    className="inline-flex items-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white shadow-none hover:bg-[#142e26]"
+                  >
                     Lagre regel (av som standard)
                   </button>
                 </div>
