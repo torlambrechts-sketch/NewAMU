@@ -1,8 +1,10 @@
-# atics — task & workspace UI
+# Klarert — arbeidsplass, samsvar og internkontroll
+
+**Logo:** Bytt ut `public/favicon.svg` og `public/brand/klarert-mark.svg` med eksport fra design (samme kvadratiske merke brukes i `KlarertLogo`).
 
 React (Vite) + TypeScript + Tailwind CSS. Run `npm install`, then `npm run dev`.
 
-- **Navigation** — Two-level header: **Council** is a separate highlighted group on the left of the primary row (then a divider), followed by Members, Org health, HSE, **Internkontroll** (varslingssaker med status, ROS-mal, årsgjennomgang — med disclaimer), Tasks, E-learning. **Section submenu** switches with the route. Home/project dashboard is via the **atics** logo.
+- **Navigation** — Two-level header with module groups (Workspace, Arbeidsplassrapportering, Compliance, Council, Library). **Section submenu** switches with the route. Home is via the **Klarert** logo.
 - **/** — Project dashboard (Adobe Analytics replica) with departments table and expandable row.
 - **/tasks** — Task management: add/edit/delete tasks, status workflow; stored in `localStorage`.
 - **/council** — Arbeidsmiljøråd: styre/valg, **årshjul** (mål 4 ordinære møter/år), **foreslått agenda per kvartal**, **møteforberedelse**, **revisjonslogg** (diskusjon, notater, vedtak). Ikke juridisk rådgivning.

@@ -23,7 +23,6 @@ import {
   Settings,
   Shield,
   ShieldCheck,
-  Star,
   Users,
   UsersRound,
   Workflow,
@@ -34,6 +33,7 @@ import { useI18n } from '../../hooks/useI18n'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PermissionKey } from '../../lib/permissionKeys'
 import { WORKPLACE_REPORTING_NAV, workplaceReportingNavMatch } from '../../data/workplaceReportingNav'
+import { KlarertLogo } from '../brand/KlarertLogo'
 
 // ─── Sub-item type ────────────────────────────────────────────────────────────
 
@@ -432,8 +432,12 @@ export function AticsShell() {
         <aside className="flex w-[3.75rem] shrink-0 flex-col bg-[var(--ui-nav-rail)]">
           {/* Logo */}
           <div className="flex h-14 shrink-0 items-center justify-center border-b border-white/10">
-            <NavLink to="/" aria-label="Home" className="flex items-center justify-center rounded-lg p-1.5 hover:bg-white/10">
-              <Star className="size-5 fill-white text-white" strokeWidth={1.2} />
+            <NavLink
+              to="/"
+              aria-label={t('shell.homeAria')}
+              className="flex items-center justify-center rounded-lg p-1.5 hover:bg-white/10"
+            >
+              <KlarertLogo size={22} markOnly />
             </NavLink>
           </div>
 
@@ -640,14 +644,8 @@ export function AticsShell() {
         {/* ── Row 1: logo · group tabs · utilities ───────────────────────── */}
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 md:px-8">
           {/* Logo */}
-          <NavLink to="/" className="flex shrink-0 items-center gap-2" aria-label="Home">
-            <Star className="size-7 shrink-0 fill-white text-white" strokeWidth={1.2} />
-            <span
-              className="font-serif text-xl tracking-wide text-[#c9a227] md:text-2xl"
-              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-            >
-              atics
-            </span>
+          <NavLink to="/" className="flex shrink-0 items-center gap-2" aria-label={t('shell.homeAria')}>
+            <KlarertLogo size={28} />
           </NavLink>
 
           {/* Group tabs — one per group, navigates to first module in group */}

@@ -11,6 +11,7 @@ export const LOCALE_LABELS: Record<AppLocale, string> = {
 type Bundle = Record<string, string>
 
 const nb: Bundle = {
+  'shell.homeAria': 'Klarert — hjem',
   'shell.findAnything': 'Finn noe',
   'shell.subnavHint': 'Velg en hovedmodul over (Council, Org health, …)',
   'shell.logOut': 'Logg ut',
@@ -81,6 +82,7 @@ const nb: Bundle = {
 }
 
 const en: Bundle = {
+  'shell.homeAria': 'Klarert — home',
   'shell.findAnything': 'Find anything',
   'shell.subnavHint': 'Choose a module above (Council, Org health, …)',
   'shell.logOut': 'Log out',

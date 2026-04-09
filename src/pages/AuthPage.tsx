@@ -1,6 +1,7 @@
 import { useState, type FormEvent, useEffect, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertCircle, Loader2, Sparkles } from 'lucide-react'
+import { KlarertLogo } from '../components/brand/KlarertLogo'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { mapAuthError } from '../lib/authErrors'
 import { postLoginRedirectPath } from '../lib/authRedirect'
@@ -145,6 +146,11 @@ export function AuthPage({ mode }: { mode: Mode }) {
 
   return (
     <div className="min-h-screen bg-[#f5f0e8] px-4 py-16">
+      <div className="mx-auto mb-8 flex max-w-md justify-center">
+        <Link to="/" className="rounded-none p-1 hover:opacity-90" aria-label="Klarert — hjem">
+          <KlarertLogo size={32} className="text-[#1a3d32]" />
+        </Link>
+      </div>
       <div className="mx-auto w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
         <h1
           className="font-serif text-2xl text-[#1a3d32]"

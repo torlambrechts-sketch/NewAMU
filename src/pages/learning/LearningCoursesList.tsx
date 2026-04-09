@@ -139,7 +139,7 @@ export function LearningCoursesList() {
             Kurs
           </h1>
           <p className="mt-1 text-sm text-neutral-600">
-            Flashkort, quiz, media, sjekklister og mikromoduler — samme uttrykk som resten av atics.
+            Flashkort, quiz, media, sjekklister og mikromoduler — samme uttrykk som resten av Klarert.
           </p>
         </div>
       </div>
