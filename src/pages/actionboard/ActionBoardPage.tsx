@@ -344,7 +344,7 @@ export function ActionBoardPage() {
 
       {boardTab === 'board' && (
         <div
-          className="mt-6 space-y-6 rounded-xl border border-neutral-200/80 p-4 shadow-sm md:p-6"
+          className="mt-6 w-full space-y-6 rounded-xl border border-neutral-200/80 p-4 shadow-sm md:p-6"
           style={{
             fontFamily: 'Inter, system-ui, sans-serif',
             backgroundColor: AB_SCORECARD_CREAM,
@@ -561,7 +561,7 @@ export function ActionBoardPage() {
 
       {boardTab === 'costs' && (
         <div
-          className="mt-6 space-y-6 rounded-xl border border-neutral-200/80 p-4 shadow-sm md:p-6"
+          className="mt-6 w-full space-y-6 rounded-xl border border-neutral-200/80 p-4 shadow-sm md:p-6"
           style={{
             fontFamily: 'Inter, system-ui, sans-serif',
             backgroundColor: AB_SCORECARD_CREAM,
