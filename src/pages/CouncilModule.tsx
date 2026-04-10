@@ -104,8 +104,7 @@ const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: ClipboardList },
   { id: 'board' as const, label: 'Styre og Valg', icon: Users },
   { id: 'meetings' as const, label: 'Møter', icon: Calendar },
-  { id: 'compliance' as const, label: 'Sjekkliste', icon: Gavel },
-  { id: 'decisions' as const, label: 'Vedtaksregister', icon: ScrollText },
+  { id: 'requirements' as const, label: 'Krav og vedtak', icon: Gavel },
   { id: 'audit' as const, label: 'Revisjonslogg', icon: History, iconOnly: true as const },
 ] as const
 
@@ -123,13 +122,10 @@ const tabBlurbs: Record<(typeof tabs)[number]['id'], { kicker: string; descripti
     kicker: 'Møter og årshjul',
     description: 'Data-drevet møteplanlegger — auto-injisert agenda, distribusjonskontroll og oppgavegenerering.',
   },
-  compliance: {
-    kicker: 'Sjekkliste og samsvar',
-    description: 'Strukturert sjekkliste med lovhenvisninger; legg til egne punkter.',
-  },
-  decisions: {
-    kicker: 'Vedtaksregister',
-    description: 'Alle formelle vedtak på tvers av møter — søkbart, filtrerbart og koblet til Kanban.',
+  requirements: {
+    kicker: 'Krav og vedtak',
+    description:
+      'Samsvarssjekk med lovhenvisninger og vedtaksregister på tvers av møter — søkbart og koblet til oppfølging.',
   },
   audit: {
     kicker: 'Revisjonslogg',
@@ -236,6 +232,9 @@ export function CouncilModule() {
     if (tabParam === 'election') {
       queueMicrotask(() => setSearchParams({ tab: 'board' }, { replace: true }))
     }
+    if (tabParam === 'compliance' || tabParam === 'decisions') {
+      queueMicrotask(() => setSearchParams({ tab: 'requirements' }, { replace: true }))
+    }
   }, [tabParam, setSearchParams])
 
   const setTab = useCallback(
@@ -285,7 +284,7 @@ export function CouncilModule() {
 
   const councilOverlayOpen =
     (tab === 'meetings' && (newMeetingOpen || meetingDetailOpen)) ||
-    (tab === 'decisions' && Boolean(decisionPanelId))
+    (tab === 'requirements' && Boolean(decisionPanelId))
   useBodyScrollLock(councilOverlayOpen)
 
   useEffect(() => {
@@ -307,7 +306,7 @@ export function CouncilModule() {
         setNewMeetingOpen(false)
         setMeetingDetailOpen(false)
       }
-      if (tab !== 'decisions') setDecisionPanelId(null)
+      if (tab !== 'requirements') setDecisionPanelId(null)
     })
   }, [tab])
 
@@ -586,6 +585,48 @@ export function CouncilModule() {
     const total = entries.reduce((s, x) => s + x.value, 0)
     return { entries, total }
   }, [complianceProgress.done, complianceProgress.total])
+
+  const councilDecisionSegments = useMemo(() => {
+    const n = council.allDecisions.length
+    const palette = ['#0f766e', '#94a3b8']
+    const entries: InsightSeg[] =
+      n > 0
+        ? [{ label: 'Registrerte vedtak', value: n, color: palette[0] }]
+        : []
+    const total = entries.reduce((s, x) => s + x.value, 0)
+    return { entries, total }
+  }, [council.allDecisions.length])
+
+  const requirementsOverviewKpis = useMemo(
+    () => [
+      {
+        title: 'Sjekkliste',
+        sub: 'Punkter totalt',
+        value: String(complianceProgress.total),
+      },
+      {
+        title: 'Oppfylt',
+        sub: 'Andel fullført',
+        value: `${complianceProgress.pct}%`,
+      },
+      {
+        title: 'Gjenstår',
+        sub: 'Ikke markert OK',
+        value: String(Math.max(0, complianceProgress.total - complianceProgress.done)),
+      },
+      {
+        title: 'Vedtak',
+        sub: 'I registeret',
+        value: String(council.allDecisions.length),
+      },
+    ],
+    [
+      complianceProgress.done,
+      complianceProgress.pct,
+      complianceProgress.total,
+      council.allDecisions.length,
+    ],
+  )
 
   const councilLiveSignalsSegments = useMemo(() => {
     const palette = ['#dc2626', '#f59e0b', '#ea580c']
@@ -1947,11 +1988,43 @@ export function CouncilModule() {
       )}
 
 
-      {tab === 'compliance' && (
-        <div className="mt-8 space-y-6">
-          <div className="rounded-2xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
-            <strong>Merk:</strong> Sjekklisten er et strukturert utgangspunkt knyttet til typiske krav i norsk
-            arbeidsliv. Den erstatter ikke juridisk bistand — kontroller alltid mot{' '}
+      {tab === 'requirements' && (
+        <div className="mt-6 space-y-10">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {requirementsOverviewKpis.map((item) => (
+              <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={menu1.barStyle}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
+                <p className="mt-1 text-xs text-white/70">{item.sub}</p>
+                <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <section>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Rådsinnsikt</h2>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <ModuleDonutCard
+                title="Samsvarssjekk"
+                subtitle="Oppfylt vs. gjenstående"
+                segments={councilComplianceSegments.entries}
+                total={councilComplianceSegments.total}
+                emptyHint="Ingen sjekklistepunkter."
+              />
+              <ModuleDonutCard
+                title="Vedtak"
+                subtitle="Registrerte formelle vedtak"
+                segments={councilDecisionSegments.entries}
+                total={councilDecisionSegments.total}
+                emptyHint="Ingen vedtak registrert ennå."
+              />
+            </div>
+          </section>
+
+          <div className={`${R_FLAT} border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950`}>
+            <strong>Merk:</strong> Sjekklisten er et strukturert utgangspunkt for typiske krav; den erstatter ikke
+            juridisk bistand — kontroller mot{' '}
             <a
               href="https://lovdata.no"
               target="_blank"
@@ -1959,118 +2032,208 @@ export function CouncilModule() {
               className="font-medium text-[#1a3d32] underline"
             >
               lovdata.no
-            </a>{' '}
-            og gjeldende tariff- og bedriftsavtaler.
+            </a>
+            . Vedtaksregisteret henter tekst fra møtereferat og revisjonslogg; klikk en rad for full ordlyd.
           </div>
 
-          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Egne punkter</h2>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                council.addComplianceItem(customItem.title, customItem.description, customItem.lawRef)
-                setCustomItem({ title: '', description: '', lawRef: '' })
-              }}
-              className="mt-4 grid gap-3 sm:grid-cols-2"
-            >
-              <input
-                placeholder="Tittel"
-                value={customItem.title}
-                onChange={(e) => setCustomItem((s) => ({ ...s, title: e.target.value }))}
-                className="rounded-xl border border-neutral-200 px-3 py-2 text-sm sm:col-span-2"
-                required
-              />
-              <input
-                placeholder="Henvisning (lov / avtale)"
-                value={customItem.lawRef}
-                onChange={(e) => setCustomItem((s) => ({ ...s, lawRef: e.target.value }))}
-                className="rounded-xl border border-neutral-200 px-3 py-2 text-sm sm:col-span-2"
-              />
-              <textarea
-                placeholder="Beskrivelse"
-                value={customItem.description}
-                onChange={(e) => setCustomItem((s) => ({ ...s, description: e.target.value }))}
-                rows={2}
-                className="resize-y rounded-xl border border-neutral-200 px-3 py-2 text-sm sm:col-span-2"
-              />
-              <button
-                type="submit"
-                className="rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] sm:col-span-2 sm:justify-self-start"
+          {/* ── Del 1: Sjekkliste og krav ───────────────────────────────────── */}
+          <section className="space-y-5">
+            <div>
+              <h2
+                className="text-xl font-semibold text-neutral-900 md:text-2xl"
+                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
               >
-                Legg til punkt
-              </button>
-            </form>
+                Sjekkliste og krav
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm text-neutral-600">
+                Strukturert samsvarssjekk med lovhenvisninger, notater og oppgavekobling. Legg til egne punkter etter
+                behov.
+              </p>
+            </div>
+
+            <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}>
+              <h3 className="text-sm font-semibold text-neutral-900">Egne punkter</h3>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  council.addComplianceItem(customItem.title, customItem.description, customItem.lawRef)
+                  setCustomItem({ title: '', description: '', lawRef: '' })
+                }}
+                className="mt-4 grid gap-3 sm:grid-cols-2"
+              >
+                <input
+                  placeholder="Tittel"
+                  value={customItem.title}
+                  onChange={(e) => setCustomItem((s) => ({ ...s, title: e.target.value }))}
+                  className={`${R_FLAT} border border-neutral-200 px-3 py-2 text-sm sm:col-span-2`}
+                  required
+                />
+                <input
+                  placeholder="Henvisning (lov / avtale)"
+                  value={customItem.lawRef}
+                  onChange={(e) => setCustomItem((s) => ({ ...s, lawRef: e.target.value }))}
+                  className={`${R_FLAT} border border-neutral-200 px-3 py-2 text-sm sm:col-span-2`}
+                />
+                <textarea
+                  placeholder="Beskrivelse"
+                  value={customItem.description}
+                  onChange={(e) => setCustomItem((s) => ({ ...s, description: e.target.value }))}
+                  rows={2}
+                  className={`${R_FLAT} resize-y border border-neutral-200 px-3 py-2 text-sm sm:col-span-2`}
+                />
+                <button
+                  type="submit"
+                  className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white hover:bg-[#142e26] sm:col-span-2 sm:justify-self-start`}
+                >
+                  Legg til punkt
+                </button>
+              </form>
+            </div>
+
+            <div className={`${R_FLAT} overflow-hidden border border-neutral-200/90 bg-white shadow-sm`}>
+              <div className="border-b border-neutral-200 bg-neutral-50 px-4 py-3">
+                <h3 className="font-semibold text-neutral-900">Krav og oppgaver</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-neutral-200 bg-[#faf8f4] text-xs font-semibold uppercase tracking-wide text-neutral-600">
+                      <th className="w-10 px-3 py-2.5">OK</th>
+                      <th className="min-w-[200px] px-3 py-2.5">Krav</th>
+                      <th className="min-w-[180px] px-3 py-2.5">Notater</th>
+                      <th className="px-3 py-2.5">Oppfølging</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {council.compliance.map((c, rowIdx) => (
+                      <tr
+                        key={c.id}
+                        className={`border-b border-neutral-100 ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#faf8f4]/60'} ${
+                          c.done ? 'opacity-90' : ''
+                        }`}
+                      >
+                        <td className="align-top px-3 py-3">
+                          <input
+                            type="checkbox"
+                            checked={c.done}
+                            onChange={() => council.toggleCompliance(c.id)}
+                            className={`${R_FLAT} mt-1 size-4 border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]`}
+                          />
+                        </td>
+                        <td className="align-top px-3 py-3">
+                          <span className="font-medium text-neutral-900">{c.title}</span>
+                          {c.isCustom ? (
+                            <span className={`${R_FLAT} ml-2 bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900`}>
+                              Egendefinert
+                            </span>
+                          ) : null}
+                          <p className="mt-1 text-neutral-600">{c.description}</p>
+                          <p className="mt-1 text-xs font-medium text-[#1a3d32]/90">{c.lawRef}</p>
+                        </td>
+                        <td className="align-top px-3 py-3">
+                          <textarea
+                            placeholder="Notater…"
+                            value={c.notes ?? ''}
+                            onChange={(e) => council.setComplianceNotes(c.id, e.target.value)}
+                            rows={2}
+                            className={`${R_FLAT} w-full min-w-[160px] border border-neutral-200 bg-white px-2 py-1.5 text-xs`}
+                          />
+                        </td>
+                        <td className="align-top px-3 py-3">
+                          {!c.done ? (
+                            <AddTaskLink
+                              title={`Oppfølging: ${c.title.slice(0, 80)}`}
+                              description={c.lawRef}
+                              module="council"
+                              sourceType="council_compliance"
+                              sourceId={c.id}
+                              sourceLabel={c.title}
+                              ownerRole="HMS / råd"
+                              requiresManagementSignOff={false}
+                            />
+                          ) : (
+                            <span className="text-xs text-emerald-700">Fullført</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </section>
 
-          <section className="overflow-hidden rounded-2xl border border-[#1a3d32]/15 bg-white shadow-sm">
-            <div className="border-b border-[#1a3d32]/15 bg-gradient-to-r from-[#faf6ed] via-white to-emerald-50/50 px-4 py-3">
-              <h2 className="font-semibold text-[#1a3d32]">Krav og oppgaver</h2>
+          {/* ── Del 2: Vedtaksregister ──────────────────────────────────────── */}
+          <section className="space-y-5 border-t border-neutral-200 pt-10">
+            <div>
+              <h2
+                className="text-xl font-semibold text-neutral-900 md:text-2xl"
+                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+              >
+                Vedtaksregister
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm text-neutral-600">
+                Alle formelle vedtak på tvers av AMU-møter. Søk og åpne en rad for full tekst.
+              </p>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-emerald-200/70 bg-emerald-50/95 text-xs font-semibold uppercase tracking-wide text-[#1a3d32]/85">
-                    <th className="w-10 px-3 py-2.5">OK</th>
-                    <th className="min-w-[200px] px-3 py-2.5">Krav</th>
-                    <th className="min-w-[180px] px-3 py-2.5">Notater</th>
-                    <th className="px-3 py-2.5">Oppfølging</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {council.compliance.map((c, rowIdx) => (
-                    <tr
-                      key={c.id}
-                      className={`border-b border-neutral-100 ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-emerald-50/35'} ${
-                        c.done ? 'opacity-90' : ''
-                      }`}
-                    >
-                      <td className="align-top px-3 py-3">
-                        <input
-                          type="checkbox"
-                          checked={c.done}
-                          onChange={() => council.toggleCompliance(c.id)}
-                          className="mt-1 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
-                        />
-                      </td>
-                      <td className="align-top px-3 py-3">
-                        <span className="font-medium text-neutral-900">{c.title}</span>
-                        {c.isCustom ? (
-                          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
-                            Egendefinert
-                          </span>
-                        ) : null}
-                        <p className="mt-1 text-neutral-600">{c.description}</p>
-                        <p className="mt-1 text-xs font-medium text-[#1a3d32]/90">{c.lawRef}</p>
-                      </td>
-                      <td className="align-top px-3 py-3">
-                        <textarea
-                          placeholder="Notater…"
-                          value={c.notes ?? ''}
-                          onChange={(e) => council.setComplianceNotes(c.id, e.target.value)}
-                          rows={2}
-                          className="w-full min-w-[160px] rounded-lg border border-neutral-200 bg-white/90 px-2 py-1.5 text-xs"
-                        />
-                      </td>
-                      <td className="align-top px-3 py-3">
-                        {!c.done ? (
-                          <AddTaskLink
-                            title={`Oppfølging: ${c.title.slice(0, 80)}`}
-                            description={c.lawRef}
-                            module="council"
-                            sourceType="council_compliance"
-                            sourceId={c.id}
-                            sourceLabel={c.title}
-                            ownerRole="HMS / råd"
-                            requiresManagementSignOff={false}
-                          />
-                        ) : (
-                          <span className="text-xs text-emerald-700">Fullført</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+            <div className="relative max-w-md">
+              <input
+                value={decisionSearch}
+                onChange={(e) => setDecisionSearch(e.target.value)}
+                placeholder="Søk i vedtak…"
+                className={`${R_FLAT} w-full border border-neutral-200 bg-white py-2 pl-10 pr-4 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]`}
+              />
+              <ScrollText className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+            </div>
+
+            <div className={`${R_FLAT} overflow-hidden border border-neutral-200/90 bg-white shadow-sm`}>
+              <div className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-4 py-3">
+                <h3 className="font-semibold text-neutral-900">Alle vedtak</h3>
+                <span className="text-xs text-neutral-500">{council.allDecisions.length} totalt</span>
+              </div>
+              {council.allDecisions.length === 0 ? (
+                <p className="px-4 py-8 text-center text-sm text-neutral-500">
+                  Ingen vedtak ennå. Registrer vedtak under «Vedtak» i møterevisjonsloggen, eller legg til formelt vedtak
+                  per agendapunkt under Møter.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[640px] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                        <th className="px-4 py-3">Dato</th>
+                        <th className="px-4 py-3">Møte</th>
+                        <th className="px-4 py-3">Agendapunkt</th>
+                        <th className="px-4 py-3">Vedtak</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100">
+                      {council.allDecisions
+                        .filter(
+                          (d) =>
+                            !decisionSearch ||
+                            d.decision.toLowerCase().includes(decisionSearch.toLowerCase()) ||
+                            d.meetingTitle.toLowerCase().includes(decisionSearch.toLowerCase()),
+                        )
+                        .map((d) => (
+                          <tr
+                            key={d.id}
+                            className="cursor-pointer transition-colors hover:bg-neutral-50"
+                            onClick={() => setDecisionPanelId(d.id)}
+                          >
+                            <td className="whitespace-nowrap px-4 py-3 text-xs text-neutral-500">
+                              {new Date(d.meetingDate).toLocaleDateString('no-NO', { dateStyle: 'short' })}
+                            </td>
+                            <td className="px-4 py-3 font-medium text-neutral-800">{d.meetingTitle}</td>
+                            <td className="px-4 py-3 text-xs text-neutral-500">{d.agendaItemTitle || '—'}</td>
+                            <td className="max-w-[280px] truncate px-4 py-3 text-neutral-900">{d.decision}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </section>
 
@@ -2084,74 +2247,6 @@ export function CouncilModule() {
             >
               Tilbakestill demodata
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Vedtaksregister ───────────────────────────────────────────────── */}
-      {tab === 'decisions' && (
-        <div className="mt-8 space-y-6">
-          <div className="rounded-none border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
-            Vedtaksregisteret samler alle formelle vedtak på tvers av AMU-møter (fra revisjonslogg og per-punkt-referater).
-            Bruk søkefeltet og klikk en rad for full tekst.
-          </div>
-
-          <div className="relative max-w-md">
-            <input
-              value={decisionSearch}
-              onChange={(e) => setDecisionSearch(e.target.value)}
-              placeholder="Søk i vedtak…"
-              className="w-full rounded-none border border-neutral-200 bg-white py-2 pl-10 pr-4 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
-            />
-            <ScrollText className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-          </div>
-
-          <div className="overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-neutral-100 bg-neutral-50 px-4 py-3">
-              <h2 className="font-semibold text-neutral-900">Alle vedtak</h2>
-              <span className="text-xs text-neutral-500">{council.allDecisions.length} totalt</span>
-            </div>
-            {council.allDecisions.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-neutral-500">
-                Ingen vedtak ennå. Registrer vedtak under «Vedtak»-typen i revisjonsloggen, eller legg til formelt vedtak per agendapunkt under Møter.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                      <th className="px-4 py-3">Dato</th>
-                      <th className="px-4 py-3">Møte</th>
-                      <th className="px-4 py-3">Agendapunkt</th>
-                      <th className="px-4 py-3">Vedtak</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-100">
-                    {council.allDecisions
-                      .filter(
-                        (d) =>
-                          !decisionSearch ||
-                          d.decision.toLowerCase().includes(decisionSearch.toLowerCase()) ||
-                          d.meetingTitle.toLowerCase().includes(decisionSearch.toLowerCase()),
-                      )
-                      .map((d) => (
-                        <tr
-                          key={d.id}
-                          className="cursor-pointer transition-colors hover:bg-neutral-50"
-                          onClick={() => setDecisionPanelId(d.id)}
-                        >
-                          <td className="whitespace-nowrap px-4 py-3 text-xs text-neutral-500">
-                            {new Date(d.meetingDate).toLocaleDateString('no-NO', { dateStyle: 'short' })}
-                          </td>
-                          <td className="px-4 py-3 font-medium text-neutral-800">{d.meetingTitle}</td>
-                          <td className="px-4 py-3 text-xs text-neutral-500">{d.agendaItemTitle || '—'}</td>
-                          <td className="max-w-[280px] truncate px-4 py-3 text-neutral-900">{d.decision}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
 
           {decisionPanel && (
@@ -2172,7 +2267,7 @@ export function CouncilModule() {
                   <button
                     type="button"
                     onClick={() => setDecisionPanelId(null)}
-                    className="rounded-none p-2 text-neutral-500 hover:bg-neutral-100"
+                    className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-100`}
                   >
                     <X className="size-5" />
                   </button>
@@ -2185,7 +2280,7 @@ export function CouncilModule() {
                   <p className="text-xs text-neutral-500">
                     Agendapunkt: <span className="text-neutral-800">{decisionPanel.agendaItemTitle || '—'}</span>
                   </p>
-                  <div className="rounded-none border border-neutral-200 bg-neutral-50 p-3 text-neutral-900">
+                  <div className={`${R_FLAT} border border-neutral-200 bg-neutral-50 p-3 text-neutral-900`}>
                     {decisionPanel.decision}
                   </div>
                 </div>

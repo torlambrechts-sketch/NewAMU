@@ -248,7 +248,7 @@ export function ProjectDashboard() {
           sub={`${openComplianceTotal - openComplianceDone} gjenstår`}
           icon={CheckCircle2}
           iconBg={openComplianceDone === openComplianceTotal ? 'bg-emerald-600' : 'bg-sky-600'}
-          to="/council?tab=compliance"
+          to="/council?tab=requirements"
         />
       </div>
 

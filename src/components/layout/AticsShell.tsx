@@ -162,8 +162,17 @@ const councilSubs: SubItem[] = [
       (new URLSearchParams(search).get('tab') === 'board' || new URLSearchParams(search).get('tab') === 'election'),
   },
   { label: 'Møter', path: '/council?tab=meetings', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'meetings' },
-  { label: 'Sjekkliste', path: '/council?tab=compliance', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'compliance' },
-  { label: 'Vedtaksregister', path: '/council?tab=decisions', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'decisions' },
+  {
+    label: 'Krav og vedtak',
+    path: '/council?tab=requirements',
+    match: ({ pathname, search }) => {
+      const t = new URLSearchParams(search).get('tab')
+      return (
+        pathname === '/council' &&
+        (t === 'requirements' || t === 'compliance' || t === 'decisions')
+      )
+    },
+  },
   {
     label: 'Revisjonslogg',
     path: '/council?tab=audit',

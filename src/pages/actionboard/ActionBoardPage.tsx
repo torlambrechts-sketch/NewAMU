@@ -263,7 +263,7 @@ export function ActionBoardPage() {
           detail: c.lawRef,
           status: 'todo',
           module: 'council',
-          link: '/council?tab=compliance',
+          link: '/council?tab=requirements',
           isDraggable: false,
         })
       })
