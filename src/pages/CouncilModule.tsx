@@ -1,16 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   Bell,
   Calendar,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Gavel,
   History,
-  Link2,
   ListOrdered,
-  MoreHorizontal,
   Plus,
   Scale,
   ScrollText,
@@ -42,7 +42,40 @@ import type {
   QuarterSlot,
 } from '../types/council'
 import type { RepElection, RepresentativeMember, RepresentativeOfficeRole } from '../types/representatives'
-import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import {
+  ModuleDonutCard,
+  type InsightSeg,
+} from '../components/insights/ModuleInsightCharts'
+import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
+
+const HERO_ACTION_CLASS =
+  'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-none px-4 text-sm font-medium leading-none'
+const R_FLAT = 'rounded-none'
+const SETTINGS_THRESHOLD_BOX =
+  'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
+
+const CAL_WEEKDAYS_NB = ['ma', 'ti', 'on', 'to', 'fr', 'lø', 'sø'] as const
+
+function startOfCalendarMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), 1)
+}
+
+function addCalendarMonths(d: Date, delta: number) {
+  return new Date(d.getFullYear(), d.getMonth() + delta, 1)
+}
+
+function calendarGridForMonth(anchor: Date) {
+  const y = anchor.getFullYear()
+  const m = anchor.getMonth()
+  const first = new Date(y, m, 1)
+  const lastDay = new Date(y, m + 1, 0).getDate()
+  const lead = (first.getDay() + 6) % 7
+  const cells: ({ day: number } | null)[] = []
+  for (let i = 0; i < lead; i++) cells.push(null)
+  for (let d = 1; d <= lastDay; d++) cells.push({ day: d })
+  while (cells.length % 7 !== 0) cells.push(null)
+  return cells
+}
 
 function useBodyScrollLock(active: boolean) {
   useEffect(() => {
@@ -156,26 +189,24 @@ export function CouncilModule() {
   const tab: TabId =
     tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
 
-  const setTab = (id: TabId) => {
-    setSearchParams({ tab: id }, { replace: true })
-  }
+  const setTab = useCallback(
+    (id: TabId) => {
+      setSearchParams({ tab: id }, { replace: true })
+    },
+    [setSearchParams],
+  )
 
-  const councilMenuItems = useMemo((): HubMenu1Item[] => {
-    const openElections = council.elections.filter((e) => e.status === 'open').length
-    return tabs.map(({ id, label, icon }) => ({
-      key: id,
-      label,
-      icon,
-      active: tab === id,
-      onClick: () => setTab(id),
-      badgeCount: id === 'election' ? openElections : undefined,
-    }))
-  }, [tab, council.elections])
+  const menu1 = useOrgMenu1Styles()
+  const openElectionsCount = useMemo(
+    () => council.elections.filter((e) => e.status === 'open').length,
+    [council.elections],
+  )
 
   // Council state
   const [wheelYear, setWheelYear] = useState(() => new Date().getFullYear())
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null)
-  const [_prepMeetingId, _setPrepMeetingId] = useState<string | null>(null)
+  /** Stable clock for pure render (dager til møte, leder-rotasjon). */
+  const [uiNowAnchor] = useState(() => Date.now())
   const [newElectionTitle, setNewElectionTitle] = useState('')
   const [candidateInputs, setCandidateInputs] = useState<Record<string, string>>({})
   const [meetingForm, setMeetingForm] = useState({
@@ -263,7 +294,7 @@ export function CouncilModule() {
     ).length
   }, [council.meetings, wheelYear])
 
-  async function handleNewElection(e: React.FormEvent) {
+  async function handleNewElection(e: FormEvent) {
     e.preventDefault()
     if (!newElectionTitle.trim()) return
     try {
@@ -274,7 +305,7 @@ export function CouncilModule() {
     }
   }
 
-  async function handleAddMeeting(e: React.FormEvent) {
+  async function handleAddMeeting(e: FormEvent) {
     e.preventDefault()
     if (!meetingForm.title.trim() || !meetingForm.startsAt) return
     try {
@@ -360,9 +391,9 @@ export function CouncilModule() {
   const chairmanRotationNeeded = useMemo(() => {
     const chair = council.board.find((m) => m.role === 'leader')
     if (!chair?.electedAt) return false
-    const elapsed = (Date.now() - new Date(chair.electedAt).getTime()) / (1000 * 60 * 60 * 24 * 365)
+    const elapsed = (uiNowAnchor - new Date(chair.electedAt).getTime()) / (1000 * 60 * 60 * 24 * 365)
     return elapsed >= 1
-  }, [council.board])
+  }, [council.board, uiNowAnchor])
 
   // 7-day agenda distribution warning for upcoming meetings
   const meetingsNeedingDistribution = useMemo(() => {
@@ -376,6 +407,160 @@ export function CouncilModule() {
       return meetingDate <= sevenDaysFromNow && meetingDate > now
     })
   }, [council.meetings])
+
+  const nextMeeting = upcomingMeetings[0] ?? null
+
+  const meetingsPlannedThisYear = useMemo(
+    () =>
+      council.meetings.filter((m) => m.governanceYear === wheelYear && m.status === 'planned').length,
+    [council.meetings, wheelYear],
+  )
+  const meetingsCompletedThisYear = useMemo(
+    () =>
+      council.meetings.filter((m) => m.governanceYear === wheelYear && m.status === 'completed').length,
+    [council.meetings, wheelYear],
+  )
+
+  const electionsOpenCount = useMemo(
+    () => council.elections.filter((e) => e.status === 'open').length,
+    [council.elections],
+  )
+  const electionsClosedCount = useMemo(
+    () => council.elections.filter((e) => e.status === 'closed').length,
+    [council.elections],
+  )
+
+  const meetingsThisWeekCount = useMemo(() => {
+    const now = new Date()
+    const end = new Date(now)
+    end.setDate(end.getDate() + 7)
+    return council.meetings.filter((m) => {
+      if (m.status !== 'planned') return false
+      const t = new Date(m.startsAt).getTime()
+      return t >= now.getTime() && t <= end.getTime()
+    }).length
+  }, [council.meetings])
+
+  const councilOverviewKpis = useMemo(
+    () => [
+      {
+        title: 'Styre',
+        sub: 'Registrerte medlemmer',
+        value: String(council.board.length),
+      },
+      {
+        title: 'Valg',
+        sub: 'Åpne nå',
+        value: String(electionsOpenCount),
+      },
+      {
+        title: 'Samsvar',
+        sub: 'Sjekkliste fullført',
+        value: `${complianceProgress.pct}%`,
+      },
+      {
+        title: 'Møter',
+        sub: `Planlagt i ${wheelYear}`,
+        value: `${meetingsPlannedThisYear} / ${MEETINGS_PER_YEAR}`,
+      },
+    ],
+    [
+      council.board.length,
+      complianceProgress.pct,
+      electionsOpenCount,
+      meetingsPlannedThisYear,
+      wheelYear,
+    ],
+  )
+
+  const councilElectionSegments = useMemo(() => {
+    const palette = ['#059669', '#94a3b8']
+    const entries: InsightSeg[] = [
+      { label: 'Åpne valg', value: electionsOpenCount, color: palette[0] },
+      { label: 'Avsluttede', value: electionsClosedCount, color: palette[1] },
+    ].filter((x) => x.value > 0)
+    const total = entries.reduce((s, x) => s + x.value, 0)
+    return { entries, total }
+  }, [electionsClosedCount, electionsOpenCount])
+
+  const councilMeetingYearSegments = useMemo(() => {
+    const palette = ['#0284c7', '#059669', '#94a3b8']
+    const cancelled = council.meetings.filter(
+      (m) => m.governanceYear === wheelYear && m.status === 'cancelled',
+    ).length
+    const entries: InsightSeg[] = [
+      { label: 'Planlagt', value: meetingsPlannedThisYear, color: palette[0] },
+      { label: 'Gjennomført', value: meetingsCompletedThisYear, color: palette[1] },
+      { label: 'Avlyst', value: cancelled, color: palette[2] },
+    ].filter((x) => x.value > 0)
+    const total = entries.reduce((s, x) => s + x.value, 0)
+    return { entries, total }
+  }, [council.meetings, meetingsCompletedThisYear, meetingsPlannedThisYear, wheelYear])
+
+  const councilComplianceSegments = useMemo(() => {
+    const done = complianceProgress.done
+    const todo = Math.max(0, complianceProgress.total - done)
+    const palette = ['#059669', '#e5e7eb']
+    const entries: InsightSeg[] = [
+      { label: 'Oppfylt', value: done, color: palette[0] },
+      { label: 'Gjenstår', value: todo, color: palette[1] },
+    ].filter((x) => x.value > 0)
+    const total = entries.reduce((s, x) => s + x.value, 0)
+    return { entries, total }
+  }, [complianceProgress.done, complianceProgress.total])
+
+  const councilLiveSignalsSegments = useMemo(() => {
+    const palette = ['#dc2626', '#f59e0b', '#ea580c']
+    const entries: InsightSeg[] = [
+      { label: 'Hendelser (periode)', value: incidentsSinceLastMeeting.length, color: palette[0] },
+      { label: 'Aktive sykefravær', value: latestSickLeavePct, color: palette[1] },
+      { label: 'ROS høyrisiko (åpen)', value: openHighRisks.length, color: palette[2] },
+    ].filter((x) => x.value > 0)
+    const total = entries.reduce((s, x) => s + x.value, 0)
+    return { entries, total }
+  }, [incidentsSinceLastMeeting.length, latestSickLeavePct, openHighRisks.length])
+
+  const [interviewCalMonth, setInterviewCalMonth] = useState(() => startOfCalendarMonth(new Date()))
+
+  useEffect(() => {
+    if (!nextMeeting) return
+    try {
+      const d = new Date(nextMeeting.startsAt)
+      if (!Number.isNaN(d.getTime())) {
+        queueMicrotask(() => setInterviewCalMonth(startOfCalendarMonth(d)))
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [nextMeeting])
+
+  const nextMeetingCalendarMeta = useMemo(() => {
+    if (!nextMeeting) return null
+    try {
+      const d = new Date(nextMeeting.startsAt)
+      if (Number.isNaN(d.getTime())) return null
+      return {
+        day: d.getDate(),
+        month: d.getMonth(),
+        year: d.getFullYear(),
+        weekdayLabel: d.toLocaleDateString('no-NO', { weekday: 'long' }),
+        dayMonthLabel: d.toLocaleDateString('no-NO', { day: 'numeric', month: 'long' }),
+        timeLabel: d.toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' }),
+      }
+    } catch {
+      return null
+    }
+  }, [nextMeeting])
+
+  const interviewCalCells = useMemo(() => calendarGridForMonth(interviewCalMonth), [interviewCalMonth])
+  const interviewCalTitle = useMemo(
+    () =>
+      interviewCalMonth.toLocaleDateString('no-NO', {
+        month: 'long',
+        year: 'numeric',
+      }),
+    [interviewCalMonth],
+  )
 
   // ── Task generator from agenda decisions ─────────────────────────────────────
 
@@ -418,33 +603,43 @@ export function CouncilModule() {
         <p className="mb-4 text-sm text-neutral-500">Laster representasjonsdata…</p>
       )}
 
-      <div className="flex flex-wrap items-start gap-4 border-b border-neutral-200/80 pb-6">
-        <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1a3d32] to-[#0f241d] text-[#c9a227] shadow-md ring-2 ring-[#c9a227]/30">
-          <Scale className="size-10" strokeWidth={1.5} aria-hidden />
-        </div>
+      <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1
-              className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-            >
-              Arbeidsmiljøråd
-            </h1>
-            <CheckCircle2 className="size-5 text-emerald-600" aria-hidden />
-            <button type="button" className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100">
-              <Link2 className="size-5" />
-            </button>
-            <button type="button" className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100">
-              <MoreHorizontal className="size-5" />
-            </button>
-          </div>
+          <h1
+            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
+            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+          >
+            Arbeidsmiljøråd
+          </h1>
           <p className="mt-1 text-sm font-medium text-[#1a3d32]/90">{tabBlurbs[tab].kicker}</p>
-          <p className="mt-1 max-w-3xl text-sm text-neutral-600">
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-600">
             Styre, valg, årshjul med {MEETINGS_PER_YEAR} ordinære møter per år, agenda, forberedelse og revisjonslogg.{' '}
             {tabBlurbs[tab].description} Verktøyet erstatter ikke juridisk rådgivning.
           </p>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+              {council.board.length} styremedlemmer
+            </span>
+            <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+              {openElectionsCount} åpne valg
+            </span>
+            {meetingsThisWeekCount > 0 ? (
+              <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-950`}>
+                <Calendar className="size-4 shrink-0" />
+                {meetingsThisWeekCount} møte{meetingsThisWeekCount > 1 ? 'r' : ''} denne uken
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setTab('meetings')}
+              className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white shadow-sm hover:bg-[#142e26]`}
+            >
+              <Plus className="size-4 shrink-0" />
+              Planlegg møte
+            </button>
+          </div>
           {council.board.length > 0 ? (
-            <div className="mt-5">
+            <div className="mt-6">
               <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Styre / team</p>
               <div className="mt-2 flex flex-wrap gap-4">
                 {council.board.map((m) => (
@@ -452,7 +647,7 @@ export function CouncilModule() {
                     <img
                       src={avatarUrlFromSeed(m.id + m.name, 40)}
                       alt=""
-                      className="size-10 rounded-full ring-2 ring-white shadow-sm"
+                      className={`${R_FLAT} size-10 ring-2 ring-neutral-200/80 shadow-sm`}
                     />
                     <span className="text-sm font-medium text-neutral-800">{m.name}</span>
                   </div>
@@ -461,129 +656,301 @@ export function CouncilModule() {
             </div>
           ) : null}
         </div>
+        <div
+          className={`${R_FLAT} flex size-[7.5rem] shrink-0 items-center justify-center border border-neutral-200/80 bg-[#faf8f4] text-[#1a3d32] sm:mt-1`}
+          aria-hidden
+        >
+          <Scale className="size-14 opacity-90" strokeWidth={1.25} />
+        </div>
       </div>
 
-      <div className="mt-6">
-        <HubMenu1Bar ariaLabel="Arbeidsmiljøråd" items={councilMenuItems} />
+      <div className={menu1.barOuterClass} style={menu1.barStyle}>
+        <div className={menu1.innerRowClass}>
+          {tabs.map(({ id, label, icon: Icon }) => {
+            const active = tab === id
+            const tb = menu1.tabButton(active)
+            const badge = id === 'election' && openElectionsCount > 0 ? openElectionsCount : undefined
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTab(id)}
+                className={tb.className}
+                style={tb.style}
+              >
+                <Icon className="size-4 shrink-0 opacity-90" aria-hidden />
+                <span className="whitespace-nowrap">{label}</span>
+                {badge != null ? (
+                  <span className="rounded-none bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
+                    {badge}
+                  </span>
+                ) : null}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {tab === 'overview' && (
-        <div className="mt-8 grid gap-6 lg:grid-cols-3">
-          <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm lg:col-span-2">
-            <h2 className="text-lg font-semibold text-neutral-900">Status</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-xl bg-[#faf8f4] p-4 ring-1 ring-neutral-100">
-                <div className="text-2xl font-semibold text-[#1a3d32]">{council.board.length}</div>
-                <div className="text-sm text-neutral-600">Styremedlemmer</div>
+        <div className="mt-6 space-y-10">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {councilOverviewKpis.map((item) => (
+              <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={menu1.barStyle}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
+                <p className="mt-1 text-xs text-white/70">{item.sub}</p>
+                <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
               </div>
-              <div className="rounded-xl bg-[#faf8f4] p-4 ring-1 ring-neutral-100">
-                <div className="text-2xl font-semibold text-[#1a3d32]">
-                  {council.elections.filter((e) => e.status === 'open').length}
+            ))}
+          </div>
+
+          <section>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Rådsinnsikt</h2>
+            </div>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+              <div className="space-y-4 lg:col-span-8">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <ModuleDonutCard
+                    title="Valg"
+                    subtitle="Åpne og avsluttede"
+                    segments={councilElectionSegments.entries}
+                    total={councilElectionSegments.total}
+                    emptyHint="Ingen valg registrert."
+                  />
+                  <ModuleDonutCard
+                    title={`Møter ${wheelYear}`}
+                    subtitle="Planlagt, gjennomført og avlyst"
+                    segments={councilMeetingYearSegments.entries}
+                    total={councilMeetingYearSegments.total}
+                    emptyHint="Ingen møter i året."
+                  />
+                  <ModuleDonutCard
+                    title="Samsvarssjekk"
+                    subtitle="Oppfylt vs. gjenstående"
+                    segments={councilComplianceSegments.entries}
+                    total={councilComplianceSegments.total}
+                    emptyHint="Ingen sjekklistepunkter."
+                  />
+                  <ModuleDonutCard
+                    title="Signaler siden siste møte"
+                    subtitle="Hendelser, sykefravær, ROS"
+                    segments={councilLiveSignalsSegments.entries}
+                    total={councilLiveSignalsSegments.total}
+                    emptyHint="Ingen signaler å vise."
+                  />
                 </div>
-                <div className="text-sm text-neutral-600">Åpne valg</div>
-              </div>
-              <div className="rounded-xl bg-[#faf8f4] p-4 ring-1 ring-neutral-100">
-                <div className="text-2xl font-semibold text-[#1a3d32]">{complianceProgress.pct}%</div>
-                <div className="text-sm text-neutral-600">Sjekkliste fullført</div>
-              </div>
-            </div>
 
-            {/* Live data widgets */}
-            <div className="mt-5 grid gap-3 sm:grid-cols-3 border-t border-neutral-100 pt-4">
-              <div className={`rounded-xl p-4 ring-1 ${highSeverityIncidents.length > 0 ? 'bg-red-50 ring-red-200' : 'bg-[#faf8f4] ring-neutral-100'}`}>
-                <div className={`text-2xl font-semibold ${highSeverityIncidents.length > 0 ? 'text-red-700' : 'text-[#1a3d32]'}`}>{incidentsSinceLastMeeting.length}</div>
-                <div className="text-xs text-neutral-600 mt-0.5">Hendelser siden siste møte</div>
-                {highSeverityIncidents.length > 0 && (
-                  <div className="mt-1 text-xs font-medium text-red-600">{highSeverityIncidents.length} høy/kritisk</div>
-                )}
-              </div>
-              <div className={`rounded-xl p-4 ring-1 ${latestSickLeavePct > 0 ? 'bg-amber-50 ring-amber-200' : 'bg-[#faf8f4] ring-neutral-100'}`}>
-                <div className="text-2xl font-semibold text-amber-700">{latestSickLeavePct}</div>
-                <div className="text-xs text-neutral-600 mt-0.5">Aktive sykefravær</div>
-              </div>
-              <div className={`rounded-xl p-4 ring-1 ${openHighRisks.length > 0 ? 'bg-orange-50 ring-orange-200' : 'bg-[#faf8f4] ring-neutral-100'}`}>
-                <div className="text-2xl font-semibold text-orange-700">{openHighRisks.length}</div>
-                <div className="text-xs text-neutral-600 mt-0.5">ROS høyrisikoer (≥12)</div>
-              </div>
-            </div>
-
-            <p className="mt-4 text-sm text-neutral-600">
-              Registrerte ordinære møter i {wheelYear}: <strong>{meetingsThisYear}</strong> / {MEETINGS_PER_YEAR}{' '}
-              (justér år under «Møter»).
-            </p>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-neutral-200">
-              <div
-                className="h-full bg-[#c9a227] transition-all"
-                style={{ width: `${complianceProgress.pct}%` }}
-              />
-            </div>
-            <p className="mt-3 text-xs text-neutral-500">
-              {complianceProgress.done} av {complianceProgress.total} punkter i samsvarssjekken er markert som
-              oppfylt.
-            </p>
-
-            {/* Org-driven threshold badges */}
-            <div className="mt-6 border-t border-neutral-100 pt-4">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Lovpålagte terskler (AML 2024)</p>
-              <div className="flex flex-wrap gap-2">
-                <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">{ct.totalEmployeeCount} ansatte</span>
-                {ct.requiresVerneombud
-                  ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800"><CheckCircle2 className="size-3" />Verneombud lovpålagt</span>
-                  : <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">Verneombud: &lt;5 ansatte</span>}
-                {ct.requiresAmu
-                  ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800"><CheckCircle2 className="size-3" />AMU lovpålagt (≥30)</span>
-                  : ct.mayRequestAmu
-                    ? <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800"><AlertTriangle className="size-3" />AMU kan kreves (10–29)</span>
-                    : <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">AMU: &lt;10 ansatte</span>}
-              </div>
-              {ct.totalEmployeeCount === 0 && (
-                <p className="mt-1 text-xs text-amber-700">
-                  ⚠ Antall ansatte ikke konfigurert — <a href="/organisation" className="underline">oppdater i Organisasjon-innstillinger</a>.
+                <p className="text-sm text-neutral-600">
+                  Registrerte ordinære møter i {wheelYear}: <strong>{meetingsThisYear}</strong> / {MEETINGS_PER_YEAR}{' '}
+                  (justér år under «Møter»).
                 </p>
-              )}
-            </div>
+                <div className={`${R_FLAT} h-2 overflow-hidden bg-neutral-200`}>
+                  <div
+                    className="h-full bg-[#c9a227] transition-all"
+                    style={{ width: `${complianceProgress.pct}%` }}
+                  />
+                </div>
+                <p className="text-xs text-neutral-500">
+                  {complianceProgress.done} av {complianceProgress.total} punkter i samsvarssjekken er markert som
+                  oppfylt.
+                </p>
 
-            {/* AMU snapshot */}
-            <div className="mt-4 border-t border-neutral-100 pt-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-neutral-700">AMU-sammensetting</span>
-                {rep.validation.ok ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-900">
-                    <CheckCircle2 className="size-3.5" />Krav oppfylt
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-950">
-                    <AlertTriangle className="size-3.5" />{rep.validation.issues.length} avvik
-                  </span>
-                )}
+                <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                    Lovpålagte terskler (AML 2024)
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className={`${R_FLAT} bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600`}>
+                      {ct.totalEmployeeCount} ansatte
+                    </span>
+                    {ct.requiresVerneombud ? (
+                      <span
+                        className={`${R_FLAT} inline-flex items-center gap-1 bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800`}
+                      >
+                        <CheckCircle2 className="size-3" />
+                        Verneombud lovpålagt
+                      </span>
+                    ) : (
+                      <span className={`${R_FLAT} bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600`}>
+                        Verneombud: &lt;5 ansatte
+                      </span>
+                    )}
+                    {ct.requiresAmu ? (
+                      <span
+                        className={`${R_FLAT} inline-flex items-center gap-1 bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800`}
+                      >
+                        <CheckCircle2 className="size-3" />
+                        AMU lovpålagt (≥30)
+                      </span>
+                    ) : ct.mayRequestAmu ? (
+                      <span
+                        className={`${R_FLAT} inline-flex items-center gap-1 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800`}
+                      >
+                        <AlertTriangle className="size-3" />
+                        AMU kan kreves (10–29)
+                      </span>
+                    ) : (
+                      <span className={`${R_FLAT} bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600`}>
+                        AMU: &lt;10 ansatte
+                      </span>
+                    )}
+                  </div>
+                  {ct.totalEmployeeCount === 0 && (
+                    <p className="mt-2 text-xs text-amber-800">
+                      Antall ansatte ikke konfigurert —{' '}
+                      <Link to="/organisation" className="font-medium underline">
+                        oppdater i Organisasjon
+                      </Link>
+                      .
+                    </p>
+                  )}
+                </div>
+
+                <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-neutral-800">AMU-sammensetting</span>
+                    {rep.validation.ok ? (
+                      <span
+                        className={`${R_FLAT} inline-flex items-center gap-1.5 bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-900`}
+                      >
+                        <CheckCircle2 className="size-3.5" />
+                        Krav oppfylt
+                      </span>
+                    ) : (
+                      <span
+                        className={`${R_FLAT} inline-flex items-center gap-1.5 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-950`}
+                      >
+                        <AlertTriangle className="size-3.5" />
+                        {rep.validation.issues.length} avvik
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 text-xs text-neutral-500">
+                    {rep.validation.empCount} AT · {rep.validation.leadCount} AG · Mål: {rep.validation.seatsPerSide}{' '}
+                    per side
+                  </p>
+                </div>
               </div>
-              <p className="mt-1 text-xs text-neutral-500">
-                {rep.validation.empCount} AT · {rep.validation.leadCount} AG · Mål: {rep.validation.seatsPerSide} per side
-              </p>
-            </div>
-          </div>
-          <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Neste møte</h2>
-            {upcomingMeetings[0] ? (
-              <div className="mt-3 text-sm">
-                <div className="font-medium text-neutral-900">{upcomingMeetings[0].title}</div>
-                <div className="mt-1 text-neutral-600">{formatWhen(upcomingMeetings[0].startsAt)}</div>
-                <div className="mt-1 text-neutral-500">{upcomingMeetings[0].location}</div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTab('meetings')
-                    setSelectedMeetingId(upcomingMeetings[0].id)
-                  }}
-                  className="mt-4 text-sm font-medium text-[#1a3d32] underline-offset-2 hover:underline"
+
+              <div className="lg:col-span-4">
+                <div
+                  className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}
+                  style={{ boxShadow: '0 1px 0 rgba(0,0,0,0.04)' }}
                 >
-                  Åpne detaljer
-                </button>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Møter</p>
+                  {meetingsThisWeekCount > 0 ? (
+                    <div className="mt-3 border border-orange-200/90 bg-orange-50/90 px-3 py-2.5 text-sm text-orange-950">
+                      <span className="font-semibold text-orange-900">{meetingsThisWeekCount}</span>{' '}
+                      {meetingsThisWeekCount === 1 ? 'møte planlagt' : 'møter planlagt'} de neste 7 dagene.
+                    </div>
+                  ) : (
+                    <div className="mt-3 border border-neutral-200/80 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-600">
+                      Ingen planlagte møter de neste 7 dagene.
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex items-center justify-between gap-2 border-b border-neutral-100 pb-3">
+                    <span className="min-w-0 truncate text-sm font-semibold capitalize text-neutral-900">
+                      {interviewCalTitle}
+                    </span>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setInterviewCalMonth((m) => addCalendarMonths(m, -1))}
+                        className={`${R_FLAT} p-1.5 text-neutral-500 hover:bg-neutral-100`}
+                        aria-label="Forrige måned"
+                      >
+                        <ChevronLeft className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInterviewCalMonth((m) => addCalendarMonths(m, 1))}
+                        className={`${R_FLAT} p-1.5 text-neutral-500 hover:bg-neutral-100`}
+                        aria-label="Neste måned"
+                      >
+                        <ChevronRight className="size-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {nextMeeting && nextMeetingCalendarMeta ? (
+                    <p className="mt-3 text-xs capitalize text-neutral-500">
+                      {nextMeetingCalendarMeta.weekdayLabel}, {nextMeetingCalendarMeta.dayMonthLabel}
+                    </p>
+                  ) : null}
+
+                  <div className="mt-2 grid grid-cols-7 gap-y-1 text-center text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                    {CAL_WEEKDAYS_NB.map((d) => (
+                      <span key={d}>{d}</span>
+                    ))}
+                  </div>
+                  <div className="mt-1 grid grid-cols-7 gap-y-1 text-center text-sm">
+                    {interviewCalCells.map((cell, idx) => {
+                      const isNext =
+                        cell &&
+                        nextMeetingCalendarMeta &&
+                        interviewCalMonth.getFullYear() === nextMeetingCalendarMeta.year &&
+                        interviewCalMonth.getMonth() === nextMeetingCalendarMeta.month &&
+                        cell.day === nextMeetingCalendarMeta.day
+                      return (
+                        <div key={idx} className="flex h-9 items-center justify-center">
+                          {cell ? (
+                            <span
+                              className={`relative flex size-8 items-center justify-center tabular-nums ${
+                                isNext
+                                  ? 'bg-[#c9a227] font-semibold text-white'
+                                  : 'text-neutral-700'
+                              } ${R_FLAT}`}
+                            >
+                              {cell.day}
+                              {isNext ? (
+                                <span className="absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-white" />
+                              ) : null}
+                            </span>
+                          ) : (
+                            <span />
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {nextMeeting && nextMeetingCalendarMeta ? (
+                    <div className="mt-5 border-t border-neutral-100 pt-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-neutral-900">{nextMeeting.title}</p>
+                          <p className="mt-1 text-sm text-neutral-600">{nextMeeting.location || 'Sted ikke satt'}</p>
+                          {nextMeeting.agendaItems[0] ? (
+                            <p className="mt-2 text-xs text-neutral-500">
+                              Første punkt: {nextMeeting.agendaItems[0].title}
+                            </p>
+                          ) : null}
+                        </div>
+                        <span className="shrink-0 text-sm font-semibold tabular-nums text-[#c9a227]">
+                          {nextMeetingCalendarMeta.timeLabel}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTab('meetings')
+                          setSelectedMeetingId(nextMeeting.id)
+                        }}
+                        className="mt-4 text-left text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline"
+                      >
+                        Åpne møte →
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="mt-5 border-t border-neutral-100 pt-4 text-sm text-neutral-500">
+                      Ingen planlagte møter.
+                    </p>
+                  )}
+                </div>
               </div>
-            ) : (
-              <p className="mt-3 text-sm text-neutral-500">Ingen planlagte møter.</p>
-            )}
-          </div>
+            </div>
+          </section>
         </div>
       )}
 
@@ -1043,7 +1410,7 @@ export function CouncilModule() {
                 </p>
                 <ul className="mt-2 space-y-1">
                   {meetingsNeedingDistribution.map((m) => {
-                    const days = Math.ceil((new Date(m.startsAt).getTime() - Date.now()) / 86400000)
+                    const days = Math.ceil((new Date(m.startsAt).getTime() - uiNowAnchor) / 86400000)
                     return (
                       <li key={m.id} className="flex items-center gap-2 text-xs text-amber-800">
                         <span className="font-medium">{m.title}</span>
