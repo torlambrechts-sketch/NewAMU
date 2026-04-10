@@ -1,12 +1,13 @@
 import { NavLink, Outlet, Link } from 'react-router-dom'
-import { Box, LayoutGrid, Loader2, LogOut, Map, PanelsTopLeft, Rows3, Shield } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import { Box, LayoutGrid, Loader2, LogOut, Map, PanelsTopLeft, Rows3, Shield, Sparkles } from 'lucide-react'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 
 const nav: {
   to: string
   label: string
   end?: boolean
-  icon: typeof Shield
+  icon: LucideIcon
 }[] = [
   { to: '/platform-admin', label: 'Oversikt', end: true, icon: Shield },
   { to: '/platform-admin/roadmap', label: 'Veikart', icon: Map },
@@ -14,6 +15,7 @@ const nav: {
   { to: '/platform-admin/ui-advanced', label: 'Avansert UI', icon: PanelsTopLeft },
   { to: '/platform-admin/box-designer', label: 'Komponentdesigner', icon: Box },
   { to: '/platform-admin/layout-builder', label: 'Layout-designer', icon: Rows3 },
+  { to: '/platform-admin/layout-reference', label: 'Layout-referanse', icon: Sparkles },
 ]
 
 export function PlatformAdminLayout() {

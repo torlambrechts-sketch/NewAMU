@@ -62,6 +62,7 @@ import { LayoutLabPage } from './pages/platform/LayoutLabPage'
 import { PlatformUiAdvancedPage } from './pages/platform/PlatformUiAdvancedPage'
 import { PlatformBoxDesignerPage } from './pages/platform/PlatformBoxDesignerPage'
 import { PlatformLayoutCompositionPage } from './pages/platform/PlatformLayoutCompositionPage'
+import { PlatformPinpointLayoutsPage } from './pages/platform/PlatformPinpointLayoutsPage'
 import { PublicWhistlePage } from './pages/PublicWhistlePage'
 import { WhistleStatusPage } from './pages/WhistleStatusPage'
 
@@ -92,6 +93,7 @@ function App() {
                 <Route path="ui-advanced" element={<PlatformUiAdvancedPage />} />
                 <Route path="box-designer" element={<PlatformBoxDesignerPage />} />
                 <Route path="layout-builder" element={<PlatformLayoutCompositionPage />} />
+                <Route path="layout-reference" element={<PlatformPinpointLayoutsPage />} />
                 <Route path="*" element={<Navigate to="/platform-admin" replace />} />
               </Route>
               <Route path="onboarding" element={<OnboardingWizard />} />
