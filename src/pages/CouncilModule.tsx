@@ -78,6 +78,8 @@ const MENU1_ICON_ONLY_TAB =
 /** Arbeidsmiljøråd: én typografisk skala (sans-serif), 3:2 hoved / sidekolonne */
 const COUNCIL_MAIN_SIDE_GRID = 'grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]'
 const COUNCIL_PAGE_TITLE = 'text-2xl font-semibold text-neutral-900 md:text-3xl'
+/** Hovedtittel for større innholdsblokker (f.eks. Styre og Valg) */
+const COUNCIL_MAIN_HEADING = 'text-xl font-semibold text-neutral-900 md:text-2xl'
 const COUNCIL_SECTION_HEADING = 'text-base font-semibold text-neutral-900'
 const COUNCIL_SUBHEADING = 'text-sm font-semibold text-neutral-900'
 const COUNCIL_OVERLINE = 'text-[10px] font-bold uppercase tracking-wider text-neutral-500'
@@ -1183,28 +1185,36 @@ export function CouncilModule() {
 
       {tab === 'board' && (
         <div className="mt-8 space-y-10">
+          <header className="max-w-none">
+            <h2 className={COUNCIL_MAIN_HEADING}>AMU og sammensetting</h2>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              {rep.validation.ok ? (
+                <span
+                  className={`${R_FLAT} inline-flex items-center gap-2 bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-900`}
+                >
+                  <CheckCircle2 className="size-4" />
+                  Krav oppfylt
+                </span>
+              ) : (
+                <span
+                  className={`${R_FLAT} inline-flex items-center gap-2 bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-950`}
+                >
+                  <AlertTriangle className="size-4" />
+                  {rep.validation.issues.length} avvik
+                </span>
+              )}
+            </div>
+          </header>
+
           <div className={`${COUNCIL_MAIN_SIDE_GRID} lg:items-stretch`}>
             <div className="flex min-h-0 flex-col">
-              <div className="mb-6 flex flex-wrap items-center gap-3">
-                <h2 className={COUNCIL_OVERLINE}>AMU og sammensetting</h2>
-                {rep.validation.ok ? (
-                  <span
-                    className={`${R_FLAT} inline-flex items-center gap-2 bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-900`}
-                  >
-                    <CheckCircle2 className="size-4" />
-                    Krav oppfylt
-                  </span>
-                ) : (
-                  <span
-                    className={`${R_FLAT} inline-flex items-center gap-2 bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-950`}
-                  >
-                    <AlertTriangle className="size-4" />
-                    {rep.validation.issues.length} avvik
-                  </span>
-                )}
-              </div>
-
-              <section className={`${R_FLAT} flex min-h-0 flex-1 flex-col space-y-8 border border-neutral-200/90 bg-white p-5 shadow-sm`}>
+              <section
+                className={`${R_FLAT} flex min-h-0 flex-1 flex-col overflow-hidden border border-neutral-200/90 bg-white shadow-sm`}
+              >
+                <div className="shrink-0 border-b border-neutral-200/80 bg-white px-4 py-3">
+                  <p className={COUNCIL_OVERLINE}>Sammensetting og styre</p>
+                </div>
+                <div className="min-h-0 flex-1 space-y-8 overflow-y-auto p-5">
                 <div>
                   <h3 className={COUNCIL_OVERLINE}>Innstillinger for sammensetting</h3>
                   <div className="mt-4 flex flex-wrap gap-6">
@@ -1381,16 +1391,15 @@ export function CouncilModule() {
                     requiresManagementSignOff
                   />
                 </div>
+                </div>
               </section>
             </div>
 
-            {/* Valg — ca. 1/3, sidebar-stil (stretch med hovedkolonne) */}
             <aside
-              className={`${R_FLAT} flex min-h-0 flex-col border border-neutral-200/90 bg-[#faf8f4]/80`}
+              className={`${R_FLAT} flex min-h-0 flex-col overflow-hidden border border-neutral-200/90 bg-[#faf8f4]/80`}
             >
               <div className="shrink-0 border-b border-neutral-200/80 bg-white px-4 py-3">
-                <p className={COUNCIL_OVERLINE}>Valg</p>
-                <p className="mt-1 text-xs text-neutral-500">Arbeidstakerrepresentanter og AMU-valg</p>
+                <p className={COUNCIL_OVERLINE}>Valg arbeidstakerrepresentanter og AMU-valg</p>
               </div>
               <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-5">
                 {expiringReps.length > 0 && (
