@@ -26,6 +26,7 @@ import {
   payloadKind,
   inferDesignerKindFromUnknown,
 } from '../../types/platformDesignerPayload'
+import { baselineAnsatteLayout, baselineStyreOgValgLayout } from '../../data/baselineLayoutTemplates'
 import { ColorField, SelectField, TextField } from './boxDesigner/sharedFields'
 import { LABEL, PANEL, SECTION } from './boxDesigner/fieldTokens'
 
@@ -570,6 +571,40 @@ export function PlatformLayoutCompositionPage() {
     setMessage('JSON kopiert.')
   }, [exportJson])
 
+  const applyBaselineStyreOgValg = useCallback(() => {
+    const payload = baselineStyreOgValgLayout()
+    setTabs((prev) => {
+      const next = [...prev]
+      const cur = next[activeIdx]
+      if (!cur) return prev
+      next[activeIdx] = {
+        ...cur,
+        referenceKey: 'baseline-styre-og-valg',
+        payload,
+      }
+      return next
+    })
+    setSelectedCell(null)
+    setMessage('Lastet inn mal «Baselinje: Styre og valg». Lagre med ønsket referansenøkkel.')
+  }, [activeIdx])
+
+  const applyBaselineAnsatte = useCallback(() => {
+    const payload = baselineAnsatteLayout()
+    setTabs((prev) => {
+      const next = [...prev]
+      const cur = next[activeIdx]
+      if (!cur) return prev
+      next[activeIdx] = {
+        ...cur,
+        referenceKey: 'baseline-ansatte',
+        payload,
+      }
+      return next
+    })
+    setSelectedCell(null)
+    setMessage('Lastet inn mal «Baselinje: Ansatte». Lagre med ønsket referansenøkkel.')
+  }, [activeIdx])
+
   const selectedSlot = useMemo(() => {
     if (!active || !selectedCell) return null
     const row = active.payload.rows.find((r) => r.id === selectedCell.rowId)
@@ -611,6 +646,27 @@ export function PlatformLayoutCompositionPage() {
       {message ? (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{message}</div>
       ) : null}
+
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3">
+        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Start fra app-mal</span>
+        <button
+          type="button"
+          onClick={applyBaselineStyreOgValg}
+          className="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-neutral-200 hover:bg-white/10"
+        >
+          Styre og valg (råd)
+        </button>
+        <button
+          type="button"
+          onClick={applyBaselineAnsatte}
+          className="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-neutral-200 hover:bg-white/10"
+        >
+          Ansatte (organisasjon)
+        </button>
+        <span className="text-xs text-neutral-500">
+          Erstatter aktiv fane (ikke lagret før du trykker «Lagre mal»).
+        </span>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-3">
         {tabs.map((tab, idx) => (
