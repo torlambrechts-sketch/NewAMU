@@ -486,6 +486,22 @@ export function useRepresentatives() {
     appendAudit('member_updated', 'Lederrepresentant lagt til (juster rolle og navn).', { memberId: m.id })
   }, [appendAudit, setState])
 
+  const addEmployeePlaceholder = useCallback(() => {
+    const m: RepresentativeMember = {
+      id: crypto.randomUUID(),
+      name: 'Ny arbeidstakerrepresentant',
+      side: 'employee',
+      officeRole: 'employee_member',
+      source: 'appointment',
+      startedAt: new Date().toISOString().slice(0, 10),
+      trainingChecklist: emptyTrainingChecklist(),
+    }
+    setState((s) => ({ ...s, members: [...s.members, m] }))
+    appendAudit('member_updated', 'Arbeidstakerrepresentant lagt til (juster rolle og navn).', {
+      memberId: m.id,
+    })
+  }, [appendAudit, setState])
+
   const addPeriod = useCallback(
     (label: string, startDate: string, endDate: string) => {
       const p: RepresentativePeriod = {
@@ -587,6 +603,7 @@ export function useRepresentatives() {
     toggleTraining,
     updateMember,
     addLeadershipPlaceholder,
+    addEmployeePlaceholder,
     addPeriod,
     resetDemo,
   }
