@@ -1,10 +1,18 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   Bell,
   Calendar,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -111,13 +119,43 @@ function useBodyScrollLock(active: boolean) {
   }, [active])
 }
 
-/** Valg-seksjoner i sidekolonne — samme topplinje som Styre-kolonner */
-function CouncilElectionSectionHeader({ title, count }: { title: string; count: number }) {
+/** Valg sidekolonne: samme overskriftsstil som «Nytt valg (…)», med chevron og ekspander/kollaps */
+function CouncilValgCollapsibleSection({
+  sectionKey,
+  title,
+  count,
+  expanded,
+  onToggle,
+  children,
+}: {
+  sectionKey: string
+  title: string
+  count: number
+  expanded: boolean
+  onToggle: () => void
+  children: ReactNode
+}) {
   return (
-    <div className="flex min-h-[2.75rem] items-end justify-between gap-2 border-b border-neutral-200 pb-2">
-      <h3 className={COUNCIL_SUBHEADING}>{title}</h3>
-      <span className={`shrink-0 ${COUNCIL_OVERLINE} text-neutral-400 tabular-nums`}>{count}</span>
-    </div>
+    <section className="border-t border-neutral-200/80 pt-5">
+      <button
+        type="button"
+        id={`valg-section-${sectionKey}`}
+        aria-expanded={expanded}
+        onClick={onToggle}
+        className={`${R_FLAT} flex w-full items-start justify-between gap-2 text-left transition-colors hover:bg-neutral-100/80`}
+      >
+        <span className={COUNCIL_OVERLINE}>{title}</span>
+        <span className="flex shrink-0 items-center gap-1.5">
+          <span className={`${COUNCIL_OVERLINE} text-neutral-400 tabular-nums`}>{count}</span>
+          {expanded ? (
+            <ChevronDown className="size-4 shrink-0 text-neutral-500" aria-hidden />
+          ) : (
+            <ChevronRight className="size-4 shrink-0 text-neutral-500" aria-hidden />
+          )}
+        </span>
+      </button>
+      {expanded ? <div className="mt-3">{children}</div> : null}
+    </section>
   )
 }
 
@@ -354,6 +392,55 @@ export function CouncilModule() {
     () => partitionRepresentativeElections(rep.elections),
     [rep.elections],
   )
+
+  /** Alle valg i en liste er avsluttet (tom liste gir false — vis tomt hint uten å skjule). */
+  const repListAllClosed = useCallback((list: RepElection[]) => {
+    return list.length > 0 && list.every((e) => e.status === 'closed')
+  }, [])
+
+  const councilAmuElectionsAllClosed = useMemo(
+    () => council.elections.length > 0 && council.elections.every((e) => e.status === 'closed'),
+    [council.elections],
+  )
+
+  type ValgSectionKey = 'new' | 'supp' | 'at2027' | 'at2024' | 'other' | 'periods' | 'amu'
+  const [valgSectionOverrides, setValgSectionOverrides] = useState<
+    Partial<Record<ValgSectionKey, boolean>>
+  >({})
+
+  const valgSectionDefaultExpanded = useMemo(
+    () =>
+      ({
+        new: true,
+        supp: !repListAllClosed(repElectionSections.supplementary),
+        at2027: !repListAllClosed(repElectionSections.at2027),
+        at2024: !repListAllClosed(repElectionSections.at2024),
+        other: !repListAllClosed(repElectionSections.other),
+        periods: false,
+        amu: !councilAmuElectionsAllClosed,
+      }) satisfies Record<ValgSectionKey, boolean>,
+    [
+      councilAmuElectionsAllClosed,
+      repElectionSections.at2024,
+      repElectionSections.at2027,
+      repElectionSections.other,
+      repElectionSections.supplementary,
+      repListAllClosed,
+    ],
+  )
+
+  const valgSectionExpanded = useCallback(
+    (key: ValgSectionKey) => valgSectionOverrides[key] ?? valgSectionDefaultExpanded[key],
+    [valgSectionDefaultExpanded, valgSectionOverrides],
+  )
+
+  const toggleValgSection = useCallback((key: ValgSectionKey) => {
+    setValgSectionOverrides((prev) => {
+      const def = valgSectionDefaultExpanded[key]
+      const cur = prev[key] !== undefined ? prev[key]! : def
+      return { ...prev, [key]: !cur }
+    })
+  }, [valgSectionDefaultExpanded])
 
   const complianceProgress = useMemo(() => {
     const total = council.compliance.length
@@ -1099,7 +1186,7 @@ export function CouncilModule() {
           <div className={`${COUNCIL_MAIN_SIDE_GRID} lg:items-stretch`}>
             <div className="flex min-h-0 flex-col">
               <div className="mb-6 flex flex-wrap items-center gap-3">
-                <h2 className={COUNCIL_SECTION_HEADING}>AMU og sammensetting</h2>
+                <h2 className={COUNCIL_OVERLINE}>AMU og sammensetting</h2>
                 {rep.validation.ok ? (
                   <span
                     className={`${R_FLAT} inline-flex items-center gap-2 bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-900`}
@@ -1119,7 +1206,7 @@ export function CouncilModule() {
 
               <section className={`${R_FLAT} flex min-h-0 flex-1 flex-col space-y-8 border border-neutral-200/90 bg-white p-5 shadow-sm`}>
                 <div>
-                  <h3 className={COUNCIL_SUBHEADING}>Innstillinger for sammensetting</h3>
+                  <h3 className={COUNCIL_OVERLINE}>Innstillinger for sammensetting</h3>
                   <div className="mt-4 flex flex-wrap gap-6">
                     <label className="text-sm">
                       Seter per side (50/50)
@@ -1202,7 +1289,7 @@ export function CouncilModule() {
                 <div className="border-t border-neutral-200 pt-8">
                   <div className="grid gap-x-6 gap-y-3 lg:grid-cols-2">
                     <div className="flex flex-wrap items-end justify-between gap-2 lg:col-span-2">
-                      <h3 className={COUNCIL_SECTION_HEADING}>Styre</h3>
+                      <h3 className={COUNCIL_OVERLINE}>Styre</h3>
                       <span className={`${COUNCIL_OVERLINE} text-neutral-400`}>
                         Koblet til AMU-linje · rediger nedenfor
                       </span>
@@ -1212,7 +1299,7 @@ export function CouncilModule() {
                       representant. Juster funksjon, periode og verneombud i samme kort.
                     </p>
                     <div className="flex min-h-[2.75rem] items-center justify-between gap-2 border-b border-neutral-200 pb-2">
-                      <h4 className={COUNCIL_SUBHEADING}>Arbeidstakere (valgt)</h4>
+                      <h4 className={COUNCIL_OVERLINE}>Arbeidstakere (valgt)</h4>
                       <button
                         type="button"
                         onClick={() => rep.addEmployeePlaceholder()}
@@ -1222,7 +1309,7 @@ export function CouncilModule() {
                       </button>
                     </div>
                     <div className="flex min-h-[2.75rem] items-center justify-between gap-2 border-b border-neutral-200 pb-2">
-                      <h4 className={COUNCIL_SUBHEADING}>Arbeidsgiver (oppnevnt)</h4>
+                      <h4 className={COUNCIL_OVERLINE}>Arbeidsgiver (oppnevnt)</h4>
                       <button
                         type="button"
                         onClick={() => rep.addLeadershipPlaceholder()}
@@ -1252,7 +1339,7 @@ export function CouncilModule() {
                   </div>
                   {boardMembersWithoutRepMatch.length > 0 ? (
                     <div className="mt-6 border-t border-neutral-100 pt-6">
-                      <h4 className={COUNCIL_SUBHEADING}>Kun i styre-register</h4>
+                      <h4 className={COUNCIL_OVERLINE}>Kun i styre-register</h4>
                       <p className="mt-1 text-xs text-neutral-500">
                         Disse er registrert etter AMU-valg, men matcher ingen representantlinje (navn må samsvare for
                         kobling).
@@ -1319,10 +1406,15 @@ export function CouncilModule() {
                   </div>
                 )}
 
-                <section>
-                  <p className={COUNCIL_OVERLINE}>Nytt valg (arbeidstakerrepresentanter)</p>
+                <CouncilValgCollapsibleSection
+                  sectionKey="new"
+                  title="Nytt valg (arbeidstakerrepresentanter)"
+                  count={0}
+                  expanded={valgSectionExpanded('new')}
+                  onToggle={() => toggleValgSection('new')}
+                >
                   <form
-                    className="mt-3 space-y-3"
+                    className="space-y-3"
                     onSubmit={(e) => {
                       e.preventDefault()
                       if (!repElectionForm.title.trim()) return
@@ -1390,17 +1482,19 @@ export function CouncilModule() {
                       Opprett valg
                     </button>
                   </form>
-                </section>
+                </CouncilValgCollapsibleSection>
 
-                <section className="border-t border-neutral-200/80 pt-5">
-                  <CouncilElectionSectionHeader
-                    title="Suppleringsvalg arbeidstakerrepresentant 2026"
-                    count={repElectionSections.supplementary.length}
-                  />
-                  <div className="mt-3 space-y-3">
+                <CouncilValgCollapsibleSection
+                  sectionKey="supp"
+                  title="Suppleringsvalg arbeidstakerrepresentant 2026"
+                  count={repElectionSections.supplementary.length}
+                  expanded={valgSectionExpanded('supp')}
+                  onToggle={() => toggleValgSection('supp')}
+                >
+                  <div className="space-y-3">
                     {repElectionSections.supplementary.map((el) => (
                       <RepElectionCard
-                        key={el.id}
+                        key={`${el.id}-${el.status}`}
                         election={el}
                         candDraft={repCandInput[el.id] ?? ''}
                         setCandDraft={(v) => setRepCandInput((s) => ({ ...s, [el.id]: v }))}
@@ -1416,20 +1510,24 @@ export function CouncilModule() {
                       />
                     ))}
                     {repElectionSections.supplementary.length === 0 ? (
-                      <p className="text-xs text-neutral-500">Ingen suppleringsvalg (matcher tittel «suppleringsvalg» eller «2026»).</p>
+                      <p className={COUNCIL_SMALL}>
+                        Ingen suppleringsvalg (matcher tittel «suppleringsvalg» eller «2026»).
+                      </p>
                     ) : null}
                   </div>
-                </section>
+                </CouncilValgCollapsibleSection>
 
-                <section className="border-t border-neutral-200/80 pt-5">
-                  <CouncilElectionSectionHeader
-                    title="Valg arbeidstakerrepresentanter 2027"
-                    count={repElectionSections.at2027.length}
-                  />
-                  <div className="mt-3 space-y-3">
+                <CouncilValgCollapsibleSection
+                  sectionKey="at2027"
+                  title="Valg arbeidstakerrepresentanter 2027"
+                  count={repElectionSections.at2027.length}
+                  expanded={valgSectionExpanded('at2027')}
+                  onToggle={() => toggleValgSection('at2027')}
+                >
+                  <div className="space-y-3">
                     {repElectionSections.at2027.map((el) => (
                       <RepElectionCard
-                        key={el.id}
+                        key={`${el.id}-${el.status}`}
                         election={el}
                         candDraft={repCandInput[el.id] ?? ''}
                         setCandDraft={(v) => setRepCandInput((s) => ({ ...s, [el.id]: v }))}
@@ -1445,20 +1543,22 @@ export function CouncilModule() {
                       />
                     ))}
                     {repElectionSections.at2027.length === 0 ? (
-                      <p className="text-xs text-neutral-500">Ingen valg med «2027» i tittelen.</p>
+                      <p className={COUNCIL_SMALL}>Ingen valg med «2027» i tittelen.</p>
                     ) : null}
                   </div>
-                </section>
+                </CouncilValgCollapsibleSection>
 
-                <section className="border-t border-neutral-200/80 pt-5">
-                  <CouncilElectionSectionHeader
-                    title="Valg 2024 (avsluttet)"
-                    count={repElectionSections.at2024.length}
-                  />
-                  <div className="mt-3 space-y-3">
+                <CouncilValgCollapsibleSection
+                  sectionKey="at2024"
+                  title="Valg 2024 (avsluttet)"
+                  count={repElectionSections.at2024.length}
+                  expanded={valgSectionExpanded('at2024')}
+                  onToggle={() => toggleValgSection('at2024')}
+                >
+                  <div className="space-y-3">
                     {repElectionSections.at2024.map((el) => (
                       <RepElectionCard
-                        key={el.id}
+                        key={`${el.id}-${el.status}`}
                         election={el}
                         candDraft={repCandInput[el.id] ?? ''}
                         setCandDraft={(v) => setRepCandInput((s) => ({ ...s, [el.id]: v }))}
@@ -1474,18 +1574,23 @@ export function CouncilModule() {
                       />
                     ))}
                     {repElectionSections.at2024.length === 0 ? (
-                      <p className="text-xs text-neutral-500">Ingen valg med «2024» i tittelen.</p>
+                      <p className={COUNCIL_SMALL}>Ingen valg med «2024» i tittelen.</p>
                     ) : null}
                   </div>
-                </section>
+                </CouncilValgCollapsibleSection>
 
-                {repElectionSections.other.length > 0 && (
-                  <section className="border-t border-neutral-200/80 pt-5">
-                    <CouncilElectionSectionHeader title="Øvrige valg" count={repElectionSections.other.length} />
-                    <div className="mt-3 space-y-3">
+                {repElectionSections.other.length > 0 ? (
+                  <CouncilValgCollapsibleSection
+                    sectionKey="other"
+                    title="Øvrige valg"
+                    count={repElectionSections.other.length}
+                    expanded={valgSectionExpanded('other')}
+                    onToggle={() => toggleValgSection('other')}
+                  >
+                    <div className="space-y-3">
                       {repElectionSections.other.map((el) => (
                         <RepElectionCard
-                          key={el.id}
+                          key={`${el.id}-${el.status}`}
                           election={el}
                           candDraft={repCandInput[el.id] ?? ''}
                           setCandDraft={(v) => setRepCandInput((s) => ({ ...s, [el.id]: v }))}
@@ -1501,13 +1606,18 @@ export function CouncilModule() {
                         />
                       ))}
                     </div>
-                  </section>
-                )}
+                  </CouncilValgCollapsibleSection>
+                ) : null}
 
-                <section className="border-t border-neutral-200/80 pt-5">
-                  <p className={COUNCIL_OVERLINE}>Valgperioder</p>
+                <CouncilValgCollapsibleSection
+                  sectionKey="periods"
+                  title="Valgperioder"
+                  count={rep.periods.length}
+                  expanded={valgSectionExpanded('periods')}
+                  onToggle={() => toggleValgSection('periods')}
+                >
                   <form
-                    className="mt-3 flex flex-col gap-2"
+                    className="flex flex-col gap-2"
                     onSubmit={(e) => {
                       e.preventDefault()
                       if (!periodForm.label.trim() || !periodForm.start || !periodForm.end) return
@@ -1558,11 +1668,16 @@ export function CouncilModule() {
                       </li>
                     ))}
                   </ul>
-                </section>
+                </CouncilValgCollapsibleSection>
 
-                <section className="border-t border-neutral-200/80 pt-5">
-                  <p className={COUNCIL_OVERLINE}>AMU-valg (modul)</p>
-                  <form onSubmit={handleNewElection} className="mt-3 flex flex-col gap-2">
+                <CouncilValgCollapsibleSection
+                  sectionKey="amu"
+                  title="AMU-valg (modul)"
+                  count={council.elections.length}
+                  expanded={valgSectionExpanded('amu')}
+                  onToggle={() => toggleValgSection('amu')}
+                >
+                  <form onSubmit={handleNewElection} className="flex flex-col gap-2">
                     <input
                       value={newElectionTitle}
                       onChange={(e) => setNewElectionTitle(e.target.value)}
@@ -1580,7 +1695,7 @@ export function CouncilModule() {
                   <div className="mt-4 space-y-4">
                     {council.elections.map((el) => (
                       <ElectionCard
-                        key={el.id}
+                        key={`${el.id}-${el.status}`}
                         election={el}
                         candidateDraft={candidateInputs[el.id] ?? ''}
                         setCandidateDraft={(v) => setCandidateInputs((s) => ({ ...s, [el.id]: v }))}
@@ -1595,7 +1710,7 @@ export function CouncilModule() {
                       />
                     ))}
                   </div>
-                </section>
+                </CouncilValgCollapsibleSection>
               </div>
             </aside>
           </div>
@@ -2401,102 +2516,137 @@ function RepElectionCard({
   const open = election.status === 'open'
   const draft = election.status === 'draft'
   const sorted = [...election.candidates].sort((a, b) => b.voteCount - a.voteCount)
+  const [detailOpen, setDetailOpen] = useState(!closed)
+
+  const summaryLine = `${election.anonymous ? 'Anonym' : 'Åpne navn'} · ${election.seatsToFill} seter · ${election.votesCastTotal} stemmer · ${sorted.length} kandidat${sorted.length === 1 ? '' : 'er'}`
 
   return (
     <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-3 shadow-sm`}>
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className={COUNCIL_SUBHEADING}>{election.title}</h3>
-          {election.description ? (
-            <p className="mt-1 line-clamp-2 text-xs text-neutral-600">{election.description}</p>
-          ) : null}
-          <p className={`mt-2 ${COUNCIL_SMALL}`}>
-            {election.anonymous ? 'Anonym stemmegivning' : 'Åpne navn'} · {election.seatsToFill} seter ·{' '}
-            {election.votesCastTotal} stemmer
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-1.5">
-          {draft ? (
-            <button
-              type="button"
-              onClick={onOpen}
-              disabled={election.candidates.length === 0}
-              className={`${R_FLAT} bg-[#1a3d32] px-2.5 py-1 text-[10px] font-medium text-white disabled:opacity-40 sm:text-xs`}
-            >
-              Åpne
-            </button>
-          ) : null}
-          {open ? (
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={election.candidates.length === 0}
-              className={`${R_FLAT} border border-neutral-300 bg-white px-2.5 py-1 text-[10px] font-medium disabled:opacity-40 sm:text-xs`}
-            >
-              Avslutt
-            </button>
-          ) : null}
-          {closed ? (
-            <span className={`${R_FLAT} bg-neutral-100 px-2.5 py-1 text-[10px] font-medium text-neutral-700`}>
+      {closed && !detailOpen ? (
+        <button
+          type="button"
+          onClick={() => setDetailOpen(true)}
+          className={`${R_FLAT} flex w-full items-start justify-between gap-2 text-left hover:bg-neutral-50/80`}
+        >
+          <div className="min-w-0">
+            <p className={COUNCIL_OVERLINE}>{election.title}</p>
+            <p className={`mt-1 ${COUNCIL_SMALL}`}>{summaryLine}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <span className={`${R_FLAT} bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-700`}>
               Avsluttet
             </span>
-          ) : null}
-        </div>
-      </div>
-
-      {(draft || open) && (
-        <div className="mt-2 flex flex-wrap gap-2">
-          <input
-            value={candDraft}
-            onChange={(e) => setCandDraft(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), onAddCandidate())}
-            placeholder="Kandidatnavn"
-            className={`${R_FLAT} min-w-0 flex-1 border border-neutral-200 px-2 py-1.5 text-xs sm:text-sm`}
-          />
-          <button
-            type="button"
-            onClick={onAddCandidate}
-            className={`${R_FLAT} border border-neutral-200 px-3 py-1.5 text-xs font-medium hover:bg-neutral-50 sm:text-sm`}
-          >
-            Legg til
-          </button>
-        </div>
-      )}
-
-      <ul className="mt-2 space-y-1.5">
-        {sorted.map((c) => {
-          const letterIdx = repCandidateLetterIndex(election, c.id)
-          const display = repCandidateDisplayName(election, letterIdx, c.name, closed)
-          return (
-            <li
-              key={c.id}
-              className={`${R_FLAT} flex flex-wrap items-center justify-between gap-2 bg-[#faf8f4] px-2 py-1.5 text-xs sm:text-sm`}
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <img
-                  src={avatarUrlFromSeed(`${election.id}-${c.id}-${c.name}`, 40)}
-                  alt=""
-                  className={`${R_FLAT} size-8 shrink-0 object-cover`}
-                />
-                <span className="truncate font-medium text-neutral-900">{display}</span>
-              </span>
-              <span className="text-neutral-600">{c.voteCount}</span>
+            <ChevronRight className="size-4 text-neutral-500" aria-hidden />
+          </div>
+        </button>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              {closed ? (
+                <button
+                  type="button"
+                  onClick={() => setDetailOpen(false)}
+                  className={`${R_FLAT} -ml-1 flex items-center gap-1 text-left hover:bg-neutral-100/80`}
+                >
+                  <ChevronDown className="size-4 shrink-0 text-neutral-500" aria-hidden />
+                  <span className={COUNCIL_OVERLINE}>{election.title}</span>
+                </button>
+              ) : (
+                <h3 className={COUNCIL_SUBHEADING}>{election.title}</h3>
+              )}
+              {election.description ? (
+                <p className="mt-1 line-clamp-2 text-xs text-neutral-600">{election.description}</p>
+              ) : null}
+              <p className={`mt-2 ${COUNCIL_SMALL}`}>
+                {election.anonymous ? 'Anonym stemmegivning' : 'Åpne navn'} · {election.seatsToFill} seter ·{' '}
+                {election.votesCastTotal} stemmer
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-1.5">
+              {draft ? (
+                <button
+                  type="button"
+                  onClick={onOpen}
+                  disabled={election.candidates.length === 0}
+                  className={`${R_FLAT} bg-[#1a3d32] px-2.5 py-1 text-[10px] font-medium text-white disabled:opacity-40 sm:text-xs`}
+                >
+                  Åpne
+                </button>
+              ) : null}
               {open ? (
                 <button
                   type="button"
-                  onClick={() => onVote(c.id)}
-                  className={`${R_FLAT} bg-[#1a3d32] px-2 py-0.5 text-[10px] font-medium text-white hover:bg-[#142e26]`}
+                  onClick={onClose}
+                  disabled={election.candidates.length === 0}
+                  className={`${R_FLAT} border border-neutral-300 bg-white px-2.5 py-1 text-[10px] font-medium disabled:opacity-40 sm:text-xs`}
                 >
-                  Stem
+                  Avslutt
                 </button>
               ) : null}
-            </li>
-          )
-        })}
-      </ul>
-      {election.anonymous && open ? (
-        <p className={`mt-2 ${COUNCIL_SMALL}`}>Anonyme valg: kandidater som A, B, … til lukking.</p>
-      ) : null}
+              {closed ? (
+                <span className={`${R_FLAT} bg-neutral-100 px-2.5 py-1 text-[10px] font-medium text-neutral-700`}>
+                  Avsluttet
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          {(draft || open) && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              <input
+                value={candDraft}
+                onChange={(e) => setCandDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), onAddCandidate())}
+                placeholder="Kandidatnavn"
+                className={`${R_FLAT} min-w-0 flex-1 border border-neutral-200 px-2 py-1.5 text-xs sm:text-sm`}
+              />
+              <button
+                type="button"
+                onClick={onAddCandidate}
+                className={`${R_FLAT} border border-neutral-200 px-3 py-1.5 text-xs font-medium hover:bg-neutral-50 sm:text-sm`}
+              >
+                Legg til
+              </button>
+            </div>
+          )}
+
+          <ul className="mt-2 space-y-1.5">
+            {sorted.map((c) => {
+              const letterIdx = repCandidateLetterIndex(election, c.id)
+              const display = repCandidateDisplayName(election, letterIdx, c.name, closed)
+              return (
+                <li
+                  key={c.id}
+                  className={`${R_FLAT} flex flex-wrap items-center justify-between gap-2 bg-[#faf8f4] px-2 py-1.5 text-xs sm:text-sm`}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <img
+                      src={avatarUrlFromSeed(`${election.id}-${c.id}-${c.name}`, 40)}
+                      alt=""
+                      className={`${R_FLAT} size-8 shrink-0 object-cover`}
+                    />
+                    <span className="truncate font-medium text-neutral-900">{display}</span>
+                  </span>
+                  <span className="text-neutral-600">{c.voteCount}</span>
+                  {open ? (
+                    <button
+                      type="button"
+                      onClick={() => onVote(c.id)}
+                      className={`${R_FLAT} bg-[#1a3d32] px-2 py-0.5 text-[10px] font-medium text-white hover:bg-[#142e26]`}
+                    >
+                      Stem
+                    </button>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+          {election.anonymous && open ? (
+            <p className={`mt-2 ${COUNCIL_SMALL}`}>Anonyme valg: kandidater som A, B, … til lukking.</p>
+          ) : null}
+        </>
+      )}
     </div>
   )
 }
@@ -3123,77 +3273,107 @@ function ElectionCard({
   onClose: () => void
 }) {
   const open = election.status === 'open'
+  const closed = election.status === 'closed'
+  const sorted = [...election.candidates].sort((a, b) => b.voteCount - a.voteCount)
+  const [detailOpen, setDetailOpen] = useState(!closed)
+
+  const summaryLine = `${open ? 'Åpent valg' : 'Avsluttet'}${election.closedAt ? ` · ${formatWhen(election.closedAt)}` : ''} · ${sorted.length} kandidat${sorted.length === 1 ? '' : 'er'}`
+
   return (
-    <div className="rounded-xl border border-neutral-200 bg-[#faf8f4] p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 className={COUNCIL_SUBHEADING}>{election.title}</h3>
-          <p className={COUNCIL_SMALL}>
-            {open ? 'Åpent valg' : 'Avsluttet'}
-            {election.closedAt ? ` · ${formatWhen(election.closedAt)}` : ''}
-          </p>
-        </div>
-        {open ? (
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={election.candidates.length === 0}
-            className="inline-flex items-center gap-1 rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-40"
-          >
-            <Vote className="size-3.5" />
-            Avslutt og oppdater styre
-          </button>
-        ) : null}
-      </div>
-      {open ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <input
-            value={candidateDraft}
-            onChange={(e) => setCandidateDraft(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), onAddCandidate())}
-            placeholder="Ny kandidat"
-            className="min-w-[160px] flex-1 rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
-          />
-          <button
-            type="button"
-            onClick={onAddCandidate}
-            className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium ring-1 ring-neutral-200 hover:bg-neutral-50"
-          >
-            Legg til
-          </button>
-        </div>
-      ) : null}
-      <ul className="mt-3 space-y-2">
-        {election.candidates.length === 0 ? (
-          <li className="text-sm text-neutral-500">Ingen kandidater ennå.</li>
-        ) : (
-          election.candidates
-            .slice()
-            .sort((a, b) => b.voteCount - a.voteCount)
-            .map((c, idx) => (
-              <li
-                key={c.id}
-                className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ring-1 ring-[#1a3d32]/10 ${
-                  idx % 2 === 0 ? 'bg-white' : 'bg-amber-50/50'
-                }`}
+    <div className={`${R_FLAT} border border-neutral-200 bg-[#faf8f4] p-4`}>
+      {closed && !detailOpen ? (
+        <button
+          type="button"
+          onClick={() => setDetailOpen(true)}
+          className={`${R_FLAT} flex w-full items-start justify-between gap-2 text-left hover:bg-white/60`}
+        >
+          <div className="min-w-0">
+            <p className={COUNCIL_OVERLINE}>{election.title}</p>
+            <p className={`mt-1 ${COUNCIL_SMALL}`}>{summaryLine}</p>
+          </div>
+          <ChevronRight className="size-4 shrink-0 text-neutral-500" aria-hidden />
+        </button>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              {closed ? (
+                <button
+                  type="button"
+                  onClick={() => setDetailOpen(false)}
+                  className={`${R_FLAT} -ml-1 flex items-center gap-1 text-left hover:bg-white/60`}
+                >
+                  <ChevronDown className="size-4 shrink-0 text-neutral-500" aria-hidden />
+                  <span className={COUNCIL_OVERLINE}>{election.title}</span>
+                </button>
+              ) : (
+                <h3 className={COUNCIL_SUBHEADING}>{election.title}</h3>
+              )}
+              <p className={COUNCIL_SMALL}>
+                {open ? 'Åpent valg' : 'Avsluttet'}
+                {election.closedAt ? ` · ${formatWhen(election.closedAt)}` : ''}
+              </p>
+            </div>
+            {open ? (
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={election.candidates.length === 0}
+                className="inline-flex items-center gap-1 rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-40"
               >
-                <span className="min-w-0 font-medium text-neutral-900">{c.name}</span>
-                <span className="shrink-0 text-neutral-600">{c.voteCount} stemmer</span>
-                {open ? (
-                  <button
-                    type="button"
-                    onClick={() => onVote(c.id)}
-                    className="shrink-0 rounded-full bg-[#1a3d32] px-3 py-1 text-xs font-medium text-white hover:bg-[#142e26]"
-                  >
-                    Stem
-                  </button>
-                ) : election.winnerCandidateId === c.id ? (
-                  <span className="shrink-0 text-xs font-medium text-emerald-700">Vinner</span>
-                ) : null}
-              </li>
-            ))
-        )}
-      </ul>
+                <Vote className="size-3.5" />
+                Avslutt og oppdater styre
+              </button>
+            ) : null}
+          </div>
+          {open ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <input
+                value={candidateDraft}
+                onChange={(e) => setCandidateDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), onAddCandidate())}
+                placeholder="Ny kandidat"
+                className="min-w-[160px] flex-1 rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+              />
+              <button
+                type="button"
+                onClick={onAddCandidate}
+                className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium ring-1 ring-neutral-200 hover:bg-neutral-50"
+              >
+                Legg til
+              </button>
+            </div>
+          ) : null}
+          <ul className="mt-3 space-y-2">
+            {sorted.length === 0 ? (
+              <li className="text-sm text-neutral-500">Ingen kandidater ennå.</li>
+            ) : (
+              sorted.map((c, idx) => (
+                <li
+                  key={c.id}
+                  className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ring-1 ring-[#1a3d32]/10 ${
+                    idx % 2 === 0 ? 'bg-white' : 'bg-amber-50/50'
+                  }`}
+                >
+                  <span className="min-w-0 font-medium text-neutral-900">{c.name}</span>
+                  <span className="shrink-0 text-neutral-600">{c.voteCount} stemmer</span>
+                  {open ? (
+                    <button
+                      type="button"
+                      onClick={() => onVote(c.id)}
+                      className="shrink-0 rounded-full bg-[#1a3d32] px-3 py-1 text-xs font-medium text-white hover:bg-[#142e26]"
+                    >
+                      Stem
+                    </button>
+                  ) : election.winnerCandidateId === c.id ? (
+                    <span className="shrink-0 text-xs font-medium text-emerald-700">Vinner</span>
+                  ) : null}
+                </li>
+              ))
+            )}
+          </ul>
+        </>
+      )}
     </div>
   )
 }
