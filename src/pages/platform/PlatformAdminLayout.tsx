@@ -60,7 +60,9 @@ export function PlatformAdminLayout() {
                 end={end}
                 className={({ isActive }) =>
                   `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    isActive ? 'bg-white/10 text-white' : 'text-neutral-400 hover:bg-white/5 hover:text-white'
+                    isActive
+                      ? 'bg-amber-500/20 text-amber-50 ring-1 ring-amber-400/50'
+                      : 'text-neutral-400 hover:bg-white/5 hover:text-white'
                   }`
                 }
               >

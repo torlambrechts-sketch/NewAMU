@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useReporting } from '../hooks/useReporting'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { mergeLayoutPayload } from '../lib/layoutLabTokens'
@@ -121,6 +122,22 @@ export function ReportingEnginePage() {
     },
     [setSearchParams],
   )
+
+  const reportHubItems = useMemo((): HubMenu1Item[] => {
+    return (
+      [
+        { id: 'reports' as const, label: 'Rapporter', Icon: LayoutGrid },
+        { id: 'history' as const, label: 'Rapportlogg', Icon: History },
+        { id: 'tools' as const, label: 'Verktøy (JSON)', Icon: Wrench },
+      ] as const
+    ).map(({ id, label, Icon }) => ({
+      key: id,
+      label,
+      icon: Icon,
+      active: mainTab === id,
+      onClick: () => setMainTab(id),
+    }))
+  }, [mainTab, setMainTab])
 
   const year = new Date().getFullYear()
   const [y, setY] = useState(year)
@@ -482,31 +499,8 @@ export function ReportingEnginePage() {
         </div>
       </div>
 
-      <div className={menu1.barOuterClass} style={menu1.barStyle}>
-        <div className={menu1.innerRowClass}>
-          {(
-            [
-              { id: 'reports' as const, label: 'Rapporter', Icon: LayoutGrid },
-              { id: 'history' as const, label: 'Rapportlogg', Icon: History },
-              { id: 'tools' as const, label: 'Verktøy (JSON)', Icon: Wrench },
-            ] as const
-          ).map(({ id, label, Icon }) => {
-            const active = mainTab === id
-            const tb = menu1.tabButton(active)
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setMainTab(id)}
-                className={tb.className}
-                style={tb.style}
-              >
-                <Icon className="size-4 shrink-0 opacity-90" />
-                <span className="whitespace-nowrap">{label}</span>
-              </button>
-            )
-          })}
-        </div>
+      <div className="mt-2">
+        <HubMenu1Bar ariaLabel="Rapporter — faner" items={reportHubItems} />
       </div>
 
       {(rep.error || rb.error) && (

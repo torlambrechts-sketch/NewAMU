@@ -6,7 +6,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   Bell,
@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ClipboardList,
   Gavel,
+  History,
   ListOrdered,
   Mail,
   MoreHorizontal,
@@ -56,6 +57,7 @@ import {
   ModuleDonutCard,
   type InsightSeg,
 } from '../components/insights/ModuleInsightCharts'
+import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
 
 const HERO_ACTION_CLASS =
@@ -73,9 +75,6 @@ const TASK_PANEL_ROW_GRID =
 const TASK_PANEL_INSET = 'rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6'
 const TASK_PANEL_SELECT = `${SETTINGS_INPUT} bg-white`
 const MEETING_PANEL_SURFACE = 'bg-[#f7f6f2]'
-const MENU1_ICON_ONLY_TAB =
-  '!h-8 !w-8 !min-h-0 !min-w-0 !max-h-8 !max-w-8 !flex-none shrink-0 !justify-center !gap-0 !p-0'
-
 /** Arbeidsmiljøråd: én typografisk skala (sans-serif), 3:2 hoved / sidekolonne */
 const COUNCIL_MAIN_SIDE_GRID = 'grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]'
 /** Layout-reference «Dashboard 70/30»: kremflate, 7/3 kolonner */
@@ -306,6 +305,7 @@ export function CouncilModule() {
   const { addTask } = useTasks()
   const { complianceThresholds: ct } = org
 
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get('tab')
   type TabId = (typeof tabs)[number]['id']
@@ -334,11 +334,36 @@ export function CouncilModule() {
     [setSearchParams],
   )
 
-  const menu1 = useOrgMenu1Styles()
   const openElectionsCount = useMemo(
     () => council.elections.filter((e) => e.status === 'open').length,
     [council.elections],
   )
+
+  const menu1 = useOrgMenu1Styles()
+
+  const councilHubItems = useMemo((): HubMenu1Item[] => {
+    const auditActive =
+      location.pathname === '/workspace/revisjonslogg' &&
+      new URLSearchParams(location.search).get('source') === 'council'
+    return [
+      ...tabs.map(({ id, label, icon }) => ({
+        key: id,
+        label,
+        icon,
+        active: tab === id && !auditActive,
+        onClick: () => setTab(id),
+        badgeCount: id === 'board' && openElectionsCount > 0 ? openElectionsCount : undefined,
+      })),
+      {
+        key: 'audit',
+        label: 'Revisjonslogg',
+        icon: History,
+        active: auditActive,
+        iconOnly: true as const,
+        to: '/workspace/revisjonslogg?source=council',
+      },
+    ]
+  }, [tab, location.pathname, location.search, openElectionsCount, setTab])
 
   // Council state
   const [wheelYear, setWheelYear] = useState(() => new Date().getFullYear())
@@ -927,35 +952,8 @@ export function CouncilModule() {
         </div>
       </div>
 
-      <div className={menu1.barOuterClass} style={menu1.barStyle}>
-        <div className={menu1.innerRowClass}>
-          {tabs.map((tabItem) => {
-            const { id, label, icon: Icon } = tabItem
-            const iconOnly = 'iconOnly' in tabItem && tabItem.iconOnly === true
-            const active = tab === id
-            const tb = menu1.tabButton(active)
-            const badge = id === 'board' && openElectionsCount > 0 ? openElectionsCount : undefined
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setTab(id)}
-                className={`${tb.className} ${iconOnly ? MENU1_ICON_ONLY_TAB : ''}`}
-                style={tb.style}
-                title={iconOnly ? label : undefined}
-                aria-label={iconOnly ? label : undefined}
-              >
-                <Icon className="size-4 shrink-0 opacity-90" aria-hidden={!!iconOnly} />
-                {!iconOnly ? <span className="whitespace-nowrap">{label}</span> : null}
-                {badge != null && !iconOnly ? (
-                  <span className="rounded-none bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
-                    {badge}
-                  </span>
-                ) : null}
-              </button>
-            )
-          })}
-        </div>
+      <div className="mt-2">
+        <HubMenu1Bar ariaLabel="Arbeidsmiljøråd — faner" items={councilHubItems} />
       </div>
 
       {tab === 'overview' && (

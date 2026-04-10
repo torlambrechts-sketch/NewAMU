@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -10,6 +10,7 @@ import {
   Vote,
 } from 'lucide-react'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
+import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { REPRESENTATIVE_ROLE_REQUIREMENTS, requirementsForRole } from '../data/representativeRules'
 import { useRepresentatives } from '../hooks/useRepresentatives'
 import type { RepElection, RepresentativeMember, RepresentativeOfficeRole } from '../types/representatives'
@@ -63,7 +64,16 @@ export function MembersModule() {
     }
   }, [tabParam, navigate])
 
-  const setTab = (id: TabId) => setSearchParams({ tab: id }, { replace: true })
+  const setTab = useCallback((id: TabId) => setSearchParams({ tab: id }, { replace: true }), [setSearchParams])
+  const membersHubItems = useMemo((): HubMenu1Item[] => {
+    return tabs.map(({ id, label, icon }) => ({
+      key: id,
+      label,
+      icon,
+      active: tab === id,
+      onClick: () => setTab(id),
+    }))
+  }, [tab, setTab])
   const [electionForm, setElectionForm] = useState({
     title: '',
     description: '',
@@ -101,6 +111,10 @@ export function MembersModule() {
             — ikke juridisk rådgivning.
           </p>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <HubMenu1Bar ariaLabel="Medlemmer — faner" items={membersHubItems} />
       </div>
 
       {tab === 'overview' && (
