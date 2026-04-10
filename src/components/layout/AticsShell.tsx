@@ -154,11 +154,23 @@ const councilSubs: SubItem[] = [
       pathname === '/council' &&
       (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
   },
-  { label: 'Styre og medlemmer', path: '/council?tab=board', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'board' },
-  { label: 'Valgmodul', path: '/council?tab=election', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'election' },
+  {
+    label: 'Styre og Valg',
+    path: '/council?tab=board',
+    match: ({ pathname, search }) =>
+      pathname === '/council' &&
+      (new URLSearchParams(search).get('tab') === 'board' || new URLSearchParams(search).get('tab') === 'election'),
+  },
   { label: 'Møter', path: '/council?tab=meetings', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'meetings' },
   { label: 'Sjekkliste', path: '/council?tab=compliance', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'compliance' },
   { label: 'Vedtaksregister', path: '/council?tab=decisions', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'decisions' },
+  {
+    label: 'Revisjonslogg',
+    path: '/council?tab=audit',
+    match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'audit',
+    iconOnly: true,
+    Icon: History,
+  },
 ]
 
 const learningSubs: SubItem[] = [
@@ -281,7 +293,7 @@ const navGroups: NavGroup[] = [
     icon: UsersRound,
     modules: [
       { to: '/council', label: 'Council Room', end: false, icon: UsersRound, subs: councilSubs, perm: 'module.view.council' },
-      { to: '/council?tab=election', label: 'Members', end: false, icon: Users, subs: [], perm: 'module.view.members' },
+      { to: '/council?tab=board', label: 'Members', end: false, icon: Users, subs: [], perm: 'module.view.members' },
     ],
   },
   {
@@ -327,7 +339,7 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
     if (pathname === '/org-health' && sp.get('tab') === 'reporting') return hub
     if (pathname === '/tasks' && sp.get('view') === 'whistle') return hub
   }
-  // Exact-match first (handles /council?tab=election vs /council)
+  // Exact-match first (handles /council?tab=board vs /council)
   for (const mod of modules) {
     if (mod.to.includes('?')) {
       const [p, q] = mod.to.split('?')
@@ -348,7 +360,7 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
 function subNavForPath(modules: NavModule[], pathname: string, search: string): SubItem[] {
   const mod = activeModuleForPath(modules, pathname, search)
   // For Members shortcut, show council subs
-  if (mod.to === '/council?tab=election') return councilSubs
+  if (mod.to === '/council?tab=board') return councilSubs
   return mod.subs
 }
 

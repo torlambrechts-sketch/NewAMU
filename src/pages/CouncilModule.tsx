@@ -53,6 +53,8 @@ const HERO_ACTION_CLASS =
 const R_FLAT = 'rounded-none'
 const SETTINGS_THRESHOLD_BOX =
   'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
+const MENU1_ICON_ONLY_TAB =
+  '!h-8 !w-8 !min-h-0 !min-w-0 !max-h-8 !max-w-8 !flex-none shrink-0 !justify-center !gap-0 !p-0'
 
 const CAL_WEEKDAYS_NB = ['ma', 'ti', 'on', 'to', 'fr', 'lø', 'sø'] as const
 
@@ -89,13 +91,13 @@ function useBodyScrollLock(active: boolean) {
 }
 
 const tabs = [
-  { id: 'overview'   as const, label: 'Oversikt',           icon: ClipboardList },
-  { id: 'board'      as const, label: 'Styre og medlemmer', icon: Users },
-  { id: 'election'   as const, label: 'Valgmodul',          icon: Vote },
-  { id: 'meetings'   as const, label: 'Møter',              icon: Calendar },
-  { id: 'compliance' as const, label: 'Sjekkliste',         icon: Gavel },
-  { id: 'decisions'  as const, label: 'Vedtaksregister',    icon: ScrollText },
-]
+  { id: 'overview' as const, label: 'Oversikt', icon: ClipboardList },
+  { id: 'board' as const, label: 'Styre og Valg', icon: Users },
+  { id: 'meetings' as const, label: 'Møter', icon: Calendar },
+  { id: 'compliance' as const, label: 'Sjekkliste', icon: Gavel },
+  { id: 'decisions' as const, label: 'Vedtaksregister', icon: ScrollText },
+  { id: 'audit' as const, label: 'Revisjonslogg', icon: History, iconOnly: true as const },
+] as const
 
 const tabBlurbs: Record<(typeof tabs)[number]['id'], { kicker: string; description: string }> = {
   overview: {
@@ -103,12 +105,9 @@ const tabBlurbs: Record<(typeof tabs)[number]['id'], { kicker: string; descripti
     description: 'Oversikt over styret, åpne valg og samsvar.',
   },
   board: {
-    kicker: 'Styre og medlemmer',
-    description: 'Valgt AMU-styre med 50/50-krav, verneombud, rolleoversikt og opplæringsstatus.',
-  },
-  election: {
-    kicker: 'Valgmodul',
-    description: 'Anonymt digitalt valg av arbeidstakerrepresentanter med 2-årsperiodekontroll og 90-dagersvarsel.',
+    kicker: 'Styre og valg',
+    description:
+      'Valgt AMU-styre, 50/50-sammensetting, verneombud og digitale valg (AMU og arbeidstakerrepresentanter).',
   },
   meetings: {
     kicker: 'Møter og årshjul',
@@ -121,6 +120,10 @@ const tabBlurbs: Record<(typeof tabs)[number]['id'], { kicker: string; descripti
   decisions: {
     kicker: 'Vedtaksregister',
     description: 'Alle formelle vedtak på tvers av møter — søkbart, filtrerbart og koblet til Kanban.',
+  },
+  audit: {
+    kicker: 'Revisjonslogg',
+    description: 'Hendelser i representasjons- og valgmodulen (append-only i demomodus).',
   },
 }
 
@@ -172,6 +175,17 @@ function formatWhen(iso: string) {
   }
 }
 
+function partitionRepresentativeElections(elections: RepElection[]) {
+  const supplementary = elections.filter(
+    (e) => /supplerings|suppleringsvalg/i.test(e.title) || /2026/.test(e.title),
+  )
+  const suppIds = new Set(supplementary.map((e) => e.id))
+  const at2024 = elections.filter((e) => /2024/.test(e.title) && !suppIds.has(e.id))
+  const at24Ids = new Set(at2024.map((e) => e.id))
+  const other = elections.filter((e) => !suppIds.has(e.id) && !at24Ids.has(e.id))
+  return { supplementary, at2024, other }
+}
+
 export function CouncilModule() {
   const council = useCouncil()
   const { supabaseConfigured } = useOrgSetupContext()
@@ -188,6 +202,12 @@ export function CouncilModule() {
   type TabId = (typeof tabs)[number]['id']
   const tab: TabId =
     tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
+
+  useEffect(() => {
+    if (tabParam === 'election') {
+      queueMicrotask(() => setSearchParams({ tab: 'board' }, { replace: true }))
+    }
+  }, [tabParam, setSearchParams])
 
   const setTab = useCallback(
     (id: TabId) => {
@@ -274,6 +294,11 @@ export function CouncilModule() {
   const sortedRepAudit = useMemo(
     () => [...rep.auditTrail].sort((a, b) => a.at.localeCompare(b.at)),
     [rep.auditTrail],
+  )
+
+  const repElectionSections = useMemo(
+    () => partitionRepresentativeElections(rep.elections),
+    [rep.elections],
   )
 
   const complianceProgress = useMemo(() => {
@@ -666,21 +691,25 @@ export function CouncilModule() {
 
       <div className={menu1.barOuterClass} style={menu1.barStyle}>
         <div className={menu1.innerRowClass}>
-          {tabs.map(({ id, label, icon: Icon }) => {
+          {tabs.map((tabItem) => {
+            const { id, label, icon: Icon } = tabItem
+            const iconOnly = 'iconOnly' in tabItem && tabItem.iconOnly === true
             const active = tab === id
             const tb = menu1.tabButton(active)
-            const badge = id === 'election' && openElectionsCount > 0 ? openElectionsCount : undefined
+            const badge = id === 'board' && openElectionsCount > 0 ? openElectionsCount : undefined
             return (
               <button
                 key={id}
                 type="button"
                 onClick={() => setTab(id)}
-                className={tb.className}
+                className={`${tb.className} ${iconOnly ? MENU1_ICON_ONLY_TAB : ''}`}
                 style={tb.style}
+                title={iconOnly ? label : undefined}
+                aria-label={iconOnly ? label : undefined}
               >
-                <Icon className="size-4 shrink-0 opacity-90" aria-hidden />
-                <span className="whitespace-nowrap">{label}</span>
-                {badge != null ? (
+                <Icon className="size-4 shrink-0 opacity-90" aria-hidden={!!iconOnly} />
+                {!iconOnly ? <span className="whitespace-nowrap">{label}</span> : null}
+                {badge != null && !iconOnly ? (
                   <span className="rounded-none bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
                     {badge}
                   </span>
@@ -956,442 +985,480 @@ export function CouncilModule() {
 
       {tab === 'board' && (
         <div className="mt-8 space-y-10">
-          {/* Council board elections */}
-          <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
-            <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-neutral-900">Valgt styre</h2>
-              <p className="mt-1 text-sm text-neutral-600">
-                Ved avsluttet valg oppdateres styret med de tre kandidatene med flest stemmer (leder, nestleder,
-                medlem).
-              </p>
-              <ul className="mt-4 divide-y divide-emerald-100/80">
-                {council.board.map((m, i) => (
-                  <li
-                    key={m.id}
-                    className={`flex items-center gap-3 py-3 first:pt-0 ${i % 2 === 0 ? 'bg-emerald-50/40' : 'bg-white'}`}
+          <div className="grid gap-8 lg:grid-cols-12 lg:items-start">
+            {/* Styre — ca. 2/3 */}
+            <div className="space-y-8 lg:col-span-8">
+              <div>
+                <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                  <h2
+                    className="text-xl font-semibold text-neutral-900 md:text-2xl"
+                    style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
                   >
-                    <img
-                      src={avatarUrlFromSeed(m.id + m.name, 88)}
-                      alt=""
-                      className="size-11 shrink-0 rounded-full ring-2 ring-[#1a3d32]/15 object-cover"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-neutral-900">{m.name}</div>
-                      <div className="text-xs text-neutral-500">
-                        {roleLabel(m.role)}
-                        {m.termUntil ? ` · Periode til ${m.termUntil}` : ''}
+                    Styre
+                  </h2>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                    AMU · valgt styre
+                  </span>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {council.board.map((m) => (
+                    <div
+                      key={m.id}
+                      className={`${R_FLAT} flex flex-col border border-neutral-200/90 bg-white p-4 shadow-sm`}
+                    >
+                      <div className="flex items-start justify-between gap-2 border-b border-neutral-100 pb-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <img
+                            src={avatarUrlFromSeed(m.id + m.name, 96)}
+                            alt=""
+                            className={`${R_FLAT} size-12 shrink-0 object-cover ring-2 ring-neutral-200/80`}
+                          />
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold text-neutral-900">{m.name}</p>
+                            <p className="mt-0.5 text-xs text-neutral-500">{roleLabel(m.role)}</p>
+                          </div>
+                        </div>
+                        <CheckCircle2 className="size-5 shrink-0 text-emerald-600" aria-hidden />
+                      </div>
+                      <div className="mt-3 space-y-2 text-xs text-neutral-600">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+                            Periode
+                          </span>
+                          <span className="font-medium tabular-nums text-neutral-800">
+                            {m.termUntil ?? '—'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+                            Status
+                          </span>
+                          <span className="rounded-none bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
+                            Aktiv
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <CheckCircle2 className="size-5 shrink-0 text-emerald-600" aria-hidden />
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-neutral-900">Nytt valg</h2>
-              <form onSubmit={handleNewElection} className="mt-4 flex flex-wrap gap-2">
-                <input
-                  value={newElectionTitle}
-                  onChange={(e) => setNewElectionTitle(e.target.value)}
-                  placeholder="Valg tittel"
-                  className="min-w-[200px] flex-1 rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
-                />
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26]"
-                >
-                  <Plus className="size-4" />
-                  Opprett
-                </button>
-              </form>
-
-              <div className="mt-8 space-y-6">
-                {council.elections.map((el) => (
-                  <ElectionCard
-                    key={el.id}
-                    election={el}
-                    candidateDraft={candidateInputs[el.id] ?? ''}
-                    setCandidateDraft={(v) => setCandidateInputs((s) => ({ ...s, [el.id]: v }))}
-                    onAddCandidate={() => {
-                      const name = (candidateInputs[el.id] ?? '').trim()
-                      if (!name) return
-                      council.addCandidate(el.id, name)
-                      setCandidateInputs((s) => ({ ...s, [el.id]: '' }))
-                    }}
-                    onVote={(cid) => council.vote(el.id, cid)}
-                    onClose={() => council.closeElection(el.id)}
-                  />
-                ))}
-              </div>
-            </section>
-          </div>
-
-          {/* AMU composition — merged from Members module */}
-          <div className="border-t border-neutral-200 pt-8">
-            <div className="mb-6 flex flex-wrap items-center gap-3">
-              <h2 className="text-xl font-semibold text-neutral-900">AMU og sammensetting</h2>
-              {rep.validation.ok ? (
-                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-900">
-                  <CheckCircle2 className="size-4" />
-                  Krav oppfylt
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-950">
-                  <AlertTriangle className="size-4" />
-                  {rep.validation.issues.length} avvik
-                </span>
-              )}
-            </div>
-
-            <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-              <h3 className="font-semibold text-neutral-900">Innstillinger for sammensetting</h3>
-              <div className="mt-4 flex flex-wrap gap-6">
-                <label className="text-sm">
-                  Seter per side (50/50)
-                  <input
-                    type="number"
-                    min={1}
-                    max={9}
-                    value={rep.settings.seatsPerSide}
-                    onChange={(e) =>
-                      rep.updateSettings({ seatsPerSide: Number(e.target.value) || 1 })
-                    }
-                    className="ml-2 w-16 rounded-lg border border-neutral-200 px-2 py-1"
-                  />
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={rep.settings.requireChairAndDeputy}
-                    onChange={(e) => rep.updateSettings({ requireChairAndDeputy: e.target.checked })}
-                    className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
-                  />
-                  Krever leder og nestleder på begge sider
-                </label>
-              </div>
-              {!rep.validation.ok && (
-                <ul className="mt-4 list-inside list-disc space-y-1 text-sm text-amber-900">
-                  {rep.validation.issues.map((issue) => (
-                    <li key={issue}>{issue}</li>
                   ))}
-                </ul>
-              )}
-              <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-4">
-                <div className="rounded-xl bg-[#faf8f4] p-3">
-                  <dt className="text-neutral-500">Seter per side (mål)</dt>
-                  <dd className="text-lg font-semibold text-[#1a3d32]">{rep.validation.seatsPerSide}</dd>
+                  {council.board.length === 0 ? (
+                    <p className="text-sm text-neutral-500 sm:col-span-2 xl:col-span-3">
+                      Ingen styremedlemmer registrert — avslutt et AMU-valg for å fylle styret.
+                    </p>
+                  ) : null}
                 </div>
-                <div className="rounded-xl bg-[#faf8f4] p-3">
-                  <dt className="text-neutral-500">Registrerte perioder</dt>
-                  <dd className="text-lg font-semibold text-[#1a3d32]">{rep.periodCount}</dd>
+              </div>
+
+              <div className="border-t border-neutral-200 pt-8">
+                <div className="mb-6 flex flex-wrap items-center gap-3">
+                  <h2 className="text-xl font-semibold text-neutral-900">AMU og sammensetting</h2>
+                  {rep.validation.ok ? (
+                    <span
+                      className={`${R_FLAT} inline-flex items-center gap-2 bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-900`}
+                    >
+                      <CheckCircle2 className="size-4" />
+                      Krav oppfylt
+                    </span>
+                  ) : (
+                    <span
+                      className={`${R_FLAT} inline-flex items-center gap-2 bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-950`}
+                    >
+                      <AlertTriangle className="size-4" />
+                      {rep.validation.issues.length} avvik
+                    </span>
+                  )}
                 </div>
-                <div className="rounded-xl bg-[#faf8f4] p-3">
-                  <dt className="text-neutral-500">AT-representanter</dt>
-                  <dd className="font-medium text-neutral-900">{rep.validation.empCount}</dd>
-                </div>
-                <div className="rounded-xl bg-[#faf8f4] p-3">
-                  <dt className="text-neutral-500">AG-representanter</dt>
-                  <dd className="font-medium text-neutral-900">{rep.validation.leadCount}</dd>
-                </div>
-              </dl>
-            </section>
 
-            {/* Verneombud presence check */}
-            {ct.requiresVerneombud && !rep.members.some((m) => m.isVerneombud) && (
-              <div className="mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
-                <p className="text-sm text-amber-900">
-                  <strong>Mangler verneombud.</strong> Virksomheten har {ct.totalEmployeeCount} ansatte — verneombud er lovpålagt (AML §6-1).
-                  Merk en representant som verneombud i listen nedenfor.
-                </p>
-              </div>
-            )}
-
-            {/* Term expiry warnings */}
-            {(() => {
-              const soon = rep.members.filter((m) => {
-                if (!m.termUntil) return false
-                const days = Math.ceil((new Date(m.termUntil).getTime() - Date.now()) / 86400000)
-                return days <= 60 && days >= 0
-              })
-              if (!soon.length) return null
-              return (
-                <div className="mt-3 flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
-                  <Bell className="mt-0.5 size-4 shrink-0 text-sky-600" />
-                  <p className="text-sm text-sky-900">
-                    <strong>{soon.length} verv utløper innen 60 dager:</strong>{' '}
-                    {soon.map((m) => `${m.name} (${m.termUntil})`).join(', ')}.
-                    Planlegg nyvalg.
-                  </p>
-                </div>
-              )
-            })()}
-
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
-              <MemberColumn
-                title="Arbeidstakere (valgt)"
-                members={rep.members.filter((m) => m.side === 'employee')}
-                onUpdate={rep.updateMember}
-                learning={learning}
-              />
-              <MemberColumn
-                title="Arbeidsgiver (oppnevnt)"
-                members={rep.members.filter((m) => m.side === 'leadership')}
-                onUpdate={rep.updateMember}
-                onAdd={rep.addLeadershipPlaceholder}
-                learning={learning}
-              />
-            </div>
-
-            <div className="mt-4 flex justify-start">
-              <AddTaskLink
-                title="Oppfølging representasjon / AMU"
-                module="members"
-                sourceType="representatives"
-                ownerRole="Tillitsvalgt"
-                requiresManagementSignOff
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {tab === 'election' && (
-        <div className="mt-8 space-y-8">
-
-          {/* ── 90-day term expiry alert ──────────────────────────────────── */}
-          {expiringReps.length > 0 && (
-            <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-600" />
-              <div>
-                <p className="text-sm font-semibold text-amber-900">
-                  Verv utløper innen 90 dager — start nytt valg
-                </p>
-                <p className="mt-1 text-xs text-amber-700">
-                  {expiringReps.map((m) => `${m.name} (${m.termUntil})`).join(' · ')}
-                  {' '}— Lovpålagt 2-årsperiode (AML §6-1 og org.forskriften §3-4).
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* ── Chairman rotation alert ───────────────────────────────────── */}
-          {chairmanRotationNeeded && (
-            <div className="flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
-              <Vote className="mt-0.5 size-5 shrink-0 text-sky-600" />
-              <div>
-                <p className="text-sm font-semibold text-sky-900">
-                  Møtelederrollen bør roteres (12-månedersregelen)
-                </p>
-                <p className="mt-1 text-xs text-sky-700">
-                  Nåværende møteleder har hatt rollen i over 12 måneder. Rollen bør alternere mellom
-                  arbeidsgiver- og arbeidstakersiden. Gå til «Styre og medlemmer» for å justere.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* New representative election form */}
-          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Nytt valg (arbeidstakerrepresentanter)</h2>
-            <p className="mt-1 text-sm text-neutral-600">
-              Anonymt digitalt valg — kandidater legges til, stemmelenker sendes til ansatte, og resultater registreres etter at valget er lukket. Loven krever hemmelighet og 2-årsperiode.
-            </p>
-            <form
-              className="mt-4 grid gap-3 md:grid-cols-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (!repElectionForm.title.trim()) return
-                rep.createElection(
-                  repElectionForm.title,
-                  repElectionForm.description,
-                  repElectionForm.anonymous,
-                  repElectionForm.seats,
-                  repElectionForm.periodId || undefined,
-                )
-                setRepElectionForm((s) => ({ ...s, title: '', description: '' }))
-              }}
-            >
-              <div className="md:col-span-2">
-                <label className="text-xs font-medium text-neutral-500">Tittel</label>
-                <input
-                  value={repElectionForm.title}
-                  onChange={(e) => setRepElectionForm((s) => ({ ...s, title: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-xs font-medium text-neutral-500">Beskrivelse</label>
-                <textarea
-                  value={repElectionForm.description}
-                  onChange={(e) => setRepElectionForm((s) => ({ ...s, description: e.target.value }))}
-                  rows={2}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Antall seter (AT)</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={9}
-                  value={repElectionForm.seats}
-                  onChange={(e) =>
-                    setRepElectionForm((s) => ({ ...s, seats: Number(e.target.value) || 1 }))
-                  }
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-500">Knytt til periode (valgfritt)</label>
-                <select
-                  value={repElectionForm.periodId}
-                  onChange={(e) => setRepElectionForm((s) => ({ ...s, periodId: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                >
-                  <option value="">—</option>
-                  {rep.periods.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <label className="flex cursor-pointer items-center gap-2 md:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={repElectionForm.anonymous}
-                  onChange={(e) => setRepElectionForm((s) => ({ ...s, anonymous: e.target.checked }))}
-                  className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
-                />
-                <span className="text-sm text-neutral-800">
-                  Anonym stemmegivning (navn skjult til valg er lukket)
-                </span>
-              </label>
-              <button
-                type="submit"
-                className="rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] md:col-span-2"
-              >
-                Opprett valg
-              </button>
-            </form>
-          </section>
-
-          {/* Election list */}
-          <div className="space-y-6">
-            {rep.elections.map((el) => (
-              <RepElectionCard
-                key={el.id}
-                election={el}
-                candDraft={repCandInput[el.id] ?? ''}
-                setCandDraft={(v) => setRepCandInput((s) => ({ ...s, [el.id]: v }))}
-                onAddCandidate={() => {
-                  const name = (repCandInput[el.id] ?? '').trim()
-                  if (!name) return
-                  rep.addCandidate(el.id, name)
-                  setRepCandInput((s) => ({ ...s, [el.id]: '' }))
-                }}
-                onOpen={() => rep.openElection(el.id)}
-                onVote={(cid) => rep.vote(el.id, cid)}
-                onClose={() => rep.closeElectionAndSync(el.id)}
-              />
-            ))}
-            {rep.elections.length === 0 ? (
-              <p className="text-sm text-neutral-500">Ingen valg ennå — opprett over.</p>
-            ) : null}
-          </div>
-
-          {/* Periods */}
-          <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Valgperioder</h2>
-            <p className="mt-1 text-sm text-neutral-600">
-              Registrer perioder for å knytte valg til mandat (typisk 2 år — juster etter avtale).
-            </p>
-            <form
-              className="mt-4 flex flex-wrap gap-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (!periodForm.label.trim() || !periodForm.start || !periodForm.end) return
-                rep.addPeriod(periodForm.label, periodForm.start, periodForm.end)
-                setPeriodForm({ label: '', start: '', end: '' })
-              }}
-            >
-              <input
-                placeholder="Navn (f.eks. 2026–2028)"
-                value={periodForm.label}
-                onChange={(e) => setPeriodForm((s) => ({ ...s, label: e.target.value }))}
-                className="min-w-[180px] flex-1 rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                required
-              />
-              <input
-                type="date"
-                value={periodForm.start}
-                onChange={(e) => setPeriodForm((s) => ({ ...s, start: e.target.value }))}
-                className="rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                required
-              />
-              <input
-                type="date"
-                value={periodForm.end}
-                onChange={(e) => setPeriodForm((s) => ({ ...s, end: e.target.value }))}
-                className="rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-                required
-              />
-              <button
-                type="submit"
-                className="rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26]"
-              >
-                Legg til periode
-              </button>
-            </form>
-            <ul className="mt-4 divide-y divide-neutral-100">
-              {rep.periods.map((p) => (
-                <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
-                  <span className="font-medium text-neutral-900">{p.label}</span>
-                  <span className="text-neutral-600">
-                    {p.startDate} — {p.endDate}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-4 text-xs text-neutral-500">
-              Antall registrerte perioder: <strong>{rep.periodCount}</strong>
-            </p>
-          </section>
-
-          {/* Representative audit trail */}
-          <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-3">
-              <h2 className="flex items-center gap-2 font-semibold text-neutral-900">
-                <History className="size-4" />
-                Revisjonslogg (representanter)
-              </h2>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm('Tilbakestill medlemsdemodata?')) rep.resetDemo()
-                }}
-                className="text-xs text-neutral-500 hover:text-neutral-800 hover:underline"
-              >
-                Tilbakestill demo
-              </button>
-            </div>
-            <ul className="max-h-[560px] divide-y divide-neutral-100 overflow-y-auto text-sm">
-              {sortedRepAudit.map((a) => (
-                <li key={a.id} className="px-4 py-3">
-                  <div className="text-xs text-neutral-500">
-                    {formatWhen(a.at)} · <span className="font-mono text-neutral-600">{a.action}</span>
+                <section className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}>
+                  <h3 className="font-semibold text-neutral-900">Innstillinger for sammensetting</h3>
+                  <div className="mt-4 flex flex-wrap gap-6">
+                    <label className="text-sm">
+                      Seter per side (50/50)
+                      <input
+                        type="number"
+                        min={1}
+                        max={9}
+                        value={rep.settings.seatsPerSide}
+                        onChange={(e) =>
+                          rep.updateSettings({ seatsPerSide: Number(e.target.value) || 1 })
+                        }
+                        className={`${R_FLAT} ml-2 w-16 border border-neutral-200 px-2 py-1`}
+                      />
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={rep.settings.requireChairAndDeputy}
+                        onChange={(e) => rep.updateSettings({ requireChairAndDeputy: e.target.checked })}
+                        className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+                      />
+                      Krever leder og nestleder på begge sider
+                    </label>
                   </div>
-                  <p className="mt-1 text-neutral-800">{a.message}</p>
-                </li>
-              ))}
-            </ul>
+                  {!rep.validation.ok && (
+                    <ul className="mt-4 list-inside list-disc space-y-1 text-sm text-amber-900">
+                      {rep.validation.issues.map((issue) => (
+                        <li key={issue}>{issue}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-4">
+                    <div className={`${R_FLAT} bg-[#faf8f4] p-3`}>
+                      <dt className="text-neutral-500">Seter per side (mål)</dt>
+                      <dd className="text-lg font-semibold text-[#1a3d32]">{rep.validation.seatsPerSide}</dd>
+                    </div>
+                    <div className={`${R_FLAT} bg-[#faf8f4] p-3`}>
+                      <dt className="text-neutral-500">Registrerte perioder</dt>
+                      <dd className="text-lg font-semibold text-[#1a3d32]">{rep.periodCount}</dd>
+                    </div>
+                    <div className={`${R_FLAT} bg-[#faf8f4] p-3`}>
+                      <dt className="text-neutral-500">AT-representanter</dt>
+                      <dd className="font-medium text-neutral-900">{rep.validation.empCount}</dd>
+                    </div>
+                    <div className={`${R_FLAT} bg-[#faf8f4] p-3`}>
+                      <dt className="text-neutral-500">AG-representanter</dt>
+                      <dd className="font-medium text-neutral-900">{rep.validation.leadCount}</dd>
+                    </div>
+                  </dl>
+                </section>
+
+                {ct.requiresVerneombud && !rep.members.some((m) => m.isVerneombud) && (
+                  <div className={`${R_FLAT} mt-4 flex items-start gap-3 border border-amber-200 bg-amber-50 px-4 py-3`}>
+                    <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                    <p className="text-sm text-amber-900">
+                      <strong>Mangler verneombud.</strong> Virksomheten har {ct.totalEmployeeCount} ansatte — verneombud er
+                      lovpålagt (AML §6-1). Merk en representant som verneombud i listen nedenfor.
+                    </p>
+                  </div>
+                )}
+
+                {(() => {
+                  const soon = rep.members.filter((m) => {
+                    if (!m.termUntil) return false
+                    const days = Math.ceil((new Date(m.termUntil).getTime() - uiNowAnchor) / 86400000)
+                    return days <= 60 && days >= 0
+                  })
+                  if (!soon.length) return null
+                  return (
+                    <div className={`${R_FLAT} mt-3 flex items-start gap-3 border border-sky-200 bg-sky-50 px-4 py-3`}>
+                      <Bell className="mt-0.5 size-4 shrink-0 text-sky-600" />
+                      <p className="text-sm text-sky-900">
+                        <strong>{soon.length} verv utløper innen 60 dager:</strong>{' '}
+                        {soon.map((m) => `${m.name} (${m.termUntil})`).join(', ')}. Planlegg nyvalg.
+                      </p>
+                    </div>
+                  )
+                })()}
+
+                <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                  <MemberColumn
+                    title="Arbeidstakere (valgt)"
+                    members={rep.members.filter((m) => m.side === 'employee')}
+                    onUpdate={rep.updateMember}
+                    learning={learning}
+                  />
+                  <MemberColumn
+                    title="Arbeidsgiver (oppnevnt)"
+                    members={rep.members.filter((m) => m.side === 'leadership')}
+                    onUpdate={rep.updateMember}
+                    onAdd={rep.addLeadershipPlaceholder}
+                    learning={learning}
+                  />
+                </div>
+
+                <div className="mt-4 flex justify-start">
+                  <AddTaskLink
+                    title="Oppfølging representasjon / AMU"
+                    module="members"
+                    sourceType="representatives"
+                    ownerRole="Tillitsvalgt"
+                    requiresManagementSignOff
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Valg — ca. 1/3, sidebar-stil */}
+            <aside className={`${R_FLAT} border border-neutral-200/90 bg-[#faf8f4]/80 lg:col-span-4`}>
+              <div className="border-b border-neutral-200/80 bg-white px-4 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Valg</p>
+                <p className="mt-1 text-xs text-neutral-500">Arbeidstakerrepresentanter og AMU-valg</p>
+              </div>
+              <div className="space-y-6 px-4 py-5">
+                {expiringReps.length > 0 && (
+                  <div className={`${R_FLAT} border border-amber-200 bg-orange-50/90 px-3 py-2.5 text-xs text-orange-950`}>
+                    <strong>Verv utløper snart:</strong>{' '}
+                    {expiringReps.map((m) => `${m.name} (${m.termUntil})`).join(' · ')}
+                  </div>
+                )}
+
+                {chairmanRotationNeeded && (
+                  <div className={`${R_FLAT} border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-950`}>
+                    <strong>Møteleder bør roteres</strong> (12 måneder). Vurder ny leder fra AG- eller AT-siden.
+                  </div>
+                )}
+
+                <section>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                    Nytt valg (arbeidstakerrepresentanter)
+                  </p>
+                  <form
+                    className="mt-3 space-y-3"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      if (!repElectionForm.title.trim()) return
+                      rep.createElection(
+                        repElectionForm.title,
+                        repElectionForm.description,
+                        repElectionForm.anonymous,
+                        repElectionForm.seats,
+                        repElectionForm.periodId || undefined,
+                      )
+                      setRepElectionForm((s) => ({ ...s, title: '', description: '' }))
+                    }}
+                  >
+                    <input
+                      value={repElectionForm.title}
+                      onChange={(e) => setRepElectionForm((s) => ({ ...s, title: e.target.value }))}
+                      placeholder="Tittel"
+                      className={`${R_FLAT} w-full border border-neutral-200 bg-white px-3 py-2 text-sm`}
+                      required
+                    />
+                    <textarea
+                      value={repElectionForm.description}
+                      onChange={(e) => setRepElectionForm((s) => ({ ...s, description: e.target.value }))}
+                      placeholder="Beskrivelse"
+                      rows={2}
+                      className={`${R_FLAT} w-full border border-neutral-200 bg-white px-3 py-2 text-sm`}
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={9}
+                        value={repElectionForm.seats}
+                        onChange={(e) =>
+                          setRepElectionForm((s) => ({ ...s, seats: Number(e.target.value) || 1 }))
+                        }
+                        className={`${R_FLAT} border border-neutral-200 bg-white px-2 py-2 text-sm`}
+                      />
+                      <select
+                        value={repElectionForm.periodId}
+                        onChange={(e) => setRepElectionForm((s) => ({ ...s, periodId: e.target.value }))}
+                        className={`${R_FLAT} border border-neutral-200 bg-white px-2 py-2 text-sm`}
+                      >
+                        <option value="">Periode …</option>
+                        {rep.periods.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-neutral-700">
+                      <input
+                        type="checkbox"
+                        checked={repElectionForm.anonymous}
+                        onChange={(e) => setRepElectionForm((s) => ({ ...s, anonymous: e.target.checked }))}
+                        className="size-4 rounded border-neutral-300"
+                      />
+                      Anonym stemmegivning
+                    </label>
+                    <button
+                      type="submit"
+                      className={`${R_FLAT} w-full bg-[#1a3d32] py-2.5 text-sm font-medium text-white hover:bg-[#142e26]`}
+                    >
+                      Opprett valg
+                    </button>
+                  </form>
+                </section>
+
+                <section className="border-t border-neutral-200/80 pt-5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                      Suppleringsvalg arbeidstakerrepresentant 2026
+                    </p>
+                    <span className="text-[10px] text-neutral-400">{repElectionSections.supplementary.length}</span>
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {repElectionSections.supplementary.map((el) => (
+                      <RepElectionCard
+                        key={el.id}
+                        election={el}
+                        candDraft={repCandInput[el.id] ?? ''}
+                        setCandDraft={(v) => setRepCandInput((s) => ({ ...s, [el.id]: v }))}
+                        onAddCandidate={() => {
+                          const name = (repCandInput[el.id] ?? '').trim()
+                          if (!name) return
+                          rep.addCandidate(el.id, name)
+                          setRepCandInput((s) => ({ ...s, [el.id]: '' }))
+                        }}
+                        onOpen={() => rep.openElection(el.id)}
+                        onVote={(cid) => rep.vote(el.id, cid)}
+                        onClose={() => rep.closeElectionAndSync(el.id)}
+                        compact
+                      />
+                    ))}
+                    {repElectionSections.supplementary.length === 0 ? (
+                      <p className="text-xs text-neutral-500">Ingen suppleringsvalg (matcher tittel «suppleringsvalg» eller «2026»).</p>
+                    ) : null}
+                  </div>
+                </section>
+
+                <section className="border-t border-neutral-200/80 pt-5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                      Valg arbeidstakerrepresentanter 2024
+                    </p>
+                    <span className="text-[10px] text-neutral-400">{repElectionSections.at2024.length}</span>
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {repElectionSections.at2024.map((el) => (
+                      <RepElectionCard
+                        key={el.id}
+                        election={el}
+                        candDraft={repCandInput[el.id] ?? ''}
+                        setCandDraft={(v) => setRepCandInput((s) => ({ ...s, [el.id]: v }))}
+                        onAddCandidate={() => {
+                          const name = (repCandInput[el.id] ?? '').trim()
+                          if (!name) return
+                          rep.addCandidate(el.id, name)
+                          setRepCandInput((s) => ({ ...s, [el.id]: '' }))
+                        }}
+                        onOpen={() => rep.openElection(el.id)}
+                        onVote={(cid) => rep.vote(el.id, cid)}
+                        onClose={() => rep.closeElectionAndSync(el.id)}
+                        compact
+                      />
+                    ))}
+                    {repElectionSections.at2024.length === 0 ? (
+                      <p className="text-xs text-neutral-500">Ingen valg med «2024» i tittelen.</p>
+                    ) : null}
+                  </div>
+                </section>
+
+                {repElectionSections.other.length > 0 && (
+                  <section className="border-t border-neutral-200/80 pt-5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Øvrige valg</p>
+                    <div className="mt-3 space-y-3">
+                      {repElectionSections.other.map((el) => (
+                        <RepElectionCard
+                          key={el.id}
+                          election={el}
+                          candDraft={repCandInput[el.id] ?? ''}
+                          setCandDraft={(v) => setRepCandInput((s) => ({ ...s, [el.id]: v }))}
+                          onAddCandidate={() => {
+                            const name = (repCandInput[el.id] ?? '').trim()
+                            if (!name) return
+                            rep.addCandidate(el.id, name)
+                            setRepCandInput((s) => ({ ...s, [el.id]: '' }))
+                          }}
+                          onOpen={() => rep.openElection(el.id)}
+                          onVote={(cid) => rep.vote(el.id, cid)}
+                          onClose={() => rep.closeElectionAndSync(el.id)}
+                          compact
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                <section className="border-t border-neutral-200/80 pt-5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Valgperioder</p>
+                  <form
+                    className="mt-3 flex flex-col gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      if (!periodForm.label.trim() || !periodForm.start || !periodForm.end) return
+                      rep.addPeriod(periodForm.label, periodForm.start, periodForm.end)
+                      setPeriodForm({ label: '', start: '', end: '' })
+                    }}
+                  >
+                    <input
+                      placeholder="Navn (f.eks. 2026–2028)"
+                      value={periodForm.label}
+                      onChange={(e) => setPeriodForm((s) => ({ ...s, label: e.target.value }))}
+                      className={`${R_FLAT} border border-neutral-200 bg-white px-3 py-2 text-sm`}
+                      required
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        type="date"
+                        value={periodForm.start}
+                        onChange={(e) => setPeriodForm((s) => ({ ...s, start: e.target.value }))}
+                        className={`${R_FLAT} min-w-0 flex-1 border border-neutral-200 bg-white px-2 py-2 text-sm`}
+                        required
+                      />
+                      <input
+                        type="date"
+                        value={periodForm.end}
+                        onChange={(e) => setPeriodForm((s) => ({ ...s, end: e.target.value }))}
+                        className={`${R_FLAT} min-w-0 flex-1 border border-neutral-200 bg-white px-2 py-2 text-sm`}
+                        required
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className={`${R_FLAT} bg-[#1a3d32] py-2 text-sm font-medium text-white hover:bg-[#142e26]`}
+                    >
+                      Legg til periode
+                    </button>
+                  </form>
+                  <ul className="mt-3 space-y-2 border-t border-neutral-200/60 pt-3">
+                    {rep.periods.map((p) => (
+                      <li
+                        key={p.id}
+                        className={`${R_FLAT} bg-white/80 px-3 py-2 text-xs text-neutral-700 ring-1 ring-neutral-200/80`}
+                      >
+                        <span className="font-semibold text-neutral-900">{p.label}</span>
+                        <span className="mt-1 block text-neutral-500">
+                          {p.startDate} — {p.endDate}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+
+                <section className="border-t border-neutral-200/80 pt-5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">AMU-valg (modul)</p>
+                  <form onSubmit={handleNewElection} className="mt-3 flex flex-col gap-2">
+                    <input
+                      value={newElectionTitle}
+                      onChange={(e) => setNewElectionTitle(e.target.value)}
+                      placeholder="Valg tittel"
+                      className={`${R_FLAT} border border-neutral-200 bg-white px-3 py-2 text-sm`}
+                    />
+                    <button
+                      type="submit"
+                      className={`${R_FLAT} inline-flex items-center justify-center gap-2 border border-neutral-800 bg-white py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50`}
+                    >
+                      <Plus className="size-4" />
+                      Opprett AMU-valg
+                    </button>
+                  </form>
+                  <div className="mt-4 space-y-4">
+                    {council.elections.map((el) => (
+                      <ElectionCard
+                        key={el.id}
+                        election={el}
+                        candidateDraft={candidateInputs[el.id] ?? ''}
+                        setCandidateDraft={(v) => setCandidateInputs((s) => ({ ...s, [el.id]: v }))}
+                        onAddCandidate={() => {
+                          const name = (candidateInputs[el.id] ?? '').trim()
+                          if (!name) return
+                          council.addCandidate(el.id, name)
+                          setCandidateInputs((s) => ({ ...s, [el.id]: '' }))
+                        }}
+                        onVote={(cid) => council.vote(el.id, cid)}
+                        onClose={() => council.closeElection(el.id)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              </div>
+            </aside>
           </div>
         </div>
       )}
-
 
       {tab === 'meetings' && (
         <div className="mt-8 space-y-8">
@@ -1932,6 +1999,41 @@ export function CouncilModule() {
           )}
         </div>
       )}
+
+      {tab === 'audit' && (
+        <div className="mt-8 space-y-6">
+          <div className={`${R_FLAT} border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950`}>
+            <strong>Revisjonslogg:</strong> Hendelser knyttet til representasjon og valg (demodata kan tilbakestilles).
+          </div>
+          <div className={`${R_FLAT} overflow-hidden border border-neutral-200/90 bg-white shadow-sm`}>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-3">
+              <h2 className="flex items-center gap-2 font-semibold text-neutral-900">
+                <History className="size-4" />
+                Representasjon og valg
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm('Tilbakestill medlemsdemodata?')) rep.resetDemo()
+                }}
+                className="text-xs text-neutral-500 hover:text-neutral-800 hover:underline"
+              >
+                Tilbakestill demo
+              </button>
+            </div>
+            <ul className="max-h-[min(70vh,640px)] divide-y divide-neutral-100 overflow-y-auto text-sm">
+              {sortedRepAudit.map((a) => (
+                <li key={a.id} className="px-4 py-3">
+                  <div className="text-xs text-neutral-500">
+                    {formatWhen(a.at)} · <span className="font-mono text-neutral-600">{a.action}</span>
+                  </div>
+                  <p className="mt-1 text-neutral-800">{a.message}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1946,6 +2048,7 @@ function RepElectionCard({
   onOpen,
   onVote,
   onClose,
+  compact = false,
 }: {
   election: RepElection
   candDraft: string
@@ -1954,32 +2057,42 @@ function RepElectionCard({
   onOpen: () => void
   onVote: (candidateId: string) => void
   onClose: () => void
+  compact?: boolean
 }) {
   const closed = election.status === 'closed'
   const open = election.status === 'open'
   const draft = election.status === 'draft'
   const sorted = [...election.candidates].sort((a, b) => b.voteCount - a.voteCount)
 
+  const wrap = compact
+    ? `${R_FLAT} border border-neutral-200/90 bg-white p-3 shadow-sm`
+    : 'rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm'
+  const btnRound = compact ? R_FLAT : 'rounded-full'
+
   return (
-    <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
+    <div className={wrap}>
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 className="font-semibold text-neutral-900">{election.title}</h3>
-          <p className="text-sm text-neutral-600">{election.description}</p>
-          <p className="mt-2 text-xs text-neutral-500">
+        <div className="min-w-0">
+          <h3 className={`font-semibold text-neutral-900 ${compact ? 'text-sm' : ''}`}>{election.title}</h3>
+          {election.description ? (
+            <p className={`text-neutral-600 ${compact ? 'mt-1 line-clamp-2 text-xs' : 'mt-1 text-sm'}`}>
+              {election.description}
+            </p>
+          ) : null}
+          <p className={`mt-2 text-neutral-500 ${compact ? 'text-[10px]' : 'text-xs'}`}>
             {election.anonymous ? 'Anonym stemmegivning' : 'Åpne navn'} · {election.seatsToFill} seter ·{' '}
-            {election.votesCastTotal} stemmer totalt
+            {election.votesCastTotal} stemmer
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex shrink-0 flex-wrap gap-1.5">
           {draft ? (
             <button
               type="button"
               onClick={onOpen}
               disabled={election.candidates.length === 0}
-              className="rounded-full bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
+              className={`${btnRound} bg-[#1a3d32] px-2.5 py-1 text-[10px] font-medium text-white disabled:opacity-40 sm:text-xs`}
             >
-              Åpne for stemmer
+              Åpne
             </button>
           ) : null}
           {open ? (
@@ -1987,13 +2100,13 @@ function RepElectionCard({
               type="button"
               onClick={onClose}
               disabled={election.candidates.length === 0}
-              className="rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium disabled:opacity-40"
+              className={`${btnRound} border border-neutral-300 bg-white px-2.5 py-1 text-[10px] font-medium disabled:opacity-40 sm:text-xs`}
             >
-              Avslutt og oppdater styre
+              Avslutt
             </button>
           ) : null}
           {closed ? (
-            <span className="rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700">
+            <span className={`${btnRound} bg-neutral-100 px-2.5 py-1 text-[10px] font-medium text-neutral-700`}>
               Avsluttet
             </span>
           ) : null}
@@ -2001,40 +2114,40 @@ function RepElectionCard({
       </div>
 
       {(draft || open) && (
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className={`flex flex-wrap gap-2 ${compact ? 'mt-2' : 'mt-4'}`}>
           <input
             value={candDraft}
             onChange={(e) => setCandDraft(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), onAddCandidate())}
             placeholder="Kandidatnavn"
-            className="min-w-[200px] flex-1 rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+            className={`min-w-0 flex-1 border border-neutral-200 px-2 py-1.5 text-xs sm:text-sm ${compact ? R_FLAT : 'rounded-xl'}`}
           />
           <button
             type="button"
             onClick={onAddCandidate}
-            className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium hover:bg-neutral-50"
+            className={`border border-neutral-200 px-3 py-1.5 text-xs font-medium hover:bg-neutral-50 sm:text-sm ${compact ? R_FLAT : 'rounded-xl'}`}
           >
             Legg til
           </button>
         </div>
       )}
 
-      <ul className="mt-4 space-y-2">
+      <ul className={`space-y-1.5 ${compact ? 'mt-2' : 'mt-4'}`}>
         {sorted.map((c) => {
           const letterIdx = repCandidateLetterIndex(election, c.id)
           const display = repCandidateDisplayName(election, letterIdx, c.name, closed)
           return (
             <li
               key={c.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#faf8f4] px-3 py-2 text-sm"
+              className={`flex flex-wrap items-center justify-between gap-2 bg-[#faf8f4] px-2 py-1.5 text-xs sm:text-sm ${compact ? R_FLAT : 'rounded-xl'}`}
             >
               <span className="font-medium text-neutral-900">{display}</span>
-              <span className="text-neutral-600">{c.voteCount} stemmer</span>
+              <span className="text-neutral-600">{c.voteCount}</span>
               {open ? (
                 <button
                   type="button"
                   onClick={() => onVote(c.id)}
-                  className="rounded-full bg-[#1a3d32] px-3 py-1 text-xs font-medium text-white hover:bg-[#142e26]"
+                  className={`${btnRound} bg-[#1a3d32] px-2 py-0.5 text-[10px] font-medium text-white hover:bg-[#142e26]`}
                 >
                   Stem
                 </button>
@@ -2044,8 +2157,8 @@ function RepElectionCard({
         })}
       </ul>
       {election.anonymous && open ? (
-        <p className="mt-3 text-xs text-neutral-500">
-          Stemmer vises aggregert; kandidater vises som Kandidat A, B, … til valget lukkes.
+        <p className={`text-neutral-500 ${compact ? 'mt-2 text-[10px]' : 'mt-3 text-xs'}`}>
+          Anonyme valg: kandidater som A, B, … til lukking.
         </p>
       ) : null}
     </div>
