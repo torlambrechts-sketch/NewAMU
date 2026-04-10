@@ -1,18 +1,28 @@
 import { useId, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  Archive,
+  BarChart3,
   Bell,
+  Briefcase,
   CalendarDays,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Download,
   Eye,
+  Filter,
+  LayoutGrid,
   LayoutTemplate,
+  List,
   Mail,
+  MessageSquare,
   MoreHorizontal,
   Pencil,
   Search,
   Settings,
+  Share2,
   Star,
   User,
   Users,
@@ -163,51 +173,6 @@ function DemoScoreBar({ value, max = 5 }: { value: number; max?: number }) {
   )
 }
 
-function ScorecardCandidateDemo({ name, score }: { name: string; score: number }) {
-  return (
-    <WhiteCard className="overflow-hidden p-0">
-      <div className="flex items-start justify-between border-b border-neutral-100 px-4 py-3">
-        <h3 className="text-base font-semibold text-neutral-900" style={{ fontFamily: SERIF }}>
-          {name}
-        </h3>
-        <div className="text-right">
-          <p className="text-[10px] font-medium uppercase tracking-wide text-neutral-500">Overall score</p>
-          <p className="text-2xl font-bold tabular-nums" style={{ color: FOREST }}>
-            {score}%
-          </p>
-        </div>
-      </div>
-      <Pill className="m-3" tone="tan">
-        Multi-part interview
-      </Pill>
-      <div className="border-t border-neutral-100">
-        <div
-          className="flex items-center justify-between px-4 py-2"
-          style={{ backgroundColor: 'rgba(245, 230, 211, 0.65)' }}
-        >
-          <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-700">Job skills</span>
-          <span className="flex items-center gap-2 text-xs text-neutral-600">
-            Feedback
-            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-900">3.7</span>
-          </span>
-        </div>
-        <div className="space-y-3 px-4 py-3">
-          {[
-            ['Previous experience', 4.0],
-            ['Prior seniority', 3.5],
-            ['Communication', 4.33],
-          ].map(([label, v]) => (
-            <div key={String(label)} className="flex items-center gap-3 text-sm">
-              <span className="w-36 shrink-0 text-neutral-600">{label}</span>
-              <DemoScoreBar value={v as number} />
-            </div>
-          ))}
-        </div>
-      </div>
-    </WhiteCard>
-  )
-}
-
 function TemplateLibraryBlock() {
   const tagGroups = [
     {
@@ -317,6 +282,235 @@ function TemplateLibraryBlock() {
   )
 }
 
+function PinpointTopUtilityBar() {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200/60 pb-3">
+      <p className="text-xs text-neutral-500">Jobs</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-neutral-700 shadow-sm"
+        >
+          Marketing <ChevronDown className="size-3 opacity-60" />
+        </button>
+        <button type="button" className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100" aria-label="Oppgaver">
+          <ClipboardList className="size-4" />
+        </button>
+        <button type="button" className="relative rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100" aria-label="Varsler">
+          <Bell className="size-4" />
+          <span className="absolute right-1 top-1 size-1.5 rounded-full bg-red-500" />
+        </button>
+        <div className="flex size-8 items-center justify-center rounded-full bg-neutral-800 text-[10px] font-bold text-white">EN</div>
+      </div>
+    </div>
+  )
+}
+
+function JobsListPinpointBlock() {
+  const [layout, setLayout] = useState<'grid' | 'list'>('grid')
+  const jobs = [
+    {
+      title: 'Customer Service Representative',
+      meta: 'New York · Product · Hooli',
+      code: '8301',
+      candidates: 10,
+      ratio: null as string | null,
+    },
+    {
+      title: 'Marketing Manager',
+      meta: 'London · Marketing · Hooli',
+      code: '8299',
+      candidates: 4,
+      ratio: '0/5',
+    },
+    {
+      title: 'Software Engineer (Internal)',
+      meta: 'Oslo · Engineering · Hooli',
+      code: '0006',
+      candidates: 17,
+      ratio: null,
+    },
+  ]
+
+  return (
+    <div className="space-y-4">
+      <PinpointTopUtilityBar />
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-1 py-2" style={{ backgroundColor: FOREST }}>
+        <div className="flex flex-wrap gap-1">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-md bg-[#FDFBF7] px-3 py-2 text-xs font-semibold text-neutral-900 shadow-sm"
+          >
+            <Briefcase className="size-3.5" />
+            Active
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold text-white/90 hover:bg-white/10"
+          >
+            <Archive className="size-3.5" />
+            Archived
+          </button>
+        </div>
+        <button
+          type="button"
+          className="rounded-md bg-white/15 px-3 py-2 text-xs font-bold uppercase tracking-wide text-white hover:bg-white/25"
+        >
+          + Create new job
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-4 rounded-lg border border-neutral-200/80 bg-white px-4 py-3 shadow-sm">
+        <p className="text-sm font-semibold text-neutral-900">
+          <span className="text-2xl font-bold tabular-nums">6</span>{' '}
+          <span className="font-medium text-neutral-600">Active Jobs</span>
+        </p>
+        <div className="relative min-w-[200px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+          <input
+            type="search"
+            placeholder="Search…"
+            className="w-full rounded-lg border border-neutral-200 py-2.5 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold uppercase text-neutral-700"
+          >
+            <Filter className="size-3.5" />
+            Filters
+          </button>
+          <button type="button" className="rounded-lg p-2 text-amber-600 hover:bg-amber-50" aria-label="Favoritter">
+            <Star className="size-5" />
+          </button>
+          <div className="flex rounded-lg border border-neutral-200 p-0.5">
+            <button
+              type="button"
+              onClick={() => setLayout('grid')}
+              className={`rounded-md p-2 ${layout === 'grid' ? 'bg-[#EFE8DC]' : 'text-neutral-500'}`}
+              aria-label="Rutenett"
+            >
+              <LayoutGrid className="size-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayout('list')}
+              className={`rounded-md p-2 ${layout === 'list' ? 'bg-[#EFE8DC]' : 'text-neutral-500'}`}
+              aria-label="Liste"
+            >
+              <List className="size-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className={layout === 'grid' ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3' : 'space-y-4'}>
+        {jobs.map((j) => (
+          <WhiteCard key={j.code} className="overflow-hidden p-0">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-4 py-4">
+              <div className="min-w-0">
+                <p className="text-base font-semibold text-neutral-900">{j.title}</p>
+                <p className="mt-1 text-sm text-neutral-500">{j.meta}</p>
+                <span className="mt-2 inline-block rounded-md bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-700">
+                  {j.code}
+                </span>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Star className="size-4 text-neutral-300" />
+                <Pill tone="green">Open</Pill>
+                <button type="button" className="text-neutral-400 hover:text-neutral-700" aria-label="Mer">
+                  <MoreHorizontal className="size-5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div>
+                <p className="text-xl font-bold tabular-nums text-neutral-900">{j.candidates}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Candidates</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+                <span className="rounded-full bg-red-100 px-1.5 py-0.5 font-medium text-red-800">2</span>
+                <Users className="size-4" />
+                <MessageSquare className="size-4" />
+                <Mail className="size-4" />
+                <span className="text-emerald-600">✓</span>
+                {j.ratio ?
+                  <span className="ml-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-800">
+                    {j.ratio}
+                  </span>
+                : null}
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-neutral-700"
+              >
+                View candidates <ChevronDown className="size-3.5" />
+              </button>
+            </div>
+          </WhiteCard>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ScorecardCandidatePinpointCard({ name, score }: { name: string; score: number }) {
+  const skills: [string, number | null][] = [
+    ['Previous experience', 4.0],
+    ['Previous organisational size', null],
+    ['Prior seniority', 3.75],
+    ['Relevancy of prior experience', 4.25],
+    ['Intellectually curious', 3.5],
+    ['Self motivated', 4.0],
+    ['Communication skills', 4.33],
+  ]
+  return (
+    <WhiteCard className="overflow-hidden p-0">
+      <div className="flex items-start gap-3 border-b border-neutral-100 px-4 py-3">
+        <input type="checkbox" className="mt-1 rounded border-neutral-300" aria-label={`Velg ${name}`} />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-neutral-900">{name}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-neutral-500">Overall score</p>
+          <p className="text-2xl font-bold tabular-nums" style={{ color: FOREST }}>
+            {score}%
+          </p>
+        </div>
+      </div>
+      <div className="px-4 py-2">
+        <span className="inline-flex rounded-md border border-sky-300 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-900">
+          Multi-part interview
+        </span>
+      </div>
+      <div className="border-t border-neutral-100" style={{ backgroundColor: 'rgba(245, 230, 211, 0.45)' }}>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-700">Job skills</span>
+          <span className="flex items-center gap-2 text-xs text-neutral-600">
+            Feedback
+            <span className="flex size-6 items-center justify-center rounded-full bg-sky-600 text-[10px] font-bold text-white">
+              3.7
+            </span>
+          </span>
+        </div>
+        <div className="space-y-2.5 px-4 pb-4 pt-1">
+          {skills.map(([label, v]) => (
+            <div key={label} className="flex items-center gap-2 text-sm">
+              <span className="w-44 shrink-0 text-xs text-neutral-600">{label}</span>
+              {v != null ?
+                <>
+                  <DemoScoreBar value={v} />
+                </>
+              : (
+                <div className="h-2 min-w-0 flex-1 rounded-full bg-neutral-200/80" />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </WhiteCard>
+  )
+}
+
 function JobScorecardPageBlock() {
   const [activeTab, setActiveTab] = useState('scorecards')
   const items: HubMenu1Item[] = useMemo(
@@ -325,25 +519,35 @@ function JobScorecardPageBlock() {
         { key: 'candidates', label: 'Candidates', icon: Users, active: activeTab === 'candidates', onClick: () => setActiveTab('candidates') },
         { key: 'positions', label: 'Positions', icon: LayoutTemplate, active: activeTab === 'positions', onClick: () => setActiveTab('positions') },
         { key: 'edit', label: 'Edit', icon: Pencil, active: activeTab === 'edit', onClick: () => setActiveTab('edit') },
+        { key: 'postings', label: 'Postings', icon: Mail, active: activeTab === 'postings', onClick: () => setActiveTab('postings') },
         { key: 'scorecards', label: 'Scorecards', icon: Star, active: activeTab === 'scorecards', onClick: () => setActiveTab('scorecards') },
         { key: 'interviews', label: 'Interviews', icon: CalendarDays, active: activeTab === 'interviews', onClick: () => setActiveTab('interviews') },
+        { key: 'insights', label: 'Insights', icon: BarChart3, active: activeTab === 'insights', onClick: () => setActiveTab('insights') },
+        { key: 'share', label: 'Share', icon: Share2, active: activeTab === 'share', onClick: () => setActiveTab('share') },
       ] satisfies HubMenu1Item[],
     [activeTab],
   )
 
   return (
     <div className="space-y-4">
+      <PinpointTopUtilityBar />
       <Breadcrumb items={['Jobs', 'Software Engineer (Internal)', 'Scorecard ratings']} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <SerifTitle className="text-2xl md:text-3xl">Software Engineer (Internal)</SerifTitle>
-          <p className="mt-1 text-sm text-neutral-500">London · Engineering</p>
+          <p className="mt-1 text-sm text-neutral-500">New York · Sales · Hooli · 0006</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Pill tone="orange">Internal</Pill>
           <Pill tone="green">Open</Pill>
-          <button type="button" className="rounded-md p-2 text-neutral-500 hover:bg-white/80">
-            <Pencil className="size-4" />
+          <button type="button" className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100" aria-label="Del">
+            <Share2 className="size-4" />
+          </button>
+          <button type="button" className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100" aria-label="Kommentarer">
+            <MessageSquare className="size-4" />
+          </button>
+          <button type="button" className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100" aria-label="Mer">
+            <MoreHorizontal className="size-4" />
           </button>
         </div>
       </div>
@@ -351,7 +555,7 @@ function JobScorecardPageBlock() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <SerifHeading className="text-xl">Scorecard ratings</SerifHeading>
-          <p className="mt-1 text-sm text-neutral-600">Compare candidates who have completed team scorecards.</p>
+          <p className="mt-1 text-sm text-neutral-600">Compare candidates who&apos;ve had scorecards rated by your team.</p>
         </div>
         <button
           type="button"
@@ -361,26 +565,219 @@ function JobScorecardPageBlock() {
           Export
         </button>
       </div>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+        <input
+          type="search"
+          placeholder="Search…"
+          className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
+        />
+      </div>
       <div
-        className="flex flex-wrap items-end gap-3 rounded-lg border border-neutral-200/80 p-4"
+        className="grid gap-4 rounded-lg border border-neutral-200/80 p-4 sm:grid-cols-2 lg:grid-cols-4"
         style={{ backgroundColor: CREAM_DEEP }}
       >
-        {['Workflow stage', 'Interview stage', 'Sort by'].map((lab) => (
-          <label key={lab} className="min-w-[160px] flex-1 text-[10px] font-bold uppercase tracking-wide text-neutral-600">
-            {lab}
-            <select className="mt-1.5 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm">
-              <option>Please select</option>
-            </select>
-          </label>
-        ))}
-        <label className="flex items-center gap-2 pb-1 text-sm text-neutral-700">
-          <input type="checkbox" className="rounded border-neutral-300" defaultChecked />
-          Show detail
+        <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
+          Candidate current stage
+          <select className="mt-1.5 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm">
+            <option>All stages</option>
+          </select>
         </label>
+        <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
+          Scorecards
+          <div className="mt-1.5 flex items-center gap-1">
+            <select className="min-w-0 flex-1 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm">
+              <option>1 item</option>
+            </select>
+            <button type="button" className="rounded-md border border-neutral-200 bg-white p-2 text-neutral-500 hover:bg-neutral-50" aria-label="Fjern">
+              ×
+            </button>
+          </div>
+        </label>
+        <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
+          Order by
+          <select className="mt-1.5 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm">
+            <option>Select option…</option>
+          </select>
+        </label>
+        <div className="flex items-end gap-3 pb-0.5">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">Show detail</span>
+          <label className="relative inline-flex cursor-pointer items-center">
+            <input type="checkbox" className="peer sr-only" defaultChecked />
+            <span className="h-6 w-11 rounded-full bg-neutral-300 peer-checked:bg-[#1a3d32] after:absolute after:left-0.5 after:top-0.5 after:size-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5" />
+          </label>
+        </div>
       </div>
-      <div className="grid gap-6 md:grid-cols-2">
-        <ScorecardCandidateDemo name="Alonso Muller" score={73} />
-        <ScorecardCandidateDemo name="Priya Nair" score={81} />
+      <div className="grid gap-6 lg:grid-cols-3">
+        <ScorecardCandidatePinpointCard name="Alonzo Muller" score={73} />
+        <ScorecardCandidatePinpointCard name="Priya Nair" score={81} />
+        <ScorecardCandidatePinpointCard name="Tom Hacquoil" score={69} />
+      </div>
+    </div>
+  )
+}
+
+function SurveyInsights7070Block() {
+  const comments = [
+    { name: 'Noreen Keeling — Software Engineer (Internal)', when: '7 months ago', body: 'Great process and clear communication throughout. The team was welcoming and the technical discussion felt fair.' },
+    { name: 'Rafael', when: '16 days ago', body: 'Overall positive experience. Would appreciate slightly faster feedback between stages.' },
+    { name: 'Eduardo', when: '22 days ago', body: 'Professional interviewers and well-structured scorecard. Room to improve scheduling flexibility.' },
+  ]
+  return (
+    <div className="space-y-4">
+      <PinpointTopUtilityBar />
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)] lg:items-start">
+        <div className="min-w-0 space-y-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <BarChart3 className="mt-1 size-6 text-neutral-600" />
+              <div>
+                <p className="text-xs text-neutral-500">Candidate surveys</p>
+                <SerifTitle className="text-2xl md:text-3xl">Candidate survey insights</SerifTitle>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-600 hover:text-neutral-900"
+              >
+                <Filter className="size-3.5" />
+                Show filters
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-600 hover:text-neutral-900"
+              >
+                <Download className="size-3.5" />
+                Export
+              </button>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-lg border border-neutral-200/80 px-5 py-4" style={{ backgroundColor: CREAM_DEEP }}>
+              <p className="text-3xl font-bold tabular-nums text-neutral-900">100%</p>
+              <p className="mt-1 text-sm text-neutral-700">Candidate survey response rate</p>
+            </div>
+            <div className="rounded-lg border border-neutral-200/80 px-5 py-4" style={{ backgroundColor: CREAM_DEEP }}>
+              <p className="text-3xl font-bold tabular-nums text-neutral-900">24</p>
+              <p className="mt-1 text-sm text-neutral-700">Total number of responses</p>
+            </div>
+          </div>
+          <WhiteCard className="p-5">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Candidate experience score</p>
+            <p className="mt-1 text-sm text-neutral-600">Net Promoter-style breakdown of promoter, passive, and detractor responses.</p>
+            <div className="mt-6 flex flex-col items-center gap-6 lg:flex-row lg:justify-between">
+              <div
+                className="grid size-44 shrink-0 place-items-center rounded-full"
+                style={{
+                  background: `conic-gradient(${FOREST} 0% 54%, #86efac 54% 100%)`,
+                }}
+              >
+                <div className="flex size-24 flex-col items-center justify-center rounded-full bg-white text-center shadow-inner">
+                  <p className="text-2xl font-bold text-neutral-900">+54</p>
+                  <p className="text-[10px] text-neutral-500">NPS</p>
+                </div>
+              </div>
+              <div className="min-w-0 flex-1 space-y-3">
+                <div className="h-3 w-full overflow-hidden rounded-full bg-neutral-100">
+                  <div className="flex h-full w-full">
+                    <div className="bg-red-400" style={{ width: '0%' }} />
+                    <div className="bg-amber-400" style={{ width: '46%' }} />
+                    <div className="bg-emerald-600" style={{ width: '54%' }} />
+                  </div>
+                </div>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex justify-between">
+                    <span className="flex items-center gap-2 text-neutral-600">
+                      <span className="size-2 rounded-full bg-red-500" />
+                      Detractor (0–6)
+                    </span>
+                    <span className="font-medium tabular-nums">0%</span>
+                  </li>
+                  <li className="flex justify-between">
+                    <span className="flex items-center gap-2 text-neutral-600">
+                      <span className="size-2 rounded-full bg-amber-400" />
+                      Passive (7–8)
+                    </span>
+                    <span className="font-medium tabular-nums">46%</span>
+                  </li>
+                  <li className="flex justify-between">
+                    <span className="flex items-center gap-2 text-neutral-600">
+                      <span className="size-2 rounded-full bg-emerald-600" />
+                      Promoter (9–10)
+                    </span>
+                    <span className="font-medium tabular-nums">54%</span>
+                  </li>
+                </ul>
+                <p className="text-right text-[10px] text-neutral-400">Based on the NPS scoring methodology.</p>
+              </div>
+            </div>
+          </WhiteCard>
+          <WhiteCard className="p-5">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Candidate experience score over time</p>
+            <p className="mt-1 text-sm text-neutral-600">Trend line for average scores across survey waves.</p>
+            <div className="mt-6 h-48 rounded-md border border-dashed border-neutral-200 bg-neutral-50/80">
+              <svg viewBox="0 0 400 120" className="size-full text-[#1a3d32]" aria-hidden>
+                <line x1="40" y1="10" x2="40" y2="100" stroke="#e5e5e5" strokeWidth="1" />
+                <line x1="40" y1="100" x2="380" y2="100" stroke="#e5e5e5" strokeWidth="1" />
+                {[0, 25, 50, 75, 100].map((y, i) => (
+                  <g key={y}>
+                    <line x1="40" y1={20 + i * 20} x2="380" y2={20 + i * 20} stroke="#f5f5f5" strokeWidth="1" />
+                    <text x="8" y={24 + i * 20} className="fill-neutral-400 text-[8px]">
+                      {100 - y}
+                    </text>
+                  </g>
+                ))}
+                <polyline
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  points="50,75 100,60 150,55 200,40 250,35 300,45 350,30"
+                />
+              </svg>
+            </div>
+          </WhiteCard>
+        </div>
+        <aside className="min-w-0 space-y-3">
+          <WhiteCard className="overflow-hidden p-0">
+            <div className="border-b border-neutral-100 px-4 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Survey responses</p>
+            </div>
+            <ul className="max-h-[min(70vh,520px)] divide-y divide-neutral-100 overflow-y-auto">
+              {comments.map((c) => (
+                <li key={c.name} className="px-4 py-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm font-semibold text-neutral-900">7 / 10</span>
+                    <button type="button" className="text-xs font-medium text-sky-700 hover:underline">
+                      View full response
+                    </button>
+                  </div>
+                  <p className="mt-2 text-[10px] font-bold uppercase text-neutral-400">Comment</p>
+                  <p className="mt-1 text-sm leading-relaxed text-neutral-600">{c.body}</p>
+                  <div className="mt-3 rounded-md bg-neutral-50 px-3 py-2 text-xs">
+                    <p className="font-medium text-neutral-800">{c.name}</p>
+                    <p className="text-neutral-500">{c.when}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="flex items-center justify-center gap-2 border-t border-neutral-100 py-3">
+              <button type="button" className="rounded p-1 text-neutral-400 hover:bg-neutral-100">
+                <ChevronLeft className="size-4" />
+              </button>
+              <span className="flex size-8 items-center justify-center rounded-full bg-[#1a3d32] text-xs font-bold text-white">1</span>
+              <button type="button" className="text-sm text-neutral-600">
+                2
+              </button>
+              <button type="button" className="text-sm text-neutral-600">
+                3
+              </button>
+              <button type="button" className="rounded p-1 text-neutral-400 hover:bg-neutral-100">
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
+          </WhiteCard>
+        </aside>
       </div>
     </div>
   )
@@ -928,7 +1325,17 @@ function SimpleDashboardBlock() {
 
 const SECTIONS = [
   { id: 'library', label: 'Malbibliotek', desc: 'Filter sidebar + 4-kolonne kort (referanse: Template Library).' },
-  { id: 'scorecard', label: 'Scorecard', desc: 'Brødsmuler, serif-tittel, grønn fanebar, filterstripe, to kandidatkort.' },
+  { id: 'jobs', label: 'Stillinger (Jobs)', desc: 'Topp-linje, mørk fanebar Active/Archived, søk, jobbkort med kandidatlinje (uten venstremeny).' },
+  {
+    id: 'scorecard',
+    label: 'Scorecard (detalj)',
+    desc: 'Breadcrumb, meta, flere faner, søk, filterrad (stage/scorecards/order/show detail), 3 kolonner kandidatkort med job skills-rader.',
+  },
+  {
+    id: 'survey7070',
+    label: 'Survey insights 70/30',
+    desc: 'Overskrift + filter/export, to KPI-kort, NPS-donut, trendgraf, høyre kolonne med svar og paginering.',
+  },
   { id: 'detail', label: 'Kandidatdetalj', desc: 'Beige seksjonsnavigasjon (~22 %) + hvit hovedflate med detaljrader.' },
   { id: 'list', label: 'Kandidatliste', desc: 'Tall-faner, søk og tabell med merker og stjerner.' },
   { id: 'dash', label: 'Dashboard 70/30', desc: 'Velkomst, KPI-kort, stillinger, smultring — med intervjuer og varsler til høyre.' },
@@ -1009,7 +1416,9 @@ export function PlatformPinpointLayoutsPage() {
 
           <div className="rounded-xl border border-white/10 p-4 shadow-lg md:p-6" style={shellStyle()}>
             {section === 'library' ? <TemplateLibraryBlock /> : null}
+            {section === 'jobs' ? <JobsListPinpointBlock /> : null}
             {section === 'scorecard' ? <JobScorecardPageBlock /> : null}
+            {section === 'survey7070' ? <SurveyInsights7070Block /> : null}
             {section === 'detail' ? <CandidateDetailBlock /> : null}
             {section === 'list' ? <CandidatesListBlock /> : null}
             {section === 'dash' ? <DashboardMainRightBlock /> : null}
