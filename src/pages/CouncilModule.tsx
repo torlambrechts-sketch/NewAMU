@@ -67,6 +67,16 @@ const MEETING_PANEL_SURFACE = 'bg-[#f7f6f2]'
 const MENU1_ICON_ONLY_TAB =
   '!h-8 !w-8 !min-h-0 !min-w-0 !max-h-8 !max-w-8 !flex-none shrink-0 !justify-center !gap-0 !p-0'
 
+/** Arbeidsmiljøråd: én typografisk skala (sans-serif), 3:2 hoved / sidekolonne */
+const COUNCIL_MAIN_SIDE_GRID = 'grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]'
+const COUNCIL_PAGE_TITLE = 'text-2xl font-semibold text-neutral-900 md:text-3xl'
+const COUNCIL_SECTION_HEADING = 'text-base font-semibold text-neutral-900'
+const COUNCIL_SUBHEADING = 'text-sm font-semibold text-neutral-900'
+const COUNCIL_OVERLINE = 'text-[10px] font-bold uppercase tracking-wider text-neutral-500'
+const COUNCIL_BODY = 'text-sm leading-relaxed text-neutral-600'
+const COUNCIL_BODY_MUTED = 'text-sm text-neutral-500'
+const COUNCIL_SMALL = 'text-xs text-neutral-500'
+
 const CAL_WEEKDAYS_NB = ['ma', 'ti', 'on', 'to', 'fr', 'lø', 'sø'] as const
 
 function startOfCalendarMonth(d: Date) {
@@ -99,6 +109,16 @@ function useBodyScrollLock(active: boolean) {
       document.body.style.overflow = prev
     }
   }, [active])
+}
+
+/** Valg-seksjoner i sidekolonne — samme topplinje som Styre-kolonner */
+function CouncilElectionSectionHeader({ title, count }: { title: string; count: number }) {
+  return (
+    <div className="flex min-h-[2.75rem] items-end justify-between gap-2 border-b border-neutral-200 pb-2">
+      <h3 className={COUNCIL_SUBHEADING}>{title}</h3>
+      <span className={`shrink-0 ${COUNCIL_OVERLINE} text-neutral-400 tabular-nums`}>{count}</span>
+    </div>
+  )
 }
 
 const tabs = [
@@ -214,18 +234,6 @@ function partitionRepresentativeElections(elections: RepElection[]) {
     (e) => !suppIds.has(e.id) && !at24Ids.has(e.id) && !at27Ids.has(e.id),
   )
   return { supplementary, at2024, at2027, other }
-}
-
-/** Valg-seksjoner i sidekolonne — samme topplinje som Styre-kolonner */
-function CouncilElectionSectionHeader({ title, count }: { title: string; count: number }) {
-  return (
-    <div className="flex min-h-[2.75rem] items-end justify-between gap-2 border-b border-neutral-200 pb-2">
-      <h3 className="text-base font-semibold text-neutral-900">{title}</h3>
-      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-neutral-400 tabular-nums">
-        {count}
-      </span>
-    </div>
-  )
 }
 
 export function CouncilModule() {
@@ -741,14 +749,9 @@ export function CouncilModule() {
 
       <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
         <div className="min-w-0 flex-1">
-          <h1
-            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
-            Arbeidsmiljøråd
-          </h1>
+          <h1 className={COUNCIL_PAGE_TITLE}>Arbeidsmiljøråd</h1>
           <p className="mt-1 text-sm font-medium text-[#1a3d32]/90">{tabBlurbs[tab].kicker}</p>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-600">
+          <p className={`mt-3 max-w-2xl ${COUNCIL_BODY}`}>
             Styre, valg, årshjul med {MEETINGS_PER_YEAR} ordinære møter per år, agenda, forberedelse og revisjonslogg.{' '}
             {tabBlurbs[tab].description} Verktøyet erstatter ikke juridisk rådgivning.
           </p>
@@ -844,10 +847,10 @@ export function CouncilModule() {
 
           <section>
             <div className="mb-4 flex flex-wrap items-center gap-2">
-              <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Rådsinnsikt</h2>
+              <h2 className={COUNCIL_OVERLINE}>Rådsinnsikt</h2>
             </div>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-              <div className="space-y-4 lg:col-span-9">
+            <div className={COUNCIL_MAIN_SIDE_GRID}>
+              <div className="min-w-0 space-y-4">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <ModuleDonutCard
                     title="Valg"
@@ -879,7 +882,7 @@ export function CouncilModule() {
                   />
                 </div>
 
-                <p className="text-sm text-neutral-600">
+                <p className={COUNCIL_BODY}>
                   Registrerte ordinære møter i {wheelYear}: <strong>{meetingsThisYear}</strong> / {MEETINGS_PER_YEAR}{' '}
                   (justér år under «Møter»).
                 </p>
@@ -889,15 +892,13 @@ export function CouncilModule() {
                     style={{ width: `${complianceProgress.pct}%` }}
                   />
                 </div>
-                <p className="text-xs text-neutral-500">
+                <p className={COUNCIL_SMALL}>
                   {complianceProgress.done} av {complianceProgress.total} punkter i samsvarssjekken er markert som
                   oppfylt.
                 </p>
 
                 <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                    Lovpålagte terskler (AML 2024)
-                  </p>
+                  <p className={COUNCIL_OVERLINE}>Lovpålagte terskler (AML 2024)</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <span className={`${R_FLAT} bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600`}>
                       {ct.totalEmployeeCount} ansatte
@@ -947,7 +948,7 @@ export function CouncilModule() {
 
                 <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-neutral-800">AMU-sammensetting</span>
+                    <span className={`${COUNCIL_SUBHEADING} text-neutral-800`}>AMU-sammensetting</span>
                     {rep.validation.ok ? (
                       <span
                         className={`${R_FLAT} inline-flex items-center gap-1.5 bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-900`}
@@ -964,19 +965,19 @@ export function CouncilModule() {
                       </span>
                     )}
                   </div>
-                  <p className="mt-2 text-xs text-neutral-500">
+                  <p className={`mt-2 ${COUNCIL_SMALL}`}>
                     {rep.validation.empCount} AT · {rep.validation.leadCount} AG · Mål: {rep.validation.seatsPerSide}{' '}
                     per side
                   </p>
                 </div>
               </div>
 
-              <div className="lg:col-span-3">
+              <div className="min-w-0">
                 <div
                   className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}
                   style={{ boxShadow: '0 1px 0 rgba(0,0,0,0.04)' }}
                 >
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Møter</p>
+                  <p className={COUNCIL_OVERLINE}>Møter</p>
                   {meetingsThisWeekCount > 0 ? (
                     <div className="mt-3 border border-orange-200/90 bg-orange-50/90 px-3 py-2.5 text-sm text-orange-950">
                       <span className="font-semibold text-orange-900">{meetingsThisWeekCount}</span>{' '}
@@ -1095,10 +1096,10 @@ export function CouncilModule() {
 
       {tab === 'board' && (
         <div className="mt-8 space-y-10">
-          <div className="grid gap-8 lg:grid-cols-12 lg:items-stretch">
-            <div className="flex min-h-0 flex-col lg:col-span-9">
+          <div className={`${COUNCIL_MAIN_SIDE_GRID} lg:items-stretch`}>
+            <div className="flex min-h-0 flex-col">
               <div className="mb-6 flex flex-wrap items-center gap-3">
-                <h2 className="text-xl font-semibold text-neutral-900">AMU og sammensetting</h2>
+                <h2 className={COUNCIL_SECTION_HEADING}>AMU og sammensetting</h2>
                 {rep.validation.ok ? (
                   <span
                     className={`${R_FLAT} inline-flex items-center gap-2 bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-900`}
@@ -1118,7 +1119,7 @@ export function CouncilModule() {
 
               <section className={`${R_FLAT} flex min-h-0 flex-1 flex-col space-y-8 border border-neutral-200/90 bg-white p-5 shadow-sm`}>
                 <div>
-                  <h3 className="font-semibold text-neutral-900">Innstillinger for sammensetting</h3>
+                  <h3 className={COUNCIL_SUBHEADING}>Innstillinger for sammensetting</h3>
                   <div className="mt-4 flex flex-wrap gap-6">
                     <label className="text-sm">
                       Seter per side (50/50)
@@ -1201,22 +1202,17 @@ export function CouncilModule() {
                 <div className="border-t border-neutral-200 pt-8">
                   <div className="grid gap-x-6 gap-y-3 lg:grid-cols-2">
                     <div className="flex flex-wrap items-end justify-between gap-2 lg:col-span-2">
-                      <h3
-                        className="text-lg font-semibold text-neutral-900 md:text-xl"
-                        style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-                      >
-                        Styre
-                      </h3>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                      <h3 className={COUNCIL_SECTION_HEADING}>Styre</h3>
+                      <span className={`${COUNCIL_OVERLINE} text-neutral-400`}>
                         Koblet til AMU-linje · rediger nedenfor
                       </span>
                     </div>
-                    <p className="text-sm text-neutral-600 lg:col-span-2">
+                    <p className={`${COUNCIL_BODY} lg:col-span-2`}>
                       Styregister (etter AMU-valg) vises øverst i hvert medlemskort når navnet samsvarer med en
                       representant. Juster funksjon, periode og verneombud i samme kort.
                     </p>
                     <div className="flex min-h-[2.75rem] items-center justify-between gap-2 border-b border-neutral-200 pb-2">
-                      <h4 className="text-base font-semibold text-neutral-900">Arbeidstakere (valgt)</h4>
+                      <h4 className={COUNCIL_SUBHEADING}>Arbeidstakere (valgt)</h4>
                       <button
                         type="button"
                         onClick={() => rep.addEmployeePlaceholder()}
@@ -1226,7 +1222,7 @@ export function CouncilModule() {
                       </button>
                     </div>
                     <div className="flex min-h-[2.75rem] items-center justify-between gap-2 border-b border-neutral-200 pb-2">
-                      <h4 className="text-base font-semibold text-neutral-900">Arbeidsgiver (oppnevnt)</h4>
+                      <h4 className={COUNCIL_SUBHEADING}>Arbeidsgiver (oppnevnt)</h4>
                       <button
                         type="button"
                         onClick={() => rep.addLeadershipPlaceholder()}
@@ -1256,7 +1252,7 @@ export function CouncilModule() {
                   </div>
                   {boardMembersWithoutRepMatch.length > 0 ? (
                     <div className="mt-6 border-t border-neutral-100 pt-6">
-                      <h4 className="text-sm font-semibold text-neutral-900">Kun i styre-register</h4>
+                      <h4 className={COUNCIL_SUBHEADING}>Kun i styre-register</h4>
                       <p className="mt-1 text-xs text-neutral-500">
                         Disse er registrert etter AMU-valg, men matcher ingen representantlinje (navn må samsvare for
                         kobling).
@@ -1303,10 +1299,10 @@ export function CouncilModule() {
 
             {/* Valg — ca. 1/3, sidebar-stil (stretch med hovedkolonne) */}
             <aside
-              className={`${R_FLAT} flex min-h-0 flex-col border border-neutral-200/90 bg-[#faf8f4]/80 lg:col-span-3`}
+              className={`${R_FLAT} flex min-h-0 flex-col border border-neutral-200/90 bg-[#faf8f4]/80`}
             >
               <div className="shrink-0 border-b border-neutral-200/80 bg-white px-4 py-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Valg</p>
+                <p className={COUNCIL_OVERLINE}>Valg</p>
                 <p className="mt-1 text-xs text-neutral-500">Arbeidstakerrepresentanter og AMU-valg</p>
               </div>
               <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-5">
@@ -1324,9 +1320,7 @@ export function CouncilModule() {
                 )}
 
                 <section>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                    Nytt valg (arbeidstakerrepresentanter)
-                  </p>
+                  <p className={COUNCIL_OVERLINE}>Nytt valg (arbeidstakerrepresentanter)</p>
                   <form
                     className="mt-3 space-y-3"
                     onSubmit={(e) => {
@@ -1511,7 +1505,7 @@ export function CouncilModule() {
                 )}
 
                 <section className="border-t border-neutral-200/80 pt-5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Valgperioder</p>
+                  <p className={COUNCIL_OVERLINE}>Valgperioder</p>
                   <form
                     className="mt-3 flex flex-col gap-2"
                     onSubmit={(e) => {
@@ -1567,7 +1561,7 @@ export function CouncilModule() {
                 </section>
 
                 <section className="border-t border-neutral-200/80 pt-5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">AMU-valg (modul)</p>
+                  <p className={COUNCIL_OVERLINE}>AMU-valg (modul)</p>
                   <form onSubmit={handleNewElection} className="mt-3 flex flex-col gap-2">
                     <input
                       value={newElectionTitle}
@@ -1644,10 +1638,10 @@ export function CouncilModule() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
-            <div className="min-w-0 space-y-6 lg:col-span-9">
+          <div className={`${COUNCIL_MAIN_SIDE_GRID} lg:items-start`}>
+            <div className="min-w-0 space-y-6">
               <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                <p className={COUNCIL_OVERLINE}>
                   Auto-injisert agendagrunnlag — siden siste møte
                   {lastMeetingDate ? (
                     <span className="ml-1 font-normal text-neutral-400">
@@ -1702,45 +1696,46 @@ export function CouncilModule() {
                 )}
               </div>
 
-              <div
-                className={`${R_FLAT} flex flex-wrap items-end justify-between gap-4 border border-neutral-200/90 bg-white p-4 shadow-sm`}
-              >
-                <label className="text-sm text-neutral-600">
-                  År for årshjul
-                  <input
-                    type="number"
-                    value={wheelYear}
-                    onChange={(e) => setWheelYear(Number(e.target.value) || new Date().getFullYear())}
-                    className={`${R_FLAT} ml-2 w-24 border border-neutral-200 px-2 py-1 text-sm`}
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setNewMeetingOpen(true)}
-                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
-                >
-                  <Plus className="size-4 shrink-0" aria-hidden />
-                  Nytt møte
-                </button>
-              </div>
-
               <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}>
-                <p className="mb-4 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Årshjul</p>
-                <GovernanceWheel
-                  year={wheelYear}
-                  meetings={council.meetings}
-                  onQuarterClick={(q) => {
-                    setMeetingForm((s) => ({ ...s, quarterSlot: q }))
-                    setNewMeetingOpen(true)
-                  }}
-                />
+                <div className="flex flex-wrap items-end justify-between gap-4 border-b border-neutral-100 pb-4">
+                  <div>
+                    <p className={COUNCIL_OVERLINE}>Årshjul</p>
+                    <label className={`mt-2 block ${COUNCIL_BODY}`}>
+                      År for årshjul
+                      <input
+                        type="number"
+                        value={wheelYear}
+                        onChange={(e) => setWheelYear(Number(e.target.value) || new Date().getFullYear())}
+                        className={`${R_FLAT} ml-2 w-24 border border-neutral-200 px-2 py-1 text-sm`}
+                      />
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNewMeetingOpen(true)}
+                    className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                  >
+                    <Plus className="size-4 shrink-0" aria-hidden />
+                    Nytt møte
+                  </button>
+                </div>
+                <div className="pt-5">
+                  <GovernanceWheel
+                    year={wheelYear}
+                    meetings={council.meetings}
+                    onQuarterClick={(q) => {
+                      setMeetingForm((s) => ({ ...s, quarterSlot: q }))
+                      setNewMeetingOpen(true)
+                    }}
+                  />
+                </div>
               </div>
             </div>
 
-            <aside className={`${R_FLAT} border border-neutral-200/90 bg-[#faf8f4]/80 lg:col-span-3`}>
+            <aside className={`${R_FLAT} border border-neutral-200/90 bg-[#faf8f4]/80`}>
               <div className="border-b border-neutral-200/80 bg-white px-4 py-3">
-                <h2 className="font-semibold text-neutral-900">Alle møter</h2>
-                <p className="mt-1 text-xs text-neutral-500">Klikk en rad for å åpne i sidevinduet.</p>
+                <h2 className={COUNCIL_SUBHEADING}>Alle møter</h2>
+                <p className={`mt-1 ${COUNCIL_SMALL}`}>Klikk en rad for å åpne i sidevinduet.</p>
                 <label className={`${SETTINGS_FIELD_LABEL} mt-3 block`} htmlFor="meetings-year-filter">
                   År
                 </label>
@@ -1778,7 +1773,7 @@ export function CouncilModule() {
                 ) : (
                   <table className="w-full min-w-[280px] border-collapse text-left text-sm">
                     <thead>
-                      <tr className="border-b border-neutral-200 bg-white text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+                      <tr className={`border-b border-neutral-200 bg-white ${COUNCIL_OVERLINE}`}>
                         <th className="px-3 py-2">Møte</th>
                         <th className="px-3 py-2">Tid</th>
                         <th className="px-3 py-2">År</th>
@@ -1803,7 +1798,7 @@ export function CouncilModule() {
                             }}
                           >
                             <td className="px-3 py-2 align-top text-xs font-medium text-[#1a3d32]">{m.title}</td>
-                            <td className="px-3 py-2 align-top text-[11px] text-neutral-600">
+                            <td className={`px-3 py-2 align-top ${COUNCIL_SMALL}`}>
                               {formatWhen(m.startsAt)}
                             </td>
                             <td className="px-3 py-2 align-top text-xs text-neutral-600 tabular-nums">
@@ -1852,8 +1847,7 @@ export function CouncilModule() {
                 <header className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 px-6 py-5 sm:px-8 sm:py-6">
                   <h2
                     id="council-meeting-panel-title"
-                    className="max-w-[min(100%,28rem)] text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl"
-                    style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+                    className="max-w-[min(100%,28rem)] text-xl font-semibold tracking-tight text-neutral-900 sm:text-2xl"
                   >
                     {newMeetingOpen ? 'Nytt møte' : selectedMeeting?.title ?? 'Møte'}
                   </h2>
@@ -1878,7 +1872,7 @@ export function CouncilModule() {
                     <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-8">
                       <div className={TASK_PANEL_ROW_GRID}>
                         <div>
-                          <h3 className="text-base font-semibold text-neutral-900">Grunnlag</h3>
+                          <h3 className={COUNCIL_SUBHEADING}>Grunnlag</h3>
                           <p className={`${SETTINGS_LEAD} mt-2`}>
                             Knytt møtet til kvartal i årshjulet. Du kan laste inn foreslått agenda automatisk eller lime
                             inn egen tekst.
@@ -1920,7 +1914,7 @@ export function CouncilModule() {
                       <div className="my-8 border-t border-neutral-200/90" />
                       <div className={TASK_PANEL_ROW_GRID}>
                         <div>
-                          <h3 className="text-base font-semibold text-neutral-900">Årshjul og agenda</h3>
+                          <h3 className={COUNCIL_SUBHEADING}>Årshjul og agenda</h3>
                           <p className={`${SETTINGS_LEAD} mt-2`}>
                             Kalenderår og kvartal styrer plassering i årshjulet. Valgfritt forslag til agendapunkter fra
                             modulene.
@@ -2068,7 +2062,7 @@ export function CouncilModule() {
 
           <section>
             <div className="mb-4 flex flex-wrap items-center gap-2">
-              <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Rådsinnsikt</h2>
+              <h2 className={COUNCIL_OVERLINE}>Rådsinnsikt</h2>
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <ModuleDonutCard
@@ -2105,20 +2099,15 @@ export function CouncilModule() {
           {/* ── Del 1: Sjekkliste og krav ───────────────────────────────────── */}
           <section className="space-y-5">
             <div>
-              <h2
-                className="text-xl font-semibold text-neutral-900 md:text-2xl"
-                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-              >
-                Sjekkliste og krav
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm text-neutral-600">
+              <h2 className={COUNCIL_SECTION_HEADING}>Sjekkliste og krav</h2>
+              <p className={`mt-2 max-w-2xl ${COUNCIL_BODY}`}>
                 Strukturert samsvarssjekk med lovhenvisninger, notater og oppgavekobling. Legg til egne punkter etter
                 behov.
               </p>
             </div>
 
             <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}>
-              <h3 className="text-sm font-semibold text-neutral-900">Egne punkter</h3>
+              <h3 className={COUNCIL_SUBHEADING}>Egne punkter</h3>
               <form
                 onSubmit={(e) => {
                   e.preventDefault()
@@ -2158,7 +2147,7 @@ export function CouncilModule() {
 
             <div className={`${R_FLAT} overflow-hidden border border-neutral-200/90 bg-white shadow-sm`}>
               <div className="border-b border-neutral-200 bg-neutral-50 px-4 py-3">
-                <h3 className="font-semibold text-neutral-900">Krav og oppgaver</h3>
+                <h3 className={COUNCIL_SUBHEADING}>Krav og oppgaver</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[640px] border-collapse text-left text-sm">
@@ -2232,13 +2221,8 @@ export function CouncilModule() {
           {/* ── Del 2: Vedtaksregister ──────────────────────────────────────── */}
           <section className="space-y-5 border-t border-neutral-200 pt-10">
             <div>
-              <h2
-                className="text-xl font-semibold text-neutral-900 md:text-2xl"
-                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-              >
-                Vedtaksregister
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm text-neutral-600">
+              <h2 className={COUNCIL_SECTION_HEADING}>Vedtaksregister</h2>
+              <p className={`mt-2 max-w-2xl ${COUNCIL_BODY}`}>
                 Alle formelle vedtak på tvers av AMU-møter. Søk og åpne en rad for full tekst.
               </p>
             </div>
@@ -2255,8 +2239,8 @@ export function CouncilModule() {
 
             <div className={`${R_FLAT} overflow-hidden border border-neutral-200/90 bg-white shadow-sm`}>
               <div className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-4 py-3">
-                <h3 className="font-semibold text-neutral-900">Alle vedtak</h3>
-                <span className="text-xs text-neutral-500">{council.allDecisions.length} totalt</span>
+                <h3 className={COUNCIL_SUBHEADING}>Alle vedtak</h3>
+                <span className={COUNCIL_SMALL}>{council.allDecisions.length} totalt</span>
               </div>
               {council.allDecisions.length === 0 ? (
                 <p className="px-4 py-8 text-center text-sm text-neutral-500">
@@ -2329,7 +2313,7 @@ export function CouncilModule() {
                 aria-modal="true"
               >
                 <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
-                  <h2 className="text-sm font-semibold text-neutral-900">Vedtak</h2>
+                  <h2 className={COUNCIL_SUBHEADING}>Vedtak</h2>
                   <button
                     type="button"
                     onClick={() => setDecisionPanelId(null)}
@@ -2363,7 +2347,7 @@ export function CouncilModule() {
           </div>
           <div className={`${R_FLAT} overflow-hidden border border-neutral-200/90 bg-white shadow-sm`}>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-3">
-              <h2 className="flex items-center gap-2 font-semibold text-neutral-900">
+              <h2 className={`flex items-center gap-2 ${COUNCIL_SUBHEADING}`}>
                 <History className="size-4" />
                 Representasjon og valg
               </h2>
@@ -2422,11 +2406,11 @@ function RepElectionCard({
     <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-3 shadow-sm`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-neutral-900">{election.title}</h3>
+          <h3 className={COUNCIL_SUBHEADING}>{election.title}</h3>
           {election.description ? (
             <p className="mt-1 line-clamp-2 text-xs text-neutral-600">{election.description}</p>
           ) : null}
-          <p className="mt-2 text-[10px] text-neutral-500">
+          <p className={`mt-2 ${COUNCIL_SMALL}`}>
             {election.anonymous ? 'Anonym stemmegivning' : 'Åpne navn'} · {election.seatsToFill} seter ·{' '}
             {election.votesCastTotal} stemmer
           </p>
@@ -2511,9 +2495,7 @@ function RepElectionCard({
         })}
       </ul>
       {election.anonymous && open ? (
-        <p className="mt-2 text-[10px] text-neutral-500">
-          Anonyme valg: kandidater som A, B, … til lukking.
-        </p>
+        <p className={`mt-2 ${COUNCIL_SMALL}`}>Anonyme valg: kandidater som A, B, … til lukking.</p>
       ) : null}
     </div>
   )
@@ -2570,7 +2552,7 @@ function MemberColumn({
     <section className={outerClass}>
       {!headerless && title ? (
         <div className="flex items-center justify-between gap-2">
-          <h3 className={`font-semibold text-neutral-900 ${embedded ? 'text-base' : 'text-lg'}`}>{title}</h3>
+          <h3 className={embedded ? COUNCIL_SUBHEADING : COUNCIL_SECTION_HEADING}>{title}</h3>
           {onAdd ? (
             <button type="button" onClick={onAdd} className="text-sm font-medium text-[#1a3d32] hover:underline">
               + Legg til
@@ -2591,9 +2573,9 @@ function MemberColumn({
               {boardMatch ? (
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-2 border-b border-neutral-100 pb-2">
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">Styre (AMU-valg)</p>
+                    <p className={`${COUNCIL_OVERLINE} text-neutral-400`}>Styre (AMU-valg)</p>
                     <p className="mt-0.5 text-xs font-medium text-neutral-800">{roleLabel(boardMatch.role)}</p>
-                    <p className="mt-1 text-[11px] text-neutral-500">
+                    <p className={`mt-1 ${COUNCIL_SMALL}`}>
                       Valgt / registrert:{' '}
                       <span className="tabular-nums text-neutral-700">{boardMatch.electedAt}</span>
                       {boardMatch.termUntil ? (
@@ -2786,9 +2768,9 @@ function MeetingDetailPanel({
       <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-neutral-900">{meeting.title}</h2>
-            <p className="text-sm text-neutral-600">{formatWhen(meeting.startsAt)}</p>
-            <p className="text-sm text-neutral-500">{meeting.location}</p>
+            <h2 className={COUNCIL_SECTION_HEADING}>{meeting.title}</h2>
+            <p className={COUNCIL_BODY}>{formatWhen(meeting.startsAt)}</p>
+            <p className={COUNCIL_BODY_MUTED}>{meeting.location}</p>
             {/* Invitation status */}
             {meeting.invitationSentAt ? (
               <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
@@ -2857,7 +2839,7 @@ function MeetingDetailPanel({
 
         <div className="mt-6 border-t border-neutral-100 pt-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+            <h3 className={`flex items-center gap-2 ${COUNCIL_SUBHEADING}`}>
               <ListOrdered className="size-4" />
               Agenda
             </h3>
@@ -2957,7 +2939,7 @@ function MeetingDetailPanel({
         </div>
 
         <div className="mt-6 border-t border-neutral-100 pt-4">
-          <h3 className="text-sm font-semibold text-neutral-900">Forberedelse</h3>
+          <h3 className={COUNCIL_SUBHEADING}>Forberedelse</h3>
           <textarea
             value={meeting.preparationNotes}
             onChange={(e) => council.setPreparationNotes(meeting.id, e.target.value)}
@@ -2981,7 +2963,7 @@ function MeetingDetailPanel({
         </div>
 
         <div className="mt-6 border-t border-neutral-100 pt-4">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+          <h3 className={`flex items-center gap-2 ${COUNCIL_SUBHEADING}`}>
             <ScrollText className="size-4" />
             Protokoll (referat)
           </h3>
@@ -2993,7 +2975,7 @@ function MeetingDetailPanel({
             placeholder="Hovedinnhold i protokoll …"
           />
           <div className="mt-4 rounded-xl border border-neutral-200 bg-[#faf8f4] p-4">
-            <h4 className="text-sm font-semibold text-neutral-900">Forhåndsregistrering på protokoll</h4>
+            <h4 className={COUNCIL_SUBHEADING}>Forhåndsregistrering på protokoll</h4>
             <p className="mt-1 text-xs text-neutral-600">
               <strong>Nivå 1 systemsignatur</strong> (innlogget bruker + SHA-256 av protokollinnhold + revisjonslogg i databasen).
               <strong> Nivå 2</strong> (BankID / QES for høyrisiko HR) er planlagt i veikartet.
@@ -3060,7 +3042,7 @@ function MeetingDetailPanel({
         </div>
 
         <div className="mt-6 border-t border-neutral-100 pt-4">
-          <h3 className="text-sm font-semibold text-neutral-900">Revisjonslogg (diskusjon, notater, vedtak)</h3>
+          <h3 className={COUNCIL_SUBHEADING}>Revisjonslogg (diskusjon, notater, vedtak)</h3>
           <p className="mt-1 text-xs text-neutral-500">
             Kronologisk spor — nye oppføringer legges til nederst. Bruk vedtak for formelle beslutninger.
           </p>
@@ -3145,8 +3127,8 @@ function ElectionCard({
     <div className="rounded-xl border border-neutral-200 bg-[#faf8f4] p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="font-semibold text-neutral-900">{election.title}</h3>
-          <p className="text-xs text-neutral-500">
+          <h3 className={COUNCIL_SUBHEADING}>{election.title}</h3>
+          <p className={COUNCIL_SMALL}>
             {open ? 'Åpent valg' : 'Avsluttet'}
             {election.closedAt ? ` · ${formatWhen(election.closedAt)}` : ''}
           </p>
