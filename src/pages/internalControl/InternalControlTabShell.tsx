@@ -23,6 +23,7 @@ export function InternalControlTabShell({ description, headerActions, hubItems, 
       headerActions={headerActions}
       hubAriaLabel="Internkontroll — faner"
       hubItems={hubItems}
+      contentCard={false}
     >
       {children}
     </ComplianceModuleChrome>

@@ -1466,6 +1466,7 @@ export function HseModule() {
             subtitle="Sortert etter gjennomføringstid. Åpne raden i sidevinduet for sjekkliste, avvik og dobbeltsignatur."
           >
             <Table1Shell
+              variant="pinpoint"
               toolbar={
                 <Table1Toolbar
                   searchSlot={
@@ -1771,6 +1772,7 @@ export function HseModule() {
 
           <Mainbox1 title="Tidligere inspeksjoner" subtitle="Sortert etter gjennomført tid. Åpne en rad i sidevinduet for redigering, signatur og låsing.">
             <Table1Shell
+              variant="pinpoint"
               toolbar={
                 <Table1Toolbar
                   searchSlot={
@@ -1933,6 +1935,7 @@ export function HseModule() {
             subtitle="Sortert etter planlagt tid. Åpne en rad for skall, faretabell, arbeidstillatelser og signaturer."
           >
             <Table1Shell
+              variant="pinpoint"
               toolbar={
                 <Table1Toolbar
                   searchSlot={
@@ -2202,6 +2205,7 @@ export function HseModule() {
             subtitle="Sortert etter startdato. Åpne en rad for milepæler, tilrettelegging og dialog."
           >
             <Table1Shell
+              variant="pinpoint"
               toolbar={
                 <Table1Toolbar
                   searchSlot={

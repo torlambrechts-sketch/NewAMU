@@ -622,6 +622,7 @@ export function WorkplaceIncidentsPage() {
           subtitle="Sortert etter tidspunkt. Åpne en rad for full redigering, dokumentasjon og oppfølgingsoppgaver."
         >
           <Table1Shell
+            variant="pinpoint"
             toolbar={
               <Table1Toolbar
                 searchSlot={

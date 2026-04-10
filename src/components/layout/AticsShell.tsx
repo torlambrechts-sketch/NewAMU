@@ -664,7 +664,7 @@ export function AticsShell() {
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto bg-[var(--ui-surface)]">
+          <main className="flex-1 overflow-y-auto bg-transparent">
             <Outlet />
           </main>
         </div>

@@ -328,6 +328,7 @@ export function WorkplaceReportingCasesSection() {
           }
         >
           <Table1Shell
+            variant="pinpoint"
             toolbar={
               <Table1Toolbar
                 searchSlot={
