@@ -38,6 +38,7 @@ import {
   mergeLayoutPayload,
 } from '../../lib/layoutLabTokens'
 import { LAYOUT_LAB_CHANGED_EVENT, LAYOUT_LAB_STORAGE_KEY, type LayoutLabPayload } from '../../types/layoutLab'
+import { VisualTemplateEditor } from '../../components/platform/VisualTemplateEditor'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { useUiTheme } from '../../hooks/useUiTheme'
 
@@ -1326,6 +1327,19 @@ export function PlatformUiAdvancedPage() {
             </div>
           </InsightCardShell>
         </div>
+      </section>
+
+      <section className={`${surf} ${r} border border-white/10 p-6 md:p-8`}>
+        <VisualTemplateEditor
+          source="advanced"
+          darkChrome={false}
+          title="Malbygger — egne mønstre fra eksemplene over"
+          description={
+            <span>
+              Velg <strong className="text-neutral-800">Fra eksempel</strong> for å starte med en forenklet struktur som matcher seksjonene over (stillingskort, tabell, scorecard, grafer, …). Klikk elementer for redigeringsvindu, dra håndtak for rekkefølge. Maler lagres lokalt i nettleseren (CRUD: ny, kopi, slett).
+            </span>
+          }
+        />
       </section>
 
       <ModalFrame open={filtersOpen} title="Filtre" onClose={() => setFiltersOpen(false)}>

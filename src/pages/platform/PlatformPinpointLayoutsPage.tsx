@@ -18,6 +18,7 @@ import {
   Users,
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
+import { VisualTemplateEditor } from '../../components/platform/VisualTemplateEditor'
 
 const CREAM = '#F9F7F2'
 const CREAM_DEEP = '#EFE8DC'
@@ -938,6 +939,7 @@ type SectionId = (typeof SECTIONS)[number]['id']
 
 export function PlatformPinpointLayoutsPage() {
   const [section, setSection] = useState<SectionId>('library')
+  const [view, setView] = useState<'examples' | 'builder'>('examples')
   const baseId = useId()
 
   return (
@@ -962,34 +964,71 @@ export function PlatformPinpointLayoutsPage() {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2 rounded-xl border border-white/10 bg-slate-900/40 p-2">
-        {SECTIONS.map((s) => {
-          const sid = `${baseId}-${s.id}`
-          return (
-            <button
-              key={s.id}
-              type="button"
-              id={sid}
-              onClick={() => setSection(s.id)}
-              className={`rounded-lg px-3 py-2 text-left text-sm font-medium transition ${
-                section === s.id ? 'bg-amber-500/20 text-amber-100 ring-1 ring-amber-400/40' : 'text-neutral-300 hover:bg-white/5'
-              }`}
-            >
-              {s.label}
-            </button>
-          )
-        })}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setView('examples')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium ${
+            view === 'examples' ? 'bg-amber-500/20 text-amber-100 ring-1 ring-amber-400/40' : 'text-neutral-400 hover:bg-white/5'
+          }`}
+        >
+          Statiske eksempler
+        </button>
+        <button
+          type="button"
+          onClick={() => setView('builder')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium ${
+            view === 'builder' ? 'bg-amber-500/20 text-amber-100 ring-1 ring-amber-400/40' : 'text-neutral-400 hover:bg-white/5'
+          }`}
+        >
+          Malbygger (CRUD, dra-og-slipp)
+        </button>
       </div>
-      <p className="text-sm text-neutral-400">{SECTIONS.find((s) => s.id === section)?.desc}</p>
 
-      <div className="rounded-xl border border-white/10 p-4 shadow-lg md:p-6" style={shellStyle()}>
-        {section === 'library' ? <TemplateLibraryBlock /> : null}
-        {section === 'scorecard' ? <JobScorecardPageBlock /> : null}
-        {section === 'detail' ? <CandidateDetailBlock /> : null}
-        {section === 'list' ? <CandidatesListBlock /> : null}
-        {section === 'dash' ? <DashboardMainRightBlock /> : null}
-        {section === 'dash2' ? <SimpleDashboardBlock /> : null}
-      </div>
+      {view === 'examples' ? (
+        <>
+          <div className="flex flex-wrap gap-2 rounded-xl border border-white/10 bg-slate-900/40 p-2">
+            {SECTIONS.map((s) => {
+              const sid = `${baseId}-${s.id}`
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  id={sid}
+                  onClick={() => setSection(s.id)}
+                  className={`rounded-lg px-3 py-2 text-left text-sm font-medium transition ${
+                    section === s.id ? 'bg-amber-500/20 text-amber-100 ring-1 ring-amber-400/40' : 'text-neutral-300 hover:bg-white/5'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-sm text-neutral-400">{SECTIONS.find((s) => s.id === section)?.desc}</p>
+
+          <div className="rounded-xl border border-white/10 p-4 shadow-lg md:p-6" style={shellStyle()}>
+            {section === 'library' ? <TemplateLibraryBlock /> : null}
+            {section === 'scorecard' ? <JobScorecardPageBlock /> : null}
+            {section === 'detail' ? <CandidateDetailBlock /> : null}
+            {section === 'list' ? <CandidatesListBlock /> : null}
+            {section === 'dash' ? <DashboardMainRightBlock /> : null}
+            {section === 'dash2' ? <SimpleDashboardBlock /> : null}
+          </div>
+        </>
+      ) : null}
+
+      {view === 'builder' ? (
+        <VisualTemplateEditor
+          source="pinpoint"
+          title="Egendefinerte referansemaler"
+          description={
+            <span>
+              Start fra <strong className="text-neutral-200">Fra eksempel</strong> for å kopiere strukturen fra fanene over som redigerbar tre-mal. Klikk et element for popup, dra håndtaket for å flytte. Alt lagres i nettleseren per bruker.
+            </span>
+          }
+        />
+      ) : null}
     </div>
   )
 }
