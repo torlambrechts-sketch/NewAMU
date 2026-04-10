@@ -52,6 +52,16 @@ const HERO_ACTION_CLASS =
 const R_FLAT = 'rounded-none'
 const SETTINGS_THRESHOLD_BOX =
   'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
+/** Same task / inspeksjon sidepanel — møter */
+const SETTINGS_LEAD = 'text-sm leading-relaxed text-neutral-600'
+const SETTINGS_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-800'
+const SETTINGS_INPUT =
+  'mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900'
+const TASK_PANEL_ROW_GRID =
+  'grid grid-cols-1 gap-4 border-b border-neutral-200 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-5 md:py-5'
+const TASK_PANEL_INSET = 'rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6'
+const TASK_PANEL_SELECT = `${SETTINGS_INPUT} bg-white`
+const MEETING_PANEL_SURFACE = 'bg-[#f7f6f2]'
 const MENU1_ICON_ONLY_TAB =
   '!h-8 !w-8 !min-h-0 !min-w-0 !max-h-8 !max-w-8 !flex-none shrink-0 !justify-center !gap-0 !p-0'
 
@@ -174,6 +184,15 @@ function formatWhen(iso: string) {
   }
 }
 
+function meetingGovernanceYear(m: CouncilMeeting): number {
+  if (m.governanceYear != null) return m.governanceYear
+  try {
+    return new Date(m.startsAt).getFullYear()
+  } catch {
+    return new Date().getFullYear()
+  }
+}
+
 function partitionRepresentativeElections(elections: RepElection[]) {
   const supplementary = elections.filter(
     (e) => /supplerings|suppleringsvalg/i.test(e.title) || /2026/.test(e.title),
@@ -223,6 +242,7 @@ export function CouncilModule() {
 
   // Council state
   const [wheelYear, setWheelYear] = useState(() => new Date().getFullYear())
+  const [meetingsListYearFilter, setMeetingsListYearFilter] = useState<'current_and_prior' | number>('current_and_prior')
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null)
   /** Stable clock for pure render (dager til møte, leder-rotasjon). */
   const [uiNowAnchor] = useState(() => Date.now())
@@ -464,6 +484,24 @@ export function CouncilModule() {
       return t >= now.getTime() && t <= end.getTime()
     }).length
   }, [council.meetings])
+
+  const meetingListYearOptions = useMemo(() => {
+    const ys = new Set<number>()
+    for (const m of council.meetings) ys.add(meetingGovernanceYear(m))
+    return [...ys].sort((a, b) => b - a)
+  }, [council.meetings])
+
+  const meetingsFilteredForTable = useMemo(() => {
+    const curY = new Date().getFullYear()
+    const list = [...council.meetings].sort((a, b) => b.startsAt.localeCompare(a.startsAt))
+    if (meetingsListYearFilter === 'current_and_prior') {
+      return list.filter((m) => {
+        const y = meetingGovernanceYear(m)
+        return y === curY || y === curY - 1
+      })
+    }
+    return list.filter((m) => meetingGovernanceYear(m) === meetingsListYearFilter)
+  }, [council.meetings, meetingsListYearFilter])
 
   const councilOverviewKpis = useMemo(
     () => [
@@ -1452,31 +1490,30 @@ export function CouncilModule() {
       )}
 
       {tab === 'meetings' && (
-        <div className="mt-8 space-y-8">
-
-          {/* ── 7-day distribution warning ───────────────────────────────── */}
+        <div className="mt-6 space-y-6">
           {meetingsNeedingDistribution.length > 0 && (
-            <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <div className={`${R_FLAT} flex items-start gap-3 border border-amber-200 bg-amber-50 px-4 py-3`}>
               <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-600" />
-              <div className="flex-1">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-amber-900">
-                  Frist for utsending av saksliste — {meetingsNeedingDistribution.length} møte{meetingsNeedingDistribution.length > 1 ? 'r' : ''}
+                  Frist for utsending av saksliste — {meetingsNeedingDistribution.length} møte
+                  {meetingsNeedingDistribution.length > 1 ? 'r' : ''}
                 </p>
                 <p className="mt-1 text-xs text-amber-700">
-                  Innkalling og agenda skal sendes til AMU-medlemmene minst 7 dager før møtet
-                  (Forskrift om organisering, ledelse og medvirkning §3-2).
+                  Innkalling og agenda skal sendes til AMU-medlemmene minst 7 dager før møtet (Forskrift om organisering,
+                  ledelse og medvirkning §3-2).
                 </p>
                 <ul className="mt-2 space-y-1">
                   {meetingsNeedingDistribution.map((m) => {
                     const days = Math.ceil((new Date(m.startsAt).getTime() - uiNowAnchor) / 86400000)
                     return (
-                      <li key={m.id} className="flex items-center gap-2 text-xs text-amber-800">
+                      <li key={m.id} className="flex flex-wrap items-center gap-2 text-xs text-amber-800">
                         <span className="font-medium">{m.title}</span>
                         <span>— om {days} dag{days !== 1 ? 'er' : ''}</span>
                         <button
                           type="button"
                           onClick={() => council.sendInvitation(m.id, ['AMU-medlemmer'])}
-                          className="ml-2 rounded-full bg-amber-600 px-2 py-0.5 text-white hover:bg-amber-700"
+                          className={`${R_FLAT} bg-amber-600 px-2 py-0.5 text-white hover:bg-amber-700`}
                         >
                           Send innkalling nå
                         </button>
@@ -1488,91 +1525,149 @@ export function CouncilModule() {
             </div>
           )}
 
-          {/* ── Data-driven agenda context panel ────────────────────────── */}
-          {(incidentsSinceLastMeeting.length > 0 || latestSickLeavePct > 0 || openHighRisks.length > 0) && (
-            <div className="rounded-xl border border-neutral-200 bg-[#faf8f4] p-4">
-              <p className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-500">
-                Auto-injisert agendagrunnlag — siden siste møte
-                {lastMeetingDate && <span className="ml-1 font-normal text-neutral-400">({new Date(lastMeetingDate).toLocaleDateString('no-NO')})</span>}
-              </p>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {incidentsSinceLastMeeting.length > 0 && (
-                  <Link to="/hse?tab=incidents" className="group block rounded-lg border border-neutral-200 bg-white p-3 hover:border-red-200 hover:bg-red-50/30 transition-colors">
-                    <div className={`text-2xl font-bold ${highSeverityIncidents.length > 0 ? 'text-red-700' : 'text-neutral-800'}`}>{incidentsSinceLastMeeting.length}</div>
-                    <div className="text-xs text-neutral-600">Hendelser siden siste møte</div>
-                    {highSeverityIncidents.length > 0 && (
-                      <div className="mt-1 text-xs font-semibold text-red-600">{highSeverityIncidents.length} høy/kritisk — gjennomgå</div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
+            <div className="min-w-0 space-y-6 lg:col-span-9">
+              <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                  Auto-injisert agendagrunnlag — siden siste møte
+                  {lastMeetingDate ? (
+                    <span className="ml-1 font-normal text-neutral-400">
+                      ({new Date(lastMeetingDate).toLocaleDateString('no-NO')})
+                    </span>
+                  ) : null}
+                </p>
+                {incidentsSinceLastMeeting.length > 0 || latestSickLeavePct > 0 || openHighRisks.length > 0 ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    {incidentsSinceLastMeeting.length > 0 && (
+                      <Link
+                        to="/workplace-reporting/incidents"
+                        className={`${R_FLAT} group block border border-neutral-200 bg-white p-3 transition-colors hover:border-red-200 hover:bg-red-50/30`}
+                      >
+                        <div
+                          className={`text-2xl font-bold ${highSeverityIncidents.length > 0 ? 'text-red-700' : 'text-neutral-800'}`}
+                        >
+                          {incidentsSinceLastMeeting.length}
+                        </div>
+                        <div className="text-xs text-neutral-600">Hendelser siden siste møte</div>
+                        {highSeverityIncidents.length > 0 && (
+                          <div className="mt-1 text-xs font-semibold text-red-600">
+                            {highSeverityIncidents.length} høy/kritisk — gjennomgå
+                          </div>
+                        )}
+                      </Link>
                     )}
-                  </Link>
-                )}
-                {latestSickLeavePct > 0 && (
-                  <Link to="/hse?tab=sickness" className="block rounded-lg border border-neutral-200 bg-white p-3 hover:border-amber-200 hover:bg-amber-50/30 transition-colors">
-                    <div className="text-2xl font-bold text-amber-700">{latestSickLeavePct}</div>
-                    <div className="text-xs text-neutral-600">Aktive sykefravær</div>
-                  </Link>
-                )}
-                {openHighRisks.length > 0 && (
-                  <Link to="/internal-control?tab=ros" className="block rounded-lg border border-neutral-200 bg-white p-3 hover:border-orange-200 hover:bg-orange-50/30 transition-colors">
-                    <div className="text-2xl font-bold text-orange-700">{openHighRisks.length}</div>
-                    <div className="text-xs text-neutral-600">ROS høyrisikoer (≥12) til gjennomgang</div>
-                  </Link>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="text-sm text-neutral-600">
-                År for årshjul
-                <input
-                  type="number"
-                  value={wheelYear}
-                  onChange={(e) => setWheelYear(Number(e.target.value) || new Date().getFullYear())}
-                  className="ml-2 w-24 rounded-none border border-neutral-200 px-2 py-1 text-sm"
-                />
-              </label>
-            </div>
-            <button
-              type="button"
-              onClick={() => setNewMeetingOpen(true)}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] px-4 text-sm font-medium text-white hover:bg-[#142e26]"
-            >
-              <Plus className="size-4 shrink-0" aria-hidden />
-              Nytt møte
-            </button>
-          </div>
-
-          <GovernanceWheel
-            year={wheelYear}
-            meetings={council.meetings}
-            onQuarterClick={(q) => {
-              setMeetingForm((s) => ({ ...s, quarterSlot: q }))
-              setNewMeetingOpen(true)
-            }}
-          />
-
-          <div className="min-w-0 space-y-4">
-            <div className="overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
-              <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">
-                <h2 className="font-semibold text-neutral-900">Alle møter</h2>
-                <p className="text-xs text-neutral-500">Klikk en rad for å åpne agenda og revisjonslogg.</p>
-              </div>
-              <div className="overflow-x-auto">
-                {council.meetings.length === 0 ? (
-                  <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen møter ennå.</p>
+                    {latestSickLeavePct > 0 && (
+                      <Link
+                        to="/hse?tab=sickness"
+                        className={`${R_FLAT} block border border-neutral-200 bg-white p-3 hover:border-amber-200 hover:bg-amber-50/30`}
+                      >
+                        <div className="text-2xl font-bold text-amber-700">{latestSickLeavePct}</div>
+                        <div className="text-xs text-neutral-600">Aktive sykefravær</div>
+                      </Link>
+                    )}
+                    {openHighRisks.length > 0 && (
+                      <Link
+                        to="/internal-control?tab=ros"
+                        className={`${R_FLAT} block border border-neutral-200 bg-white p-3 hover:border-orange-200 hover:bg-orange-50/30`}
+                      >
+                        <div className="text-2xl font-bold text-orange-700">{openHighRisks.length}</div>
+                        <div className="text-xs text-neutral-600">ROS høyrisikoer (≥12) til gjennomgang</div>
+                      </Link>
+                    )}
+                  </div>
                 ) : (
-                  <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+                  <p className="mt-3 text-sm text-neutral-500">
+                    Ingen nye signaler (hendelser, sykefravær eller åpne ROS-høyrisikoer) siden siste møte — eller ingen
+                    tidligere møtedato registrert.
+                  </p>
+                )}
+              </div>
+
+              <div
+                className={`${R_FLAT} flex flex-wrap items-end justify-between gap-4 border border-neutral-200/90 bg-white p-4 shadow-sm`}
+              >
+                <label className="text-sm text-neutral-600">
+                  År for årshjul
+                  <input
+                    type="number"
+                    value={wheelYear}
+                    onChange={(e) => setWheelYear(Number(e.target.value) || new Date().getFullYear())}
+                    className={`${R_FLAT} ml-2 w-24 border border-neutral-200 px-2 py-1 text-sm`}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setNewMeetingOpen(true)}
+                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                >
+                  <Plus className="size-4 shrink-0" aria-hidden />
+                  Nytt møte
+                </button>
+              </div>
+
+              <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}>
+                <p className="mb-4 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Årshjul</p>
+                <GovernanceWheel
+                  year={wheelYear}
+                  meetings={council.meetings}
+                  onQuarterClick={(q) => {
+                    setMeetingForm((s) => ({ ...s, quarterSlot: q }))
+                    setNewMeetingOpen(true)
+                  }}
+                />
+              </div>
+            </div>
+
+            <aside className={`${R_FLAT} border border-neutral-200/90 bg-[#faf8f4]/80 lg:col-span-3`}>
+              <div className="border-b border-neutral-200/80 bg-white px-4 py-3">
+                <h2 className="font-semibold text-neutral-900">Alle møter</h2>
+                <p className="mt-1 text-xs text-neutral-500">Klikk en rad for å åpne i sidevinduet.</p>
+                <label className={`${SETTINGS_FIELD_LABEL} mt-3 block`} htmlFor="meetings-year-filter">
+                  År
+                </label>
+                <select
+                  id="meetings-year-filter"
+                  value={
+                    meetingsListYearFilter === 'current_and_prior'
+                      ? 'current_and_prior'
+                      : String(meetingsListYearFilter)
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value
+                    if (v === 'current_and_prior') setMeetingsListYearFilter('current_and_prior')
+                    else setMeetingsListYearFilter(Number(v))
+                  }}
+                  className={`${TASK_PANEL_SELECT} mt-1.5 text-sm`}
+                >
+                  <option value="current_and_prior">
+                    {new Date().getFullYear()} og {new Date().getFullYear() - 1} (standard)
+                  </option>
+                  {meetingListYearOptions.map((y) => (
+                    <option key={y} value={String(y)}>
+                      Kun {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="max-h-[min(75vh,720px)] overflow-y-auto overflow-x-auto">
+                {council.meetings.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-sm text-neutral-500">Ingen møter ennå.</p>
+                ) : meetingsFilteredForTable.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-sm text-neutral-500">
+                    Ingen møter for valgt årsfilter.
+                  </p>
+                ) : (
+                  <table className="w-full min-w-[280px] border-collapse text-left text-sm">
                     <thead>
-                      <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                        <th className="px-4 py-2.5">Møte</th>
-                        <th className="px-4 py-2.5">Tid</th>
-                        <th className="px-4 py-2.5">År / kv.</th>
-                        <th className="px-4 py-2.5">Status</th>
+                      <tr className="border-b border-neutral-200 bg-white text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+                        <th className="px-3 py-2">Møte</th>
+                        <th className="px-3 py-2">Tid</th>
+                        <th className="px-3 py-2">År</th>
+                        <th className="px-3 py-2">Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {council.meetings.map((m) => {
+                      {meetingsFilteredForTable.map((m) => {
                         const statusStyle =
                           m.status === 'completed'
                             ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
@@ -1582,19 +1677,24 @@ export function CouncilModule() {
                         return (
                           <tr
                             key={m.id}
-                            className="cursor-pointer border-b border-neutral-100 transition-colors hover:bg-neutral-50"
+                            className="cursor-pointer border-b border-neutral-100 bg-white/60 transition-colors hover:bg-white"
                             onClick={() => {
                               setSelectedMeetingId(m.id)
                               setMeetingDetailOpen(true)
                             }}
                           >
-                            <td className="px-4 py-2 align-top font-medium text-[#1a3d32]">{m.title}</td>
-                            <td className="px-4 py-2 align-top text-neutral-700">{formatWhen(m.startsAt)}</td>
-                            <td className="px-4 py-2 align-top text-neutral-600">
-                              {m.governanceYear ?? '—'} · {m.quarterSlot ? `Q${m.quarterSlot}` : '—'}
+                            <td className="px-3 py-2 align-top text-xs font-medium text-[#1a3d32]">{m.title}</td>
+                            <td className="px-3 py-2 align-top text-[11px] text-neutral-600">
+                              {formatWhen(m.startsAt)}
                             </td>
-                            <td className="px-4 py-2 align-top">
-                              <span className={`inline-flex rounded-none border px-2.5 py-0.5 text-xs font-medium ${statusStyle}`}>
+                            <td className="px-3 py-2 align-top text-xs text-neutral-600 tabular-nums">
+                              {meetingGovernanceYear(m)}
+                              {m.quarterSlot ? ` · Q${m.quarterSlot}` : ''}
+                            </td>
+                            <td className="px-3 py-2 align-top">
+                              <span
+                                className={`inline-flex ${R_FLAT} border px-1.5 py-0.5 text-[10px] font-semibold ${statusStyle}`}
+                              >
                                 {m.status === 'planned'
                                   ? 'Planlagt'
                                   : m.status === 'completed'
@@ -1609,27 +1709,33 @@ export function CouncilModule() {
                   </table>
                 )}
               </div>
-            </div>
+            </aside>
           </div>
 
-          {tab === 'meetings' && (newMeetingOpen || meetingDetailOpen) && (
-            <div className="fixed inset-0 z-[60] flex justify-end">
-              <button
-                type="button"
-                aria-label="Lukk"
-                className="absolute inset-0 bg-black/40"
-                onClick={() => {
+          {(newMeetingOpen || meetingDetailOpen) && (
+            <div
+              className="fixed inset-0 z-[70] flex justify-end bg-black/45 backdrop-blur-[2px]"
+              role="presentation"
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) {
                   setNewMeetingOpen(false)
                   setMeetingDetailOpen(false)
-                }}
-              />
+                }
+              }}
+            >
               <div
-                className="relative flex h-full w-full max-w-xl flex-col border-l border-neutral-200 bg-white shadow-xl"
+                className={`flex h-full w-full max-w-[min(100vw,920px)] flex-col border-l border-neutral-200/90 shadow-[-12px_0_40px_rgba(0,0,0,0.12)] ${MEETING_PANEL_SURFACE}`}
                 role="dialog"
                 aria-modal="true"
+                aria-labelledby="council-meeting-panel-title"
+                onMouseDown={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
-                  <h2 className="text-sm font-semibold text-neutral-900">
+                <header className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 px-6 py-5 sm:px-8 sm:py-6">
+                  <h2
+                    id="council-meeting-panel-title"
+                    className="max-w-[min(100%,28rem)] text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl"
+                    style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+                  >
                     {newMeetingOpen ? 'Nytt møte' : selectedMeeting?.title ?? 'Møte'}
                   </h2>
                   <button
@@ -1638,104 +1744,190 @@ export function CouncilModule() {
                       setNewMeetingOpen(false)
                       setMeetingDetailOpen(false)
                     }}
-                    className="rounded-none p-2 text-neutral-500 hover:bg-neutral-100"
+                    className={`${R_FLAT} p-2 text-neutral-500 transition hover:bg-neutral-200/60 hover:text-neutral-800`}
+                    aria-label="Lukk"
                   >
-                    <X className="size-5" />
+                    <X className="size-6" />
                   </button>
-                </div>
-                <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                  {newMeetingOpen && (
-                    <form onSubmit={(e) => void handleAddMeeting(e)} className="space-y-3">
-                      <p className="text-sm text-neutral-600">
-                        Knytt møtet til et kvartal i årshjulet og velg foreslått agenda (kan redigeres etterpå).
-                      </p>
-                      <div>
-                        <label className="text-xs font-medium text-neutral-500">Tittel</label>
-                        <input
-                          value={meetingForm.title}
-                          onChange={(e) => setMeetingForm((s) => ({ ...s, title: e.target.value }))}
-                          className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-neutral-500">Starttid</label>
-                        <input
-                          type="datetime-local"
-                          value={meetingForm.startsAt}
-                          onChange={(e) => setMeetingForm((s) => ({ ...s, startsAt: e.target.value }))}
-                          className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-neutral-500">Sted / lenke</label>
-                        <input
-                          value={meetingForm.location}
-                          onChange={(e) => setMeetingForm((s) => ({ ...s, location: e.target.value }))}
-                          className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
+                </header>
+
+                {newMeetingOpen ? (
+                  <form
+                    className="flex min-h-0 flex-1 flex-col"
+                    onSubmit={(e) => void handleAddMeeting(e)}
+                  >
+                    <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-8">
+                      <div className={TASK_PANEL_ROW_GRID}>
                         <div>
-                          <label className="text-xs font-medium text-neutral-500">Kalenderår</label>
+                          <h3 className="text-base font-semibold text-neutral-900">Grunnlag</h3>
+                          <p className={`${SETTINGS_LEAD} mt-2`}>
+                            Knytt møtet til kvartal i årshjulet. Du kan laste inn foreslått agenda automatisk eller lime
+                            inn egen tekst.
+                          </p>
+                        </div>
+                        <div className={TASK_PANEL_INSET}>
+                          <label className={SETTINGS_FIELD_LABEL} htmlFor="meet-new-title">
+                            Tittel
+                          </label>
                           <input
-                            type="number"
-                            value={meetingForm.governanceYear}
-                            onChange={(e) =>
-                              setMeetingForm((s) => ({
-                                ...s,
-                                governanceYear: Number(e.target.value) || wheelYear,
-                              }))
-                            }
-                            className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm"
+                            id="meet-new-title"
+                            value={meetingForm.title}
+                            onChange={(e) => setMeetingForm((s) => ({ ...s, title: e.target.value }))}
+                            className={TASK_PANEL_SELECT}
+                            required
+                          />
+                          <label className={`${SETTINGS_FIELD_LABEL} mt-4`} htmlFor="meet-new-start">
+                            Starttid
+                          </label>
+                          <input
+                            id="meet-new-start"
+                            type="datetime-local"
+                            value={meetingForm.startsAt}
+                            onChange={(e) => setMeetingForm((s) => ({ ...s, startsAt: e.target.value }))}
+                            className={TASK_PANEL_SELECT}
+                            required
+                          />
+                          <label className={`${SETTINGS_FIELD_LABEL} mt-4`} htmlFor="meet-new-loc">
+                            Sted / lenke
+                          </label>
+                          <input
+                            id="meet-new-loc"
+                            value={meetingForm.location}
+                            onChange={(e) => setMeetingForm((s) => ({ ...s, location: e.target.value }))}
+                            className={TASK_PANEL_SELECT}
                           />
                         </div>
+                      </div>
+                      <div className="my-8 border-t border-neutral-200/90" />
+                      <div className={TASK_PANEL_ROW_GRID}>
                         <div>
-                          <label className="text-xs font-medium text-neutral-500">Kvartal</label>
-                          <select
-                            value={meetingForm.quarterSlot}
-                            onChange={(e) =>
-                              setMeetingForm((s) => ({
-                                ...s,
-                                quarterSlot: Number(e.target.value) as QuarterSlot,
-                              }))
-                            }
-                            className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm"
-                          >
-                            <option value={1}>Q1</option>
-                            <option value={2}>Q2</option>
-                            <option value={3}>Q3</option>
-                            <option value={4}>Q4</option>
-                          </select>
+                          <h3 className="text-base font-semibold text-neutral-900">Årshjul og agenda</h3>
+                          <p className={`${SETTINGS_LEAD} mt-2`}>
+                            Kalenderår og kvartal styrer plassering i årshjulet. Valgfritt forslag til agendapunkter fra
+                            modulene.
+                          </p>
                         </div>
-                      </div>                      <button
-                        type="submit"
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] py-2.5 text-sm font-medium text-white hover:bg-[#142e26]"
+                        <div className={TASK_PANEL_INSET}>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div>
+                              <label className={SETTINGS_FIELD_LABEL} htmlFor="meet-new-gy">
+                                Kalenderår
+                              </label>
+                              <input
+                                id="meet-new-gy"
+                                type="number"
+                                value={meetingForm.governanceYear}
+                                onChange={(e) =>
+                                  setMeetingForm((s) => ({
+                                    ...s,
+                                    governanceYear: Number(e.target.value) || wheelYear,
+                                  }))
+                                }
+                                className={TASK_PANEL_SELECT}
+                              />
+                            </div>
+                            <div>
+                              <label className={SETTINGS_FIELD_LABEL} htmlFor="meet-new-q">
+                                Kvartal
+                              </label>
+                              <select
+                                id="meet-new-q"
+                                value={meetingForm.quarterSlot}
+                                onChange={(e) =>
+                                  setMeetingForm((s) => ({
+                                    ...s,
+                                    quarterSlot: Number(e.target.value) as QuarterSlot,
+                                  }))
+                                }
+                                className={TASK_PANEL_SELECT}
+                              >
+                                <option value={1}>Q1</option>
+                                <option value={2}>Q2</option>
+                                <option value={3}>Q3</option>
+                                <option value={4}>Q4</option>
+                              </select>
+                            </div>
+                          </div>
+                          <label className={`${SETTINGS_FIELD_LABEL} mt-4 flex items-center gap-2`}>
+                            <input
+                              type="checkbox"
+                              checked={meetingForm.applySuggestedAgenda}
+                              onChange={(e) =>
+                                setMeetingForm((s) => ({ ...s, applySuggestedAgenda: e.target.checked }))
+                              }
+                              className="size-4 rounded border-neutral-300"
+                            />
+                            Bruk foreslått agenda (data fra HMS / internkontroll)
+                          </label>
+                          {!meetingForm.applySuggestedAgenda ? (
+                            <>
+                              <label className={`${SETTINGS_FIELD_LABEL} mt-4`} htmlFor="meet-new-agenda">
+                                Agenda (tekst)
+                              </label>
+                              <textarea
+                                id="meet-new-agenda"
+                                value={meetingForm.agendaText}
+                                onChange={(e) => setMeetingForm((s) => ({ ...s, agendaText: e.target.value }))}
+                                rows={5}
+                                className={TASK_PANEL_SELECT}
+                                placeholder="Lim inn eller skriv agendapunkter …"
+                              />
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                    <footer className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-neutral-200/90 bg-[#f0efe9] px-6 py-4 sm:px-8">
+                      <button
+                        type="button"
+                        onClick={() => setNewMeetingOpen(false)}
+                        className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
                       >
-                        <Calendar className="size-4" />
+                        Avbryt
+                      </button>
+                      <button
+                        type="submit"
+                        className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                      >
+                        <Calendar className="size-4 shrink-0" />
                         Legg til møte
                       </button>
-                    </form>
-                  )}
-                  {meetingDetailOpen && selectedMeeting && !newMeetingOpen && (
-                    <MeetingDetailPanel
-                      meeting={selectedMeeting}
-                      council={council}
-                      auditDraft={auditDraft}
-                      setAuditDraft={setAuditDraft}
-                      inviteRecipientsDraft={inviteRecipients[selectedMeeting.id] ?? ''}
-                      setInviteRecipientsDraft={(v) => setInviteRecipients((r) => ({ ...r, [selectedMeeting.id]: v }))}
-                      attendeesDraft={attendeesInput[selectedMeeting.id] ?? ''}
-                      setAttendeesDraft={(v) => setAttendeesInput((r) => ({ ...r, [selectedMeeting.id]: v }))}
-                      quorumDraft={quorumInput[selectedMeeting.id] ?? false}
-                      setQuorumDraft={(v) => setQuorumInput((r) => ({ ...r, [selectedMeeting.id]: v }))}
-                      itemMinutesDraft={itemMinutes}
-                      setItemMinutesDraft={setItemMinutes}
-                      onCreateTask={createTaskFromDecision}
-                    />
-                  )}
-                </div>
+                    </footer>
+                  </form>
+                ) : (
+                  <>
+                    <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-8">
+                      {meetingDetailOpen && selectedMeeting ? (
+                        <MeetingDetailPanel
+                          meeting={selectedMeeting}
+                          council={council}
+                          auditDraft={auditDraft}
+                          setAuditDraft={setAuditDraft}
+                          inviteRecipientsDraft={inviteRecipients[selectedMeeting.id] ?? ''}
+                          setInviteRecipientsDraft={(v) =>
+                            setInviteRecipients((r) => ({ ...r, [selectedMeeting.id]: v }))
+                          }
+                          attendeesDraft={attendeesInput[selectedMeeting.id] ?? ''}
+                          setAttendeesDraft={(v) => setAttendeesInput((r) => ({ ...r, [selectedMeeting.id]: v }))}
+                          quorumDraft={quorumInput[selectedMeeting.id] ?? false}
+                          setQuorumDraft={(v) => setQuorumInput((r) => ({ ...r, [selectedMeeting.id]: v }))}
+                          itemMinutesDraft={itemMinutes}
+                          setItemMinutesDraft={setItemMinutes}
+                          onCreateTask={createTaskFromDecision}
+                        />
+                      ) : null}
+                    </div>
+                    <footer className="shrink-0 border-t border-neutral-200/90 bg-[#f0efe9] px-6 py-4 sm:px-8">
+                      <button
+                        type="button"
+                        onClick={() => setMeetingDetailOpen(false)}
+                        className={`${HERO_ACTION_CLASS} w-full border border-neutral-300 bg-white text-neutral-800`}
+                      >
+                        Lukk
+                      </button>
+                    </footer>
+                  </>
+                )}
               </div>
             </div>
           )}
