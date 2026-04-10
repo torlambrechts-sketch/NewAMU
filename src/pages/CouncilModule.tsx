@@ -19,6 +19,8 @@ import {
   Gavel,
   History,
   ListOrdered,
+  Mail,
+  MoreHorizontal,
   Plus,
   Scale,
   ScrollText,
@@ -77,6 +79,15 @@ const MENU1_ICON_ONLY_TAB =
 
 /** Arbeidsmiljøråd: én typografisk skala (sans-serif), 3:2 hoved / sidekolonne */
 const COUNCIL_MAIN_SIDE_GRID = 'grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]'
+/** Layout-reference «Dashboard 70/30»: kremflate, 7/3 kolonner */
+const COUNCIL_DASH7030_CREAM = '#F9F7F2'
+const COUNCIL_DASH7030_CREAM_DEEP = '#EFE8DC'
+const COUNCIL_DASH7030_SERIF = "'Libre Baskerville', Georgia, serif"
+const COUNCIL_DASH7030_GRID =
+  'grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)] lg:items-start'
+const COUNCIL_DASH7030_WHITECARD =
+  'rounded-lg border border-neutral-200/80 bg-white shadow-sm'
+const COUNCIL_DASH7030_WHITECARD_SHADOW = { boxShadow: '0 1px 2px rgba(0,0,0,0.04)' } as const
 const COUNCIL_PAGE_TITLE = 'text-2xl font-semibold text-neutral-900 md:text-3xl'
 /** Hovedtittel for større innholdsblokker (f.eks. Styre og Valg) */
 const COUNCIL_MAIN_HEADING = 'text-xl font-semibold text-neutral-900 md:text-2xl'
@@ -86,6 +97,19 @@ const COUNCIL_OVERLINE = 'text-[10px] font-bold uppercase tracking-wider text-ne
 const COUNCIL_BODY = 'text-sm leading-relaxed text-neutral-600'
 const COUNCIL_BODY_MUTED = 'text-sm text-neutral-500'
 const COUNCIL_SMALL = 'text-xs text-neutral-500'
+
+function CouncilOverviewBreadcrumb({ items }: { items: string[] }) {
+  return (
+    <p className="text-xs text-neutral-500">
+      {items.map((t, i) => (
+        <span key={`${i}-${t}`}>
+          {i > 0 ? <span className="mx-1.5 text-neutral-300">›</span> : null}
+          {t}
+        </span>
+      ))}
+    </p>
+  )
+}
 
 const CAL_WEEKDAYS_NB = ['ma', 'ti', 'on', 'to', 'fr', 'lø', 'sø'] as const
 
@@ -633,28 +657,33 @@ export function CouncilModule() {
   }, [council.meetings, meetingsListYearFilter])
 
   const councilOverviewKpis = useMemo(
-    () => [
-      {
-        title: 'Styre',
-        sub: 'Registrerte medlemmer',
-        value: String(council.board.length),
-      },
-      {
-        title: 'Valg',
-        sub: 'Åpne nå',
-        value: String(electionsOpenCount),
-      },
-      {
-        title: 'Samsvar',
-        sub: 'Sjekkliste fullført',
-        value: `${complianceProgress.pct}%`,
-      },
-      {
-        title: 'Møter',
-        sub: `Planlagt i ${wheelYear}`,
-        value: `${meetingsPlannedThisYear} / ${MEETINGS_PER_YEAR}`,
-      },
-    ],
+    () =>
+      [
+        {
+          title: 'Styre',
+          sub: 'Registrerte medlemmer',
+          value: String(council.board.length),
+          tab: 'board' as const,
+        },
+        {
+          title: 'Valg',
+          sub: 'Åpne nå',
+          value: String(electionsOpenCount),
+          tab: 'board' as const,
+        },
+        {
+          title: 'Samsvar',
+          sub: 'Sjekkliste fullført',
+          value: `${complianceProgress.pct}%`,
+          tab: 'requirements' as const,
+        },
+        {
+          title: 'Møter',
+          sub: `Planlagt i ${wheelYear}`,
+          value: `${meetingsPlannedThisYear} / ${MEETINGS_PER_YEAR}`,
+          tab: 'meetings' as const,
+        },
+      ] as const,
     [
       council.board.length,
       complianceProgress.pct,
@@ -663,6 +692,15 @@ export function CouncilModule() {
       wheelYear,
     ],
   )
+
+  const overviewRecentAudit = useMemo(() => {
+    const tail = sortedRepAudit.slice(-5).reverse()
+    return tail.map((e) => ({
+      id: e.id,
+      text: e.message,
+      when: formatWhen(e.at),
+    }))
+  }, [sortedRepAudit])
 
   const councilElectionSegments = useMemo(() => {
     const palette = ['#059669', '#94a3b8']
@@ -923,25 +961,53 @@ export function CouncilModule() {
       </div>
 
       {tab === 'overview' && (
-        <div className="mt-6 space-y-10">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {councilOverviewKpis.map((item) => (
-              <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={menu1.barStyle}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
-                <p className="mt-1 text-xs text-white/70">{item.sub}</p>
-                <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
-              </div>
-            ))}
-          </div>
-
-          <section>
-            <div className="mb-4 flex flex-wrap items-center gap-2">
-              <h2 className={COUNCIL_OVERLINE}>Rådsinnsikt</h2>
+        <div
+          className="mt-6 rounded-xl border border-neutral-200/80 p-4 shadow-sm md:p-6"
+          style={{
+            fontFamily: 'Inter, system-ui, sans-serif',
+            backgroundColor: COUNCIL_DASH7030_CREAM,
+            color: '#171717',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+          }}
+        >
+          <section className="space-y-6">
+            <div>
+              <CouncilOverviewBreadcrumb items={['Arbeidsmiljøråd', 'Oversikt']} />
+              <h2
+                className="mt-2 text-2xl font-semibold tracking-tight text-neutral-900 md:text-3xl"
+                style={{ fontFamily: COUNCIL_DASH7030_SERIF }}
+              >
+                Rådsinnsikt
+              </h2>
+              <p className={`mt-2 max-w-2xl ${COUNCIL_BODY}`}>{tabBlurbs.overview.description}</p>
             </div>
-            <div className={COUNCIL_MAIN_SIDE_GRID}>
-              <div className="min-w-0 space-y-4">
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {councilOverviewKpis.map((item) => (
+                <button
+                  key={item.title}
+                  type="button"
+                  onClick={() => setTab(item.tab)}
+                  className="flex w-full items-center justify-between gap-4 rounded-lg border border-neutral-200/60 px-5 py-4 text-left transition hover:border-neutral-300"
+                  style={{ backgroundColor: COUNCIL_DASH7030_CREAM_DEEP }}
+                >
+                  <div>
+                    <p className="text-3xl font-bold tabular-nums text-neutral-900">{item.value}</p>
+                    <p className="mt-1 text-sm font-medium text-neutral-800">{item.title}</p>
+                    <p className="text-xs text-neutral-600">{item.sub}</p>
+                  </div>
+                  <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold uppercase tracking-wide text-neutral-700">
+                    Åpne <ChevronRight className="size-3.5" aria-hidden />
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className={COUNCIL_DASH7030_GRID}>
+              <div className="min-w-0 space-y-6">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <ModuleDonutCard
+                    className="!rounded-lg"
                     title="Valg"
                     subtitle="Åpne og avsluttede"
                     segments={councilElectionSegments.entries}
@@ -949,6 +1015,7 @@ export function CouncilModule() {
                     emptyHint="Ingen valg registrert."
                   />
                   <ModuleDonutCard
+                    className="!rounded-lg"
                     title={`Møter ${wheelYear}`}
                     subtitle="Planlagt, gjennomført og avlyst"
                     segments={councilMeetingYearSegments.entries}
@@ -956,6 +1023,7 @@ export function CouncilModule() {
                     emptyHint="Ingen møter i året."
                   />
                   <ModuleDonutCard
+                    className="!rounded-lg"
                     title="Samsvarssjekk"
                     subtitle="Oppfylt vs. gjenstående"
                     segments={councilComplianceSegments.entries}
@@ -963,6 +1031,7 @@ export function CouncilModule() {
                     emptyHint="Ingen sjekklistepunkter."
                   />
                   <ModuleDonutCard
+                    className="!rounded-lg"
                     title="Signaler siden siste møte"
                     subtitle="Hendelser, sykefravær, ROS"
                     segments={councilLiveSignalsSegments.entries}
@@ -975,9 +1044,9 @@ export function CouncilModule() {
                   Registrerte ordinære møter i {wheelYear}: <strong>{meetingsThisYear}</strong> / {MEETINGS_PER_YEAR}{' '}
                   (justér år under «Møter»).
                 </p>
-                <div className={`${R_FLAT} h-2 overflow-hidden bg-neutral-200`}>
+                <div className="h-2 overflow-hidden rounded-full bg-neutral-200">
                   <div
-                    className="h-full bg-[#c9a227] transition-all"
+                    className="h-full rounded-full bg-[#c9a227] transition-all"
                     style={{ width: `${complianceProgress.pct}%` }}
                   />
                 </div>
@@ -986,40 +1055,34 @@ export function CouncilModule() {
                   oppfylt.
                 </p>
 
-                <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}>
+                <div className={`${COUNCIL_DASH7030_WHITECARD} p-5`} style={COUNCIL_DASH7030_WHITECARD_SHADOW}>
                   <p className={COUNCIL_OVERLINE}>Lovpålagte terskler (AML 2024)</p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <span className={`${R_FLAT} bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600`}>
+                    <span className="rounded-md bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">
                       {ct.totalEmployeeCount} ansatte
                     </span>
                     {ct.requiresVerneombud ? (
-                      <span
-                        className={`${R_FLAT} inline-flex items-center gap-1 bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800`}
-                      >
+                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
                         <CheckCircle2 className="size-3" />
                         Verneombud lovpålagt
                       </span>
                     ) : (
-                      <span className={`${R_FLAT} bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600`}>
+                      <span className="rounded-md bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">
                         Verneombud: &lt;5 ansatte
                       </span>
                     )}
                     {ct.requiresAmu ? (
-                      <span
-                        className={`${R_FLAT} inline-flex items-center gap-1 bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800`}
-                      >
+                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
                         <CheckCircle2 className="size-3" />
                         AMU lovpålagt (≥30)
                       </span>
                     ) : ct.mayRequestAmu ? (
-                      <span
-                        className={`${R_FLAT} inline-flex items-center gap-1 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800`}
-                      >
+                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
                         <AlertTriangle className="size-3" />
                         AMU kan kreves (10–29)
                       </span>
                     ) : (
-                      <span className={`${R_FLAT} bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600`}>
+                      <span className="rounded-md bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">
                         AMU: &lt;10 ansatte
                       </span>
                     )}
@@ -1035,20 +1098,16 @@ export function CouncilModule() {
                   )}
                 </div>
 
-                <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}>
+                <div className={`${COUNCIL_DASH7030_WHITECARD} p-5`} style={COUNCIL_DASH7030_WHITECARD_SHADOW}>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={`${COUNCIL_SUBHEADING} text-neutral-800`}>AMU-sammensetting</span>
                     {rep.validation.ok ? (
-                      <span
-                        className={`${R_FLAT} inline-flex items-center gap-1.5 bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-900`}
-                      >
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-900">
                         <CheckCircle2 className="size-3.5" />
                         Krav oppfylt
                       </span>
                     ) : (
-                      <span
-                        className={`${R_FLAT} inline-flex items-center gap-1.5 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-950`}
-                      >
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-950">
                         <AlertTriangle className="size-3.5" />
                         {rep.validation.issues.length} avvik
                       </span>
@@ -1061,19 +1120,16 @@ export function CouncilModule() {
                 </div>
               </div>
 
-              <div className="min-w-0">
-                <div
-                  className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}
-                  style={{ boxShadow: '0 1px 0 rgba(0,0,0,0.04)' }}
-                >
+              <div className="min-w-0 space-y-6">
+                <div className={`${COUNCIL_DASH7030_WHITECARD} p-5`} style={COUNCIL_DASH7030_WHITECARD_SHADOW}>
                   <p className={COUNCIL_OVERLINE}>Møter</p>
                   {meetingsThisWeekCount > 0 ? (
-                    <div className="mt-3 border border-orange-200/90 bg-orange-50/90 px-3 py-2.5 text-sm text-orange-950">
+                    <div className="mt-3 rounded-md border border-orange-200/90 bg-orange-50/90 px-3 py-2.5 text-sm text-orange-950">
                       <span className="font-semibold text-orange-900">{meetingsThisWeekCount}</span>{' '}
                       {meetingsThisWeekCount === 1 ? 'møte planlagt' : 'møter planlagt'} de neste 7 dagene.
                     </div>
                   ) : (
-                    <div className="mt-3 border border-neutral-200/80 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-600">
+                    <div className="mt-3 rounded-md border border-neutral-200/80 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-600">
                       Ingen planlagte møter de neste 7 dagene.
                     </div>
                   )}
@@ -1086,7 +1142,7 @@ export function CouncilModule() {
                       <button
                         type="button"
                         onClick={() => setInterviewCalMonth((m) => addCalendarMonths(m, -1))}
-                        className={`${R_FLAT} p-1.5 text-neutral-500 hover:bg-neutral-100`}
+                        className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100"
                         aria-label="Forrige måned"
                       >
                         <ChevronLeft className="size-4" />
@@ -1094,7 +1150,7 @@ export function CouncilModule() {
                       <button
                         type="button"
                         onClick={() => setInterviewCalMonth((m) => addCalendarMonths(m, 1))}
-                        className={`${R_FLAT} p-1.5 text-neutral-500 hover:bg-neutral-100`}
+                        className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100"
                         aria-label="Neste måned"
                       >
                         <ChevronRight className="size-4" />
@@ -1125,11 +1181,9 @@ export function CouncilModule() {
                         <div key={idx} className="flex h-9 items-center justify-center">
                           {cell ? (
                             <span
-                              className={`relative flex size-8 items-center justify-center tabular-nums ${
-                                isNext
-                                  ? 'bg-[#c9a227] font-semibold text-white'
-                                  : 'text-neutral-700'
-                              } ${R_FLAT}`}
+                              className={`relative flex size-8 items-center justify-center rounded-full tabular-nums ${
+                                isNext ? 'bg-[#c9a227] font-semibold text-white' : 'text-neutral-700'
+                              }`}
                             >
                               {cell.day}
                               {isNext ? (
@@ -1175,6 +1229,39 @@ export function CouncilModule() {
                     <p className="mt-5 border-t border-neutral-100 pt-4 text-sm text-neutral-500">
                       Ingen planlagte møter.
                     </p>
+                  )}
+                </div>
+
+                <div className={`${COUNCIL_DASH7030_WHITECARD} overflow-hidden p-0`} style={COUNCIL_DASH7030_WHITECARD_SHADOW}>
+                  <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Siste hendelser</p>
+                    <button
+                      type="button"
+                      onClick={() => setTab('audit')}
+                      className="text-xs font-semibold uppercase tracking-wide text-neutral-600 hover:text-neutral-900"
+                    >
+                      Revisjonslogg
+                    </button>
+                  </div>
+                  {overviewRecentAudit.length === 0 ? (
+                    <p className="px-4 py-6 text-sm text-neutral-500">Ingen hendelser i loggen ennå.</p>
+                  ) : (
+                    <ul className="divide-y divide-neutral-100">
+                      {overviewRecentAudit.map((it) => (
+                        <li key={it.id} className="flex gap-3 px-4 py-3">
+                          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-500">
+                            <Mail className="size-4" aria-hidden />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-neutral-800">{it.text}</p>
+                            <p className="mt-1 text-xs text-neutral-400">{it.when}</p>
+                          </div>
+                          <span className="shrink-0 text-neutral-400" aria-hidden>
+                            <MoreHorizontal className="size-4" />
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
               </div>

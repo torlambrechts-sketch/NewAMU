@@ -49,15 +49,18 @@ export function ModuleDonutCard({
   segments,
   total,
   emptyHint,
+  className,
 }: {
   title: string
   subtitle: string
   segments: InsightSeg[]
   total: number
   emptyHint: string
+  /** Merged after base card styles (e.g. rounded corners for dashboard layouts). */
+  className?: string
 }) {
   return (
-    <div className={INSIGHT_CARD}>
+    <div className={className ? `${INSIGHT_CARD} ${className}` : INSIGHT_CARD}>
       <div className={INSIGHT_CARD_TOP_RULE} />
       <div className="flex items-start justify-between gap-2">
         <div>
