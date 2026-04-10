@@ -6,7 +6,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   Bell,
@@ -17,7 +17,6 @@ import {
   ChevronRight,
   ClipboardList,
   Gavel,
-  History,
   ListOrdered,
   Mail,
   MoreHorizontal,
@@ -190,7 +189,6 @@ const tabs = [
   { id: 'board' as const, label: 'Styre og Valg', icon: Users },
   { id: 'meetings' as const, label: 'Møter', icon: Calendar },
   { id: 'requirements' as const, label: 'Krav og vedtak', icon: Gavel },
-  { id: 'audit' as const, label: 'Revisjonslogg', icon: History, iconOnly: true as const },
 ] as const
 
 const tabBlurbs: Record<(typeof tabs)[number]['id'], { kicker: string; description: string }> = {
@@ -211,10 +209,6 @@ const tabBlurbs: Record<(typeof tabs)[number]['id'], { kicker: string; descripti
     kicker: 'Krav og vedtak',
     description:
       'Samsvarssjekk med lovhenvisninger og vedtaksregister på tvers av møter — søkbart og koblet til oppfølging.',
-  },
-  audit: {
-    kicker: 'Revisjonslogg',
-    description: 'Hendelser i representasjons- og valgmodulen (append-only i demomodus).',
   },
 }
 
@@ -304,6 +298,7 @@ export function CouncilModule() {
   const council = useCouncil()
   const { supabaseConfigured } = useOrgSetupContext()
   const rep = useRepresentatives()
+  const navigate = useNavigate()
   const org = useOrganisation()
   const learning = useLearning()
   const hse = useHse()
@@ -316,6 +311,12 @@ export function CouncilModule() {
   type TabId = (typeof tabs)[number]['id']
   const tab: TabId =
     tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
+
+  useEffect(() => {
+    if (tabParam === 'audit') {
+      queueMicrotask(() => navigate('/workspace/revisjonslogg?source=council', { replace: true }))
+    }
+  }, [tabParam, navigate])
 
   useEffect(() => {
     if (tabParam === 'election') {
@@ -409,10 +410,6 @@ export function CouncilModule() {
   })
   const [repCandInput, setRepCandInput] = useState<Record<string, string>>({})
   const [periodForm, setPeriodForm] = useState({ label: '', start: '', end: '' })
-  const sortedRepAudit = useMemo(
-    () => [...rep.auditTrail].sort((a, b) => a.at.localeCompare(b.at)),
-    [rep.auditTrail],
-  )
 
   const repElectionSections = useMemo(
     () => partitionRepresentativeElections(rep.elections),
@@ -2551,40 +2548,6 @@ export function CouncilModule() {
         </div>
       )}
 
-      {tab === 'audit' && (
-        <div className="mt-8 space-y-6">
-          <div className={`${R_FLAT} border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950`}>
-            <strong>Revisjonslogg:</strong> Hendelser knyttet til representasjon og valg (demodata kan tilbakestilles).
-          </div>
-          <div className={`${R_FLAT} overflow-hidden border border-neutral-200/90 bg-white shadow-sm`}>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-3">
-              <h2 className={`flex items-center gap-2 ${COUNCIL_SUBHEADING}`}>
-                <History className="size-4" />
-                Representasjon og valg
-              </h2>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm('Tilbakestill medlemsdemodata?')) rep.resetDemo()
-                }}
-                className="text-xs text-neutral-500 hover:text-neutral-800 hover:underline"
-              >
-                Tilbakestill demo
-              </button>
-            </div>
-            <ul className="max-h-[min(70vh,640px)] divide-y divide-neutral-100 overflow-y-auto text-sm">
-              {sortedRepAudit.map((a) => (
-                <li key={a.id} className="px-4 py-3">
-                  <div className="text-xs text-neutral-500">
-                    {formatWhen(a.at)} · <span className="font-mono text-neutral-600">{a.action}</span>
-                  </div>
-                  <p className="mt-1 text-neutral-800">{a.message}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

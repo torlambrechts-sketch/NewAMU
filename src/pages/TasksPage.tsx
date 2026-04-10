@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Calendar,
   ChevronDown,
@@ -29,7 +29,6 @@ import { WHISTLE_CATEGORY_OPTIONS } from '../types/whistleblowing'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeTaskWizard } from '../components/wizard/wizards'
-import { Mainbox1 } from '../components/layout/Mainbox1'
 import {
   mergeLayoutPayload,
   table1BodyRowClass,
@@ -97,7 +96,7 @@ function parseSource(s: string | null): TaskSourceType | null {
   return allowed.includes(s as TaskSourceType) ? (s as TaskSourceType) : null
 }
 
-type TaskPageTab = 'list' | 'audit' | 'whistle'
+type TaskPageTab = 'list' | 'whistle'
 
 const WHISTLE_STATUS_LABELS: Record<WhistleblowingCaseStatus, string> = {
   received: 'Mottatt',
@@ -119,7 +118,6 @@ export function TasksPage() {
   const wb = useWhistleblowing()
   const {
     tasks,
-    auditLog,
     addTask,
     updateTask,
     deleteTask,
@@ -130,17 +128,22 @@ export function TasksPage() {
     error,
   } = useTasks()
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const viewParam = searchParams.get('view')
-  const pageTab: TaskPageTab =
-    viewParam === 'audit' ? 'audit' : viewParam === 'whistle' ? 'whistle' : 'list'
+  const pageTab: TaskPageTab = viewParam === 'whistle' ? 'whistle' : 'list'
+
+  useEffect(() => {
+    if (viewParam === 'audit') {
+      queueMicrotask(() => navigate('/workspace/revisjonslogg?source=tasks', { replace: true }))
+    }
+  }, [viewParam, navigate])
 
   const setPageTab = useCallback(
     (t: TaskPageTab) => {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev)
-          if (t === 'audit') next.set('view', 'audit')
-          else if (t === 'whistle') next.set('view', 'whistle')
+          if (t === 'whistle') next.set('view', 'whistle')
           else {
             next.delete('view')
             next.set('view', 'list')
@@ -697,8 +700,8 @@ export function TasksPage() {
         key: 'audit',
         label: 'Revisjonslogg',
         icon: History,
-        active: pageTab === 'audit',
-        onClick: () => setPageTab('audit'),
+        active: false,
+        to: '/workspace/revisjonslogg?source=tasks',
       },
     ],
     [pageTab, setPageTab],
@@ -743,14 +746,12 @@ export function TasksPage() {
               className="text-2xl font-semibold tracking-tight text-neutral-900 md:text-3xl"
               style={{ fontFamily: TASK_POSTINGS_SERIF }}
             >
-              {pageTab === 'whistle' ? 'Varslingssaker' : pageTab === 'audit' ? 'Revisjonslogg' : 'Oppgaveliste'}
+              {pageTab === 'whistle' ? 'Varslingssaker' : 'Oppgaveliste'}
             </h1>
             <p className="text-sm text-neutral-500">
               {pageTab === 'whistle'
                 ? `${organization?.name?.trim() ?? 'Organisasjon'} · Varslingshvelv`
-                : pageTab === 'audit'
-                  ? 'Hendelser på tvers av oppgaver'
-                  : `${organization?.name?.trim() ?? 'Organisasjon'} · Samlet oversikt`}
+                : `${organization?.name?.trim() ?? 'Organisasjon'} · Samlet oversikt`}
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -769,7 +770,7 @@ export function TasksPage() {
                   Ny oppgave
                 </button>
               </>
-            ) : pageTab === 'whistle' ? (
+            ) : (
               <>
                 <span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-teal-900">
                   {wb.cases.length} saker
@@ -785,10 +786,6 @@ export function TasksPage() {
                   Ny varsling
                 </button>
               </>
-            ) : (
-              <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-neutral-700">
-                Logg
-              </span>
             )}
             <button type="button" className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100" aria-label="Mer">
               <MoreHorizontal className="size-5" />
@@ -1214,26 +1211,6 @@ export function TasksPage() {
             )}
           </section>
         </>
-      )}
-
-      {pageTab === 'audit' && (
-        <section className="mt-8 w-full">
-          <Mainbox1
-            title="Revisjonslogg"
-            subtitle="Nye hendelser legges til. Sletting av oppgaver logges."
-          >
-            <ul className="max-h-[min(70vh,520px)] space-y-1 overflow-y-auto text-xs text-neutral-700">
-              {[...auditLog].reverse().slice(0, 200).map((a) => (
-                <li key={a.id} className="border-b border-neutral-100 py-2">
-                  <span className="text-neutral-500">
-                    {new Date(a.at).toLocaleString('no-NO')} · {a.action}
-                  </span>{' '}
-                  — {a.message}
-                </li>
-              ))}
-            </ul>
-          </Mainbox1>
-        </section>
       )}
 
       {closeModalCaseId ? (

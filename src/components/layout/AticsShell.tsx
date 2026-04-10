@@ -78,13 +78,6 @@ const tasksSubs: SubItem[] = [
       pathname === '/tasks' &&
       (!new URLSearchParams(search).get('view') || new URLSearchParams(search).get('view') === 'list'),
   },
-  {
-    label: 'Revisjonslogg',
-    path: '/tasks?view=audit',
-    match: ({ pathname, search }) => pathname === '/tasks' && new URLSearchParams(search).get('view') === 'audit',
-    iconOnly: true,
-    Icon: History,
-  },
 ]
 
 const internalControlSubs: SubItem[] = [
@@ -97,13 +90,6 @@ const internalControlSubs: SubItem[] = [
   },
   { label: 'ROS', path: '/internal-control?tab=ros', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'ros' },
   { label: 'Årsgjennomgang', path: '/internal-control?tab=annual', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'annual' },
-  {
-    label: 'Revisjonslogg',
-    path: '/internal-control?tab=audit',
-    match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'audit',
-    iconOnly: true,
-    Icon: History,
-  },
 ]
 
 const hseSubs: SubItem[] = [
@@ -119,13 +105,6 @@ const hseSubs: SubItem[] = [
   { label: 'SJA', path: '/hse?tab=sja', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'sja' },
   { label: 'Opplæring', path: '/hse?tab=training', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'training' },
   { label: 'Sykefravær', path: '/hse?tab=sickness', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'sickness' },
-  {
-    label: 'Revisjonslogg',
-    path: '/hse?tab=audit',
-    match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'audit',
-    iconOnly: true,
-    Icon: History,
-  },
 ]
 
 const orgHealthSubs: SubItem[] = [
@@ -139,13 +118,6 @@ const orgHealthSubs: SubItem[] = [
   { label: 'Undersøkelser', path: '/org-health?tab=surveys', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'surveys' },
   { label: 'Sykefravær (NAV)', path: '/org-health?tab=nav', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'nav' },
   { label: 'AML-indikatorer', path: '/org-health?tab=metrics', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'metrics' },
-  {
-    label: 'Revisjonslogg',
-    path: '/org-health?tab=audit',
-    match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'audit',
-    iconOnly: true,
-    Icon: History,
-  },
   { label: 'Veikart', path: '/org-health/settings', match: ({ pathname }) => pathname === '/org-health/settings' },
 ]
 
@@ -175,13 +147,6 @@ const councilSubs: SubItem[] = [
         (t === 'requirements' || t === 'compliance' || t === 'decisions')
       )
     },
-  },
-  {
-    label: 'Revisjonslogg',
-    path: '/council?tab=audit',
-    match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'audit',
-    iconOnly: true,
-    Icon: History,
   },
 ]
 
@@ -257,6 +222,14 @@ const navGroups: NavGroup[] = [
     icon: Home,
     modules: [
       { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [], perm: 'module.view.dashboard' },
+      {
+        to: '/workspace/revisjonslogg',
+        label: 'Revisjonslogg',
+        end: true,
+        icon: History,
+        subs: [],
+        perm: 'module.view.dashboard',
+      },
       { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, subs: tasksSubs, perm: 'module.view.tasks' },
       { to: '/action-board', label: 'Action Board', end: false, icon: Kanban, subs: [], perm: 'module.view.dashboard' },
       { to: '/aarshjul', label: 'Årshjul', end: false, icon: CalendarRange, subs: [], perm: 'module.view.dashboard' },
@@ -343,6 +316,10 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
   if (modules.length === 0) {
     return { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [] }
   }
+  if (pathname === '/workspace/revisjonslogg') {
+    const w = modules.find((m) => m.to === '/workspace/revisjonslogg')
+    if (w) return w
+  }
   const hub = modules.find((m) => m.to === '/workplace-reporting')
   if (hub) {
     const sp = new URLSearchParams(search)
@@ -369,8 +346,59 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
   return modules[0]
 }
 
+function workspaceRevisjonsloggSubs(): SubItem[] {
+  const srcMatch =
+    (source: string) =>
+    ({ pathname, search }: { pathname: string; search: string }) =>
+      pathname === '/workspace/revisjonslogg' && new URLSearchParams(search).get('source') === source
+  const allMatch = ({ pathname, search }: { pathname: string; search: string }) =>
+    pathname === '/workspace/revisjonslogg' && !new URLSearchParams(search).get('source')
+  return [
+    { label: 'Alle kilder', path: '/workspace/revisjonslogg', match: allMatch },
+    {
+      label: 'Oppgaver',
+      path: '/workspace/revisjonslogg?source=tasks',
+      match: srcMatch('tasks'),
+      requirePerm: 'module.view.tasks',
+    },
+    {
+      label: 'Internkontroll',
+      path: '/workspace/revisjonslogg?source=internal_control',
+      match: srcMatch('internal_control'),
+      requirePerm: 'module.view.internal_control',
+    },
+    {
+      label: 'HSE / HMS',
+      path: '/workspace/revisjonslogg?source=hse',
+      match: srcMatch('hse'),
+      requirePerm: 'module.view.hse',
+    },
+    {
+      label: 'Org. helse',
+      path: '/workspace/revisjonslogg?source=org_health',
+      match: srcMatch('org_health'),
+      requirePerm: 'module.view.org_health',
+    },
+    {
+      label: 'AMU / råd',
+      path: '/workspace/revisjonslogg?source=council',
+      match: srcMatch('council'),
+      requirePerm: 'module.view.council',
+    },
+    {
+      label: 'Representanter',
+      path: '/workspace/revisjonslogg?source=representatives',
+      match: srcMatch('representatives'),
+      requirePerm: 'module.view.members',
+    },
+  ]
+}
+
 function subNavForPath(modules: NavModule[], pathname: string, search: string): SubItem[] {
   const mod = activeModuleForPath(modules, pathname, search)
+  if (mod.to === '/workspace/revisjonslogg') {
+    return workspaceRevisjonsloggSubs()
+  }
   // For Members shortcut, show council subs
   if (mod.to === '/council?tab=board') return councilSubs
   return mod.subs

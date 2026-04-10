@@ -34,6 +34,7 @@ import { ActionBoardPage } from './pages/actionboard/ActionBoardPage'
 import { ProjectDashboard } from './pages/ProjectDashboard'
 import { WelcomeDashboardPage } from './pages/WelcomeDashboardPage'
 import { TasksPage } from './pages/TasksPage'
+import { WorkspaceAuditLogPage } from './pages/WorkspaceAuditLogPage'
 import { LearningLayout } from './components/learning/LearningLayout'
 import { LearningDashboard } from './pages/learning/LearningDashboard'
 import { LearningCoursesList } from './pages/learning/LearningCoursesList'
@@ -104,6 +105,7 @@ function App() {
                   <Route index element={<WelcomeDashboardPage />} />
                   <Route path="dashboard/classic" element={<ProjectDashboard />} />
                   <Route path="tasks" element={<TasksPage />} />
+                  <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
                   <Route path="organisation" element={<OrganisationPage />} />
                   <Route path="reports" element={<ReportingEnginePage />} />
                   <Route path="workplace-reporting" element={<WorkplaceReportingPage />} />

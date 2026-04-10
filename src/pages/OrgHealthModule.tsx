@@ -9,7 +9,6 @@ import {
   ClipboardCheck,
   FileSpreadsheet,
   HeartPulse,
-  History,
   Lock,
   Plus,
   Send,
@@ -86,7 +85,6 @@ const tabs = [
   { id: 'nav' as const, label: 'Sykefravær (NAV)', icon: FileSpreadsheet, iconOnly: false as const },
   { id: 'metrics' as const, label: 'AML-indikatorer', icon: BarChart3, iconOnly: false as const },
   { id: 'reporting' as const, label: 'Anonym rapportering', icon: ShieldAlert, iconOnly: false as const },
-  { id: 'audit' as const, label: 'Revisjonslogg', icon: History, iconOnly: true as const },
 ] as const
 
 function formatWhen(iso: string) {
@@ -105,7 +103,6 @@ export function OrgHealthModule() {
   const org = useOrganisation()
   const { addTask } = useTasks()
   const docs = useDocuments()
-  const navigate = useNavigate()
   const menu1 = useOrgMenu1Styles()
   const { payload: layoutPayload } = useUiTheme()
   const layout = mergeLayoutPayload(layoutPayload)
@@ -122,6 +119,14 @@ export function OrgHealthModule() {
 
   type TabId = (typeof tabs)[number]['id']
   const tabParam = searchParams.get('tab')
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (tabParam === 'audit') {
+      queueMicrotask(() => navigate('/workspace/revisjonslogg?source=org_health', { replace: true }))
+    }
+  }, [tabParam, navigate])
+
   const tab: TabId =
     tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
   const setTab = (id: TabId) => setSearchParams({ tab: id }, { replace: true })
@@ -156,11 +161,6 @@ export function OrgHealthModule() {
   const openSurveys = useMemo(
     () => oh.surveys.filter((s) => s.status === 'open'),
     [oh.surveys],
-  )
-
-  const sortedAudit = useMemo(
-    () => [...oh.auditTrail].sort((a, b) => a.at.localeCompare(b.at)),
-    [oh.auditTrail],
   )
 
   const activeRespondSurvey = respondSurveyId
@@ -1337,34 +1337,6 @@ export function OrgHealthModule() {
         </div>
       )}
 
-      {tab === 'audit' && (
-        <div className="mt-8">
-          <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-3">
-              <h2 className="font-semibold text-neutral-900">Revisjonslogg</h2>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm('Tilbakestill demodata for organisasjonshelse?')) oh.resetDemo()
-                }}
-                className="text-xs text-neutral-500 hover:underline"
-              >
-                Tilbakestill demo
-              </button>
-            </div>
-            <ul className="max-h-[560px] divide-y divide-neutral-100 overflow-y-auto text-sm">
-              {sortedAudit.map((a) => (
-                <li key={a.id} className="px-4 py-3">
-                  <div className="text-xs text-neutral-500">
-                    {formatWhen(a.at)} · <span className="font-mono">{a.action}</span>
-                  </div>
-                  <p className="mt-1 text-neutral-800">{a.message}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

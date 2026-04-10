@@ -8,10 +8,8 @@ import {
   AlertTriangle,
   Calendar,
   CheckCircle2,
-  Download,
   GraduationCap,
   HardHat,
-  History,
   ImagePlus,
   ListChecks,
   Lock,
@@ -91,7 +89,6 @@ const tabs = [
   { id: 'sja' as const, label: 'SJA', icon: ShieldCheck, iconOnly: false as const },
   { id: 'training' as const, label: 'Opplæring', icon: GraduationCap, iconOnly: false as const },
   { id: 'sickness' as const, label: 'Sykefravær', icon: Users, iconOnly: false as const },
-  { id: 'audit' as const, label: 'Revisjonslogg', icon: History, iconOnly: true as const },
 ] as const
 
 // ─── Label helpers ─────────────────────────────────────────────────────────────
@@ -169,7 +166,6 @@ function isoToDatetimeLocal(iso: string) {
 
 export function HseModule() {
   const hse = useHse()
-  const navigate = useNavigate()
   const { supabaseConfigured, supabase, organization, profile, user, isAdmin, departments } = useOrgSetupContext()
   const org = useOrganisation()
   const { addTask } = useTasks()
@@ -180,8 +176,17 @@ export function HseModule() {
   const theadRow = table1HeaderRowClass(layout)
 
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+
   type TabId = (typeof tabs)[number]['id']
   const tabParam = searchParams.get('tab')
+
+  useEffect(() => {
+    if (tabParam === 'audit') {
+      queueMicrotask(() => navigate('/workspace/revisjonslogg?source=hse', { replace: true }))
+    }
+  }, [tabParam, navigate])
+
   const tab: TabId = tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
 
   useEffect(() => {
@@ -333,7 +338,6 @@ export function HseModule() {
   })
 
   // GDPR + export
-  const [exportMsg, setExportMsg] = useState('')
   /** Stable anchor for «siste 90 dager» (unngår Date.now() under render). */
   const [overviewTimeAnchor] = useState(() => Date.now())
 
@@ -341,7 +345,6 @@ export function HseModule() {
   const [slPanelRole, setSlPanelRole] = useState<SickLeaveCase['portalMessages'][0]['senderRole']>('manager')
   const [slPanelName, setSlPanelName] = useState('')
   const [trainingPanelId, setTrainingPanelId] = useState<string | null>(null)
-  const sortedAudit = useMemo(() => [...hse.auditTrail].sort((a, b) => a.at.localeCompare(b.at)), [hse.auditTrail])
 
   const sjaPanelExisting = sjaPanelId && sjaPanelId !== '__new__' ? hse.sjaAnalyses.find((s) => s.id === sjaPanelId) : undefined
   /** Oppdatert rad fra state (milepæler / dialog etter lagring i panelet). */
@@ -2266,74 +2269,6 @@ export function HseModule() {
               ) : null}
             </Table1Shell>
           </Mainbox1>
-        </div>
-      )}
-
-      {/* ── Audit log ─────────────────────────────────────────────────────────── */}
-      {tab === 'audit' && (
-        <div className="mt-8 space-y-6">
-
-          {/* Export + GDPR controls */}
-          <div className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Eksport og arkivverdighet</h2>
-            <p className="mt-1 text-sm text-neutral-600">
-              Eksporter alle HMS-data til JSON for arkivering. Sykefraværsnotes og dialogmeldinger er automatisk
-              fjernet fra eksporten (GDPR). For PDF-eksport, bruk nettleserens utskriftsfunksjon.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  const json = hse.exportJson()
-                  const blob = new Blob([json], { type: 'application/json' })
-                  const url = URL.createObjectURL(blob)
-                  const a = document.createElement('a')
-                  a.href = url
-                  a.download = `hse-export-${new Date().toISOString().slice(0, 10)}.json`
-                  a.click()
-                  URL.revokeObjectURL(url)
-                  setExportMsg('Eksport fullført — filen er lastet ned.')
-                }}
-                className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26]"
-              >
-                <Download className="size-4" />
-                Eksporter alle HSE-data (JSON)
-              </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-              >
-                Skriv ut / PDF
-              </button>
-            </div>
-            {exportMsg && <p className="mt-2 text-sm text-emerald-700">{exportMsg}</p>}
-          </div>
-
-          <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-3">
-              <h2 className="font-semibold text-neutral-900">Revisjonslogg</h2>
-              <button type="button" onClick={() => { if (confirm('Tilbakestill HSE-demodata? Revisjonslogg regenereres.')) hse.resetDemo() }} className="text-xs text-neutral-500 hover:underline">
-                Tilbakestill demo
-              </button>
-            </div>
-            <ul className="max-h-[640px] divide-y divide-neutral-100 overflow-y-auto text-sm">
-              {sortedAudit.map((a) => (
-                <li key={a.id} className="px-4 py-3">
-                  <div className="flex flex-wrap gap-2 text-xs text-neutral-500">
-                    <span>{formatWhen(a.at)}</span>
-                    <span className="font-mono text-neutral-600">{a.action}</span>
-                    <span>{a.entityType}</span>
-                    <span className="truncate font-mono text-neutral-400">{a.entityId}</span>
-                  </div>
-                  <p className="mt-1 font-medium text-neutral-900">{a.summary}</p>
-                  {a.detail && Object.keys(a.detail).length > 0 && (
-                    <pre className="mt-2 max-h-24 overflow-auto rounded bg-neutral-50 p-2 text-xs text-neutral-600">{JSON.stringify(a.detail, null, 0)}</pre>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       )}
 

@@ -97,6 +97,7 @@ export const DASHBOARD_PERMISSION: PermissionKey = 'module.view.dashboard'
 export type RoutePermissionRequirement = PermissionKey | PermissionKey[]
 
 export function permissionForPath(pathname: string): RoutePermissionRequirement {
+  if (pathname === '/workspace/revisjonslogg') return DASHBOARD_PERMISSION
   if (pathname === '/' || pathname === '' || pathname === '/profile') return DASHBOARD_PERMISSION
   const anyHit = ROUTE_PERMISSION_ANY.find(
     (r) => pathname === r.pathPrefix || pathname.startsWith(`${r.pathPrefix}/`),

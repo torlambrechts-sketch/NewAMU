@@ -1,10 +1,9 @@
-import { useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   CheckCircle2,
   ClipboardList,
-  History,
   ListChecks,
   Shield,
   Users,
@@ -21,7 +20,6 @@ const tabs = [
   { id: 'board' as const, label: 'AMU og sammensetting', icon: Shield },
   { id: 'requirements' as const, label: 'Krav og opplæring', icon: ListChecks },
   { id: 'periods' as const, label: 'Perioder', icon: ClipboardList },
-  { id: 'audit' as const, label: 'Revisjonslogg', icon: History },
 ]
 
 function officeLabel(role: RepresentativeOfficeRole): string {
@@ -50,17 +48,6 @@ function candidateLetterIndex(election: RepElection, candidateId: string): numbe
   return Math.max(0, election.candidates.findIndex((c) => c.id === candidateId))
 }
 
-function formatWhen(iso: string) {
-  try {
-    return new Date(iso).toLocaleString('no-NO', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    })
-  } catch {
-    return iso
-  }
-}
-
 export function MembersModule() {
   const rep = useRepresentatives()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -68,6 +55,14 @@ export function MembersModule() {
   const tabParam = searchParams.get('tab')
   const tab: TabId =
     tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (tabParam === 'audit') {
+      queueMicrotask(() => navigate('/workspace/revisjonslogg?source=representatives', { replace: true }))
+    }
+  }, [tabParam, navigate])
+
   const setTab = (id: TabId) => setSearchParams({ tab: id }, { replace: true })
   const [electionForm, setElectionForm] = useState({
     title: '',
@@ -78,11 +73,6 @@ export function MembersModule() {
   })
   const [candInput, setCandInput] = useState<Record<string, string>>({})
   const [periodForm, setPeriodForm] = useState({ label: '', start: '', end: '' })
-
-  const sortedAudit = useMemo(
-    () => [...rep.auditTrail].sort((a, b) => a.at.localeCompare(b.at)),
-    [rep.auditTrail],
-  )
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
@@ -479,34 +469,6 @@ export function MembersModule() {
         </div>
       )}
 
-      {tab === 'audit' && (
-        <div className="mt-8">
-          <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-3">
-              <h2 className="font-semibold text-neutral-900">Revisjonslogg</h2>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm('Tilbakestill medlemsdemodata?')) rep.resetDemo()
-                }}
-                className="text-xs text-neutral-500 hover:text-neutral-800 hover:underline"
-              >
-                Tilbakestill demo
-              </button>
-            </div>
-            <ul className="max-h-[560px] divide-y divide-neutral-100 overflow-y-auto text-sm">
-              {sortedAudit.map((a) => (
-                <li key={a.id} className="px-4 py-3">
-                  <div className="text-xs text-neutral-500">
-                    {formatWhen(a.at)} · <span className="font-mono text-neutral-600">{a.action}</span>
-                  </div>
-                  <p className="mt-1 text-neutral-800">{a.message}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
