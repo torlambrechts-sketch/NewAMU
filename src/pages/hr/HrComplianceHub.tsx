@@ -1,8 +1,11 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { FileWarning, GitBranch, Scale } from 'lucide-react'
+import { ComplianceModuleChrome } from '../../components/compliance/ComplianceModuleChrome'
+import { PostingsStyleSurface } from '../../components/tasks/tasksPostingsLayout'
+import { hrComplianceHubItems } from './hrComplianceHubNav'
 
-const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
-const TILE = 'rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm transition hover:border-[#1a3d32]/30'
+const TILE =
+  'group flex flex-col rounded-md border border-neutral-200/90 bg-white p-6 shadow-sm transition hover:border-[#1a3d32]/35'
 
 const LINKS = [
   {
@@ -26,44 +29,41 @@ const LINKS = [
 ] as const
 
 export function HrComplianceHub() {
+  const { pathname } = useLocation()
+
   return (
-    <div className={PAGE_WRAP}>
-      <nav className="mb-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
-        <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
-          Workspace
-        </Link>
-        <span className="text-neutral-400">→</span>
-        <span className="font-medium text-neutral-800">HR & rettssikkerhet</span>
-      </nav>
-
-      <div className="flex flex-wrap items-start gap-6 border-b border-neutral-200/80 pb-8">
-        <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-[#1a3d32] text-[#c9a227]">
-          <Scale className="size-9" />
+    <ComplianceModuleChrome
+      breadcrumb={[
+        { label: 'Workspace', to: '/' },
+        { label: 'Samsvar', to: '/compliance' },
+        { label: 'HR & rettssikkerhet' },
+      ]}
+      title="HR & rettssikkerhet"
+      description={
+        <p className="max-w-3xl">
+          Skjemaer og sporbarhet for de tyngste AML-prosessene. Tilgang styres strengt i databasen (RLS) — verneombud ser ikke
+          drøftelsessamtaler med mindre de er innkalt som tillitsvalgt.
+        </p>
+      }
+      hubAriaLabel="HR & rettssikkerhet — faner"
+      hubItems={hrComplianceHubItems(pathname)}
+    >
+      <PostingsStyleSurface className="overflow-hidden">
+        <div className="border-b border-neutral-100 px-5 py-4 sm:px-6">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Moduler</p>
+          <p className="mt-1 text-sm text-neutral-600">Velg et spor under — samme funksjonalitet som tidligere.</p>
         </div>
-        <div className="min-w-0 flex-1">
-          <h1
-            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
-            HR & rettssikkerhet
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-neutral-600">
-            Skjemaer og sporbarhet for de tyngste AML-prosessene. Tilgang styres strengt i databasen (RLS) — verneombud ser
-            ikke drøftelsessamtaler med mindre de er innkalt som tillitsvalgt.
-          </p>
+        <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 sm:p-6">
+          {LINKS.map(({ to, title, desc, icon: Icon }) => (
+            <Link key={to} to={to} className={TILE}>
+              <Icon className="mb-3 size-8 text-[#1a3d32]" />
+              <h2 className="font-semibold text-neutral-900">{title}</h2>
+              <p className="mt-2 text-sm text-neutral-600">{desc}</p>
+              <span className="mt-4 text-sm font-semibold text-[#1a3d32] group-hover:underline">Åpne →</span>
+            </Link>
+          ))}
         </div>
-      </div>
-
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {LINKS.map(({ to, title, desc, icon: Icon }) => (
-          <Link key={to} to={to} className={TILE}>
-            <Icon className="mb-3 size-8 text-[#1a3d32]" />
-            <h2 className="font-semibold text-neutral-900">{title}</h2>
-            <p className="mt-2 text-sm text-neutral-600">{desc}</p>
-            <span className="mt-4 inline-block text-sm font-medium text-[#1a3d32]">Åpne →</span>
-          </Link>
-        ))}
-      </div>
-    </div>
+      </PostingsStyleSurface>
+    </ComplianceModuleChrome>
   )
 }

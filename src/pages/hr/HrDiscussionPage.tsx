@@ -1,17 +1,18 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, FileText, Lock, Shield } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
+import { CheckCircle2, FileText, Lock, Shield } from 'lucide-react'
 import { useHrCompliance } from '../../hooks/useHrCompliance'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { HrLegalAck } from '../../types/hrCompliance'
-
-const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
+import { ComplianceModuleChrome } from '../../components/compliance/ComplianceModuleChrome'
+import { hrComplianceHubItems } from './hrComplianceHubNav'
 
 function mergeAck(base: Record<string, unknown> | HrLegalAck | undefined, patch: Partial<HrLegalAck>): HrLegalAck {
   return { ...(base as HrLegalAck), ...patch }
 }
 
 export function HrDiscussionPage() {
+  const { pathname } = useLocation()
   const hr = useHrCompliance()
   const { user, profile } = useOrgSetupContext()
   const [empId, setEmpId] = useState('')
@@ -57,26 +58,28 @@ export function HrDiscussionPage() {
   }
 
   return (
-    <div className={PAGE_WRAP}>
-      <Link to="/hr" className="mb-6 inline-flex items-center gap-2 text-sm text-[#1a3d32] hover:underline">
-        <ArrowLeft className="size-4" /> Til HR-hub
-      </Link>
-
-      <div className="flex flex-wrap items-start gap-4 border-b border-neutral-200/80 pb-8">
-        <div className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-[#1a3d32]/10 text-[#1a3d32]">
-          <Shield className="size-7" />
+    <ComplianceModuleChrome
+      breadcrumb={[
+        { label: 'Workspace', to: '/' },
+        { label: 'Samsvar', to: '/compliance' },
+        { label: 'HR & rettssikkerhet', to: '/hr' },
+        { label: '§ 15-1' },
+      ]}
+      title="Drøftelsessamtale (AML § 15-1)"
+      description={
+        <p className="max-w-3xl">
+          Obligatorisk sjekkliste, referat uten oppsigelseskonklusjon, elektronisk signatur med navn, og tidslås med SHA-256
+          etter alle påkrevde signaturer. Tillitsvalgt ser kun saker der vedkommende er innkalt.
+        </p>
+      }
+      headerActions={
+        <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-[#1a3d32]/10 text-[#1a3d32]">
+          <Shield className="size-6" />
         </div>
-        <div>
-          <h1 className="text-2xl font-semibold text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
-            Drøftelsessamtale (AML § 15-1)
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm text-neutral-600">
-            Obligatorisk sjekkliste, referat uten oppsigelseskonklusjon, elektronisk signatur med navn, og tidslås med SHA-256
-            etter alle påkrevde signaturer. Tillitsvalgt ser kun saker der vedkommende er innkalt.
-          </p>
-        </div>
-      </div>
-
+      }
+      hubAriaLabel="HR & rettssikkerhet — faner"
+      hubItems={hrComplianceHubItems(pathname)}
+    >
       {hr.error && (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{hr.error}</p>
       )}
@@ -346,6 +349,6 @@ export function HrDiscussionPage() {
       {sortedMeetings.length === 0 && !hr.loading && (
         <p className="mt-10 text-center text-sm text-neutral-500">Ingen saker — eller du har ikke tilgang.</p>
       )}
-    </div>
+    </ComplianceModuleChrome>
   )
 }

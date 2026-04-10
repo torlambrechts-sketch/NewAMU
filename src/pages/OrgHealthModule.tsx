@@ -48,10 +48,11 @@ import {
   ModuleFilledListCard,
   type InsightSeg,
 } from '../components/insights/ModuleInsightCharts'
+import { ComplianceModuleChrome } from '../components/compliance/ComplianceModuleChrome'
+import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import type { ContentBlock } from '../types/documents'
 import type { AmlReportKind, LaborMetricKey, Survey, SurveyQuestion, SurveySchedule, SurveyScheduleKind } from '../types/orgHealth'
 
-const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
 const HERO_ACTION_CLASS =
   'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-none px-4 text-sm font-medium leading-none'
@@ -424,32 +425,40 @@ export function OrgHealthModule() {
     return () => window.removeEventListener('keydown', onKey)
   }, [surveyPanelId, closeSurveyPanel])
 
+  const surveyOpenCount = useMemo(() => oh.surveys.filter((s) => s.status === 'open').length, [oh.surveys])
+
+  const ohHubItems: HubMenu1Item[] = useMemo(
+    () => [
+      ...tabs.map(({ id, label, icon: Icon }) => ({
+        key: id,
+        label,
+        icon: Icon,
+        active: tab === id,
+        to: `/org-health?tab=${id}`,
+        badgeCount: id === 'surveys' && surveyOpenCount > 0 ? surveyOpenCount : undefined,
+      })),
+      {
+        key: 'settings',
+        label: 'Veikart',
+        icon: BookMarked,
+        active: false,
+        to: '/org-health/settings',
+      },
+    ],
+    [tab, surveyOpenCount],
+  )
+
   return (
-    <div className={PAGE_WRAP}>
-      <nav className="mb-4 text-sm text-neutral-600">
-        <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
-          Prosjekter
-        </Link>
-        <span className="mx-2 text-neutral-400">→</span>
-        <span className="font-medium text-neutral-800">Organisasjonshelse</span>
-      </nav>
-
-      {oh.error && (
-        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{oh.error}</p>
-      )}
-      {oh.loading && supabaseConfigured && (
-        <p className="mb-4 text-sm text-neutral-500">Laster organisasjonshelse-data…</p>
-      )}
-
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-200/80 pb-6">
-        <div>
-          <h1
-            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
-            Organisasjonshelse
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-neutral-600">
+    <>
+      <ComplianceModuleChrome
+        breadcrumb={[
+          { label: 'Workspace', to: '/' },
+          { label: 'Samsvar', to: '/compliance' },
+          { label: 'Organisasjonshelse' },
+        ]}
+        title="Organisasjonshelse"
+        description={
+          <p className="max-w-2xl">
             Medarbeiderundersøkelser (valgfritt anonyme), aggregerte resultater, sykefravær fra NAV-rapportering
             (manuell import), og AML-relaterte indikatorer. Ikke juridisk eller medisinsk rådgivning — verifiser mot{' '}
             <a href="https://lovdata.no" className="text-[#1a3d32] underline" target="_blank" rel="noreferrer">
@@ -457,8 +466,16 @@ export function OrgHealthModule() {
             </a>{' '}
             og interne kilder.
           </p>
-        </div>
-      </div>
+        }
+        hubAriaLabel="Organisasjonshelse — faner"
+        hubItems={ohHubItems}
+      >
+        {oh.error && (
+          <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{oh.error}</p>
+        )}
+        {oh.loading && supabaseConfigured && (
+          <p className="mb-4 text-sm text-neutral-500">Laster organisasjonshelse-data…</p>
+        )}
 
       {tab === 'overview' && (
         <div className="mt-6 space-y-10">
@@ -825,19 +842,6 @@ export function OrgHealthModule() {
           </Mainbox1>
         </div>
       )}
-
-      {surveyPanelId ? (
-        <SurveyAdminPanel
-          mode={surveyPanelId === '__new__' ? 'create' : 'edit'}
-          surveyId={surveyPanelId === '__new__' ? null : surveyPanelId}
-          oh={oh}
-          org={org}
-          onClose={closeSurveyPanel}
-          onCreated={(id) => setSurveyPanelId(id)}
-          onCloseSurvey={handleCloseSurveyFromPanel}
-          onAmuShare={handleAmuShare}
-        />
-      ) : null}
 
       {tab === 'nav' && (
         <div className="mt-8 space-y-6">
@@ -1336,8 +1340,22 @@ export function OrgHealthModule() {
           </div>
         </div>
       )}
+      </ComplianceModuleChrome>
 
-    </div>
+      {surveyPanelId ? (
+        <SurveyAdminPanel
+          mode={surveyPanelId === '__new__' ? 'create' : 'edit'}
+          surveyId={surveyPanelId === '__new__' ? null : surveyPanelId}
+          oh={oh}
+          org={org}
+          onClose={closeSurveyPanel}
+          onCreated={(id) => setSurveyPanelId(id)}
+          onCloseSurvey={handleCloseSurveyFromPanel}
+          onAmuShare={handleAmuShare}
+        />
+      ) : null}
+
+    </>
   )
 }
 

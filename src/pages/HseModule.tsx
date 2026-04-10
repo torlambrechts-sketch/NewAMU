@@ -21,6 +21,8 @@ import {
   Users,
   X,
 } from 'lucide-react'
+import { ComplianceModuleChrome } from '../components/compliance/ComplianceModuleChrome'
+import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { mergeSickLeaveMilestonesOnDateChange, useHse } from '../hooks/useHse'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
@@ -56,7 +58,6 @@ import type {
   TrainingKind,
 } from '../types/hse'
 
-const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
 const HERO_ACTION_CLASS =
   'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-none px-4 text-sm font-medium leading-none'
@@ -76,10 +77,6 @@ const HSE_THRESHOLD_BOX =
 const HSE_INSIGHT_CARD =
   `${R_FLAT} flex flex-col border border-neutral-200/90 bg-white p-5 text-left shadow-sm transition hover:border-neutral-300 hover:shadow`
 const HSE_CARD_TOP_RULE = 'mb-4 h-0.5 w-full shrink-0 bg-[#1a3d32]'
-/** Revisjonslogg tab: icon-only, compact hit target (overrides menu_1 flex-1 / min-height). */
-const MENU1_ICON_ONLY_TAB =
-  '!h-8 !w-8 !min-h-0 !min-w-0 !max-h-8 !max-w-8 !flex-none shrink-0 !justify-center !gap-0 !p-0'
-
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
 const tabs = [
@@ -1232,14 +1229,50 @@ export function HseModule() {
       .sort((a, b) => b.value - a.value)
   }, [hse.trainingRecords])
 
-  return (
-    <div className={PAGE_WRAP}>
-      <nav className="mb-4 text-sm text-neutral-600">
-        <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">Prosjekter</Link>
-        <span className="mx-2 text-neutral-400">→</span>
-        <span className="font-medium text-neutral-800">HMS / verneombud</span>
-      </nav>
+  const hseHubItems: HubMenu1Item[] = useMemo(
+    () =>
+      tabs.map(({ id, label, icon: Icon }) => {
+        let badgeCount: number | undefined
+        if (id === 'sja' && hse.stats.openSja > 0) badgeCount = hse.stats.openSja
+        if (id === 'training' && hse.stats.expiredTraining > 0) badgeCount = hse.stats.expiredTraining
+        if (id === 'sickness' && hse.stats.overdueMilestones > 0) badgeCount = hse.stats.overdueMilestones
+        return {
+          key: id,
+          label,
+          icon: Icon,
+          active: tab === id,
+          to: `/hse?tab=${id}`,
+          badgeCount,
+        }
+      }),
+    [tab, hse.stats.openSja, hse.stats.expiredTraining, hse.stats.overdueMilestones],
+  )
 
+  return (
+    <>
+    <ComplianceModuleChrome
+      breadcrumb={[
+        { label: 'Workspace', to: '/' },
+        { label: 'Samsvar', to: '/compliance' },
+        { label: 'HSE / HMS' },
+      ]}
+      title="HMS & verneombud"
+      description={
+        <p className="max-w-2xl">
+          Vernerunder, inspeksjoner, SJA, sykefraværsoppfølging og revisjonslogg. Hendelser finner du under{' '}
+          <Link to="/workplace-reporting/incidents" className="text-[#1a3d32] underline">
+            Arbeidsplassrapportering
+          </Link>
+          . Støtteverktøy — verifiser mot{' '}
+          <a href="https://lovdata.no" className="text-[#1a3d32] underline" target="_blank" rel="noreferrer">
+            lovdata.no
+          </a>
+          .
+        </p>
+      }
+      hubAriaLabel="HSE / HMS — faner"
+      hubItems={hseHubItems}
+    >
       {hse.error && (
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{hse.error}</p>
       )}
@@ -1247,56 +1280,9 @@ export function HseModule() {
         <p className="mb-4 text-sm text-neutral-500">Laster HMS-data…</p>
       )}
 
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-200/80 pb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-neutral-900 md:text-3xl" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
-            HMS & verneombud
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-neutral-600">
-            Vernerunder, inspeksjoner, SJA, sykefraværsoppfølging og revisjonslogg. Hendelser finner du under{' '}
-            <Link to="/workplace-reporting/incidents" className="text-[#1a3d32] underline">
-              Arbeidsplassrapportering
-            </Link>
-            . Støtteverktøy — verifiser mot{' '}
-            <a href="https://lovdata.no" className="text-[#1a3d32] underline" target="_blank" rel="noreferrer">lovdata.no</a>.
-          </p>
-        </div>
-      </div>
-
-      <div className={menu1.barOuterClass} style={menu1.barStyle}>
-        <div className={menu1.innerRowClass}>
-          {tabs.map(({ id, label, icon: Icon, iconOnly }) => {
-            const active = tab === id
-            const tb = menu1.tabButton(active)
-            return (
-              <Link
-                key={id}
-                to={`?tab=${id}`}
-                className={`${tb.className} ${iconOnly ? MENU1_ICON_ONLY_TAB : ''}`}
-                style={tb.style}
-                title={label}
-                aria-label={iconOnly ? label : undefined}
-              >
-                <Icon className="size-4 shrink-0 opacity-90" aria-hidden={!!iconOnly} />
-                {!iconOnly ? <span className="whitespace-nowrap">{label}</span> : null}
-                {id === 'sja' && hse.stats.openSja > 0 && (
-                  <span className="ml-0.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.openSja}</span>
-                )}
-                {id === 'training' && hse.stats.expiredTraining > 0 && (
-                  <span className="ml-0.5 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.expiredTraining}</span>
-                )}
-                {id === 'sickness' && hse.stats.overdueMilestones > 0 && (
-                  <span className="ml-0.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{hse.stats.overdueMilestones}</span>
-                )}
-              </Link>
-            )
-          })}
-        </div>
-      </div>
-
       {/* ── Overview — boxed layout som rapporter / innsikt + grafer ─────────── */}
       {tab === 'overview' && (
-        <div className="mt-6 space-y-10">
+        <div className="space-y-10">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {hseOverviewKpis.map((item) => (
               <div key={item.title} className={HSE_THRESHOLD_BOX} style={menu1.barStyle}>
@@ -2271,6 +2257,7 @@ export function HseModule() {
           </Mainbox1>
         </div>
       )}
+    </ComplianceModuleChrome>
 
       {/* SJA — sidevindu (skall + analyse + signering) */}
       {sjaPanelId ? (
@@ -4015,7 +4002,7 @@ export function HseModule() {
           </aside>
         </>
       )}
-    </div>
+    </>
   )
 }
 

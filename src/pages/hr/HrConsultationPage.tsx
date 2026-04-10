@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Download, FileJson, Users } from 'lucide-react'
+import { useLocation, useSearchParams } from 'react-router-dom'
+import { Download, FileJson, Users } from 'lucide-react'
 import { useHrCompliance } from '../../hooks/useHrCompliance'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { HrConsultationCommentRow, HrConsultationParticipantRow } from '../../types/hrCompliance'
-
-const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
+import { ComplianceModuleChrome } from '../../components/compliance/ComplianceModuleChrome'
+import { hrComplianceHubItems } from './hrComplianceHubNav'
 
 export function HrConsultationPage() {
+  const { pathname } = useLocation()
   const hr = useHrCompliance()
   const { fetchCaseDetail } = hr
   const { user } = useOrgSetupContext()
@@ -60,19 +61,23 @@ export function HrConsultationPage() {
   }
 
   return (
-    <div className={PAGE_WRAP}>
-      <Link to="/hr" className="mb-6 inline-flex items-center gap-2 text-sm text-[#1a3d32] hover:underline">
-        <ArrowLeft className="size-4" /> Til HR-hub
-      </Link>
-
-      <h1 className="text-2xl font-semibold text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
-        Informasjon og drøfting (AML kap. 8)
-      </h1>
-      <p className="mt-2 max-w-3xl text-sm text-neutral-600">
-        For virksomheter med minst 50 ansatte: dokumenter når informasjon ble gitt til tillitsvalgte, deres bemerkninger, og
-        beslutningsgrunnlag. Eksport som JSON-protokoll (PDF kan genereres senere).
-      </p>
-
+    <ComplianceModuleChrome
+      breadcrumb={[
+        { label: 'Workspace', to: '/' },
+        { label: 'Samsvar', to: '/compliance' },
+        { label: 'HR & rettssikkerhet', to: '/hr' },
+        { label: 'Kap. 8' },
+      ]}
+      title="Informasjon og drøfting (AML kap. 8)"
+      description={
+        <p className="max-w-3xl">
+          For virksomheter med minst 50 ansatte: dokumenter når informasjon ble gitt til tillitsvalgte, deres bemerkninger, og
+          beslutningsgrunnlag. Eksport som JSON-protokoll (PDF kan genereres senere).
+        </p>
+      }
+      hubAriaLabel="HR & rettssikkerhet — faner"
+      hubItems={hrComplianceHubItems(pathname)}
+    >
       {hr.error && (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{hr.error}</p>
       )}
@@ -318,6 +323,6 @@ export function HrConsultationPage() {
           )}
         </main>
       </div>
-    </div>
+    </ComplianceModuleChrome>
   )
 }

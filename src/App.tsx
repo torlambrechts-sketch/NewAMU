@@ -28,6 +28,7 @@ import { HseModule } from './pages/HseModule'
 import { OrgHealthModule } from './pages/OrgHealthModule'
 import { OrgHealthSettings } from './pages/OrgHealthSettings'
 import { InternalControlModule } from './pages/InternalControlModule'
+import { ComplianceDashboardPage } from './pages/ComplianceDashboardPage'
 import { OrganisationPage } from './pages/OrganisationPage'
 import { AarshjulPage } from './pages/aarshjul/AarshjulPage'
 import { ActionBoardPage } from './pages/actionboard/ActionBoardPage'
@@ -117,6 +118,7 @@ function App() {
                   <Route path="members" element={<MembersModule />} />
                   <Route path="org-health" element={<OrgHealthModule />} />
                   <Route path="org-health/settings" element={<OrgHealthSettings />} />
+                  <Route path="compliance" element={<ComplianceDashboardPage />} />
                   <Route path="internal-control" element={<InternalControlModule />} />
                   <Route path="hse" element={<HseModule />} />
                   <Route path="admin" element={<AdminPage />} />

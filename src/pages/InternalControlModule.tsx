@@ -49,6 +49,8 @@ import {
   ModuleDonutCard,
   type InsightSeg,
 } from '../components/insights/ModuleInsightCharts'
+import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { InternalControlTabShell } from './internalControl/InternalControlTabShell'
 
 const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: LayoutDashboard, iconOnly: false as const },
@@ -56,7 +58,6 @@ const tabs = [
   { id: 'annual' as const, label: 'Årsgjennomgang', icon: Calendar, iconOnly: false as const },
 ] as const
 
-const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
 const HERO_ACTION_CLASS =
   'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-none px-4 text-sm font-medium leading-none'
@@ -78,9 +79,6 @@ const SETTINGS_THRESHOLD_BOX =
   'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
 /** Same strip boxes as HSE oversikt / rapporter */
 const IC_THRESHOLD_STRIP = SETTINGS_THRESHOLD_BOX
-const MENU1_ICON_ONLY_TAB =
-  '!h-8 !w-8 !min-h-0 !min-w-0 !max-h-8 !max-w-8 !flex-none shrink-0 !justify-center !gap-0 !p-0'
-
 const ROS_WORKSPACE_LABELS: Record<RosWorkspaceCategory, string> = {
   general: 'Generelt',
   production: 'Produksjon',
@@ -618,132 +616,47 @@ export function InternalControlModule() {
     [addTask],
   )
 
+  const icHubItems: HubMenu1Item[] = useMemo(
+    () =>
+      tabs.map(({ id, label, icon: Icon }) => ({
+        key: id,
+        label,
+        icon: Icon,
+        active: tab === id,
+        to: `/internal-control?tab=${id}`,
+      })),
+    [tab],
+  )
+
   return (
-    <div className={PAGE_WRAP}>
-      <nav className="mb-4 text-sm text-neutral-600">
-        <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
-          Prosjekter
-        </Link>
-        <span className="mx-2 text-neutral-400">→</span>
-        <span className="font-medium text-neutral-800">Internkontroll</span>
-      </nav>
+    <>
+      {tab === 'overview' ? (
+        <InternalControlTabShell
+          hubItems={icHubItems}
+          description={
+            <p>
+              <strong>ROS / risiko</strong> og <strong>årsgjennomgang</strong>.{' '}
+              <Link to="/workspace/revisjonslogg?source=internal_control" className="font-medium text-[#1a3d32] underline">
+                Revisjonslogg (Workspace)
+              </Link>
+              . Varsling (AML kap. 2A) i{' '}
+              <Link to="/tasks?view=whistle" className="font-medium text-[#1a3d32] underline">
+                Oppgaver → Varslingssaker
+              </Link>
+              .
+            </p>
+          }
+        >
+          <LegalDisclaimer />
 
-      <LegalDisclaimer />
+          {ic.error && (
+            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{ic.error}</p>
+          )}
+          {ic.loading && supabaseConfigured && (
+            <p className="mb-4 text-sm text-neutral-500">Laster internkontrolldata…</p>
+          )}
 
-      {ic.error && (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{ic.error}</p>
-      )}
-      {ic.loading && supabaseConfigured && (
-        <p className="mt-4 text-sm text-neutral-500">Laster internkontrolldata…</p>
-      )}
-
-      <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
-        <div className="min-w-0 flex-1">
-          <h1
-            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
-            Internkontroll
-          </h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            {tab === 'ros' ? (
-              <>
-                ROS, årsgjennomgang og logg. Varsling ligger under{' '}
-                <Link to="/tasks?view=whistle" className="font-medium text-[#1a3d32] underline">
-                  Oppgaver → Varslingssaker
-                </Link>
-                .
-              </>
-            ) : tab === 'annual' ? (
-              <>
-                Strukturert årsgjennomgang (IK-f § 5 nr. 8), data fra HMS-modulen og dobbeltsignatur (leder → verneombud).
-                Varsling:{' '}
-                <Link to="/tasks?view=whistle" className="font-medium text-[#1a3d32] underline">Oppgaver → Varslingssaker</Link>.
-              </>
-            ) : (
-              <>
-                <strong>ROS / risiko</strong> og <strong>årsgjennomgang</strong>.{' '}
-                <Link to="/workspace/revisjonslogg?source=internal_control" className="font-medium text-[#1a3d32] underline">
-                  Revisjonslogg (Workspace)
-                </Link>
-                . Varsling (AML kap. 2A) i{' '}
-                <Link to="/tasks?view=whistle" className="font-medium text-[#1a3d32] underline">Oppgaver → Varslingssaker</Link>.
-              </>
-            )}
-          </p>
-          {tab === 'annual' ? (
-            <div className="mt-5 flex flex-wrap items-center gap-2">
-              <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-                Totalt <strong className="ml-1 font-semibold">{annualStats.total}</strong>
-              </span>
-              <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-950`}>
-                Utkast <strong className="ml-1 font-semibold">{annualStats.draft}</strong>
-              </span>
-              <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
-                Venter VO <strong className="ml-1 font-semibold">{annualStats.pending}</strong>
-              </span>
-              <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
-                Låst <strong className="ml-1 font-semibold">{annualStats.locked}</strong>
-              </span>
-              <button
-                type="button"
-                onClick={openNewAnnualPanel}
-                className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
-              >
-                <Plus className="size-4 shrink-0" />
-                Ny årsgjennomgang
-              </button>
-            </div>
-          ) : null}
-          {tab === 'ros' ? (
-            <div className="mt-5 flex flex-wrap items-center gap-2">
-              <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-                Totalt <strong className="ml-1 font-semibold">{rosStats.total}</strong>
-              </span>
-              <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
-                Utkast <strong className="ml-1 font-semibold">{rosStats.drafts}</strong>
-              </span>
-              <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
-                Låst <strong className="ml-1 font-semibold">{rosStats.locked}</strong>
-              </span>
-              <button
-                type="button"
-                onClick={openNewRosPanel}
-                className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
-              >
-                <Plus className="size-4 shrink-0" />
-                Ny ROS
-              </button>
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      <div className={menu1.barOuterClass} style={menu1.barStyle}>
-        <div className={menu1.innerRowClass}>
-          {tabs.map(({ id, label, icon: Icon, iconOnly }) => {
-            const active = tab === id
-            const tb = menu1.tabButton(active)
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setTab(id)}
-                className={`${tb.className} ${iconOnly ? MENU1_ICON_ONLY_TAB : ''}`}
-                style={tb.style}
-                title={label}
-                aria-label={iconOnly ? label : undefined}
-              >
-                <Icon className="size-4 shrink-0 opacity-90" aria-hidden={!!iconOnly} />
-                {!iconOnly ? <span className="whitespace-nowrap">{label}</span> : null}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {tab === 'overview' && (
-        <div className="mt-6 space-y-10">
+          <div className="space-y-10">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {icOverviewKpis.map((item) => (
               <div key={item.title} className={IC_THRESHOLD_STRIP} style={menu1.barStyle}>
@@ -840,11 +753,51 @@ export function InternalControlModule() {
             <strong>Meldingsflyt:</strong> Mottatt → vurdering → undersøkelse → intern revisjon ved behov → avsluttet når
             dokumentert. Anonym AML-innsending gir referanse-ID; fritekst lagres ikke i organisasjonshelse.
           </div>
-        </div>
-      )}
+          </div>
+        </InternalControlTabShell>
+      ) : null}
 
-      {tab === 'ros' && (
-        <div className="mt-6 space-y-8">
+      {tab === 'ros' ? (
+        <InternalControlTabShell
+          hubItems={icHubItems}
+          description={
+            <p>
+              ROS, årsgjennomgang og logg. Varsling ligger under{' '}
+              <Link to="/tasks?view=whistle" className="font-medium text-[#1a3d32] underline">
+                Oppgaver → Varslingssaker
+              </Link>
+              .
+            </p>
+          }
+          headerActions={
+            <>
+              <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                Totalt <strong className="ml-1 font-semibold">{rosStats.total}</strong>
+              </span>
+              <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
+                Utkast <strong className="ml-1 font-semibold">{rosStats.drafts}</strong>
+              </span>
+              <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
+                Låst <strong className="ml-1 font-semibold">{rosStats.locked}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={openNewRosPanel}
+                className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+              >
+                <Plus className="size-4 shrink-0" />
+                Ny ROS
+              </button>
+            </>
+          }
+        >
+          {ic.error && (
+            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{ic.error}</p>
+          )}
+          {ic.loading && supabaseConfigured && (
+            <p className="mb-4 text-sm text-neutral-500">Laster internkontrolldata…</p>
+          )}
+
           <LegalDisclaimer compact />
 
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -1265,11 +1218,54 @@ export function InternalControlModule() {
               </div>
             </div>
           ) : null}
-        </div>
-      )}
+        </InternalControlTabShell>
+      ) : null}
 
-      {tab === 'annual' && (
-        <div className="mt-6 space-y-8">
+      {tab === 'annual' ? (
+        <InternalControlTabShell
+          hubItems={icHubItems}
+          description={
+            <p>
+              Strukturert årsgjennomgang (IK-f § 5 nr. 8), data fra HMS-modulen og dobbeltsignatur (leder → verneombud).
+              Varsling:{' '}
+              <Link to="/tasks?view=whistle" className="font-medium text-[#1a3d32] underline">
+                Oppgaver → Varslingssaker
+              </Link>
+              .
+            </p>
+          }
+          headerActions={
+            <>
+              <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                Totalt <strong className="ml-1 font-semibold">{annualStats.total}</strong>
+              </span>
+              <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-950`}>
+                Utkast <strong className="ml-1 font-semibold">{annualStats.draft}</strong>
+              </span>
+              <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
+                Venter VO <strong className="ml-1 font-semibold">{annualStats.pending}</strong>
+              </span>
+              <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
+                Låst <strong className="ml-1 font-semibold">{annualStats.locked}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={openNewAnnualPanel}
+                className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+              >
+                <Plus className="size-4 shrink-0" />
+                Ny årsgjennomgang
+              </button>
+            </>
+          }
+        >
+          {ic.error && (
+            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{ic.error}</p>
+          )}
+          {ic.loading && supabaseConfigured && (
+            <p className="mb-4 text-sm text-neutral-500">Laster internkontrolldata…</p>
+          )}
+
           <LegalDisclaimer compact />
 
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -1899,9 +1895,9 @@ export function InternalControlModule() {
               </div>
             </div>
           ) : null}
-        </div>
-      )}
-    </div>
+        </InternalControlTabShell>
+      ) : null}
+    </>
   )
 }
 

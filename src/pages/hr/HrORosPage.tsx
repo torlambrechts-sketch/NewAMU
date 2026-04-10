@@ -1,16 +1,17 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowLeft, GitBranch, RefreshCw } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
+import { GitBranch, RefreshCw } from 'lucide-react'
 import { useHrCompliance } from '../../hooks/useHrCompliance'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
-
-const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
+import { ComplianceModuleChrome } from '../../components/compliance/ComplianceModuleChrome'
+import { hrComplianceHubItems } from './hrComplianceHubNav'
 
 function shortId(id: string) {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id
 }
 
 export function HrORosPage() {
+  const { pathname } = useLocation()
   const hr = useHrCompliance()
   const { user } = useOrgSetupContext()
   const [amuText, setAmuText] = useState<Record<string, string>>({})
@@ -19,42 +20,46 @@ export function HrORosPage() {
   const rows = useMemo(() => hr.rosSignoffs, [hr.rosSignoffs])
 
   return (
-    <div className={PAGE_WRAP}>
-      <Link to="/hr" className="mb-6 inline-flex items-center gap-2 text-sm text-[#1a3d32] hover:underline">
-        <ArrowLeft className="size-4" /> Til HR-hub
-      </Link>
-
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-200/80 pb-6">
-        <div className="flex items-start gap-4">
-          <div className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-[#1a3d32]/10 text-[#1a3d32]">
-            <GitBranch className="size-7" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
-              Organisatorisk ROS (O-ROS)
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-neutral-600">
-              For analyser merket <strong>«Organisatorisk endring»</strong> i internkontroll kreves skriftlig vurdering og
-              elektronisk signatur fra både AMU-representant og verneombud før ROS kan låses i internkontroll.
-            </p>
-            <p className="mt-3 text-sm text-neutral-600">
-              Opprett og rediger selve ROS-tabellen i{' '}
-              <Link className="font-medium text-[#1a3d32] underline" to="/internal-control?tab=ros">
-                Internkontroll → ROS
-              </Link>
-              .
-            </p>
-          </div>
+    <ComplianceModuleChrome
+      breadcrumb={[
+        { label: 'Workspace', to: '/' },
+        { label: 'Samsvar', to: '/compliance' },
+        { label: 'HR & rettssikkerhet', to: '/hr' },
+        { label: 'O-ROS' },
+      ]}
+      title="Organisatorisk ROS (O-ROS)"
+      description={
+        <div className="max-w-3xl space-y-2">
+          <p className="text-sm leading-relaxed text-neutral-600">
+            For analyser merket <strong>«Organisatorisk endring»</strong> i internkontroll kreves skriftlig vurdering og
+            elektronisk signatur fra både AMU-representant og verneombud før ROS kan låses i internkontroll.
+          </p>
+          <p className="text-sm text-neutral-600">
+            Opprett og rediger selve ROS-tabellen i{' '}
+            <Link className="font-medium text-[#1a3d32] underline" to="/internal-control?tab=ros">
+              Internkontroll → ROS
+            </Link>
+            .
+          </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void hr.refreshRosSignoffs()}
-          className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50"
-        >
-          <RefreshCw className="size-4" /> Oppdater
-        </button>
-      </div>
-
+      }
+      headerActions={
+        <>
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-[#1a3d32]/10 text-[#1a3d32]">
+            <GitBranch className="size-6" />
+          </div>
+          <button
+            type="button"
+            onClick={() => void hr.refreshRosSignoffs()}
+            className="inline-flex items-center gap-2 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 hover:bg-neutral-50"
+          >
+            <RefreshCw className="size-4" /> Oppdater
+          </button>
+        </>
+      }
+      hubAriaLabel="HR & rettssikkerhet — faner"
+      hubItems={hrComplianceHubItems(pathname)}
+    >
       {hr.error && (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{hr.error}</p>
       )}
@@ -175,6 +180,6 @@ export function HrORosPage() {
         Tekniske detaljer lagres i <code className="rounded bg-neutral-100 px-1">hr_ros_org_signoffs</code> med RLS slik at
         kun administrator, tildelte signatarer og brukere med HR O-ROS-tilgang ser radene.
       </p>
-    </div>
+    </ComplianceModuleChrome>
   )
 }

@@ -90,6 +90,15 @@ export const ROUTE_PERMISSION_ANY: { pathPrefix: string; permissions: Permission
     pathPrefix: '/workplace-reporting/incidents',
     permissions: ['module.view.workplace_reporting', 'module.view.hse'],
   },
+  {
+    pathPrefix: '/compliance',
+    permissions: [
+      'module.view.internal_control',
+      'module.view.hse',
+      'module.view.org_health',
+      'module.view.hr_compliance',
+    ],
+  },
 ]
 
 export const DASHBOARD_PERMISSION: PermissionKey = 'module.view.dashboard'

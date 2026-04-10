@@ -82,6 +82,11 @@ const tasksSubs: SubItem[] = [
 
 const internalControlSubs: SubItem[] = [
   {
+    label: 'Samsvar — oversikt',
+    path: '/compliance',
+    match: ({ pathname }) => pathname === '/compliance',
+  },
+  {
     label: 'Oversikt',
     path: '/internal-control?tab=overview',
     match: ({ pathname, search }) =>
@@ -93,6 +98,11 @@ const internalControlSubs: SubItem[] = [
 ]
 
 const hseSubs: SubItem[] = [
+  {
+    label: 'Samsvar — oversikt',
+    path: '/compliance',
+    match: ({ pathname }) => pathname === '/compliance',
+  },
   {
     label: 'Oversikt',
     path: '/hse?tab=overview',
@@ -108,6 +118,11 @@ const hseSubs: SubItem[] = [
 ]
 
 const orgHealthSubs: SubItem[] = [
+  {
+    label: 'Samsvar — oversikt',
+    path: '/compliance',
+    match: ({ pathname }) => pathname === '/compliance',
+  },
   {
     label: 'Oversikt',
     path: '/org-health?tab=overview',
@@ -260,6 +275,13 @@ const navGroups: NavGroup[] = [
     icon: ShieldCheck,
     modules: [
       {
+        to: '/compliance',
+        label: 'Samsvar',
+        end: true,
+        icon: ShieldCheck,
+        subs: [],
+      },
+      {
         to: '/internal-control',
         label: 'Internkontroll',
         end: false,
@@ -269,7 +291,20 @@ const navGroups: NavGroup[] = [
       },
       { to: '/hse', label: 'HSE / HMS', end: false, icon: HardHat, subs: hseSubs, perm: 'module.view.hse' },
       { to: '/org-health', label: 'Org Health', end: false, icon: HeartPulse, subs: orgHealthSubs, perm: 'module.view.org_health' },
-      { to: '/hr', label: 'HR & rettssikkerhet', end: false, icon: Briefcase, subs: [], perm: 'module.view.hr_compliance' },
+      {
+        to: '/hr',
+        label: 'HR & rettssikkerhet',
+        end: false,
+        icon: Briefcase,
+        subs: [
+          {
+            label: 'Samsvar — oversikt',
+            path: '/compliance',
+            match: ({ pathname }) => pathname === '/compliance',
+          },
+        ],
+        perm: 'module.view.hr_compliance',
+      },
     ],
   },
   {
@@ -319,6 +354,10 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
   if (pathname === '/workspace/revisjonslogg') {
     const w = modules.find((m) => m.to === '/workspace/revisjonslogg')
     if (w) return w
+  }
+  if (pathname === '/compliance') {
+    const c = modules.find((m) => m.to === '/compliance')
+    if (c) return c
   }
   const hub = modules.find((m) => m.to === '/workplace-reporting')
   if (hub) {
