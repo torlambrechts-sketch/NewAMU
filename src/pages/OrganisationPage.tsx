@@ -36,9 +36,15 @@ import {
   table1CellPadding,
   table1HeaderRowClass,
 } from '../lib/layoutLabTokens'
-import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { mergeLayoutPayload } from '../lib/layoutLabTokens'
+import {
+  AB_SCORECARD_CREAM_DEEP,
+  ActionBoardBreadcrumb,
+  AB_SCORECARD_SERIF,
+} from './actionboard/actionBoardScorecardLayout'
+import { WORKPLACE_FOREST } from '../components/layout/WorkplaceChrome'
+import { WorkplaceBoardTabStrip } from '../components/layout/WorkplaceBoardTabStrip'
 import type { EmploymentType, OrgEmployee, OrgUnit, OrgUnitKind, UserGroup } from '../types/organisation'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -79,9 +85,6 @@ const SETTINGS_INPUT =
 const SETTINGS_CHECK_WRAP =
   'mt-1.5 flex cursor-pointer items-start gap-3 rounded-none border border-neutral-300 bg-neutral-50/80 p-3'
 
-/** Terskel-bokser under meny (samme mørke bakgrunn som fanemeny) */
-const SETTINGS_THRESHOLD_BOX =
-  'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
 /** Én samlet mørk panel for skjema (grupper/enheter) — kolonner med vertikal deler */
 const ORG_MERGED_PANEL =
   'flex min-h-0 flex-col border border-black/15 lg:flex-row lg:items-stretch lg:divide-x lg:divide-white/15'
@@ -452,7 +455,6 @@ function storedForEdit(emp: OrgEmployee, employees: OrgEmployee[]): OrgEmployee 
 }
 
 export function OrganisationPage() {
-  const menu1 = useOrgMenu1Styles()
   const { payload: layoutPayload } = useUiTheme()
   const layout = mergeLayoutPayload(layoutPayload)
   const tableCell = `${table1CellPadding(layout)} ${TABLE_CELL_BASE}`
@@ -610,6 +612,15 @@ export function OrganisationPage() {
     { id: 'settings',  label: 'Innstillinger',  icon: Settings2 },
   ]
 
+  const orgTabItems = TABS.map((t) => ({
+    id: t.id,
+    label: t.label,
+    icon: t.icon,
+    badgeCount: t.id === 'employees' ? org.activeEmployees.length : undefined,
+  }))
+
+  const tabLabel = TABS.find((x) => x.id === tab)?.label ?? 'Organisasjon'
+
   return (
     <div className={PAGE_WRAP}>
       {isDemoMode && (
@@ -653,166 +664,134 @@ export function OrganisationPage() {
         />
       )}
 
-      {/* Breadcrumb — aligned with ProjectDashboard */}
-      <nav className="mb-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
-        <span>
-          <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
-            Workspace
-          </Link>
-          <span className="mx-2 text-neutral-400">→</span>
-          <span className="font-medium text-neutral-800">Organisasjon</span>
-        </span>
-      </nav>
+      <div
+        className="mt-2 w-full space-y-6 rounded-xl border border-neutral-200/80 p-4 shadow-sm md:p-6"
+        style={{
+          fontFamily: 'Inter, system-ui, sans-serif',
+          color: '#171717',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+        }}
+      >
+        <WorkplaceBoardTabStrip
+          ariaLabel="Organisasjon — faner"
+          items={orgTabItems}
+          activeId={tab}
+          onSelect={(id) => setTab(id as Tab)}
+        />
 
-      {/* Hero block — matches dashboard org summary */}
-      <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
-        <div className="min-w-0 flex-1">
-          <h1
-            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
-            {companyTitle}
-          </h1>
-          <p className="mt-1 text-sm text-neutral-500">{memberHeadline}</p>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-600">
-            Struktur, ansatte og grupper for virksomheten. Terskler for verneombud og AMU oppdateres ut fra antall ansatte.
-          </p>
-          {supabaseConfigured && user && (
-            <p className="mt-2 text-xs text-neutral-500">
-              {isDemoMode ? 'Demo-besøkende (anonym sesjon)' : 'Innlogget som'}{' '}
-              {!isDemoMode && (profile?.display_name ?? profile?.email ?? user.email ?? 'bruker')}
-            </p>
-          )}
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-              {ct.totalEmployeeCount} i beregning
-            </span>
-            {ct.requiresVerneombud ? (
-              <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
-                <CheckCircle2 className="size-4 shrink-0" />
-                Verneombud lovpålagt
-              </span>
-            ) : (
-              <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>Verneombud: &lt;5</span>
-            )}
-            {ct.requiresAmu ? (
-              <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
-                <CheckCircle2 className="size-4 shrink-0" />
-                AMU lovpålagt
-              </span>
-            ) : ct.mayRequestAmu ? (
-              <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
-                <AlertTriangle className="size-4 shrink-0" />
-                AMU kan kreves
-              </span>
-            ) : (
-              <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>AMU: &lt;10</span>
-            )}
-            <button
-              type="button"
-              onClick={() => setEmpModal({ mode: 'create' })}
-              className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white shadow-sm hover:bg-[#142e26]`}
+        <ActionBoardBreadcrumb
+          items={[{ label: 'Workspace', to: '/' }, 'Organisasjon', tabLabel]}
+        />
+
+        <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
+          <div className="min-w-0 flex-1">
+            <h1
+              className="text-2xl font-semibold tracking-tight text-neutral-900 md:text-3xl"
+              style={{ fontFamily: AB_SCORECARD_SERIF }}
             >
-              <Plus className="size-4 shrink-0" /> Ny ansatt
-            </button>
+              {companyTitle}
+            </h1>
+            <p className="mt-1 text-sm text-neutral-500">{memberHeadline}</p>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-600">
+              Struktur, ansatte og grupper for virksomheten. Terskler for verneombud og AMU oppdateres ut fra antall
+              ansatte.
+            </p>
+            {supabaseConfigured && user && (
+              <p className="mt-2 text-xs text-neutral-500">
+                {isDemoMode ? 'Demo-besøkende (anonym sesjon)' : 'Innlogget som'}{' '}
+                {!isDemoMode && (profile?.display_name ?? profile?.email ?? user.email ?? 'bruker')}
+              </p>
+            )}
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                {ct.totalEmployeeCount} i beregning
+              </span>
+              {ct.requiresVerneombud ? (
+                <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
+                  <CheckCircle2 className="size-4 shrink-0" />
+                  Verneombud lovpålagt
+                </span>
+              ) : (
+                <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>Verneombud: &lt;5</span>
+              )}
+              {ct.requiresAmu ? (
+                <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
+                  <CheckCircle2 className="size-4 shrink-0" />
+                  AMU lovpålagt
+                </span>
+              ) : ct.mayRequestAmu ? (
+                <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
+                  <AlertTriangle className="size-4 shrink-0" />
+                  AMU kan kreves
+                </span>
+              ) : (
+                <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>AMU: &lt;10</span>
+              )}
+              <button
+                type="button"
+                onClick={() => setEmpModal({ mode: 'create' })}
+                className={`${HERO_ACTION_CLASS} text-white shadow-sm hover:opacity-95`}
+                style={{ backgroundColor: WORKPLACE_FOREST }}
+              >
+                <Plus className="size-4 shrink-0" /> Ny ansatt
+              </button>
+            </div>
+          </div>
+          <div className="flex shrink-0 justify-center sm:justify-end sm:pt-1" aria-hidden>
+            <OrganisationHeaderIllustration className="h-[7.5rem] w-auto max-w-[min(100%,220px)] md:h-32" />
           </div>
         </div>
-        <div className="flex shrink-0 justify-center sm:justify-end sm:pt-1" aria-hidden>
-          <OrganisationHeaderIllustration className="h-[7.5rem] w-auto max-w-[min(100%,220px)] md:h-32" />
-        </div>
-      </div>
 
-      {/* In-page nav — menu_1 tokens */}
-      <div className={menu1.barOuterClass} style={menu1.barStyle}>
-        <div className={menu1.innerRowClass}>
-          {TABS.map(({ id, label, icon: Icon }) => {
-            const active = tab === id
-            const tb = menu1.tabButton(active)
-            const isInsightsTab = id === 'insights'
-            const insightActive = active && isInsightsTab
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setTab(id)}
-                className={
-                  insightActive
-                    ? `${tb.className} !bg-white !text-neutral-900 shadow-none [&_svg]:opacity-100 [&_svg]:text-neutral-800`
-                    : tb.className
-                }
-                style={
-                  insightActive
-                    ? {
-                        ...tb.style,
-                        backgroundColor: '#ffffff',
-                        color: '#171717',
-                        boxShadow: 'none',
-                      }
-                    : tb.style
-                }
+        {tab === 'settings' && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {(
+              [
+                {
+                  title: 'Antall ansatte',
+                  sub: 'Grunnlag for terskler',
+                  value: `${org.totalEmployeeCount}`,
+                  valueClass: 'text-neutral-900',
+                },
+                {
+                  title: 'Verneombud (AML §6-1)',
+                  sub: 'Kreves ved ≥5 ansatte',
+                  value: ct.requiresVerneombud ? 'Ja (≥5)' : 'Nei',
+                  valueClass: ct.requiresVerneombud ? 'text-emerald-700' : 'text-neutral-600',
+                },
+                {
+                  title: 'AMU kan kreves',
+                  sub: 'Område 10–29 ansatte',
+                  value: ct.mayRequestAmu ? 'Ja' : 'Nei',
+                  valueClass: ct.mayRequestAmu ? 'text-amber-800' : 'text-neutral-600',
+                },
+                {
+                  title: 'AMU lovpålagt (AML §7-1)',
+                  sub: 'Kreves ved ≥30 ansatte',
+                  value: ct.requiresAmu ? 'Ja (≥30)' : 'Nei',
+                  valueClass: ct.requiresAmu ? 'text-emerald-700' : 'text-neutral-600',
+                },
+              ] as const
+            ).map((item) => (
+              <div
+                key={item.title}
+                className="rounded-lg border border-neutral-200/80 px-5 py-4"
+                style={{ backgroundColor: AB_SCORECARD_CREAM_DEEP }}
               >
-                <Icon className={`size-4 shrink-0 ${insightActive ? 'opacity-100 text-neutral-800' : 'opacity-90'}`} />
-                <span className="whitespace-nowrap">{label}</span>
-                {id === 'employees' && (
-                  <span
-                    className={`rounded-none px-2 py-0.5 text-[10px] font-semibold ${
-                      active ? 'bg-neutral-200 text-neutral-700' : 'bg-white/20 text-white'
-                    }`}
-                  >
-                    {org.activeEmployees.length}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-600">{item.title}</p>
+                <p className="mt-1 text-xs text-neutral-600">{item.sub}</p>
+                <p className={`mt-2 text-lg font-semibold tabular-nums ${item.valueClass}`}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
-      {tab === 'settings' && (
-        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {(
-            [
-              {
-                title: 'Antall ansatte',
-                sub: 'Grunnlag for terskler',
-                value: `${org.totalEmployeeCount}`,
-                valueClass: 'text-white',
-              },
-              {
-                title: 'Verneombud (AML §6-1)',
-                sub: 'Kreves ved ≥5 ansatte',
-                value: ct.requiresVerneombud ? 'Ja (≥5)' : 'Nei',
-                valueClass: ct.requiresVerneombud ? 'text-emerald-200' : 'text-white/80',
-              },
-              {
-                title: 'AMU kan kreves',
-                sub: 'Område 10–29 ansatte',
-                value: ct.mayRequestAmu ? 'Ja' : 'Nei',
-                valueClass: ct.mayRequestAmu ? 'text-amber-200' : 'text-white/80',
-              },
-              {
-                title: 'AMU lovpålagt (AML §7-1)',
-                sub: 'Kreves ved ≥30 ansatte',
-                value: ct.requiresAmu ? 'Ja (≥30)' : 'Nei',
-                valueClass: ct.requiresAmu ? 'text-emerald-200' : 'text-white/80',
-              },
-            ] as const
-          ).map((item) => (
-            <div
-              key={item.title}
-              className={SETTINGS_THRESHOLD_BOX}
-              style={menu1.barStyle}
-            >
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
-              <p className="mt-1 text-xs text-white/70">{item.sub}</p>
-              <p className={`mt-2 text-lg font-semibold tabular-nums ${item.valueClass}`}>{item.value}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === 'groups' && (
-        <form id="org-new-group" className="mt-6 overflow-hidden rounded-none border border-black/10" onSubmit={handleCreateGroup} style={menu1.barStyle}>
+        {tab === 'groups' && (
+        <form
+          id="org-new-group"
+          className="mt-2 overflow-hidden rounded-xl border border-neutral-200/80"
+          onSubmit={handleCreateGroup}
+          style={{ backgroundColor: WORKPLACE_FOREST }}
+        >
           <div className={ORG_MERGED_PANEL}>
             <div className={ORG_MERGED_COL}>
               <p className={SETTINGS_LEAD_ON_DARK}>Hva skal gruppen hete, og hvordan beskrives den kort?</p>
@@ -954,7 +933,7 @@ export function OrganisationPage() {
       )}
 
       <div
-        className="mt-8 space-y-8 rounded-xl border border-neutral-200/80 bg-white p-4 shadow-sm md:p-6"
+        className="mt-2 space-y-8 rounded-xl border border-neutral-200/80 bg-white p-4 shadow-sm md:p-6"
         style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
       >
       {/* ── Org chart ─────────────────────────────────────────────────────── */}
@@ -1310,7 +1289,12 @@ export function OrganisationPage() {
       {/* ── Units — samlet panel under meny som brukergrupper ─ */}
       {tab === 'units' && (
         <>
-          <form id="org-new-unit" className="mt-6 overflow-hidden rounded-none border border-black/10" onSubmit={handleCreateUnit} style={menu1.barStyle}>
+          <form
+            id="org-new-unit"
+            className="mt-2 overflow-hidden rounded-xl border border-neutral-200/80"
+            onSubmit={handleCreateUnit}
+            style={{ backgroundColor: WORKPLACE_FOREST }}
+          >
             <div className={ORG_MERGED_PANEL}>
               <div className={ORG_MERGED_COL}>
                 <p className={SETTINGS_LEAD_ON_DARK}>Navn og type for den nye enheten. Velg overordnet hvis den skal ligge under en annen.</p>
@@ -1887,6 +1871,7 @@ export function OrganisationPage() {
           </Mainbox1>
         </section>
       )}
+      </div>
       </div>
     </div>
   )
