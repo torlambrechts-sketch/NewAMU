@@ -1,6 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Calendar, Check, History, LayoutList, Plus, Scale, Search, Trash2, X } from 'lucide-react'
+import {
+  Calendar,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Filter,
+  History,
+  LayoutList,
+  MoreHorizontal,
+  Plus,
+  Scale,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { MODULE_LABELS } from '../lib/taskNavigation'
 import { useTasks } from '../hooks/useTasks'
 import { useOrganisation } from '../hooks/useOrganisation'
@@ -15,8 +30,6 @@ import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeTaskWizard } from '../components/wizard/wizards'
 import { Mainbox1 } from '../components/layout/Mainbox1'
-import { Table1Shell } from '../components/layout/Table1Shell'
-import { Table1Toolbar } from '../components/layout/Table1Toolbar'
 import {
   mergeLayoutPayload,
   table1BodyRowClass,
@@ -26,14 +39,13 @@ import {
 import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
+import { HubMenu1Bar } from '../components/layout/HubMenu1Bar'
+import { PostingsStyleSurface, TASK_POSTINGS_FOREST, TASK_POSTINGS_SERIF } from '../components/tasks/tasksPostingsLayout'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
 const HERO_ACTION_CLASS =
   'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-none px-4 text-sm font-medium leading-none'
-const MENU1_ICON_ONLY_TAB =
-  '!h-8 !w-8 !min-h-0 !min-w-0 !max-h-8 !max-w-8 !flex-none shrink-0 !justify-center !gap-0 !p-0'
-const R_FLAT = 'rounded-none'
 const SETTINGS_THRESHOLD_BOX =
   'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
 /** Task panel: lead text 40% / form inset 60% from md breakpoint */
@@ -50,17 +62,6 @@ const statusLabels: Record<TaskStatus, string> = {
   todo: 'To do',
   in_progress: 'In progress',
   done: 'Done',
-}
-
-function statusStyle(s: TaskStatus) {
-  switch (s) {
-    case 'done':
-      return 'bg-emerald-100 text-emerald-800'
-    case 'in_progress':
-      return 'bg-sky-100 text-sky-800'
-    default:
-      return 'bg-neutral-100 text-neutral-700'
-  }
 }
 
 function parseModule(s: string | null): TaskModule | null {
@@ -187,6 +188,8 @@ export function TasksPage() {
   const [whistlePanelNote, setWhistlePanelNote] = useState('')
   const [nowMs, setNowMs] = useState(() => Date.now())
   const openedTaskIdRef = useRef<string | null>(null)
+  const [taskPageSize, setTaskPageSize] = useState(10)
+  const [taskListPage, setTaskListPage] = useState(1)
 
   // eslint-disable-next-line react-hooks/preserve-manual-memoization -- React setState identities are stable
   const resetTaskForm = useCallback(() => {
@@ -452,6 +455,14 @@ export function TasksPage() {
     return list
   }, [tasks, moduleFilter, taskSearch])
 
+  const taskPageCount = Math.max(1, Math.ceil(filtered.length / taskPageSize))
+  const taskPageSafe = Math.min(Math.max(1, taskListPage), taskPageCount)
+  const taskSliceStart = (taskPageSafe - 1) * taskPageSize
+  const pagedTasks = useMemo(
+    () => filtered.slice(taskSliceStart, taskSliceStart + taskPageSize),
+    [filtered, taskSliceStart, taskPageSize],
+  )
+
   const stats = useMemo(() => {
     const list = moduleFilter === 'all' ? tasks : tasks.filter((t) => t.module === moduleFilter)
     const todo = list.filter((t) => t.status === 'todo').length
@@ -666,107 +677,145 @@ export function TasksPage() {
     ...(Object.keys(MODULE_LABELS) as TaskModule[]).map((m) => ({ id: m, label: MODULE_LABELS[m] })),
   ]
 
+  const hubMenuItems = useMemo(
+    () => [
+      {
+        key: 'list',
+        label: 'Oppgaver',
+        icon: LayoutList,
+        active: pageTab === 'list',
+        onClick: () => setPageTab('list'),
+      },
+      {
+        key: 'whistle',
+        label: 'Varslingssaker',
+        icon: Scale,
+        active: pageTab === 'whistle',
+        onClick: () => setPageTab('whistle'),
+      },
+      {
+        key: 'audit',
+        label: 'Revisjonslogg',
+        icon: History,
+        active: pageTab === 'audit',
+        onClick: () => setPageTab('audit'),
+      },
+    ],
+    [pageTab, setPageTab],
+  )
+
+  const orgLabel = organization?.name?.trim() || 'Organisasjon'
+
   return (
     <div className={PAGE_WRAP}>
-      <nav className="mb-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
-        <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
-          Workspace
-        </Link>
-        <span className="text-neutral-400">→</span>
-        <span className="font-medium text-neutral-800">Oppgaver</span>
-      </nav>
+      {/* Pinpoint / Stillingsannonser-style page chrome */}
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200/60 pb-3">
+          <p className="text-xs text-neutral-500">Oppgaver</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-neutral-700 shadow-sm"
+            >
+              {orgLabel} <ChevronDown className="size-3 opacity-60" aria-hidden />
+            </button>
+            <span
+              className="inline-flex items-center justify-center rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-sm"
+              title="Oppgaveliste"
+              aria-hidden
+            >
+              <ClipboardList className="size-4" />
+            </span>
+          </div>
+        </div>
 
-      <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
-        <div className="min-w-0 flex-1">
-          <h1
-            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
-            {pageTab === 'whistle' ? 'Varslingssaker' : 'Oppgaver (samlet)'}
-          </h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            {pageTab === 'whistle'
-              ? 'Lukket hvelv: kun varslingsmottak og administrator ser saker. Notater er kun tillegg (kan ikke slettes). Anonym innsending: lenke på innloggingssiden.'
-              : 'Alle moduler kan sende oppfølgingsoppgaver hit. Digital signatur = navn + tidspunkt lagret lokalt.'}
-          </p>
-          <div className="mt-5 flex flex-wrap items-center gap-2">
+        <p className="text-xs text-neutral-500">
+          <Link to="/" className="hover:text-neutral-700">
+            Workspace
+          </Link>
+          <span className="mx-1.5 text-neutral-300">›</span>
+          <span className="text-neutral-600">Oppgaver</span>
+        </p>
+
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1
+              className="text-2xl font-semibold tracking-tight text-neutral-900 md:text-3xl"
+              style={{ fontFamily: TASK_POSTINGS_SERIF }}
+            >
+              {pageTab === 'whistle' ? 'Varslingssaker' : pageTab === 'audit' ? 'Revisjonslogg' : 'Oppgaveliste'}
+            </h1>
+            <p className="text-sm text-neutral-500">
+              {pageTab === 'whistle'
+                ? `${organization?.name?.trim() ?? 'Organisasjon'} · Varslingshvelv`
+                : pageTab === 'audit'
+                  ? 'Hendelser på tvers av oppgaver'
+                  : `${organization?.name?.trim() ?? 'Organisasjon'} · Samlet oversikt`}
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             {pageTab === 'list' ? (
               <>
-                <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-                  Vist: <strong className="font-semibold">{stats.total}</strong>
-                </span>
-                <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-700`}>
-                  To do <strong className="ml-1 font-semibold">{stats.todo}</strong>
-                </span>
-                <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
-                  Aktiv <strong className="ml-1 font-semibold">{stats.prog}</strong>
-                </span>
-                <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
-                  Ferdig <strong className="ml-1 font-semibold">{stats.done}</strong>
+                <span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-teal-900">
+                  Åpen liste
                 </span>
                 <button
                   type="button"
                   onClick={openNewTaskPanel}
-                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                  className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold uppercase text-white"
+                  style={{ backgroundColor: TASK_POSTINGS_FOREST }}
                 >
-                  <Plus className="size-4 shrink-0" />
+                  <Plus className="size-3.5" />
                   Ny oppgave
                 </button>
               </>
             ) : pageTab === 'whistle' ? (
               <>
-                <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-                  Saker <strong className="ml-1 font-semibold">{wb.cases.length}</strong>
+                <span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-teal-900">
+                  {wb.cases.length} saker
                 </span>
                 <button
                   type="button"
                   onClick={openWhistlePanel}
-                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                  disabled={!wb.canAccessVault}
+                  className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold uppercase text-white disabled:opacity-40"
+                  style={{ backgroundColor: TASK_POSTINGS_FOREST }}
                 >
-                  <Plus className="size-4 shrink-0" />
-                  Ny varslingssak
+                  <Plus className="size-3.5" />
+                  Ny varsling
                 </button>
-                {organization?.whistle_public_slug ? (
-                  <span className={`${HERO_ACTION_CLASS} max-w-full bg-white text-xs text-neutral-600 ring-1 ring-neutral-200`}>
-                    Offentlig lenke:{' '}
-                    <code className="ml-1 font-mono text-[11px]">
-                      /varsle/{organization.whistle_public_slug}
-                    </code>
-                  </span>
-                ) : null}
               </>
-            ) : null}
+            ) : (
+              <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-neutral-700">
+                Logg
+              </span>
+            )}
+            <button type="button" className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100" aria-label="Mer">
+              <MoreHorizontal className="size-5" />
+            </button>
           </div>
         </div>
-      </div>
 
-      <div className={menu1.barOuterClass} style={menu1.barStyle}>
-        <div className={menu1.innerRowClass}>
-          {(
-            [
-              { id: 'list' as const, label: 'Oppgaver', Icon: LayoutList, iconOnly: false as const },
-              { id: 'whistle' as const, label: 'Varslingssaker', Icon: Scale, iconOnly: false as const },
-              { id: 'audit' as const, label: 'Revisjonslogg', Icon: History, iconOnly: true as const },
-            ] as const
-          ).map(({ id, label, Icon, iconOnly }) => {
-            const active = pageTab === id
-            const tb = menu1.tabButton(active)
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setPageTab(id)}
-                className={`${tb.className} ${iconOnly ? MENU1_ICON_ONLY_TAB : ''}`}
-                style={tb.style}
-                title={label}
-                aria-label={iconOnly ? label : undefined}
-              >
-                <Icon className="size-4 shrink-0 opacity-90" aria-hidden={!!iconOnly} />
-                {!iconOnly ? <span className="whitespace-nowrap">{label}</span> : null}
-              </button>
-            )
-          })}
-        </div>
+        {pageTab === 'whistle' && organization?.whistle_public_slug ? (
+          <p className="text-xs text-neutral-500">
+            Offentlig lenke:{' '}
+            <code className="rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px]">
+              /varsle/{organization.whistle_public_slug}
+            </code>
+          </p>
+        ) : null}
+
+        {pageTab === 'list' ? (
+          <p className="text-sm text-neutral-600">
+            Alle moduler kan sende oppfølgingsoppgaver hit. Digital signatur = navn + tidspunkt lagret lokalt.
+          </p>
+        ) : pageTab === 'whistle' ? (
+          <p className="text-sm text-neutral-600">
+            Lukket hvelv: kun varslingsmottak og administrator ser saker. Notater kan ikke slettes.
+          </p>
+        ) : null}
+
+        <HubMenu1Bar ariaLabel="Oppgaver — faner" items={hubMenuItems} />
       </div>
 
       {(error || wb.error) && (
@@ -922,198 +971,246 @@ export function TasksPage() {
 
       {pageTab === 'list' && (
         <>
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {(
-              [
-                { title: 'Totalt i filter', sub: 'Oppgaver som matcher modulfilter', value: `${stats.total}` },
-                { title: 'To do', sub: 'Ikke påbegynt', value: `${stats.todo}` },
-                { title: 'Pågår', sub: 'Under arbeid', value: `${stats.prog}` },
-                { title: 'Ferdig', sub: 'Fullført', value: `${stats.done}` },
-              ] as const
-            ).map((item) => (
-              <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={menu1.barStyle}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
-                <p className="mt-1 text-xs text-white/70">{item.sub}</p>
-                <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
-              </div>
-            ))}
-          </div>
-
-          <section className="mt-8 space-y-4">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-neutral-900">Oppgaveliste</h2>
-                <p className="mt-1 text-sm text-neutral-500">Søk og filtrer på modul — samme tabellramme som Organisasjon.</p>
-              </div>
-              <span className="text-xs text-neutral-400">{filtered.length} vist</span>
-            </div>
-
+          <section className="mt-6">
             {tasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-none border border-dashed border-neutral-300 bg-white py-16 text-center shadow-sm">
+              <PostingsStyleSurface className="flex flex-col items-center justify-center border-dashed py-16 text-center">
                 <p className="text-sm text-neutral-500">Ingen oppgaver ennå</p>
-              </div>
+                <button
+                  type="button"
+                  onClick={openNewTaskPanel}
+                  className="mt-4 rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+                  style={{ backgroundColor: TASK_POSTINGS_FOREST }}
+                >
+                  + Ny oppgave
+                </button>
+              </PostingsStyleSurface>
             ) : (
-              <Table1Shell
-                toolbar={
-                  <Table1Toolbar
-                    payloadOverride={layout}
-                    searchSlot={
-                      <div
-                        className="relative min-w-[200px] flex-1"
-                        style={{ ['--layout-accent' as string]: layout.accent }}
+              <PostingsStyleSurface className="overflow-hidden p-0">
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-neutral-900" style={{ fontFamily: TASK_POSTINGS_SERIF }}>
+                      Oppgaver
+                    </h2>
+                    <p className="mt-1 text-sm text-neutral-600">
+                      Søk og filtrer på modul — {stats.todo} to do · {stats.prog} pågår · {stats.done} ferdig (
+                      {stats.total} totalt i filter)
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openNewTaskPanel}
+                    className="rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+                    style={{ backgroundColor: TASK_POSTINGS_FOREST }}
+                  >
+                    + Ny oppgave
+                  </button>
+                </div>
+                <div className="flex flex-col gap-3 border-b border-neutral-100 px-5 py-3 sm:flex-row sm:flex-wrap sm:items-center">
+                  <div className="relative min-w-[200px] flex-1">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                    <input
+                      value={taskSearch}
+                      onChange={(e) => {
+                        setTaskSearch(e.target.value)
+                        setTaskListPage(1)
+                      }}
+                      type="search"
+                      placeholder="Søk…"
+                      className="w-full rounded-lg border border-neutral-200 py-2 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
+                    />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+                    {MODULE_SEGMENTS.map(({ id, label }) => {
+                      const selected = moduleFilter === id
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => {
+                            setModuleFilter(id)
+                            setTaskListPage(1)
+                          }}
+                          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
+                            selected
+                              ? 'text-white'
+                              : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200/80'
+                          }`}
+                          style={selected ? { backgroundColor: TASK_POSTINGS_FOREST } : undefined}
+                        >
+                          {label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:text-neutral-900"
+                  >
+                    <Filter className="size-3.5" />
+                    Filter
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  {filtered.length === 0 ? (
+                    <div className="px-5 py-14 text-center">
+                      <p className="text-sm font-medium text-neutral-700">Ingen treff</p>
+                      <p className="mt-1 text-xs text-neutral-500">Juster søk eller modulfilter.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTaskSearch('')
+                          setModuleFilter('all')
+                          setTaskListPage(1)
+                        }}
+                        className="mt-4 rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+                        style={{ backgroundColor: TASK_POSTINGS_FOREST }}
                       >
-                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-                        <input
-                          value={taskSearch}
-                          onChange={(e) => setTaskSearch(e.target.value)}
-                          placeholder="Søk tittel, beskrivelse, ansvarlig…"
-                          className={`w-full border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[color:var(--layout-accent)] ${R_FLAT}`}
-                        />
-                      </div>
-                    }
-                    segmentSlot={
-                      <div className={`inline-flex max-w-full flex-wrap border border-neutral-200 bg-neutral-50/80 p-1 ${R_FLAT}`}>
-                        {MODULE_SEGMENTS.map(({ id, label }) => {
-                          const selected = moduleFilter === id
-                          return (
-                            <button
-                              key={id}
-                              type="button"
-                              onClick={() => setModuleFilter(id)}
-                              className={`inline-flex items-center gap-2 px-2.5 py-2 text-xs font-medium transition sm:px-3 sm:text-sm ${R_FLAT} ${
-                                selected ? 'text-white shadow-sm' : 'text-neutral-600 hover:bg-white'
-                              }`}
-                              style={selected ? { backgroundColor: layout.accent, color: '#fff' } : undefined}
-                            >
-                              {selected ? (
-                                <span className="flex size-4 items-center justify-center rounded-none bg-white/20">
-                                  <Check className="size-3" />
+                        Nullstill
+                      </button>
+                    </div>
+                  ) : (
+                    <table className="w-full min-w-[800px] text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-neutral-200 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+                          <th className="px-5 py-3">Oppgave</th>
+                          <th className="px-5 py-3">Modul</th>
+                          <th className="px-5 py-3">Ansvarlig</th>
+                          <th className="px-5 py-3">Frist</th>
+                          <th className="px-5 py-3">Status</th>
+                          <th className="px-5 py-3">Signatur</th>
+                          <th className="w-28 px-5 py-3 text-right" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pagedTasks.map((t) => (
+                          <tr key={t.id} className="border-b border-neutral-100 hover:bg-neutral-50/80">
+                            <td className="px-5 py-3 align-top">
+                              <div className="font-medium text-neutral-900">{t.title}</div>
+                              {t.description ? (
+                                <div className="mt-0.5 line-clamp-2 text-xs text-neutral-500">{t.description}</div>
+                              ) : null}
+                              {t.sourceLabel ? (
+                                <div className="mt-1 text-xs text-neutral-600">↳ {t.sourceLabel}</div>
+                              ) : null}
+                            </td>
+                            <td className="px-5 py-3 align-top text-xs text-neutral-600">{MODULE_LABELS[t.module]}</td>
+                            <td className="px-5 py-3 align-top">
+                              <div className="text-neutral-800">{t.assignee}</div>
+                              <div className="text-xs text-neutral-500">{t.ownerRole}</div>
+                              {t.requiresManagementSignOff && (t.leaderName || t.leaderEmployeeId) ? (
+                                <div className="mt-1 text-xs text-neutral-500">
+                                  Leder:{' '}
+                                  <span className="font-medium text-neutral-700">{t.leaderName ?? '—'}</span>
+                                </div>
+                              ) : null}
+                            </td>
+                            <td className="px-5 py-3 align-top text-neutral-600">{t.dueDate}</td>
+                            <td className="px-5 py-3 align-top">
+                              {t.status === 'done' ? (
+                                <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-900">
+                                  Ferdig
+                                </span>
+                              ) : t.status === 'in_progress' ? (
+                                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-900">
+                                  Pågår
                                 </span>
                               ) : (
-                                <span className="size-4 rounded-none border-2 border-neutral-300" />
-                              )}
-                              {label}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    }
-                  />
-                }
-              >
-                {filtered.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center border-t border-neutral-100 bg-neutral-50/50 px-6 py-14 text-center">
-                    <p className="text-sm font-medium text-neutral-700">Ingen treff</p>
-                    <p className="mt-1 text-xs text-neutral-500">Juster søk eller modulfilter.</p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTaskSearch('')
-                        setModuleFilter('all')
-                      }}
-                      className="mt-4 rounded-none bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#142e26]"
-                    >
-                      Nullstill filtre
-                    </button>
-                  </div>
-                ) : (
-                  <table className="w-full min-w-[800px] border-collapse text-left text-sm">
-                    <thead>
-                      <tr className={`text-sm ${theadRow}`}>
-                        <th className={`${tableCell} font-medium`}>Oppgave</th>
-                        <th className={`${tableCell} font-medium`}>Modul</th>
-                        <th className={`${tableCell} font-medium`}>Ansvarlig / rolle</th>
-                        <th className={`${tableCell} font-medium`}>Frist</th>
-                        <th className={`${tableCell} font-medium`}>Status</th>
-                        <th className={`${tableCell} font-medium`}>Signatur</th>
-                        <th className={`${tableCell} text-right font-medium`} />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.map((t, rowIdx) => (
-                        <tr key={t.id} className={`${table1BodyRowClass(layout, rowIdx)} hover:bg-neutral-50/50`}>
-                          <td className={`${tableCell} align-top`}>
-                            <div className="font-medium text-neutral-900">{t.title}</div>
-                            {t.description ? (
-                              <div className="mt-0.5 line-clamp-2 text-xs text-neutral-500">{t.description}</div>
-                            ) : null}
-                            {t.sourceLabel ? (
-                              <div className="mt-1 text-xs text-[#1a3d32]/80">↳ {t.sourceLabel}</div>
-                            ) : null}
-                          </td>
-                          <td className={`${tableCell} align-top text-xs text-neutral-600`}>
-                            {MODULE_LABELS[t.module]}
-                          </td>
-                          <td className={`${tableCell} align-top`}>
-                            <div className="text-neutral-800">{t.assignee}</div>
-                            <div className="text-xs text-neutral-500">{t.ownerRole}</div>
-                            {t.requiresManagementSignOff && (t.leaderName || t.leaderEmployeeId) ? (
-                              <div className="mt-1 text-xs text-neutral-500">
-                                Leder:{' '}
-                                <span className="font-medium text-neutral-700">
-                                  {t.leaderName ?? '—'}
+                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950">
+                                  To do
                                 </span>
-                              </div>
-                            ) : null}
-                          </td>
-                          <td className={`${tableCell} align-top text-neutral-600`}>{t.dueDate}</td>
-                          <td className={`${tableCell} align-top`}>
-                            <span
-                              className={`inline-block rounded-none px-2 py-1 text-xs font-medium ${statusStyle(t.status)}`}
-                            >
-                              {statusLabels[t.status]}
-                            </span>
-                          </td>
-                          <td className={`${tableCell} align-top text-xs`}>
-                            <div className="space-y-1">
+                              )}
+                            </td>
+                            <td className="px-5 py-3 align-top text-xs text-neutral-600">
                               <div>
-                                <span className="text-neutral-500">Utfører: </span>
+                                Utfører:{' '}
                                 {t.assigneeSignature ? (
-                                  <span className="text-emerald-800">Signert</span>
+                                  <span className="text-emerald-800">OK</span>
                                 ) : (
-                                  <span className="text-amber-700">Ikke signert</span>
+                                  <span className="text-amber-700">Mangler</span>
                                 )}
                               </div>
                               {t.requiresManagementSignOff ? (
-                                <div>
-                                  <span className="text-neutral-500">Leder: </span>
+                                <div className="mt-0.5">
+                                  Leder:{' '}
                                   {t.managementSignature ? (
-                                    <span className="text-emerald-800">Signert</span>
+                                    <span className="text-emerald-800">OK</span>
                                   ) : (
                                     <span className="text-amber-700">Mangler</span>
                                   )}
                                 </div>
-                              ) : (
-                                <span className="text-neutral-400">—</span>
-                              )}
-                            </div>
-                            <p className="mt-1 text-[10px] text-neutral-400">Signering i sidevindu</p>
-                          </td>
-                          <td className={`${tableCell} align-top text-right`}>
-                            <div className="flex flex-col items-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => startEdit(t)}
-                                className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
-                              >
-                                Åpne
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => deleteTask(t.id)}
-                                className="inline-flex rounded-none p-2 text-red-600 hover:bg-red-50"
-                                aria-label="Slett"
-                              >
-                                <Trash2 className="size-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </Table1Shell>
+                              ) : null}
+                            </td>
+                            <td className="px-5 py-3 align-top text-right">
+                              <div className="flex flex-col items-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => startEdit(t)}
+                                  className="text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:text-neutral-900"
+                                >
+                                  Åpne
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteTask(t.id)}
+                                  className="text-neutral-400 hover:text-red-600"
+                                  aria-label="Slett"
+                                >
+                                  <Trash2 className="size-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+                {filtered.length > 0 ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 px-5 py-3 text-xs text-neutral-600">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="flex items-center gap-2">
+                        <span className="text-neutral-500">Rader per side</span>
+                        <select
+                          className="rounded-md border border-neutral-200 bg-white px-2 py-1"
+                          value={taskPageSize}
+                          onChange={(e) => {
+                            setTaskPageSize(Number(e.target.value))
+                            setTaskListPage(1)
+                          }}
+                        >
+                          <option value={10}>10</option>
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                        </select>
+                      </label>
+                      <span className="text-neutral-500">
+                        Viser {filtered.length === 0 ? 0 : taskSliceStart + 1} –{' '}
+                        {Math.min(taskSliceStart + taskPageSize, filtered.length)} av {filtered.length}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30"
+                        aria-label="Forrige side"
+                        disabled={taskPageSafe <= 1}
+                        onClick={() => setTaskListPage((p) => Math.max(1, p - 1))}
+                      >
+                        <ChevronLeft className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30"
+                        aria-label="Neste side"
+                        disabled={taskPageSafe >= taskPageCount}
+                        onClick={() => setTaskListPage((p) => Math.min(taskPageCount, p + 1))}
+                      >
+                        <ChevronRight className="size-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </PostingsStyleSurface>
             )}
           </section>
         </>
