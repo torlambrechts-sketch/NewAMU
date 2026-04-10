@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { LayoutCompositionTypography, LayoutWidgetPayload } from '../../types/layoutComposition'
 import { DEFAULT_WIDGET_TEXT_STYLE } from '../../types/layoutComposition'
 
@@ -14,8 +15,11 @@ function mergeTextStyle(
     fontFamily: partial.fontFamily ?? typography.fontFamily,
     fontSize: partial.fontSize ?? typography.baseFontSize,
     fontWeight: partial.fontWeight ?? '400',
+    fontStyle: partial.fontStyle ?? 'normal',
+    textDecoration: partial.textDecoration ?? 'none',
     color: partial.color ?? typography.textColor,
     lineHeight: partial.lineHeight ?? '1.5',
+    letterSpacing: partial.letterSpacing ?? '0',
     textAlign: partial.textAlign ?? 'left',
   }
 }
@@ -39,8 +43,11 @@ export function LayoutWidgetPreview({ widget, typography }: Props) {
             fontFamily: st.fontFamily,
             fontSize: st.fontSize,
             fontWeight: st.fontWeight,
+            fontStyle: st.fontStyle,
+            textDecoration: st.textDecoration,
             color: st.color,
             lineHeight: st.lineHeight,
+            letterSpacing: st.letterSpacing,
             textAlign: st.textAlign,
             margin: 0,
           }}
@@ -57,8 +64,11 @@ export function LayoutWidgetPreview({ widget, typography }: Props) {
             fontFamily: st.fontFamily,
             fontSize: st.fontSize,
             fontWeight: st.fontWeight,
+            fontStyle: st.fontStyle,
+            textDecoration: st.textDecoration,
             color: st.color,
             lineHeight: st.lineHeight,
+            letterSpacing: st.letterSpacing,
             textAlign: st.textAlign,
             margin: 0,
             whiteSpace: 'pre-wrap',
@@ -85,24 +95,39 @@ export function LayoutWidgetPreview({ widget, typography }: Props) {
         <img
           src={widget.src || 'about:blank'}
           alt={widget.alt}
-          className="max-h-48 w-full rounded-lg object-cover"
-          style={{ objectFit: widget.objectFit }}
+          className="object-cover"
+          style={{
+            objectFit: widget.objectFit,
+            borderRadius: widget.borderRadius,
+            maxHeight: widget.maxHeight,
+            width: widget.width,
+            display: 'block',
+          }}
         />
       )
     case 'button':
       return (
         <a
           href={widget.href || '#'}
-          className="inline-block rounded-lg px-4 py-2 text-sm no-underline"
+          className="inline-block no-underline"
           style={{
             backgroundColor: widget.backgroundColor,
             color: widget.textColor,
             fontWeight: widget.fontWeight,
+            fontSize: widget.fontSize,
+            borderRadius: widget.borderRadius,
+            padding: widget.padding,
+            borderWidth: widget.borderWidth,
+            borderStyle: widget.borderStyle as CSSProperties['borderStyle'],
+            borderColor: widget.borderColor,
+            boxShadow: widget.boxShadow === 'none' ? undefined : widget.boxShadow,
           }}
         >
           {widget.label || 'Knapp'}
         </a>
       )
+    case 'layout':
+      return <p className="text-sm text-neutral-500">[Layout — vises i hovedforhåndsvisning]</p>
     default:
       return <p className="text-sm text-neutral-500">Ukjent widget</p>
   }

@@ -1,9 +1,10 @@
 /** Page / section layout builder — rows of cells; each cell is a widget or a saved component design. */
 
-export const LAYOUT_COMPOSITION_VERSION = 2 as const
+export const LAYOUT_COMPOSITION_VERSION = 3 as const
 export const LAYOUT_COMPOSITION_VERSION_LEGACY = 1 as const
+export const LAYOUT_COMPOSITION_VERSION_2 = 2 as const
 
-export type LayoutSlotSpan = 'full' | 'half' | 'third'
+export type LayoutSlotSpan = 'full' | 'half' | 'third' | 'auto'
 
 export type TextWidgetAlign = 'left' | 'center' | 'right'
 
@@ -12,8 +13,11 @@ export type LayoutWidgetTextStyle = {
   fontFamily: string
   fontSize: string
   fontWeight: '400' | '500' | '600' | '700'
+  fontStyle: 'normal' | 'italic'
+  textDecoration: 'none' | 'underline' | 'line-through'
   color: string
   lineHeight: string
+  letterSpacing: string
   textAlign: TextWidgetAlign
 }
 
@@ -21,8 +25,11 @@ export const DEFAULT_WIDGET_TEXT_STYLE: LayoutWidgetTextStyle = {
   fontFamily: 'inherit',
   fontSize: '1rem',
   fontWeight: '400',
+  fontStyle: 'normal',
+  textDecoration: 'none',
   color: '#171717',
   lineHeight: '1.5',
+  letterSpacing: '0',
   textAlign: 'left',
 }
 
@@ -40,14 +47,45 @@ export type LayoutWidgetPayload =
     }
   | { kind: 'spacer'; height: string }
   | { kind: 'divider'; color: string; thickness: string }
-  | { kind: 'image'; src: string; alt: string; objectFit: 'cover' | 'contain' }
+  | {
+      kind: 'image'
+      src: string
+      alt: string
+      objectFit: 'cover' | 'contain'
+      borderRadius: string
+      maxHeight: string
+      width: string
+    }
   | {
       kind: 'button'
       label: string
       href: string
       backgroundColor: string
       textColor: string
+      fontSize: string
       fontWeight: '400' | '500' | '600' | '700'
+      borderRadius: string
+      padding: string
+      borderWidth: string
+      borderStyle: string
+      borderColor: string
+      boxShadow: string
+    }
+  | {
+      kind: 'layout'
+      /** Nested rows (same structure as page-level rows). */
+      rows: LayoutCompositionRow[]
+      /** Visual box around the inner grid. */
+      containerStyle: {
+        padding: string
+        gap: string
+        backgroundColor: string
+        borderRadius: string
+        borderWidth: string
+        borderStyle: string
+        borderColor: string
+        boxShadow: string
+      }
     }
 
 export type LayoutCompositionSlot = {
@@ -69,13 +107,32 @@ export type LayoutCompositionSlot = {
     borderWidth: string
     borderStyle: string
     borderColor: string
+    boxShadow: string
   }
+}
+
+/** `equal`: columns share width by count (responsive grid). `fixed`: use 12-col + span. */
+export type LayoutRowColumnMode = 'fixed' | 'equal'
+
+export type LayoutCompositionRowStyle = {
+  backgroundColor: string
+  padding: string
+  borderRadius: string
+  borderWidth: string
+  borderStyle: string
+  borderColor: string
+  boxShadow: string
+  marginTop: string
+  marginBottom: string
 }
 
 export type LayoutCompositionRow = {
   id: string
   gap: string
   alignItems: 'stretch' | 'start' | 'center' | 'end'
+  /** How columns divide horizontal space. */
+  columnMode: LayoutRowColumnMode
+  rowStyle: LayoutCompositionRowStyle
   cells: LayoutCompositionSlot[]
 }
 
@@ -110,9 +167,11 @@ export type LayoutCompositionPayload = {
   rows: LayoutCompositionRow[]
 }
 
+export type LayoutPathSegment = { rowId: string; cellId: string }
+
 /** Legacy flat slots (v1) — migrated to a single row on load. */
 type LegacyLayoutPayload = {
-  version?: typeof LAYOUT_COMPOSITION_VERSION_LEGACY
+  version?: typeof LAYOUT_COMPOSITION_VERSION_LEGACY | typeof LAYOUT_COMPOSITION_VERSION_2
   metadata?: LayoutCompositionPayload['metadata']
   canvas?: Partial<LayoutCompositionPayload['canvas']>
   slots?: LegacySlot[]
@@ -121,6 +180,20 @@ type LegacyLayoutPayload = {
 type LegacySlot = Omit<LayoutCompositionSlot, 'mode' | 'widget'> & {
   mode?: 'component' | 'widget'
   widget?: LayoutWidgetPayload | null
+}
+
+export function defaultRowStyle(): LayoutCompositionRowStyle {
+  return {
+    backgroundColor: 'transparent',
+    padding: '0',
+    borderRadius: '0',
+    borderWidth: '0',
+    borderStyle: 'solid',
+    borderColor: 'transparent',
+    boxShadow: 'none',
+    marginTop: '0',
+    marginBottom: '0',
+  }
 }
 
 export const DEFAULT_LAYOUT_COMPOSITION: LayoutCompositionPayload = {
@@ -167,6 +240,22 @@ export function defaultSlotStyle(): NonNullable<LayoutCompositionSlot['slotStyle
     borderWidth: '0',
     borderStyle: 'solid',
     borderColor: 'transparent',
+    boxShadow: 'none',
+  }
+}
+
+export type LayoutWidgetContainerStyle = Extract<LayoutWidgetPayload, { kind: 'layout' }>['containerStyle']
+
+export function defaultLayoutContainerStyle(): LayoutWidgetContainerStyle {
+  return {
+    padding: '12px',
+    gap: '12px',
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderRadius: '8px',
+    borderWidth: '1px',
+    borderStyle: 'dashed',
+    borderColor: 'rgba(0,0,0,0.12)',
+    boxShadow: 'none',
   }
 }
 
@@ -181,7 +270,15 @@ export function emptyWidget(kind: LayoutWidgetPayload['kind']): LayoutWidgetPayl
     case 'divider':
       return { kind: 'divider', color: 'rgba(0,0,0,0.12)', thickness: '1px' }
     case 'image':
-      return { kind: 'image', src: 'https://picsum.photos/seed/layout/800/400', alt: '', objectFit: 'cover' }
+      return {
+        kind: 'image',
+        src: 'https://picsum.photos/seed/layout/800/400',
+        alt: '',
+        objectFit: 'cover',
+        borderRadius: '8px',
+        maxHeight: '12rem',
+        width: '100%',
+      }
     case 'button':
       return {
         kind: 'button',
@@ -189,7 +286,22 @@ export function emptyWidget(kind: LayoutWidgetPayload['kind']): LayoutWidgetPayl
         href: '#',
         backgroundColor: '#1a3d32',
         textColor: '#ffffff',
+        fontSize: '0.875rem',
         fontWeight: '600',
+        borderRadius: '8px',
+        padding: '8px 16px',
+        borderWidth: '0',
+        borderStyle: 'solid',
+        borderColor: 'transparent',
+        boxShadow: 'none',
+      }
+    case 'layout':
+      return {
+        kind: 'layout',
+        rows: [
+          newRow([newCell({ label: 'Kolonne 1', span: 'auto' }), newCell({ label: 'Kolonne 2', span: 'auto' })]),
+        ],
+        containerStyle: defaultLayoutContainerStyle(),
       }
     default:
       return { kind: 'text', text: '', style: {} }
@@ -209,12 +321,20 @@ export function newCell(partial?: Partial<LayoutCompositionSlot>): LayoutComposi
   }
 }
 
-export function newRow(cells?: LayoutCompositionSlot[]): LayoutCompositionRow {
+export function newRow(cells?: LayoutCompositionSlot[], opts?: { columnMode?: LayoutRowColumnMode }): LayoutCompositionRow {
+  const columnMode = opts?.columnMode ?? 'fixed'
+  const defaultSpan: LayoutSlotSpan = columnMode === 'equal' ? 'auto' : 'full'
+  const list =
+    cells?.length ?
+      cells
+    : [newCell({ label: 'Celle 1', span: defaultSpan })]
   return {
     id: newRowId(),
     gap: '16px',
     alignItems: 'stretch',
-    cells: cells?.length ? cells : [newCell({ label: 'Celle 1', span: 'full' })],
+    columnMode,
+    rowStyle: defaultRowStyle(),
+    cells: list,
   }
 }
 
@@ -225,16 +345,52 @@ function isObj(x: unknown): x is Record<string, unknown> {
 function migrateLegacySlot(s: LegacySlot): LayoutCompositionSlot {
   const hasComp = Boolean(s.componentReferenceKey)
   const mode: 'component' | 'widget' = s.mode ?? (hasComp ? 'component' : 'widget')
+  const baseStyle = { ...defaultSlotStyle(), ...(s.slotStyle as Record<string, unknown> | undefined) }
   return {
     id: s.id || newSlotId(),
     label: s.label || 'Celle',
     mode,
     componentReferenceKey: s.componentReferenceKey ?? null,
     widget: s.widget ?? (mode === 'widget' ? emptyWidget('text') : null),
-    span: s.span ?? 'full',
+    span: (s.span as LayoutSlotSpan | undefined) ?? 'full',
     align: s.align ?? 'stretch',
-    slotStyle: s.slotStyle ?? defaultSlotStyle(),
+    slotStyle: baseStyle as NonNullable<LayoutCompositionSlot['slotStyle']>,
   }
+}
+
+function normalizeWidgetDeep(w: LayoutWidgetPayload | null, defaultGap: string): LayoutWidgetPayload | null {
+  if (!w) return null
+  if (w.kind === 'button') {
+    const b = w as Extract<LayoutWidgetPayload, { kind: 'button' }>
+    return {
+      ...b,
+      fontSize: b.fontSize ?? '0.875rem',
+      borderRadius: b.borderRadius ?? '8px',
+      padding: b.padding ?? '8px 16px',
+      borderWidth: b.borderWidth ?? '0',
+      borderStyle: b.borderStyle ?? 'solid',
+      borderColor: b.borderColor ?? 'transparent',
+      boxShadow: b.boxShadow ?? 'none',
+    }
+  }
+  if (w.kind === 'layout') {
+    const L = w as Extract<LayoutWidgetPayload, { kind: 'layout' }>
+    return {
+      ...L,
+      rows: L.rows.map((r) => normalizeRow(r, defaultGap)),
+      containerStyle: { ...defaultLayoutContainerStyle(), ...L.containerStyle },
+    }
+  }
+  if (w.kind === 'image') {
+    const im = w as Extract<LayoutWidgetPayload, { kind: 'image' }>
+    return {
+      ...im,
+      borderRadius: im.borderRadius ?? '8px',
+      maxHeight: im.maxHeight ?? '12rem',
+      width: im.width ?? '100%',
+    }
+  }
+  return w
 }
 
 function deepMergeLayout<T extends Record<string, unknown>>(target: T, source: Partial<T>): T {
@@ -256,33 +412,44 @@ function deepMergeLayout<T extends Record<string, unknown>>(target: T, source: P
   return out as T
 }
 
-function normalizeCell(c: LegacySlot | LayoutCompositionSlot): LayoutCompositionSlot {
+function normalizeCell(c: LegacySlot | LayoutCompositionSlot, defaultGap: string): LayoutCompositionSlot {
   const m = migrateLegacySlot(c as LegacySlot)
   const mode =
     (c as LayoutCompositionSlot).mode ??
     (m.componentReferenceKey ? 'component' : 'widget')
-  const widget =
+  let widget =
     (c as LayoutCompositionSlot).widget ??
     (mode === 'component' ? null : emptyWidget('text'))
+  widget = normalizeWidgetDeep(widget, defaultGap)
+  const slotStyle = { ...defaultSlotStyle(), ...m.slotStyle, ...(c as LayoutCompositionSlot).slotStyle }
   return {
     ...m,
     mode,
     widget,
-    slotStyle: (c as LayoutCompositionSlot).slotStyle ?? defaultSlotStyle(),
+    slotStyle,
   }
 }
 
 function normalizeRow(r: Partial<LayoutCompositionRow>, defaultGap: string): LayoutCompositionRow {
+  const columnMode = r.columnMode ?? 'fixed'
+  const rowStyle = { ...defaultRowStyle(), ...(r.rowStyle ?? {}) }
+  const cells = (r.cells ?? []).map((c) => normalizeCell(c as LegacySlot, defaultGap))
+  const normalizedCells =
+    columnMode === 'equal' ?
+      cells.map((cell) => (cell.span === 'full' || cell.span === 'half' || cell.span === 'third' ? { ...cell, span: 'auto' as const } : cell))
+    : cells
   return {
     id: r.id || newRowId(),
     gap: r.gap ?? defaultGap,
     alignItems: r.alignItems ?? 'stretch',
-    cells: (r.cells ?? []).map((c) => normalizeCell(c as LegacySlot)),
+    columnMode,
+    rowStyle,
+    cells: normalizedCells.length ? normalizedCells : [newCell({ label: 'Celle 1', span: columnMode === 'equal' ? 'auto' : 'full' })],
   }
 }
 
 /**
- * Normalize any saved payload to current v2 shape (migrates v1 `slots` → one `row`).
+ * Normalize any saved payload to current shape (migrates v1 `slots` → one `row`; v2 → v3).
  */
 export function mergeLayoutComposition(partial: Partial<LayoutCompositionPayload> | Record<string, unknown>): LayoutCompositionPayload {
   const raw = partial as LegacyLayoutPayload & Partial<LayoutCompositionPayload>
@@ -312,7 +479,7 @@ export function mergeLayoutComposition(partial: Partial<LayoutCompositionPayload
         {
           id: newRowId(),
           gap: canvas.gap,
-          cells: (raw.slots as LegacySlot[]).map((c) => normalizeCell(c)),
+          cells: (raw.slots as LegacySlot[]).map((c) => normalizeCell(c, canvas.gap)),
         },
         canvas.gap,
       ),
@@ -344,4 +511,187 @@ export function patchTextLikeWidgetStyle(
   if (w.kind === 'heading') return { ...w, style: { ...w.style, ...patch } }
   if (w.kind === 'text') return { ...w, style: { ...w.style, ...patch } }
   return w
+}
+
+/** Rows edited in the designer for the current context (`path` = parent layout cell chain; empty = root). */
+export function getEditableRows(rows: LayoutCompositionRow[], editorContextPath: LayoutPathSegment[]): LayoutCompositionRow[] {
+  if (editorContextPath.length === 0) return rows
+  const cell = getCellAtPath(rows, editorContextPath)
+  if (!cell?.widget || cell.widget.kind !== 'layout') return rows
+  return cell.widget.rows
+}
+
+export function getCellAtPath(rows: LayoutCompositionRow[], path: LayoutPathSegment[]): LayoutCompositionSlot | null {
+  if (path.length === 0) return null
+  let list = rows
+  for (let i = 0; i < path.length; i++) {
+    const seg = path[i]
+    const row = list.find((r) => r.id === seg.rowId)
+    if (!row) return null
+    const cell = row.cells.find((c) => c.id === seg.cellId)
+    if (!cell) return null
+    if (i === path.length - 1) return cell
+    if (cell.mode !== 'widget' || !cell.widget || cell.widget.kind !== 'layout') return null
+    list = cell.widget.rows
+  }
+  return null
+}
+
+export function updateCellAtPath(
+  rows: LayoutCompositionRow[],
+  path: LayoutPathSegment[],
+  patch: Partial<LayoutCompositionSlot>,
+): LayoutCompositionRow[] {
+  if (path.length === 0) return rows
+  const [head, ...rest] = path
+  return rows.map((row) => {
+    if (row.id !== head.rowId) return row
+    if (rest.length === 0) {
+      return {
+        ...row,
+        cells: row.cells.map((c) => (c.id === head.cellId ? { ...c, ...patch } : c)),
+      }
+    }
+    return {
+      ...row,
+      cells: row.cells.map((c) => {
+        if (c.id !== head.cellId) return c
+        if (c.mode !== 'widget' || !c.widget || c.widget.kind !== 'layout') return c
+        return {
+          ...c,
+          widget: {
+            ...c.widget,
+            rows: updateCellAtPath(c.widget.rows, rest, patch),
+          },
+        }
+      }),
+    }
+  })
+}
+
+export function updateWidgetAtPath(
+  rows: LayoutCompositionRow[],
+  path: LayoutPathSegment[],
+  widget: LayoutWidgetPayload,
+): LayoutCompositionRow[] {
+  return updateCellAtPath(rows, path, { widget, mode: 'widget' })
+}
+
+type RowUpdater = (row: LayoutCompositionRow) => LayoutCompositionRow
+
+export function updateRowAtPath(rows: LayoutCompositionRow[], path: LayoutPathSegment[], rowId: string, updater: RowUpdater): LayoutCompositionRow[] {
+  if (path.length === 0) {
+    return rows.map((r) => (r.id === rowId ? updater(r) : r))
+  }
+  const [head, ...rest] = path
+  return rows.map((row) => {
+    if (row.id !== head.rowId) return row
+    return {
+      ...row,
+      cells: row.cells.map((c) => {
+        if (c.id !== head.cellId) return c
+        if (c.mode !== 'widget' || !c.widget || c.widget.kind !== 'layout') return c
+        return {
+          ...c,
+          widget: {
+            ...c.widget,
+            rows: updateRowAtPath(c.widget.rows, rest, rowId, updater),
+          },
+        }
+      }),
+    }
+  })
+}
+
+function mapRowCellsDeep(rows: LayoutCompositionRow[], fn: (row: LayoutCompositionRow) => LayoutCompositionRow): LayoutCompositionRow[] {
+  return rows.map((row) => {
+    const next = fn(row)
+    return {
+      ...next,
+      cells: next.cells.map((c) => {
+        if (c.mode !== 'widget' || !c.widget || c.widget.kind !== 'layout') return c
+        return {
+          ...c,
+          widget: {
+            ...c.widget,
+            rows: mapRowCellsDeep(c.widget.rows, fn),
+          },
+        }
+      }),
+    }
+  })
+}
+
+/** Move one cell within or between rows (any depth). Row ids must be unique in the tree. */
+export function moveCellInTree(
+  rows: LayoutCompositionRow[],
+  fromRowId: string,
+  fromIndex: number,
+  toRowId: string,
+  toIndex: number,
+): LayoutCompositionRow[] {
+  if (fromRowId === toRowId) {
+    return mapRowCellsDeep(rows, (row) => {
+      if (row.id !== fromRowId) return row
+      const cells = [...row.cells]
+      const [c] = cells.splice(fromIndex, 1)
+      if (!c) return row
+      const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex
+      cells.splice(Math.max(0, insertAt), 0, c)
+      return { ...row, cells }
+    })
+  }
+
+  let extracted: LayoutCompositionSlot | null = null
+
+  const afterExtract = mapRowCellsDeep(rows, (row) => {
+    if (row.id !== fromRowId) return row
+    const cells = [...row.cells]
+    const [c] = cells.splice(fromIndex, 1)
+    extracted = c ?? null
+    return { ...row, cells }
+  })
+
+  if (!extracted) return rows
+
+  return mapRowCellsDeep(afterExtract, (row) => {
+    if (row.id !== toRowId) return row
+    const cells = [...row.cells]
+    const insertAt = Math.max(0, Math.min(toIndex, cells.length))
+    cells.splice(insertAt, 0, extracted!)
+    return { ...row, cells }
+  })
+}
+
+/** Move a row by index within the same row list (root or nested under a layout widget). */
+export function moveRowInList(rows: LayoutCompositionRow[], from: number, to: number): LayoutCompositionRow[] {
+  if (from < 0 || from >= rows.length || to < 0 || to > rows.length || from === to) return rows
+  const next = [...rows]
+  const [r] = next.splice(from, 1)
+  const insertAt = from < to ? to - 1 : to
+  next.splice(insertAt, 0, r)
+  return next
+}
+
+/** Replace the `rows` array at root (`path` empty) or inside a nested layout widget. */
+export function replaceRowsAtPath(rows: LayoutCompositionRow[], path: LayoutPathSegment[], nextRows: LayoutCompositionRow[]): LayoutCompositionRow[] {
+  if (path.length === 0) return nextRows
+  const [head, ...rest] = path
+  return rows.map((row) => {
+    if (row.id !== head.rowId) return row
+    return {
+      ...row,
+      cells: row.cells.map((c) => {
+        if (c.id !== head.cellId) return c
+        if (c.mode !== 'widget' || !c.widget || c.widget.kind !== 'layout') return c
+        return {
+          ...c,
+          widget: {
+            ...c.widget,
+            rows: rest.length === 0 ? nextRows : replaceRowsAtPath(c.widget.rows, rest, nextRows),
+          },
+        }
+      }),
+    }
+  })
 }

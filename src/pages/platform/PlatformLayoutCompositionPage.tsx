@@ -1,21 +1,33 @@
-import { useCallback, useEffect, useMemo, useState, type DragEvent } from 'react'
-import { GripVertical, Loader2, Plus, Save, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type DragEvent } from 'react'
+import { ArrowLeft, GripVertical, Loader2, Plus, Save, Trash2 } from 'lucide-react'
 import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { ComponentDesignPreview } from '../../components/platform/ComponentDesignPreview'
+import { LayoutCompositionPreview } from '../../components/platform/LayoutCompositionPreview'
 import { LayoutWidgetPreview } from '../../components/platform/LayoutWidgetPreview'
+import { alignSelfCss, cellFlexStyle, flexAlignItemsCss } from '../../lib/layoutCompositionFlex'
 import {
   cloneLayoutComposition,
+  defaultLayoutContainerStyle,
+  defaultRowStyle,
   defaultSlotStyle,
   emptyWidget,
+  getCellAtPath,
+  getEditableRows,
   mergeLayoutComposition,
+  moveCellInTree,
+  moveRowInList,
   newCell,
   newRow,
   patchTextLikeWidgetStyle,
+  replaceRowsAtPath,
+  updateCellAtPath,
+  updateRowAtPath,
   type LayoutCompositionPayload,
   type LayoutCompositionRow,
   type LayoutCompositionSlot,
+  type LayoutPathSegment,
   type LayoutSlotSpan,
   type LayoutWidgetPayload,
 } from '../../types/layoutComposition'
@@ -43,8 +55,6 @@ type ComponentRow = {
   payload: PlatformDesignerPayload
 }
 
-type CellSelection = { rowId: string; cellId: string }
-
 const WIDGET_KIND_OPTIONS: { value: LayoutWidgetPayload['kind']; label: string }[] = [
   { value: 'heading', label: 'Overskrift' },
   { value: 'text', label: 'Tekst' },
@@ -52,6 +62,7 @@ const WIDGET_KIND_OPTIONS: { value: LayoutWidgetPayload['kind']; label: string }
   { value: 'image', label: 'Bilde' },
   { value: 'divider', label: 'Delelinje' },
   { value: 'spacer', label: 'Luft' },
+  { value: 'layout', label: 'Layout (rader/kolonner)' },
 ]
 
 const MIME_ROW = 'application/x-klarert-layout-row'
@@ -66,43 +77,6 @@ function slugKey(name: string): string {
       .replace(/[^a-z0-9-_]/g, '')
       .slice(0, 64) || 'layout'
   )
-}
-
-function spanClass(span: LayoutSlotSpan): string {
-  switch (span) {
-    case 'half':
-      return 'col-span-12 md:col-span-6'
-    case 'third':
-      return 'col-span-12 md:col-span-4'
-    default:
-      return 'col-span-12'
-  }
-}
-
-function alignClass(align: LayoutCompositionSlot['align']): string {
-  switch (align) {
-    case 'start':
-      return 'self-start'
-    case 'center':
-      return 'self-center'
-    case 'end':
-      return 'self-end'
-    default:
-      return 'self-stretch'
-  }
-}
-
-function flexAlignItems(v: LayoutCompositionRow['alignItems']): string {
-  switch (v) {
-    case 'start':
-      return 'flex-start'
-    case 'center':
-      return 'center'
-    case 'end':
-      return 'flex-end'
-    default:
-      return 'stretch'
-  }
 }
 
 export function PlatformLayoutCompositionPage() {
@@ -122,9 +96,32 @@ export function PlatformLayoutCompositionPage() {
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [library, setLibrary] = useState<ComponentRow[]>([])
-  const [selectedCell, setSelectedCell] = useState<CellSelection | null>(null)
+  /** Path to the layout-widget cell whose inner `rows` we edit (empty = root). */
+  const [editorContextPath, setEditorContextPath] = useState<LayoutPathSegment[]>([])
+  /** Full path from root to the selected cell (for style / widget editor). */
+  const [selectedPath, setSelectedPath] = useState<LayoutPathSegment[] | null>(null)
 
   const active = tabs[activeIdx]
+
+  const patchPayloadRows = useCallback(
+    (fn: (rows: LayoutCompositionRow[]) => LayoutCompositionRow[]) => {
+      setTabs((prev) => {
+        const next = [...prev]
+        const cur = next[activeIdx]
+        if (!cur) return prev
+        next[activeIdx] = { ...cur, payload: { ...cur.payload, rows: fn(cur.payload.rows) } }
+        return next
+      })
+    },
+    [activeIdx],
+  )
+
+  const updateCellByPath = useCallback(
+    (path: LayoutPathSegment[], patch: Partial<LayoutCompositionSlot>) => {
+      patchPayloadRows((rows) => updateCellAtPath(rows, path, patch))
+    },
+    [patchPayloadRows],
+  )
 
   const libraryMap = useMemo(() => {
     const m = new Map<string, PlatformDesignerPayload>()
@@ -192,7 +189,8 @@ export function PlatformLayoutCompositionPage() {
           },
         ])
         setActiveIdx(0)
-        setSelectedCell(null)
+        setEditorContextPath([])
+        setSelectedPath(null)
         return
       }
       setTabs(
@@ -204,7 +202,8 @@ export function PlatformLayoutCompositionPage() {
         })),
       )
       setActiveIdx(0)
-      setSelectedCell(null)
+      setEditorContextPath([])
+      setSelectedPath(null)
     } catch (err) {
       setError(getSupabaseErrorMessage(err))
     } finally {
@@ -252,39 +251,13 @@ export function PlatformLayoutCompositionPage() {
     [activeIdx],
   )
 
-  const updateCell = useCallback(
-    (rowId: string, cellId: string, patch: Partial<LayoutCompositionSlot>) => {
-      setTabs((prev) => {
-        const next = [...prev]
-        const cur = next[activeIdx]
-        if (!cur) return prev
-        const rows = cur.payload.rows.map((r) =>
-          r.id !== rowId
-            ? r
-            : {
-                ...r,
-                cells: r.cells.map((c) => (c.id === cellId ? { ...c, ...patch } : c)),
-              },
-        )
-        next[activeIdx] = { ...cur, payload: { ...cur.payload, rows } }
-        return next
-      })
-    },
-    [activeIdx],
-  )
-
   const updateRowMeta = useCallback(
-    (rowId: string, patch: Partial<Pick<LayoutCompositionRow, 'gap' | 'alignItems'>>) => {
-      setTabs((prev) => {
-        const next = [...prev]
-        const cur = next[activeIdx]
-        if (!cur) return prev
-        const rows = cur.payload.rows.map((r) => (r.id === rowId ? { ...r, ...patch } : r))
-        next[activeIdx] = { ...cur, payload: { ...cur.payload, rows } }
-        return next
-      })
+    (rowId: string, patch: Partial<LayoutCompositionRow>) => {
+      patchPayloadRows((rows) =>
+        updateRowAtPath(rows, editorContextPath, rowId, (r) => ({ ...r, ...patch })),
+      )
     },
-    [activeIdx],
+    [patchPayloadRows, editorContextPath],
   )
 
   const addRow = useCallback(() => {
@@ -292,28 +265,32 @@ export function PlatformLayoutCompositionPage() {
       const next = [...prev]
       const cur = next[activeIdx]
       if (!cur) return prev
+      const list = getEditableRows(cur.payload.rows, editorContextPath)
       const row = newRow([newCell({ label: 'Kolonne 1', span: 'full' })])
-      next[activeIdx] = { ...cur, payload: { ...cur.payload, rows: [...cur.payload.rows, row] } }
+      const newRows = [...list, row]
+      const rows = replaceRowsAtPath(cur.payload.rows, editorContextPath, newRows)
+      next[activeIdx] = { ...cur, payload: { ...cur.payload, rows } }
       return next
     })
-    setSelectedCell(null)
-  }, [activeIdx])
+    setSelectedPath(null)
+  }, [activeIdx, editorContextPath])
 
   const removeRow = useCallback(
     (rowId: string) => {
       setTabs((prev) => {
         const next = [...prev]
         const cur = next[activeIdx]
-        if (!cur || cur.payload.rows.length <= 1) return prev
-        next[activeIdx] = {
-          ...cur,
-          payload: { ...cur.payload, rows: cur.payload.rows.filter((r) => r.id !== rowId) },
-        }
+        if (!cur) return prev
+        const list = getEditableRows(cur.payload.rows, editorContextPath)
+        if (list.length <= 1) return prev
+        const newRows = list.filter((r) => r.id !== rowId)
+        const rows = replaceRowsAtPath(cur.payload.rows, editorContextPath, newRows)
+        next[activeIdx] = { ...cur, payload: { ...cur.payload, rows } }
         return next
       })
-      setSelectedCell((s) => (s && s.rowId === rowId ? null : s))
+      setSelectedPath((p) => (p?.some((s) => s.rowId === rowId) ? null : p))
     },
-    [activeIdx],
+    [activeIdx, editorContextPath],
   )
 
   const moveRow = useCallback(
@@ -322,15 +299,15 @@ export function PlatformLayoutCompositionPage() {
         const next = [...prev]
         const cur = next[activeIdx]
         if (!cur) return prev
-        const rows = [...cur.payload.rows]
-        if (from < 0 || from >= rows.length || to < 0 || to >= rows.length) return prev
-        const [r] = rows.splice(from, 1)
-        rows.splice(to, 0, r)
+        const list = getEditableRows(cur.payload.rows, editorContextPath)
+        const newRows = moveRowInList(list, from, to)
+        if (newRows === list) return prev
+        const rows = replaceRowsAtPath(cur.payload.rows, editorContextPath, newRows)
         next[activeIdx] = { ...cur, payload: { ...cur.payload, rows } }
         return next
       })
     },
-    [activeIdx],
+    [activeIdx, editorContextPath],
   )
 
   const addCell = useCallback(
@@ -339,19 +316,21 @@ export function PlatformLayoutCompositionPage() {
         const next = [...prev]
         const cur = next[activeIdx]
         if (!cur) return prev
-        const rows = cur.payload.rows.map((r) =>
-          r.id !== rowId
-            ? r
-            : {
-                ...r,
-                cells: [...r.cells, newCell({ label: `Kolonne ${r.cells.length + 1}`, span: 'half' })],
-              },
-        )
+        const list = getEditableRows(cur.payload.rows, editorContextPath)
+        const newRows = list.map((r) => {
+          if (r.id !== rowId) return r
+          const span: LayoutSlotSpan = r.columnMode === 'equal' ? 'auto' : 'half'
+          return {
+            ...r,
+            cells: [...r.cells, newCell({ label: `Kolonne ${r.cells.length + 1}`, span })],
+          }
+        })
+        const rows = replaceRowsAtPath(cur.payload.rows, editorContextPath, newRows)
         next[activeIdx] = { ...cur, payload: { ...cur.payload, rows } }
         return next
       })
     },
-    [activeIdx],
+    [activeIdx, editorContextPath],
   )
 
   const removeCell = useCallback(
@@ -360,51 +339,19 @@ export function PlatformLayoutCompositionPage() {
         const next = [...prev]
         const cur = next[activeIdx]
         if (!cur) return prev
-        const rows = cur.payload.rows.map((r) => {
+        const list = getEditableRows(cur.payload.rows, editorContextPath)
+        const newRows = list.map((r) => {
           if (r.id !== rowId) return r
           if (r.cells.length <= 1) return r
           return { ...r, cells: r.cells.filter((c) => c.id !== cellId) }
         })
+        const rows = replaceRowsAtPath(cur.payload.rows, editorContextPath, newRows)
         next[activeIdx] = { ...cur, payload: { ...cur.payload, rows } }
         return next
       })
-      setSelectedCell((s) => (s && s.cellId === cellId ? null : s))
+      setSelectedPath((p) => (p?.some((s) => s.cellId === cellId) ? null : p))
     },
-    [activeIdx],
-  )
-
-  const moveCellInPayload = useCallback(
-    (
-      rows: LayoutCompositionRow[],
-      fromRowId: string,
-      fromIndex: number,
-      toRowId: string,
-      toIndex: number,
-    ): LayoutCompositionRow[] => {
-      const fromRow = rows.find((r) => r.id === fromRowId)
-      if (!fromRow) return rows
-      const cell = fromRow.cells[fromIndex]
-      if (!cell) return rows
-      return rows.map((r) => {
-        if (r.id === fromRowId && r.id === toRowId) {
-          const cells = [...r.cells]
-          cells.splice(fromIndex, 1)
-          const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex
-          cells.splice(Math.max(0, insertAt), 0, cell)
-          return { ...r, cells }
-        }
-        if (r.id === fromRowId) {
-          return { ...r, cells: r.cells.filter((_, i) => i !== fromIndex) }
-        }
-        if (r.id === toRowId) {
-          const cells = [...r.cells]
-          cells.splice(toIndex, 0, cell)
-          return { ...r, cells }
-        }
-        return r
-      })
-    },
-    [],
+    [activeIdx, editorContextPath],
   )
 
   const onCellDragStart = useCallback((e: DragEvent, rowId: string, cellIndex: number) => {
@@ -426,7 +373,9 @@ export function PlatformLayoutCompositionPage() {
           const next = [...prev]
           const cur = next[activeIdx]
           if (!cur) return prev
-          const rows = moveCellInPayload(cur.payload.rows, fromRowId, fromIndex, targetRowId, targetIndex)
+          const list = getEditableRows(cur.payload.rows, editorContextPath)
+          const newList = moveCellInTree(list, fromRowId, fromIndex, targetRowId, targetIndex)
+          const rows = replaceRowsAtPath(cur.payload.rows, editorContextPath, newList)
           next[activeIdx] = { ...cur, payload: { ...cur.payload, rows } }
           return next
         })
@@ -434,7 +383,7 @@ export function PlatformLayoutCompositionPage() {
         /* ignore */
       }
     },
-    [activeIdx, moveCellInPayload],
+    [activeIdx, editorContextPath],
   )
 
   const onRowDragStart = useCallback((e: DragEvent, rowIndex: number) => {
@@ -476,7 +425,8 @@ export function PlatformLayoutCompositionPage() {
     })
     setTabs((prev) => [...prev, { localId: crypto.randomUUID(), referenceKey, payload }])
     setActiveIdx(tabs.length)
-    setSelectedCell(null)
+    setEditorContextPath([])
+    setSelectedPath(null)
     setMessage(null)
   }, [tabs.length])
 
@@ -507,7 +457,8 @@ export function PlatformLayoutCompositionPage() {
         if (i > idx) return i - 1
         return i
       })
-      setSelectedCell(null)
+      setEditorContextPath([])
+      setSelectedPath(null)
     },
     [supabase, tabs],
   )
@@ -584,7 +535,8 @@ export function PlatformLayoutCompositionPage() {
       }
       return next
     })
-    setSelectedCell(null)
+    setEditorContextPath([])
+    setSelectedPath(null)
     setMessage('Lastet inn mal «Baselinje: Styre og valg». Lagre med ønsket referansenøkkel.')
   }, [activeIdx])
 
@@ -601,15 +553,22 @@ export function PlatformLayoutCompositionPage() {
       }
       return next
     })
-    setSelectedCell(null)
+    setEditorContextPath([])
+    setSelectedPath(null)
     setMessage('Lastet inn mal «Baselinje: Ansatte». Lagre med ønsket referansenøkkel.')
   }, [activeIdx])
 
   const selectedSlot = useMemo(() => {
-    if (!active || !selectedCell) return null
-    const row = active.payload.rows.find((r) => r.id === selectedCell.rowId)
-    return row?.cells.find((c) => c.id === selectedCell.cellId) ?? null
-  }, [active, selectedCell])
+    if (!active || !selectedPath?.length) return null
+    return getCellAtPath(active.payload.rows, selectedPath)
+  }, [active, selectedPath])
+
+  const editableRows = useMemo(
+    () => (active ? getEditableRows(active.payload.rows, editorContextPath) : []),
+    [active, editorContextPath],
+  )
+
+  const pathKey = (path: LayoutPathSegment[]) => path.map((s) => `${s.rowId}:${s.cellId}`).join('>')
 
   if (loading) {
     return (
@@ -634,8 +593,9 @@ export function PlatformLayoutCompositionPage() {
         <h1 className="text-xl font-semibold text-white">Layout-designer</h1>
         <p className="mt-1 text-sm text-neutral-400">
           Bygg <strong className="text-neutral-300">rader</strong> og <strong className="text-neutral-300">kolonner</strong> med dra-og-slipp.
-          Hver celle kan være en <strong className="text-neutral-300">widget</strong> (tekst, overskrift, knapp, …) eller en lagret komponent fra{' '}
-          <span className="text-neutral-300">Komponentdesigner</span>. Sett sidetypografi (fonter, farger) én gang — overstyres per widget.
+          Hver celle kan være <strong className="text-neutral-300">widget</strong>, <strong className="text-neutral-300">layout (nestede rader)</strong> eller lagret{' '}
+          <strong className="text-neutral-300">komponent</strong>. Kolonner kan deles <strong className="text-neutral-300">likt</strong> (auto etter antall) eller med{' '}
+          <strong className="text-neutral-300">12-kolonne</strong> span. Bruk «Stil» på hver celle og «Rad-stil» for bakgrunn/kant på raden.
           <strong className="ml-1 text-amber-200/90">Lagre</strong> som gjenbrukbar mal i databasen.
         </p>
       </div>
@@ -675,7 +635,8 @@ export function PlatformLayoutCompositionPage() {
               type="button"
               onClick={() => {
                 setActiveIdx(idx)
-                setSelectedCell(null)
+                setEditorContextPath([])
+                setSelectedPath(null)
               }}
               className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                 idx === activeIdx ? 'bg-white/15 text-white' : 'text-neutral-400 hover:bg-white/5 hover:text-white'
@@ -779,11 +740,38 @@ export function PlatformLayoutCompositionPage() {
                 Ny rad
               </button>
             </div>
+            {editorContextPath.length > 0 ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                <span>Redigerer nested layout ({editorContextPath.length} nivå)</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditorContextPath((prev) => prev.slice(0, -1))
+                    setSelectedPath(null)
+                  }}
+                  className="inline-flex items-center gap-1 rounded border border-amber-400/40 px-2 py-1 font-medium hover:bg-amber-500/20"
+                >
+                  <ArrowLeft className="size-3.5" />
+                  Ett nivå opp
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditorContextPath([])
+                    setSelectedPath(null)
+                  }}
+                  className="rounded border border-white/20 px-2 py-1 hover:bg-white/10"
+                >
+                  Til rot
+                </button>
+              </div>
+            ) : null}
             <p className="mt-1 text-xs text-neutral-500">
-              Dra <GripVertical className="inline size-3" /> på rad eller celle i forhåndsvisningen. Bibliotek: {library.length} komponent(er).
+              Dra <GripVertical className="inline size-3" /> på rad eller celle i forhåndsvisningen. Bibliotek: {library.length} komponent(er).{' '}
+              <strong className="text-neutral-400">Lik fordeling</strong> skalerer kolonner etter antall celler i raden.
             </p>
             <div className="mt-4 space-y-6">
-              {p.rows.map((row, rowIndex) => (
+              {editableRows.map((row, rowIndex) => (
                 <div
                   key={row.id}
                   className="rounded-lg border border-white/10 bg-slate-950/50 p-3"
@@ -805,6 +793,25 @@ export function PlatformLayoutCompositionPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <TextField label="gap" value={row.gap} onChange={(v) => updateRowMeta(row.id, { gap: v })} />
+                      <SelectField
+                        label="Kolonner"
+                        value={row.columnMode}
+                        options={[
+                          { value: 'fixed', label: '12-kolonne (span)' },
+                          { value: 'equal', label: 'Lik fordeling' },
+                        ]}
+                        onChange={(v) => {
+                          const columnMode = v as LayoutCompositionRow['columnMode']
+                          updateRowMeta(row.id, {
+                            columnMode,
+                            cells: row.cells.map((c) =>
+                              columnMode === 'equal' && (c.span === 'full' || c.span === 'half' || c.span === 'third')
+                                ? { ...c, span: 'auto' as const }
+                                : c,
+                            ),
+                          })
+                        }}
+                      />
                       <SelectField
                         label="alignItems"
                         value={row.alignItems}
@@ -833,95 +840,172 @@ export function PlatformLayoutCompositionPage() {
                       </button>
                     </div>
                   </div>
+                  <details className="mt-2 rounded border border-white/10 bg-slate-900/30 px-2 py-1.5">
+                    <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                      Rad-stil (bakgrunn, kant, margin)
+                    </summary>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <ColorField
+                        label="Rad bakgrunn"
+                        value={row.rowStyle.backgroundColor}
+                        onChange={(v) => updateRowMeta(row.id, { rowStyle: { ...defaultRowStyle(), ...row.rowStyle, backgroundColor: v } })}
+                      />
+                      <TextField
+                        label="Rad padding"
+                        value={row.rowStyle.padding}
+                        onChange={(v) => updateRowMeta(row.id, { rowStyle: { ...defaultRowStyle(), ...row.rowStyle, padding: v } })}
+                      />
+                      <TextField
+                        label="Rad borderRadius"
+                        value={row.rowStyle.borderRadius}
+                        onChange={(v) => updateRowMeta(row.id, { rowStyle: { ...defaultRowStyle(), ...row.rowStyle, borderRadius: v } })}
+                      />
+                      <TextField
+                        label="Rad borderWidth"
+                        value={row.rowStyle.borderWidth}
+                        onChange={(v) => updateRowMeta(row.id, { rowStyle: { ...defaultRowStyle(), ...row.rowStyle, borderWidth: v } })}
+                      />
+                      <TextField
+                        label="Rad borderStyle"
+                        value={row.rowStyle.borderStyle}
+                        onChange={(v) => updateRowMeta(row.id, { rowStyle: { ...defaultRowStyle(), ...row.rowStyle, borderStyle: v } })}
+                      />
+                      <ColorField
+                        label="Rad borderColor"
+                        value={row.rowStyle.borderColor}
+                        onChange={(v) => updateRowMeta(row.id, { rowStyle: { ...defaultRowStyle(), ...row.rowStyle, borderColor: v } })}
+                      />
+                      <TextField
+                        label="boxShadow"
+                        value={row.rowStyle.boxShadow}
+                        onChange={(v) => updateRowMeta(row.id, { rowStyle: { ...defaultRowStyle(), ...row.rowStyle, boxShadow: v } })}
+                      />
+                      <TextField
+                        label="marginTop"
+                        value={row.rowStyle.marginTop}
+                        onChange={(v) => updateRowMeta(row.id, { rowStyle: { ...defaultRowStyle(), ...row.rowStyle, marginTop: v } })}
+                      />
+                      <TextField
+                        label="marginBottom"
+                        value={row.rowStyle.marginBottom}
+                        onChange={(v) => updateRowMeta(row.id, { rowStyle: { ...defaultRowStyle(), ...row.rowStyle, marginBottom: v } })}
+                      />
+                    </div>
+                  </details>
                   <div className="mt-3 space-y-3">
-                    {row.cells.map((slot, cellIndex) => (
-                      <div
-                        key={slot.id}
-                        className={`rounded-lg border p-3 ${
-                          selectedCell?.rowId === row.id && selectedCell?.cellId === slot.id
-                            ? 'border-amber-400/50 bg-amber-500/5'
-                            : 'border-white/10 bg-slate-900/40'
-                        }`}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => onCellDropOnCell(e, row.id, cellIndex)}
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <button
-                            type="button"
-                            draggable
-                            onDragStart={(e) => onCellDragStart(e, row.id, cellIndex)}
-                            className="mt-1 cursor-grab rounded p-1 text-neutral-500 hover:bg-white/10 active:cursor-grabbing"
-                            title="Dra celle"
-                          >
-                            <GripVertical className="size-4" />
-                          </button>
-                          <div className="min-w-0 flex-1">
-                            <TextField label="Etikett" value={slot.label} onChange={(v) => updateCell(row.id, slot.id, { label: v })} />
+                    {row.cells.map((slot, cellIndex) => {
+                      const cellPath: LayoutPathSegment[] = [...editorContextPath, { rowId: row.id, cellId: slot.id }]
+                      const pathStr = pathKey(cellPath)
+                      const selStr = selectedPath ? pathKey(selectedPath) : ''
+                      const isSel = pathStr === selStr
+                      return (
+                        <div
+                          key={slot.id}
+                          className={`rounded-lg border p-3 ${
+                            isSel ? 'border-amber-400/50 bg-amber-500/5' : 'border-white/10 bg-slate-900/40'
+                          }`}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => onCellDropOnCell(e, row.id, cellIndex)}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <button
+                              type="button"
+                              draggable
+                              onDragStart={(e) => onCellDragStart(e, row.id, cellIndex)}
+                              className="mt-1 cursor-grab rounded p-1 text-neutral-500 hover:bg-white/10 active:cursor-grabbing"
+                              title="Dra celle"
+                            >
+                              <GripVertical className="size-4" />
+                            </button>
+                            <div className="min-w-0 flex-1">
+                              <TextField
+                                label="Etikett"
+                                value={slot.label}
+                                onChange={(v) => updateCellByPath(cellPath, { label: v })}
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPath(cellPath)}
+                              className="rounded border border-amber-500/40 px-2 py-1 text-xs text-amber-200 hover:bg-amber-500/10"
+                            >
+                              Stil
+                            </button>
+                            {slot.mode === 'widget' && slot.widget?.kind === 'layout' ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditorContextPath(cellPath)
+                                  setSelectedPath(null)
+                                }}
+                                className="rounded border border-sky-500/40 px-2 py-1 text-xs text-sky-200 hover:bg-sky-500/10"
+                              >
+                                Åpne layout
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              onClick={() => removeCell(row.id, slot.id)}
+                              className="rounded p-1.5 text-neutral-500 hover:bg-white/10 hover:text-red-300"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedCell({ rowId: row.id, cellId: slot.id })}
-                            className="rounded border border-amber-500/40 px-2 py-1 text-xs text-amber-200 hover:bg-amber-500/10"
-                          >
-                            Rediger
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeCell(row.id, slot.id)}
-                            className="rounded p-1.5 text-neutral-500 hover:bg-white/10 hover:text-red-300"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
-                        </div>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                          <SelectField
-                            label="Innhold"
-                            value={slot.mode}
-                            options={[
-                              { value: 'widget', label: 'Widget (bygg her)' },
-                              { value: 'component', label: 'Lagret komponent' },
-                            ]}
-                            onChange={(v) => {
-                              const mode = v as LayoutCompositionSlot['mode']
-                              updateCell(row.id, slot.id, {
-                                mode,
-                                widget: mode === 'widget' ? slot.widget ?? emptyWidget('text') : null,
-                                componentReferenceKey: mode === 'component' ? slot.componentReferenceKey : null,
-                              })
-                            }}
-                          />
-                          <SelectField
-                            label="Bredde"
-                            value={slot.span}
-                            options={[
-                              { value: 'full', label: 'Full (12/12)' },
-                              { value: 'half', label: 'Halv (6/12)' },
-                              { value: 'third', label: 'Tredjedel (4/12)' },
-                            ]}
-                            onChange={(v) => updateCell(row.id, slot.id, { span: v as LayoutSlotSpan })}
-                          />
-                          <SelectField
-                            label="Justering"
-                            value={slot.align}
-                            options={[
-                              { value: 'stretch', label: 'stretch' },
-                              { value: 'start', label: 'start' },
-                              { value: 'center', label: 'center' },
-                              { value: 'end', label: 'end' },
-                            ]}
-                            onChange={(v) => updateCell(row.id, slot.id, { align: v as LayoutCompositionSlot['align'] })}
-                          />
-                          {slot.mode === 'component' ? (
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
                             <SelectField
-                              label="Komponent"
-                              value={slot.componentReferenceKey ?? ''}
-                              options={[{ value: '', label: '— Velg —' }, ...libraryOptions.map((o) => ({ value: o.value, label: o.label }))]}
-                              onChange={(v) => updateCell(row.id, slot.id, { componentReferenceKey: v || null })}
+                              label="Innhold"
+                              value={slot.mode}
+                              options={[
+                                { value: 'widget', label: 'Widget (bygg her)' },
+                                { value: 'component', label: 'Lagret komponent' },
+                              ]}
+                              onChange={(v) => {
+                                const mode = v as LayoutCompositionSlot['mode']
+                                updateCellByPath(cellPath, {
+                                  mode,
+                                  widget: mode === 'widget' ? slot.widget ?? emptyWidget('text') : null,
+                                  componentReferenceKey: mode === 'component' ? slot.componentReferenceKey : null,
+                                })
+                              }}
                             />
-                          ) : null}
+                            <SelectField
+                              label="Bredde"
+                              value={slot.span}
+                              options={
+                                row.columnMode === 'equal'
+                                  ? [{ value: 'auto', label: 'Auto (lik)' }]
+                                  : [
+                                      { value: 'full', label: 'Full (12/12)' },
+                                      { value: 'half', label: 'Halv (6/12)' },
+                                      { value: 'third', label: 'Tredjedel (4/12)' },
+                                      { value: 'auto', label: 'Flex (1:1)' },
+                                    ]
+                              }
+                              onChange={(v) => updateCellByPath(cellPath, { span: v as LayoutSlotSpan })}
+                            />
+                            <SelectField
+                              label="Justering"
+                              value={slot.align}
+                              options={[
+                                { value: 'stretch', label: 'stretch' },
+                                { value: 'start', label: 'start' },
+                                { value: 'center', label: 'center' },
+                                { value: 'end', label: 'end' },
+                              ]}
+                              onChange={(v) => updateCellByPath(cellPath, { align: v as LayoutCompositionSlot['align'] })}
+                            />
+                            {slot.mode === 'component' ? (
+                              <SelectField
+                                label="Komponent"
+                                value={slot.componentReferenceKey ?? ''}
+                                options={[{ value: '', label: '— Velg —' }, ...libraryOptions.map((o) => ({ value: o.value, label: o.label }))]}
+                                onChange={(v) => updateCellByPath(cellPath, { componentReferenceKey: v || null })}
+                              />
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               ))}
@@ -950,20 +1034,17 @@ export function PlatformLayoutCompositionPage() {
 
         <div className="space-y-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
           <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Forhåndsvisning</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Forhåndsvisning (full side)</p>
             <div
               className="mt-4"
               style={{
                 maxWidth: c.maxWidth,
                 margin: '0 auto',
                 padding: c.padding,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: c.gap,
                 minHeight: c.minHeight,
                 borderRadius: c.borderRadius,
                 borderWidth: c.borderWidth,
-                borderStyle: c.borderStyle,
+                borderStyle: c.borderStyle as CSSProperties['borderStyle'],
                 borderColor: c.borderColor,
                 background: c.backgroundGradient?.trim() || c.backgroundColor,
                 fontFamily: typo.fontFamily,
@@ -971,81 +1052,116 @@ export function PlatformLayoutCompositionPage() {
                 color: typo.textColor,
               }}
             >
-              {p.rows.map((row, rowIndex) => (
-                <div
-                  key={row.id}
-                  className="grid grid-cols-12"
-                  style={{
-                    gap: row.gap,
-                    alignItems: flexAlignItems(row.alignItems),
-                  }}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => onRowDrop(e, rowIndex)}
-                >
-                  {row.cells.map((slot, cellIndex) => {
-                    const comp = slot.componentReferenceKey ? libraryMap.get(slot.componentReferenceKey) : undefined
-                    const st = slot.slotStyle
-                    return (
-                      <div
-                        key={slot.id}
-                        className={`${spanClass(slot.span)} ${alignClass(slot.align)} min-w-0`}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => onCellDropOnCell(e, row.id, cellIndex)}
-                      >
-                        <div
-                          className={`rounded-lg border border-dashed border-black/15 p-2 ${
-                            selectedCell?.cellId === slot.id ? 'ring-2 ring-amber-400/60' : ''
-                          }`}
-                          style={{
-                            backgroundColor: st?.backgroundColor,
-                            padding: st?.padding,
-                            borderRadius: st?.borderRadius,
-                            borderWidth: st?.borderWidth,
-                            borderStyle: st?.borderStyle,
-                            borderColor: st?.borderColor,
-                          }}
-                        >
-                          <div className="mb-2 flex items-center justify-between gap-1 text-[10px] uppercase tracking-wide text-neutral-600">
-                            <span className="truncate">{slot.label}</span>
-                            <button
-                              type="button"
-                              draggable
-                              onDragStart={(e) => onCellDragStart(e, row.id, cellIndex)}
-                              className="cursor-grab rounded p-0.5 hover:bg-black/5 active:cursor-grabbing"
-                            >
-                              <GripVertical className="size-3.5" />
-                            </button>
-                          </div>
-                          <div className="overflow-hidden rounded-md bg-white/90">
-                            {slot.mode === 'component' && comp ? (
-                              <ComponentDesignPreview payload={comp} />
-                            ) : slot.mode === 'widget' && slot.widget ? (
-                              <div className="p-3">
-                                <LayoutWidgetPreview widget={slot.widget} typography={typo} />
-                              </div>
-                            ) : (
-                              <p className="p-4 text-center text-sm text-neutral-500">Tom celle</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              ))}
+              <LayoutCompositionPreview rows={p.rows} typography={typo} libraryMap={libraryMap} verticalGap={c.gap} />
             </div>
           </div>
 
-          {selectedSlot && selectedCell ? (
+          <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Redigeringsforhåndsvisning</p>
+            <p className="mt-1 text-[10px] text-neutral-500">
+              Speiler kolonnemodus (lik / 12-kolonne). Dra rader og celler her.
+            </p>
+            <div
+              className="mt-3 max-h-[min(420px,50vh)] overflow-auto rounded-lg border border-white/10 bg-neutral-100/90 p-2"
+              style={{ fontFamily: typo.fontFamily, fontSize: typo.baseFontSize, color: typo.textColor }}
+            >
+              {editableRows.map((row, rowIndex) => {
+                const rs = row.rowStyle
+                const n = row.cells.length || 1
+                return (
+                  <div
+                    key={row.id}
+                    className="mb-2 flex flex-wrap"
+                    style={{
+                      gap: row.gap,
+                      alignItems: flexAlignItemsCss(row.alignItems),
+                      backgroundColor: rs.backgroundColor,
+                      padding: rs.padding,
+                      borderRadius: rs.borderRadius,
+                      borderWidth: rs.borderWidth,
+                      borderStyle: rs.borderStyle as CSSProperties['borderStyle'],
+                      borderColor: rs.borderColor,
+                      boxShadow: rs.boxShadow === 'none' ? undefined : rs.boxShadow,
+                      marginTop: rs.marginTop,
+                      marginBottom: rs.marginBottom,
+                    }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => onRowDrop(e, rowIndex)}
+                  >
+                    {row.cells.map((slot, cellIndex) => {
+                      const comp = slot.componentReferenceKey ? libraryMap.get(slot.componentReferenceKey) : undefined
+                      const st = slot.slotStyle
+                      const cellPath: LayoutPathSegment[] = [...editorContextPath, { rowId: row.id, cellId: slot.id }]
+                      const pathStr = pathKey(cellPath)
+                      const selStr = selectedPath ? pathKey(selectedPath) : ''
+                      const isSel = pathStr === selStr
+                      const flexStyle = cellFlexStyle(slot.span, row.columnMode, n)
+                      return (
+                        <div
+                          key={slot.id}
+                          className="min-w-0"
+                          style={{ ...flexStyle, alignSelf: alignSelfCss(slot) }}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => onCellDropOnCell(e, row.id, cellIndex)}
+                        >
+                          <div
+                            className={`rounded border border-dashed border-black/20 p-1.5 ${isSel ? 'ring-2 ring-amber-400/70' : ''}`}
+                            style={{
+                              backgroundColor: st?.backgroundColor,
+                              padding: st?.padding,
+                              borderRadius: st?.borderRadius,
+                              borderWidth: st?.borderWidth,
+                              borderStyle: st?.borderStyle as CSSProperties['borderStyle'],
+                              borderColor: st?.borderColor,
+                              boxShadow: st?.boxShadow === 'none' ? undefined : st?.boxShadow,
+                            }}
+                          >
+                            <div className="mb-1 flex items-center justify-between gap-1 text-[9px] uppercase tracking-wide text-neutral-600">
+                              <span className="truncate">{slot.label}</span>
+                              <button
+                                type="button"
+                                draggable
+                                onDragStart={(e) => onCellDragStart(e, row.id, cellIndex)}
+                                className="cursor-grab rounded p-0.5 hover:bg-black/5 active:cursor-grabbing"
+                              >
+                                <GripVertical className="size-3" />
+                              </button>
+                            </div>
+                            <div className="overflow-hidden rounded bg-white/95">
+                              {slot.mode === 'component' && comp ? (
+                                <ComponentDesignPreview payload={comp} />
+                              ) : slot.mode === 'widget' && slot.widget ? (
+                                slot.widget.kind === 'layout' ? (
+                                  <div className="p-2 text-center text-[10px] text-neutral-500">Layout (åpne for å redigere)</div>
+                                ) : (
+                                  <div className="p-2">
+                                    <LayoutWidgetPreview widget={slot.widget} typography={typo} />
+                                  </div>
+                                )
+                              ) : (
+                                <p className="p-2 text-center text-[10px] text-neutral-500">Tom</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {selectedSlot && selectedPath ? (
             <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Celle: {selectedSlot.label}</p>
-              <p className="mt-1 text-[10px] text-neutral-500">Ramme / padding</p>
+              <p className="mt-1 text-[10px] text-neutral-500">Ramme / padding / skygge</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 <ColorField
                   label="Bakgrunn"
                   value={selectedSlot.slotStyle?.backgroundColor ?? defaultSlotStyle().backgroundColor}
                   onChange={(v) =>
-                    updateCell(selectedCell.rowId, selectedCell.cellId, {
+                    updateCellByPath(selectedPath, {
                       slotStyle: { ...defaultSlotStyle(), ...selectedSlot.slotStyle, backgroundColor: v },
                     })
                   }
@@ -1054,7 +1170,7 @@ export function PlatformLayoutCompositionPage() {
                   label="padding"
                   value={selectedSlot.slotStyle?.padding ?? defaultSlotStyle().padding}
                   onChange={(v) =>
-                    updateCell(selectedCell.rowId, selectedCell.cellId, {
+                    updateCellByPath(selectedPath, {
                       slotStyle: { ...defaultSlotStyle(), ...selectedSlot.slotStyle, padding: v },
                     })
                   }
@@ -1063,7 +1179,7 @@ export function PlatformLayoutCompositionPage() {
                   label="borderRadius"
                   value={selectedSlot.slotStyle?.borderRadius ?? defaultSlotStyle().borderRadius}
                   onChange={(v) =>
-                    updateCell(selectedCell.rowId, selectedCell.cellId, {
+                    updateCellByPath(selectedPath, {
                       slotStyle: { ...defaultSlotStyle(), ...selectedSlot.slotStyle, borderRadius: v },
                     })
                   }
@@ -1072,7 +1188,7 @@ export function PlatformLayoutCompositionPage() {
                   label="borderWidth"
                   value={selectedSlot.slotStyle?.borderWidth ?? defaultSlotStyle().borderWidth}
                   onChange={(v) =>
-                    updateCell(selectedCell.rowId, selectedCell.cellId, {
+                    updateCellByPath(selectedPath, {
                       slotStyle: { ...defaultSlotStyle(), ...selectedSlot.slotStyle, borderWidth: v },
                     })
                   }
@@ -1081,7 +1197,7 @@ export function PlatformLayoutCompositionPage() {
                   label="borderStyle"
                   value={selectedSlot.slotStyle?.borderStyle ?? defaultSlotStyle().borderStyle}
                   onChange={(v) =>
-                    updateCell(selectedCell.rowId, selectedCell.cellId, {
+                    updateCellByPath(selectedPath, {
                       slotStyle: { ...defaultSlotStyle(), ...selectedSlot.slotStyle, borderStyle: v },
                     })
                   }
@@ -1090,8 +1206,17 @@ export function PlatformLayoutCompositionPage() {
                   label="borderColor"
                   value={selectedSlot.slotStyle?.borderColor ?? defaultSlotStyle().borderColor}
                   onChange={(v) =>
-                    updateCell(selectedCell.rowId, selectedCell.cellId, {
+                    updateCellByPath(selectedPath, {
                       slotStyle: { ...defaultSlotStyle(), ...selectedSlot.slotStyle, borderColor: v },
+                    })
+                  }
+                />
+                <TextField
+                  label="boxShadow"
+                  value={selectedSlot.slotStyle?.boxShadow ?? defaultSlotStyle().boxShadow}
+                  onChange={(v) =>
+                    updateCellByPath(selectedPath, {
+                      slotStyle: { ...defaultSlotStyle(), ...selectedSlot.slotStyle, boxShadow: v },
                     })
                   }
                 />
@@ -1100,8 +1225,7 @@ export function PlatformLayoutCompositionPage() {
               {selectedSlot.mode === 'widget' && selectedSlot.widget ? (
                 (() => {
                   const w = selectedSlot.widget
-                  const rid = selectedCell.rowId
-                  const cid = selectedCell.cellId
+                  const path = selectedPath
                   return (
                 <div className="mt-4 border-t border-white/10 pt-4">
                   <SelectField
@@ -1110,7 +1234,7 @@ export function PlatformLayoutCompositionPage() {
                     options={WIDGET_KIND_OPTIONS}
                     onChange={(v) => {
                       const kind = v as LayoutWidgetPayload['kind']
-                      updateCell(rid, cid, { widget: emptyWidget(kind) })
+                      updateCellByPath(path, { widget: emptyWidget(kind) })
                     }}
                   />
                   {w.kind === 'heading' ? (
@@ -1119,7 +1243,7 @@ export function PlatformLayoutCompositionPage() {
                         label="Tekst"
                         value={w.text}
                         onChange={(text) =>
-                          updateCell(rid, cid, {
+                          updateCellByPath(path, {
                             widget: { ...w, text },
                           })
                         }
@@ -1134,7 +1258,7 @@ export function PlatformLayoutCompositionPage() {
                           { value: '4', label: 'H4' },
                         ]}
                         onChange={(v) =>
-                          updateCell(rid, cid, {
+                          updateCellByPath(path, {
                             widget: { ...w, level: Number(v) as 1 | 2 | 3 | 4 },
                           })
                         }
@@ -1147,7 +1271,7 @@ export function PlatformLayoutCompositionPage() {
                       <textarea
                         value={w.text}
                         onChange={(e) =>
-                          updateCell(rid, cid, {
+                          updateCellByPath(path, {
                             widget: { ...w, text: e.target.value },
                           })
                         }
@@ -1157,12 +1281,12 @@ export function PlatformLayoutCompositionPage() {
                     </label>
                   ) : null}
                   {w.kind === 'button' ? (
-                    <div className="mt-3 grid gap-2">
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <TextField
                         label="Etikett"
                         value={w.label}
                         onChange={(label) =>
-                          updateCell(rid, cid, {
+                          updateCellByPath(path, {
                             widget: { ...w, label },
                           })
                         }
@@ -1171,8 +1295,17 @@ export function PlatformLayoutCompositionPage() {
                         label="href"
                         value={w.href}
                         onChange={(href) =>
-                          updateCell(rid, cid, {
+                          updateCellByPath(path, {
                             widget: { ...w, href },
+                          })
+                        }
+                      />
+                      <TextField
+                        label="fontSize"
+                        value={w.fontSize}
+                        onChange={(fontSize) =>
+                          updateCellByPath(path, {
+                            widget: { ...w, fontSize },
                           })
                         }
                       />
@@ -1180,7 +1313,7 @@ export function PlatformLayoutCompositionPage() {
                         label="Bakgrunn"
                         value={w.backgroundColor}
                         onChange={(backgroundColor) =>
-                          updateCell(rid, cid, {
+                          updateCellByPath(path, {
                             widget: { ...w, backgroundColor },
                           })
                         }
@@ -1189,7 +1322,7 @@ export function PlatformLayoutCompositionPage() {
                         label="Tekst"
                         value={w.textColor}
                         onChange={(textColor) =>
-                          updateCell(rid, cid, {
+                          updateCellByPath(path, {
                             widget: { ...w, textColor },
                           })
                         }
@@ -1204,11 +1337,65 @@ export function PlatformLayoutCompositionPage() {
                           { value: '700', label: 'Bold' },
                         ]}
                         onChange={(fontWeight) =>
-                          updateCell(rid, cid, {
+                          updateCellByPath(path, {
                             widget: {
                               ...w,
                               fontWeight: fontWeight as '400' | '500' | '600' | '700',
                             },
+                          })
+                        }
+                      />
+                      <TextField
+                        label="padding"
+                        value={w.padding}
+                        onChange={(padding) =>
+                          updateCellByPath(path, {
+                            widget: { ...w, padding },
+                          })
+                        }
+                      />
+                      <TextField
+                        label="borderRadius"
+                        value={w.borderRadius}
+                        onChange={(borderRadius) =>
+                          updateCellByPath(path, {
+                            widget: { ...w, borderRadius },
+                          })
+                        }
+                      />
+                      <TextField
+                        label="borderWidth"
+                        value={w.borderWidth}
+                        onChange={(borderWidth) =>
+                          updateCellByPath(path, {
+                            widget: { ...w, borderWidth },
+                          })
+                        }
+                      />
+                      <TextField
+                        label="borderStyle"
+                        value={w.borderStyle}
+                        onChange={(borderStyle) =>
+                          updateCellByPath(path, {
+                            widget: { ...w, borderStyle },
+                          })
+                        }
+                      />
+                      <ColorField
+                        label="borderColor"
+                        value={w.borderColor}
+                        onChange={(borderColor) =>
+                          updateCellByPath(path, {
+                            widget: { ...w, borderColor },
+                          })
+                        }
+                      />
+                      <TextField
+                        label="boxShadow"
+                        value={w.boxShadow}
+                        onChange={(boxShadow) =>
+                          updateCellByPath(path, {
+                            widget: { ...w, boxShadow },
                           })
                         }
                       />
@@ -1220,7 +1407,7 @@ export function PlatformLayoutCompositionPage() {
                         label="URL"
                         value={w.src}
                         onChange={(src) =>
-                          updateCell(rid, cid, {
+                          updateCellByPath(path, {
                             widget: { ...w, src },
                           })
                         }
@@ -1229,7 +1416,7 @@ export function PlatformLayoutCompositionPage() {
                         label="alt"
                         value={w.alt}
                         onChange={(alt) =>
-                          updateCell(rid, cid, {
+                          updateCellByPath(path, {
                             widget: { ...w, alt },
                           })
                         }
@@ -1242,11 +1429,38 @@ export function PlatformLayoutCompositionPage() {
                           { value: 'contain', label: 'contain' },
                         ]}
                         onChange={(objectFit) =>
-                          updateCell(rid, cid, {
+                          updateCellByPath(path, {
                             widget: {
                               ...w,
                               objectFit: objectFit as 'cover' | 'contain',
                             },
+                          })
+                        }
+                      />
+                      <TextField
+                        label="borderRadius"
+                        value={w.borderRadius}
+                        onChange={(borderRadius) =>
+                          updateCellByPath(path, {
+                            widget: { ...w, borderRadius },
+                          })
+                        }
+                      />
+                      <TextField
+                        label="maxHeight"
+                        value={w.maxHeight}
+                        onChange={(maxHeight) =>
+                          updateCellByPath(path, {
+                            widget: { ...w, maxHeight },
+                          })
+                        }
+                      />
+                      <TextField
+                        label="width"
+                        value={w.width}
+                        onChange={(width) =>
+                          updateCellByPath(path, {
+                            widget: { ...w, width },
                           })
                         }
                       />
@@ -1258,7 +1472,7 @@ export function PlatformLayoutCompositionPage() {
                         label="Farge"
                         value={w.color}
                         onChange={(color) =>
-                          updateCell(rid, cid, {
+                          updateCellByPath(path, {
                             widget: { ...w, color },
                           })
                         }
@@ -1267,7 +1481,7 @@ export function PlatformLayoutCompositionPage() {
                         label="Tykkelse"
                         value={w.thickness}
                         onChange={(thickness) =>
-                          updateCell(rid, cid, {
+                          updateCellByPath(path, {
                             widget: { ...w, thickness },
                           })
                         }
@@ -1279,11 +1493,117 @@ export function PlatformLayoutCompositionPage() {
                       label="Høyde"
                       value={w.height}
                       onChange={(height) =>
-                        updateCell(rid, cid, {
+                        updateCellByPath(path, {
                           widget: { ...w, height },
                         })
                       }
                     />
+                  ) : null}
+                  {w.kind === 'layout' ? (
+                    <div className="mt-3 space-y-3 border-t border-white/10 pt-3">
+                      <p className="text-[10px] font-semibold uppercase text-neutral-500">Ytre boks (nested layout)</p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <TextField
+                          label="padding"
+                          value={w.containerStyle.padding}
+                          onChange={(padding) =>
+                            updateCellByPath(path, {
+                              widget: {
+                                ...w,
+                                containerStyle: { ...defaultLayoutContainerStyle(), ...w.containerStyle, padding },
+                              },
+                            })
+                          }
+                        />
+                        <TextField
+                          label="gap (mellom rader)"
+                          value={w.containerStyle.gap}
+                          onChange={(gap) =>
+                            updateCellByPath(path, {
+                              widget: {
+                                ...w,
+                                containerStyle: { ...defaultLayoutContainerStyle(), ...w.containerStyle, gap },
+                              },
+                            })
+                          }
+                        />
+                        <ColorField
+                          label="Bakgrunn"
+                          value={w.containerStyle.backgroundColor}
+                          onChange={(backgroundColor) =>
+                            updateCellByPath(path, {
+                              widget: {
+                                ...w,
+                                containerStyle: { ...defaultLayoutContainerStyle(), ...w.containerStyle, backgroundColor },
+                              },
+                            })
+                          }
+                        />
+                        <TextField
+                          label="borderRadius"
+                          value={w.containerStyle.borderRadius}
+                          onChange={(borderRadius) =>
+                            updateCellByPath(path, {
+                              widget: {
+                                ...w,
+                                containerStyle: { ...defaultLayoutContainerStyle(), ...w.containerStyle, borderRadius },
+                              },
+                            })
+                          }
+                        />
+                        <TextField
+                          label="borderWidth"
+                          value={w.containerStyle.borderWidth}
+                          onChange={(borderWidth) =>
+                            updateCellByPath(path, {
+                              widget: {
+                                ...w,
+                                containerStyle: { ...defaultLayoutContainerStyle(), ...w.containerStyle, borderWidth },
+                              },
+                            })
+                          }
+                        />
+                        <TextField
+                          label="borderStyle"
+                          value={w.containerStyle.borderStyle}
+                          onChange={(borderStyle) =>
+                            updateCellByPath(path, {
+                              widget: {
+                                ...w,
+                                containerStyle: { ...defaultLayoutContainerStyle(), ...w.containerStyle, borderStyle },
+                              },
+                            })
+                          }
+                        />
+                        <ColorField
+                          label="borderColor"
+                          value={w.containerStyle.borderColor}
+                          onChange={(borderColor) =>
+                            updateCellByPath(path, {
+                              widget: {
+                                ...w,
+                                containerStyle: { ...defaultLayoutContainerStyle(), ...w.containerStyle, borderColor },
+                              },
+                            })
+                          }
+                        />
+                        <TextField
+                          label="boxShadow"
+                          value={w.containerStyle.boxShadow}
+                          onChange={(boxShadow) =>
+                            updateCellByPath(path, {
+                              widget: {
+                                ...w,
+                                containerStyle: { ...defaultLayoutContainerStyle(), ...w.containerStyle, boxShadow },
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                      <p className="text-xs text-neutral-500">
+                        Rediger rader og celler inne i denne boksen med «Åpne layout» på cellekortet til venstre.
+                      </p>
+                    </div>
                   ) : null}
 
                   {(w.kind === 'heading' || w.kind === 'text') && (
@@ -1294,7 +1614,7 @@ export function PlatformLayoutCompositionPage() {
                           label="fontFamily (tom = arv)"
                           value={w.style.fontFamily ?? ''}
                           onChange={(fontFamily) =>
-                            updateCell(rid, cid, {
+                            updateCellByPath(path, {
                               widget: patchTextLikeWidgetStyle(w, {
                                 fontFamily: fontFamily || undefined,
                               }),
@@ -1305,7 +1625,7 @@ export function PlatformLayoutCompositionPage() {
                           label="fontSize"
                           value={w.style.fontSize ?? ''}
                           onChange={(fontSize) =>
-                            updateCell(rid, cid, {
+                            updateCellByPath(path, {
                               widget: patchTextLikeWidgetStyle(w, {
                                 fontSize: fontSize || undefined,
                               }),
@@ -1322,9 +1642,51 @@ export function PlatformLayoutCompositionPage() {
                             { value: '700', label: '700' },
                           ]}
                           onChange={(fontWeight) =>
-                            updateCell(rid, cid, {
+                            updateCellByPath(path, {
                               widget: patchTextLikeWidgetStyle(w, {
                                 fontWeight: fontWeight as '400' | '500' | '600' | '700',
+                              }),
+                            })
+                          }
+                        />
+                        <SelectField
+                          label="fontStyle"
+                          value={w.style.fontStyle ?? 'normal'}
+                          options={[
+                            { value: 'normal', label: 'Normal' },
+                            { value: 'italic', label: 'Kursiv' },
+                          ]}
+                          onChange={(fontStyle) =>
+                            updateCellByPath(path, {
+                              widget: patchTextLikeWidgetStyle(w, {
+                                fontStyle: fontStyle as 'normal' | 'italic',
+                              }),
+                            })
+                          }
+                        />
+                        <SelectField
+                          label="textDecoration"
+                          value={w.style.textDecoration ?? 'none'}
+                          options={[
+                            { value: 'none', label: 'Ingen' },
+                            { value: 'underline', label: 'Understrek' },
+                            { value: 'line-through', label: 'Gjennomstreking' },
+                          ]}
+                          onChange={(textDecoration) =>
+                            updateCellByPath(path, {
+                              widget: patchTextLikeWidgetStyle(w, {
+                                textDecoration: textDecoration as 'none' | 'underline' | 'line-through',
+                              }),
+                            })
+                          }
+                        />
+                        <TextField
+                          label="letterSpacing"
+                          value={w.style.letterSpacing ?? ''}
+                          onChange={(letterSpacing) =>
+                            updateCellByPath(path, {
+                              widget: patchTextLikeWidgetStyle(w, {
+                                letterSpacing: letterSpacing || undefined,
                               }),
                             })
                           }
@@ -1333,7 +1695,7 @@ export function PlatformLayoutCompositionPage() {
                           label="Farge (tom = arv)"
                           value={w.style.color ?? ''}
                           onChange={(color) =>
-                            updateCell(rid, cid, {
+                            updateCellByPath(path, {
                               widget: patchTextLikeWidgetStyle(w, {
                                 color: color || undefined,
                               }),
@@ -1344,7 +1706,7 @@ export function PlatformLayoutCompositionPage() {
                           label="lineHeight"
                           value={w.style.lineHeight ?? ''}
                           onChange={(lineHeight) =>
-                            updateCell(rid, cid, {
+                            updateCellByPath(path, {
                               widget: patchTextLikeWidgetStyle(w, {
                                 lineHeight: lineHeight || undefined,
                               }),
@@ -1360,7 +1722,7 @@ export function PlatformLayoutCompositionPage() {
                             { value: 'right', label: 'Høyre' },
                           ]}
                           onChange={(textAlign) =>
-                            updateCell(rid, cid, {
+                            updateCellByPath(path, {
                               widget: patchTextLikeWidgetStyle(w, {
                                 textAlign: textAlign as 'left' | 'center' | 'right',
                               }),
@@ -1377,7 +1739,7 @@ export function PlatformLayoutCompositionPage() {
             </div>
           ) : (
             <p className="rounded-xl border border-white/10 bg-slate-900/30 p-4 text-sm text-neutral-500">
-              Velg «Rediger» på en celle for å sette ramme og widget-detaljer.
+              Velg «Stil» på en celle for ramme, skygge og widget-detaljer (også i nestede layout).
             </p>
           )}
 

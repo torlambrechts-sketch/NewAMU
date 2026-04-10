@@ -245,5 +245,6 @@ function defaultSlotFlat() {
     borderWidth: '0',
     borderStyle: 'solid' as const,
     borderColor: 'transparent',
+    boxShadow: 'none',
   }
 }
