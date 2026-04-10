@@ -20,9 +20,6 @@ import {
   Megaphone,
   PanelLeft,
   PanelRight,
-  PanelsTopLeft,
-  Search,
-  Settings,
   Shield,
   ShieldCheck,
   Users,
@@ -30,12 +27,18 @@ import {
   Workflow,
 } from 'lucide-react'
 import { NotificationTray } from '../notifications/NotificationTray'
-import { LanguageSwitcher } from '../LanguageSwitcher'
 import { useI18n } from '../../hooks/useI18n'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PermissionKey } from '../../lib/permissionKeys'
 import { WORKPLACE_REPORTING_NAV, workplaceReportingNavMatch } from '../../data/workplaceReportingNav'
 import { KlarertLogo } from '../brand/KlarertLogo'
+import {
+  ShellCompanyBlock,
+  ShellComplianceIndicator,
+  ShellProfileMenuButton,
+  ShellQuickCreateMenu,
+} from './ShellHeaderWidgets'
+import type { NavMode } from './aticsNavMode'
 
 // ─── Sub-item type ────────────────────────────────────────────────────────────
 
@@ -375,8 +378,6 @@ function subNavForPath(modules: NavModule[], pathname: string, search: string): 
 
 // ─── Nav mode persistence ─────────────────────────────────────────────────────
 
-type NavMode = 'topbar' | 'sidebar'
-
 function loadNavMode(): NavMode {
   try {
     const v = localStorage.getItem('atics-nav-mode')
@@ -389,67 +390,11 @@ function saveNavMode(mode: NavMode) {
   try { localStorage.setItem('atics-nav-mode', mode) } catch { /* ignore */ }
 }
 
-// ─── Settings / layout-switcher panel ────────────────────────────────────────
-
-function NavModePanel({
-  navMode,
-  onChange,
-  onClose,
-}: {
-  navMode: NavMode
-  onChange: (m: NavMode) => void
-  onClose: () => void
-}) {
-  return (
-    <>
-      <div className="fixed inset-0 z-40" onClick={onClose} aria-hidden />
-      <div className="absolute z-50 w-56 rounded-xl border border-neutral-200 bg-white p-3 shadow-xl">
-        <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-          Navigation layout
-        </p>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => onChange('topbar')}
-            className={`flex flex-1 flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-xs font-medium transition-colors ${
-              navMode === 'topbar'
-                ? 'border-[color:var(--ui-accent)] bg-[color-mix(in_srgb,var(--ui-accent)_10%,transparent)] text-[color:var(--ui-accent)]'
-                : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-800'
-            }`}
-          >
-            <span className="flex flex-col gap-0.5">
-              <span className="block h-1.5 w-8 rounded-sm bg-current opacity-80" />
-              <span className="block h-1 w-8 rounded-sm bg-current opacity-40" />
-              <span className="block h-6 w-8 rounded-sm border border-current opacity-30" />
-            </span>
-            Top bar
-          </button>
-          <button
-            type="button"
-            onClick={() => onChange('sidebar')}
-            className={`flex flex-1 flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-xs font-medium transition-colors ${
-              navMode === 'sidebar'
-                ? 'border-[color:var(--ui-accent)] bg-[color-mix(in_srgb,var(--ui-accent)_10%,transparent)] text-[color:var(--ui-accent)]'
-                : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-800'
-            }`}
-          >
-            <span className="flex gap-0.5">
-              <span className="block h-8 w-2 rounded-sm bg-current opacity-80" />
-              <span className="block h-8 w-6 rounded-sm border border-current opacity-30" />
-            </span>
-            Side bar
-          </button>
-        </div>
-      </div>
-    </>
-  )
-}
-
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
 export function AticsShell() {
   const location = useLocation()
-  const { supabaseConfigured, can, permissionKeys, user, profile, signOut } = useOrgSetupContext()
+  const { supabaseConfigured, can, permissionKeys, user, profile, signOut, organization } = useOrgSetupContext()
   const { t } = useI18n()
   const gateNav = supabaseConfigured && permissionKeys.size > 0
   const visibleGroups = useMemo(
@@ -459,15 +404,17 @@ export function AticsShell() {
   const visibleModules = useMemo(() => allModulesFrom(visibleGroups), [visibleGroups])
 
   const [navMode, setNavMode] = useState<NavMode>(loadNavMode)
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const [subNavCollapsed, setSubNavCollapsed] = useState(false)
 
   function handleNavModeChange(mode: NavMode) {
     setNavMode(mode)
     saveNavMode(mode)
-    setSettingsOpen(false)
     if (mode === 'sidebar') setSubNavCollapsed(false)
   }
+
+  const orgDisplayName = organization?.name?.trim() ?? ''
+  const profileDisplay = profile?.display_name?.trim() ?? ''
+  const profileEmail = profile?.email?.trim() ?? ''
 
   // ── Sidebar layout ──────────────────────────────────────────────────────────
   if (navMode === 'sidebar') {
@@ -532,27 +479,6 @@ export function AticsShell() {
             </button>
           </div>
 
-          {/* Bottom: layout switcher */}
-          <div className="flex flex-col gap-1.5 border-t border-white/10 px-2 py-4">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setSettingsOpen((o) => !o)}
-                title="Layout"
-                className={`flex w-full items-center justify-center rounded-lg p-3 transition-colors ${
-                  settingsOpen ? 'bg-white/15 text-white' : 'text-white/55 hover:bg-white/10 hover:text-white'
-                }`}
-                aria-label="Navigation layout"
-              >
-                <PanelsTopLeft className="size-[1.125rem]" />
-              </button>
-              {settingsOpen && (
-                <div className="absolute bottom-full left-full mb-2 ml-2">
-                  <NavModePanel navMode={navMode} onChange={handleNavModeChange} onClose={() => setSettingsOpen(false)} />
-                </div>
-              )}
-            </div>
-          </div>
         </aside>
 
         {/* ── Rail 2: Modules + sub-items for active group ─────────────────── */}
@@ -643,49 +569,29 @@ export function AticsShell() {
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Utility bar — page background colour */}
           <header className="flex h-14 shrink-0 items-center gap-3 border-b border-neutral-300/40 bg-[var(--ui-surface)] px-4 md:px-5">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-              <input
-                type="search"
-                placeholder="Find anything"
-                className="w-full rounded-full border border-neutral-300/70 bg-white/70 py-1.5 pl-9 pr-4 text-sm placeholder:text-neutral-400 focus:border-[color:var(--ui-accent)] focus:outline-none focus:ring-1 focus:ring-[color:var(--ui-accent)]"
-              />
-            </div>
-            <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
-              <LanguageSwitcher className="[&_span]:text-neutral-600 [&_select]:max-w-[7rem] [&_select]:border-neutral-300 [&_select]:bg-white [&_select]:text-neutral-900" />
+            <div className="min-w-0 flex-1" />
+            <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
               {supabaseConfigured ? (
                 <>
-                  {user ? (
-                    <span
-                      className="hidden max-w-[100px] truncate text-xs text-neutral-600 sm:inline"
-                      title={profile?.email ?? ''}
-                    >
-                      {profile?.display_name ?? profile?.email ?? 'Bruker'}
-                    </span>
-                  ) : null}
-                  {user ? (
-                    <button
-                      type="button"
-                      onClick={() => void signOut()}
-                      className="rounded-lg px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-black/5"
-                    >
-                      {t('shell.logOut')}
-                    </button>
-                  ) : (
-                    <a href="/login" className="rounded-lg px-2 py-1 text-xs font-medium text-[color:var(--ui-accent)] hover:underline">
-                      {t('shell.logIn')}
-                    </a>
-                  )}
+                  <ShellCompanyBlock name={orgDisplayName} variant="sidebar" />
+                  <ShellQuickCreateMenu variant="sidebar" />
+                  <ShellComplianceIndicator variant="sidebar" />
                   <NotificationTray variant="sidebar" />
-                  <NavLink
-                    to="/profile"
-                    className={({ isActive }) =>
-                      `rounded-lg p-1.5 text-neutral-500 hover:bg-black/5 ${isActive ? 'bg-black/5 ring-1 ring-[#c9a227]/40' : ''}`
-                    }
-                    aria-label={t('shell.settingsAria')}
-                  >
-                    <Settings className="size-4" />
-                  </NavLink>
+                  <ShellProfileMenuButton
+                    variant="sidebar"
+                    displayName={profileDisplay}
+                    email={profileEmail}
+                    profileTo="/profile"
+                    navMode={navMode}
+                    onNavModeChange={handleNavModeChange}
+                    onSignOut={signOut}
+                    logInHref="/login"
+                    logInLabel={t('shell.logIn')}
+                    logOutLabel={t('shell.logOut')}
+                    settingsAria={t('shell.settingsAria')}
+                    showAuth
+                    isLoggedIn={Boolean(user)}
+                  />
                 </>
               ) : null}
             </div>
@@ -741,56 +647,34 @@ export function AticsShell() {
           </nav>
 
           {/* Utilities */}
-          <div className="flex shrink-0 items-center gap-2 md:gap-3">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 md:gap-3">
             <button type="button" className="hidden items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[color:var(--ui-accent)] sm:flex">
               <Clock className="size-3.5" />
               {t('shell.upgrade')}
             </button>
-            <LanguageSwitcher />
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setSettingsOpen((o) => !o)}
-                className={`rounded-lg p-2 transition-colors ${settingsOpen ? 'bg-white/15' : 'hover:bg-white/10'}`}
-                aria-label="Navigation layout"
-                title="Layout"
-              >
-                <PanelsTopLeft className="size-5" />
-              </button>
-              {settingsOpen && (
-                <div className="absolute right-0 top-full mt-1">
-                  <NavModePanel navMode={navMode} onChange={handleNavModeChange} onClose={() => setSettingsOpen(false)} />
-                </div>
-              )}
-            </div>
-            {supabaseConfigured && user ? (
+            {supabaseConfigured ? (
               <>
-                <span className="hidden max-w-[120px] truncate text-xs text-white/80 lg:inline" title={profile?.email ?? ''}>
-                  {profile?.display_name ?? profile?.email ?? 'Bruker'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void signOut()}
-                  className="rounded-lg px-2 py-1 text-xs font-medium text-white/90 hover:bg-white/10"
-                >
-                  {t('shell.logOut')}
-                </button>
+                <ShellCompanyBlock name={orgDisplayName} variant="topbar" />
+                <ShellQuickCreateMenu variant="topbar" />
+                <ShellComplianceIndicator variant="topbar" />
+                <NotificationTray variant="topbar" />
+                <ShellProfileMenuButton
+                  variant="topbar"
+                  displayName={profileDisplay}
+                  email={profileEmail}
+                  profileTo="/profile"
+                  navMode={navMode}
+                  onNavModeChange={handleNavModeChange}
+                  onSignOut={signOut}
+                  logInHref="/login"
+                  logInLabel={t('shell.logIn')}
+                  logOutLabel={t('shell.logOut')}
+                  settingsAria={t('shell.settingsAria')}
+                  showAuth
+                  isLoggedIn={Boolean(user)}
+                />
               </>
-            ) : supabaseConfigured ? (
-              <a href="/login" className="rounded-lg px-2 py-1 text-xs font-medium text-[#c9a227] hover:underline">
-                {t('shell.logIn')}
-              </a>
             ) : null}
-            <NotificationTray variant="topbar" />
-            <NavLink
-              to="/profile"
-              className={({ isActive }) =>
-                `rounded-lg p-2 hover:bg-white/10 ${isActive ? 'bg-white/10 ring-1 ring-[#c9a227]/50' : ''}`
-              }
-              aria-label={t('shell.settingsAria')}
-            >
-              <Settings className="size-5" />
-            </NavLink>
           </div>
         </div>
 
@@ -826,7 +710,7 @@ export function AticsShell() {
         {/* ── Row 3: sub-item tabs for the active module + search ─────────── */}
         {subItems.length > 0 && (
           <div className="border-t border-white/[0.07] bg-[var(--ui-nav-sub)]">
-            <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-4 py-2 md:px-8">
+            <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-2 md:px-8">
               <nav className="flex min-w-0 flex-1 flex-wrap gap-x-1 gap-y-1" aria-label="Section">
                 {subItems.map((item) => {
                   const active = item.match({ pathname: location.pathname, search: location.search })
@@ -857,30 +741,6 @@ export function AticsShell() {
                   )
                 })}
               </nav>
-              <div className="relative min-w-[180px] max-w-xs flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-white/40" />
-                <input
-                  type="search"
-                  placeholder="Find anything"
-                  className="w-full rounded-full border border-white/15 bg-white/8 py-1.5 pl-9 pr-4 text-sm text-white placeholder:text-white/35 focus:border-[#c9a227] focus:outline-none focus:ring-1 focus:ring-[#c9a227]"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Search bar on row 2 when there are no sub-items */}
-        {subItems.length === 0 && (
-          <div className="border-t border-white/[0.07] bg-[var(--ui-nav-sub)]">
-            <div className="mx-auto flex max-w-[1400px] items-center justify-end px-4 py-2 md:px-8">
-              <div className="relative min-w-[180px] max-w-xs flex-1 sm:flex-none">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-white/40" />
-                <input
-                  type="search"
-                  placeholder="Find anything"
-                  className="w-full rounded-full border border-white/15 bg-white/8 py-1.5 pl-9 pr-4 text-sm text-white placeholder:text-white/35 focus:border-[#c9a227] focus:outline-none focus:ring-1 focus:ring-[#c9a227]"
-                />
-              </div>
             </div>
           </div>
         )}

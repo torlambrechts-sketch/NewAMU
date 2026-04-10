@@ -282,6 +282,51 @@ export function TasksPage() {
   }, [searchParams, setSearchParams, viewParam])
 
   useEffect(() => {
+    if (searchParams.get('quickNew') !== 'task') return
+    if (viewParam === 'whistle') return
+    queueMicrotask(() => {
+      resetTaskForm()
+      setTaskPanelOpen(true)
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('quickNew')
+          return next
+        },
+        { replace: true },
+      )
+    })
+  }, [searchParams, setSearchParams, viewParam, resetTaskForm])
+
+  useEffect(() => {
+    if (searchParams.get('openWhistle') !== '1') return
+    if (!wb.canAccessVault) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('openWhistle')
+          return next
+        },
+        { replace: true },
+      )
+      return
+    }
+    queueMicrotask(() => {
+      resetWhistleForm()
+      setWhistlePanelOpen(true)
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('openWhistle')
+          next.set('view', 'whistle')
+          return next
+        },
+        { replace: true },
+      )
+    })
+  }, [searchParams, setSearchParams, wb.canAccessVault, resetWhistleForm])
+
+  useEffect(() => {
     if (!taskPanelOpen) return
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'

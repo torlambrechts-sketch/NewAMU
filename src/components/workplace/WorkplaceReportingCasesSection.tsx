@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, X } from 'lucide-react'
 import { Mainbox1 } from '../layout/Mainbox1'
 import { Table1Shell } from '../layout/Table1Shell'
@@ -46,6 +47,7 @@ function formatShort(iso: string) {
 const emptyDetails = (): WorkplaceCaseDetails => ({})
 
 export function WorkplaceReportingCasesSection() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const wr = useWorkplaceReportingCases()
   const { user, isAdmin, permissionKeys } = useOrgSetupContext()
   const { payload: layoutPayload } = useUiTheme()
@@ -101,6 +103,21 @@ export function WorkplaceReportingCasesSection() {
     setViewId(null)
     setPanelMode('pick')
   }, [resetCreateForm])
+
+  useEffect(() => {
+    if (searchParams.get('newCase') !== '1') return
+    queueMicrotask(() => {
+      openNew()
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('newCase')
+          return next
+        },
+        { replace: true },
+      )
+    })
+  }, [searchParams, setSearchParams, openNew])
 
   const closePanel = useCallback(() => {
     setPanelMode('closed')

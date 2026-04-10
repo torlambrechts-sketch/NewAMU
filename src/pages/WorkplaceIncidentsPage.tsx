@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { Mainbox1 } from '../components/layout/Mainbox1'
 import { Table1Shell } from '../components/layout/Table1Shell'
@@ -127,6 +127,7 @@ function isoToDatetimeLocal(iso: string) {
 }
 
 export function WorkplaceIncidentsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const hse = useHse()
   const { supabaseConfigured, supabase, organization, profile, user, isAdmin, departments } = useOrgSetupContext()
   const org = useOrganisation()
@@ -256,6 +257,21 @@ export function WorkplaceIncidentsPage() {
       if (selfEmp.reportsToId) setIncPanelNearestLeaderEmployeeId(selfEmp.reportsToId)
     }
   }, [resetIncidentPanelForm, viewerEmployeeId, org.displayEmployees])
+
+  useEffect(() => {
+    if (searchParams.get('new') !== '1') return
+    queueMicrotask(() => {
+      openNewIncidentPanel()
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('new')
+          return next
+        },
+        { replace: true },
+      )
+    })
+  }, [searchParams, setSearchParams, openNewIncidentPanel])
 
   const openEditIncidentPanel = useCallback(
     (inc: Incident) => {
