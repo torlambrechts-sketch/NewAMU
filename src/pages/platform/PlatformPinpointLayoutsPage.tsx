@@ -368,8 +368,8 @@ function JobsListPinpointBlock() {
       ratio: null as string | null,
     },
     {
-      title: 'Marketing Manager',
-      meta: 'London · Marketing · Hooli',
+      title: 'HR-rådgiver',
+      meta: 'Bergen · HR · Eksempel AS',
       code: '8299',
       candidates: 4,
       ratio: '0/5',
@@ -669,17 +669,17 @@ function JobScorecardPageBlock() {
 }
 
 function JobPostingsPageBlock() {
-  const [jobTab, setJobTab] = useState('candidates')
+  const [jobTab, setJobTab] = useState('adverts')
   const hubItems: HubMenu1Item[] = useMemo(
     () =>
       [
-        { key: 'candidates', label: 'Candidates', icon: Users, active: jobTab === 'candidates', onClick: () => setJobTab('candidates') },
-        { key: 'edit', label: 'Edit', icon: Pencil, active: jobTab === 'edit', onClick: () => setJobTab('edit') },
-        { key: 'boards', label: 'Boards', icon: Kanban, active: jobTab === 'boards', onClick: () => setJobTab('boards') },
-        { key: 'interviews', label: 'Interviews', icon: CalendarDays, active: jobTab === 'interviews', onClick: () => setJobTab('interviews') },
-        { key: 'adverts', label: 'Adverts', icon: Mail, active: jobTab === 'adverts', onClick: () => setJobTab('adverts') },
-        { key: 'insights', label: 'Insights', icon: BarChart3, active: jobTab === 'insights', onClick: () => setJobTab('insights') },
-        { key: 'share', label: 'Share', icon: Share2, active: jobTab === 'share', onClick: () => setJobTab('share') },
+        { key: 'candidates', label: 'Kandidater', icon: Users, active: jobTab === 'candidates', onClick: () => setJobTab('candidates') },
+        { key: 'edit', label: 'Rediger', icon: Pencil, active: jobTab === 'edit', onClick: () => setJobTab('edit') },
+        { key: 'boards', label: 'Tavler', icon: Kanban, active: jobTab === 'boards', onClick: () => setJobTab('boards') },
+        { key: 'interviews', label: 'Intervjuer', icon: CalendarDays, active: jobTab === 'interviews', onClick: () => setJobTab('interviews') },
+        { key: 'adverts', label: 'Stillingsannonser', icon: Mail, active: jobTab === 'adverts', onClick: () => setJobTab('adverts') },
+        { key: 'insights', label: 'Innsikt', icon: BarChart3, active: jobTab === 'insights', onClick: () => setJobTab('insights') },
+        { key: 'share', label: 'Del', icon: Share2, active: jobTab === 'share', onClick: () => setJobTab('share') },
         { key: 'team', label: 'Team', icon: Settings, active: jobTab === 'team', onClick: () => setJobTab('team') },
       ] satisfies HubMenu1Item[],
     [jobTab],
@@ -687,31 +687,10 @@ function JobPostingsPageBlock() {
 
   return (
     <div className="space-y-4">
-      <PinpointTopUtilityBar deptLabel="Company" />
-      <Breadcrumb items={['Jobs', 'Marketing Manager']} />
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <SerifTitle className="text-2xl md:text-3xl">Marketing Manager</SerifTitle>
-          <p className="text-sm text-neutral-500">London · Marketing · ACME · 0002</p>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-teal-900">
-            Open
-          </span>
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold uppercase text-white"
-            style={{ backgroundColor: FOREST }}
-          >
-            <CheckSquare className="size-3.5" />
-            Create task
-          </button>
-          <button type="button" className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100" aria-label="Mer">
-            <MoreHorizontal className="size-5" />
-          </button>
-        </div>
-      </div>
-      <HubMenu1Bar ariaLabel="Jobbfaner" items={hubItems} />
+      <PinpointTopUtilityBar deptLabel="Organisasjon" />
+      <Breadcrumb items={['Stillinger', 'Stillingsannonser']} />
+      <SerifTitle className="text-2xl md:text-3xl">Stillingsannonser</SerifTitle>
+      <HubMenu1Bar ariaLabel="Stillingsfaner" items={hubItems} />
       <WhiteCard className="overflow-hidden p-0">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
           <div>
@@ -757,7 +736,7 @@ function JobPostingsPageBlock() {
             <tbody>
               <tr className="border-b border-neutral-100 hover:bg-neutral-50/80">
                 <td className="px-5 py-3 font-medium text-neutral-900">Default</td>
-                <td className="px-5 py-3 text-neutral-700">Marketing Manager</td>
+                <td className="px-5 py-3 text-neutral-700">HR-rådgiver</td>
                 <td className="px-5 py-3 text-neutral-700">London</td>
                 <td className="px-5 py-3">
                   <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-900">
@@ -1465,7 +1444,7 @@ function BackgroundChecksPageBlock() {
     {
       name: 'Alex Morgan',
       id: '61',
-      job: 'Marketing Manager',
+      job: 'HR-rådgiver',
       orderStatus: 'Action required' as const,
       checkLine: '4 Awaiting applicant submission',
       date: '16 Feb, 2026',
@@ -1971,7 +1950,7 @@ const SECTIONS = [
   {
     id: 'postings',
     label: 'Stillingsannonser (Postings)',
-    desc: 'Job header med Open + Create task, grønn fanebar, Postings med søk, tabell og paginering (uten play-overlay).',
+    desc: 'Brødsmule Stillinger › Stillingsannonser, H1, HubMenu med Stillingsannonser aktiv, Postings-kort med søk, tabell og paginering.',
   },
   { id: 'detail', label: 'Kandidatdetalj', desc: 'Beige seksjonsnavigasjon (~22 %) + hvit hovedflate med detaljrader.' },
   { id: 'list', label: 'Kandidatliste', desc: 'Tall-faner, søk og tabell med merker og stjerner.' },
