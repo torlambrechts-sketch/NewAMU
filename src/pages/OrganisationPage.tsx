@@ -953,7 +953,10 @@ export function OrganisationPage() {
         </form>
       )}
 
-      <div className="mt-8 space-y-8">
+      <div
+        className="mt-8 space-y-8 rounded-xl border border-neutral-200/80 bg-white p-4 shadow-sm md:p-6"
+        style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+      >
       {/* ── Org chart ─────────────────────────────────────────────────────── */}
       {tab === 'orgchart' && (
         <section className="space-y-4">
@@ -1013,6 +1016,7 @@ export function OrganisationPage() {
             </div>
           ) : (
             <Table1Shell
+              variant="pinpoint"
               toolbar={
                 <Table1Toolbar
                   payloadOverride={layout}
@@ -1422,6 +1426,7 @@ export function OrganisationPage() {
               </div>
             ) : (
               <Table1Shell
+                variant="pinpoint"
                 toolbar={
                   <Table1Toolbar
                     payloadOverride={layout}

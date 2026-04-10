@@ -21,7 +21,6 @@ import {
   useWorkspaceDashboardData,
 } from '../hooks/useWorkspaceDashboardData'
 
-const CREAM = '#F9F7F2'
 const CREAM_DEEP = '#EFE8DC'
 const FOREST = '#1a3d32'
 const SERIF = "'Libre Baskerville', Georgia, serif"
@@ -80,7 +79,7 @@ export function WelcomeDashboardPage() {
   }, [donutStops])
 
   return (
-    <div className="min-h-full" style={{ backgroundColor: CREAM, fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <>
       <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
         <nav className="mb-4 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
           <span>Workspace</span>
@@ -383,6 +382,6 @@ export function WelcomeDashboardPage() {
           </aside>
         </div>
       </div>
-    </div>
+    </>
   )
 }

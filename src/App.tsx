@@ -32,6 +32,7 @@ import { ComplianceDashboardPage } from './pages/ComplianceDashboardPage'
 import { OrganisationPage } from './pages/OrganisationPage'
 import { AarshjulPage } from './pages/aarshjul/AarshjulPage'
 import { ActionBoardPage } from './pages/actionboard/ActionBoardPage'
+import { WorkplaceChrome } from './components/layout/WorkplaceChrome'
 import { ProjectDashboard } from './pages/ProjectDashboard'
 import { WelcomeDashboardPage } from './pages/WelcomeDashboardPage'
 import { TasksPage } from './pages/TasksPage'
@@ -103,6 +104,7 @@ function App() {
               <Route element={<PermissionGate />}>
                 <Route element={<DocumentsLayout />}>
                 <Route element={<AticsShell />}>
+                  <Route element={<WorkplaceChrome />}>
                   <Route index element={<WelcomeDashboardPage />} />
                   <Route path="dashboard/classic" element={<ProjectDashboard />} />
                   <Route path="tasks" element={<TasksPage />} />
@@ -163,6 +165,7 @@ function App() {
                   />
                   <Route path="documents/compliance" element={<ComplianceDashboard />} />
                   <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
+                  </Route>
                 </Route>
                 </Route>
               </Route>

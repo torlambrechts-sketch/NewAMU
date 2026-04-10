@@ -678,6 +678,7 @@ export function OrgHealthModule() {
             subtitle="Sortert etter opprettet. Åpne en rad i sidevinduet for plan, spørsmål, resultater og deling til AMU."
           >
             <Table1Shell
+              variant="pinpoint"
               toolbar={
                 <Table1Toolbar
                   searchSlot={
