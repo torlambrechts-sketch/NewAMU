@@ -55,6 +55,21 @@ const STATUS_STYLES: Record<TaskStatus, string> = {
 
 type BoardTab = 'board' | 'costs'
 
+type ColumnFocus = 'all' | TaskStatus
+
+type BoardSortOrder = 'status_board' | 'due_soon' | 'title_az'
+
+function normalizeSearch(s: string) {
+  return s.trim().toLowerCase()
+}
+
+function compareDueSoon(a: ActionBoardScorecardItem, b: ActionBoardScorecardItem): number {
+  if (!a.dueDate && !b.dueDate) return 0
+  if (!a.dueDate) return 1
+  if (!b.dueDate) return -1
+  return a.dueDate.localeCompare(b.dueDate)
+}
+
 export function ActionBoardPage() {
   const { supabaseConfigured } = useOrgSetupContext()
   const tasks = useTasks()
@@ -65,6 +80,10 @@ export function ActionBoardPage() {
 
   const [boardTab, setBoardTab] = useState<BoardTab>('board')
   const [filterSource, setFilterSource] = useState<ActionBoardSource | 'all'>('all')
+  const [boardSearchQuery, setBoardSearchQuery] = useState('')
+  const [columnFocus, setColumnFocus] = useState<ColumnFocus>('all')
+  const [sortOrder, setSortOrder] = useState<BoardSortOrder>('status_board')
+  const [showCardDetail, setShowCardDetail] = useState(true)
   const [dragTaskId, setDragTaskId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<TaskStatus | null>(null)
 
@@ -218,18 +237,40 @@ export function ActionBoardPage() {
     return all
   }, [tasks.tasks, hse, ic, council, today])
 
-  const filtered = useMemo(
-    () => (filterSource === 'all' ? items : items.filter((i) => i.source === filterSource)),
-    [items, filterSource],
-  )
+  const filtered = useMemo(() => {
+    let list = filterSource === 'all' ? items : items.filter((i) => i.source === filterSource)
+    const q = normalizeSearch(boardSearchQuery)
+    if (q) {
+      list = list.filter((i) => {
+        const t = `${i.title} ${i.detail ?? ''}`.toLowerCase()
+        return t.includes(q)
+      })
+    }
+    return list
+  }, [items, filterSource, boardSearchQuery])
+
+  const sortedFiltered = useMemo(() => {
+    const list = [...filtered]
+    if (sortOrder === 'due_soon') {
+      list.sort(compareDueSoon)
+    } else if (sortOrder === 'title_az') {
+      list.sort((a, b) => a.title.localeCompare(b.title, 'nb'))
+    }
+    return list
+  }, [filtered, sortOrder])
 
   const byStatus = useMemo(
     () => ({
-      todo: filtered.filter((i) => i.status === 'todo'),
-      in_progress: filtered.filter((i) => i.status === 'in_progress'),
-      done: filtered.filter((i) => i.status === 'done'),
+      todo: sortedFiltered.filter((i) => i.status === 'todo'),
+      in_progress: sortedFiltered.filter((i) => i.status === 'in_progress'),
+      done: sortedFiltered.filter((i) => i.status === 'done'),
     }),
-    [filtered],
+    [sortedFiltered],
+  )
+
+  const visibleColumns: TaskStatus[] = useMemo(
+    () => (columnFocus === 'all' ? ['todo', 'in_progress', 'done'] : [columnFocus]),
+    [columnFocus],
   )
 
   const costSummary = useMemo(() => {
@@ -279,11 +320,12 @@ export function ActionBoardPage() {
             onClick={() => setBoardTab(id)}
             className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${
               active
-                ? 'border-neutral-300 bg-white text-neutral-900 shadow-sm'
-                : 'border-transparent text-neutral-500 hover:bg-white/60 hover:text-neutral-800'
+                ? 'border-[#142e26] text-white shadow-sm'
+                : 'border-transparent text-neutral-600 hover:bg-white/70 hover:text-neutral-900'
             }`}
+            style={active ? { backgroundColor: AB_SCORECARD_FOREST } : undefined}
           >
-            <Icon className="size-4 shrink-0 opacity-80" />
+            <Icon className={`size-4 shrink-0 ${active ? 'text-white' : 'text-neutral-500'}`} />
             {label}
           </button>
         )
@@ -358,10 +400,11 @@ export function ActionBoardPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
             <input
               type="search"
-              readOnly
-              placeholder="Søk (kommer)"
-              className="w-full cursor-not-allowed rounded-lg border border-neutral-200 bg-white/80 py-2.5 pl-10 pr-3 text-sm text-neutral-400 outline-none"
-              aria-label="Søk i handlingspunkter (planlagt)"
+              value={boardSearchQuery}
+              onChange={(e) => setBoardSearchQuery(e.target.value)}
+              placeholder="Søk i tittel og beskrivelse…"
+              className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/25"
+              aria-label="Søk i handlingspunkter"
             />
           </div>
 
@@ -386,20 +429,39 @@ export function ActionBoardPage() {
             </label>
             <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
               Kolonne (visning)
-              <select className="mt-1.5 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm" disabled>
-                <option>Alle tre</option>
+              <select
+                className="mt-1.5 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
+                value={columnFocus}
+                onChange={(e) => setColumnFocus(e.target.value as ColumnFocus)}
+              >
+                <option value="all">Alle tre</option>
+                <option value="todo">Å gjøre</option>
+                <option value="in_progress">Pågår</option>
+                <option value="done">Fullført</option>
               </select>
             </label>
             <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
               Sortering
-              <select className="mt-1.5 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm" disabled>
-                <option>Status (tavle)</option>
+              <select
+                className="mt-1.5 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as BoardSortOrder)}
+              >
+                <option value="status_board">Status (tavle)</option>
+                <option value="due_soon">Frist (snart først)</option>
+                <option value="title_az">Tittel A–Å</option>
               </select>
             </label>
             <div className="flex items-end gap-3 pb-0.5">
               <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">Vis detalj</span>
-              <label className="relative inline-flex cursor-pointer items-center">
-                <input type="checkbox" className="peer sr-only" defaultChecked readOnly />
+              <label htmlFor="action-board-vis-detalj" className="relative inline-flex cursor-pointer items-center">
+                <input
+                  id="action-board-vis-detalj"
+                  type="checkbox"
+                  className="peer sr-only"
+                  checked={showCardDetail}
+                  onChange={(e) => setShowCardDetail(e.target.checked)}
+                />
                 <span className="h-6 w-11 rounded-full bg-neutral-300 peer-checked:bg-[#1a3d32] after:absolute after:left-0.5 after:top-0.5 after:size-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5" />
               </label>
             </div>
@@ -411,7 +473,7 @@ export function ActionBoardPage() {
                 { title: 'Å gjøre', value: String(byStatus.todo.length), sub: 'Venter' },
                 { title: 'Pågår', value: String(byStatus.in_progress.length), sub: 'Aktiv' },
                 { title: 'Fullført', value: String(byStatus.done.length), sub: 'Lukket' },
-                { title: 'I filter', value: String(filtered.length), sub: 'Synlig nå' },
+                { title: 'Treff', value: String(filtered.length), sub: 'Etter kilde og søk' },
               ] as const
             ).map((kpi) => (
               <div
@@ -426,8 +488,10 @@ export function ActionBoardPage() {
             ))}
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            {(['todo', 'in_progress', 'done'] as TaskStatus[]).map((col) => (
+          <div
+            className={`grid gap-6 ${columnFocus === 'all' ? 'lg:grid-cols-3' : 'lg:grid-cols-1'}`}
+          >
+            {visibleColumns.map((col) => (
               <div
                 key={col}
                 className={`flex min-h-[320px] flex-col gap-3 rounded-xl border-2 p-3 transition-colors ${STATUS_STYLES[col]} ${
@@ -470,6 +534,7 @@ export function ActionBoardPage() {
                     sourceLabel={ACTION_BOARD_SOURCE_LABELS[item.source]}
                     sourceColourClass={SOURCE_COLOUR[item.source]}
                     dragTaskId={dragTaskId}
+                    showDetail={showCardDetail}
                     onDragStart={(e, taskId) => {
                       e.dataTransfer.setData(DRAG_TYPE, taskId)
                       e.dataTransfer.effectAllowed = 'move'

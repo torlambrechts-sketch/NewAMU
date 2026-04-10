@@ -181,6 +181,7 @@ export function ActionBoardTaskScorecardCard({
   dragTaskId,
   onDragStart,
   onDragEnd,
+  showDetail = true,
 }: {
   item: ActionBoardScorecardItem
   sourceLabel: string
@@ -188,6 +189,8 @@ export function ActionBoardTaskScorecardCard({
   dragTaskId: string | null
   onDragStart: (e: DragEvent, taskId: string) => void
   onDragEnd: () => void
+  /** When false, hides Modulkobling / Statusfremdrift / Hastegrad (Tiltak block). */
+  showDetail?: boolean
 }) {
   const pct = completionPercent(item.status, item.overdue)
   const barVal = statusBarValue(item.status, item.overdue)
@@ -230,25 +233,27 @@ export function ActionBoardTaskScorecardCard({
           {item.severity === 'critical' ? <ActionBoardPill tone="red">Kritisk</ActionBoardPill> : null}
         </div>
       </div>
-      <div className="border-t border-neutral-100" style={{ backgroundColor: 'rgba(245, 230, 211, 0.45)' }}>
-        <div className="flex items-center justify-between px-4 py-2">
-          <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-700">Tiltak</span>
-          <span className="flex items-center gap-2 text-xs text-neutral-600">
-            {moduleLabel(item.module)}
-            <span className="flex size-6 items-center justify-center rounded-full bg-sky-600 text-[10px] font-bold text-white">
-              {barVal.toFixed(1)}
+      {showDetail ? (
+        <div className="border-t border-neutral-100" style={{ backgroundColor: 'rgba(245, 230, 211, 0.45)' }}>
+          <div className="flex items-center justify-between px-4 py-2">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-700">Tiltak</span>
+            <span className="flex items-center gap-2 text-xs text-neutral-600">
+              {moduleLabel(item.module)}
+              <span className="flex size-6 items-center justify-center rounded-full bg-sky-600 text-[10px] font-bold text-white">
+                {barVal.toFixed(1)}
+              </span>
             </span>
-          </span>
+          </div>
+          <div className="space-y-2.5 px-4 pb-4 pt-1">
+            {skills.map(([label, node]) => (
+              <div key={label} className="flex items-center gap-2 text-sm">
+                <span className="w-36 shrink-0 text-xs text-neutral-600 sm:w-44">{label}</span>
+                {node}
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="space-y-2.5 px-4 pb-4 pt-1">
-          {skills.map(([label, node]) => (
-            <div key={label} className="flex items-center gap-2 text-sm">
-              <span className="w-36 shrink-0 text-xs text-neutral-600 sm:w-44">{label}</span>
-              {node}
-            </div>
-          ))}
-        </div>
-      </div>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 px-4 py-3">
         {item.dueDate ? (
           <span
