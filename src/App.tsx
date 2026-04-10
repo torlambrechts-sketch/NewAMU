@@ -32,6 +32,7 @@ import { OrganisationPage } from './pages/OrganisationPage'
 import { AarshjulPage } from './pages/aarshjul/AarshjulPage'
 import { ActionBoardPage } from './pages/actionboard/ActionBoardPage'
 import { ProjectDashboard } from './pages/ProjectDashboard'
+import { WelcomeDashboardPage } from './pages/WelcomeDashboardPage'
 import { TasksPage } from './pages/TasksPage'
 import { LearningLayout } from './components/learning/LearningLayout'
 import { LearningDashboard } from './pages/learning/LearningDashboard'
@@ -100,7 +101,8 @@ function App() {
               <Route element={<PermissionGate />}>
                 <Route element={<DocumentsLayout />}>
                 <Route element={<AticsShell />}>
-                  <Route index element={<ProjectDashboard />} />
+                  <Route index element={<WelcomeDashboardPage />} />
+                  <Route path="dashboard/classic" element={<ProjectDashboard />} />
                   <Route path="tasks" element={<TasksPage />} />
                   <Route path="organisation" element={<OrganisationPage />} />
                   <Route path="reports" element={<ReportingEnginePage />} />

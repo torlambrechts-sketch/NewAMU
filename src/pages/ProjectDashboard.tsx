@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -20,35 +19,18 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react'
-import { useCouncil } from '../hooks/useCouncil'
-import { useHse } from '../hooks/useHse'
-import { useInternalControl } from '../hooks/useInternalControl'
-import { useLearning } from '../hooks/useLearning'
-import { useOrgHealth } from '../hooks/useOrgHealth'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useRepresentatives } from '../hooks/useRepresentatives'
-import { useTasks } from '../hooks/useTasks'
+import {
+  daysUntil,
+  fmtDate,
+  fmtTime,
+  useWorkspaceDashboardData,
+} from '../hooks/useWorkspaceDashboardData'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { mergeLayoutPayload } from '../lib/layoutLabTokens'
 
 const PAGE = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
-
-const today = new Date()
-const todayStr = today.toISOString().slice(0, 10)
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function fmtDate(iso: string) {
-  try { return new Date(iso).toLocaleDateString('no-NO', { dateStyle: 'medium' }) }
-  catch { return iso }
-}
-function fmtTime(iso: string) {
-  try { return new Date(iso).toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' }) }
-  catch { return '' }
-}
-function daysUntil(iso: string) {
-  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000)
-}
 
 function KpiCard({
   label, value, sub, icon: Icon, iconBg, iconFg = 'text-white', to, urgent,
@@ -83,91 +65,31 @@ function KpiCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ProjectDashboard() {
-  const council  = useCouncil()
-  const hse      = useHse()
-  const ic       = useInternalControl()
-  const learning = useLearning()
-  const oh       = useOrgHealth()
-  const org      = useOrganisation()
-  const rep      = useRepresentatives()
-  const ts       = useTasks()
+  const org = useOrganisation()
+  const rep = useRepresentatives()
   const { payload: layoutPayload } = useUiTheme()
   const layout = mergeLayoutPayload(layoutPayload)
   const accent = layout.accent
 
-  // ── Derived ─────────────────────────────────────────────────────────────────
-
-  const openTasks = useMemo(
-    () => ts.tasks.filter((t) => t.status !== 'done')
-      .sort((a, b) => (a.dueDate || '9999') < (b.dueDate || '9999') ? -1 : 1),
-    [ts.tasks],
-  )
-  const overdueTasks = useMemo(() => openTasks.filter((t) => t.dueDate && t.dueDate < todayStr), [openTasks])
-
-  const upcomingMeetings = useMemo(
-    () => council.meetings
-      .filter((m) => m.status === 'planned' && m.startsAt > today.toISOString())
-      .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
-      .slice(0, 5),
-    [council.meetings],
-  )
-  const nextMeeting = upcomingMeetings[0]
-
-  const activeSickLeave = useMemo(
-    () => hse.sickLeaveCases.filter((c) => c.status === 'active' || c.status === 'partial'),
-    [hse.sickLeaveCases],
-  )
-
-  const overdueMilestones = useMemo(
-    () => activeSickLeave.flatMap((c) =>
-      c.milestones
-        .filter((m) => !m.completedAt && m.dueAt < todayStr)
-        .map((m) => ({ ...m, employeeName: c.employeeName, caseId: c.id })),
-    ).slice(0, 4),
-    [activeSickLeave],
-  )
-
-  const openHighRisks = useMemo(
-    () => ic.rosAssessments
-      .flatMap((r) => r.rows
-        .filter((row) => !row.done && (row.status ?? 'open') !== 'closed' && row.riskScore >= 12)
-        .map((row) => ({ ...row, assessmentTitle: r.title })))
-      .sort((a, b) => b.riskScore - a.riskScore)
-      .slice(0, 4),
-    [ic.rosAssessments],
-  )
-
-  const annualEvents = useMemo(() => {
-    const evts: { label: string; date: string; kind: string; colour: string; to: string }[] = []
-    council.meetings
-      .filter((m) => m.status === 'planned' && m.startsAt > today.toISOString())
-      .forEach((m) => evts.push({ label: m.title, date: m.startsAt, kind: 'AMU-møte', colour: '#1a3d32', to: '/council?tab=meetings' }))
-    activeSickLeave.forEach((c) =>
-      c.milestones.filter((m) => !m.completedAt && m.dueAt >= todayStr)
-        .forEach((m) => evts.push({ label: `${c.employeeName}: ${m.label}`, date: m.dueAt, kind: 'Sykefravær', colour: '#f59e0b', to: '/hse?tab=sickness' })),
-    )
-    hse.trainingRecords.filter((r) => r.expiresAt && r.expiresAt >= todayStr)
-      .forEach((r) => evts.push({ label: `${r.employeeName}: ${r.trainingKind}`, date: r.expiresAt!, kind: 'Opplæring', colour: '#e11d48', to: '/hse?tab=training' }))
-    oh.surveys.filter((s) => s.schedule?.enabled && s.schedule.nextRunAt && s.schedule.nextRunAt >= todayStr)
-      .forEach((s) => evts.push({ label: s.title, date: s.schedule!.nextRunAt!, kind: 'Undersøkelse', colour: '#0d9488', to: '/org-health?tab=surveys' }))
-    return evts.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 8)
-  }, [council.meetings, activeSickLeave, hse.trainingRecords, oh.surveys])
-
-  const weekDays = useMemo(() => {
-    const start = new Date(today)
-    start.setDate(today.getDate() - today.getDay() + 1)
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(start)
-      d.setDate(start.getDate() + i)
-      const iso = d.toISOString().slice(0, 10)
-      const meetings = council.meetings.filter((m) => m.startsAt.startsWith(iso) && m.status !== 'cancelled')
-      const milestones = activeSickLeave.flatMap((c) => c.milestones.filter((m) => !m.completedAt && m.dueAt === iso))
-      return { iso, dayName: d.toLocaleDateString('no-NO', { weekday: 'short' }), dayNum: d.getDate(), meetings, milestones, isToday: iso === todayStr }
-    })
-  }, [council.meetings, activeSickLeave])
-
-  const openComplianceDone = council.compliance.filter((c) => c.done).length
-  const openComplianceTotal = council.compliance.length
+  const {
+    today,
+    todayStr,
+    council,
+    hse,
+    ic,
+    learning,
+    oh,
+    openTasks,
+    overdueTasks,
+    upcomingMeetings,
+    nextMeeting,
+    overdueMilestones,
+    openHighRisks,
+    annualEvents,
+    weekDays,
+    openComplianceDone,
+    openComplianceTotal,
+  } = useWorkspaceDashboardData()
 
   return (
     <div className={PAGE}>
@@ -180,6 +102,12 @@ export function ProjectDashboard() {
           <span className="font-medium text-neutral-800">Dashbord</span>
         </span>
         <div className="ml-auto flex flex-wrap gap-2">
+          <Link
+            to="/"
+            className="inline-flex h-8 items-center gap-1.5 border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-800 shadow-sm hover:bg-neutral-50"
+          >
+            Nytt hjem
+          </Link>
           <Link to="/action-board"
             className="inline-flex h-8 items-center gap-1.5 border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-800 shadow-sm hover:bg-neutral-50">
             <Kanban className="size-3.5 text-violet-600" />
