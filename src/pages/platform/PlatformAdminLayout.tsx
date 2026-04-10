@@ -13,7 +13,7 @@ const nav: {
   { to: '/platform-admin/layout-lab', label: 'Layout-lab', icon: LayoutGrid },
   { to: '/platform-admin/ui-advanced', label: 'Avansert UI', icon: PanelsTopLeft },
   { to: '/platform-admin/box-designer', label: 'Komponentdesigner', icon: Box },
-  { to: '/platform-admin/layout-builder', label: 'Layout-bygger', icon: Rows3 },
+  { to: '/platform-admin/layout-builder', label: 'Layout-designer', icon: Rows3 },
 ]
 
 export function PlatformAdminLayout() {
