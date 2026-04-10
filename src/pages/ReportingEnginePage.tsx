@@ -18,7 +18,7 @@ import {
 import { useReporting } from '../hooks/useReporting'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
-import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
+import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { mergeLayoutPayload } from '../lib/layoutLabTokens'
 import { useOrganisation } from '../hooks/useOrganisation'
@@ -89,7 +89,7 @@ type ToolsTab =
   | 'integration'
 
 export function ReportingEnginePage() {
-  const menu1 = useOrgMenu1Styles()
+  const { barStyle: kpiStripStyle } = useWorkplaceKpiStripStyle()
   const { payload: layoutPayload } = useUiTheme()
   const layout = mergeLayoutPayload(layoutPayload)
   const accent = layout.accent
@@ -520,7 +520,7 @@ export function ReportingEnginePage() {
                 { title: 'Oppgaver i org', sub: 'For datasett', value: `${tasks.length}` },
               ] as const
             ).map((item) => (
-              <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={menu1.barStyle}>
+              <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={kpiStripStyle}>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
                 <p className="mt-1 text-xs text-white/70">{item.sub}</p>
                 <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>

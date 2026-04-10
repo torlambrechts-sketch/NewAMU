@@ -59,7 +59,7 @@ export function HubMenu1Bar({ ariaLabel, items }: Props) {
                   <>
                     <Icon className={`size-4 shrink-0 ${isActive ? 'text-white' : 'text-neutral-500'}`} aria-hidden={compact} />
                     {compact ? <span className="sr-only">{item.label}</span> : <span className="whitespace-nowrap">{item.label}</span>}
-                    {!compact && item.badgeCount != null && item.badgeCount > 0 ? (
+                    {!compact && item.badgeCount != null && item.badgeCount >= 0 ? (
                       <span
                         className={`rounded-md px-2 py-0.5 text-[10px] font-semibold tabular-nums ${
                           isActive ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
@@ -76,7 +76,7 @@ export function HubMenu1Bar({ ariaLabel, items }: Props) {
 
           const on = item.active
           const badge =
-            !compact && item.badgeCount != null && item.badgeCount > 0 ? (
+            !compact && item.badgeCount != null && item.badgeCount >= 0 ? (
               <span
                 className={`rounded-md px-2 py-0.5 text-[10px] font-semibold tabular-nums ${
                   on ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'

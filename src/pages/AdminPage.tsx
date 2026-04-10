@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Download, Loader2, Mail, Plus, Shield, Upload, UserCog, Users } from 'lucide-react'
 import { ModulePageIcon } from '../components/ModulePageIcon'
+import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { PERMISSION_KEYS, PERMISSION_LABELS } from '../lib/permissionKeys'
@@ -55,6 +56,14 @@ export function AdminPage() {
   const setTab = (t: string) => {
     setSearchParams({ tab: t }, { replace: true })
   }
+
+  const adminHubItems: HubMenu1Item[] = tabs.map((t) => ({
+    key: t.id,
+    label: t.label,
+    icon: t.icon,
+    active: tab === t.id,
+    onClick: () => setTab(t.id),
+  }))
 
   const [profiles, setProfiles] = useState<ProfileRow[]>([])
   const [roles, setRoles] = useState<RoleRow[]>([])
@@ -260,24 +269,8 @@ export function AdminPage() {
         </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-2 border-b border-neutral-200 pb-3">
-        {tabs.map((t) => {
-          const Icon = t.icon
-          const active = tab === t.id
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium ${
-                active ? 'bg-[#1a3d32] text-white' : 'bg-white text-neutral-700 ring-1 ring-neutral-200'
-              }`}
-            >
-              <Icon className="size-4" />
-              {t.label}
-            </button>
-          )
-        })}
+      <div className="mt-6">
+        <HubMenu1Bar ariaLabel="Administrasjon — faner" items={adminHubItems} />
       </div>
 
       {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}

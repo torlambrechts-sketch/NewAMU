@@ -40,7 +40,7 @@ import {
   table1CellPadding,
   table1HeaderRowClass,
 } from '../lib/layoutLabTokens'
-import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
+import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
 import {
@@ -149,7 +149,7 @@ function auditLogSegment(a: InternalControlAuditEntry): 'init' | 'ros' | 'annual
 }
 
 export function InternalControlModule() {
-  const menu1 = useOrgMenu1Styles()
+  const { barStyle: kpiStripStyle } = useWorkplaceKpiStripStyle()
   const { payload: layoutPayload } = useUiTheme()
   const layout = mergeLayoutPayload(layoutPayload)
   const tableCell = `${table1CellPadding(layout)} ${TABLE_CELL_BASE}`
@@ -659,7 +659,7 @@ export function InternalControlModule() {
           <div className="space-y-10">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {icOverviewKpis.map((item) => (
-              <div key={item.title} className={IC_THRESHOLD_STRIP} style={menu1.barStyle}>
+              <div key={item.title} className={IC_THRESHOLD_STRIP} style={kpiStripStyle}>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
                 <p className="mt-1 text-xs text-white/70">{item.sub}</p>
                 <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
@@ -817,7 +817,7 @@ export function InternalControlModule() {
                 },
               ] as const
             ).map((item) => (
-              <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={menu1.barStyle}>
+              <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={kpiStripStyle}>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
                 <p className="mt-1 text-xs text-white/70">{item.sub}</p>
                 {typeof item.value === 'string' ? (
@@ -1152,7 +1152,7 @@ export function InternalControlModule() {
                     {rosCategory === 'organizational_change' && hr.orgUsers.length > 0 ? (
                       <>
                         <div className="my-8 border-t border-neutral-200/90" />
-                        <div className={ORG_MERGED_PANEL} style={menu1.barStyle}>
+                        <div className={ORG_MERGED_PANEL} style={kpiStripStyle}>
                           <div className={ORG_MERGED_COL}>
                             <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="ros-panel-amu">
                               AMU-representant
@@ -1285,7 +1285,7 @@ export function InternalControlModule() {
                 },
               ] as const
             ).map((item) => (
-              <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={menu1.barStyle}>
+              <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={kpiStripStyle}>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
                 <p className="mt-1 text-xs text-white/70">{item.sub}</p>
                 {typeof item.value === 'string' ? (

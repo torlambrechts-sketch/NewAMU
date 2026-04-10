@@ -1,26 +1,46 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { learningFlowEntryUrl, qrCodeImageUrl } from '../../lib/learningDeepLink'
-import { GripVertical, Layers, Plus, Trash2, Users, BarChart3, FileText, Award } from 'lucide-react'
+import {
+  Award,
+  BarChart3,
+  BookOpen,
+  Briefcase,
+  Calendar,
+  CircleDot,
+  FileText,
+  GripVertical,
+  HelpCircle,
+  Image,
+  Layers,
+  Lightbulb,
+  ListChecks,
+  MoreHorizontal,
+  Plus,
+  Trash2,
+  Users,
+  Video,
+} from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { CourseModule, ModuleKind } from '../../types/learning'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { RichTextEditor } from '../../components/learning/RichTextEditor'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
+import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
 
-const MODULE_KINDS: { id: ModuleKind | 'all'; label: string }[] = [
-  { id: 'all', label: 'All modules' },
-  { id: 'flashcard', label: 'Flashcards' },
-  { id: 'quiz', label: 'Quiz' },
-  { id: 'text', label: 'Text' },
-  { id: 'image', label: 'Images' },
-  { id: 'video', label: 'Video' },
-  { id: 'checklist', label: 'Checklist' },
-  { id: 'tips', label: 'Practical tips' },
-  { id: 'on_job', label: 'On-the-job' },
-  { id: 'event', label: 'Event (ILT)' },
-  { id: 'other', label: 'Other' },
+const MODULE_KINDS: { id: ModuleKind | 'all'; label: string; icon: HubMenu1Item['icon'] }[] = [
+  { id: 'all', label: 'Alle moduler', icon: Layers },
+  { id: 'flashcard', label: 'Flashkort', icon: CircleDot },
+  { id: 'quiz', label: 'Quiz', icon: HelpCircle },
+  { id: 'text', label: 'Tekst', icon: BookOpen },
+  { id: 'image', label: 'Bilder', icon: Image },
+  { id: 'video', label: 'Video', icon: Video },
+  { id: 'checklist', label: 'Sjekkliste', icon: ListChecks },
+  { id: 'tips', label: 'Praktiske tips', icon: Lightbulb },
+  { id: 'on_job', label: 'I jobben', icon: Briefcase },
+  { id: 'event', label: 'Arrangement (ILT)', icon: Calendar },
+  { id: 'other', label: 'Annet', icon: MoreHorizontal },
 ]
 
 const ADD_KINDS: { kind: ModuleKind; label: string }[] = [
@@ -70,6 +90,24 @@ export function LearningCourseBuilder() {
     const sorted = [...course.modules].sort((a, b) => a.order - b.order)
     if (typeFilter === 'all') return sorted
     return sorted.filter((m) => m.kind === typeFilter)
+  }, [course, typeFilter])
+
+  const moduleKindFilterItems: HubMenu1Item[] = useMemo(() => {
+    if (!course) return []
+    return MODULE_KINDS.map((k) => {
+      const count =
+        k.id === 'all'
+          ? course.modules.length
+          : course.modules.filter((m) => m.kind === k.id).length
+      return {
+        key: k.id,
+        label: k.label,
+        icon: k.icon,
+        active: typeFilter === k.id,
+        badgeCount: count,
+        onClick: () => setTypeFilter(k.id),
+      }
+    })
   }, [course, typeFilter])
 
   const selected = course?.modules.find((m) => m.id === selectedId) ?? null
@@ -204,35 +242,24 @@ export function LearningCourseBuilder() {
         </div>
       </div>
 
-      {/* Primary tabs — Pinpoint style dark bar */}
-      <div
-        className="flex flex-wrap gap-1 rounded-lg p-1"
-        style={{ backgroundColor: PIN_GREEN }}
-      >
-        {(
+      <HubMenu1Bar
+        ariaLabel="Kursbygger — seksjoner"
+        items={(
           [
-            ['info', 'Course info', FileText],
-            ['modules', 'Modules', Layers],
-            ['cert', 'Certifications', Award],
-            ['participants', 'Participants', Users],
-            ['insights', 'Insights', BarChart3],
+            ['info', 'Kursinfo', FileText],
+            ['modules', 'Moduler', Layers],
+            ['cert', 'Sertifisering', Award],
+            ['participants', 'Deltakere', Users],
+            ['insights', 'Innsikt', BarChart3],
           ] as const
-        ).map(([id, label, Icon]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setMainTab(id)}
-            className={`flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-colors ${
-              mainTab === id
-                ? 'bg-white text-[#2D403A] shadow-sm'
-                : 'text-white/85 hover:bg-white/10'
-            }`}
-          >
-            <Icon className="size-4" />
-            {label}
-          </button>
-        ))}
-      </div>
+        ).map(([id, label, Icon]) => ({
+          key: id,
+          label,
+          icon: Icon,
+          active: mainTab === id,
+          onClick: () => setMainTab(id),
+        }))}
+      />
 
       {mainTab === 'info' && (
         <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
@@ -363,29 +390,7 @@ export function LearningCourseBuilder() {
       {mainTab === 'modules' && (
         <>
           {/* Secondary pipeline / type filters */}
-          <div className="flex flex-wrap gap-2 rounded-xl border border-neutral-200 bg-white p-2 shadow-sm">
-            {MODULE_KINDS.map((k) => (
-              <button
-                key={k.id}
-                type="button"
-                onClick={() => setTypeFilter(k.id)}
-                className={`rounded-full px-3 py-1.5 text-xs font-medium ${
-                  typeFilter === k.id
-                    ? 'bg-[#2D403A] text-white'
-                    : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                }`}
-              >
-                {k.label}
-                {k.id !== 'all' && course ? (
-                  <span className="ml-1 opacity-70">
-                    ({course.modules.filter((m) => m.kind === k.id).length})
-                  </span>
-                ) : k.id === 'all' ? (
-                  <span className="ml-1 opacity-70">({course.modules.length})</span>
-                ) : null}
-              </button>
-            ))}
-          </div>
+          <HubMenu1Bar ariaLabel="Moduler — typefilter" items={moduleKindFilterItems} />
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-serif text-lg font-semibold text-[#2D403A]">Module builder</h2>

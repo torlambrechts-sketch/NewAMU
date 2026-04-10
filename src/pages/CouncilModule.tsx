@@ -58,7 +58,7 @@ import {
   type InsightSeg,
 } from '../components/insights/ModuleInsightCharts'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
-import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
+import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 
 const HERO_ACTION_CLASS =
   'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-none px-4 text-sm font-medium leading-none'
@@ -339,7 +339,7 @@ export function CouncilModule() {
     [council.elections],
   )
 
-  const menu1 = useOrgMenu1Styles()
+  const { barStyle: kpiStripStyle } = useWorkplaceKpiStripStyle()
 
   const councilHubItems = useMemo((): HubMenu1Item[] => {
     const auditActive =
@@ -2258,7 +2258,7 @@ export function CouncilModule() {
         <div className="mt-6 space-y-10">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {requirementsOverviewKpis.map((item) => (
-              <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={menu1.barStyle}>
+              <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={kpiStripStyle}>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
                 <p className="mt-1 text-xs text-white/70">{item.sub}</p>
                 <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>

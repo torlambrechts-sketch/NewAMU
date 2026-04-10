@@ -7,7 +7,7 @@ import { Table1Toolbar } from '../components/layout/Table1Toolbar'
 import { CheckCircle2, FileWarning, Plus, Trash2, X } from 'lucide-react'
 import { useHse } from '../hooks/useHse'
 import { useOrganisation } from '../hooks/useOrganisation'
-import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
+import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { canEditIncidentRootCause, canViewIncident } from '../lib/incidentAccess'
 import { useTasks } from '../hooks/useTasks'
@@ -132,7 +132,7 @@ export function WorkplaceIncidentsPage() {
   const { supabaseConfigured, supabase, organization, profile, user, isAdmin, departments } = useOrgSetupContext()
   const org = useOrganisation()
   const { addTask } = useTasks()
-  const menu1 = useOrgMenu1Styles()
+  const { barStyle: kpiStripStyle } = useWorkplaceKpiStripStyle()
   const { payload: layoutPayload } = useUiTheme()
   const layout = mergeLayoutPayload(layoutPayload)
   const tableCell = `${table1CellPadding(layout)} ${TABLE_CELL_BASE}`
@@ -589,28 +589,28 @@ export function WorkplaceIncidentsPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div
             className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`}
-            style={menu1.barStyle}
+            style={kpiStripStyle}
           >
             <div className="text-2xl font-semibold">{incidentStats.total}</div>
             <div className="text-xs font-medium uppercase tracking-wide text-white/85">I din liste</div>
           </div>
           <div
             className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`}
-            style={menu1.barStyle}
+            style={kpiStripStyle}
           >
             <div className="text-2xl font-semibold">{incidentStats.open}</div>
             <div className="text-xs font-medium uppercase tracking-wide text-white/85">Ikke lukket</div>
           </div>
           <div
             className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`}
-            style={menu1.barStyle}
+            style={kpiStripStyle}
           >
             <div className="text-2xl font-semibold">{incidentStats.high}</div>
             <div className="text-xs font-medium uppercase tracking-wide text-white/85">Høy</div>
           </div>
           <div
             className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`}
-            style={menu1.barStyle}
+            style={kpiStripStyle}
           >
             <div className="text-2xl font-semibold">{incidentStats.critical}</div>
             <div className="text-xs font-medium uppercase tracking-wide text-white/85">Kritisk</div>

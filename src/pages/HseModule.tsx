@@ -25,7 +25,7 @@ import { ComplianceModuleChrome } from '../components/compliance/ComplianceModul
 import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { mergeSickLeaveMilestonesOnDateChange, useHse } from '../hooks/useHse'
 import { useOrganisation } from '../hooks/useOrganisation'
-import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
+import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { canViewIncident } from '../lib/incidentAccess'
 import { canViewSickLeaveCase } from '../lib/sickLeaveAccess'
@@ -166,7 +166,7 @@ export function HseModule() {
   const { supabaseConfigured, supabase, organization, profile, user, isAdmin, departments } = useOrgSetupContext()
   const org = useOrganisation()
   const { addTask } = useTasks()
-  const menu1 = useOrgMenu1Styles()
+  const { barStyle: kpiStripStyle } = useWorkplaceKpiStripStyle()
   const { payload: layoutPayload } = useUiTheme()
   const layout = mergeLayoutPayload(layoutPayload)
   const tableCell = `${table1CellPadding(layout)} ${TABLE_CELL_BASE}`
@@ -1285,7 +1285,7 @@ export function HseModule() {
         <div className="space-y-10">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {hseOverviewKpis.map((item) => (
-              <div key={item.title} className={HSE_THRESHOLD_BOX} style={menu1.barStyle}>
+              <div key={item.title} className={HSE_THRESHOLD_BOX} style={kpiStripStyle}>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
                 <p className="mt-1 text-xs text-white/70">{item.sub}</p>
                 <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
@@ -1443,19 +1443,19 @@ export function HseModule() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold">{roundStats.total}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Registrert</div>
             </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold">{roundStats.inProgress}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Utfylling</div>
             </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold">{roundStats.pending}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Venter signatur</div>
             </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold">{roundStats.approved}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Arkiv</div>
             </div>
@@ -1752,19 +1752,19 @@ export function HseModule() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold">{inspectionStats.total}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Registrert</div>
             </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold">{inspectionStats.open}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Pågår</div>
             </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold">{inspectionStats.closedUnlocked}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Lukket — kan låses</div>
             </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold">{inspectionStats.locked}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Arkiv (signert)</div>
             </div>
@@ -1912,19 +1912,19 @@ export function HseModule() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold">{sjaStats.total}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Registrert</div>
             </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold">{sjaStats.draft}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Utkast</div>
             </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold">{sjaStats.awaiting}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Venter deltakere</div>
             </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold">{sjaStats.approved}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Alle signert</div>
             </div>
@@ -2182,19 +2182,19 @@ export function HseModule() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold tabular-nums">{slStats.total}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Saker (din tilgang)</div>
             </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold tabular-nums">{slStats.active}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Aktive / gradert</div>
             </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold tabular-nums">{slStats.overdue}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Forfalte milepæler</div>
             </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold tabular-nums">{hse.sickLeaveCases.length}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Totalt i org. (alle roller)</div>
             </div>

@@ -34,7 +34,7 @@ import {
   table1CellPadding,
   table1HeaderRowClass,
 } from '../lib/layoutLabTokens'
-import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
+import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
 import { HubMenu1Bar } from '../components/layout/HubMenu1Bar'
@@ -106,7 +106,7 @@ const WHISTLE_STATUS_LABELS: Record<WhistleblowingCaseStatus, string> = {
 }
 
 export function TasksPage() {
-  const menu1 = useOrgMenu1Styles()
+  const { barStyle: kpiStripStyle } = useWorkplaceKpiStripStyle()
   const { payload: layoutPayload } = useUiTheme()
   const layout = mergeLayoutPayload(layoutPayload)
   const tableCell = `${table1CellPadding(layout)} ${TABLE_CELL_BASE}`
@@ -854,7 +854,7 @@ export function TasksPage() {
                     },
                   ] as const
                 ).map((item) => (
-                  <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={menu1.barStyle}>
+                  <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={kpiStripStyle}>
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
                     <p className="mt-1 text-xs text-white/70">{item.sub}</p>
                     <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>

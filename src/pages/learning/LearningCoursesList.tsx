@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BookOpen, Clock, Plus, Search, Star } from 'lucide-react'
+import { BookOpen, CheckCircle2, Clock, Plus, Search, Star } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { Course, CourseStatus } from '../../types/learning'
-import { PIN_GREEN, SHELL_ACCENT } from '../../components/learning/LearningLayout'
+import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
+import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
 
 const FAV_KEY = 'atics-learning-favourite-course-ids'
 
@@ -124,12 +125,43 @@ export function LearningCoursesList() {
     })
   }
 
-  const tabs: { id: TabId; label: string; count: number }[] = [
-    { id: 'all', label: 'Alle kurs', count: tabCounts.all },
-    { id: 'active', label: 'Pågående', count: tabCounts.active },
-    { id: 'complete', label: 'Fullført', count: tabCounts.complete },
-    { id: 'fav', label: 'Favoritter', count: tabCounts.fav },
-  ]
+  const courseFilterItems: HubMenu1Item[] = useMemo(
+    () => [
+      {
+        key: 'all',
+        label: 'Alle kurs',
+        icon: BookOpen,
+        active: tab === 'all',
+        badgeCount: tabCounts.all,
+        onClick: () => setTab('all'),
+      },
+      {
+        key: 'active',
+        label: 'Pågående',
+        icon: Clock,
+        active: tab === 'active',
+        badgeCount: tabCounts.active,
+        onClick: () => setTab('active'),
+      },
+      {
+        key: 'complete',
+        label: 'Fullført',
+        icon: CheckCircle2,
+        active: tab === 'complete',
+        badgeCount: tabCounts.complete,
+        onClick: () => setTab('complete'),
+      },
+      {
+        key: 'fav',
+        label: 'Favoritter',
+        icon: Star,
+        active: tab === 'fav',
+        badgeCount: tabCounts.fav,
+        onClick: () => setTab('fav'),
+      },
+    ],
+    [tab, tabCounts.active, tabCounts.all, tabCounts.complete, tabCounts.fav],
+  )
 
   return (
     <div className="space-y-6">
@@ -195,32 +227,7 @@ export function LearningCoursesList() {
         </p>
       )}
 
-      {/* Tabs — same pattern as reference: underline active */}
-      <div className="border-b border-neutral-200/80">
-        <nav className="-mb-px flex flex-wrap gap-6" aria-label="Kursfilter">
-          {tabs.map((t) => {
-            const active = tab === t.id
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                className={`whitespace-nowrap border-b-2 pb-3 text-sm font-semibold transition-colors ${
-                  active
-                    ? 'border-current text-[#1a3d32]'
-                    : 'border-transparent text-neutral-500 hover:text-neutral-800'
-                }`}
-                style={active ? { borderColor: SHELL_ACCENT } : undefined}
-              >
-                {t.label}{' '}
-                <span className="font-normal text-neutral-400">
-                  ({String(t.count).padStart(2, '0')})
-                </span>
-              </button>
-            )
-          })}
-        </nav>
-      </div>
+      <HubMenu1Bar ariaLabel="Kurs — filter" items={courseFilterItems} />
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[200px] flex-1">

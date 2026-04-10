@@ -26,7 +26,7 @@ import { ALL_SURVEY_TEMPLATES, TEMPLATE_CATEGORIES } from '../data/surveyTemplat
 import { useDocuments } from '../hooks/useDocuments'
 import { useOrgHealth, type SurveyCloseSideEffect } from '../hooks/useOrgHealth'
 import { useOrganisation } from '../hooks/useOrganisation'
-import { useOrgMenu1Styles } from '../hooks/useOrgMenu1Styles'
+import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useTasks } from '../hooks/useTasks'
 import { useUiTheme } from '../hooks/useUiTheme'
@@ -104,7 +104,7 @@ export function OrgHealthModule() {
   const org = useOrganisation()
   const { addTask } = useTasks()
   const docs = useDocuments()
-  const menu1 = useOrgMenu1Styles()
+  const { barStyle: kpiStripStyle } = useWorkplaceKpiStripStyle()
   const { payload: layoutPayload } = useUiTheme()
   const layout = mergeLayoutPayload(layoutPayload)
   const tableCell = `${table1CellPadding(layout)} ${TABLE_CELL_BASE}`
@@ -481,7 +481,7 @@ export function OrgHealthModule() {
         <div className="mt-6 space-y-10">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {ohOverviewKpis.map((item) => (
-              <div key={item.title} className={OH_THRESHOLD_STRIP} style={menu1.barStyle}>
+              <div key={item.title} className={OH_THRESHOLD_STRIP} style={kpiStripStyle}>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
                 <p className="mt-1 text-xs text-white/70">{item.sub}</p>
                 <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
@@ -655,19 +655,19 @@ export function OrgHealthModule() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className={`${R_FLAT} ${SETTINGS_THRESHOLD_BOX}`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} ${SETTINGS_THRESHOLD_BOX}`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold tabular-nums">{surveyStats.total}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Registrert</div>
             </div>
-            <div className={`${R_FLAT} ${SETTINGS_THRESHOLD_BOX}`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} ${SETTINGS_THRESHOLD_BOX}`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold tabular-nums">{surveyStats.open}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Aktive</div>
             </div>
-            <div className={`${R_FLAT} ${SETTINGS_THRESHOLD_BOX}`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} ${SETTINGS_THRESHOLD_BOX}`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold tabular-nums">{oh.responses.length}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Svar totalt</div>
             </div>
-            <div className={`${R_FLAT} ${SETTINGS_THRESHOLD_BOX}`} style={menu1.barStyle}>
+            <div className={`${R_FLAT} ${SETTINGS_THRESHOLD_BOX}`} style={kpiStripStyle}>
               <div className="text-2xl font-semibold tabular-nums">{SURVEY_K_ANONYMITY_MIN}</div>
               <div className="text-xs font-medium uppercase tracking-wide text-white/85">Min. n (k-anonymitet)</div>
             </div>

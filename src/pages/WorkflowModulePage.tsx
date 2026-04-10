@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronDown, GitBranch, Loader2, Pencil, Plus, Trash2, X, Zap } from 'lucide-react'
+import { ChevronDown, GitBranch, Loader2, Pencil, Play, Plus, Settings, Trash2, X, Zap } from 'lucide-react'
 import { WorkflowFlowBuilder } from '../components/workflow/WorkflowFlowBuilder'
 import { flowDocumentFromLegacy } from '../lib/workflowFlowFromLegacy'
 import {
@@ -18,6 +18,7 @@ import {
   triggerLabel,
 } from '../lib/workflowRuleSummary'
 import { WF_FIELD_INPUT, WF_FIELD_LABEL, WF_LEAD, WF_PANEL_INSET } from '../components/workflow/workflowPanelStyles'
+import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const CARD = 'rounded-none border border-neutral-200/90 bg-white p-6 shadow-sm'
@@ -72,6 +73,34 @@ export function WorkflowModulePage() {
   const [formErr, setFormErr] = useState<string | null>(null)
 
   const templatesCount = useMemo(() => wf.rules.filter((r) => r.is_template).length, [wf.rules])
+
+  const workflowHubItems: HubMenu1Item[] = useMemo(
+    () => [
+      {
+        key: 'design',
+        label: 'Design & regler',
+        icon: GitBranch,
+        active: tab === 'design',
+        onClick: () => setTab('design'),
+      },
+      {
+        key: 'runs',
+        label: 'Kjøringer',
+        icon: Play,
+        active: tab === 'runs',
+        onClick: () => setTab('runs'),
+      },
+      {
+        key: 'settings',
+        label: 'Innstillinger',
+        icon: Settings,
+        active: tab === 'settings',
+        badgeCount: templatesCount,
+        onClick: () => setTab('settings'),
+      },
+    ],
+    [tab, templatesCount],
+  )
 
   const recompileFlow = useCallback((doc: WorkflowFlowDocument) => {
     const out = compileWorkflowFlow(doc)
@@ -252,25 +281,8 @@ export function WorkflowModulePage() {
         </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-2 rounded-none border border-neutral-200/80 bg-white/60 p-2">
-        {(
-          [
-            ['design', 'Design & regler'],
-            ['runs', 'Kjøringer'],
-            ['settings', 'Innstillinger'],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setTab(id)}
-            className={`rounded-none px-4 py-2 text-sm font-medium transition ${
-              tab === id ? 'bg-[#1a3d32] text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-100'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="mt-6">
+        <HubMenu1Bar ariaLabel="Arbeidsflyt — faner" items={workflowHubItems} />
       </div>
 
       {wf.error && (
