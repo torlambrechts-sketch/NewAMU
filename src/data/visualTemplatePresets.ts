@@ -34,6 +34,7 @@ export const PINPOINT_PRESET_KEYS = [
   'scorecard',
   'detail',
   'list',
+  'video_screen',
   'dash',
   'dash2',
 ] as const
@@ -194,6 +195,110 @@ export function createPinpointPreset(key: (typeof PINPOINT_PRESET_KEYS)[number])
                   { id: newBlockId(), type: 'text', text: 'Email · taneka@…', className: 'border-b py-2 text-sm' },
                 ],
               },
+            ],
+          },
+        ],
+      })
+    case 'video_screen':
+      return makeTemplate('pinpoint', 'Video screen (Interviews)', 'video_screen', {
+        id: newBlockId(),
+        type: 'column',
+        flexGap: '16px',
+        children: [
+          {
+            id: newBlockId(),
+            type: 'text',
+            text: 'Jobs › Customer Success Manager › Candidates — Video screen',
+            className: 'text-xs text-neutral-500',
+          },
+          {
+            id: newBlockId(),
+            type: 'heading',
+            text: 'Customer Success Manager',
+            headingLevel: 1,
+            className: 'font-serif text-2xl font-semibold',
+          },
+          {
+            id: newBlockId(),
+            type: 'row',
+            flexWrap: true,
+            flexGap: '8px',
+            children: [
+              { id: newBlockId(), type: 'button', text: 'Candidates', className: 'text-xs' },
+              { id: newBlockId(), type: 'button', text: 'Interviews (active)', className: 'text-xs font-semibold' },
+              { id: newBlockId(), type: 'button', text: 'Insights', className: 'text-xs' },
+            ],
+          },
+          {
+            id: newBlockId(),
+            type: 'row',
+            flexWrap: true,
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            children: [
+              {
+                id: newBlockId(),
+                type: 'row',
+                flexGap: '8px',
+                alignItems: 'center',
+                children: [
+                  { id: newBlockId(), type: 'heading', text: '4 Candidates', headingLevel: 2, className: 'font-serif text-xl' },
+                  { id: newBlockId(), type: 'text', text: '1/6', className: 'rounded-full bg-sky-100 px-2 py-0.5 text-xs' },
+                ],
+              },
+              { id: newBlockId(), type: 'button', text: '+ Add candidates', className: 'text-xs uppercase' },
+            ],
+          },
+          {
+            id: newBlockId(),
+            type: 'row',
+            flexWrap: true,
+            flexGap: '8px',
+            children: [
+              { id: newBlockId(), type: 'container', className: 'rounded border bg-white px-2 py-2 text-center min-w-[72px]', children: [
+                { id: newBlockId(), type: 'text', text: '12', className: 'text-lg font-bold' },
+                { id: newBlockId(), type: 'text', text: 'All', className: 'text-[9px] uppercase' },
+              ]},
+              { id: newBlockId(), type: 'container', className: 'rounded border-t-4 border-sky-500 bg-white px-2 py-2 text-center min-w-[72px]', children: [
+                { id: newBlockId(), type: 'text', text: '4', className: 'text-lg font-bold' },
+                { id: newBlockId(), type: 'text', text: 'Video screen', className: 'text-[9px] uppercase' },
+              ]},
+            ],
+          },
+          { id: newBlockId(), type: 'input', inputType: 'search', placeholder: 'Search candidates…' },
+          {
+            id: newBlockId(),
+            type: 'container',
+            className: 'rounded-lg border p-3',
+            style: { backgroundColor: '#EFE8DC' },
+            children: [
+              {
+                id: newBlockId(),
+                type: 'text',
+                text: 'Filter by candidates that took part in interviews at this stage',
+                className: 'text-sm',
+              },
+              {
+                id: newBlockId(),
+                type: 'row',
+                flexGap: '8px',
+                className: 'mt-2',
+                children: [
+                  { id: newBlockId(), type: 'button', text: 'All candidates', className: 'bg-[#1a3d32] text-white text-xs' },
+                  { id: newBlockId(), type: 'button', text: 'Uninvited', className: 'text-xs' },
+                  { id: newBlockId(), type: 'button', text: 'Invited', className: 'text-xs' },
+                  { id: newBlockId(), type: 'button', text: '⚙ Configure', className: 'ml-auto text-xs' },
+                ],
+              },
+            ],
+          },
+          {
+            id: newBlockId(),
+            type: 'container',
+            className: 'rounded-lg border bg-white p-4',
+            children: [
+              { id: newBlockId(), type: 'heading', text: 'Table: Name · Template · Tags · Status · Date', headingLevel: 4 },
+              { id: newBlockId(), type: 'text', text: 'Example row: Tom Hacquoil — Not invited', className: 'text-sm text-neutral-600' },
             ],
           },
         ],

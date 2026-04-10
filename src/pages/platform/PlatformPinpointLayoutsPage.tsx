@@ -5,6 +5,7 @@ import {
   BarChart3,
   Bell,
   Briefcase,
+  CheckCircle2,
   CheckSquare,
   CalendarDays,
   ChevronDown,
@@ -28,6 +29,8 @@ import {
   Star,
   User,
   Users,
+  Video,
+  XCircle,
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
 import { VisualTemplateEditor } from '../../components/platform/VisualTemplateEditor'
@@ -1166,6 +1169,251 @@ function CandidatesListBlock() {
   )
 }
 
+function CandidatesVideoScreenBlock() {
+  const [hubTab, setHubTab] = useState('interviews')
+  const [stageSeg, setStageSeg] = useState<'all' | 'uninvited' | 'invited'>('all')
+  const hubItems: HubMenu1Item[] = useMemo(
+    () =>
+      [
+        { key: 'candidates', label: 'Candidates', icon: Users, active: hubTab === 'candidates', onClick: () => setHubTab('candidates') },
+        { key: 'edit', label: 'Edit', icon: Pencil, active: hubTab === 'edit', onClick: () => setHubTab('edit') },
+        { key: 'scorecards', label: 'Scorecards', icon: Star, active: hubTab === 'scorecards', onClick: () => setHubTab('scorecards') },
+        {
+          key: 'interviews',
+          label: 'Interviews',
+          icon: CalendarDays,
+          active: hubTab === 'interviews',
+          onClick: () => setHubTab('interviews'),
+        },
+        { key: 'adverts', label: 'Adverts', icon: Mail, active: hubTab === 'adverts', onClick: () => setHubTab('adverts') },
+        { key: 'insights', label: 'Insights', icon: BarChart3, active: hubTab === 'insights', onClick: () => setHubTab('insights') },
+        { key: 'share', label: 'Share', icon: Share2, active: hubTab === 'share', onClick: () => setHubTab('share') },
+      ] satisfies HubMenu1Item[],
+    [hubTab],
+  )
+
+  const pipelineStages = [
+    { n: '12', l: 'All', icon: null as null },
+    { n: '2', l: 'Rejected', icon: 'reject' as const },
+    { n: '5', l: 'Applied', icon: null },
+    { n: '4', l: 'Video screen', icon: 'video' as const, active: true },
+    { n: '0', l: 'Onsite interviews', icon: null },
+    { n: '0', l: 'Assessment', icon: null },
+    { n: '0', l: 'Offer', icon: null },
+    { n: '1', l: 'Hired', icon: 'hired' as const },
+  ]
+
+  return (
+    <div className="space-y-4">
+      <PinpointTopUtilityBar deptLabel="Company" />
+      <Breadcrumb items={['Jobs', 'Customer Success Manager', 'Candidates — Video screen']} />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <SerifTitle className="text-2xl md:text-3xl">Customer Success Manager</SerifTitle>
+          <p className="mt-1 text-sm text-neutral-500">London · Customer success · ACME · 8299</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Pill tone="green">Open</Pill>
+          <button type="button" className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100" aria-label="Mer">
+            <MoreHorizontal className="size-5" />
+          </button>
+        </div>
+      </div>
+      <HubMenu1Bar ariaLabel="Jobbfaner" items={hubItems} />
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <SerifTitle className="text-2xl md:text-3xl">4 Candidates</SerifTitle>
+          <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-900">
+            <User className="size-3.5" /> 1/6
+          </span>
+        </div>
+        <button
+          type="button"
+          className="text-sm font-semibold uppercase tracking-wide text-neutral-800 underline-offset-4 hover:underline"
+        >
+          + Add candidates
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {pipelineStages.map((s) => (
+          <button
+            key={s.l}
+            type="button"
+            className={`flex min-w-[72px] flex-col items-center rounded-md border px-2 py-2 text-center transition sm:min-w-[88px] sm:px-3 ${
+              s.active ? 'border-neutral-900 bg-white shadow-sm' : 'border-neutral-200 bg-white/60 hover:bg-white'
+            }`}
+            style={s.active ? { borderTopWidth: 3, borderTopColor: s.icon === 'video' ? '#0284c7' : FOREST } : undefined}
+          >
+            <div className="flex min-h-[1.25rem] items-center justify-center gap-0.5">
+              {s.icon === 'reject' ? <XCircle className="size-3.5 text-red-500" aria-hidden /> : null}
+              {s.icon === 'video' ? <Video className="size-3.5 text-sky-600" aria-hidden /> : null}
+              {s.icon === 'hired' ? <CheckCircle2 className="size-3.5 text-emerald-600" aria-hidden /> : null}
+            </div>
+            <p className="text-lg font-bold tabular-nums text-neutral-900">{s.n}</p>
+            <p className="text-[9px] font-semibold uppercase leading-tight tracking-wide text-neutral-500 sm:text-[10px]">{s.l}</p>
+          </button>
+        ))}
+        <button
+          type="button"
+          className="ml-auto flex min-w-[120px] items-center justify-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2"
+        >
+          <Star className="size-4 text-amber-700" />
+          <span className="text-lg font-bold tabular-nums">5</span>
+          <span className="text-[10px] font-semibold uppercase text-neutral-600">Talent pipeline</span>
+        </button>
+      </div>
+
+      <WhiteCard className="p-4">
+        <div className="flex flex-wrap gap-3">
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+            <input
+              type="search"
+              placeholder="Search candidates…"
+              className="w-full rounded-md border border-neutral-200 py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/30"
+            />
+          </div>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold uppercase"
+          >
+            <Search className="size-3.5" />
+            Advanced
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold uppercase"
+          >
+            <Filter className="size-3.5" />
+            Filters
+          </button>
+        </div>
+
+        <div
+          className="mt-4 rounded-lg border border-neutral-200/90 bg-white px-4 py-3"
+          style={{ backgroundColor: CREAM_DEEP }}
+        >
+          <p className="text-sm text-neutral-700">
+            You can filter by candidates that have taken part in interviews at this stage
+          </p>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="inline-flex rounded-md border border-neutral-200 bg-white p-0.5 shadow-sm">
+              {(
+                [
+                  { id: 'all' as const, label: 'All candidates' },
+                  { id: 'uninvited' as const, label: 'Uninvited' },
+                  { id: 'invited' as const, label: 'Invited' },
+                ] as const
+              ).map((opt) => {
+                const on = stageSeg === opt.id
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setStageSeg(opt.id)}
+                    className={`rounded-md px-3 py-2 text-xs font-semibold uppercase tracking-wide transition ${
+                      on ? 'text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-50'
+                    }`}
+                    style={on ? { backgroundColor: FOREST } : undefined}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:text-neutral-900"
+            >
+              <Settings className="size-3.5" />
+              Configure
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[720px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-neutral-200 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+                <th className="w-10 py-3 pr-2">
+                  <input type="checkbox" className="rounded border-neutral-300" aria-label="Velg alle" />
+                </th>
+                <th className="py-3 pr-4">Name</th>
+                <th className="py-3 pr-4">Template</th>
+                <th className="py-3 pr-4">Attendees</th>
+                <th className="py-3 pr-4">Tags</th>
+                <th className="py-3 pr-4">Status</th>
+                <th className="py-3">Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-100">
+              {[
+                {
+                  name: 'Tom Hacquoil',
+                  template: 'Standard',
+                  attendees: '2',
+                  tags: ['Custom tag 1', 'Referral', 'PMP certified'],
+                  status: 'Not invited',
+                  date: '12 Mar, 2024',
+                },
+                {
+                  name: 'Priya Nair',
+                  template: 'Technical',
+                  attendees: '3',
+                  tags: ['Referral'],
+                  status: 'Invited',
+                  date: '10 Mar, 2024',
+                },
+              ].map((r) => (
+                <tr key={r.name} className="hover:bg-neutral-50/80">
+                  <td className="py-3.5 pr-2">
+                    <input type="checkbox" className="rounded border-neutral-300" aria-label={`Velg ${r.name}`} />
+                  </td>
+                  <td className="py-3.5 pr-4 font-medium text-neutral-900">{r.name}</td>
+                  <td className="py-3.5 pr-4 text-neutral-600">{r.template}</td>
+                  <td className="py-3.5 pr-4 tabular-nums text-neutral-600">{r.attendees}</td>
+                  <td className="py-3.5 pr-4">
+                    <div className="flex flex-wrap gap-1">
+                      {r.tags.map((t) => (
+                        <span
+                          key={t}
+                          className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                            t === 'Referral'
+                              ? 'bg-emerald-100 text-emerald-900'
+                              : t === 'PMP certified'
+                                ? 'bg-orange-100 text-orange-900'
+                                : 'bg-sky-100 text-sky-900'
+                          }`}
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="py-3.5 pr-4">
+                    <span
+                      className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                        r.status === 'Not invited'
+                          ? 'bg-amber-100/90 text-amber-950'
+                          : 'bg-sky-100 text-sky-900'
+                      }`}
+                    >
+                      {r.status}
+                    </span>
+                  </td>
+                  <td className="py-3.5 text-neutral-600">{r.date}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </WhiteCard>
+    </div>
+  )
+}
+
 function DonutMini({
   segments,
   centerLine1,
@@ -1477,6 +1725,11 @@ const SECTIONS = [
   },
   { id: 'detail', label: 'Kandidatdetalj', desc: 'Beige seksjonsnavigasjon (~22 %) + hvit hovedflate med detaljrader.' },
   { id: 'list', label: 'Kandidatliste', desc: 'Tall-faner, søk og tabell med merker og stjerner.' },
+  {
+    id: 'video_screen',
+    label: 'Video screen (Interviews)',
+    desc: 'Hub med Interviews aktiv, pipeline-faner, søk, segmentert filter (All / Uninvited / Invited), Configure og tabell (Name, Template, Tags, Status).',
+  },
   { id: 'dash', label: 'Dashboard 70/30', desc: 'Velkomst, KPI-kort, stillinger, smultring — med intervjuer og varsler til høyre.' },
   { id: 'dash2', label: 'Dashboard (kompakt)', desc: 'Enkel variant med søyler og jobbkort.' },
 ] as const
@@ -1561,6 +1814,7 @@ export function PlatformPinpointLayoutsPage() {
             {section === 'postings' ? <JobPostingsPageBlock /> : null}
             {section === 'detail' ? <CandidateDetailBlock /> : null}
             {section === 'list' ? <CandidatesListBlock /> : null}
+            {section === 'video_screen' ? <CandidatesVideoScreenBlock /> : null}
             {section === 'dash' ? <DashboardMainRightBlock /> : null}
             {section === 'dash2' ? <SimpleDashboardBlock /> : null}
           </div>

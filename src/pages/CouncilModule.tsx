@@ -691,13 +691,14 @@ export function CouncilModule() {
   )
 
   const overviewRecentAudit = useMemo(() => {
-    const tail = sortedRepAudit.slice(-5).reverse()
+    const sorted = [...rep.auditTrail].sort((a, b) => a.at.localeCompare(b.at))
+    const tail = sorted.slice(-5).reverse()
     return tail.map((e) => ({
       id: e.id,
       text: e.message,
       when: formatWhen(e.at),
     }))
-  }, [sortedRepAudit])
+  }, [rep.auditTrail])
 
   const councilElectionSegments = useMemo(() => {
     const palette = ['#059669', '#94a3b8']
@@ -1232,13 +1233,12 @@ export function CouncilModule() {
                 <div className={`${COUNCIL_DASH7030_WHITECARD} overflow-hidden p-0`} style={COUNCIL_DASH7030_WHITECARD_SHADOW}>
                   <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Siste hendelser</p>
-                    <button
-                      type="button"
-                      onClick={() => setTab('audit')}
+                    <Link
+                      to="/workspace/revisjonslogg?source=representatives"
                       className="text-xs font-semibold uppercase tracking-wide text-neutral-600 hover:text-neutral-900"
                     >
                       Revisjonslogg
-                    </button>
+                    </Link>
                   </div>
                   {overviewRecentAudit.length === 0 ? (
                     <p className="px-4 py-6 text-sm text-neutral-500">Ingen hendelser i loggen ennå.</p>
