@@ -35,6 +35,7 @@ export const PINPOINT_PRESET_KEYS = [
   'detail',
   'list',
   'video_screen',
+  'background_checks',
   'dash',
   'dash2',
 ] as const
@@ -195,6 +196,60 @@ export function createPinpointPreset(key: (typeof PINPOINT_PRESET_KEYS)[number])
                   { id: newBlockId(), type: 'text', text: 'Email · taneka@…', className: 'border-b py-2 text-sm' },
                 ],
               },
+            ],
+          },
+        ],
+      })
+    case 'background_checks':
+      return makeTemplate('pinpoint', 'Background checks (Certn)', 'background_checks', {
+        id: newBlockId(),
+        type: 'column',
+        flexGap: '16px',
+        children: [
+          {
+            id: newBlockId(),
+            type: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            children: [
+              { id: newBlockId(), type: 'text', text: 'Pinpoint Checks', className: 'text-sm font-semibold' },
+              { id: newBlockId(), type: 'text', text: 'Org · tasks · bell · avatar', className: 'text-xs text-neutral-500' },
+            ],
+          },
+          {
+            id: newBlockId(),
+            type: 'heading',
+            text: 'Pinpoint Background Checks',
+            headingLevel: 1,
+            className: 'font-serif text-2xl',
+          },
+          { id: newBlockId(), type: 'text', text: 'powered by Certn', className: 'text-sm text-neutral-600' },
+          {
+            id: newBlockId(),
+            type: 'row',
+            flexGap: '8px',
+            flexWrap: true,
+            children: [
+              { id: newBlockId(), type: 'button', text: 'All 3', className: 'text-xs border-b-4 border-emerald-900' },
+              { id: newBlockId(), type: 'button', text: 'Action required 3', className: 'text-xs text-amber-700' },
+            ],
+          },
+          { id: newBlockId(), type: 'input', inputType: 'search', placeholder: 'Search by candidate name, ID, or job title…' },
+          {
+            id: newBlockId(),
+            type: 'row',
+            flexGap: '8px',
+            children: [
+              { id: newBlockId(), type: 'button', text: 'FILTERS', className: 'text-xs' },
+              { id: newBlockId(), type: 'text', text: 'No filters applied', className: 'text-xs' },
+            ],
+          },
+          {
+            id: newBlockId(),
+            type: 'container',
+            className: 'rounded-lg border bg-white p-4',
+            children: [
+              { id: newBlockId(), type: 'heading', text: 'Table: Name · Order status · Check statuses · Date · Decision', headingLevel: 4 },
             ],
           },
         ],

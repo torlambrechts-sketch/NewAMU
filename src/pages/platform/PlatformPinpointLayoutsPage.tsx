@@ -1,13 +1,16 @@
 import { useId, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  AlertTriangle,
   Archive,
   BarChart3,
   Bell,
   Briefcase,
+  Building2,
   CheckCircle2,
   CheckSquare,
   CalendarDays,
+  Clock,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -31,6 +34,7 @@ import {
   Users,
   Video,
   XCircle,
+  Zap,
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
 import { VisualTemplateEditor } from '../../components/platform/VisualTemplateEditor'
@@ -281,6 +285,46 @@ function TemplateLibraryBlock() {
               </div>
             </WhiteCard>
           ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PinpointChecksAppBar() {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200/60 pb-3">
+      <p className="text-sm font-semibold tracking-tight text-neutral-900">Pinpoint Checks</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-800 shadow-sm"
+        >
+          <Building2 className="size-3.5 text-neutral-600" />
+          PINPOINT MARKETING
+          <ChevronDown className="size-3 opacity-60" />
+        </button>
+        <button
+          type="button"
+          className="relative rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-sm hover:bg-neutral-50"
+          aria-label="Tasks"
+        >
+          <CheckSquare className="size-4" />
+          <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-red-500 ring-2 ring-white" />
+        </button>
+        <button
+          type="button"
+          className="relative rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-sm hover:bg-neutral-50"
+          aria-label="Varsler"
+        >
+          <Bell className="size-4" />
+          <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-red-500 ring-2 ring-white" />
+        </button>
+        <div
+          className="flex size-8 items-center justify-center rounded-full text-[10px] font-bold text-white"
+          style={{ backgroundColor: FOREST }}
+        >
+          EN
         </div>
       </div>
     </div>
@@ -1414,6 +1458,212 @@ function CandidatesVideoScreenBlock() {
   )
 }
 
+function BackgroundChecksPageBlock() {
+  const [statusTab, setStatusTab] = useState<'all' | 'progress' | 'action' | 'review' | 'clear' | 'decided'>('all')
+
+  const rows = [
+    {
+      name: 'Alex Morgan',
+      id: '61',
+      job: 'Marketing Manager',
+      orderStatus: 'Action required' as const,
+      checkLine: '4 Awaiting applicant submission',
+      date: '16 Feb, 2026',
+      decision: 'None' as const,
+    },
+    {
+      name: 'Jamie Chen',
+      id: '62',
+      job: 'Customer Success Manager',
+      orderStatus: 'Action required' as const,
+      checkLine: '2 Awaiting applicant submission',
+      date: '15 Feb, 2026',
+      decision: 'None' as const,
+    },
+    {
+      name: 'Samira Okonkwo',
+      id: '63',
+      job: 'Software Engineer',
+      orderStatus: 'Action required' as const,
+      checkLine: '1 Awaiting applicant submission',
+      date: '14 Feb, 2026',
+      decision: 'None' as const,
+    },
+  ]
+
+  const tabs: {
+    id: typeof statusTab
+    label: string
+    count: string
+    icon?: 'clock' | 'warn' | 'check' | 'decided'
+    warnCount?: boolean
+  }[] = [
+    { id: 'all', label: 'All', count: '3' },
+    { id: 'progress', label: 'In progress', count: '0', icon: 'clock' },
+    { id: 'action', label: 'Action required', count: '3', icon: 'warn', warnCount: true },
+    { id: 'review', label: 'Complete (Review)', count: '0', icon: 'check' },
+    { id: 'clear', label: 'Complete (Clear)', count: '0', icon: 'check' },
+    { id: 'decided', label: 'Decided', count: '0', icon: 'decided' },
+  ]
+
+  return (
+    <div className="space-y-5">
+      <PinpointChecksAppBar />
+
+      <div>
+        <SerifTitle className="text-2xl md:text-3xl">Pinpoint Background Checks</SerifTitle>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-neutral-600">
+          <span>powered by</span>
+          <span className="font-semibold italic tracking-tight text-neutral-800">Certn</span>
+          <span
+            className="rounded border border-neutral-300 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-neutral-700"
+            aria-hidden
+          >
+            certn
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-x-1 gap-y-2 border-b border-neutral-200 pb-0">
+        {tabs.map((t) => {
+          const active = statusTab === t.id
+          const isDecided = t.id === 'decided'
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setStatusTab(t.id)}
+              className={`flex min-w-0 items-center gap-1.5 px-3 py-2 text-left transition ${
+                isDecided ? 'ml-auto' : ''
+              } ${active ? 'text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'}`}
+              style={
+                active
+                  ? {
+                      borderBottomWidth: 3,
+                      borderBottomColor: FOREST,
+                      marginBottom: -1,
+                    }
+                  : { marginBottom: -1, borderBottom: '3px solid transparent' }
+              }
+            >
+              {t.icon === 'clock' ? <Clock className="size-4 shrink-0 text-neutral-400" /> : null}
+              {t.icon === 'warn' ? <AlertTriangle className="size-4 shrink-0 text-amber-500" /> : null}
+              {t.icon === 'check' ? <CheckCircle2 className="size-4 shrink-0 text-emerald-600" /> : null}
+              {t.icon === 'decided' ? <CheckSquare className="size-4 shrink-0 text-neutral-400" /> : null}
+              <span className="whitespace-nowrap text-xs font-semibold sm:text-sm">{t.label}</span>
+              <span
+                className={`tabular-nums text-sm font-bold ${
+                  t.warnCount && t.count !== '0' ? 'text-amber-600' : 'text-neutral-900'
+                }`}
+              >
+                {t.count}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      <WhiteCard className="overflow-hidden p-0">
+        <div className="flex flex-wrap items-center gap-3 border-b border-neutral-100 px-4 py-3 sm:px-5">
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+            <input
+              type="search"
+              placeholder="Search by candidate name, ID, or job title…"
+              className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
+            />
+          </div>
+          <button
+            type="button"
+            className="inline-flex shrink-0 items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold uppercase"
+          >
+            <Filter className="size-3.5" />
+            Filters
+          </button>
+          <span className="text-xs text-neutral-500">No filters applied</span>
+          <button
+            type="button"
+            className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100"
+            aria-label="Innstillinger"
+          >
+            <Settings className="size-4" />
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[860px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-neutral-200 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+                <th className="px-4 py-3 sm:px-5">Name</th>
+                <th className="px-4 py-3 sm:px-5">Order status</th>
+                <th className="px-4 py-3 sm:px-5">Check statuses</th>
+                <th className="px-4 py-3 sm:px-5">Order date</th>
+                <th className="px-4 py-3 sm:px-5">Decision</th>
+                <th className="w-12 px-4 py-3 sm:px-5" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-100">
+              {rows.map((r) => (
+                <tr key={r.id} className="hover:bg-neutral-50/80">
+                  <td className="px-4 py-4 sm:px-5">
+                    <p className="font-semibold text-neutral-900">{r.name}</p>
+                    <p className="text-xs text-neutral-500">{r.id}</p>
+                    <p className="mt-0.5 text-xs text-neutral-600">{r.job}</p>
+                  </td>
+                  <td className="px-4 py-4 sm:px-5">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-semibold text-orange-950">
+                      <AlertTriangle className="size-3.5 shrink-0" />
+                      {r.orderStatus}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4 sm:px-5">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-1 text-[11px] font-medium text-sky-950">
+                      <Zap className="size-3.5 shrink-0 text-sky-600" />
+                      {r.checkLine}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4 text-neutral-600 sm:px-5">{r.date}</td>
+                  <td className="px-4 py-4 sm:px-5">
+                    <span className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-medium text-neutral-700">
+                      {r.decision}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4 text-right sm:px-5">
+                    <button type="button" className="text-neutral-400 hover:text-neutral-700" aria-label="Meny">
+                      <MoreHorizontal className="size-5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 px-4 py-3 text-xs text-neutral-600 sm:px-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2">
+              <span className="text-neutral-500">Items per page</span>
+              <select className="rounded-md border border-neutral-200 bg-white px-2 py-1">
+                <option>10</option>
+                <option>25</option>
+              </select>
+            </label>
+            <span className="text-neutral-500">Showing 1 – 3 of 3</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button type="button" className="rounded p-1 text-neutral-400 hover:bg-neutral-100" aria-label="Forrige">
+              <ChevronLeft className="size-4" />
+            </button>
+            <button type="button" className="rounded p-1 text-neutral-400 hover:bg-neutral-100" aria-label="Neste">
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
+        </div>
+      </WhiteCard>
+    </div>
+  )
+}
+
 function DonutMini({
   segments,
   centerLine1,
@@ -1730,6 +1980,11 @@ const SECTIONS = [
     label: 'Video screen (Interviews)',
     desc: 'Hub med Interviews aktiv, pipeline-faner, søk, segmentert filter (All / Uninvited / Invited), Configure og tabell (Name, Template, Tags, Status).',
   },
+  {
+    id: 'background_checks',
+    label: 'Background checks (Certn)',
+    desc: 'Pinpoint Checks app-bar, serif-tittel + powered by Certn, statusfaner (All / In progress / Action required / …), søk og filterrad, tabell og paginering.',
+  },
   { id: 'dash', label: 'Dashboard 70/30', desc: 'Velkomst, KPI-kort, stillinger, smultring — med intervjuer og varsler til høyre.' },
   { id: 'dash2', label: 'Dashboard (kompakt)', desc: 'Enkel variant med søyler og jobbkort.' },
 ] as const
@@ -1815,6 +2070,7 @@ export function PlatformPinpointLayoutsPage() {
             {section === 'detail' ? <CandidateDetailBlock /> : null}
             {section === 'list' ? <CandidatesListBlock /> : null}
             {section === 'video_screen' ? <CandidatesVideoScreenBlock /> : null}
+            {section === 'background_checks' ? <BackgroundChecksPageBlock /> : null}
             {section === 'dash' ? <DashboardMainRightBlock /> : null}
             {section === 'dash2' ? <SimpleDashboardBlock /> : null}
           </div>
