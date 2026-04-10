@@ -31,7 +31,6 @@ import { useLearning } from '../hooks/useLearning'
 import { useHse } from '../hooks/useHse'
 import { useInternalControl } from '../hooks/useInternalControl'
 import { useTasks } from '../hooks/useTasks'
-import { avatarUrlFromSeed } from '../lib/avatarUrl'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
 import type {
   AgendaItem,
@@ -666,16 +665,15 @@ export function CouncilModule() {
           {council.board.length > 0 ? (
             <div className="mt-6">
               <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Styre / team</p>
-              <div className="mt-2 flex flex-wrap gap-4">
+              <div className="mt-2 flex flex-wrap gap-2">
                 {council.board.map((m) => (
-                  <div key={m.id} className="flex items-center gap-2">
-                    <img
-                      src={avatarUrlFromSeed(m.id + m.name, 40)}
-                      alt=""
-                      className={`${R_FLAT} size-10 ring-2 ring-neutral-200/80 shadow-sm`}
-                    />
-                    <span className="text-sm font-medium text-neutral-800">{m.name}</span>
-                  </div>
+                  <span
+                    key={m.id}
+                    className={`${R_FLAT} border border-neutral-200/80 bg-neutral-50 px-2.5 py-1 text-sm font-medium text-neutral-800`}
+                  >
+                    {m.name}
+                    <span className="ml-1.5 text-xs font-normal text-neutral-500">· {roleLabel(m.role)}</span>
+                  </span>
                 ))}
               </div>
             </div>
@@ -737,7 +735,7 @@ export function CouncilModule() {
               <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Rådsinnsikt</h2>
             </div>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-              <div className="space-y-4 lg:col-span-8">
+              <div className="space-y-4 lg:col-span-9">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <ModuleDonutCard
                     title="Valg"
@@ -861,7 +859,7 @@ export function CouncilModule() {
                 </div>
               </div>
 
-              <div className="lg:col-span-4">
+              <div className="lg:col-span-3">
                 <div
                   className={`${R_FLAT} border border-neutral-200/90 bg-white p-5 shadow-sm`}
                   style={{ boxShadow: '0 1px 0 rgba(0,0,0,0.04)' }}
@@ -986,8 +984,8 @@ export function CouncilModule() {
       {tab === 'board' && (
         <div className="mt-8 space-y-10">
           <div className="grid gap-8 lg:grid-cols-12 lg:items-start">
-            {/* Styre — ca. 2/3 */}
-            <div className="space-y-8 lg:col-span-8">
+            {/* Styre — 3/4 */}
+            <div className="space-y-8 lg:col-span-9">
               <div>
                 <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
                   <h2
@@ -1007,16 +1005,9 @@ export function CouncilModule() {
                       className={`${R_FLAT} flex flex-col border border-neutral-200/90 bg-white p-4 shadow-sm`}
                     >
                       <div className="flex items-start justify-between gap-2 border-b border-neutral-100 pb-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <img
-                            src={avatarUrlFromSeed(m.id + m.name, 96)}
-                            alt=""
-                            className={`${R_FLAT} size-12 shrink-0 object-cover ring-2 ring-neutral-200/80`}
-                          />
-                          <div className="min-w-0">
-                            <p className="truncate font-semibold text-neutral-900">{m.name}</p>
-                            <p className="mt-0.5 text-xs text-neutral-500">{roleLabel(m.role)}</p>
-                          </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-neutral-900">{m.name}</p>
+                          <p className="mt-0.5 text-xs text-neutral-500">{roleLabel(m.role)}</p>
                         </div>
                         <CheckCircle2 className="size-5 shrink-0 text-emerald-600" aria-hidden />
                       </div>
@@ -1178,7 +1169,7 @@ export function CouncilModule() {
             </div>
 
             {/* Valg — ca. 1/3, sidebar-stil */}
-            <aside className={`${R_FLAT} border border-neutral-200/90 bg-[#faf8f4]/80 lg:col-span-4`}>
+            <aside className={`${R_FLAT} border border-neutral-200/90 bg-[#faf8f4]/80 lg:col-span-3`}>
               <div className="border-b border-neutral-200/80 bg-white px-4 py-3">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Valg</p>
                 <p className="mt-1 text-xs text-neutral-500">Arbeidstakerrepresentanter og AMU-valg</p>
@@ -2733,14 +2724,7 @@ function ElectionCard({
                   idx % 2 === 0 ? 'bg-white' : 'bg-amber-50/50'
                 }`}
               >
-                <span className="flex min-w-0 items-center gap-2">
-                  <img
-                    src={avatarUrlFromSeed(c.id + c.name, 64)}
-                    alt=""
-                    className="size-9 shrink-0 rounded-full ring-2 ring-white object-cover"
-                  />
-                  <span className="font-medium text-neutral-900">{c.name}</span>
-                </span>
+                <span className="min-w-0 font-medium text-neutral-900">{c.name}</span>
                 <span className="shrink-0 text-neutral-600">{c.voteCount} stemmer</span>
                 {open ? (
                   <button
