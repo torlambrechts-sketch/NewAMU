@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import {
   BarChart3,
   CalendarDays,
-  CheckSquare,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -111,19 +110,19 @@ function DemoScoreBar({ value, max = 5 }: { value: number; max?: number }) {
   )
 }
 
-/** Heading 1: job title row + Open + Create task + hub (Pinpoint Jobs > Marketing Manager). */
+/** Heading 1: page title + hub — «Adverts» aktiv når tabellen under er Postings (samme kontekst). */
 function ComposableHeading1Block() {
-  const [jobTab, setJobTab] = useState('candidates')
+  const [jobTab, setJobTab] = useState('adverts')
   const hubItems: HubMenu1Item[] = useMemo(
     () =>
       [
-        { key: 'candidates', label: 'Candidates', icon: Users, active: jobTab === 'candidates', onClick: () => setJobTab('candidates') },
-        { key: 'edit', label: 'Edit', icon: Pencil, active: jobTab === 'edit', onClick: () => setJobTab('edit') },
-        { key: 'boards', label: 'Boards', icon: Kanban, active: jobTab === 'boards', onClick: () => setJobTab('boards') },
-        { key: 'interviews', label: 'Interviews', icon: CalendarDays, active: jobTab === 'interviews', onClick: () => setJobTab('interviews') },
-        { key: 'adverts', label: 'Adverts', icon: Mail, active: jobTab === 'adverts', onClick: () => setJobTab('adverts') },
-        { key: 'insights', label: 'Insights', icon: BarChart3, active: jobTab === 'insights', onClick: () => setJobTab('insights') },
-        { key: 'share', label: 'Share', icon: Share2, active: jobTab === 'share', onClick: () => setJobTab('share') },
+        { key: 'candidates', label: 'Kandidater', icon: Users, active: jobTab === 'candidates', onClick: () => setJobTab('candidates') },
+        { key: 'edit', label: 'Rediger', icon: Pencil, active: jobTab === 'edit', onClick: () => setJobTab('edit') },
+        { key: 'boards', label: 'Tavler', icon: Kanban, active: jobTab === 'boards', onClick: () => setJobTab('boards') },
+        { key: 'interviews', label: 'Intervjuer', icon: CalendarDays, active: jobTab === 'interviews', onClick: () => setJobTab('interviews') },
+        { key: 'adverts', label: 'Stillingsannonser', icon: Mail, active: jobTab === 'adverts', onClick: () => setJobTab('adverts') },
+        { key: 'insights', label: 'Innsikt', icon: BarChart3, active: jobTab === 'insights', onClick: () => setJobTab('insights') },
+        { key: 'share', label: 'Del', icon: Share2, active: jobTab === 'share', onClick: () => setJobTab('share') },
         { key: 'team', label: 'Team', icon: Settings, active: jobTab === 'team', onClick: () => setJobTab('team') },
       ] satisfies HubMenu1Item[],
     [jobTab],
@@ -131,28 +130,9 @@ function ComposableHeading1Block() {
 
   return (
     <div className="space-y-4">
-      <Breadcrumb items={['Jobs', 'Marketing Manager']} />
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <SerifTitle className="text-2xl md:text-3xl">Marketing Manager</SerifTitle>
-          <p className="text-sm text-neutral-500">London · Marketing · ACME · 0002</p>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Pill tone="teal">Open</Pill>
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold uppercase text-white"
-            style={{ backgroundColor: FOREST }}
-          >
-            <CheckSquare className="size-3.5" />
-            Create task
-          </button>
-          <button type="button" className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100" aria-label="Mer">
-            <MoreHorizontal className="size-5" />
-          </button>
-        </div>
-      </div>
-      <HubMenu1Bar ariaLabel="Jobbfaner (komponer)" items={hubItems} />
+      <Breadcrumb items={['Stillinger', 'Stillingsannonser']} />
+      <SerifTitle className="text-2xl md:text-3xl">Stillingsannonser</SerifTitle>
+      <HubMenu1Bar ariaLabel="Stillingsfaner (komponer)" items={hubItems} />
     </div>
   )
 }
@@ -205,7 +185,7 @@ function ComposablePostingsTableBlock() {
           <tbody>
             <tr className="border-b border-neutral-100 hover:bg-neutral-50/80">
               <td className="px-5 py-3 font-medium text-neutral-900">Default</td>
-              <td className="px-5 py-3 text-neutral-700">Marketing Manager</td>
+              <td className="px-5 py-3 text-neutral-700">Stillingsannonser (eksempel)</td>
               <td className="px-5 py-3 text-neutral-700">London</td>
               <td className="px-5 py-3">
                 <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-900">
@@ -382,8 +362,8 @@ function ComposableJobCardsModuleBlock() {
       ratio: null as string | null,
     },
     {
-      title: 'Marketing Manager',
-      meta: 'London · Marketing · Hooli',
+      title: 'HR-rådgiver',
+      meta: 'Bergen · HR · Eksempel AS',
       code: '8299',
       candidates: 4,
       ratio: '0/5',
@@ -496,8 +476,8 @@ function ComposableJobCardsModuleBlock() {
 const BLOCKS = [
   {
     id: 'heading1',
-    label: 'Heading 1 — job header + faner',
-    hint: 'Breadcrumb, serif-tittel, meta, Open, Create task, grønn HubMenu1Bar (Candidates aktiv).',
+    label: 'Overskrift 1 — tittel + faner',
+    hint: 'Brødsmule (Stillinger › Stillingsannonser), serif H1, HubMenu1Bar med aktiv fane for gjeldende seksjon.',
   },
   {
     id: 'table1',
@@ -540,7 +520,7 @@ export function PlatformLayoutComposerPage() {
       <div>
         <h1 className="text-2xl font-semibold text-white">Layout-komponer</h1>
         <p className="mt-2 max-w-3xl text-sm text-neutral-400">
-          Kombiner ferdige referanseblokker (Heading 1, Postings-tabell, scorecard-modul, jobbkort-modul) i én forhåndsvisning.
+          Kombiner ferdige referanseblokker (overskrift + faner, Postings-tabell, scorecard-modul, jobbkort-modul) i én forhåndsvisning.
           Velg elementer til venstre — samme visuelle språk som under{' '}
           <Link to="/platform-admin/layout-reference" className="text-amber-400/90 hover:underline">
             Layout-referanse
@@ -602,29 +582,25 @@ export function PlatformLayoutComposerPage() {
           <div className="rounded-xl border border-white/10 p-4 shadow-lg md:p-6" style={shellStyle()}>
             <div className="space-y-8">
               {visible.heading1 ? (
-                <section aria-label="Heading 1">
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">Heading 1</p>
+                <section aria-label="Overskrift og faner">
                   <ComposableHeading1Block />
                 </section>
               ) : null}
 
               {visible.table1 ? (
-                <section aria-label="Table 1">
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">Table 1</p>
+                <section aria-label="Postings-tabell">
                   <ComposablePostingsTableBlock />
                 </section>
               ) : null}
 
               {visible.scorecard ? (
                 <section aria-label="Scorecard-modul">
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">Scorecard-modul</p>
                   <ComposableScorecardModuleBlock />
                 </section>
               ) : null}
 
               {visible.jobCards ? (
                 <section aria-label="Jobbkort-modul">
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">Jobbkort-modul</p>
                   <ComposableJobCardsModuleBlock />
                 </section>
               ) : null}
