@@ -39,6 +39,11 @@ import {
   inferDesignerKindFromUnknown,
 } from '../../types/platformDesignerPayload'
 import { baselineAnsatteLayout, baselineStyreOgValgLayout } from '../../data/baselineLayoutTemplates'
+import {
+  clearLayoutDesignerDraft,
+  readLayoutDesignerDraft,
+  writeLayoutDesignerDraft,
+} from '../../lib/platformLayoutDesignerStorage'
 import { ColorField, SelectField, TextField } from './boxDesigner/sharedFields'
 import { LABEL, PANEL, SECTION } from './boxDesigner/fieldTokens'
 
@@ -164,56 +169,122 @@ export function PlatformLayoutCompositionPage() {
     }
   }, [supabase, userId, isAdmin])
 
-  const loadCompositions = useCallback(async () => {
-    if (!supabase || !userId || !isAdmin) {
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    setError(null)
-    try {
-      await loadLibrary()
-      const { data, error: e } = await supabase
-        .from('platform_layout_compositions')
-        .select('id,reference_key,display_name,payload,updated_at')
-        .eq('user_id', userId)
-        .order('updated_at', { ascending: false })
-      if (e) throw e
-      const rows = (data ?? []) as { id: string; reference_key: string; display_name: string; payload: unknown }[]
+  const tabsFromServerRows = useCallback(
+    (rows: { id: string; reference_key: string; display_name: string; payload: unknown }[]): DesignTab[] => {
       if (rows.length === 0) {
-        setTabs([
+        return [
           {
             localId: crypto.randomUUID(),
             referenceKey: 'layout-dashboard',
             payload: cloneLayoutComposition(),
           },
-        ])
-        setActiveIdx(0)
-        setEditorContextPath([])
-        setSelectedPath(null)
-        return
+        ]
       }
-      setTabs(
-        rows.map((row) => ({
-          localId: crypto.randomUUID(),
-          dbId: row.id as string,
-          referenceKey: row.reference_key as string,
-          payload: mergeLayoutComposition(row.payload as Record<string, unknown>),
-        })),
-      )
+      return rows.map((row) => ({
+        localId: crypto.randomUUID(),
+        dbId: row.id as string,
+        referenceKey: row.reference_key as string,
+        payload: mergeLayoutComposition(row.payload as Record<string, unknown>),
+      }))
+    },
+    [],
+  )
+
+  /** Replace tabs from server rows (does not touch localStorage). */
+  const applyServerCompositions = useCallback(
+    (rows: { id: string; reference_key: string; display_name: string; payload: unknown }[]) => {
+      setTabs(tabsFromServerRows(rows))
       setActiveIdx(0)
       setEditorContextPath([])
       setSelectedPath(null)
+    },
+    [tabsFromServerRows],
+  )
+
+  const fetchCompositionsFromServer = useCallback(async () => {
+    if (!supabase || !userId || !isAdmin) return
+    const { data, error: e } = await supabase
+      .from('platform_layout_compositions')
+      .select('id,reference_key,display_name,payload,updated_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+    if (e) throw e
+    return (data ?? []) as { id: string; reference_key: string; display_name: string; payload: unknown }[]
+  }, [supabase, userId, isAdmin])
+
+  /** First visit: component library + local draft OR server. No server fetch for layouts when draft exists. */
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      if (!supabase || !userId || !isAdmin) {
+        setLoading(false)
+        return
+      }
+      setLoading(true)
+      setError(null)
+      try {
+        await loadLibrary()
+        if (cancelled) return
+        const draft = readLayoutDesignerDraft(userId)
+        if (draft) {
+          setTabs(
+            draft.tabs.map((t) => ({
+              localId: t.localId || crypto.randomUUID(),
+              dbId: t.dbId,
+              referenceKey: t.referenceKey,
+              payload: t.payload,
+            })),
+          )
+          setActiveIdx(draft.activeIdx)
+          setEditorContextPath([])
+          setSelectedPath(null)
+          return
+        }
+        const rows = await fetchCompositionsFromServer()
+        if (cancelled) return
+        applyServerCompositions(rows ?? [])
+      } catch (err) {
+        if (!cancelled) setError(getSupabaseErrorMessage(err))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, userId, isAdmin, loadLibrary, fetchCompositionsFromServer, applyServerCompositions])
+
+  /** Debounced: keep working copy in localStorage without re-querying Supabase on every navigation. */
+  useEffect(() => {
+    if (!userId || !isAdmin || loading) return
+    const t = window.setTimeout(() => {
+      writeLayoutDesignerDraft(userId, { tabs, activeIdx })
+    }, 400)
+    return () => window.clearTimeout(t)
+  }, [userId, isAdmin, loading, tabs, activeIdx])
+
+  const syncFromDatabase = useCallback(async () => {
+    if (!supabase || !userId || !isAdmin) return
+    setBusy(true)
+    setError(null)
+    setMessage(null)
+    try {
+      clearLayoutDesignerDraft(userId)
+      await loadLibrary()
+      const rows = await fetchCompositionsFromServer()
+      const nextTabs = tabsFromServerRows(rows ?? [])
+      setTabs(nextTabs)
+      setActiveIdx(0)
+      setEditorContextPath([])
+      setSelectedPath(null)
+      writeLayoutDesignerDraft(userId, { tabs: nextTabs, activeIdx: 0 })
+      setMessage('Synkronisert fra database. Lokal kladd er oppdatert med serverens maler.')
     } catch (err) {
       setError(getSupabaseErrorMessage(err))
     } finally {
-      setLoading(false)
+      setBusy(false)
     }
-  }, [supabase, userId, isAdmin, loadLibrary])
-
-  useEffect(() => {
-    void loadCompositions()
-  }, [loadCompositions])
+  }, [supabase, userId, isAdmin, loadLibrary, fetchCompositionsFromServer, tabsFromServerRows])
 
   const updatePayload = useCallback(
     (patch: Partial<LayoutCompositionPayload>) => {
@@ -505,6 +576,9 @@ export function PlatformLayoutCompositionPage() {
         const next = [...prev]
         const cur = next[activeIdx]
         if (cur) next[activeIdx] = { ...cur, referenceKey: key, dbId: newId }
+        if (userId && cur) {
+          writeLayoutDesignerDraft(userId, { tabs: next, activeIdx })
+        }
         return next
       })
       setMessage(`Mal lagret som «${key}». JSON inneholder rader, typografi og widgets — gjenbruk i nye sider.`)
@@ -591,6 +665,11 @@ export function PlatformLayoutCompositionPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-white">Layout-designer</h1>
+        <p className="mt-2 rounded-lg border border-white/10 bg-slate-900/40 px-3 py-2 text-xs text-neutral-400">
+          Arbeidskopien lagres i <strong className="text-neutral-300">nettleseren</strong> (automatisk). Databasen oppdateres bare når du trykker{' '}
+          <strong className="text-amber-200/90">Lagre mal</strong>. For å hente siste lagrede maler fra serveren (og erstatte lokal kladd), bruk{' '}
+          <strong className="text-neutral-300">Synkroniser fra database</strong>.
+        </p>
         <p className="mt-1 text-sm text-neutral-400">
           Bygg <strong className="text-neutral-300">rader</strong> og <strong className="text-neutral-300">kolonner</strong> med dra-og-slipp.
           Hver celle kan være <strong className="text-neutral-300">widget</strong>, <strong className="text-neutral-300">layout (nestede rader)</strong> eller lagret{' '}
@@ -1021,6 +1100,15 @@ export function PlatformLayoutCompositionPage() {
             >
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
               Lagre mal
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void syncFromDatabase()}
+              className="inline-flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2.5 text-sm font-medium text-sky-100 hover:bg-sky-500/10 disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+              Synkroniser fra database
             </button>
             <button
               type="button"
