@@ -31,6 +31,7 @@ import { OrganisationHeaderIllustration } from '../components/organisation/Organ
 import { Mainbox1 } from '../components/layout/Mainbox1'
 import { Table1Shell } from '../components/layout/Table1Shell'
 import { Table1Toolbar } from '../components/layout/Table1Toolbar'
+import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import {
   table1BodyRowClass,
   table1CellPadding,
@@ -42,6 +43,11 @@ import { AB_SCORECARD_CREAM_DEEP } from './actionboard/actionBoardScorecardLayou
 import { WORKPLACE_FOREST } from '../components/layout/WorkplaceChrome'
 import { WorkplaceBoardTabStrip } from '../components/layout/WorkplaceBoardTabStrip'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
+import {
+  WorkplaceStandardListLayout,
+  WORKPLACE_LIST_LAYOUT_CTA,
+  type WorkplaceListViewMode,
+} from '../components/layout/WorkplaceStandardListLayout'
 import type { EmploymentType, OrgEmployee, OrgUnit, OrgUnitKind, UserGroup } from '../types/organisation'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -481,6 +487,18 @@ export function OrganisationPage() {
   const [filterUnit, setFilterUnit] = useState('')
   const [empSegment, setEmpSegment] = useState<'all' | 'active' | 'inactive'>('all')
   const [empLayout, setEmpLayout] = useState<'list' | 'box'>('list')
+  /** WorkplaceStandardListLayout (Ansatte / Enheter / Brukergrupper) */
+  const [empStdFiltersOpen, setEmpStdFiltersOpen] = useState(false)
+  const [empStdSort, setEmpStdSort] = useState<'name' | 'unit' | 'role' | 'status'>('name')
+  const [empStdViewMode, setEmpStdViewMode] = useState<WorkplaceListViewMode>('table')
+  const [unitStdFiltersOpen, setUnitStdFiltersOpen] = useState(false)
+  const [unitStdSort, setUnitStdSort] = useState<'name' | 'kind' | 'head' | 'staff'>('name')
+  const [unitStdViewMode, setUnitStdViewMode] = useState<WorkplaceListViewMode>('table')
+  const [groupStdFiltersOpen, setGroupStdFiltersOpen] = useState(false)
+  const [groupStdSearch, setGroupStdSearch] = useState('')
+  const [groupStdSort, setGroupStdSort] = useState<'name' | 'scope'>('name')
+  const [groupStdViewMode, setGroupStdViewMode] = useState<WorkplaceListViewMode>('table')
+
   const [unitSearch, setUnitSearch] = useState('')
   const [unitKindSeg, setUnitKindSeg] = useState<'all' | OrgUnitKind>('all')
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(() => new Set())
@@ -509,6 +527,28 @@ export function OrganisationPage() {
       return matchSearch && matchUnit && matchSeg
     })
   }, [org.displayEmployees, searchEmp, filterUnit, empSegment])
+
+  const sortedFilteredEmployees = useMemo(() => {
+    const list = [...filteredEmployees]
+    list.sort((a, b) => {
+      if (empStdSort === 'name') return a.name.localeCompare(b.name, 'nb', { sensitivity: 'base' })
+      if (empStdSort === 'unit') {
+        return (
+          (a.unitName ?? '').localeCompare(b.unitName ?? '', 'nb', { sensitivity: 'base' }) ||
+          a.name.localeCompare(b.name, 'nb', { sensitivity: 'base' })
+        )
+      }
+      if (empStdSort === 'role') {
+        return (
+          (a.role ?? '').localeCompare(b.role ?? '', 'nb', { sensitivity: 'base' }) ||
+          a.name.localeCompare(b.name, 'nb', { sensitivity: 'base' })
+        )
+      }
+      if (a.active !== b.active) return a.active ? -1 : 1
+      return a.name.localeCompare(b.name, 'nb', { sensitivity: 'base' })
+    })
+    return list
+  }, [filteredEmployees, empStdSort])
 
   const hasAnyEmployees = org.displayEmployees.length > 0
 
@@ -569,6 +609,54 @@ export function OrganisationPage() {
     })
   }, [unitRowsFlat, unitSearch, unitKindSeg])
 
+  const sortedFilteredUnitRows = useMemo(() => {
+    const list = [...filteredUnitRows]
+    list.sort((a, b) => {
+      const ua = a.unit
+      const ub = b.unit
+      if (unitStdSort === 'name') return ua.name.localeCompare(ub.name, 'nb', { sensitivity: 'base' })
+      if (unitStdSort === 'kind') {
+        return (
+          KIND_LABELS[ua.kind].localeCompare(KIND_LABELS[ub.kind], 'nb') ||
+          ua.name.localeCompare(ub.name, 'nb', { sensitivity: 'base' })
+        )
+      }
+      if (unitStdSort === 'head') {
+        const ha = (ua.headName ?? ua.managerName ?? '').toLowerCase()
+        const hb = (ub.headName ?? ub.managerName ?? '').toLowerCase()
+        return ha.localeCompare(hb, 'nb') || ua.name.localeCompare(ub.name, 'nb', { sensitivity: 'base' })
+      }
+      const ca = org.displayEmployees.filter((e) => e.unitId === ua.id && e.active).length
+      const cb = org.displayEmployees.filter((e) => e.unitId === ub.id && e.active).length
+      if (cb !== ca) return cb - ca
+      return ua.name.localeCompare(ub.name, 'nb', { sensitivity: 'base' })
+    })
+    return list
+  }, [filteredUnitRows, unitStdSort, org.displayEmployees])
+
+  const groupsStdFiltered = useMemo(() => {
+    const q = groupStdSearch.trim().toLowerCase()
+    let list = [...org.groups]
+    if (q) {
+      list = list.filter((g) => {
+        const scopeLabel = org.getGroupLabel(g).toLowerCase()
+        return (
+          g.name.toLowerCase().includes(q) ||
+          scopeLabel.includes(q) ||
+          (g.description ?? '').toLowerCase().includes(q)
+        )
+      })
+    }
+    list.sort((a, b) => {
+      if (groupStdSort === 'name') return a.name.localeCompare(b.name, 'nb', { sensitivity: 'base' })
+      return (
+        org.getGroupLabel(a).localeCompare(org.getGroupLabel(b), 'nb', { sensitivity: 'base' }) ||
+        a.name.localeCompare(b.name, 'nb', { sensitivity: 'base' })
+      )
+    })
+    return list
+  }, [org.groups, org, groupStdSearch, groupStdSort])
+
   const toggleUnitExpanded = useCallback((id: string) => {
     setExpandedUnits((prev) => {
       const next = new Set(prev)
@@ -617,6 +705,18 @@ export function OrganisationPage() {
   }))
 
   const tabLabel = TABS.find((x) => x.id === tab)?.label ?? 'Organisasjon'
+  const useStandardOrgList = tab === 'employees' || tab === 'units' || tab === 'groups'
+
+  const orgHubMenuItems = useMemo((): HubMenu1Item[] => {
+    return TABS.map((t) => ({
+      key: t.id,
+      label: t.label,
+      icon: t.icon as HubMenu1Item['icon'],
+      active: tab === t.id,
+      onClick: () => setTab(t.id),
+      badgeCount: t.id === 'employees' ? org.activeEmployees.length : undefined,
+    }))
+  }, [tab, org.activeEmployees.length, setTab])
 
   return (
     <div className={PAGE_WRAP}>
@@ -688,55 +788,910 @@ export function OrganisationPage() {
             </>
           }
           headerActions={
-            <>
-              <div className="hidden shrink-0 justify-center sm:flex" aria-hidden>
-                <OrganisationHeaderIllustration className="h-[7.5rem] w-auto max-w-[min(100%,220px)] md:h-32" />
-              </div>
-              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-                <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-                  {ct.totalEmployeeCount} i beregning
-                </span>
-                {ct.requiresVerneombud ? (
-                  <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
-                    <CheckCircle2 className="size-4 shrink-0" />
-                    Verneombud lovpålagt
+            useStandardOrgList ? undefined : (
+              <>
+                <div className="hidden shrink-0 justify-center sm:flex" aria-hidden>
+                  <OrganisationHeaderIllustration className="h-[7.5rem] w-auto max-w-[min(100%,220px)] md:h-32" />
+                </div>
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+                  <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                    {ct.totalEmployeeCount} i beregning
                   </span>
-                ) : (
-                  <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>Verneombud: &lt;5</span>
-                )}
-                {ct.requiresAmu ? (
-                  <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
-                    <CheckCircle2 className="size-4 shrink-0" />
-                    AMU lovpålagt
-                  </span>
-                ) : ct.mayRequestAmu ? (
-                  <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
-                    <AlertTriangle className="size-4 shrink-0" />
-                    AMU kan kreves
-                  </span>
-                ) : (
-                  <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>AMU: &lt;10</span>
-                )}
+                  {ct.requiresVerneombud ? (
+                    <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
+                      <CheckCircle2 className="size-4 shrink-0" />
+                      Verneombud lovpålagt
+                    </span>
+                  ) : (
+                    <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>Verneombud: &lt;5</span>
+                  )}
+                  {ct.requiresAmu ? (
+                    <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
+                      <CheckCircle2 className="size-4 shrink-0" />
+                      AMU lovpålagt
+                    </span>
+                  ) : ct.mayRequestAmu ? (
+                    <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
+                      <AlertTriangle className="size-4 shrink-0" />
+                      AMU kan kreves
+                    </span>
+                  ) : (
+                    <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>AMU: &lt;10</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setEmpModal({ mode: 'create' })}
+                    className={`${HERO_ACTION_CLASS} text-white shadow-sm hover:opacity-95`}
+                    style={{ backgroundColor: WORKPLACE_FOREST }}
+                  >
+                    <Plus className="size-4 shrink-0" /> Ny ansatt
+                  </button>
+                </div>
+              </>
+            )
+          }
+          menu={
+            useStandardOrgList ? (
+              <HubMenu1Bar ariaLabel="Organisasjon — faner" items={orgHubMenuItems} />
+            ) : (
+              <WorkplaceBoardTabStrip
+                ariaLabel="Organisasjon — faner"
+                items={orgTabItems}
+                activeId={tab}
+                onSelect={(id) => setTab(id as Tab)}
+              />
+            )
+          }
+        />
+
+        {tab === 'employees' ? (
+          <WorkplaceStandardListLayout
+            className="!mt-0"
+            breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Organisasjon' }, { label: 'Ansatte' }]}
+            title="Ansatte"
+            description={
+              <>
+                <p className="text-sm text-neutral-500">{memberHeadline}</p>
+                <p className="mt-2 max-w-2xl leading-relaxed">
+                  {ct.totalEmployeeCount} i beregning for AML-terskler
+                  {ct.requiresVerneombud ? ' · Verneombud lovpålagt' : ''}
+                  {ct.requiresAmu ? ' · AMU lovpålagt' : ct.mayRequestAmu ? ' · AMU kan kreves' : ''}.
+                </p>
+              </>
+            }
+            hubAriaLabel="Organisasjon — faner"
+            hubItems={orgHubMenuItems}
+            toolbar={{
+              count: hasAnyEmployees ? { value: sortedFilteredEmployees.length, label: 'i visning' } : undefined,
+              searchPlaceholder: 'Søk navn, tittel, e-post…',
+              searchValue: searchEmp,
+              onSearchChange: setSearchEmp,
+              filtersOpen: empStdFiltersOpen,
+              onFiltersOpenChange: setEmpStdFiltersOpen,
+              filterStatusText:
+                filterUnit || empSegment !== 'all' ? 'Filter aktive' : 'Ingen filter',
+              filterPanel: (
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">Enhet</p>
+                    <select
+                      value={filterUnit}
+                      onChange={(e) => setFilterUnit(e.target.value)}
+                      className="mt-2 w-full max-w-md rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="">Alle enheter</option>
+                      {org.units.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">Status</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {(['all', 'active', 'inactive'] as const).map((id) => {
+                        const label = id === 'all' ? 'Alle' : id === 'active' ? 'Aktive' : 'Inaktive'
+                        const selected = empSegment === id
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setEmpSegment(id)}
+                            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                              selected ? 'text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'
+                            }`}
+                            style={selected ? { backgroundColor: WORKPLACE_LIST_LAYOUT_CTA } : undefined}
+                          >
+                            {label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchEmp('')
+                      setFilterUnit('')
+                      setEmpSegment('all')
+                    }}
+                    className="self-start rounded-md border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                  >
+                    Nullstill filter
+                  </button>
+                </div>
+              ),
+              sortOptions: [
+                { value: 'name', label: 'Navn A–Å' },
+                { value: 'unit', label: 'Enhet' },
+                { value: 'role', label: 'Rolle' },
+                { value: 'status', label: 'Status (aktive først)' },
+              ],
+              sortValue: empStdSort,
+              onSortChange: (v) => setEmpStdSort(v as typeof empStdSort),
+              viewMode: empStdViewMode,
+              onViewModeChange: (m) => {
+                setEmpStdViewMode(m)
+                setEmpLayout(m === 'box' ? 'box' : 'list')
+              },
+              primaryAction: { label: 'Ny ansatt', onClick: () => setEmpModal({ mode: 'create' }), icon: Plus },
+            }}
+            contentClassName="!p-0"
+          >
+            {!hasAnyEmployees ? (
+              <div className="flex flex-col items-center justify-center border border-dashed border-neutral-200 py-16 text-center">
+                <p className="text-sm text-neutral-500">Ingen ansatte ennå</p>
                 <button
                   type="button"
                   onClick={() => setEmpModal({ mode: 'create' })}
-                  className={`${HERO_ACTION_CLASS} text-white shadow-sm hover:opacity-95`}
-                  style={{ backgroundColor: WORKPLACE_FOREST }}
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm"
+                  style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
                 >
-                  <Plus className="size-4 shrink-0" /> Ny ansatt
+                  <Plus className="size-4 shrink-0" strokeWidth={2.5} />
+                  Legg til ansatt
                 </button>
               </div>
-            </>
-          }
-          menu={
-            <WorkplaceBoardTabStrip
-              ariaLabel="Organisasjon — faner"
-              items={orgTabItems}
-              activeId={tab}
-              onSelect={(id) => setTab(id as Tab)}
-            />
-          }
-        />
+            ) : sortedFilteredEmployees.length === 0 ? (
+              <div className="px-5 py-14 text-center md:px-6">
+                <p className="text-sm font-medium text-neutral-700">Ingen treff</p>
+                <p className="mt-1 text-xs text-neutral-500">Juster søk eller filter.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmpSegment('all')
+                    setSearchEmp('')
+                    setFilterUnit('')
+                  }}
+                  className="mt-4 rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+                  style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
+                >
+                  Nullstill
+                </button>
+              </div>
+            ) : empStdViewMode === 'table' ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className={`text-sm ${theadRow}`}>
+                      <th className={`${tableCell} font-medium`}>Ansatt</th>
+                      <th className={`${tableCell} font-medium`}>Stilling / rolle</th>
+                      <th className={`${tableCell} font-medium`}>Enhet</th>
+                      <th className={`${tableCell} font-medium`}>Kontakt</th>
+                      <th className={`${tableCell} w-32 font-medium`}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedFilteredEmployees.map((emp, rowIdx) => {
+                      const bg = avatarColor(emp.name)
+                      return (
+                        <tr
+                          key={emp.id}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Rediger ${emp.name}`}
+                          className={`${table1BodyRowClass(layout, rowIdx)} cursor-pointer hover:bg-neutral-50/50`}
+                          onClick={() => setEmpModal({ mode: 'edit', emp })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              setEmpModal({ mode: 'edit', emp })
+                            }
+                          }}
+                        >
+                          <td className={tableCell}>
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="flex size-10 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                                style={{ background: bg }}
+                              >
+                                {initials(emp.name)}
+                              </div>
+                              <span className="font-medium text-neutral-900">{emp.name}</span>
+                            </div>
+                          </td>
+                          <td className={tableCell}>
+                            <div className="text-neutral-800">{emp.jobTitle ?? '—'}</div>
+                            {emp.role ? <div className="mt-0.5 text-xs text-neutral-500">{emp.role}</div> : null}
+                          </td>
+                          <td className={`${tableCell} text-neutral-700`}>{emp.unitName ?? '—'}</td>
+                          <td className={`${tableCell} text-neutral-600`}>
+                            <div className="space-y-0.5 text-sm">
+                              {emp.email ? <div>{emp.email}</div> : null}
+                              {emp.phone ? <div className="text-neutral-500">{emp.phone}</div> : null}
+                              {!emp.email && !emp.phone ? '—' : null}
+                            </div>
+                          </td>
+                          <td className={tableCell}>
+                            <span
+                              className={`inline-flex rounded-none px-2.5 py-0.5 text-xs font-medium ${
+                                emp.active ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-500'
+                              }`}
+                            >
+                              {emp.active ? 'Aktiv' : 'Inaktiv'}
+                            </span>
+                            <div className="mt-1 text-xs text-neutral-500">{EMPLOYMENT_LABELS[emp.employmentType]}</div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : empStdViewMode === 'box' ? (
+              <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 md:p-6">
+                {sortedFilteredEmployees.map((emp) => {
+                  const bg = avatarColor(emp.name)
+                  const roleLine = [emp.jobTitle, emp.role].filter(Boolean).join(' · ') || '—'
+                  return (
+                    <button
+                      key={emp.id}
+                      type="button"
+                      onClick={() => setEmpModal({ mode: 'edit', emp })}
+                      className="flex flex-col overflow-hidden rounded-lg border border-neutral-200/80 bg-white p-4 text-left shadow-sm transition hover:border-neutral-300"
+                      style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className="flex size-11 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                          style={{ background: bg }}
+                        >
+                          {initials(emp.name)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-neutral-900">{emp.name}</p>
+                          <p className="mt-1 text-sm text-neutral-600">{roleLine}</p>
+                          <p className="mt-1 text-xs text-neutral-500">{emp.unitName ?? '—'}</p>
+                          <span
+                            className={`mt-2 inline-block rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                              emp.active ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-600'
+                            }`}
+                          >
+                            {emp.active ? 'Aktiv' : 'Inaktiv'}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <ul className="divide-y divide-neutral-100 px-4 py-2 md:px-6">
+                {sortedFilteredEmployees.map((emp) => {
+                  return (
+                    <li key={emp.id}>
+                      <button
+                        type="button"
+                        onClick={() => setEmpModal({ mode: 'edit', emp })}
+                        className="flex w-full flex-wrap items-start justify-between gap-3 py-4 text-left first:pt-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-neutral-900">{emp.name}</p>
+                          <p className="mt-0.5 text-xs text-neutral-500">
+                            {[emp.jobTitle, emp.role].filter(Boolean).join(' · ') || '—'} · {emp.unitName ?? '—'}
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium ${
+                            emp.active ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-600'
+                          }`}
+                        >
+                          {emp.active ? 'Aktiv' : 'Inaktiv'}
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </WorkplaceStandardListLayout>
+        ) : null}
+
+        {tab === 'units' ? (
+          <>
+            <form
+              id="org-new-unit"
+              className="mt-2 overflow-hidden rounded-xl border border-neutral-200/80"
+              onSubmit={handleCreateUnit}
+              style={{ backgroundColor: WORKPLACE_FOREST }}
+            >
+              <div className={ORG_MERGED_PANEL}>
+                <div className={ORG_MERGED_COL}>
+                  <p className={SETTINGS_LEAD_ON_DARK}>
+                    Navn og type for den nye enheten. Velg overordnet hvis den skal ligge under en annen.
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-unit-name">
+                        Navn
+                      </label>
+                      <input
+                        id="org-unit-name"
+                        value={unitForm.name}
+                        onChange={(e) => setUnitForm((f) => ({ ...f, name: e.target.value }))}
+                        required
+                        className={SETTINGS_INPUT_ON_DARK}
+                      />
+                    </div>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-unit-kind">
+                        Type
+                      </label>
+                      <select
+                        id="org-unit-kind"
+                        value={unitForm.kind}
+                        onChange={(e) => setUnitForm((f) => ({ ...f, kind: e.target.value as OrgUnitKind }))}
+                        className={SETTINGS_INPUT_ON_DARK}
+                      >
+                        {Object.entries(KIND_LABELS).map(([k, v]) => (
+                          <option key={k} value={k}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-unit-parent">
+                        Overordnet enhet
+                      </label>
+                      <select
+                        id="org-unit-parent"
+                        value={unitForm.parentId}
+                        onChange={(e) => setUnitForm((f) => ({ ...f, parentId: e.target.value }))}
+                        className={SETTINGS_INPUT_ON_DARK}
+                      >
+                        <option value="">— Ingen (toppnivå) —</option>
+                        {org.units.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <div className={ORG_MERGED_COL}>
+                  <p className={SETTINGS_LEAD_ON_DARK}>Valgfritt: leder og farge i org.kartet.</p>
+                  <div className="mt-3 space-y-3">
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-unit-head">
+                        Leder / enhetshode
+                      </label>
+                      <input
+                        id="org-unit-head"
+                        value={unitForm.headName}
+                        onChange={(e) => setUnitForm((f) => ({ ...f, headName: e.target.value }))}
+                        className={SETTINGS_INPUT_ON_DARK}
+                      />
+                    </div>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-unit-color">
+                        Farge (org.kart)
+                      </label>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <input
+                          id="org-unit-color"
+                          type="color"
+                          value={unitForm.color}
+                          onChange={(e) => setUnitForm((f) => ({ ...f, color: e.target.value }))}
+                          className="h-10 w-16 cursor-pointer rounded-none border border-white/30 bg-white"
+                        />
+                        <span className="text-xs text-white/70">{unitForm.color}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className={ORG_MERGED_ACTION_COL}>
+                  <button
+                    type="submit"
+                    className="inline-flex w-full min-w-[10rem] items-center justify-center gap-2 rounded-none border border-white/35 bg-white px-5 py-3 text-sm font-semibold shadow-none transition hover:bg-white/95"
+                    style={{ color: layout.accent }}
+                  >
+                    <Plus className="size-4 shrink-0" />
+                    Opprett enhet
+                  </button>
+                </div>
+              </div>
+            </form>
+            <WorkplaceStandardListLayout
+              className="!mt-4"
+              breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Organisasjon' }, { label: 'Enheter' }]}
+              title="Enheter"
+              description="Trestruktur med utvidbare rader. Klikk på en rad for å slette (bekreftelse)."
+              hubAriaLabel="Organisasjon — faner"
+              hubItems={orgHubMenuItems}
+              toolbar={{
+                count: org.units.length > 0 ? { value: sortedFilteredUnitRows.length, label: 'i visning' } : undefined,
+                searchPlaceholder: 'Søk navn, type, leder…',
+                searchValue: unitSearch,
+                onSearchChange: setUnitSearch,
+                filtersOpen: unitStdFiltersOpen,
+                onFiltersOpenChange: setUnitStdFiltersOpen,
+                filterStatusText: unitKindSeg !== 'all' ? 'Filter aktive' : 'Ingen filter',
+                filterPanel: (
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">Type</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {(
+                          [
+                            ['all', 'Alle'] as const,
+                            ['department', 'Avdeling'] as const,
+                            ['division', 'Divisjon'] as const,
+                            ['team', 'Team'] as const,
+                            ['location', 'Lokasjon'] as const,
+                          ] as const
+                        ).map(([id, label]) => {
+                          const selected = unitKindSeg === id
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => setUnitKindSeg(id)}
+                              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                                selected ? 'text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'
+                              }`}
+                              style={selected ? { backgroundColor: WORKPLACE_LIST_LAYOUT_CTA } : undefined}
+                            >
+                              {label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUnitSearch('')
+                        setUnitKindSeg('all')
+                      }}
+                      className="self-start rounded-md border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                    >
+                      Nullstill filter
+                    </button>
+                  </div>
+                ),
+                sortOptions: [
+                  { value: 'name', label: 'Navn A–Å' },
+                  { value: 'kind', label: 'Type' },
+                  { value: 'head', label: 'Leder' },
+                  { value: 'staff', label: 'Ansatte (flest)' },
+                ],
+                sortValue: unitStdSort,
+                onSortChange: (v) => setUnitStdSort(v as typeof unitStdSort),
+                viewMode: unitStdViewMode,
+                onViewModeChange: setUnitStdViewMode,
+                primaryAction: { label: 'Opprett enhet', onClick: () => document.getElementById('org-unit-name')?.focus(), icon: Plus },
+              }}
+              contentClassName="!p-0"
+            >
+              {org.units.length === 0 ? (
+                <div className="flex flex-col items-center justify-center border border-dashed border-neutral-200 py-16 text-center">
+                  <p className="text-sm text-neutral-500">Ingen enheter ennå</p>
+                  <p className="mt-1 text-xs text-neutral-400">Fyll ut skjemaet over og lagre.</p>
+                </div>
+              ) : sortedFilteredUnitRows.length === 0 ? (
+                <div className="px-5 py-14 text-center md:px-6">
+                  <p className="text-sm font-medium text-neutral-700">Ingen treff</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUnitSearch('')
+                      setUnitKindSeg('all')
+                    }}
+                    className="mt-4 rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+                    style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
+                  >
+                    Nullstill
+                  </button>
+                </div>
+              ) : unitStdViewMode === 'table' ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+                    <thead>
+                      <tr className={`text-sm ${theadRow}`}>
+                        <th className={`${tableCell} font-medium`}>Enhet</th>
+                        <th className={`${tableCell} font-medium`}>Type</th>
+                        <th className={`${tableCell} font-medium`}>Leder</th>
+                        <th className={`${tableCell} w-28 font-medium`}>Ansatte</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedFilteredUnitRows.map(({ unit, depth, hasChildren }, rowIdx) => {
+                        const color = unit.color ?? KIND_COLORS[unit.kind]
+                        const empHere = org.displayEmployees.filter((e) => e.unitId === unit.id && e.active).length
+                        const pad = 12 + depth * 20
+                        return (
+                          <tr key={unit.id} className={`${table1BodyRowClass(layout, rowIdx)} hover:bg-neutral-50/50`}>
+                            <td className={tableCell}>
+                              <div className="flex items-center gap-2" style={{ paddingLeft: pad }}>
+                                {hasChildren ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleUnitExpanded(unit.id)}
+                                    className="flex size-8 shrink-0 items-center justify-center rounded-none border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
+                                    aria-expanded={expandedUnits.has(unit.id)}
+                                    title={expandedUnits.has(unit.id) ? 'Skjul underenheter' : 'Vis underenheter'}
+                                  >
+                                    {expandedUnits.has(unit.id) ? (
+                                      <ChevronDown className="size-4" />
+                                    ) : (
+                                      <ChevronRight className="size-4" />
+                                    )}
+                                  </button>
+                                ) : (
+                                  <span className="inline-block w-8 shrink-0" aria-hidden />
+                                )}
+                                <div className="size-3 shrink-0 rounded-full" style={{ background: color }} aria-hidden />
+                                <span className="font-medium text-neutral-900">{unit.name}</span>
+                              </div>
+                            </td>
+                            <td className={`${tableCell} text-neutral-700`}>{KIND_LABELS[unit.kind]}</td>
+                            <td className={`${tableCell} text-neutral-600`}>{unit.headName ?? unit.managerName ?? '—'}</td>
+                            <td className={`${tableCell} tabular-nums text-neutral-700`}>{empHere}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : unitStdViewMode === 'box' ? (
+                <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 md:p-6">
+                  {sortedFilteredUnitRows.map(({ unit, depth }) => {
+                    const color = unit.color ?? KIND_COLORS[unit.kind]
+                    const empHere = org.displayEmployees.filter((e) => e.unitId === unit.id && e.active).length
+                    return (
+                      <div
+                        key={unit.id}
+                        className="rounded-lg border border-neutral-200/80 bg-white p-4 shadow-sm"
+                        style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)', marginLeft: depth * 8 }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="size-3 shrink-0 rounded-full" style={{ background: color }} />
+                          <p className="font-semibold text-neutral-900">{unit.name}</p>
+                        </div>
+                        <p className="mt-2 text-sm text-neutral-600">{KIND_LABELS[unit.kind]}</p>
+                        <p className="mt-1 text-xs text-neutral-500">
+                          {unit.headName ?? unit.managerName ?? '—'} · {empHere} ansatte
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm(`Slett «${unit.name}»?`)) org.deleteUnit(unit.id)
+                          }}
+                          className="mt-3 text-sm font-medium text-red-700 underline"
+                        >
+                          Slett enhet
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <ul className="divide-y divide-neutral-100 px-4 py-2 md:px-6">
+                  {sortedFilteredUnitRows.map(({ unit, depth }) => {
+                    const empHere = org.displayEmployees.filter((e) => e.unitId === unit.id && e.active).length
+                    return (
+                      <li key={unit.id} className="py-4 first:pt-2" style={{ paddingLeft: depth * 12 }}>
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium text-neutral-900">{unit.name}</p>
+                            <p className="text-xs text-neutral-500">
+                              {KIND_LABELS[unit.kind]} · {empHere} ansatte
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Slett «${unit.name}»?`)) org.deleteUnit(unit.id)
+                            }}
+                            className="text-sm text-red-700 underline"
+                          >
+                            Slett
+                          </button>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </WorkplaceStandardListLayout>
+          </>
+        ) : null}
+
+        {tab === 'groups' ? (
+          <>
+            <form
+              id="org-new-group"
+              className="mt-2 overflow-hidden rounded-xl border border-neutral-200/80"
+              onSubmit={handleCreateGroup}
+              style={{ backgroundColor: WORKPLACE_FOREST }}
+            >
+              <div className={ORG_MERGED_PANEL}>
+                <div className={ORG_MERGED_COL}>
+                  <p className={SETTINGS_LEAD_ON_DARK}>Hva skal gruppen hete, og hvordan beskrives den kort?</p>
+                  <div className="mt-3 space-y-3">
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-group-name">
+                        Gruppenavn
+                      </label>
+                      <input
+                        id="org-group-name"
+                        value={groupForm.name}
+                        onChange={(e) => setGroupForm((f) => ({ ...f, name: e.target.value }))}
+                        required
+                        className={SETTINGS_INPUT_ON_DARK}
+                        placeholder="Påkrevd"
+                      />
+                    </div>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-group-desc">
+                        Beskrivelse
+                      </label>
+                      <input
+                        id="org-group-desc"
+                        value={groupForm.description}
+                        onChange={(e) => setGroupForm((f) => ({ ...f, description: e.target.value }))}
+                        className={SETTINGS_INPUT_ON_DARK}
+                        placeholder="Valgfritt"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className={ORG_MERGED_COL}>
+                  <p className={SETTINGS_LEAD_ON_DARK}>Hvem skal omfanget gjelde?</p>
+                  <div className="mt-3">
+                    <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-group-scope">
+                      Omfang
+                    </label>
+                    <select
+                      id="org-group-scope"
+                      value={groupForm.scopeKind}
+                      onChange={(e) =>
+                        setGroupForm((f) => ({ ...f, scopeKind: e.target.value as typeof groupForm.scopeKind }))
+                      }
+                      className={SETTINGS_INPUT_ON_DARK}
+                    >
+                      <option value="all">Alle ansatte</option>
+                      <option value="units">Bestemte enheter</option>
+                      <option value="employees">Bestemte ansatte</option>
+                      <option value="mixed">Enheter + ansatte</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className={`${ORG_MERGED_COL} min-h-[12rem] lg:max-w-[min(100%,560px)] lg:flex-[1.35]`}>
+                  {(groupForm.scopeKind === 'units' || groupForm.scopeKind === 'mixed') && (
+                    <>
+                      <p className={SETTINGS_LEAD_ON_DARK}>Velg enheter</p>
+                      <div className="mt-1.5 max-h-40 space-y-1.5 overflow-y-auto rounded-none border border-white/20 bg-black/15 p-2">
+                        {org.units.length === 0 ? (
+                          <p className="text-xs text-white/60">Ingen enheter ennå.</p>
+                        ) : (
+                          org.units.map((u) => (
+                            <label key={u.id} className="flex cursor-pointer items-center gap-2 text-sm text-white/95">
+                              <input
+                                type="checkbox"
+                                checked={groupForm.unitIds.includes(u.id)}
+                                onChange={(e) =>
+                                  setGroupForm((f) => ({
+                                    ...f,
+                                    unitIds: e.target.checked ? [...f.unitIds, u.id] : f.unitIds.filter((id) => id !== u.id),
+                                  }))
+                                }
+                                className="size-4 rounded-none border-white/40 bg-white/10 text-[#1a3d32] focus:ring-1 focus:ring-white"
+                              />
+                              <span>{u.name}</span>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
+                  {(groupForm.scopeKind === 'employees' || groupForm.scopeKind === 'mixed') && (
+                    <>
+                      <p
+                        className={
+                          SETTINGS_LEAD_ON_DARK +
+                          (groupForm.scopeKind === 'mixed' ? ' mt-4 border-t border-white/15 pt-4' : '')
+                        }
+                      >
+                        Velg ansatte
+                      </p>
+                      <div className="mt-1.5 max-h-40 space-y-1.5 overflow-y-auto rounded-none border border-white/20 bg-black/15 p-2">
+                        {org.activeEmployees.length === 0 ? (
+                          <p className="text-xs text-white/60">Ingen aktive ansatte.</p>
+                        ) : (
+                          org.activeEmployees.map((emp) => (
+                            <label key={emp.id} className="flex cursor-pointer items-center gap-2 text-sm text-white/95">
+                              <input
+                                type="checkbox"
+                                checked={groupForm.employeeIds.includes(emp.id)}
+                                onChange={(e) =>
+                                  setGroupForm((f) => ({
+                                    ...f,
+                                    employeeIds: e.target.checked
+                                      ? [...f.employeeIds, emp.id]
+                                      : f.employeeIds.filter((id) => id !== emp.id),
+                                  }))
+                                }
+                                className="size-4 rounded-none border-white/40 bg-white/10 text-[#1a3d32] focus:ring-1 focus:ring-white"
+                              />
+                              <span>{emp.name}</span>
+                              {emp.jobTitle && <span className="text-xs text-white/55">{emp.jobTitle}</span>}
+                            </label>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
+                  {groupForm.scopeKind === 'all' && (
+                    <p className={SETTINGS_LEAD_ON_DARK}>Gruppen gjelder alle ansatte.</p>
+                  )}
+                </div>
+
+                <div className={ORG_MERGED_ACTION_COL}>
+                  <button
+                    type="submit"
+                    className="inline-flex w-full min-w-[10rem] items-center justify-center gap-2 rounded-none border border-white/35 bg-white px-5 py-3 text-sm font-semibold shadow-none transition hover:bg-white/95"
+                    style={{ color: layout.accent }}
+                  >
+                    <Plus className="size-4 shrink-0" />
+                    Opprett gruppe
+                  </button>
+                </div>
+              </div>
+            </form>
+            <WorkplaceStandardListLayout
+              className="!mt-4"
+              breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Organisasjon' }, { label: 'Brukergrupper' }]}
+              title="Brukergrupper"
+              description="Oversikt over grupper og omfang. Opprett nye i skjemaet over."
+              hubAriaLabel="Organisasjon — faner"
+              hubItems={orgHubMenuItems}
+              toolbar={{
+                count: org.groups.length > 0 ? { value: groupsStdFiltered.length, label: 'i visning' } : undefined,
+                searchPlaceholder: 'Søk gruppe eller omfang…',
+                searchValue: groupStdSearch,
+                onSearchChange: setGroupStdSearch,
+                filtersOpen: groupStdFiltersOpen,
+                onFiltersOpenChange: setGroupStdFiltersOpen,
+                filterStatusText: 'Ingen filter',
+                filterPanel: <p className="text-sm text-neutral-600">Bruk søk for å filtrere listen.</p>,
+                sortOptions: [
+                  { value: 'name', label: 'Navn A–Å' },
+                  { value: 'scope', label: 'Omfang' },
+                ],
+                sortValue: groupStdSort,
+                onSortChange: (v) => setGroupStdSort(v as typeof groupStdSort),
+                viewMode: groupStdViewMode,
+                onViewModeChange: setGroupStdViewMode,
+                primaryAction: {
+                  label: 'Opprett gruppe',
+                  onClick: () => document.getElementById('org-group-name')?.focus(),
+                  icon: Plus,
+                },
+              }}
+              contentClassName="!p-0"
+            >
+              {org.groups.length === 0 ? (
+                <div className="flex flex-col items-center justify-center border border-dashed border-neutral-200 py-16 text-center">
+                  <p className="text-sm text-neutral-500">Ingen grupper ennå</p>
+                </div>
+              ) : groupsStdFiltered.length === 0 ? (
+                <div className="px-5 py-14 text-center md:px-6">
+                  <p className="text-sm font-medium text-neutral-700">Ingen treff</p>
+                  <button
+                    type="button"
+                    onClick={() => setGroupStdSearch('')}
+                    className="mt-4 rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+                    style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
+                  >
+                    Nullstill søk
+                  </button>
+                </div>
+              ) : groupStdViewMode === 'table' ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[560px] border-collapse text-left text-sm">
+                    <thead>
+                      <tr className={`text-sm ${theadRow}`}>
+                        <th className={`${tableCell} font-medium`}>Gruppe</th>
+                        <th className={`${tableCell} font-medium`}>Omfang</th>
+                        <th className={`${tableCell} w-28 font-medium`} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {groupsStdFiltered.map((g, rowIdx) => (
+                        <tr key={g.id} className={`${table1BodyRowClass(layout, rowIdx)} hover:bg-neutral-50/50`}>
+                          <td className={tableCell}>
+                            <p className="font-medium text-neutral-900">{g.name}</p>
+                            {g.description ? <p className="mt-0.5 text-xs text-neutral-500">{g.description}</p> : null}
+                          </td>
+                          <td className={`${tableCell} text-neutral-600`}>{org.getGroupLabel(g)}</td>
+                          <td className={`${tableCell} text-right`}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`Slett «${g.name}»?`)) org.deleteGroup(g.id)
+                              }}
+                              className="text-sm font-medium text-red-700 underline"
+                            >
+                              Slett
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : groupStdViewMode === 'box' ? (
+                <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 md:p-6">
+                  {groupsStdFiltered.map((g) => (
+                    <div
+                      key={g.id}
+                      className="rounded-lg border border-neutral-200/80 bg-white p-4 shadow-sm"
+                      style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+                    >
+                      <p className="font-semibold text-neutral-900">{g.name}</p>
+                      <p className="mt-2 text-sm text-neutral-600">{org.getGroupLabel(g)}</p>
+                      {g.description ? <p className="mt-2 text-xs text-neutral-500">{g.description}</p> : null}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Slett «${g.name}»?`)) org.deleteGroup(g.id)
+                        }}
+                        className="mt-3 text-sm font-medium text-red-700 underline"
+                      >
+                        Slett gruppe
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <ul className="divide-y divide-neutral-100 px-4 py-2 md:px-6">
+                  {groupsStdFiltered.map((g) => (
+                    <li key={g.id} className="flex flex-wrap items-start justify-between gap-3 py-4 first:pt-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-neutral-900">{g.name}</p>
+                        <p className="mt-0.5 text-xs text-neutral-500">{org.getGroupLabel(g)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Slett «${g.name}»?`)) org.deleteGroup(g.id)
+                        }}
+                        className="text-sm text-red-700 underline"
+                      >
+                        Slett
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </WorkplaceStandardListLayout>
+          </>
+        ) : null}
 
         {tab === 'settings' && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -781,153 +1736,6 @@ export function OrganisationPage() {
           </div>
         )}
 
-        {tab === 'groups' && (
-        <form
-          id="org-new-group"
-          className="mt-2 overflow-hidden rounded-xl border border-neutral-200/80"
-          onSubmit={handleCreateGroup}
-          style={{ backgroundColor: WORKPLACE_FOREST }}
-        >
-          <div className={ORG_MERGED_PANEL}>
-            <div className={ORG_MERGED_COL}>
-              <p className={SETTINGS_LEAD_ON_DARK}>Hva skal gruppen hete, og hvordan beskrives den kort?</p>
-              <div className="mt-3 space-y-3">
-                <div>
-                  <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-group-name">
-                    Gruppenavn
-                  </label>
-                  <input
-                    id="org-group-name"
-                    value={groupForm.name}
-                    onChange={(e) => setGroupForm((f) => ({ ...f, name: e.target.value }))}
-                    required
-                    className={SETTINGS_INPUT_ON_DARK}
-                    placeholder="Påkrevd"
-                  />
-                </div>
-                <div>
-                  <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-group-desc">
-                    Beskrivelse
-                  </label>
-                  <input
-                    id="org-group-desc"
-                    value={groupForm.description}
-                    onChange={(e) => setGroupForm((f) => ({ ...f, description: e.target.value }))}
-                    className={SETTINGS_INPUT_ON_DARK}
-                    placeholder="Valgfritt"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className={ORG_MERGED_COL}>
-              <p className={SETTINGS_LEAD_ON_DARK}>Hvem skal omfanget gjelde — alle, utvalgte enheter, utvalgte ansatte eller en kombinasjon?</p>
-              <div className="mt-3">
-                <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-group-scope">
-                  Omfang
-                </label>
-                <select
-                  id="org-group-scope"
-                  value={groupForm.scopeKind}
-                  onChange={(e) =>
-                    setGroupForm((f) => ({ ...f, scopeKind: e.target.value as typeof groupForm.scopeKind }))
-                  }
-                  className={SETTINGS_INPUT_ON_DARK}
-                >
-                  <option value="all">Alle ansatte</option>
-                  <option value="units">Bestemte enheter</option>
-                  <option value="employees">Bestemte ansatte</option>
-                  <option value="mixed">Enheter + ansatte</option>
-                </select>
-              </div>
-            </div>
-
-            <div className={`${ORG_MERGED_COL} min-h-[12rem] lg:max-w-[min(100%,560px)] lg:flex-[1.35]`}>
-              {(groupForm.scopeKind === 'units' || groupForm.scopeKind === 'mixed') && (
-                <>
-                  <p className={SETTINGS_LEAD_ON_DARK}>Kryss av hvilke enheter som inngår i gruppen.</p>
-                  <p className={`${SETTINGS_FIELD_LABEL_ON_DARK} mt-3`}>Velg enheter</p>
-                  <div className="mt-1.5 max-h-40 overflow-y-auto space-y-1.5 rounded-none border border-white/20 bg-black/15 p-2">
-                    {org.units.length === 0 ? (
-                      <p className="text-xs text-white/60">Ingen enheter ennå.</p>
-                    ) : (
-                      org.units.map((u) => (
-                        <label key={u.id} className="flex cursor-pointer items-center gap-2 text-sm text-white/95">
-                          <input
-                            type="checkbox"
-                            checked={groupForm.unitIds.includes(u.id)}
-                            onChange={(e) =>
-                              setGroupForm((f) => ({
-                                ...f,
-                                unitIds: e.target.checked ? [...f.unitIds, u.id] : f.unitIds.filter((id) => id !== u.id),
-                              }))
-                            }
-                            className="size-4 rounded-none border-white/40 bg-white/10 text-[#1a3d32] focus:ring-1 focus:ring-white"
-                          />
-                          <span>{u.name}</span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                </>
-              )}
-              {(groupForm.scopeKind === 'employees' || groupForm.scopeKind === 'mixed') && (
-                <>
-                  <p
-                    className={
-                      SETTINGS_LEAD_ON_DARK +
-                      (groupForm.scopeKind === 'mixed' ? ' mt-4 border-t border-white/15 pt-4' : '')
-                    }
-                  >
-                    Velg enkeltpersoner som skal inngå.
-                  </p>
-                  <p className={`${SETTINGS_FIELD_LABEL_ON_DARK} mt-3`}>Velg ansatte</p>
-                  <div className="mt-1.5 max-h-40 overflow-y-auto space-y-1.5 rounded-none border border-white/20 bg-black/15 p-2">
-                    {org.activeEmployees.length === 0 ? (
-                      <p className="text-xs text-white/60">Ingen aktive ansatte.</p>
-                    ) : (
-                      org.activeEmployees.map((emp) => (
-                        <label key={emp.id} className="flex cursor-pointer items-center gap-2 text-sm text-white/95">
-                          <input
-                            type="checkbox"
-                            checked={groupForm.employeeIds.includes(emp.id)}
-                            onChange={(e) =>
-                              setGroupForm((f) => ({
-                                ...f,
-                                employeeIds: e.target.checked
-                                  ? [...f.employeeIds, emp.id]
-                                  : f.employeeIds.filter((id) => id !== emp.id),
-                              }))
-                            }
-                            className="size-4 rounded-none border-white/40 bg-white/10 text-[#1a3d32] focus:ring-1 focus:ring-white"
-                          />
-                          <span>{emp.name}</span>
-                          {emp.jobTitle && <span className="text-xs text-white/55">{emp.jobTitle}</span>}
-                        </label>
-                      ))
-                    )}
-                  </div>
-                </>
-              )}
-              {groupForm.scopeKind === 'all' && (
-                <p className={SETTINGS_LEAD_ON_DARK}>Gruppen gjelder alle ansatte. Ingen ytterligere utvalg.</p>
-              )}
-            </div>
-
-            <div className={ORG_MERGED_ACTION_COL}>
-              <button
-                type="submit"
-                className="inline-flex w-full min-w-[10rem] items-center justify-center gap-2 rounded-none border border-white/35 bg-white px-5 py-3 text-sm font-semibold shadow-none transition hover:bg-white/95"
-                style={{ color: layout.accent }}
-              >
-                <Plus className="size-4 shrink-0" />
-                Opprett gruppe
-              </button>
-            </div>
-          </div>
-        </form>
-      )}
-
       <div
         className="mt-2 space-y-8 rounded-xl border border-neutral-200/80 bg-white p-4 shadow-sm md:p-6"
         style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
@@ -943,8 +1751,8 @@ export function OrganisationPage() {
         </section>
       )}
 
-      {/* ── Employees — airy table (aligned with dashboard) ───────────────── */}
-      {tab === 'employees' && (
+      {/* ── Employees — legacy (standard layout brukes på Ansatte-fanen) ─────── */}
+      {tab === 'employees' && !useStandardOrgList && (
         <section className="space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -1282,8 +2090,8 @@ export function OrganisationPage() {
         </section>
       )}
 
-      {/* ── Units — samlet panel under meny som brukergrupper ─ */}
-      {tab === 'units' && (
+      {/* ── Units — legacy ─ */}
+      {tab === 'units' && !useStandardOrgList && (
         <>
           <form
             id="org-new-unit"
@@ -1554,8 +2362,8 @@ export function OrganisationPage() {
         </>
       )}
 
-      {/* ── Groups — samme mønster som Innstillinger (bokser under meny + tabellayout) ─ */}
-      {tab === 'groups' && (
+      {/* ── Groups — legacy ─ */}
+      {tab === 'groups' && !useStandardOrgList && (
         <section className="w-full space-y-0">
           <Mainbox1
             title="Brukergrupper"
