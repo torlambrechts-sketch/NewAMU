@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
   ArrowRight,
@@ -12,7 +13,9 @@ import {
   GraduationCap,
   HardHat,
   HeartPulse,
+  Home,
   Kanban,
+  LayoutDashboard,
   ListChecks,
   Scale,
   ShieldAlert,
@@ -29,6 +32,8 @@ import {
 } from '../hooks/useWorkspaceDashboardData'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { mergeLayoutPayload } from '../lib/layoutLabTokens'
+import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 
 const PAGE = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 
@@ -65,6 +70,7 @@ function KpiCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ProjectDashboard() {
+  const navigate = useNavigate()
   const org = useOrganisation()
   const rep = useRepresentatives()
   const { payload: layoutPayload } = useUiTheme()
@@ -91,58 +97,70 @@ export function ProjectDashboard() {
     openComplianceTotal,
   } = useWorkspaceDashboardData()
 
+  const classicHubItems: HubMenu1Item[] = useMemo(
+    () => [
+      {
+        key: 'home',
+        label: 'Nytt hjem',
+        icon: Home,
+        active: false,
+        onClick: () => navigate('/'),
+      },
+      {
+        key: 'classic',
+        label: 'Klassisk dashbord',
+        icon: LayoutDashboard,
+        active: true,
+        onClick: () => navigate('/dashboard/classic'),
+      },
+    ],
+    [navigate],
+  )
+
   return (
     <div className={PAGE}>
-
-      {/* ── Breadcrumb + toolbar ─────────────────────────────────────────── */}
-      <nav className="mb-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
-        <span>
-          <span className="text-neutral-500">Workspace</span>
-          <span className="mx-2 text-neutral-400">→</span>
-          <span className="font-medium text-neutral-800">Dashbord</span>
-        </span>
-        <div className="ml-auto flex flex-wrap gap-2">
-          <Link
-            to="/"
-            className="inline-flex h-8 items-center gap-1.5 border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-800 shadow-sm hover:bg-neutral-50"
-          >
-            Nytt hjem
-          </Link>
-          <Link to="/action-board"
-            className="inline-flex h-8 items-center gap-1.5 border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-800 shadow-sm hover:bg-neutral-50">
-            <Kanban className="size-3.5 text-violet-600" />
-            Action Board
-          </Link>
-          <Link to="/aarshjul"
-            className="inline-flex h-8 items-center gap-1.5 border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-800 shadow-sm hover:bg-neutral-50">
-            <CalendarRange className="size-3.5 text-amber-500" />
-            Årshjul
-          </Link>
-        </div>
-      </nav>
-
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-3 border-b border-neutral-200/80 pb-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
-            Velkommen tilbake
-          </h1>
-          <p className="mt-1 text-sm text-neutral-500">
+      <WorkplacePageHeading1
+        breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Dashbord' }, { label: 'Klassisk' }]}
+        title="Velkommen tilbake"
+        description={
+          <p className="text-sm text-neutral-500">
             {today.toLocaleDateString('no-NO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
-        </div>
-        {nextMeeting && (
-          <Link to="/council?tab=meetings"
-            className="inline-flex items-center gap-2 border border-[#1a3d32]/20 bg-[#1a3d32]/5 px-3 py-2 text-xs font-medium text-[#1a3d32] hover:bg-[#1a3d32]/10 transition-colors">
-            <Calendar className="size-3.5" />
-            Neste AMU: {fmtDate(nextMeeting.startsAt)} kl. {fmtTime(nextMeeting.startsAt)}
-          </Link>
-        )}
-      </div>
+        }
+        headerActions={
+          <>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                to="/action-board"
+                className="inline-flex h-8 items-center gap-1.5 border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-800 shadow-sm hover:bg-neutral-50"
+              >
+                <Kanban className="size-3.5 text-violet-600" />
+                Action Board
+              </Link>
+              <Link
+                to="/aarshjul"
+                className="inline-flex h-8 items-center gap-1.5 border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-800 shadow-sm hover:bg-neutral-50"
+              >
+                <CalendarRange className="size-3.5 text-amber-500" />
+                Årshjul
+              </Link>
+            </div>
+            {nextMeeting ? (
+              <Link
+                to="/council?tab=meetings"
+                className="inline-flex items-center gap-2 border border-[#1a3d32]/20 bg-[#1a3d32]/5 px-3 py-2 text-xs font-medium text-[#1a3d32] transition-colors hover:bg-[#1a3d32]/10"
+              >
+                <Calendar className="size-3.5" />
+                Neste AMU: {fmtDate(nextMeeting.startsAt)} kl. {fmtTime(nextMeeting.startsAt)}
+              </Link>
+            ) : null}
+          </>
+        }
+        menu={<HubMenu1Bar ariaLabel="Workspace — dashbord" items={classicHubItems} />}
+      />
 
       {/* ── KPI row — 4 coloured tiles ───────────────────────────────────── */}
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label="Åpne oppgaver"
           value={openTasks.length}

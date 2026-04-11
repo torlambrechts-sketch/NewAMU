@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell,
   Calendar,
   ChevronDown,
   ChevronRight,
+  Home,
+  LayoutDashboard,
   LayoutGrid,
   ListChecks,
   Settings,
@@ -20,12 +22,15 @@ import {
   fmtTime,
   useWorkspaceDashboardData,
 } from '../hooks/useWorkspaceDashboardData'
+import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 
 const CREAM_DEEP = '#EFE8DC'
 const FOREST = '#1a3d32'
-const SERIF = "'Libre Baskerville', Georgia, serif"
 
 export function WelcomeDashboardPage() {
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { profile, user } = useOrgSetupContext()
   const org = useOrganisation()
   const {
@@ -48,6 +53,26 @@ export function WelcomeDashboardPage() {
     const e = user?.email?.split('@')[0]
     return e || 'deg'
   }, [profile?.display_name, user?.email])
+
+  const homeHubItems: HubMenu1Item[] = useMemo(
+    () => [
+      {
+        key: 'home',
+        label: 'Hjem',
+        icon: Home,
+        active: pathname === '/' || pathname === '',
+        onClick: () => navigate('/'),
+      },
+      {
+        key: 'classic',
+        label: 'Klassisk dashbord',
+        icon: LayoutDashboard,
+        active: pathname === '/dashboard/classic',
+        onClick: () => navigate('/dashboard/classic'),
+      },
+    ],
+    [navigate, pathname],
+  )
 
   const donutStops = useMemo(() => {
     const total = openTasks.length
@@ -81,55 +106,41 @@ export function WelcomeDashboardPage() {
   return (
     <>
       <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-        <nav className="mb-4 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-          <span>Workspace</span>
-          <span className="text-neutral-300">›</span>
-          <span className="font-medium text-neutral-700">Hjem</span>
-          <Link
-            to="/dashboard/classic"
-            className="ml-auto text-xs font-medium text-[#1a3d32] underline-offset-2 hover:underline"
-          >
-            Klassisk dashbord
-          </Link>
-        </nav>
-
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)] lg:items-start">
-          {/* Main 70% */}
-          <div className="min-w-0 space-y-6">
-            <div>
+        <WorkplacePageHeading1
+          breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Hjem' }]}
+          title={`Velkommen tilbake, ${displayName}`}
+          description={
+            <>
               <p className="text-xs text-neutral-500">
                 {today.toLocaleDateString('no-NO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
-              <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
-                <h1
-                  className="text-2xl font-semibold tracking-tight text-neutral-900 md:text-3xl"
-                  style={{ fontFamily: SERIF }}
-                >
-                  Velkommen tilbake, {displayName}
-                </h1>
-                <div className="flex items-center gap-1 text-neutral-500">
-                  <Link
-                    to="/profile"
-                    className="rounded-md p-2 hover:bg-white/80"
-                    aria-label="Profil og innstillinger"
-                  >
-                    <Settings className="size-5" />
-                  </Link>
-                  <span className="relative rounded-md p-2" title="Varsler (generert)">
-                    <Bell className="size-5" />
-                    {unreadCount > 0 ?
-                      <span className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </span>
-                    : null}
-                  </span>
-                </div>
-              </div>
-              <p className="mt-2 text-sm text-neutral-600">
-                {org.settings.orgName} · oversikt fra oppgaver, HMS, råd og årshjul — samme data som i det klassiske dashbordet.
+              <p className="mt-2">
+                {org.settings.orgName} · oversikt fra oppgaver, HMS, råd og årshjul — samme data som i det klassiske
+                dashbordet.
               </p>
+            </>
+          }
+          headerActions={
+            <div className="flex items-center gap-1 text-neutral-500">
+              <Link to="/profile" className="rounded-md p-2 hover:bg-white/80" aria-label="Profil og innstillinger">
+                <Settings className="size-5" />
+              </Link>
+              <span className="relative rounded-md p-2" title="Varsler (generert)">
+                <Bell className="size-5" />
+                {unreadCount > 0 ? (
+                  <span className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                ) : null}
+              </span>
             </div>
+          }
+          menu={<HubMenu1Bar ariaLabel="Workspace — visning" items={homeHubItems} />}
+        />
 
+        <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)] lg:items-start">
+          {/* Main 70% */}
+          <div className="min-w-0 space-y-6">
             <div className="grid gap-4 sm:grid-cols-2">
               <div
                 className="flex items-center justify-between gap-4 rounded-lg border border-neutral-200/60 px-5 py-4"

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { Mainbox1 } from '../components/layout/Mainbox1'
 import { Table1Shell } from '../components/layout/Table1Shell'
@@ -27,6 +27,7 @@ import type {
   IncidentEvidencePhoto,
 } from '../types/hse'
 import { WorkplaceReportingHubMenu } from '../components/workplace/WorkplaceReportingHubMenu'
+import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
@@ -474,118 +475,95 @@ export function WorkplaceIncidentsPage() {
 
   return (
     <div className={PAGE_WRAP}>
-      <nav className="mb-4 text-sm text-neutral-600">
-        <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
-          Workspace
-        </Link>
-        <span className="mx-2 text-neutral-400">→</span>
-        <Link to="/workplace-reporting" className="text-neutral-500 hover:text-[#1a3d32]">
-          Arbeidsplassrapportering
-        </Link>
-        <span className="mx-2 text-neutral-400">→</span>
-        <span className="font-medium text-neutral-800">Hendelser</span>
-      </nav>
-
       {hse.error && (
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{hse.error}</p>
       )}
       {hse.loading && supabaseConfigured && <p className="mb-4 text-sm text-neutral-500">Laster HMS-data…</p>}
 
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-200/80 pb-6">
-        <div>
-          <h1
-            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
-            Hendelser (HSE)
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-neutral-600">
-            Ulykker, nestenulykker og avvik under arbeidsplassrapportering. Registrering i sidevindu med strukturerte felt,
-            bildebevis og varsel ved høy alvorlighetsgrad (AML § 5-2).
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-6">
-        <WorkplaceReportingHubMenu incidentsBadgeCount={incidentStats.open} />
-      </div>
+      <WorkplacePageHeading1
+        breadcrumb={[
+          { label: 'Workspace', to: '/' },
+          { label: 'Arbeidsplassrapportering', to: '/workplace-reporting' },
+          { label: 'Hendelser' },
+        ]}
+        title="Hendelser (HSE)"
+        description="Ulykker, nestenulykker og avvik under arbeidsplassrapportering. Registrering i sidevindu med strukturerte felt, bildebevis og varsel ved høy alvorlighetsgrad (AML § 5-2)."
+        headerActions={
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+            <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+              Synlige <strong className="ml-1 font-semibold">{incidentStats.total}</strong>
+            </span>
+            <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
+              Åpne <strong className="ml-1 font-semibold">{incidentStats.open}</strong>
+            </span>
+            <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
+              Høy alvor <strong className="ml-1 font-semibold">{incidentStats.high}</strong>
+            </span>
+            <span className={`${HERO_ACTION_CLASS} bg-red-100 text-red-900`}>
+              Kritisk <strong className="ml-1 font-semibold">{incidentStats.critical}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={openNewIncidentPanel}
+              className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+            >
+              <Plus className="size-4 shrink-0" />
+              Ny hendelse
+            </button>
+            <WizardButton
+              label="Veiviser"
+              variant="solid"
+              className={HERO_ACTION_CLASS}
+              def={makeIncidentWizard((data) => {
+                const kind = String(data.kind) as Incident['kind']
+                const ft = String(data.formTemplate) as IncidentFormTemplate
+                const leaderName = String(data.routeManager ?? '').trim()
+                const reportedByStr = String(data.reportedBy || '').trim()
+                const repEmp = org.displayEmployees.find(
+                  (e) => e.name.trim().toLowerCase() === reportedByStr.toLowerCase(),
+                )
+                const leaderEmp = leaderName
+                  ? org.displayEmployees.find((e) => e.name.trim().toLowerCase() === leaderName.toLowerCase())
+                  : undefined
+                const created = hse.createIncident({
+                  kind,
+                  category: 'physical_injury',
+                  formTemplate: ft,
+                  severity: String(data.severity) as Incident['severity'],
+                  occurredAt: data.occurredAt
+                    ? new Date(String(data.occurredAt)).toISOString()
+                    : new Date().toISOString(),
+                  location: String(data.location) || '—',
+                  department: String(data.department ?? ''),
+                  departmentId: undefined,
+                  description: String(data.description) || '',
+                  experienceDetail: data.experienceDetail ? String(data.experienceDetail) : undefined,
+                  injuredPerson: data.injuredPerson ? String(data.injuredPerson) : undefined,
+                  immediateActions: String(data.immediateActions) || '',
+                  reportedBy: repEmp?.name ?? (reportedByStr || '—'),
+                  reportedByEmployeeId: repEmp?.id,
+                  nearestLeaderEmployeeId: leaderEmp?.id,
+                  status: String(data.status) as Incident['status'],
+                  correctiveActions: [],
+                  arbeidstilsynetNotified: Boolean(data.arbeidstilsynetNotified),
+                  routing: leaderName
+                    ? {
+                        managerName: leaderEmp?.name ?? leaderName,
+                        verneombudNotified: Boolean(data.routeVerneombud),
+                        amuCaseCreated: Boolean(data.routeAMU),
+                        routedAt: new Date().toISOString(),
+                      }
+                    : undefined,
+                })
+                openEditIncidentPanel(created)
+              })}
+            />
+          </div>
+        }
+        menu={<WorkplaceReportingHubMenu incidentsBadgeCount={incidentStats.open} />}
+      />
 
       <div className="mt-8 space-y-6">
-        <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="mt-5 flex flex-wrap items-center gap-2">
-              <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-                Synlige <strong className="ml-1 font-semibold">{incidentStats.total}</strong>
-              </span>
-              <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
-                Åpne <strong className="ml-1 font-semibold">{incidentStats.open}</strong>
-              </span>
-              <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
-                Høy alvor <strong className="ml-1 font-semibold">{incidentStats.high}</strong>
-              </span>
-              <span className={`${HERO_ACTION_CLASS} bg-red-100 text-red-900`}>
-                Kritisk <strong className="ml-1 font-semibold">{incidentStats.critical}</strong>
-              </span>
-              <button
-                type="button"
-                onClick={openNewIncidentPanel}
-                className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
-              >
-                <Plus className="size-4 shrink-0" />
-                Ny hendelse
-              </button>
-              <WizardButton
-                label="Veiviser"
-                variant="solid"
-                className={HERO_ACTION_CLASS}
-                def={makeIncidentWizard((data) => {
-                  const kind = String(data.kind) as Incident['kind']
-                  const ft = String(data.formTemplate) as IncidentFormTemplate
-                  const leaderName = String(data.routeManager ?? '').trim()
-                  const reportedByStr = String(data.reportedBy || '').trim()
-                  const repEmp = org.displayEmployees.find(
-                    (e) => e.name.trim().toLowerCase() === reportedByStr.toLowerCase(),
-                  )
-                  const leaderEmp = leaderName
-                    ? org.displayEmployees.find((e) => e.name.trim().toLowerCase() === leaderName.toLowerCase())
-                    : undefined
-                  const created = hse.createIncident({
-                    kind,
-                    category: 'physical_injury',
-                    formTemplate: ft,
-                    severity: String(data.severity) as Incident['severity'],
-                    occurredAt: data.occurredAt
-                      ? new Date(String(data.occurredAt)).toISOString()
-                      : new Date().toISOString(),
-                    location: String(data.location) || '—',
-                    department: String(data.department ?? ''),
-                    departmentId: undefined,
-                    description: String(data.description) || '',
-                    experienceDetail: data.experienceDetail ? String(data.experienceDetail) : undefined,
-                    injuredPerson: data.injuredPerson ? String(data.injuredPerson) : undefined,
-                    immediateActions: String(data.immediateActions) || '',
-                    reportedBy: repEmp?.name ?? (reportedByStr || '—'),
-                    reportedByEmployeeId: repEmp?.id,
-                    nearestLeaderEmployeeId: leaderEmp?.id,
-                    status: String(data.status) as Incident['status'],
-                    correctiveActions: [],
-                    arbeidstilsynetNotified: Boolean(data.arbeidstilsynetNotified),
-                    routing: leaderName
-                      ? {
-                          managerName: leaderEmp?.name ?? leaderName,
-                          verneombudNotified: Boolean(data.routeVerneombud),
-                          amuCaseCreated: Boolean(data.routeAMU),
-                          routedAt: new Date().toISOString(),
-                        }
-                      : undefined,
-                  })
-                  openEditIncidentPanel(created)
-                })}
-              />
-            </div>
-          </div>
-        </div>
-
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div
             className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`}

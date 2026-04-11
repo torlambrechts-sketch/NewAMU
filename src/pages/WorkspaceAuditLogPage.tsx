@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Download, Search, Star } from 'lucide-react'
+import { Download, LayoutGrid, Search, Star, Tag } from 'lucide-react'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useHse } from '../hooks/useHse'
 import {
@@ -8,10 +8,10 @@ import {
   type WorkspaceAuditSourceFilter,
   parseWorkspaceAuditSourceParam,
 } from '../hooks/useWorkspaceAuditFeed'
-import { PostingsStyleSurface, TASK_POSTINGS_FOREST, TASK_POSTINGS_SERIF } from '../components/tasks/tasksPostingsLayout'
+import { PostingsStyleSurface } from '../components/tasks/tasksPostingsLayout'
+import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import type { PermissionKey } from '../lib/permissionKeys'
-
-const FOREST = TASK_POSTINGS_FOREST
 
 const SOURCE_ORDER: Exclude<WorkspaceAuditSourceFilter, 'all'>[] = [
   'tasks',
@@ -56,11 +56,6 @@ export function WorkspaceAuditLogPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const category = parseWorkspaceAuditSourceParam(searchParams.get('source'))
   const [q, setQ] = useState('')
-
-  const canSeeSource = (s: Exclude<WorkspaceAuditSourceFilter, 'all'>) => {
-    if (!gateNav) return true
-    return can(SOURCE_PERM[s])
-  }
 
   const permittedRows = useMemo(() => {
     return rows.filter((r) => {
@@ -124,72 +119,60 @@ export function WorkspaceAuditLogPage() {
 
   const orgName = organization?.name?.trim() ?? 'Organisasjon'
 
+  const sourceSectionLabel = category === 'all' ? 'Alle kilder' : SOURCE_SHORT[category]
+
+  const auditSourceHubItems: HubMenu1Item[] = useMemo(() => {
+    const items: HubMenu1Item[] = [
+      {
+        key: 'all',
+        label: 'Alle',
+        icon: LayoutGrid,
+        active: category === 'all',
+        badgeCount: segmentCounts.all,
+        onClick: () => setCategory('all'),
+      },
+    ]
+    for (const src of SOURCE_ORDER) {
+      if (gateNav && !can(SOURCE_PERM[src])) continue
+      items.push({
+        key: src,
+        label: SOURCE_SHORT[src],
+        icon: Tag,
+        active: category === src,
+        badgeCount: segmentCounts.bySource[src],
+        onClick: () => setCategory(src),
+      })
+    }
+    return items
+  }, [category, segmentCounts, gateNav, can])
+
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-      <div className="space-y-4">
-        <p className="text-xs text-neutral-500">
-          <Link to="/" className="hover:text-neutral-700">
-            Workspace
-          </Link>
-          <span className="mx-1.5 text-neutral-300">›</span>
-          <span className="text-neutral-600">Revisjonslogg</span>
-        </p>
-
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1
-              className="text-2xl font-semibold tracking-tight text-neutral-900 md:text-3xl"
-              style={{ fontFamily: TASK_POSTINGS_SERIF }}
-            >
-              {filtered.length} hendelser
-            </h1>
-            <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-900">
-              {category === 'all' ? 'Alle kilder' : SOURCE_SHORT[category]}
-            </span>
-          </div>
-          <span className="text-sm text-neutral-500">
-            {orgName} · {total} rader totalt (filtrert på tilgang)
-          </span>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setCategory('all')}
-            className={`min-w-[88px] rounded-md border px-3 py-2 text-center transition ${
-              category === 'all' ? 'border-neutral-900 bg-white shadow-sm' : 'border-neutral-200 bg-white/60 hover:bg-white'
-            }`}
-            style={category === 'all' ? { borderTopWidth: 3, borderTopColor: FOREST } : undefined}
-          >
-            <p className="text-lg font-bold tabular-nums text-neutral-900">{segmentCounts.all}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Alle</p>
-          </button>
-          {SOURCE_ORDER.map((src) => {
-            if (!canSeeSource(src)) return null
-            const n = segmentCounts.bySource[src]
-            const active = category === src
-            return (
-              <button
-                key={src}
-                type="button"
-                onClick={() => setCategory(src)}
-                className={`min-w-[88px] rounded-md border px-3 py-2 text-center transition ${
-                  active ? 'border-neutral-900 bg-white shadow-sm' : 'border-neutral-200 bg-white/60 hover:bg-white'
-                }`}
-                style={active ? { borderTopWidth: 3, borderTopColor: FOREST } : undefined}
-              >
-                <p className="text-lg font-bold tabular-nums text-neutral-900">{n}</p>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">{SOURCE_SHORT[src]}</p>
-              </button>
-            )
-          })}
-          <div className="ml-auto flex min-w-[120px] items-center justify-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+      <WorkplacePageHeading1
+        breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Revisjonslogg' }, { label: sourceSectionLabel }]}
+        title="Revisjonslogg"
+        description={
+          <>
+            <p>
+              <strong className="font-semibold tabular-nums text-neutral-900">{filtered.length}</strong> treff med gjeldende
+              filter og søk. {orgName} · {total} rader totalt (filtrert på tilgang).
+            </p>
+            <p className="mt-2 text-xs text-neutral-500">
+              Møterevisjonslogg vises per hendelse; redigering skjer under det enkelte møtet i Arbeidsmiljørådet.
+            </p>
+          </>
+        }
+        headerActions={
+          <div className="flex min-w-[120px] items-center justify-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
             <Star className="size-4 text-amber-700" aria-hidden />
             <span className="text-lg font-bold tabular-nums">{permittedRows.length}</span>
             <span className="text-[10px] font-semibold uppercase text-neutral-600">Synlig</span>
           </div>
-        </div>
+        }
+        menu={<HubMenu1Bar ariaLabel="Revisjonslogg — kilde" items={auditSourceHubItems} />}
+      />
 
+      <div className="mt-6 space-y-4">
         <PostingsStyleSurface className="p-4">
           <div className="flex flex-wrap gap-3">
             <div className="relative min-w-[200px] flex-1">
@@ -267,11 +250,6 @@ export function WorkspaceAuditLogPage() {
             </table>
           </div>
         </PostingsStyleSurface>
-
-        <p className="text-xs text-neutral-500">
-          Møterevisjonslogg (diskusjon / notat / vedtak) vises per hendelse her; redigering skjer fortsatt under det enkelte
-          møtet i Arbeidsmiljørådet.
-        </p>
 
         {(!gateNav || can('module.view.hse')) && (
           <PostingsStyleSurface className="p-4">

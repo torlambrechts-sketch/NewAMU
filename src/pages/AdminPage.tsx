@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Download, Loader2, Mail, Plus, Shield, Upload, UserCog, Users } from 'lucide-react'
 import { ModulePageIcon } from '../components/ModulePageIcon'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { PERMISSION_KEYS, PERMISSION_LABELS } from '../lib/permissionKeys'
@@ -64,6 +65,7 @@ export function AdminPage() {
     active: tab === t.id,
     onClick: () => setTab(t.id),
   }))
+  const adminSectionLabel = tabs.find((t) => t.id === tab)?.label ?? 'Administrasjon'
 
   const [profiles, setProfiles] = useState<ProfileRow[]>([])
   const [roles, setRoles] = useState<RoleRow[]>([])
@@ -252,26 +254,17 @@ export function AdminPage() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-8 md:px-8">
-      <div className="flex flex-wrap items-start gap-4">
-        <ModulePageIcon className="bg-[#1a3d32] text-[#c9a227]">
-          <Shield className="size-9 md:size-10" strokeWidth={1.5} aria-hidden />
-        </ModulePageIcon>
-        <div className="min-w-0">
-          <h1
-            className="font-serif text-2xl text-[#1a3d32]"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
-            Administrasjon
-          </h1>
-          <p className="mt-1 text-sm text-neutral-600">
-            Brukere, invitasjoner, roller og delegering for {organization.name} ({organization.organization_number}).
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-6">
-        <HubMenu1Bar ariaLabel="Administrasjon — faner" items={adminHubItems} />
-      </div>
+      <WorkplacePageHeading1
+        breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Administrasjon' }, { label: adminSectionLabel }]}
+        title="Administrasjon"
+        description={`Brukere, invitasjoner, roller og delegering for ${organization.name} (${organization.organization_number}).`}
+        headerActions={
+          <ModulePageIcon className="bg-[#1a3d32] text-[#c9a227]">
+            <Shield className="size-9 md:size-10" strokeWidth={1.5} aria-hidden />
+          </ModulePageIcon>
+        }
+        menu={<HubMenu1Bar ariaLabel="Administrasjon — faner" items={adminHubItems} />}
+      />
 
       {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
 

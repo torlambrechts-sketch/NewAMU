@@ -58,6 +58,7 @@ import {
   type InsightSeg,
 } from '../components/insights/ModuleInsightCharts'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 
 const HERO_ACTION_CLASS =
@@ -86,7 +87,6 @@ const COUNCIL_DASH7030_GRID =
 const COUNCIL_DASH7030_WHITECARD =
   'rounded-lg border border-neutral-200/80 bg-white shadow-sm'
 const COUNCIL_DASH7030_WHITECARD_SHADOW = { boxShadow: '0 1px 2px rgba(0,0,0,0.04)' } as const
-const COUNCIL_PAGE_TITLE = 'text-2xl font-semibold text-neutral-900 md:text-3xl'
 /** Hovedtittel for større innholdsblokker (f.eks. Styre og Valg) */
 const COUNCIL_MAIN_HEADING = 'text-xl font-semibold text-neutral-900 md:text-2xl'
 const COUNCIL_SECTION_HEADING = 'text-base font-semibold text-neutral-900'
@@ -340,6 +340,8 @@ export function CouncilModule() {
   )
 
   const { barStyle: kpiStripStyle } = useWorkplaceKpiStripStyle()
+
+  const councilSectionLabel = useMemo(() => tabs.find((t) => t.id === tab)?.label ?? 'Arbeidsmiljøråd', [tab])
 
   const councilHubItems = useMemo((): HubMenu1Item[] => {
     const auditActive =
@@ -874,16 +876,6 @@ export function CouncilModule() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-      <nav className="mb-4 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
-        <span>
-          <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
-            Workspace
-          </Link>
-          <span className="mx-2 text-neutral-400">→</span>
-          <span className="font-medium text-neutral-800">Arbeidsmiljøråd</span>
-        </span>
-      </nav>
-
       {council.error && (
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{council.error}</p>
       )}
@@ -897,64 +889,68 @@ export function CouncilModule() {
         <p className="mb-4 text-sm text-neutral-500">Laster representasjonsdata…</p>
       )}
 
-      <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
-        <div className="min-w-0 flex-1">
-          <h1 className={COUNCIL_PAGE_TITLE}>Arbeidsmiljøråd</h1>
-          <p className="mt-1 text-sm font-medium text-[#1a3d32]/90">{tabBlurbs[tab].kicker}</p>
-          <p className={`mt-3 max-w-2xl ${COUNCIL_BODY}`}>
-            Styre, valg, årshjul med {MEETINGS_PER_YEAR} ordinære møter per år, agenda, forberedelse og revisjonslogg.{' '}
-            {tabBlurbs[tab].description} Verktøyet erstatter ikke juridisk rådgivning.
-          </p>
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-              {council.board.length} styremedlemmer
-            </span>
-            <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-              {openElectionsCount} åpne valg
-            </span>
-            {meetingsThisWeekCount > 0 ? (
-              <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-950`}>
-                <Calendar className="size-4 shrink-0" />
-                {meetingsThisWeekCount} møte{meetingsThisWeekCount > 1 ? 'r' : ''} denne uken
-              </span>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => setTab('meetings')}
-              className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white shadow-sm hover:bg-[#142e26]`}
-            >
-              <Plus className="size-4 shrink-0" />
-              Planlegg møte
-            </button>
-          </div>
-          {council.board.length > 0 ? (
-            <div className="mt-6">
-              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Styre / team</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {council.board.map((m) => (
-                  <span
-                    key={m.id}
-                    className={`${R_FLAT} border border-neutral-200/80 bg-neutral-50 px-2.5 py-1 text-sm font-medium text-neutral-800`}
-                  >
-                    {m.name}
-                    <span className="ml-1.5 text-xs font-normal text-neutral-500">· {roleLabel(m.role)}</span>
-                  </span>
-                ))}
+      <WorkplacePageHeading1
+        breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Arbeidsmiljøråd' }, { label: councilSectionLabel }]}
+        title="Arbeidsmiljøråd"
+        description={
+          <>
+            <p className="font-medium text-[#1a3d32]/90">{tabBlurbs[tab].kicker}</p>
+            <p className={`mt-2 max-w-2xl ${COUNCIL_BODY}`}>
+              Styre, valg, årshjul med {MEETINGS_PER_YEAR} ordinære møter per år, agenda, forberedelse og revisjonslogg.{' '}
+              {tabBlurbs[tab].description} Verktøyet erstatter ikke juridisk rådgivning.
+            </p>
+            {council.board.length > 0 ? (
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Styre / team</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {council.board.map((m) => (
+                    <span
+                      key={m.id}
+                      className={`${R_FLAT} border border-neutral-200/80 bg-neutral-50 px-2.5 py-1 text-sm font-medium text-neutral-800`}
+                    >
+                      {m.name}
+                      <span className="ml-1.5 text-xs font-normal text-neutral-500">· {roleLabel(m.role)}</span>
+                    </span>
+                  ))}
+                </div>
               </div>
+            ) : null}
+          </>
+        }
+        headerActions={
+          <>
+            <div
+              className={`${R_FLAT} hidden size-[7.5rem] shrink-0 items-center justify-center border border-neutral-200/80 bg-[#faf8f4] text-[#1a3d32] sm:flex`}
+              aria-hidden
+            >
+              <Scale className="size-14 opacity-90" strokeWidth={1.25} />
             </div>
-          ) : null}
-        </div>
-        <div
-          className={`${R_FLAT} flex size-[7.5rem] shrink-0 items-center justify-center border border-neutral-200/80 bg-[#faf8f4] text-[#1a3d32] sm:mt-1`}
-          aria-hidden
-        >
-          <Scale className="size-14 opacity-90" strokeWidth={1.25} />
-        </div>
-      </div>
-
-      <div className="mt-2">
-        <HubMenu1Bar ariaLabel="Arbeidsmiljøråd — faner" items={councilHubItems} />
-      </div>
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+              <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                {council.board.length} styremedlemmer
+              </span>
+              <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                {openElectionsCount} åpne valg
+              </span>
+              {meetingsThisWeekCount > 0 ? (
+                <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-950`}>
+                  <Calendar className="size-4 shrink-0" />
+                  {meetingsThisWeekCount} møte{meetingsThisWeekCount > 1 ? 'r' : ''} denne uken
+                </span>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setTab('meetings')}
+                className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white shadow-sm hover:bg-[#142e26]`}
+              >
+                <Plus className="size-4 shrink-0" />
+                Planlegg møte
+              </button>
+            </div>
+          </>
+        }
+        menu={<HubMenu1Bar ariaLabel="Arbeidsmiljøråd — faner" items={councilHubItems} />}
+      />
 
       {tab === 'overview' && (
         <div

@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
@@ -12,16 +13,10 @@ import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useInternalControl } from '../hooks/useInternalControl'
 import { useHse } from '../hooks/useHse'
 import { useOrgHealth } from '../hooks/useOrgHealth'
-import { PostingsStyleSurface, TASK_POSTINGS_FOREST, TASK_POSTINGS_SERIF } from '../components/tasks/tasksPostingsLayout'
+import { PostingsStyleSurface, TASK_POSTINGS_FOREST } from '../components/tasks/tasksPostingsLayout'
+import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import type { PermissionKey } from '../lib/permissionKeys'
-
-function SerifTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 md:text-3xl" style={{ fontFamily: TASK_POSTINGS_SERIF }}>
-      {children}
-    </h1>
-  )
-}
 
 type ModuleCard = {
   perm: PermissionKey
@@ -89,63 +84,50 @@ export function ComplianceDashboardPage() {
 
   const visible = cards.filter((c) => can(c.perm))
 
-  function headlineFor(card: ModuleCard): string {
-    if (card.to === '/internal-control') return String(rosDrafts)
-    if (card.to === '/hse') return String(hse.stats.openInspections)
-    if (card.to === '/org-health') return String(oh.surveys.filter((s) => s.status === 'open').length)
-    return '—'
-  }
+  const complianceHubItems: HubMenu1Item[] = useMemo(() => {
+    const fromCards = visible.map((c) => ({
+      key: c.to,
+      label: c.title,
+      icon: c.icon,
+      active: false,
+      to: c.to,
+      end: true as const,
+    }))
+    if (can('module.view.dashboard')) {
+      return [
+        ...fromCards,
+        {
+          key: 'audit',
+          label: 'Revisjonslogg',
+          icon: History,
+          active: false,
+          to: '/workspace/revisjonslogg',
+          end: true as const,
+        },
+      ]
+    }
+    return fromCards
+  }, [visible, can])
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-      <p className="mb-3 text-xs text-neutral-500">
-        <Link to="/" className="hover:text-neutral-700">
-          Workspace
-        </Link>
-        <span className="mx-1.5 text-neutral-300">›</span>
-        <span className="text-neutral-600">Samsvar</span>
-      </p>
-
-      <div className="flex flex-col gap-4 border-b border-neutral-200/80 pb-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Compliance</p>
-          <SerifTitle>Samsvar — oversikt</SerifTitle>
-          <p className="mt-2 max-w-2xl text-sm text-neutral-600">
-            Samlet inngang til internkontroll, HMS, organisasjonshelse og HR-prosesser. Velg modul under — samme funksjonalitet som før, med felles layout fra layout-reference (uten ekstra topp-meny).
-          </p>
-        </div>
-        <Link
-          to="/workspace/revisjonslogg"
-          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-800 hover:bg-neutral-50"
-        >
-          <History className="size-4 opacity-80" />
-          Revisjonslogg
-        </Link>
-      </div>
-
-      <div className="mt-6 flex flex-wrap gap-2">
-        {visible.map((c) => (
-          <Link
-            key={c.to}
-            to={c.to}
-            className="min-w-[112px] rounded-md border border-neutral-200 bg-white/80 px-3 py-2.5 text-center shadow-sm transition hover:bg-white"
-            style={{ borderTopWidth: 3, borderTopColor: TASK_POSTINGS_FOREST }}
-          >
-            <p className="text-lg font-bold tabular-nums text-neutral-900">{headlineFor(c)}</p>
-            <p className="text-[9px] font-semibold uppercase tracking-wide text-neutral-500">{c.title}</p>
-          </Link>
-        ))}
-        {can('module.view.dashboard') ? (
-          <Link
-            to="/workspace/revisjonslogg"
-            className="min-w-[112px] rounded-md border border-neutral-200 bg-white px-3 py-2.5 text-center shadow-sm transition hover:bg-neutral-50"
-            style={{ borderTopWidth: 3, borderTopColor: TASK_POSTINGS_FOREST }}
-          >
-            <p className="text-lg font-bold tabular-nums text-neutral-900">—</p>
-            <p className="text-[9px] font-semibold uppercase tracking-wide text-neutral-500">Revisjonslogg</p>
-          </Link>
-        ) : null}
-      </div>
+      <WorkplacePageHeading1
+        breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Samsvar' }, { label: 'Oversikt' }]}
+        title="Samsvar — oversikt"
+        description="Samlet inngang til internkontroll, HMS, organisasjonshelse og HR-prosesser. Velg modul under — samme funksjonalitet som før."
+        headerActions={
+          can('module.view.dashboard') ? (
+            <Link
+              to="/workspace/revisjonslogg"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-800 hover:bg-neutral-50"
+            >
+              <History className="size-4 opacity-80" />
+              Revisjonslogg
+            </Link>
+          ) : null
+        }
+        menu={<HubMenu1Bar ariaLabel="Samsvar — moduler" items={complianceHubItems} />}
+      />
 
       <PostingsStyleSurface className="mt-8 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3 sm:px-5">

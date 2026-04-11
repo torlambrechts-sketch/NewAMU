@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Bell,
   Building2,
   Camera,
   CheckCircle2,
   ChevronRight,
+  Home,
   KeyRound,
+  LayoutGrid,
   Loader2,
   Trash2,
   User,
@@ -18,6 +20,8 @@ import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { mergeNotificationPreferences, parseNotificationPreferences } from '../lib/notificationPreferences'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import type { NotificationPreferences } from '../types/notifications'
+import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const CARD = 'rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm'
@@ -35,6 +39,7 @@ function initialsFromName(name: string) {
 }
 
 export function ProfilePage() {
+  const navigate = useNavigate()
   const { t, locale: ctxLocale } = useI18n()
   const {
     user,
@@ -219,6 +224,75 @@ export function ProfilePage() {
     return n.slice(0, 2).toUpperCase()
   }, [organization?.name, profile?.display_name])
 
+  type ProfileNavSection = 'overview' | 'photo' | 'personalia' | 'notifications' | 'password'
+  const [profileSection, setProfileSection] = useState<ProfileNavSection>('overview')
+
+  const scrollToProfileSection = useCallback((id: string, section: ProfileNavSection) => {
+    setProfileSection(section)
+    queueMicrotask(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }, [])
+
+  const profileHubItems: HubMenu1Item[] = useMemo(
+    () => [
+      {
+        key: 'overview',
+        label: 'Oversikt',
+        icon: LayoutGrid,
+        active: profileSection === 'overview',
+        onClick: () => scrollToProfileSection('profile-top', 'overview'),
+      },
+      {
+        key: 'photo',
+        label: t('profile.sectionPhoto'),
+        icon: Camera,
+        active: profileSection === 'photo',
+        onClick: () => scrollToProfileSection('profile-photo', 'photo'),
+      },
+      {
+        key: 'personalia',
+        label: t('profile.sectionPersonalia'),
+        icon: User,
+        active: profileSection === 'personalia',
+        onClick: () => scrollToProfileSection('profile-personalia', 'personalia'),
+      },
+      {
+        key: 'notifications',
+        label: 'Varsler',
+        icon: Bell,
+        active: profileSection === 'notifications',
+        onClick: () => scrollToProfileSection('profile-notifications', 'notifications'),
+      },
+      {
+        key: 'password',
+        label: t('profile.sectionPassword'),
+        icon: KeyRound,
+        active: profileSection === 'password',
+        onClick: () => scrollToProfileSection('profile-password', 'password'),
+      },
+    ],
+    [profileSection, scrollToProfileSection, t],
+  )
+
+  const profileHomeHub: HubMenu1Item[] = useMemo(
+    () => [
+      {
+        key: 'workspace',
+        label: 'Hjem',
+        icon: Home,
+        active: false,
+        onClick: () => navigate('/'),
+      },
+      {
+        key: 'profile',
+        label: t('profile.breadcrumb'),
+        icon: User,
+        active: true,
+        onClick: () => scrollToProfileSection('profile-top', 'overview'),
+      },
+    ],
+    [navigate, scrollToProfileSection, t],
+  )
+
   if (!supabaseConfigured) {
     return (
       <div className={PAGE_WRAP}>
@@ -241,52 +315,47 @@ export function ProfilePage() {
 
   return (
     <div className={PAGE_WRAP}>
-      <nav className="mb-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
-        <span>
-          <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
-            Workspace
-          </Link>
-          <span className="mx-2 text-neutral-400">→</span>
-          <span className="font-medium text-neutral-800">{t('profile.breadcrumb')}</span>
-        </span>
-      </nav>
+      <WorkplacePageHeading1
+        breadcrumb={[{ label: 'Workspace', to: '/' }, { label: t('profile.breadcrumb') }]}
+        title={t('profile.title')}
+        description={
+          <>
+            <p className="max-w-2xl leading-relaxed">{t('profile.heroLead')}</p>
+            <p className="mt-2 text-xs text-neutral-500">{email}</p>
+          </>
+        }
+        headerActions={
+          <div className="relative shrink-0">
+            {displayAvatarUrl ? (
+              <img
+                src={displayAvatarUrl}
+                alt=""
+                className="size-24 rounded-2xl border border-neutral-200/90 object-cover shadow-sm"
+              />
+            ) : (
+              <div className="flex size-24 items-center justify-center rounded-2xl bg-[#1a3d32] text-2xl font-bold text-[#c9a227]">
+                {initialsFromName(name || profile?.display_name || '??')}
+              </div>
+            )}
+            {busyAvatar ? (
+              <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/70">
+                <Loader2 className="size-8 animate-spin text-[#1a3d32]" />
+              </div>
+            ) : null}
+          </div>
+        }
+        menu={
+          <div className="space-y-3">
+            <HubMenu1Bar ariaLabel="Workspace — navigasjon" items={profileHomeHub} />
+            <HubMenu1Bar ariaLabel="Profil — seksjoner" items={profileHubItems} />
+          </div>
+        }
+      />
 
-      {/* Hero — same rhythm as ProjectDashboard */}
-      <div className="flex flex-wrap items-start gap-6 border-b border-neutral-200/80 pb-8">
-        <div className="relative shrink-0">
-          {displayAvatarUrl ? (
-            <img
-              src={displayAvatarUrl}
-              alt=""
-              className="size-24 rounded-2xl border border-neutral-200/90 object-cover shadow-sm"
-            />
-          ) : (
-            <div className="flex size-24 items-center justify-center rounded-2xl bg-[#1a3d32] text-2xl font-bold text-[#c9a227]">
-              {initialsFromName(name || profile?.display_name || '??')}
-            </div>
-          )}
-          {busyAvatar && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/70">
-              <Loader2 className="size-8 animate-spin text-[#1a3d32]" />
-            </div>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h1
-            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
-            {t('profile.title')}
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-neutral-600">{t('profile.heroLead')}</p>
-          <p className="mt-2 text-xs text-neutral-500">{email}</p>
-        </div>
-      </div>
-
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px] lg:gap-10">
+      <div id="profile-top" className="mt-8 grid scroll-mt-28 gap-8 lg:grid-cols-[1fr_340px] lg:gap-10">
         <div className="space-y-8">
           {/* Photo */}
-          <section>
+          <section id="profile-photo" className="scroll-mt-28">
             <h2 className="mb-3 text-lg font-semibold text-neutral-900">{t('profile.sectionPhoto')}</h2>
             <div className={CARD}>
               <p className="text-sm text-neutral-600">{t('profile.sectionPhotoHint')}</p>
@@ -317,7 +386,7 @@ export function ProfilePage() {
           </section>
 
           {/* Personalia + prefs */}
-          <section>
+          <section id="profile-personalia" className="scroll-mt-28">
             <h2 className="mb-3 text-lg font-semibold text-neutral-900">{t('profile.sectionPersonalia')}</h2>
             <div className={`${CARD} space-y-4`}>
               <div>
@@ -408,7 +477,7 @@ export function ProfilePage() {
           </section>
 
           {/* Notifications */}
-          <section>
+          <section id="profile-notifications" className="scroll-mt-28">
             <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-neutral-900">
               <Bell className="size-5 text-neutral-500" />
               Varsler
@@ -578,7 +647,7 @@ export function ProfilePage() {
           </section>
 
           {/* Password */}
-          <section>
+          <section id="profile-password" className="scroll-mt-28">
             <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-neutral-900">
               <KeyRound className="size-5 text-neutral-500" />
               {t('profile.sectionPassword')}

@@ -132,6 +132,9 @@ function ComposableHeading1Block() {
     <div className="space-y-4">
       <Breadcrumb items={['Stillinger', 'Stillingsannonser']} />
       <SerifTitle className="text-2xl md:text-3xl">Stillingsannonser</SerifTitle>
+      <p className="text-sm text-neutral-600">
+        Kort ingress under tittelen — samme mønster som <code className="rounded bg-neutral-100 px-1 text-xs">WorkplacePageHeading1</code> i appen.
+      </p>
       <HubMenu1Bar ariaLabel="Stillingsfaner (komponer)" items={hubItems} />
     </div>
   )

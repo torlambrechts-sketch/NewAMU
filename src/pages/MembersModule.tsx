@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import { REPRESENTATIVE_ROLE_REQUIREMENTS, requirementsForRole } from '../data/representativeRules'
 import { useRepresentatives } from '../hooks/useRepresentatives'
 import type { RepElection, RepresentativeMember, RepresentativeOfficeRole } from '../types/representatives'
@@ -65,6 +66,7 @@ export function MembersModule() {
   }, [tabParam, navigate])
 
   const setTab = useCallback((id: TabId) => setSearchParams({ tab: id }, { replace: true }), [setSearchParams])
+  const tabLabel = tabs.find((t) => t.id === tab)?.label ?? 'Medlemmer'
   const membersHubItems = useMemo((): HubMenu1Item[] => {
     return tabs.map(({ id, label, icon }) => ({
       key: id,
@@ -86,36 +88,21 @@ export function MembersModule() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-      <nav className="mb-4 text-sm text-neutral-600">
-        <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
-          Prosjekter
-        </Link>
-        <span className="mx-2 text-neutral-400">→</span>
-        <span className="font-medium text-neutral-800">Medlemmer og representasjon</span>
-      </nav>
-
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-200/80 pb-6">
-        <div>
-          <h1
-            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
-            Medlemmer
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-neutral-600">
+      <WorkplacePageHeading1
+        breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Medlemmer og representasjon' }, { label: tabLabel }]}
+        title="Medlemmer"
+        description={
+          <>
             Valg av arbeidstakerrepresentanter (valgfritt anonymt), kontroll av 50/50-sammensetting og roller,
             opplæringskrav og revisjonslogg. Verifiser mot tariff og{' '}
             <a href="https://lovdata.no" className="text-[#1a3d32] underline" target="_blank" rel="noreferrer">
               lovdata.no
             </a>{' '}
             — ikke juridisk rådgivning.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-6">
-        <HubMenu1Bar ariaLabel="Medlemmer — faner" items={membersHubItems} />
-      </div>
+          </>
+        }
+        menu={<HubMenu1Bar ariaLabel="Medlemmer — faner" items={membersHubItems} />}
+      />
 
       {tab === 'overview' && (
         <div className="mt-8 grid gap-6 lg:grid-cols-3">

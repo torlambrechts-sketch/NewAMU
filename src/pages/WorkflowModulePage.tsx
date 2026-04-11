@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { ChevronDown, GitBranch, Loader2, Pencil, Play, Plus, Settings, Trash2, X, Zap } from 'lucide-react'
 import { WorkflowFlowBuilder } from '../components/workflow/WorkflowFlowBuilder'
 import { flowDocumentFromLegacy } from '../lib/workflowFlowFromLegacy'
@@ -19,6 +18,7 @@ import {
 } from '../lib/workflowRuleSummary'
 import { WF_FIELD_INPUT, WF_FIELD_LABEL, WF_LEAD, WF_PANEL_INSET } from '../components/workflow/workflowPanelStyles'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const CARD = 'rounded-none border border-neutral-200/90 bg-white p-6 shadow-sm'
@@ -101,6 +101,9 @@ export function WorkflowModulePage() {
     ],
     [tab, templatesCount],
   )
+
+  const workflowSectionLabel =
+    tab === 'design' ? 'Design & regler' : tab === 'runs' ? 'Kjøringer' : 'Innstillinger'
 
   const recompileFlow = useCallback((doc: WorkflowFlowDocument) => {
     const out = compileWorkflowFlow(doc)
@@ -254,36 +257,26 @@ export function WorkflowModulePage() {
 
   return (
     <div className={PAGE_WRAP}>
-      <nav className="mb-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
-        <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
-          Workspace
-        </Link>
-        <span className="text-neutral-400">→</span>
-        <span className="font-medium text-neutral-800">Arbeidsflyt</span>
-      </nav>
-
-      <div className="flex flex-wrap items-start gap-6 border-b border-neutral-200/80 pb-8">
-        <div className="flex size-20 shrink-0 items-center justify-center rounded-none bg-[#1a3d32] text-[#c9a227]">
-          <GitBranch className="size-9" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h1
-            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
-            Arbeidsflyt
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-neutral-600">
+      <WorkplacePageHeading1
+        breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Arbeidsflyt' }, { label: workflowSectionLabel }]}
+        title="Arbeidsflyt"
+        description={
+          <>
             Bygg regler med <strong>dra-og-slipp</strong>: velg hva som skal utløse flyten (oppgaver, HSE, ROS, saker,
             anonym rapportering, …) og hva som skal skje (oppgave, e-post, varsling, webhook).{' '}
             <strong>XOR</strong> gir parallelle grener der nøyaktig én må matche.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-6">
-        <HubMenu1Bar ariaLabel="Arbeidsflyt — faner" items={workflowHubItems} />
-      </div>
+          </>
+        }
+        headerActions={
+          <div
+            className="flex size-20 shrink-0 items-center justify-center rounded-lg border border-neutral-200/80 bg-[#1a3d32] text-[#c9a227]"
+            aria-hidden
+          >
+            <GitBranch className="size-9" />
+          </div>
+        }
+        menu={<HubMenu1Bar ariaLabel="Arbeidsflyt — faner" items={workflowHubItems} />}
+      />
 
       {wf.error && (
         <p className="mt-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{wf.error}</p>

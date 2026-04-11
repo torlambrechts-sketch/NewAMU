@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import {
   ChevronDown,
   Download,
@@ -18,6 +18,7 @@ import {
 import { useReporting } from '../hooks/useReporting'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { mergeLayoutPayload } from '../lib/layoutLabTokens'
@@ -448,28 +449,27 @@ export function ReportingEnginePage() {
 
   return (
     <div className={PAGE_WRAP}>
-      <nav className="mb-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
-        <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
-          Workspace
-        </Link>
-        <span className="text-neutral-400">→</span>
-        <span className="font-medium text-neutral-800">Rapporter</span>
-      </nav>
-
-      <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
-        <div className="min-w-0 flex-1">
-          <h1
-            className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
-            Rapporter
-          </h1>
-          <p className="mt-1 text-sm text-neutral-500">{organization?.name ?? 'Organisasjon'}</p>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-neutral-600">
-            Kjør standardrapporter eller bygg egne innsiktsrapporter med moduler (KPI, tabell, søylediagram, donut).
-            Data hentes fra organisasjon, oppgaver og eksisterende rapport-RPC-er.
-          </p>
-          <div className="mt-5 flex flex-wrap items-center gap-2">
+      <WorkplacePageHeading1
+        breadcrumb={[
+          { label: 'Workspace', to: '/' },
+          { label: 'Rapporter' },
+          {
+            label:
+              mainTab === 'history' ? 'Historikk' : mainTab === 'tools' ? 'Verktøy' : 'Rapportmotor',
+          },
+        ]}
+        title="Rapporter"
+        description={
+          <>
+            <p className="text-sm text-neutral-500">{organization?.name ?? 'Organisasjon'}</p>
+            <p className="mt-2 max-w-3xl leading-relaxed">
+              Kjør standardrapporter eller bygg egne innsiktsrapporter med moduler (KPI, tabell, søylediagram, donut).
+              Data hentes fra organisasjon, oppgaver og eksisterende rapport-RPC-er.
+            </p>
+          </>
+        }
+        headerActions={
+          <>
             <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
               Standard <strong className="ml-1 font-semibold">{standardReportCount}</strong>
             </span>
@@ -495,13 +495,10 @@ export function ReportingEnginePage() {
               <Plus className="size-4 shrink-0" />
               Ny rapport
             </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-2">
-        <HubMenu1Bar ariaLabel="Rapporter — faner" items={reportHubItems} />
-      </div>
+          </>
+        }
+        menu={<HubMenu1Bar ariaLabel="Rapporter — faner" items={reportHubItems} />}
+      />
 
       {(rep.error || rb.error) && (
         <p className="mt-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">

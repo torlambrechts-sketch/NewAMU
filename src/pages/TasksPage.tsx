@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Calendar,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
   Filter,
   LayoutList,
   MoreHorizontal,
@@ -38,7 +36,8 @@ import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
 import { HubMenu1Bar } from '../components/layout/HubMenu1Bar'
-import { PostingsStyleSurface, TASK_POSTINGS_FOREST, TASK_POSTINGS_SERIF } from '../components/tasks/tasksPostingsLayout'
+import { WorkplacePageHeading1, WORKPLACE_PAGE_SERIF } from '../components/layout/WorkplacePageHeading1'
+import { PostingsStyleSurface, TASK_POSTINGS_FOREST } from '../components/tasks/tasksPostingsLayout'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
@@ -700,53 +699,39 @@ export function TasksPage() {
   )
 
   const orgLabel = organization?.name?.trim() || 'Organisasjon'
+  const tasksSectionLabel = pageTab === 'whistle' ? 'Varslingssaker' : 'Oppgaver'
 
   return (
     <div className={PAGE_WRAP}>
-      {/* Pinpoint / Stillingsannonser-style page chrome */}
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200/60 pb-3">
-          <p className="text-xs text-neutral-500">Oppgaver</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-neutral-700 shadow-sm"
-            >
-              {orgLabel} <ChevronDown className="size-3 opacity-60" aria-hidden />
-            </button>
-            <span
-              className="inline-flex items-center justify-center rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-sm"
-              title="Oppgaveliste"
-              aria-hidden
-            >
-              <ClipboardList className="size-4" />
-            </span>
-          </div>
-        </div>
-
-        <p className="text-xs text-neutral-500">
-          <Link to="/" className="hover:text-neutral-700">
-            Workspace
-          </Link>
-          <span className="mx-1.5 text-neutral-300">›</span>
-          <span className="text-neutral-600">Oppgaver</span>
-        </p>
-
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h1
-              className="text-2xl font-semibold tracking-tight text-neutral-900 md:text-3xl"
-              style={{ fontFamily: TASK_POSTINGS_SERIF }}
-            >
-              {pageTab === 'whistle' ? 'Varslingssaker' : 'Oppgaveliste'}
-            </h1>
+      <WorkplacePageHeading1
+        breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Oppgaver' }, { label: tasksSectionLabel }]}
+        title={pageTab === 'whistle' ? 'Varslingssaker' : 'Oppgaveliste'}
+        description={
+          <>
             <p className="text-sm text-neutral-500">
-              {pageTab === 'whistle'
-                ? `${organization?.name?.trim() ?? 'Organisasjon'} · Varslingshvelv`
-                : `${organization?.name?.trim() ?? 'Organisasjon'} · Samlet oversikt`}
+              {pageTab === 'whistle' ? `${orgLabel} · Varslingshvelv` : `${orgLabel} · Samlet oversikt`}
             </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {pageTab === 'whistle' && organization?.whistle_public_slug ? (
+              <p className="mt-2 text-xs text-neutral-500">
+                Offentlig lenke:{' '}
+                <code className="rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px]">
+                  /varsle/{organization.whistle_public_slug}
+                </code>
+              </p>
+            ) : null}
+            {pageTab === 'list' ? (
+              <p className="mt-2 max-w-2xl leading-relaxed">
+                Alle moduler kan sende oppfølgingsoppgaver hit. Digital signatur = navn + tidspunkt lagret lokalt.
+              </p>
+            ) : (
+              <p className="mt-2 max-w-2xl leading-relaxed">
+                Lukket hvelv: kun varslingsmottak og administrator ser saker. Notater kan ikke slettes.
+              </p>
+            )}
+          </>
+        }
+        headerActions={
+          <>
             {pageTab === 'list' ? (
               <>
                 <span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-teal-900">
@@ -782,30 +767,10 @@ export function TasksPage() {
             <button type="button" className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100" aria-label="Mer">
               <MoreHorizontal className="size-5" />
             </button>
-          </div>
-        </div>
-
-        {pageTab === 'whistle' && organization?.whistle_public_slug ? (
-          <p className="text-xs text-neutral-500">
-            Offentlig lenke:{' '}
-            <code className="rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px]">
-              /varsle/{organization.whistle_public_slug}
-            </code>
-          </p>
-        ) : null}
-
-        {pageTab === 'list' ? (
-          <p className="text-sm text-neutral-600">
-            Alle moduler kan sende oppfølgingsoppgaver hit. Digital signatur = navn + tidspunkt lagret lokalt.
-          </p>
-        ) : pageTab === 'whistle' ? (
-          <p className="text-sm text-neutral-600">
-            Lukket hvelv: kun varslingsmottak og administrator ser saker. Notater kan ikke slettes.
-          </p>
-        ) : null}
-
-        <HubMenu1Bar ariaLabel="Oppgaver — faner" items={hubMenuItems} />
-      </div>
+          </>
+        }
+        menu={<HubMenu1Bar ariaLabel="Oppgaver — faner" items={hubMenuItems} />}
+      />
 
       {(error || wb.error) && (
         <p className="mt-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -977,7 +942,7 @@ export function TasksPage() {
               <PostingsStyleSurface className="overflow-hidden p-0">
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
                   <div>
-                    <h2 className="text-xl font-semibold text-neutral-900" style={{ fontFamily: TASK_POSTINGS_SERIF }}>
+                    <h2 className="text-xl font-semibold text-neutral-900" style={{ fontFamily: WORKPLACE_PAGE_SERIF }}>
                       Oppgaver
                     </h2>
                     <p className="mt-1 text-sm text-neutral-600">

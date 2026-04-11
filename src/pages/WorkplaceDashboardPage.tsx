@@ -26,6 +26,7 @@ import {
 import { ReportModuleWidget } from '../components/reports/ReportModuleWidget'
 import { ReportModuleDesigner } from '../components/dashboard/ReportModuleDesigner'
 import { WorkplaceReportingHubMenu } from '../components/workplace/WorkplaceReportingHubMenu'
+import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 
 const PAGE = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const R = 'rounded-none'
@@ -239,78 +240,55 @@ export function WorkplaceDashboardPage() {
 
   return (
     <div className={PAGE}>
-      <nav className="mb-4 text-sm text-neutral-600">
-        <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
-          Workspace
-        </Link>
-        <span className="mx-2 text-neutral-400">→</span>
-        <span className="font-medium text-neutral-800">Arbeidsplassrapportering</span>
-        <span className="mx-2 text-neutral-400">→</span>
-        <span className="font-medium text-neutral-800">Dashbord</span>
-      </nav>
-
-      <header className="border-b border-neutral-200/80 pb-6">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1
-                className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-              >
-                Arbeidsplass-dashbord
-              </h1>
-              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-neutral-600">
-                Bygg faner med rutenett (12 kolonner), dra rapport-widgets inn fra paletten — samme modultyper som under
-                Rapporter. Data hentes med samme datasett-motor som rapportbyggeren.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <label className={`${BTN} cursor-pointer`}>
-                År{' '}
-                <input
-                  type="number"
-                  value={y}
-                  min={2000}
-                  max={2100}
-                  onChange={(e) => setY(Number(e.target.value))}
-                  className="ml-2 w-[4.5rem] rounded-none border border-neutral-200 bg-white px-2 py-1 text-center text-sm tabular-nums"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => void refreshData()}
-                disabled={dataLoading}
-                className={BTN}
-              >
-                {dataLoading ? <Loader2 className="size-4 animate-spin" /> : null}
-                Oppdater data
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleSaveDashboard()}
-                disabled={saveBusy}
-                className={BTN_PRI}
-              >
-                {saveBusy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4 shrink-0" />}
-                Lagre dashbord
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditMode((v) => !v)}
-                className={editMode ? `${BTN_PRI} border-[#1a3d32]` : BTN}
-              >
-                <Pencil className="size-4 shrink-0" />
-                {editMode ? 'Visning' : 'Rediger layout'}
-              </button>
-            </div>
+      <WorkplacePageHeading1
+        breadcrumb={[
+          { label: 'Workspace', to: '/' },
+          { label: 'Arbeidsplassrapportering', to: '/workplace-reporting' },
+          { label: 'Dashbord' },
+        ]}
+        title="Arbeidsplass-dashbord"
+        description={
+          <>
+            <p className="max-w-3xl leading-relaxed">
+              Bygg faner med rutenett (12 kolonner), dra rapport-widgets inn fra paletten — samme modultyper som under
+              Rapporter. Data hentes med samme datasett-motor som rapportbyggeren.
+            </p>
+            {saveHint ? <p className="mt-2 text-sm text-emerald-800">{saveHint}</p> : null}
+          </>
+        }
+        headerActions={
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+            <label className={`${BTN} cursor-pointer`}>
+              År{' '}
+              <input
+                type="number"
+                value={y}
+                min={2000}
+                max={2100}
+                onChange={(e) => setY(Number(e.target.value))}
+                className="ml-2 w-[4.5rem] rounded-none border border-neutral-200 bg-white px-2 py-1 text-center text-sm tabular-nums"
+              />
+            </label>
+            <button type="button" onClick={() => void refreshData()} disabled={dataLoading} className={BTN}>
+              {dataLoading ? <Loader2 className="size-4 animate-spin" /> : null}
+              Oppdater data
+            </button>
+            <button type="button" onClick={() => void handleSaveDashboard()} disabled={saveBusy} className={BTN_PRI}>
+              {saveBusy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4 shrink-0" />}
+              Lagre dashbord
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditMode((v) => !v)}
+              className={editMode ? `${BTN_PRI} border-[#1a3d32]` : BTN}
+            >
+              <Pencil className="size-4 shrink-0" />
+              {editMode ? 'Visning' : 'Rediger layout'}
+            </button>
           </div>
-          {saveHint ? <p className="text-sm text-emerald-800">{saveHint}</p> : null}
-        </div>
-      </header>
-
-      <div className="mt-6">
-        <WorkplaceReportingHubMenu />
-      </div>
+        }
+        menu={<WorkplaceReportingHubMenu />}
+      />
 
       {(wd.error || rep.error) && (
         <p className="mt-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">

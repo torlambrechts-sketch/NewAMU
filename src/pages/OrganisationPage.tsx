@@ -38,13 +38,10 @@ import {
 } from '../lib/layoutLabTokens'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { mergeLayoutPayload } from '../lib/layoutLabTokens'
-import {
-  AB_SCORECARD_CREAM_DEEP,
-  ActionBoardBreadcrumb,
-  AB_SCORECARD_SERIF,
-} from './actionboard/actionBoardScorecardLayout'
+import { AB_SCORECARD_CREAM_DEEP } from './actionboard/actionBoardScorecardLayout'
 import { WORKPLACE_FOREST } from '../components/layout/WorkplaceChrome'
 import { WorkplaceBoardTabStrip } from '../components/layout/WorkplaceBoardTabStrip'
+import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import type { EmploymentType, OrgEmployee, OrgUnit, OrgUnitKind, UserGroup } from '../types/organisation'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -672,75 +669,74 @@ export function OrganisationPage() {
           boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
         }}
       >
-        <WorkplaceBoardTabStrip
-          ariaLabel="Organisasjon — faner"
-          items={orgTabItems}
-          activeId={tab}
-          onSelect={(id) => setTab(id as Tab)}
-        />
-
-        <ActionBoardBreadcrumb
-          items={[{ label: 'Workspace', to: '/' }, 'Organisasjon', tabLabel]}
-        />
-
-        <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
-          <div className="min-w-0 flex-1">
-            <h1
-              className="text-2xl font-semibold tracking-tight text-neutral-900 md:text-3xl"
-              style={{ fontFamily: AB_SCORECARD_SERIF }}
-            >
-              {companyTitle}
-            </h1>
-            <p className="mt-1 text-sm text-neutral-500">{memberHeadline}</p>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-600">
-              Struktur, ansatte og grupper for virksomheten. Terskler for verneombud og AMU oppdateres ut fra antall
-              ansatte.
-            </p>
-            {supabaseConfigured && user && (
-              <p className="mt-2 text-xs text-neutral-500">
-                {isDemoMode ? 'Demo-besøkende (anonym sesjon)' : 'Innlogget som'}{' '}
-                {!isDemoMode && (profile?.display_name ?? profile?.email ?? user.email ?? 'bruker')}
+        <WorkplacePageHeading1
+          breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Organisasjon' }, { label: tabLabel }]}
+          title={companyTitle}
+          description={
+            <>
+              <p className="text-sm text-neutral-500">{memberHeadline}</p>
+              <p className="mt-2 max-w-2xl leading-relaxed">
+                Struktur, ansatte og grupper for virksomheten. Terskler for verneombud og AMU oppdateres ut fra antall
+                ansatte.
               </p>
-            )}
-            <div className="mt-5 flex flex-wrap items-center gap-2">
-              <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-                {ct.totalEmployeeCount} i beregning
-              </span>
-              {ct.requiresVerneombud ? (
-                <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
-                  <CheckCircle2 className="size-4 shrink-0" />
-                  Verneombud lovpålagt
+              {supabaseConfigured && user ? (
+                <p className="mt-2 text-xs text-neutral-500">
+                  {isDemoMode ? 'Demo-besøkende (anonym sesjon)' : 'Innlogget som'}{' '}
+                  {!isDemoMode && (profile?.display_name ?? profile?.email ?? user.email ?? 'bruker')}
+                </p>
+              ) : null}
+            </>
+          }
+          headerActions={
+            <>
+              <div className="hidden shrink-0 justify-center sm:flex" aria-hidden>
+                <OrganisationHeaderIllustration className="h-[7.5rem] w-auto max-w-[min(100%,220px)] md:h-32" />
+              </div>
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+                <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                  {ct.totalEmployeeCount} i beregning
                 </span>
-              ) : (
-                <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>Verneombud: &lt;5</span>
-              )}
-              {ct.requiresAmu ? (
-                <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
-                  <CheckCircle2 className="size-4 shrink-0" />
-                  AMU lovpålagt
-                </span>
-              ) : ct.mayRequestAmu ? (
-                <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
-                  <AlertTriangle className="size-4 shrink-0" />
-                  AMU kan kreves
-                </span>
-              ) : (
-                <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>AMU: &lt;10</span>
-              )}
-              <button
-                type="button"
-                onClick={() => setEmpModal({ mode: 'create' })}
-                className={`${HERO_ACTION_CLASS} text-white shadow-sm hover:opacity-95`}
-                style={{ backgroundColor: WORKPLACE_FOREST }}
-              >
-                <Plus className="size-4 shrink-0" /> Ny ansatt
-              </button>
-            </div>
-          </div>
-          <div className="flex shrink-0 justify-center sm:justify-end sm:pt-1" aria-hidden>
-            <OrganisationHeaderIllustration className="h-[7.5rem] w-auto max-w-[min(100%,220px)] md:h-32" />
-          </div>
-        </div>
+                {ct.requiresVerneombud ? (
+                  <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
+                    <CheckCircle2 className="size-4 shrink-0" />
+                    Verneombud lovpålagt
+                  </span>
+                ) : (
+                  <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>Verneombud: &lt;5</span>
+                )}
+                {ct.requiresAmu ? (
+                  <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
+                    <CheckCircle2 className="size-4 shrink-0" />
+                    AMU lovpålagt
+                  </span>
+                ) : ct.mayRequestAmu ? (
+                  <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
+                    <AlertTriangle className="size-4 shrink-0" />
+                    AMU kan kreves
+                  </span>
+                ) : (
+                  <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>AMU: &lt;10</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setEmpModal({ mode: 'create' })}
+                  className={`${HERO_ACTION_CLASS} text-white shadow-sm hover:opacity-95`}
+                  style={{ backgroundColor: WORKPLACE_FOREST }}
+                >
+                  <Plus className="size-4 shrink-0" /> Ny ansatt
+                </button>
+              </div>
+            </>
+          }
+          menu={
+            <WorkplaceBoardTabStrip
+              ariaLabel="Organisasjon — faner"
+              items={orgTabItems}
+              activeId={tab}
+              onSelect={(id) => setTab(id as Tab)}
+            />
+          }
+        />
 
         {tab === 'settings' && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

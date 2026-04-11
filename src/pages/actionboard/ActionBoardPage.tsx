@@ -18,14 +18,14 @@ import {
   AB_SCORECARD_CREAM_DEEP,
   AB_SCORECARD_FOREST,
   ACTION_BOARD_SOURCE_LABELS,
-  ActionBoardBreadcrumb,
   ActionBoardPill,
   ActionBoardSerifHeading,
-  ActionBoardSerifTitle,
   ActionBoardTaskScorecardCard,
   type ActionBoardScorecardItem,
   type ActionBoardSource,
 } from './actionBoardScorecardLayout'
+import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
+import { WorkplacePageHeading1 } from '../../components/layout/WorkplacePageHeading1'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const DRAG_TYPE = 'application/x-atics-task-id'
@@ -304,33 +304,24 @@ export function ActionBoardPage() {
     ...sourcesPresent.map((s) => ({ id: s, label: ACTION_BOARD_SOURCE_LABELS[s] })),
   ]
 
-  const boardTabButtons = (
-    <div className="flex flex-wrap gap-2 border-b border-neutral-200/80 pb-4">
-      {(
-        [
-          { id: 'board' as const, label: 'Tavle', Icon: LayoutGrid },
-          { id: 'costs' as const, label: 'Kostnader', Icon: History },
-        ] as const
-      ).map(({ id, label, Icon }) => {
-        const active = boardTab === id
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setBoardTab(id)}
-            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${
-              active
-                ? 'border-[#142e26] text-white shadow-sm'
-                : 'border-transparent text-neutral-600 hover:bg-white/70 hover:text-neutral-900'
-            }`}
-            style={active ? { backgroundColor: AB_SCORECARD_FOREST } : undefined}
-          >
-            <Icon className={`size-4 shrink-0 ${active ? 'text-white' : 'text-neutral-500'}`} />
-            {label}
-          </button>
-        )
-      })}
-    </div>
+  const actionBoardHubItems: HubMenu1Item[] = useMemo(
+    () => [
+      {
+        key: 'board',
+        label: 'Tavle',
+        icon: LayoutGrid,
+        active: boardTab === 'board',
+        onClick: () => setBoardTab('board'),
+      },
+      {
+        key: 'costs',
+        label: 'Kostnader',
+        icon: History,
+        active: boardTab === 'costs',
+        onClick: () => setBoardTab('costs'),
+      },
+    ],
+    [boardTab],
   )
 
   return (
@@ -352,33 +343,28 @@ export function ActionBoardPage() {
             boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
           }}
         >
-          {boardTabButtons}
-
-          <ActionBoardBreadcrumb
-            items={[{ label: 'Workspace', to: '/' }, 'Action board', 'Tavle']}
+          <WorkplacePageHeading1
+            breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Action board' }, { label: 'Tavle' }]}
+            title="Global Action Board"
+            description="Åpne tiltak på tvers av moduler. Oppgaver kan dras mellom kolonner."
+            headerActions={
+              <>
+                <ActionBoardPill tone="tan">Totalt {items.length}</ActionBoardPill>
+                <ActionBoardPill tone="red">Forfalt {overdueTotalCount}</ActionBoardPill>
+                <ActionBoardPill tone="green">Oppgaver {taskCount}</ActionBoardPill>
+                <ActionBoardPill tone="blue">Andre {otherCount}</ActionBoardPill>
+                <Link
+                  to="/tasks?view=list"
+                  className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold uppercase text-white shadow-sm"
+                  style={{ backgroundColor: AB_SCORECARD_FOREST }}
+                >
+                  <Plus className="size-3.5 shrink-0" />
+                  Ny oppgave
+                </Link>
+              </>
+            }
+            menu={<HubMenu1Bar ariaLabel="Action board — visning" items={actionBoardHubItems} />}
           />
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <ActionBoardSerifTitle className="text-2xl md:text-3xl">Global Action Board</ActionBoardSerifTitle>
-              <p className="mt-1 text-sm text-neutral-500">
-                Åpne tiltak på tvers av moduler. Oppgaver kan dras mellom kolonner.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <ActionBoardPill tone="tan">Totalt {items.length}</ActionBoardPill>
-              <ActionBoardPill tone="red">Forfalt {overdueTotalCount}</ActionBoardPill>
-              <ActionBoardPill tone="green">Oppgaver {taskCount}</ActionBoardPill>
-              <ActionBoardPill tone="blue">Andre {otherCount}</ActionBoardPill>
-              <Link
-                to="/tasks?view=list"
-                className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold uppercase text-white shadow-sm"
-                style={{ backgroundColor: AB_SCORECARD_FOREST }}
-              >
-                <Plus className="size-3.5 shrink-0" />
-                Ny oppgave
-              </Link>
-            </div>
-          </div>
 
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -569,15 +555,12 @@ export function ActionBoardPage() {
             boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
           }}
         >
-          {boardTabButtons}
-
-          <ActionBoardBreadcrumb
-            items={[{ label: 'Workspace', to: '/' }, 'Action board', 'Kostnader']}
+          <WorkplacePageHeading1
+            breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Action board' }, { label: 'Kostnader' }]}
+            title="Kostnadsoversikt"
+            description="Forenklet estimat basert på innstillinger — ikke regnskapsgrunnlag."
+            menu={<HubMenu1Bar ariaLabel="Action board — visning" items={actionBoardHubItems} />}
           />
-          <ActionBoardSerifTitle className="text-2xl md:text-3xl">Kostnadsoversikt</ActionBoardSerifTitle>
-          <p className="mt-1 text-sm text-neutral-600">
-            Forenklet estimat basert på innstillinger — ikke regnskapsgrunnlag.
-          </p>
 
           <section className="space-y-4 pt-2">
             {!cost.settings.enabled ? (
