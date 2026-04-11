@@ -31,7 +31,7 @@ import { OrganisationHeaderIllustration } from '../components/organisation/Organ
 import { Mainbox1 } from '../components/layout/Mainbox1'
 import { Table1Shell } from '../components/layout/Table1Shell'
 import { Table1Toolbar } from '../components/layout/Table1Toolbar'
-import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import {
   table1BodyRowClass,
   table1CellPadding,
@@ -769,26 +769,26 @@ export function OrganisationPage() {
           boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
         }}
       >
-        <WorkplacePageHeading1
-          breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Organisasjon' }, { label: tabLabel }]}
-          title={companyTitle}
-          description={
-            <>
-              <p className="text-sm text-neutral-500">{memberHeadline}</p>
-              <p className="mt-2 max-w-2xl leading-relaxed">
-                Struktur, ansatte og grupper for virksomheten. Terskler for verneombud og AMU oppdateres ut fra antall
-                ansatte.
-              </p>
-              {supabaseConfigured && user ? (
-                <p className="mt-2 text-xs text-neutral-500">
-                  {isDemoMode ? 'Demo-besøkende (anonym sesjon)' : 'Innlogget som'}{' '}
-                  {!isDemoMode && (profile?.display_name ?? profile?.email ?? user.email ?? 'bruker')}
+        {!useStandardOrgList ? (
+          <WorkplacePageHeading1
+            breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Organisasjon' }, { label: tabLabel }]}
+            title={companyTitle}
+            description={
+              <>
+                <p className="text-sm text-neutral-500">{memberHeadline}</p>
+                <p className="mt-2 max-w-2xl leading-relaxed">
+                  Struktur, ansatte og grupper for virksomheten. Terskler for verneombud og AMU oppdateres ut fra antall
+                  ansatte.
                 </p>
-              ) : null}
-            </>
-          }
-          headerActions={
-            useStandardOrgList ? undefined : (
+                {supabaseConfigured && user ? (
+                  <p className="mt-2 text-xs text-neutral-500">
+                    {isDemoMode ? 'Demo-besøkende (anonym sesjon)' : 'Innlogget som'}{' '}
+                    {!isDemoMode && (profile?.display_name ?? profile?.email ?? user.email ?? 'bruker')}
+                  </p>
+                ) : null}
+              </>
+            }
+            headerActions={
               <>
                 <div className="hidden shrink-0 justify-center sm:flex" aria-hidden>
                   <OrganisationHeaderIllustration className="h-[7.5rem] w-auto max-w-[min(100%,220px)] md:h-32" />
@@ -828,21 +828,17 @@ export function OrganisationPage() {
                   </button>
                 </div>
               </>
-            )
-          }
-          menu={
-            useStandardOrgList ? (
-              <HubMenu1Bar ariaLabel="Organisasjon — faner" items={orgHubMenuItems} />
-            ) : (
+            }
+            menu={
               <WorkplaceBoardTabStrip
                 ariaLabel="Organisasjon — faner"
                 items={orgTabItems}
                 activeId={tab}
                 onSelect={(id) => setTab(id as Tab)}
               />
-            )
-          }
-        />
+            }
+          />
+        ) : null}
 
         {tab === 'employees' ? (
           <WorkplaceStandardListLayout
