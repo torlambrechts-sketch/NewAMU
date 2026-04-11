@@ -1,36 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { AddTaskLink } from '../components/tasks/AddTaskLink'
-import { Mainbox1 } from '../components/layout/Mainbox1'
-import { Table1Shell } from '../components/layout/Table1Shell'
-import { Table1Toolbar } from '../components/layout/Table1Toolbar'
-import { CheckCircle2, FileWarning, Plus, Trash2, X } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { CheckCircle2, Plus, Trash2, X } from 'lucide-react'
 import { useHse } from '../hooks/useHse'
 import { useOrganisation } from '../hooks/useOrganisation'
-import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { canEditIncidentRootCause, canViewIncident } from '../lib/incidentAccess'
-import { useTasks } from '../hooks/useTasks'
-import { useUiTheme } from '../hooks/useUiTheme'
-import {
-  mergeLayoutPayload,
-  table1BodyRowClass,
-  table1CellPadding,
-  table1HeaderRowClass,
-} from '../lib/layoutLabTokens'
-import { WizardButton } from '../components/wizard/WizardButton'
-import { makeIncidentWizard } from '../components/wizard/wizards'
+import { buildTaskPrefillQuery } from '../lib/taskNavigation'
 import type {
   Incident,
   IncidentCategory,
   IncidentFormTemplate,
   IncidentEvidencePhoto,
 } from '../types/hse'
-import { WorkplaceReportingHubMenu } from '../components/workplace/WorkplaceReportingHubMenu'
-import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
+import { useWorkplaceReportingHubMenuItems } from '../components/workplace/WorkplaceReportingHubMenu'
+import {
+  WorkplaceStandardListLayout,
+  WORKPLACE_LIST_LAYOUT_CTA,
+  WORKPLACE_STANDARD_LIST_OVERLAY_Z_INDEX,
+  type WorkplaceListViewMode,
+} from '../components/layout/WorkplaceStandardListLayout'
+import { WORKPLACE_PAGE_SERIF } from '../components/layout/WorkplacePageHeading1'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
-const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
+const TABLE_CELL_BASE = 'px-5 py-3 align-middle text-sm text-neutral-800'
 const HERO_ACTION_CLASS =
   'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-none px-4 text-sm font-medium leading-none'
 const TASK_PANEL_ROW_GRID =
@@ -93,6 +85,14 @@ const STATUS_LABELS: Record<Incident['status'], string> = {
   closed: 'Lukket',
 }
 
+const INCIDENT_SEVERITY_SORT: Record<Incident['severity'], number> = { low: 0, medium: 1, high: 2, critical: 3 }
+const INCIDENT_STATUS_SORT: Record<Incident['status'], number> = {
+  reported: 0,
+  investigating: 1,
+  action_pending: 2,
+  closed: 3,
+}
+
 const FORM_TEMPLATES: { id: IncidentFormTemplate; label: string; showViolenceFields: boolean }[] = [
   { id: 'standard', label: 'Standard', showViolenceFields: false },
   { id: 'violence_school', label: 'Vold og trusler — skole', showViolenceFields: true },
@@ -132,12 +132,6 @@ export function WorkplaceIncidentsPage() {
   const hse = useHse()
   const { supabaseConfigured, supabase, organization, profile, user, isAdmin, departments } = useOrgSetupContext()
   const org = useOrganisation()
-  const { addTask } = useTasks()
-  const { barStyle: kpiStripStyle } = useWorkplaceKpiStripStyle()
-  const { payload: layoutPayload } = useUiTheme()
-  const layout = mergeLayoutPayload(layoutPayload)
-  const tableCell = `${table1CellPadding(layout)} ${TABLE_CELL_BASE}`
-  const theadRow = table1HeaderRowClass(layout)
 
   const employeePickList = useMemo(
     () => [...org.activeEmployees].sort((a, b) => a.name.localeCompare(b.name, 'nb')),
@@ -157,6 +151,10 @@ export function WorkplaceIncidentsPage() {
   }, [org.units, departments])
 
   const [incSearch, setIncSearch] = useState('')
+  const [incFiltersOpen, setIncFiltersOpen] = useState(false)
+  const [incViewMode, setIncViewMode] = useState<WorkplaceListViewMode>('table')
+  const [incSort, setIncSort] = useState<'occurred' | 'severity' | 'status' | 'location'>('occurred')
+  const [incStatusScope, setIncStatusScope] = useState<'all' | 'open' | 'closed'>('all')
   const [incPanelKind, setIncPanelKind] = useState<Incident['kind']>('incident')
   const [incPanelCategory, setIncPanelCategory] = useState<IncidentCategory>('physical_injury')
   const [incPanelFormTemplate, setIncPanelFormTemplate] = useState<IncidentFormTemplate>('standard')
@@ -178,9 +176,6 @@ export function WorkplaceIncidentsPage() {
   const [incPanelArbeidstilsynetNotified, setIncPanelArbeidstilsynetNotified] = useState(false)
   const [incPanelEvidenceQueue, setIncPanelEvidenceQueue] = useState<File[]>([])
   const [incPanelExistingPhotos, setIncPanelExistingPhotos] = useState<IncidentEvidencePhoto[]>([])
-  const [incFollowTaskTitle, setIncFollowTaskTitle] = useState('')
-  const [incFollowDueDate, setIncFollowDueDate] = useState('')
-
   const [incidentPanelId, setIncidentPanelId] = useState<string | null>(null)
   const [caDraft, setCaDraft] = useState<Record<string, { description: string; responsible: string; dueDate: string }>>(
     {},
@@ -240,8 +235,6 @@ export function WorkplaceIncidentsPage() {
     setIncPanelArbeidstilsynetNotified(false)
     setIncPanelEvidenceQueue([])
     setIncPanelExistingPhotos([])
-    setIncFollowTaskTitle('')
-    setIncFollowDueDate('')
   }, [])
 
   const closeIncidentPanel = useCallback(() => {
@@ -299,8 +292,6 @@ export function WorkplaceIncidentsPage() {
       setIncPanelArbeidstilsynetNotified(inc.arbeidstilsynetNotified ?? false)
       setIncPanelEvidenceQueue([])
       setIncPanelExistingPhotos(inc.evidencePhotos ?? [])
-      setIncFollowTaskTitle('')
-      setIncFollowDueDate('')
     },
     [incidentViewerCtx],
   )
@@ -326,6 +317,8 @@ export function WorkplaceIncidentsPage() {
   const incidentsFiltered = useMemo(() => {
     const q = incSearch.trim().toLowerCase()
     let list = hse.incidents.filter((i) => canViewIncident(i, incidentViewerCtx))
+    if (incStatusScope === 'open') list = list.filter((i) => i.status !== 'closed')
+    if (incStatusScope === 'closed') list = list.filter((i) => i.status === 'closed')
     if (q) {
       list = list.filter(
         (i) =>
@@ -335,9 +328,34 @@ export function WorkplaceIncidentsPage() {
           KIND_LABELS[i.kind].toLowerCase().includes(q),
       )
     }
-    list.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
     return list
-  }, [hse.incidents, incSearch, incidentViewerCtx])
+  }, [hse.incidents, incSearch, incStatusScope, incidentViewerCtx])
+
+  const sortedIncidentsFiltered = useMemo(() => {
+    const list = [...incidentsFiltered]
+    list.sort((a, b) => {
+      if (incSort === 'location') {
+        return a.location.localeCompare(b.location, 'nb', { sensitivity: 'base' })
+      }
+      if (incSort === 'severity') {
+        const d = INCIDENT_SEVERITY_SORT[b.severity] - INCIDENT_SEVERITY_SORT[a.severity]
+        if (d !== 0) return d
+        return b.occurredAt.localeCompare(a.occurredAt)
+      }
+      if (incSort === 'status') {
+        const d = INCIDENT_STATUS_SORT[a.status] - INCIDENT_STATUS_SORT[b.status]
+        if (d !== 0) return d
+        return b.occurredAt.localeCompare(a.occurredAt)
+      }
+      return b.occurredAt.localeCompare(a.occurredAt)
+    })
+    return list
+  }, [incidentsFiltered, incSort])
+
+  const reportingHubItems = useWorkplaceReportingHubMenuItems(incidentStats.open)
+  const tableCell = TABLE_CELL_BASE
+  const tableHeadRowClass = 'border-b border-neutral-200 text-[10px] font-bold uppercase tracking-wide text-neutral-500'
+  const tableBodyRowClass = 'border-b border-neutral-100 hover:bg-neutral-50/80'
 
   function departmentLabelForIncident(inc: Incident) {
     if (inc.departmentId) {
@@ -473,218 +491,267 @@ export function WorkplaceIncidentsPage() {
     closeIncidentPanel()
   }
 
+  const incToolbarFiltersActive = incStatusScope !== 'all' || incSearch.trim().length > 0
+  const overlayZ = WORKPLACE_STANDARD_LIST_OVERLAY_Z_INDEX
+
+  const openIncidentRow = useCallback(
+    (inc: Incident) => {
+      openEditIncidentPanel(inc)
+      setCaDraft((d) => ({
+        ...d,
+        [inc.id]: d[inc.id] ?? { description: '', responsible: '', dueDate: '' },
+      }))
+    },
+    [openEditIncidentPanel],
+  )
+
   return (
     <div className={PAGE_WRAP}>
-      {hse.error && (
-        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{hse.error}</p>
-      )}
-      {hse.loading && supabaseConfigured && <p className="mb-4 text-sm text-neutral-500">Laster HMS-data…</p>}
-
-      <WorkplacePageHeading1
+      <WorkplaceStandardListLayout
         breadcrumb={[
           { label: 'Workspace', to: '/' },
           { label: 'Arbeidsplassrapportering', to: '/workplace-reporting' },
           { label: 'Hendelser' },
         ]}
         title="Hendelser (HSE)"
-        description="Ulykker, nestenulykker og avvik under arbeidsplassrapportering. Registrering i sidevindu med strukturerte felt, bildebevis og varsel ved høy alvorlighetsgrad (AML § 5-2)."
-        headerActions={
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-            <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-              Synlige <strong className="ml-1 font-semibold">{incidentStats.total}</strong>
-            </span>
-            <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
-              Åpne <strong className="ml-1 font-semibold">{incidentStats.open}</strong>
-            </span>
-            <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
-              Høy alvor <strong className="ml-1 font-semibold">{incidentStats.high}</strong>
-            </span>
-            <span className={`${HERO_ACTION_CLASS} bg-red-100 text-red-900`}>
-              Kritisk <strong className="ml-1 font-semibold">{incidentStats.critical}</strong>
-            </span>
+        description={
+          <>
+            <p className="max-w-3xl">
+              Ulykker, nestenulykker og avvik. Registrering i sidevindu med strukturerte felt, bildebevis og varsel ved høy
+              alvorlighetsgrad (AML § 5-2).
+            </p>
+            <p className="mt-2 text-sm text-neutral-600">
+              {incidentStats.total} synlige · {incidentStats.open} åpne · {incidentStats.high} høy alvor ·{' '}
+              {incidentStats.critical} kritisk
+            </p>
+          </>
+        }
+        hubAriaLabel="Arbeidsplassrapportering"
+        hubItems={reportingHubItems}
+        toolbar={{
+          count:
+            hse.incidents.filter((i) => canViewIncident(i, incidentViewerCtx)).length > 0
+              ? { value: sortedIncidentsFiltered.length, label: 'hendelser i visning' }
+              : undefined,
+          searchPlaceholder: 'Søk i beskrivelse, sted, type …',
+          searchValue: incSearch,
+          onSearchChange: setIncSearch,
+          filtersOpen: incFiltersOpen,
+          onFiltersOpenChange: setIncFiltersOpen,
+          filterStatusText: incToolbarFiltersActive ? 'Filter aktive' : 'Ingen filter',
+          filterPanel: (
+            <div className="flex flex-col gap-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">Status</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(
+                    [
+                      { id: 'all' as const, label: 'Alle' },
+                      { id: 'open' as const, label: 'Åpne' },
+                      { id: 'closed' as const, label: 'Lukket' },
+                    ] as const
+                  ).map((opt) => {
+                    const selected = incStatusScope === opt.id
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setIncStatusScope(opt.id)}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
+                          selected ? 'text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'
+                        }`}
+                        style={
+                          selected ? { backgroundColor: WORKPLACE_LIST_LAYOUT_CTA } : undefined
+                        }
+                      >
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIncSearch('')
+                  setIncStatusScope('all')
+                }}
+                className="self-start rounded-md border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+              >
+                Nullstill filter
+              </button>
+            </div>
+          ),
+          sortOptions: [
+            { value: 'occurred', label: 'Tidspunkt (nyeste)' },
+            { value: 'severity', label: 'Alvor (høyest)' },
+            { value: 'status', label: 'Status' },
+            { value: 'location', label: 'Sted A–Å' },
+          ],
+          sortValue: incSort,
+          onSortChange: (v) => setIncSort(v as typeof incSort),
+          viewMode: incViewMode,
+          onViewModeChange: setIncViewMode,
+          primaryAction: { label: 'Ny hendelse', onClick: openNewIncidentPanel, icon: Plus },
+        }}
+        contentClassName="!p-0"
+      >
+        {hse.error ? (
+          <p className="m-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 md:m-6">{hse.error}</p>
+        ) : null}
+        {hse.loading && supabaseConfigured ? (
+          <p className="m-4 text-sm text-neutral-500 md:m-6">Laster HMS-data…</p>
+        ) : null}
+        {hse.incidents.filter((i) => canViewIncident(i, incidentViewerCtx)).length === 0 ? (
+          <div className="flex flex-col items-center justify-center border border-dashed border-neutral-200 py-16 text-center">
+            <p className="text-sm text-neutral-500">Ingen hendelser registrert ennå</p>
             <button
               type="button"
               onClick={openNewIncidentPanel}
-              className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm"
+              style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
             >
-              <Plus className="size-4 shrink-0" />
+              <Plus className="size-4 shrink-0" strokeWidth={2.5} />
               Ny hendelse
             </button>
-            <WizardButton
-              label="Veiviser"
-              variant="solid"
-              className={HERO_ACTION_CLASS}
-              def={makeIncidentWizard((data) => {
-                const kind = String(data.kind) as Incident['kind']
-                const ft = String(data.formTemplate) as IncidentFormTemplate
-                const leaderName = String(data.routeManager ?? '').trim()
-                const reportedByStr = String(data.reportedBy || '').trim()
-                const repEmp = org.displayEmployees.find(
-                  (e) => e.name.trim().toLowerCase() === reportedByStr.toLowerCase(),
-                )
-                const leaderEmp = leaderName
-                  ? org.displayEmployees.find((e) => e.name.trim().toLowerCase() === leaderName.toLowerCase())
-                  : undefined
-                const created = hse.createIncident({
-                  kind,
-                  category: 'physical_injury',
-                  formTemplate: ft,
-                  severity: String(data.severity) as Incident['severity'],
-                  occurredAt: data.occurredAt
-                    ? new Date(String(data.occurredAt)).toISOString()
-                    : new Date().toISOString(),
-                  location: String(data.location) || '—',
-                  department: String(data.department ?? ''),
-                  departmentId: undefined,
-                  description: String(data.description) || '',
-                  experienceDetail: data.experienceDetail ? String(data.experienceDetail) : undefined,
-                  injuredPerson: data.injuredPerson ? String(data.injuredPerson) : undefined,
-                  immediateActions: String(data.immediateActions) || '',
-                  reportedBy: repEmp?.name ?? (reportedByStr || '—'),
-                  reportedByEmployeeId: repEmp?.id,
-                  nearestLeaderEmployeeId: leaderEmp?.id,
-                  status: String(data.status) as Incident['status'],
-                  correctiveActions: [],
-                  arbeidstilsynetNotified: Boolean(data.arbeidstilsynetNotified),
-                  routing: leaderName
-                    ? {
-                        managerName: leaderEmp?.name ?? leaderName,
-                        verneombudNotified: Boolean(data.routeVerneombud),
-                        amuCaseCreated: Boolean(data.routeAMU),
-                        routedAt: new Date().toISOString(),
-                      }
-                    : undefined,
-                })
-                openEditIncidentPanel(created)
-              })}
-            />
           </div>
-        }
-        menu={<WorkplaceReportingHubMenu incidentsBadgeCount={incidentStats.open} />}
-      />
-
-      <div className="mt-8 space-y-6">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div
-            className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`}
-            style={kpiStripStyle}
-          >
-            <div className="text-2xl font-semibold">{incidentStats.total}</div>
-            <div className="text-xs font-medium uppercase tracking-wide text-white/85">I din liste</div>
+        ) : sortedIncidentsFiltered.length === 0 ? (
+          <div className="px-5 py-14 text-center md:px-6">
+            <p className="text-sm font-medium text-neutral-700">Ingen treff</p>
+            <p className="mt-1 text-xs text-neutral-500">Juster søk eller filter.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setIncSearch('')
+                setIncStatusScope('all')
+              }}
+              className="mt-4 rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+              style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
+            >
+              Nullstill
+            </button>
           </div>
-          <div
-            className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`}
-            style={kpiStripStyle}
-          >
-            <div className="text-2xl font-semibold">{incidentStats.open}</div>
-            <div className="text-xs font-medium uppercase tracking-wide text-white/85">Ikke lukket</div>
+        ) : incViewMode === 'table' ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px] border-collapse text-left text-sm">
+              <thead>
+                <tr className={tableHeadRowClass}>
+                  <th className={tableCell}>Type / alvor</th>
+                  <th className={tableCell}>Tidspunkt</th>
+                  <th className={tableCell}>Sted / avdeling</th>
+                  <th className={tableCell}>Melder</th>
+                  <th className={tableCell}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedIncidentsFiltered.map((inc) => (
+                  <IncidentTableRow
+                    key={inc.id}
+                    inc={inc}
+                    deptLabel={departmentLabelForIncident(inc)}
+                    rowClass={tableBodyRowClass}
+                    cellClass={tableCell}
+                    onOpen={() => openIncidentRow(inc)}
+                  />
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div
-            className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`}
-            style={kpiStripStyle}
-          >
-            <div className="text-2xl font-semibold">{incidentStats.high}</div>
-            <div className="text-xs font-medium uppercase tracking-wide text-white/85">Høy</div>
+        ) : incViewMode === 'box' ? (
+          <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 md:p-6">
+            {sortedIncidentsFiltered.map((inc) => (
+              <button
+                key={inc.id}
+                type="button"
+                onClick={() => openIncidentRow(inc)}
+                className="flex flex-col overflow-hidden rounded-lg border border-neutral-200/80 bg-white p-4 text-left shadow-sm transition hover:border-neutral-300"
+                style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+              >
+                <div className="flex flex-wrap gap-1">
+                  <span className={`${R_FLAT} border px-2 py-0.5 text-xs font-semibold ${KIND_COLOURS[inc.kind]}`}>
+                    {KIND_LABELS[inc.kind]}
+                  </span>
+                  <span className={`${R_FLAT} border px-2 py-0.5 text-xs font-semibold ${SEVERITY_COLOURS[inc.severity]}`}>
+                    {SEVERITY_LABELS[inc.severity]}
+                  </span>
+                </div>
+                <p className="mt-2 line-clamp-2 text-sm font-medium text-neutral-900">{inc.description || inc.location}</p>
+                <p className="mt-1 text-xs text-neutral-500">{formatWhen(inc.occurredAt)}</p>
+                <p className="mt-1 text-xs text-neutral-600">
+                  {inc.location} · {departmentLabelForIncident(inc)}
+                </p>
+                <span className="mt-2 inline-block rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[11px] font-medium">
+                  {STATUS_LABELS[inc.status]}
+                </span>
+              </button>
+            ))}
           </div>
-          <div
-            className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`}
-            style={kpiStripStyle}
-          >
-            <div className="text-2xl font-semibold">{incidentStats.critical}</div>
-            <div className="text-xs font-medium uppercase tracking-wide text-white/85">Kritisk</div>
-          </div>
-        </div>
-
-        <Mainbox1
-          title="Hendelseslogg"
-          subtitle="Sortert etter tidspunkt. Åpne en rad for full redigering, dokumentasjon og oppfølgingsoppgaver."
-        >
-          <Table1Shell
-            variant="pinpoint"
-            toolbar={
-              <Table1Toolbar
-                searchSlot={
-                  <div className="min-w-[200px] flex-1">
-                    <label className="sr-only" htmlFor="inc-search">
-                      Søk
-                    </label>
-                    <input
-                      id="inc-search"
-                      value={incSearch}
-                      onChange={(e) => setIncSearch(e.target.value)}
-                      placeholder="Søk i beskrivelse, sted, type …"
-                      className={`${SETTINGS_INPUT} bg-white`}
-                    />
+        ) : (
+          <ul className="divide-y divide-neutral-100 px-4 py-2 md:px-6">
+            {sortedIncidentsFiltered.map((inc) => (
+              <li key={inc.id}>
+                <button
+                  type="button"
+                  onClick={() => openIncidentRow(inc)}
+                  className="flex w-full flex-wrap items-start justify-between gap-3 py-4 text-left first:pt-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-neutral-900">{inc.location}</p>
+                    <p className="mt-0.5 line-clamp-2 text-xs text-neutral-600">{inc.description}</p>
+                    <p className="mt-1 text-xs text-neutral-500">
+                      {KIND_LABELS[inc.kind]} · {formatWhen(inc.occurredAt)} · {departmentLabelForIncident(inc)}
+                    </p>
                   </div>
-                }
-              />
-            }
-          >
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse text-left">
-                <thead>
-                  <tr className={theadRow}>
-                    <th className={tableCell}>Type / alvor</th>
-                    <th className={tableCell}>Tidspunkt</th>
-                    <th className={tableCell}>Sted / avdeling</th>
-                    <th className={tableCell}>Melder</th>
-                    <th className={tableCell}>Status</th>
-                    <th className={`${tableCell} text-right`}>Handling</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {incidentsFiltered.map((inc, ri) => (
-                    <IncidentTableRow
-                      key={inc.id}
-                      inc={inc}
-                      deptLabel={departmentLabelForIncident(inc)}
-                      rowClass={table1BodyRowClass(layout, ri)}
-                      cellClass={tableCell}
-                      onOpen={() => {
-                        openEditIncidentPanel(inc)
-                        setCaDraft((d) => ({
-                          ...d,
-                          [inc.id]: d[inc.id] ?? { description: '', responsible: '', dueDate: '' },
-                        }))
-                      }}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {incidentsFiltered.length === 0 ? (
-              <p className="px-4 py-10 text-center text-sm text-neutral-500">
-                Ingen hendelser å vise (eller ingen treff i søk).
-              </p>
-            ) : null}
-          </Table1Shell>
-        </Mainbox1>
-      </div>
+                  <span className={`${R_FLAT} shrink-0 border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium`}>
+                    {STATUS_LABELS[inc.status]}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </WorkplaceStandardListLayout>
 
       {incidentPanelId ? (
-        <>
-          <button
-            type="button"
-            aria-label="Lukk"
-            className="fixed inset-0 z-[60] bg-black/40"
-            onClick={closeIncidentPanel}
-          />
-          <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[920px] flex-col border-l border-neutral-200 bg-[#f7f6f2] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-neutral-200 bg-[#f7f6f2] px-5 py-4">
+        <div
+          className="fixed inset-0 flex justify-end bg-black/45 backdrop-blur-[2px]"
+          style={{ zIndex: overlayZ }}
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeIncidentPanel()
+          }}
+        >
+          <div
+            className="flex h-full w-full max-w-[min(100vw,920px)] flex-col border-l border-neutral-200 bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="incident-panel-title"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 bg-[#f7f6f2] px-6 py-5 sm:px-8 sm:py-6">
               <div>
-                <h2 className="text-lg font-semibold text-neutral-900">
+                <h2
+                  id="incident-panel-title"
+                  className="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl"
+                  style={{ fontFamily: WORKPLACE_PAGE_SERIF }}
+                >
                   {incidentPanelId === '__new__' ? 'Ny hendelse' : 'Rediger hendelse'}
                 </h2>
-                <p className="text-xs text-neutral-500">
+                <p className="mt-1 text-sm text-neutral-600">
                   {KIND_LABELS[incPanelKind]} · {SEVERITY_LABELS[incPanelSeverity]}
                 </p>
               </div>
-              <button type="button" onClick={closeIncidentPanel} className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-100`}>
-                <X className="size-5" />
+              <button
+                type="button"
+                onClick={closeIncidentPanel}
+                className="rounded-none p-2 text-neutral-500 transition hover:bg-neutral-200/60 hover:text-neutral-800"
+                aria-label="Lukk"
+              >
+                <X className="size-6" />
               </button>
-            </div>
+            </header>
             <form className="flex min-h-0 flex-1 flex-col" onSubmit={submitIncidentPanel}>
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-8">
                 <div
                   className={`${SETTINGS_LEAD} mb-4 rounded-none border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-600`}
                 >
@@ -925,7 +992,8 @@ export function WorkplaceIncidentsPage() {
                   <div>
                     <h3 className="text-base font-semibold text-neutral-900">Tiltak og rotårsak</h3>
                     <p className={`${SETTINGS_LEAD} mt-2`}>
-                      Umiddelbare tiltak kan omsettes til Kanban-oppgave. Rotårsak fylles av nærmeste leder / saksbehandler.
+                      Beskriv umiddelbare tiltak. Oppfølgingsoppgave opprettes under Oppgaver (forhåndsutfylt lenke når saken er
+                      lagret). Rotårsak fylles av nærmeste leder / saksbehandler.
                     </p>
                   </div>
                   <div className={TASK_PANEL_INSET}>
@@ -939,63 +1007,31 @@ export function WorkplaceIncidentsPage() {
                       rows={3}
                       className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
                     />
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-ftitle">
-                          Oppgavetittel
-                        </label>
-                        <input
-                          id="inc-ftitle"
-                          value={incFollowTaskTitle}
-                          onChange={(e) => setIncFollowTaskTitle(e.target.value)}
-                          placeholder="f.eks. Sperre av maskin / renhold"
-                          className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
-                        />
-                      </div>
-                      <div>
-                        <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-fdue">
-                          Frist
-                        </label>
-                        <input
-                          id="inc-fdue"
-                          type="date"
-                          value={incFollowDueDate}
-                          onChange={(e) => setIncFollowDueDate(e.target.value)}
-                          className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
-                        />
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={!incPanelImmediateActions.trim()}
-                      onClick={() => {
-                        if (!incPanelImmediateActions.trim()) return
-                        const title =
-                          incFollowTaskTitle.trim() || `Oppfølging: ${KIND_LABELS[incPanelKind].slice(0, 40)}`
-                        addTask({
-                          title,
-                          description: incPanelImmediateActions.trim(),
-                          status: 'todo',
-                          assignee: incPanelNearestLeaderEmployeeId
-                            ? employeeLabelById(incPanelNearestLeaderEmployeeId)
-                            : 'HMS',
-                          assigneeEmployeeId: incPanelNearestLeaderEmployeeId || undefined,
-                          dueDate: incFollowDueDate.trim() || '—',
-                          module: 'hse',
-                          sourceType: 'hse_incident',
-                          sourceId: incidentPanelId !== '__new__' ? incidentPanelId : undefined,
-                          sourceLabel: incPanelDescription.slice(0, 120),
-                          ownerRole: 'HMS',
-                          requiresManagementSignOff: incPanelSeverity === 'high' || incPanelSeverity === 'critical',
-                        })
-                        setIncFollowTaskTitle('')
-                        setIncFollowDueDate('')
-                      }}
-                      className={`${HERO_ACTION_CLASS} mt-3 border border-neutral-300 bg-white text-neutral-800 disabled:opacity-40`}
-                    >
-                      <Plus className="size-4" />
-                      Opprett oppfølgingsoppgave
-                    </button>
+                    {incidentPanelExisting ? (
+                      <p className="mt-4 text-xs text-neutral-600">
+                        <Link
+                          to={`/tasks?${buildTaskPrefillQuery({
+                            title: `Oppfølging: ${KIND_LABELS[incidentPanelExisting.kind]}`,
+                            description: incidentPanelExisting.description.slice(0, 200),
+                            module: 'hse',
+                            sourceType: 'hse_incident',
+                            sourceId: incidentPanelExisting.id,
+                            sourceLabel: `${incidentPanelExisting.location} · ${SEVERITY_LABELS[incidentPanelExisting.severity]}`,
+                            ownerRole: 'HMS / verneombud',
+                            requiresManagementSignOff:
+                              incidentPanelExisting.severity === 'high' ||
+                              incidentPanelExisting.severity === 'critical',
+                          })}`}
+                          className="font-semibold text-[#1a3d32] underline"
+                        >
+                          Opprett oppfølgingsoppgave i Oppgaver →
+                        </Link>
+                      </p>
+                    ) : (
+                      <p className="mt-4 text-xs text-neutral-500">
+                        Lagre hendelsen først — deretter kan du opprette oppfølgingsoppgave fra samme panel eller under Oppgaver.
+                      </p>
+                    )}
                     <div className="mt-5">
                       <label className={SETTINGS_FIELD_LABEL} htmlFor="inc-root">
                         Rotårsak (saksbehandler)
@@ -1262,51 +1298,46 @@ export function WorkplaceIncidentsPage() {
                   </div>
                 ) : null}
 
-                {incidentPanelExisting ? (
-                  <div className="flex flex-wrap gap-2 px-4 py-4 md:px-5">
+              </div>
+              <footer className="shrink-0 border-t border-neutral-200/90 bg-[#f0efe9] px-6 py-5 sm:px-8">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  {incidentPanelExisting ? (
                     <button
                       type="button"
                       onClick={() => {
                         if (confirm('Anonymiser personopplysninger? Kan ikke angres.'))
                           hse.anonymiseIncident(incidentPanelExisting.id)
                       }}
-                      className={`${HERO_ACTION_CLASS} border border-red-200 bg-red-50 text-red-800`}
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-red-800 underline decoration-red-300 hover:text-red-950"
                     >
-                      <Trash2 className="size-3.5" />
+                      <Trash2 className="size-4 shrink-0" />
                       Anonymiser (GDPR)
                     </button>
-                    <AddTaskLink
-                      title={`Oppfølging: ${KIND_LABELS[incidentPanelExisting.kind]}`}
-                      description={incidentPanelExisting.description.slice(0, 200)}
-                      module="hse"
-                      sourceType="hse_incident"
-                      sourceId={incidentPanelExisting.id}
-                      sourceLabel={`${incidentPanelExisting.location} · ${SEVERITY_LABELS[incidentPanelExisting.severity]}`}
-                      ownerRole="HMS / verneombud"
-                      requiresManagementSignOff={
-                        incidentPanelExisting.severity === 'high' || incidentPanelExisting.severity === 'critical'
-                      }
-                      className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-xs text-[#1a3d32]`}
-                    />
+                  ) : (
+                    <span />
+                  )}
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+                    <button
+                      type="submit"
+                      disabled={!incPanelDescription.trim()}
+                      className="flex w-full items-center justify-center rounded-none px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.12em] text-white transition disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"
+                      style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
+                    >
+                      {incidentPanelId === '__new__' ? 'Opprett hendelse' : 'Lagre hendelse'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeIncidentPanel}
+                      className="w-full rounded-none border border-neutral-300 bg-transparent px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-200/40 sm:w-auto"
+                    >
+                      Avbryt
+                    </button>
                   </div>
-                ) : null}
-              </div>
-              <div className="mt-auto flex flex-wrap justify-end gap-2 border-t border-neutral-200 bg-[#f0efe9] px-5 py-4">
-                <button
-                  type="button"
-                  onClick={closeIncidentPanel}
-                  className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
-                >
-                  Avbryt
-                </button>
-                <button type="submit" className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white hover:bg-[#142e26]`}>
-                  <FileWarning className="size-4" />
-                  Lagre
-                </button>
-              </div>
+                </div>
+              </footer>
             </form>
-          </aside>
-        </>
+          </div>
+        </div>
       ) : null}
     </div>
   )
@@ -1326,7 +1357,19 @@ function IncidentTableRow({
   onOpen: () => void
 }) {
   return (
-    <tr className={rowClass}>
+    <tr
+      role="button"
+      tabIndex={0}
+      aria-label={`Åpne hendelse: ${inc.location}`}
+      className={`${rowClass} cursor-pointer`}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen()
+        }
+      }}
+    >
       <td className={cellClass}>
         <div className="flex flex-wrap gap-1">
           <span className={`${R_FLAT} border px-2 py-0.5 text-xs font-semibold ${KIND_COLOURS[inc.kind]}`}>
@@ -1347,11 +1390,6 @@ function IncidentTableRow({
         <span className={`${R_FLAT} border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium`}>
           {STATUS_LABELS[inc.status]}
         </span>
-      </td>
-      <td className={`${cellClass} text-right`}>
-        <button type="button" onClick={onOpen} className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}>
-          Åpne
-        </button>
       </td>
     </tr>
   )

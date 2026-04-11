@@ -13,11 +13,12 @@ type Props = {
   incidentsBadgeCount?: number
 }
 
-export function WorkplaceReportingHubMenu({ incidentsBadgeCount }: Props) {
+/** Hub items for {@link WorkplaceStandardListLayout} on reporting pages. */
+export function useWorkplaceReportingHubMenuItems(incidentsBadgeCount?: number): HubMenu1Item[] {
   const location = useLocation()
   const { can } = useOrgSetupContext()
 
-  const items = useMemo((): HubMenu1Item[] => {
+  return useMemo((): HubMenu1Item[] => {
     return WORKPLACE_REPORTING_NAV.filter((item) => canAccessWorkplaceReportingItem(item, can)).map((item) => {
       const active = workplaceReportingNavMatch(item.to, item.end, location.pathname, location.search)
       const badge =
@@ -35,6 +36,9 @@ export function WorkplaceReportingHubMenu({ incidentsBadgeCount }: Props) {
       }
     })
   }, [can, location.pathname, location.search, incidentsBadgeCount])
+}
 
+export function WorkplaceReportingHubMenu({ incidentsBadgeCount }: Props) {
+  const items = useWorkplaceReportingHubMenuItems(incidentsBadgeCount)
   return <HubMenu1Bar ariaLabel="Arbeidsplassrapportering" items={items} />
 }

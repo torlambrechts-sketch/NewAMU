@@ -37,6 +37,7 @@ import { HubMenu1Bar } from '../components/layout/HubMenu1Bar'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import {
   WorkplaceStandardListLayout,
+  WORKPLACE_STANDARD_LIST_OVERLAY_Z_INDEX,
   type WorkplaceListViewMode,
 } from '../components/layout/WorkplaceStandardListLayout'
 import { TASK_POSTINGS_FOREST } from '../components/tasks/tasksPostingsLayout'
@@ -1775,7 +1776,8 @@ export function TasksPage() {
 
       {taskPanelOpen && pageTab === 'list' ? (
         <div
-          className="fixed inset-0 z-[100] flex justify-end bg-black/45 backdrop-blur-[2px]"
+          className="fixed inset-0 flex justify-end bg-black/45 backdrop-blur-[2px]"
+          style={{ zIndex: WORKPLACE_STANDARD_LIST_OVERLAY_Z_INDEX }}
           role="presentation"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeTaskPanel()

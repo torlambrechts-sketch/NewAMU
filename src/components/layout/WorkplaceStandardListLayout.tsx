@@ -8,6 +8,9 @@ import { WorkplacePageHeading1 } from './WorkplacePageHeading1'
 
 /** Primary action green — matches layout-reference CTA */
 export const WORKPLACE_LIST_LAYOUT_CTA = '#2D403A'
+
+/** z-index for full-viewport slide-over (same as Tasks create/edit panel). */
+export const WORKPLACE_STANDARD_LIST_OVERLAY_Z_INDEX = 100
 const CREAM_DEEP = '#EFE8DC'
 
 const CARD =
