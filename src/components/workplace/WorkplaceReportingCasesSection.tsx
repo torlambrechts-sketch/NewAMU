@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, X } from 'lucide-react'
-import { Mainbox1 } from '../layout/Mainbox1'
 import { Table1Shell } from '../layout/Table1Shell'
 import { Table1Toolbar } from '../layout/Table1Toolbar'
+import { WorkplaceSerifSectionTitle } from '../layout/WorkplacePageHeading1'
+import { WORKPLACE_LAYOUT_BOX_CARD, WORKPLACE_LAYOUT_BOX_SHADOW } from '../layout/workplaceLayoutKit'
+import { WORKPLACE_LIST_LAYOUT_CTA } from '../layout/WorkplaceStandardListLayout'
 import { WORKPLACE_CASE_CATEGORIES, categoryDef } from '../../data/workplaceCaseCategories'
 import { useWorkplaceReportingCases } from '../../hooks/useWorkplaceReportingCases'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
@@ -19,7 +21,7 @@ import type { WorkplaceCase, WorkplaceCaseCategory, WorkplaceCaseDetails, Workpl
 
 const R_FLAT = 'rounded-none'
 const HERO_ACTION =
-  'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-none px-4 text-sm font-medium leading-none bg-[#1a3d32] text-white hover:bg-[#142e26]'
+  'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-medium leading-none text-white shadow-sm hover:opacity-95'
 const INPUT =
   'mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900'
 const LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-800'
@@ -308,25 +310,33 @@ export function WorkplaceReportingCasesSection() {
     <>
       <div className="mt-10 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-500">Saker (internt)</h2>
-          <button type="button" onClick={openNew} className={`${HERO_ACTION} gap-2`}>
+          <WorkplaceSerifSectionTitle>Saker (internt)</WorkplaceSerifSectionTitle>
+          <button
+            type="button"
+            onClick={openNew}
+            className={`${HERO_ACTION} gap-2`}
+            style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
+          >
             <Plus className="size-4 shrink-0" />
             + Ny sak
           </button>
         </div>
         {wr.error ? (
-          <p className="rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{wr.error}</p>
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{wr.error}</p>
         ) : null}
         {wr.loading ? <p className="text-sm text-neutral-500">Laster saker…</p> : null}
 
-        <Mainbox1
-          title="Alle saker"
-          subtitle={
-            viewerCtx.isAdmin || viewerCtx.isCommittee
-              ? 'Du ser alle saker i organisasjonen. Andre brukere ser kun egne konfidensielle saker og alle ikke-konfidensielle.'
-              : 'Konfidensielle saker vises kun for deg og for administrator / varslingsmottak.'
-          }
-        >
+        <div className={`${WORKPLACE_LAYOUT_BOX_CARD} p-0`} style={WORKPLACE_LAYOUT_BOX_SHADOW}>
+          <div className="border-b border-neutral-100 px-5 py-4">
+            <WorkplaceSerifSectionTitle as="h3" variant="compact">
+              Alle saker
+            </WorkplaceSerifSectionTitle>
+            <p className="mt-1 text-sm text-neutral-600">
+              {viewerCtx.isAdmin || viewerCtx.isCommittee
+                ? 'Du ser alle saker i organisasjonen. Andre brukere ser kun egne konfidensielle saker og alle ikke-konfidensielle.'
+                : 'Konfidensielle saker vises kun for deg og for administrator / varslingsmottak.'}
+            </p>
+          </div>
           <Table1Shell
             variant="pinpoint"
             toolbar={
@@ -392,7 +402,7 @@ export function WorkplaceReportingCasesSection() {
               <p className="px-4 py-10 text-center text-sm text-neutral-500">Ingen saker å vise.</p>
             ) : null}
           </Table1Shell>
-        </Mainbox1>
+        </div>
       </div>
 
       {panelMode !== 'closed' ? (

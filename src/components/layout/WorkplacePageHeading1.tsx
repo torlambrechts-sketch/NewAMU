@@ -65,3 +65,30 @@ export function WorkplacePageHeading1({
     </header>
   )
 }
+
+/**
+ * Section title using the same serif as «Overskrift 1» (smaller step) — e.g. under {@link WorkplacePageHeading1}.
+ * Matches platform layout-composer section headings.
+ */
+export function WorkplaceSerifSectionTitle({
+  children,
+  className = '',
+  as: Tag = 'h2',
+  variant = 'default',
+}: {
+  children: ReactNode
+  className?: string
+  as?: 'h2' | 'h3'
+  /** `compact` — nested title inside a card (e.g. platform layout boks header). */
+  variant?: 'default' | 'compact'
+}) {
+  const size =
+    variant === 'compact'
+      ? 'text-base font-semibold tracking-tight sm:text-lg'
+      : 'text-lg font-semibold tracking-tight sm:text-xl'
+  return (
+    <Tag className={`${size} text-neutral-900 ${className}`.trim()} style={{ fontFamily: WORKPLACE_PAGE_SERIF }}>
+      {children}
+    </Tag>
+  )
+}
