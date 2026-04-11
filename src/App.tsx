@@ -67,10 +67,7 @@ import { PlatformUiAdvancedPage } from './pages/platform/PlatformUiAdvancedPage'
 import { PlatformBoxDesignerPage } from './pages/platform/PlatformBoxDesignerPage'
 import { PlatformLayoutCompositionPage } from './pages/platform/PlatformLayoutCompositionPage'
 import { PlatformPinpointLayoutsPage } from './pages/platform/PlatformPinpointLayoutsPage'
-import { PlatformLayoutComposerPage } from './pages/platform/PlatformLayoutComposerPage'
-import { PlatformStandardLayoutKitPage } from './pages/platform/PlatformStandardLayoutKitPage'
-import { PlatformDashboardLayoutKitPage } from './pages/platform/PlatformDashboardLayoutKitPage'
-import { PlatformSplit7030KitPage } from './pages/platform/PlatformSplit7030KitPage'
+import { PlatformLayoutHubPage } from './pages/platform/PlatformLayoutHubPage'
 import { PublicWhistlePage } from './pages/PublicWhistlePage'
 import { WhistleStatusPage } from './pages/WhistleStatusPage'
 
@@ -102,10 +99,11 @@ function App() {
                 <Route path="box-designer" element={<PlatformBoxDesignerPage />} />
                 <Route path="layout-builder" element={<PlatformLayoutCompositionPage />} />
                 <Route path="layout-reference" element={<PlatformPinpointLayoutsPage />} />
-                <Route path="layout-composer" element={<PlatformLayoutComposerPage />} />
-                <Route path="layout-standard" element={<PlatformStandardLayoutKitPage />} />
-                <Route path="layout-dashboard" element={<PlatformDashboardLayoutKitPage />} />
-                <Route path="layout-split" element={<PlatformSplit7030KitPage />} />
+                <Route path="layout" element={<PlatformLayoutHubPage />} />
+                <Route path="layout-composer" element={<Navigate to="/platform-admin/layout#composer" replace />} />
+                <Route path="layout-standard" element={<Navigate to="/platform-admin/layout#standard" replace />} />
+                <Route path="layout-dashboard" element={<Navigate to="/platform-admin/layout#dashboard" replace />} />
+                <Route path="layout-split" element={<Navigate to="/platform-admin/layout#split" replace />} />
                 <Route path="*" element={<Navigate to="/platform-admin" replace />} />
               </Route>
               <Route path="onboarding" element={<OnboardingWizard />} />

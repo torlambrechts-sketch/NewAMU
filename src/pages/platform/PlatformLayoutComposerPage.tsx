@@ -1,5 +1,4 @@
 import { useEffect, useId, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
   BarChart3,
@@ -40,6 +39,16 @@ function shellStyle(): CSSProperties {
     backgroundColor: CREAM,
     color: '#171717',
   }
+}
+
+/** Preview surface for platform layout hub: cream matches workplace chrome; white is full-bleed marketing-style. */
+export type PlatformLayoutPreviewSurface = 'cream' | 'white'
+
+function previewShellStyle(surface: PlatformLayoutPreviewSurface): CSSProperties {
+  if (surface === 'white') {
+    return { fontFamily: SANS, backgroundColor: '#ffffff', color: '#171717' }
+  }
+  return shellStyle()
 }
 
 function SerifTitle({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -1040,8 +1049,32 @@ const BLOCKS = [
 
 type BlockId = (typeof BLOCKS)[number]['id']
 
-export function PlatformLayoutComposerPage() {
+/** Block checklist + live preview (used on layout hub). */
+export function PlatformLayoutComposerDemo({
+  previewSurface = 'cream',
+  embedInDarkChrome = true,
+}: {
+  previewSurface?: PlatformLayoutPreviewSurface
+  /** When false, checklist sits on a light panel (e.g. unified layout hub). */
+  embedInDarkChrome?: boolean
+}) {
   const baseId = useId()
+  const dark = embedInDarkChrome
+  const asidePanelClass = dark
+    ? 'space-y-4 rounded-xl border border-white/10 bg-slate-900/50 p-4'
+    : 'space-y-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm'
+  const checklistMetaClass = dark ? 'text-neutral-400' : 'text-neutral-500'
+  const checklistCountClass = dark ? 'text-neutral-500' : 'text-neutral-600'
+  const bulkBtnClass = dark
+    ? 'rounded-md border border-white/15 px-2 py-1 text-xs text-neutral-300 hover:bg-white/5'
+    : 'rounded-md border border-neutral-200 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-50'
+  const rowLabelClass = dark
+    ? 'flex cursor-pointer gap-3 rounded-lg border border-transparent p-2 hover:border-white/10 hover:bg-white/5'
+    : 'flex cursor-pointer gap-3 rounded-lg border border-transparent p-2 hover:border-neutral-200 hover:bg-neutral-50'
+  const rowTitleClass = dark ? 'text-sm font-medium text-neutral-200' : 'text-sm font-medium text-neutral-900'
+  const rowHintClass = dark ? 'mt-0.5 block text-xs text-neutral-500' : 'mt-0.5 block text-xs text-neutral-600'
+  const checkboxClass = dark ? 'mt-1 rounded border-neutral-500 bg-slate-800' : 'mt-1 rounded border-neutral-300 bg-white'
+  const previewCaptionClass = dark ? 'text-sm text-neutral-500' : 'text-sm text-neutral-600'
   const [visible, setVisible] = useState<Record<BlockId, boolean>>({
     heading1: true,
     table1: true,
@@ -1077,24 +1110,11 @@ export function PlatformLayoutComposerPage() {
   const activeCount = BLOCKS.filter((b) => visible[b.id]).length
 
   return (
-    <div className="space-y-6 text-neutral-100">
-      <div>
-        <h1 className="text-2xl font-semibold text-white">Layout-komponer</h1>
-        <p className="mt-2 max-w-3xl text-sm text-neutral-400">
-          Kombiner ferdige referanseblokker (overskrift + faner, Postings-tabell, List 2, boks-rutenett, tabell-verktøylinje, scorecard- og jobbkort-modul) i én forhåndsvisning.
-          Velg elementer til venstre — samme visuelle språk som under{' '}
-          <Link to="/platform-admin/layout-reference" className="text-amber-400/90 hover:underline">
-            Layout-referanse
-          </Link>
-          .
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(260px,300px)_minmax(0,1fr)] lg:items-start">
-        <aside className="space-y-4 rounded-xl border border-white/10 bg-slate-900/50 p-4">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(260px,300px)_minmax(0,1fr)] lg:items-start">
+        <aside className={asidePanelClass}>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Elementer</p>
-            <span className="text-xs text-neutral-500">
+            <p className={`text-xs font-semibold uppercase tracking-wide ${checklistMetaClass}`}>Elementer</p>
+            <span className={`text-xs ${checklistCountClass}`}>
               {activeCount}/{BLOCKS.length} synlige
             </span>
           </div>
@@ -1102,14 +1122,14 @@ export function PlatformLayoutComposerPage() {
             <button
               type="button"
               onClick={selectAll}
-              className="rounded-md border border-white/15 px-2 py-1 text-xs text-neutral-300 hover:bg-white/5"
+              className={bulkBtnClass}
             >
               Velg alle
             </button>
             <button
               type="button"
               onClick={selectNone}
-              className="rounded-md border border-white/15 px-2 py-1 text-xs text-neutral-300 hover:bg-white/5"
+              className={bulkBtnClass}
             >
               Fjern alle
             </button>
@@ -1119,17 +1139,17 @@ export function PlatformLayoutComposerPage() {
               const sid = `${baseId}-${b.id}`
               return (
                 <li key={b.id}>
-                  <label className="flex cursor-pointer gap-3 rounded-lg border border-transparent p-2 hover:border-white/10 hover:bg-white/5">
+                  <label className={rowLabelClass}>
                     <input
                       id={sid}
                       type="checkbox"
                       checked={visible[b.id]}
                       onChange={() => toggle(b.id)}
-                      className="mt-1 rounded border-neutral-500 bg-slate-800"
+                      className={checkboxClass}
                     />
                     <span>
-                      <span className="block text-sm font-medium text-neutral-200">{b.label}</span>
-                      <span className="mt-0.5 block text-xs text-neutral-500">{b.hint}</span>
+                      <span className={rowTitleClass}>{b.label}</span>
+                      <span className={rowHintClass}>{b.hint}</span>
                     </span>
                   </label>
                 </li>
@@ -1139,8 +1159,15 @@ export function PlatformLayoutComposerPage() {
         </aside>
 
         <div className="min-w-0 space-y-4">
-          <p className="text-sm text-neutral-500">Forhåndsvisning (kremflate, uten app-topbar)</p>
-          <div className="rounded-xl border border-white/10 p-4 shadow-lg md:p-6" style={shellStyle()}>
+          <p className={previewCaptionClass}>
+            Forhåndsvisning ({previewSurface === 'white' ? 'helhvit' : 'krem arbeidsflate'}, uten app-topbar)
+          </p>
+          <div
+            className={`rounded-xl border p-4 shadow-lg md:p-6 ${
+              previewSurface === 'white' ? 'border-neutral-200' : 'border-white/10'
+            }`}
+            style={previewShellStyle(previewSurface)}
+          >
             <div className="space-y-8">
               {visible.heading1 ? (
                 <section aria-label="Overskrift og faner">
@@ -1196,7 +1223,6 @@ export function PlatformLayoutComposerPage() {
             </div>
           </div>
         </div>
-      </div>
     </div>
   )
 }
