@@ -4,12 +4,10 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  Filter,
   LayoutList,
   MoreHorizontal,
   Plus,
   Scale,
-  Search,
   Trash2,
   X,
 } from 'lucide-react'
@@ -36,8 +34,12 @@ import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
 import { HubMenu1Bar } from '../components/layout/HubMenu1Bar'
-import { WorkplacePageHeading1, WORKPLACE_PAGE_SERIF } from '../components/layout/WorkplacePageHeading1'
-import { PostingsStyleSurface, TASK_POSTINGS_FOREST } from '../components/tasks/tasksPostingsLayout'
+import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
+import {
+  WorkplaceStandardListLayout,
+  type WorkplaceListViewMode,
+} from '../components/layout/WorkplaceStandardListLayout'
+import { TASK_POSTINGS_FOREST } from '../components/tasks/tasksPostingsLayout'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
@@ -165,6 +167,11 @@ export function TasksPage() {
   const [dueDate, setDueDate] = useState('')
   const [moduleFilter, setModuleFilter] = useState<TaskModule | 'all'>('all')
   const [taskSearch, setTaskSearch] = useState('')
+  const [taskFiltersOpen, setTaskFiltersOpen] = useState(false)
+  const [tasksViewMode, setTasksViewMode] = useState<WorkplaceListViewMode>('table')
+  const [taskSort, setTaskSort] = useState<'due' | 'title' | 'status' | 'module'>('due')
+  /** Toolbar star: show only non-done tasks (åpne). */
+  const [tasksOpenOnly, setTasksOpenOnly] = useState(false)
   const [formModule, setFormModule] = useState<TaskModule>('general')
   const [formSource, setFormSource] = useState<TaskSourceType>('manual')
   const [sourceId, setSourceId] = useState('')
@@ -443,6 +450,9 @@ export function TasksPage() {
 
   const filtered = useMemo(() => {
     let list = moduleFilter === 'all' ? tasks : tasks.filter((t) => t.module === moduleFilter)
+    if (tasksOpenOnly) {
+      list = list.filter((t) => t.status !== 'done')
+    }
     const q = taskSearch.trim().toLowerCase()
     if (q) {
       list = list.filter(
@@ -454,14 +464,40 @@ export function TasksPage() {
       )
     }
     return list
-  }, [tasks, moduleFilter, taskSearch])
+  }, [tasks, moduleFilter, taskSearch, tasksOpenOnly])
 
-  const taskPageCount = Math.max(1, Math.ceil(filtered.length / taskPageSize))
+  function taskDueSortKey(t: Task) {
+    if (!t.dueDate || t.dueDate === '—') return Number.POSITIVE_INFINITY
+    const ms = Date.parse(t.dueDate)
+    return Number.isNaN(ms) ? Number.POSITIVE_INFINITY : ms
+  }
+
+  const sortedFiltered = useMemo(() => {
+    const list = [...filtered]
+    const statusOrder: Record<TaskStatus, number> = { todo: 0, in_progress: 1, done: 2 }
+    list.sort((a, b) => {
+      if (taskSort === 'title') {
+        return a.title.localeCompare(b.title, 'nb', { sensitivity: 'base' })
+      }
+      if (taskSort === 'module') {
+        return MODULE_LABELS[a.module].localeCompare(MODULE_LABELS[b.module], 'nb')
+      }
+      if (taskSort === 'status') {
+        const d = statusOrder[a.status] - statusOrder[b.status]
+        if (d !== 0) return d
+        return taskDueSortKey(a) - taskDueSortKey(b)
+      }
+      return taskDueSortKey(a) - taskDueSortKey(b)
+    })
+    return list
+  }, [filtered, taskSort])
+
+  const taskPageCount = Math.max(1, Math.ceil(sortedFiltered.length / taskPageSize))
   const taskPageSafe = Math.min(Math.max(1, taskListPage), taskPageCount)
   const taskSliceStart = (taskPageSafe - 1) * taskPageSize
   const pagedTasks = useMemo(
-    () => filtered.slice(taskSliceStart, taskSliceStart + taskPageSize),
-    [filtered, taskSliceStart, taskPageSize],
+    () => sortedFiltered.slice(taskSliceStart, taskSliceStart + taskPageSize),
+    [sortedFiltered, taskSliceStart, taskPageSize],
   )
 
   const stats = useMemo(() => {
@@ -700,54 +736,494 @@ export function TasksPage() {
 
   const orgLabel = organization?.name?.trim() || 'Organisasjon'
   const tasksSectionLabel = pageTab === 'whistle' ? 'Varslingssaker' : 'Oppgaver'
+  const taskToolbarActiveFilters = moduleFilter !== 'all' || tasksOpenOnly
+
+  function taskStatusPill(t: Task) {
+    if (t.status === 'done') {
+      return (
+        <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-900">
+          Ferdig
+        </span>
+      )
+    }
+    if (t.status === 'in_progress') {
+      return (
+        <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-900">
+          Pågår
+        </span>
+      )
+    }
+    return (
+      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950">
+        To do
+      </span>
+    )
+  }
+
+  const tasksListLayout = (
+    <WorkplaceStandardListLayout
+      breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Oppgaver' }, { label: tasksSectionLabel }]}
+      title="Oppgaveliste"
+      description={
+        <>
+          <p className="text-sm text-neutral-500">{orgLabel} · Samlet oversikt</p>
+          <p className="mt-2 max-w-2xl leading-relaxed">
+            Alle moduler kan sende oppfølgingsoppgaver hit. Digital signatur = navn + tidspunkt lagret lokalt.
+          </p>
+          {tasks.length > 0 ? (
+            <p className="mt-2 text-sm text-neutral-600">
+              {stats.todo} to do · {stats.prog} pågår · {stats.done} ferdig ({stats.total} i valgt modulfilter)
+            </p>
+          ) : null}
+        </>
+      }
+      headerActions={
+        <>
+          <span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-teal-900">
+            Åpen liste
+          </span>
+          <button type="button" className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100" aria-label="Mer">
+            <MoreHorizontal className="size-5" />
+          </button>
+        </>
+      }
+      hubAriaLabel="Oppgaver — faner"
+      hubItems={hubMenuItems}
+      toolbar={{
+        count: tasks.length > 0 ? { value: sortedFiltered.length, label: 'oppgaver i visning' } : undefined,
+        searchPlaceholder: 'Søk etter tittel, beskrivelse, ansvarlig eller modul…',
+        searchValue: taskSearch,
+        onSearchChange: (v) => {
+          setTaskSearch(v)
+          setTaskListPage(1)
+        },
+        filtersOpen: taskFiltersOpen,
+        onFiltersOpenChange: setTaskFiltersOpen,
+        filterStatusText: taskToolbarActiveFilters ? 'Filter aktive' : 'Ingen filter',
+        filterPanel: (
+          <div className="flex flex-col gap-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">Modul</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {MODULE_SEGMENTS.map(({ id, label }) => {
+                  const selected = moduleFilter === id
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => {
+                        setModuleFilter(id)
+                        setTaskListPage(1)
+                      }}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
+                        selected ? 'text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'
+                      }`}
+                      style={selected ? { backgroundColor: TASK_POSTINGS_FOREST } : undefined}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setTaskSearch('')
+                setModuleFilter('all')
+                setTasksOpenOnly(false)
+                setTaskListPage(1)
+              }}
+              className="self-start rounded-md border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+            >
+              Nullstill filter
+            </button>
+          </div>
+        ),
+        sortOptions: [
+          { value: 'due', label: 'Frist (nærmest først)' },
+          { value: 'title', label: 'Tittel A–Å' },
+          { value: 'status', label: 'Status' },
+          { value: 'module', label: 'Modul' },
+        ],
+        sortValue: taskSort,
+        onSortChange: (v) => setTaskSort(v as typeof taskSort),
+        viewMode: tasksViewMode,
+        onViewModeChange: setTasksViewMode,
+        primaryAction: { label: 'Ny oppgave', onClick: openNewTaskPanel },
+        starToggle: {
+          active: tasksOpenOnly,
+          onToggle: () => {
+            setTasksOpenOnly((s) => !s)
+            setTaskListPage(1)
+          },
+          ariaLabel: tasksOpenOnly ? 'Vis alle oppgaver' : 'Kun åpne (ikke ferdig)',
+        },
+      }}
+      contentClassName="!p-0"
+    >
+      {error ? (
+        <p className="m-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 md:m-6">{error}</p>
+      ) : null}
+      {loading && supabaseConfigured ? (
+        <p className="m-4 text-sm text-neutral-500 md:m-6">Laster oppgaver…</p>
+      ) : null}
+      {tasks.length === 0 ? (
+        <div className="flex flex-col items-center justify-center border border-dashed border-neutral-200 py-16 text-center">
+          <p className="text-sm text-neutral-500">Ingen oppgaver ennå</p>
+          <button
+            type="button"
+            onClick={openNewTaskPanel}
+            className="mt-4 rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+            style={{ backgroundColor: TASK_POSTINGS_FOREST }}
+          >
+            + Ny oppgave
+          </button>
+        </div>
+      ) : sortedFiltered.length === 0 ? (
+        <div className="px-5 py-14 text-center md:px-6">
+          <p className="text-sm font-medium text-neutral-700">Ingen treff</p>
+          <p className="mt-1 text-xs text-neutral-500">Juster søk eller filter.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setTaskSearch('')
+              setModuleFilter('all')
+              setTasksOpenOnly(false)
+              setTaskListPage(1)
+            }}
+            className="mt-4 rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+            style={{ backgroundColor: TASK_POSTINGS_FOREST }}
+          >
+            Nullstill
+          </button>
+        </div>
+      ) : tasksViewMode === 'table' ? (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-neutral-200 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+                  <th className="px-5 py-3">Oppgave</th>
+                  <th className="px-5 py-3">Modul</th>
+                  <th className="px-5 py-3">Ansvarlig</th>
+                  <th className="px-5 py-3">Frist</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Signatur</th>
+                  <th className="w-28 px-5 py-3 text-right" />
+                </tr>
+              </thead>
+              <tbody>
+                {pagedTasks.map((t) => (
+                  <tr key={t.id} className="border-b border-neutral-100 hover:bg-neutral-50/80">
+                    <td className="px-5 py-3 align-top">
+                      <div className="font-medium text-neutral-900">{t.title}</div>
+                      {t.description ? (
+                        <div className="mt-0.5 line-clamp-2 text-xs text-neutral-500">{t.description}</div>
+                      ) : null}
+                      {t.sourceLabel ? <div className="mt-1 text-xs text-neutral-600">↳ {t.sourceLabel}</div> : null}
+                    </td>
+                    <td className="px-5 py-3 align-top text-xs text-neutral-600">{MODULE_LABELS[t.module]}</td>
+                    <td className="px-5 py-3 align-top">
+                      <div className="text-neutral-800">{t.assignee}</div>
+                      <div className="text-xs text-neutral-500">{t.ownerRole}</div>
+                      {t.requiresManagementSignOff && (t.leaderName || t.leaderEmployeeId) ? (
+                        <div className="mt-1 text-xs text-neutral-500">
+                          Leder: <span className="font-medium text-neutral-700">{t.leaderName ?? '—'}</span>
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="px-5 py-3 align-top text-neutral-600">{t.dueDate}</td>
+                    <td className="px-5 py-3 align-top">{taskStatusPill(t)}</td>
+                    <td className="px-5 py-3 align-top text-xs text-neutral-600">
+                      <div>
+                        Utfører:{' '}
+                        {t.assigneeSignature ? (
+                          <span className="text-emerald-800">OK</span>
+                        ) : (
+                          <span className="text-amber-700">Mangler</span>
+                        )}
+                      </div>
+                      {t.requiresManagementSignOff ? (
+                        <div className="mt-0.5">
+                          Leder:{' '}
+                          {t.managementSignature ? (
+                            <span className="text-emerald-800">OK</span>
+                          ) : (
+                            <span className="text-amber-700">Mangler</span>
+                          )}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="px-5 py-3 align-top text-right">
+                      <div className="flex flex-col items-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startEdit(t)}
+                          className="text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:text-neutral-900"
+                        >
+                          Åpne
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteTask(t.id)}
+                          className="text-neutral-400 hover:text-red-600"
+                          aria-label="Slett"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 px-5 py-3 text-xs text-neutral-600">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2">
+                <span className="text-neutral-500">Rader per side</span>
+                <select
+                  className="rounded-md border border-neutral-200 bg-white px-2 py-1"
+                  value={taskPageSize}
+                  onChange={(e) => {
+                    setTaskPageSize(Number(e.target.value))
+                    setTaskListPage(1)
+                  }}
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </label>
+              <span className="text-neutral-500">
+                Viser {sortedFiltered.length === 0 ? 0 : taskSliceStart + 1} –{' '}
+                {Math.min(taskSliceStart + taskPageSize, sortedFiltered.length)} av {sortedFiltered.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30"
+                aria-label="Forrige side"
+                disabled={taskPageSafe <= 1}
+                onClick={() => setTaskListPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <button
+                type="button"
+                className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30"
+                aria-label="Neste side"
+                disabled={taskPageSafe >= taskPageCount}
+                onClick={() => setTaskListPage((p) => Math.min(taskPageCount, p + 1))}
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
+          </div>
+        </>
+      ) : tasksViewMode === 'box' ? (
+        <>
+          <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 md:p-6">
+            {pagedTasks.map((t) => (
+              <div
+                key={t.id}
+                className="flex flex-col overflow-hidden rounded-lg border border-neutral-200/80 bg-white shadow-sm"
+                style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+              >
+                <div className="border-b border-neutral-100 px-4 py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 font-semibold text-neutral-900">{t.title}</p>
+                    {taskStatusPill(t)}
+                  </div>
+                  <p className="mt-1 text-xs text-neutral-500">{MODULE_LABELS[t.module]}</p>
+                  {t.description ? (
+                    <p className="mt-2 line-clamp-2 text-xs text-neutral-600">{t.description}</p>
+                  ) : null}
+                </div>
+                <div className="flex flex-1 flex-col gap-2 px-4 py-3 text-xs text-neutral-600">
+                  <div>
+                    <span className="text-neutral-500">Ansvarlig</span>
+                    <p className="font-medium text-neutral-800">{t.assignee}</p>
+                  </div>
+                  <div>
+                    <span className="text-neutral-500">Frist</span>
+                    <p className="tabular-nums text-neutral-800">{t.dueDate}</p>
+                  </div>
+                </div>
+                <div className="mt-auto flex gap-2 border-t border-neutral-100 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => startEdit(t)}
+                    className="flex-1 rounded-md border border-neutral-200 bg-white py-2 text-xs font-semibold uppercase text-neutral-800 hover:bg-neutral-50"
+                  >
+                    Åpne
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteTask(t.id)}
+                    className="rounded-md p-2 text-neutral-400 hover:bg-red-50 hover:text-red-600"
+                    aria-label="Slett"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 px-5 py-3 text-xs text-neutral-600">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2">
+                <span className="text-neutral-500">Rader per side</span>
+                <select
+                  className="rounded-md border border-neutral-200 bg-white px-2 py-1"
+                  value={taskPageSize}
+                  onChange={(e) => {
+                    setTaskPageSize(Number(e.target.value))
+                    setTaskListPage(1)
+                  }}
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </label>
+              <span className="text-neutral-500">
+                Viser {sortedFiltered.length === 0 ? 0 : taskSliceStart + 1} –{' '}
+                {Math.min(taskSliceStart + taskPageSize, sortedFiltered.length)} av {sortedFiltered.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30"
+                aria-label="Forrige side"
+                disabled={taskPageSafe <= 1}
+                onClick={() => setTaskListPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <button
+                type="button"
+                className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30"
+                aria-label="Neste side"
+                disabled={taskPageSafe >= taskPageCount}
+                onClick={() => setTaskListPage((p) => Math.min(taskPageCount, p + 1))}
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <ul className="divide-y divide-neutral-100 px-4 py-2 md:px-6">
+            {pagedTasks.map((t) => (
+              <li key={t.id} className="flex flex-wrap items-start justify-between gap-3 py-4 first:pt-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-neutral-900">{t.title}</p>
+                    {taskStatusPill(t)}
+                  </div>
+                  <p className="mt-0.5 text-xs text-neutral-500">
+                    {MODULE_LABELS[t.module]} · {t.assignee} · Frist {t.dueDate}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => startEdit(t)}
+                    className="text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:text-neutral-900"
+                  >
+                    Åpne
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteTask(t.id)}
+                    className="text-neutral-400 hover:text-red-600"
+                    aria-label="Slett"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 px-5 py-3 text-xs text-neutral-600">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2">
+                <span className="text-neutral-500">Rader per side</span>
+                <select
+                  className="rounded-md border border-neutral-200 bg-white px-2 py-1"
+                  value={taskPageSize}
+                  onChange={(e) => {
+                    setTaskPageSize(Number(e.target.value))
+                    setTaskListPage(1)
+                  }}
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </label>
+              <span className="text-neutral-500">
+                Viser {sortedFiltered.length === 0 ? 0 : taskSliceStart + 1} –{' '}
+                {Math.min(taskSliceStart + taskPageSize, sortedFiltered.length)} av {sortedFiltered.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30"
+                aria-label="Forrige side"
+                disabled={taskPageSafe <= 1}
+                onClick={() => setTaskListPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <button
+                type="button"
+                className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30"
+                aria-label="Neste side"
+                disabled={taskPageSafe >= taskPageCount}
+                onClick={() => setTaskListPage((p) => Math.min(taskPageCount, p + 1))}
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </WorkplaceStandardListLayout>
+  )
 
   return (
     <div className={PAGE_WRAP}>
-      <WorkplacePageHeading1
-        breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Oppgaver' }, { label: tasksSectionLabel }]}
-        title={pageTab === 'whistle' ? 'Varslingssaker' : 'Oppgaveliste'}
-        description={
-          <>
-            <p className="text-sm text-neutral-500">
-              {pageTab === 'whistle' ? `${orgLabel} · Varslingshvelv` : `${orgLabel} · Samlet oversikt`}
-            </p>
-            {pageTab === 'whistle' && organization?.whistle_public_slug ? (
-              <p className="mt-2 text-xs text-neutral-500">
-                Offentlig lenke:{' '}
-                <code className="rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px]">
-                  /varsle/{organization.whistle_public_slug}
-                </code>
-              </p>
-            ) : null}
-            {pageTab === 'list' ? (
-              <p className="mt-2 max-w-2xl leading-relaxed">
-                Alle moduler kan sende oppfølgingsoppgaver hit. Digital signatur = navn + tidspunkt lagret lokalt.
-              </p>
-            ) : (
-              <p className="mt-2 max-w-2xl leading-relaxed">
-                Lukket hvelv: kun varslingsmottak og administrator ser saker. Notater kan ikke slettes.
-              </p>
-            )}
-          </>
-        }
-        headerActions={
-          <>
-            {pageTab === 'list' ? (
+      {pageTab === 'list' ? (
+        tasksListLayout
+      ) : (
+        <>
+          <WorkplacePageHeading1
+            breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Oppgaver' }, { label: tasksSectionLabel }]}
+            title="Varslingssaker"
+            description={
               <>
-                <span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-teal-900">
-                  Åpen liste
-                </span>
-                <button
-                  type="button"
-                  onClick={openNewTaskPanel}
-                  className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold uppercase text-white"
-                  style={{ backgroundColor: TASK_POSTINGS_FOREST }}
-                >
-                  <Plus className="size-3.5" />
-                  Ny oppgave
-                </button>
+                <p className="text-sm text-neutral-500">{orgLabel} · Varslingshvelv</p>
+                {organization?.whistle_public_slug ? (
+                  <p className="mt-2 text-xs text-neutral-500">
+                    Offentlig lenke:{' '}
+                    <code className="rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px]">
+                      /varsle/{organization.whistle_public_slug}
+                    </code>
+                  </p>
+                ) : null}
+                <p className="mt-2 max-w-2xl leading-relaxed">
+                  Lukket hvelv: kun varslingsmottak og administrator ser saker. Notater kan ikke slettes.
+                </p>
               </>
-            ) : (
+            }
+            headerActions={
               <>
                 <span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-teal-900">
                   {wb.cases.length} saker
@@ -762,43 +1238,41 @@ export function TasksPage() {
                   <Plus className="size-3.5" />
                   Ny varsling
                 </button>
+                <button type="button" className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100" aria-label="Mer">
+                  <MoreHorizontal className="size-5" />
+                </button>
               </>
-            )}
-            <button type="button" className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100" aria-label="Mer">
-              <MoreHorizontal className="size-5" />
-            </button>
-          </>
-        }
-        menu={<HubMenu1Bar ariaLabel="Oppgaver — faner" items={hubMenuItems} />}
-      />
+            }
+            menu={<HubMenu1Bar ariaLabel="Oppgaver — faner" items={hubMenuItems} />}
+          />
 
-      {(error || wb.error) && (
-        <p className="mt-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {error ?? wb.error}
-        </p>
-      )}
-      {loading && supabaseConfigured && (
-        <p className="mt-4 text-sm text-neutral-500">Laster oppgaver…</p>
-      )}
+          {(error || wb.error) && (
+            <p className="mt-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              {error ?? wb.error}
+            </p>
+          )}
+          {loading && supabaseConfigured && (
+            <p className="mt-4 text-sm text-neutral-500">Laster oppgaver…</p>
+          )}
 
-      {pageTab === 'whistle' && (
-        <>
-          {!supabaseConfigured ? (
-            <div className="mt-8 rounded-none border border-neutral-200 bg-white px-4 py-4 text-sm text-neutral-700">
-              Varslingshvelvet krever Supabase med migrasjonene <code className="text-xs">whistleblowing_cases</code> og
-              RLS. Konfigurer klienten for å bruke denne modulen.
-            </div>
-          ) : !wb.canAccessVault ? (
-            <div className="mt-8 rounded-none border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
-              Du har ikke tilgang til varslingshvelvet. Kun brukere med rollen{' '}
-              <strong>Varslingsmottak</strong> (<code className="text-xs">whistleblowing.committee</code>) eller
-              organisasjonsadministrator kan se saker her.
-            </div>
-          ) : wb.loading && supabaseConfigured ? (
-            <p className="mt-6 text-sm text-neutral-500">Laster varslingssaker…</p>
-          ) : (
+          {pageTab === 'whistle' && (
             <>
-              <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {!supabaseConfigured ? (
+                <div className="mt-8 rounded-none border border-neutral-200 bg-white px-4 py-4 text-sm text-neutral-700">
+                  Varslingshvelvet krever Supabase med migrasjonene <code className="text-xs">whistleblowing_cases</code>{' '}
+                  og RLS. Konfigurer klienten for å bruke denne modulen.
+                </div>
+              ) : !wb.canAccessVault ? (
+                <div className="mt-8 rounded-none border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+                  Du har ikke tilgang til varslingshvelvet. Kun brukere med rollen{' '}
+                  <strong>Varslingsmottak</strong> (<code className="text-xs">whistleblowing.committee</code>) eller
+                  organisasjonsadministrator kan se saker her.
+                </div>
+              ) : wb.loading && supabaseConfigured ? (
+                <p className="mt-6 text-sm text-neutral-500">Laster varslingssaker…</p>
+              ) : (
+                <>
+                  <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {(
                   [
                     { title: 'Totalt', sub: 'Registrerte saker', value: `${wb.cases.length}` },
@@ -918,255 +1392,10 @@ export function TasksPage() {
                   </table>
                 </div>
               </section>
+                </>
+              )}
             </>
           )}
-        </>
-      )}
-
-      {pageTab === 'list' && (
-        <>
-          <section className="mt-6">
-            {tasks.length === 0 ? (
-              <PostingsStyleSurface className="flex flex-col items-center justify-center border-dashed py-16 text-center">
-                <p className="text-sm text-neutral-500">Ingen oppgaver ennå</p>
-                <button
-                  type="button"
-                  onClick={openNewTaskPanel}
-                  className="mt-4 rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
-                  style={{ backgroundColor: TASK_POSTINGS_FOREST }}
-                >
-                  + Ny oppgave
-                </button>
-              </PostingsStyleSurface>
-            ) : (
-              <PostingsStyleSurface className="overflow-hidden p-0">
-                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
-                  <div>
-                    <h2 className="text-xl font-semibold text-neutral-900" style={{ fontFamily: WORKPLACE_PAGE_SERIF }}>
-                      Oppgaver
-                    </h2>
-                    <p className="mt-1 text-sm text-neutral-600">
-                      Søk og filtrer på modul — {stats.todo} to do · {stats.prog} pågår · {stats.done} ferdig (
-                      {stats.total} totalt i filter)
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={openNewTaskPanel}
-                    className="rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
-                    style={{ backgroundColor: TASK_POSTINGS_FOREST }}
-                  >
-                    + Ny oppgave
-                  </button>
-                </div>
-                <div className="flex flex-col gap-3 border-b border-neutral-100 px-5 py-3 sm:flex-row sm:flex-wrap sm:items-center">
-                  <div className="relative min-w-[200px] flex-1">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-                    <input
-                      value={taskSearch}
-                      onChange={(e) => {
-                        setTaskSearch(e.target.value)
-                        setTaskListPage(1)
-                      }}
-                      type="search"
-                      placeholder="Søk…"
-                      className="w-full rounded-lg border border-neutral-200 py-2 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
-                    />
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-wrap gap-2">
-                    {MODULE_SEGMENTS.map(({ id, label }) => {
-                      const selected = moduleFilter === id
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => {
-                            setModuleFilter(id)
-                            setTaskListPage(1)
-                          }}
-                          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
-                            selected
-                              ? 'text-white'
-                              : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200/80'
-                          }`}
-                          style={selected ? { backgroundColor: TASK_POSTINGS_FOREST } : undefined}
-                        >
-                          {label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <button
-                    type="button"
-                    className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:text-neutral-900"
-                  >
-                    <Filter className="size-3.5" />
-                    Filter
-                  </button>
-                </div>
-                <div className="overflow-x-auto">
-                  {filtered.length === 0 ? (
-                    <div className="px-5 py-14 text-center">
-                      <p className="text-sm font-medium text-neutral-700">Ingen treff</p>
-                      <p className="mt-1 text-xs text-neutral-500">Juster søk eller modulfilter.</p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTaskSearch('')
-                          setModuleFilter('all')
-                          setTaskListPage(1)
-                        }}
-                        className="mt-4 rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
-                        style={{ backgroundColor: TASK_POSTINGS_FOREST }}
-                      >
-                        Nullstill
-                      </button>
-                    </div>
-                  ) : (
-                    <table className="w-full min-w-[800px] text-left text-sm">
-                      <thead>
-                        <tr className="border-b border-neutral-200 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
-                          <th className="px-5 py-3">Oppgave</th>
-                          <th className="px-5 py-3">Modul</th>
-                          <th className="px-5 py-3">Ansvarlig</th>
-                          <th className="px-5 py-3">Frist</th>
-                          <th className="px-5 py-3">Status</th>
-                          <th className="px-5 py-3">Signatur</th>
-                          <th className="w-28 px-5 py-3 text-right" />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pagedTasks.map((t) => (
-                          <tr key={t.id} className="border-b border-neutral-100 hover:bg-neutral-50/80">
-                            <td className="px-5 py-3 align-top">
-                              <div className="font-medium text-neutral-900">{t.title}</div>
-                              {t.description ? (
-                                <div className="mt-0.5 line-clamp-2 text-xs text-neutral-500">{t.description}</div>
-                              ) : null}
-                              {t.sourceLabel ? (
-                                <div className="mt-1 text-xs text-neutral-600">↳ {t.sourceLabel}</div>
-                              ) : null}
-                            </td>
-                            <td className="px-5 py-3 align-top text-xs text-neutral-600">{MODULE_LABELS[t.module]}</td>
-                            <td className="px-5 py-3 align-top">
-                              <div className="text-neutral-800">{t.assignee}</div>
-                              <div className="text-xs text-neutral-500">{t.ownerRole}</div>
-                              {t.requiresManagementSignOff && (t.leaderName || t.leaderEmployeeId) ? (
-                                <div className="mt-1 text-xs text-neutral-500">
-                                  Leder:{' '}
-                                  <span className="font-medium text-neutral-700">{t.leaderName ?? '—'}</span>
-                                </div>
-                              ) : null}
-                            </td>
-                            <td className="px-5 py-3 align-top text-neutral-600">{t.dueDate}</td>
-                            <td className="px-5 py-3 align-top">
-                              {t.status === 'done' ? (
-                                <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-900">
-                                  Ferdig
-                                </span>
-                              ) : t.status === 'in_progress' ? (
-                                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-900">
-                                  Pågår
-                                </span>
-                              ) : (
-                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950">
-                                  To do
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-5 py-3 align-top text-xs text-neutral-600">
-                              <div>
-                                Utfører:{' '}
-                                {t.assigneeSignature ? (
-                                  <span className="text-emerald-800">OK</span>
-                                ) : (
-                                  <span className="text-amber-700">Mangler</span>
-                                )}
-                              </div>
-                              {t.requiresManagementSignOff ? (
-                                <div className="mt-0.5">
-                                  Leder:{' '}
-                                  {t.managementSignature ? (
-                                    <span className="text-emerald-800">OK</span>
-                                  ) : (
-                                    <span className="text-amber-700">Mangler</span>
-                                  )}
-                                </div>
-                              ) : null}
-                            </td>
-                            <td className="px-5 py-3 align-top text-right">
-                              <div className="flex flex-col items-end gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => startEdit(t)}
-                                  className="text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:text-neutral-900"
-                                >
-                                  Åpne
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => deleteTask(t.id)}
-                                  className="text-neutral-400 hover:text-red-600"
-                                  aria-label="Slett"
-                                >
-                                  <Trash2 className="size-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-                {filtered.length > 0 ? (
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 px-5 py-3 text-xs text-neutral-600">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <label className="flex items-center gap-2">
-                        <span className="text-neutral-500">Rader per side</span>
-                        <select
-                          className="rounded-md border border-neutral-200 bg-white px-2 py-1"
-                          value={taskPageSize}
-                          onChange={(e) => {
-                            setTaskPageSize(Number(e.target.value))
-                            setTaskListPage(1)
-                          }}
-                        >
-                          <option value={10}>10</option>
-                          <option value={25}>25</option>
-                          <option value={50}>50</option>
-                        </select>
-                      </label>
-                      <span className="text-neutral-500">
-                        Viser {filtered.length === 0 ? 0 : taskSliceStart + 1} –{' '}
-                        {Math.min(taskSliceStart + taskPageSize, filtered.length)} av {filtered.length}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30"
-                        aria-label="Forrige side"
-                        disabled={taskPageSafe <= 1}
-                        onClick={() => setTaskListPage((p) => Math.max(1, p - 1))}
-                      >
-                        <ChevronLeft className="size-4" />
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30"
-                        aria-label="Neste side"
-                        disabled={taskPageSafe >= taskPageCount}
-                        onClick={() => setTaskListPage((p) => Math.min(taskPageCount, p + 1))}
-                      >
-                        <ChevronRight className="size-4" />
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </PostingsStyleSurface>
-            )}
-          </section>
         </>
       )}
 
