@@ -574,20 +574,6 @@ export function AticsShell() {
 
         </aside>
 
-        {subNavCollapsed ? (
-          <button
-            type="button"
-            onClick={toggleSubNavCollapsed}
-            className="pointer-events-auto fixed z-[100] flex size-10 items-center justify-center rounded-r-lg border border-white/15 border-l-0 bg-[var(--ui-nav-rail)] text-white shadow-md transition-colors hover:bg-white/15"
-            style={{ left: '3.75rem', top: '4.25rem' }}
-            aria-expanded={false}
-            aria-label={t('shell.expandSectionNav')}
-            title={t('shell.expandSectionNav')}
-          >
-            <PanelRight className="size-[1.125rem] shrink-0" aria-hidden />
-          </button>
-        ) : null}
-
         {/* ── Rail 2: Modules + sub-items for active group ─────────────────── */}
         {!subNavCollapsed && activeGroup && (
           <aside className="flex w-52 shrink-0 flex-col overflow-hidden bg-[var(--ui-nav-rail-mid)]">
