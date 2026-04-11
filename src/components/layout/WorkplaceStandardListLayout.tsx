@@ -220,6 +220,8 @@ export type WorkplaceStandardListLayoutProps = {
   toolbar: WorkplaceListToolbarProps
   /** Main content (switch table / cards / list in parent based on toolbar.viewMode) */
   children: ReactNode
+  /** Optional slide-over (e.g. create/edit) — same z-index as list CTA pattern */
+  overlay?: ReactNode
   /** Extra class on content card */
   contentClassName?: string
   className?: string
@@ -238,11 +240,12 @@ export function WorkplaceStandardListLayout({
   hubItems,
   toolbar,
   children,
+  overlay,
   contentClassName = '',
   className = '',
 }: WorkplaceStandardListLayoutProps) {
   return (
-    <div className={`space-y-6 ${className}`.trim()}>
+    <div className={`relative space-y-6 ${className}`.trim()}>
       <WorkplacePageHeading1
         breadcrumb={breadcrumb}
         title={title}
@@ -254,6 +257,7 @@ export function WorkplaceStandardListLayout({
       <div className={`${CARD} overflow-hidden p-4 md:p-6 ${contentClassName}`.trim()} style={CARD_SHADOW}>
         {children}
       </div>
+      {overlay}
     </div>
   )
 }
