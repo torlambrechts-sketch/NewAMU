@@ -116,6 +116,7 @@ function App() {
                   <Route path="tasks" element={<TasksPage />} />
                   <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
                   <Route path="organisation" element={<OrganisationPage />} />
+                  <Route path="organisation/admin" element={<AdminPage />} />
                   <Route path="reports" element={<ReportingEnginePage />} />
                   <Route path="workplace-reporting" element={<WorkplaceReportingPage />} />
                   <Route path="workplace-reporting/dashboard" element={<WorkplaceDashboardPage />} />
@@ -129,7 +130,7 @@ function App() {
                   <Route path="compliance" element={<ComplianceDashboardPage />} />
                   <Route path="internal-control" element={<InternalControlModule />} />
                   <Route path="hse" element={<HseModule />} />
-                  <Route path="admin" element={<AdminPage />} />
+                  <Route path="admin" element={<Navigate to="/organisation/admin" replace />} />
                   <Route path="profile" element={<ProfilePage />} />
                   <Route path="learning/play/:courseId" element={<LearningPlayer />} />
                   <Route path="learning/flow" element={<LearningFlowEntry />} />

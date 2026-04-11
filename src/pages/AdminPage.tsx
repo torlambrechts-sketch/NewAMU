@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { Download, Loader2, Mail, Plus, Shield, Upload, UserCog, Users } from 'lucide-react'
 import { ModulePageIcon } from '../components/ModulePageIcon'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
@@ -52,6 +52,8 @@ export function AdminPage() {
     refreshPermissions,
   } = useOrgSetupContext()
   const sb = supabase
+  const { pathname } = useLocation()
+  const embeddedUnderOrganisation = pathname.startsWith('/organisation/admin')
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = searchParams.get('tab') || 'users'
   const setTab = (t: string) => {
@@ -252,10 +254,22 @@ export function AdminPage() {
     return <p className="p-8 text-center">Ingen organisasjon.</p>
   }
 
+  const adminBreadcrumb = embeddedUnderOrganisation
+    ? [
+        { label: 'Workspace', to: '/' },
+        { label: 'Organisasjon', to: '/organisation' },
+        { label: adminSectionLabel },
+      ]
+    : [
+        { label: 'Workspace', to: '/' },
+        { label: 'Administrasjon' },
+        { label: adminSectionLabel },
+      ]
+
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-8 md:px-8">
       <WorkplacePageHeading1
-        breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Administrasjon' }, { label: adminSectionLabel }]}
+        breadcrumb={adminBreadcrumb}
         title="Administrasjon"
         description={`Brukere, invitasjoner, roller og delegering for ${organization.name} (${organization.organization_number}).`}
         headerActions={

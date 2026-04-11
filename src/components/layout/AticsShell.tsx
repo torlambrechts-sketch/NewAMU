@@ -207,6 +207,28 @@ const workplaceReportingSubs: SubItem[] = WORKPLACE_REPORTING_NAV.map((item) => 
   return base
 })
 
+const organisationAdminSubs: SubItem[] = [
+  {
+    label: 'Brukere & invitasjoner',
+    path: '/organisation/admin?tab=users',
+    match: ({ pathname, search }) =>
+      pathname === '/organisation/admin' &&
+      (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'users'),
+  },
+  {
+    label: 'Roller & rettigheter',
+    path: '/organisation/admin?tab=roles',
+    match: ({ pathname, search }) =>
+      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'roles',
+  },
+  {
+    label: 'Delegering',
+    path: '/organisation/admin?tab=delegation',
+    match: ({ pathname, search }) =>
+      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'delegation',
+  },
+]
+
 // ─── Navigation groups ────────────────────────────────────────────────────────
 //
 // The four groups from the spec. Each module carries its icon, route, sub-items,
@@ -248,10 +270,31 @@ const navGroups: NavGroup[] = [
       { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, subs: tasksSubs, perm: 'module.view.tasks' },
       { to: '/action-board', label: 'Action Board', end: false, icon: Kanban, subs: [], perm: 'module.view.dashboard' },
       { to: '/aarshjul', label: 'Årshjul', end: false, icon: CalendarRange, subs: [], perm: 'module.view.dashboard' },
-      { to: '/organisation', label: 'Organisasjon', end: false, icon: Building2, subs: [], perm: 'module.view.dashboard' },
       { to: '/reports', label: 'Rapporter', end: false, icon: BarChart3, subs: [], perm: 'module.view.dashboard' },
       { to: '/workflow', label: 'Arbeidsflyt', end: false, icon: Workflow, subs: [], perm: 'module.view.workflow' },
-      { to: '/admin', label: 'Admin', end: true, icon: Shield, subs: [], perm: 'module.view.admin' },
+    ],
+  },
+  {
+    id: 'admin',
+    label: 'Admin',
+    icon: Shield,
+    modules: [
+      {
+        to: '/organisation',
+        label: 'Organisasjon',
+        end: false,
+        icon: Building2,
+        subs: [],
+        perm: 'module.view.dashboard',
+      },
+      {
+        to: '/organisation/admin',
+        label: 'Administrasjon',
+        end: true,
+        icon: Shield,
+        subs: organisationAdminSubs,
+        perm: 'module.view.admin',
+      },
     ],
   },
   {
@@ -366,6 +409,10 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
     if (pathname === '/workplace-reporting/dashboard') return hub
     if (pathname === '/org-health' && sp.get('tab') === 'reporting') return hub
     if (pathname === '/tasks' && sp.get('view') === 'whistle') return hub
+  }
+  if (pathname === '/organisation/admin' || pathname.startsWith('/organisation/admin/')) {
+    const adminMod = modules.find((m) => m.to === '/organisation/admin')
+    if (adminMod) return adminMod
   }
   // Exact-match first (handles /council?tab=board vs /council)
   for (const mod of modules) {

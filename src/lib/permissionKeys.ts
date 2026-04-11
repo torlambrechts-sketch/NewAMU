@@ -81,7 +81,7 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/workplace-reporting', permission: 'module.view.workplace_reporting' },
   { pathPrefix: '/workflow', permission: 'module.view.workflow' },
   { pathPrefix: '/hr', permission: 'module.view.hr_compliance' },
-  { pathPrefix: '/admin', permission: 'module.view.admin' },
+  { pathPrefix: '/organisation/admin', permission: 'module.view.admin' },
 ]
 
 /** Paths that need any one of several permissions (e.g. hub + underlying module). */
