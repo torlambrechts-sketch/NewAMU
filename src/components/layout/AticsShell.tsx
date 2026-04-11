@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentType } from 'react'
+import { useCallback, useMemo, useState, type ComponentType } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   BarChart3,
@@ -457,6 +457,24 @@ function saveNavMode(mode: NavMode) {
   try { localStorage.setItem('atics-nav-mode', mode) } catch { /* ignore */ }
 }
 
+const SUB_NAV_COLLAPSED_KEY = 'atics-sub-nav-collapsed'
+
+function loadSubNavCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SUB_NAV_COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function saveSubNavCollapsed(collapsed: boolean) {
+  try {
+    localStorage.setItem(SUB_NAV_COLLAPSED_KEY, collapsed ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+}
+
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
 export function AticsShell() {
@@ -471,12 +489,19 @@ export function AticsShell() {
   const visibleModules = useMemo(() => allModulesFrom(visibleGroups), [visibleGroups])
 
   const [navMode, setNavMode] = useState<NavMode>(loadNavMode)
-  const [subNavCollapsed, setSubNavCollapsed] = useState(false)
+  const [subNavCollapsed, setSubNavCollapsed] = useState(loadSubNavCollapsed)
+
+  const toggleSubNavCollapsed = useCallback(() => {
+    setSubNavCollapsed((c) => {
+      const next = !c
+      saveSubNavCollapsed(next)
+      return next
+    })
+  }, [])
 
   function handleNavModeChange(mode: NavMode) {
     setNavMode(mode)
     saveNavMode(mode)
-    if (mode === 'sidebar') setSubNavCollapsed(false)
   }
 
   const orgDisplayName = organization?.name?.trim() ?? ''
@@ -531,10 +556,11 @@ export function AticsShell() {
           <div className="border-t border-white/10 px-2 py-2">
             <button
               type="button"
-              onClick={() => setSubNavCollapsed((c) => !c)}
+              onClick={toggleSubNavCollapsed}
               className={`flex w-full items-center justify-center rounded-lg p-3 transition-colors ${
                 subNavCollapsed ? 'bg-white/15 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'
               }`}
+              aria-expanded={!subNavCollapsed}
               aria-label={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
               title={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
             >
@@ -547,6 +573,20 @@ export function AticsShell() {
           </div>
 
         </aside>
+
+        {subNavCollapsed ? (
+          <button
+            type="button"
+            onClick={toggleSubNavCollapsed}
+            className="pointer-events-auto fixed z-[100] flex size-10 items-center justify-center rounded-r-lg border border-white/15 border-l-0 bg-[var(--ui-nav-rail)] text-white shadow-md transition-colors hover:bg-white/15"
+            style={{ left: '3.75rem', top: '4.25rem' }}
+            aria-expanded={false}
+            aria-label={t('shell.expandSectionNav')}
+            title={t('shell.expandSectionNav')}
+          >
+            <PanelRight className="size-[1.125rem] shrink-0" aria-hidden />
+          </button>
+        ) : null}
 
         {/* ── Rail 2: Modules + sub-items for active group ─────────────────── */}
         {!subNavCollapsed && activeGroup && (
@@ -687,10 +727,28 @@ export function AticsShell() {
 
         {/* ── Row 1: logo · group tabs · utilities ───────────────────────── */}
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 md:px-8">
-          {/* Logo */}
-          <NavLink to="/" className="flex shrink-0 items-center gap-2" aria-label={t('shell.homeAria')}>
-            <KlarertLogo size={28} variant="onDark" />
-          </NavLink>
+          {/* Logo + section nav toggle (same persistence as sidebar) */}
+          <div className="flex shrink-0 items-center gap-2">
+            <NavLink to="/" className="flex items-center gap-2" aria-label={t('shell.homeAria')}>
+              <KlarertLogo size={28} variant="onDark" />
+            </NavLink>
+            <button
+              type="button"
+              onClick={toggleSubNavCollapsed}
+              className={`flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                subNavCollapsed ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/50' : 'text-white/70 hover:bg-white/10 hover:text-white'
+              }`}
+              aria-expanded={!subNavCollapsed}
+              aria-label={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
+              title={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
+            >
+              {subNavCollapsed ? (
+                <PanelRight className="size-[1.125rem] shrink-0" aria-hidden />
+              ) : (
+                <PanelLeft className="size-[1.125rem] shrink-0" aria-hidden />
+              )}
+            </button>
+          </div>
 
           {/* Group tabs — one per group, navigates to first module in group */}
           <nav className="flex flex-1 items-center justify-center gap-1 overflow-x-auto" aria-label="Primary">
@@ -775,7 +833,7 @@ export function AticsShell() {
         </div>
 
         {/* ── Row 3: sub-item tabs for the active module + search ─────────── */}
-        {subItems.length > 0 && (
+        {!subNavCollapsed && subItems.length > 0 && (
           <div className="border-t border-white/[0.07] bg-[var(--ui-nav-sub)]">
             <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-2 md:px-8">
               <nav className="flex min-w-0 flex-1 flex-wrap gap-x-1 gap-y-1" aria-label="Section">
