@@ -140,7 +140,15 @@ export function PlatformStandardLayoutKitPage() {
                 <Link to="/platform-admin/layout-composer" className="font-medium text-amber-600 hover:underline">
                   Layout-komponer
                 </Link>{' '}
-                viser enkeltblokker; denne siden viser hele sammensetningen.
+                viser enkeltblokker; denne siden viser hele sammensetningen. Se også{' '}
+                <Link to="/platform-admin/layout-dashboard" className="font-medium text-amber-600 hover:underline">
+                  Dashbord-layout
+                </Link>{' '}
+                og{' '}
+                <Link to="/platform-admin/layout-split" className="font-medium text-amber-600 hover:underline">
+                  Split 7/3
+                </Link>
+                .
               </p>
             </div>
           ) : (

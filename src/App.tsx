@@ -69,6 +69,8 @@ import { PlatformLayoutCompositionPage } from './pages/platform/PlatformLayoutCo
 import { PlatformPinpointLayoutsPage } from './pages/platform/PlatformPinpointLayoutsPage'
 import { PlatformLayoutComposerPage } from './pages/platform/PlatformLayoutComposerPage'
 import { PlatformStandardLayoutKitPage } from './pages/platform/PlatformStandardLayoutKitPage'
+import { PlatformDashboardLayoutKitPage } from './pages/platform/PlatformDashboardLayoutKitPage'
+import { PlatformSplit7030KitPage } from './pages/platform/PlatformSplit7030KitPage'
 import { PublicWhistlePage } from './pages/PublicWhistlePage'
 import { WhistleStatusPage } from './pages/WhistleStatusPage'
 
@@ -102,6 +104,8 @@ function App() {
                 <Route path="layout-reference" element={<PlatformPinpointLayoutsPage />} />
                 <Route path="layout-composer" element={<PlatformLayoutComposerPage />} />
                 <Route path="layout-standard" element={<PlatformStandardLayoutKitPage />} />
+                <Route path="layout-dashboard" element={<PlatformDashboardLayoutKitPage />} />
+                <Route path="layout-split" element={<PlatformSplit7030KitPage />} />
                 <Route path="*" element={<Navigate to="/platform-admin" replace />} />
               </Route>
               <Route path="onboarding" element={<OnboardingWizard />} />
