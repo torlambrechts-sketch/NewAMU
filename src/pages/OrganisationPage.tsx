@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   Building2,
   Check,
   CheckCircle2,
-  GitBranch,
   LayoutGrid,
   List,
   Mail,
@@ -18,8 +17,6 @@ import {
   UserCheck,
   UserMinus,
   Users,
-  ZoomIn,
-  ZoomOut,
   PieChart,
   ChevronRight,
   ChevronDown,
@@ -116,204 +113,16 @@ function initials(name: string) {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
-// ─── Org chart — reporting-line tree ──────────────────────────────────────────
-
-const NODE_W = 180
-const NODE_H = 72
-const H_GAP = 24
-const V_GAP = 60
-
-type ChartNode = {
-  emp: OrgEmployee
-  x: number
-  y: number
-  children: ChartNode[]
-  subtreeWidth: number
-}
-
-function buildTree(
-  empId: string | undefined,
-  reportingTree: Map<string, OrgEmployee[]>,
-  employees: OrgEmployee[],
-  depth: number,
-): ChartNode | null {
-  const emp = empId ? employees.find((e) => e.id === empId) : null
-  if (!emp) return null
-  const childEmps = reportingTree.get(emp.id) ?? []
-  const childNodes = childEmps
-    .map((c) => buildTree(c.id, reportingTree, employees, depth + 1))
-    .filter(Boolean) as ChartNode[]
-
-  const subtreeWidth = childNodes.length === 0
-    ? NODE_W
-    : childNodes.reduce((acc, c) => acc + c.subtreeWidth, 0) + H_GAP * (childNodes.length - 1)
-
-  return { emp, x: 0, y: depth * (NODE_H + V_GAP), children: childNodes, subtreeWidth }
-}
-
-function layoutTree(node: ChartNode, left: number): void {
-  if (node.children.length === 0) {
-    node.x = left + (node.subtreeWidth - NODE_W) / 2
-    return
-  }
-  let cursor = left
-  for (const child of node.children) {
-    layoutTree(child, cursor)
-    cursor += child.subtreeWidth + H_GAP
-  }
-  const firstChild = node.children[0]
-  const lastChild = node.children[node.children.length - 1]
-  node.x = (firstChild.x + lastChild.x) / 2
-}
-
-function flattenTree(node: ChartNode): ChartNode[] {
-  return [node, ...node.children.flatMap(flattenTree)]
-}
-
-function OrgChart({ employees, reportingTree }: {
-  employees: OrgEmployee[]
-  reportingTree: Map<string, OrgEmployee[]>
-}) {
-  const [zoom, setZoom] = useState(1)
-  const svgRef = useRef<SVGSVGElement>(null)
-
-  // Build tree from root(s) — employees with no reportsToId
-  const roots = useMemo(
-    () => employees.filter((e) => e.active && !e.reportsToId),
-    [employees],
-  )
-
-  const { nodes, svgW, svgH } = useMemo(() => {
-    const rootNodes = roots
-      .map((r) => buildTree(r.id, reportingTree, employees, 0))
-      .filter(Boolean) as ChartNode[]
-
-    if (rootNodes.length === 0) return { nodes: [], svgW: 400, svgH: 200 }
-
-    // Layout all roots side by side
-    let cursor = 0
-    for (const root of rootNodes) {
-      layoutTree(root, cursor)
-      cursor += root.subtreeWidth + H_GAP * 3
-    }
-
-    const allNodes = rootNodes.flatMap(flattenTree)
-    const maxX = Math.max(...allNodes.map((n) => n.x + NODE_W))
-    const maxY = Math.max(...allNodes.map((n) => n.y + NODE_H))
-    return { nodes: allNodes, svgW: maxX + 32, svgH: maxY + 32 }
-  }, [roots, reportingTree, employees])
-
-  if (nodes.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-white py-20 text-center">
-        <GitBranch className="mb-3 size-10 text-neutral-300" />
-        <p className="text-sm font-medium text-neutral-500">Ingen ansatte å vise</p>
-        <p className="mt-1 text-xs text-neutral-400">Legg til ansatte i fanen «Ansatte» og sett «Rapporterer til»</p>
-      </div>
-    )
-  }
-
-  // Build connector lines (parent → child midpoints)
-  const lines: { x1: number; y1: number; x2: number; y2: number; key: string }[] = []
-  for (const node of nodes) {
-    for (const child of node.children) {
-      const x1 = node.x + NODE_W / 2
-      const y1 = node.y + NODE_H
-      const x2 = child.x + NODE_W / 2
-      const y2 = child.y
-      const midY = (y1 + y2) / 2
-      lines.push({ x1, y1: midY, x2, y2: midY, key: `h-${node.emp.id}-${child.emp.id}` })
-      lines.push({ x1, y1, x2: x1, y2: midY, key: `v1-${node.emp.id}-${child.emp.id}` })
-      lines.push({ x1: x2, y1: midY, x2, y2, key: `v2-${node.emp.id}-${child.emp.id}` })
-    }
-  }
-
-  return (
-    <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 border-b border-neutral-100 bg-neutral-50/80 px-5 py-3">
-        <GitBranch className="size-4 text-neutral-400" />
-        <span className="text-sm font-semibold text-neutral-700">Organisasjonskart</span>
-        <span className="ml-1 text-xs text-neutral-400">({nodes.length} ansatte)</span>
-        <div className="ml-auto flex items-center gap-1">
-          <button type="button" onClick={() => setZoom((z) => Math.max(0.4, z - 0.15))} className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200"><ZoomOut className="size-4" /></button>
-          <span className="w-12 text-center text-xs tabular-nums text-neutral-500">{Math.round(zoom * 100)}%</span>
-          <button type="button" onClick={() => setZoom((z) => Math.min(2, z + 0.15))} className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200"><ZoomIn className="size-4" /></button>
-          <button type="button" onClick={() => setZoom(1)} className="ml-1 rounded-lg px-2 py-1 text-xs text-neutral-500 hover:bg-neutral-200">Reset</button>
-        </div>
-      </div>
-
-      {/* Scrollable chart area */}
-      <div className="overflow-auto p-5" style={{ maxHeight: '70vh' }}>
-        <div style={{ transformOrigin: 'top left', transform: `scale(${zoom})`, width: svgW, height: svgH, transition: 'transform 0.2s' }}>
-          <svg ref={svgRef} width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
-            {/* Connector lines */}
-            {lines.map((l) => (
-              <line key={l.key} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="#d1d5db" strokeWidth="1.5" />
-            ))}
-
-            {/* Employee nodes */}
-            {nodes.map((node) => {
-              const bg = avatarColor(node.emp.name)
-              const unitColor = node.emp.unitId
-                ? (node.emp.unitId === 'u-all' ? '#1a3d32' : '#0284c7')
-                : '#6b7280'
-              return (
-                <g key={node.emp.id} transform={`translate(${node.x}, ${node.y})`}>
-                  {/* Card shadow */}
-                  <rect x={1} y={2} width={NODE_W - 2} height={NODE_H} rx={10} fill="#0000000d" />
-                  {/* Card */}
-                  <rect x={0} y={0} width={NODE_W} height={NODE_H} rx={10} fill="white" stroke="#e5e7eb" strokeWidth="1" />
-                  {/* Left accent bar */}
-                  <rect x={0} y={0} width={5} height={NODE_H} rx={10} fill={unitColor} />
-                  {/* Avatar */}
-                  <circle cx={24} cy={NODE_H / 2} r={16} fill={bg} />
-                  <text x={24} y={NODE_H / 2 + 5} textAnchor="middle" style={{ fontSize: 10, fontWeight: 700, fill: 'white', fontFamily: 'system-ui' }}>
-                    {initials(node.emp.name)}
-                  </text>
-                  {/* Name */}
-                  <text x={46} y={NODE_H / 2 - 9} style={{ fontSize: 11, fontWeight: 600, fill: '#111827', fontFamily: 'system-ui' }}>
-                    {node.emp.name.length > 18 ? node.emp.name.slice(0, 17) + '…' : node.emp.name}
-                  </text>
-                  {/* Title */}
-                  <text x={46} y={NODE_H / 2 + 5} style={{ fontSize: 9, fill: '#6b7280', fontFamily: 'system-ui' }}>
-                    {(node.emp.jobTitle ?? '').length > 22 ? (node.emp.jobTitle ?? '').slice(0, 21) + '…' : (node.emp.jobTitle ?? '')}
-                  </text>
-                  {/* Role badge */}
-                  {node.emp.role && (
-                    <>
-                      <rect x={46} y={NODE_H / 2 + 12} width={Math.min(node.emp.role.length * 6 + 8, NODE_W - 52)} height={14} rx={7} fill="#f3f4f6" />
-                      <text x={50} y={NODE_H / 2 + 22} style={{ fontSize: 8, fill: '#374151', fontFamily: 'system-ui' }}>
-                        {node.emp.role.length > 18 ? node.emp.role.slice(0, 17) + '…' : node.emp.role}
-                      </text>
-                    </>
-                  )}
-                </g>
-              )
-            })}
-          </svg>
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div className="border-t border-neutral-100 bg-neutral-50 px-4 py-2 flex flex-wrap gap-4 text-xs text-neutral-500">
-        <span>Linjer viser «Rapporterer til»-relasjoner.</span>
-        <span>Venstre farge = avdelingstilknytning.</span>
-        <span>Legg til ansatte og velg «Rapporterer til» for å bygge treet.</span>
-      </div>
-    </div>
-  )
-}
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-type Tab = 'orgchart' | 'employees' | 'units' | 'groups' | 'insights' | 'settings'
+type Tab = 'employees' | 'units' | 'groups' | 'insights' | 'settings'
 
-const TAB_VALUES: Tab[] = ['orgchart', 'employees', 'units', 'groups', 'insights', 'settings']
+const TAB_VALUES: Tab[] = ['employees', 'units', 'groups', 'insights', 'settings']
 
 function tabFromSearch(raw: string | null): Tab {
+  if (raw === 'orgchart') return 'employees'
   if (raw && TAB_VALUES.includes(raw as Tab)) return raw as Tab
-  return 'orgchart'
+  return 'employees'
 }
 
 /** Virtual rows from `organization_members` use ids `m-{memberId}`; resolve to a persisted org employee by email when possible */
@@ -337,13 +146,14 @@ export function OrganisationPage() {
   const { supabaseConfigured, organization: orgRow, members: orgMembers, profile, user, isDemoMode } =
     useOrgSetupContext()
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const tab = useMemo(() => tabFromSearch(searchParams.get('tab')), [searchParams])
   const setTab = useCallback(
     (id: Tab) => {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev)
-          if (id === 'orgchart') next.delete('tab')
+          if (id === 'employees') next.delete('tab')
           else next.set('tab', id)
           return next
         },
@@ -352,6 +162,12 @@ export function OrganisationPage() {
     },
     [setSearchParams],
   )
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'orgchart') {
+      navigate({ pathname: '/organisation', search: '?tab=employees' }, { replace: true })
+    }
+  }, [searchParams, navigate])
   type OrgSlidePanel =
     | null
     | { kind: 'employee'; mode: 'create' | 'edit'; emp?: OrgEmployee }
@@ -727,12 +543,11 @@ export function OrganisationPage() {
   }, [org, orgMembers])
 
   const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: 'orgchart',  label: 'Org.kart',      icon: GitBranch },
-    { id: 'employees', label: 'Ansatte',        icon: Users },
-    { id: 'units',     label: 'Enheter',        icon: Building2 },
-    { id: 'groups',    label: 'Brukergrupper',  icon: UserCheck },
-    { id: 'insights',  label: 'Innsikt',        icon: PieChart },
-    { id: 'settings',  label: 'Innstillinger',  icon: Settings2 },
+    { id: 'employees', label: 'Ansatte', icon: Users },
+    { id: 'units', label: 'Enheter', icon: Building2 },
+    { id: 'groups', label: 'Brukergrupper', icon: UserCheck },
+    { id: 'insights', label: 'Innsikt', icon: PieChart },
+    { id: 'settings', label: 'Innstillinger', icon: Settings2 },
   ]
 
   const orgTabItems = TABS.map((t) => ({
@@ -1310,14 +1125,7 @@ export function OrganisationPage() {
       {org.loading && supabaseConfigured && (
         <p className="mb-4 text-sm text-neutral-500">Laster organisasjonsdata…</p>
       )}
-      <div
-        className="mt-2 w-full space-y-6 rounded-xl border border-neutral-200/80 p-4 shadow-sm md:p-6"
-        style={{
-          fontFamily: 'Inter, system-ui, sans-serif',
-          color: '#171717',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-        }}
-      >
+      <div className="mt-2 w-full space-y-6 font-[Inter,system-ui,sans-serif] text-[#171717]">
         {!useStandardOrgList ? (
           <WorkplacePageHeading1
             breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Organisasjon' }, { label: tabLabel }]}
@@ -1988,64 +1796,7 @@ export function OrganisationPage() {
             </WorkplaceStandardListLayout>
         ) : null}
 
-        {tab === 'settings' && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {(
-              [
-                {
-                  title: 'Antall ansatte',
-                  sub: 'Grunnlag for terskler',
-                  value: `${org.totalEmployeeCount}`,
-                  valueClass: 'text-neutral-900',
-                },
-                {
-                  title: 'Verneombud (AML §6-1)',
-                  sub: 'Kreves ved ≥5 ansatte',
-                  value: ct.requiresVerneombud ? 'Ja (≥5)' : 'Nei',
-                  valueClass: ct.requiresVerneombud ? 'text-emerald-700' : 'text-neutral-600',
-                },
-                {
-                  title: 'AMU kan kreves',
-                  sub: 'Område 10–29 ansatte',
-                  value: ct.mayRequestAmu ? 'Ja' : 'Nei',
-                  valueClass: ct.mayRequestAmu ? 'text-amber-800' : 'text-neutral-600',
-                },
-                {
-                  title: 'AMU lovpålagt (AML §7-1)',
-                  sub: 'Kreves ved ≥30 ansatte',
-                  value: ct.requiresAmu ? 'Ja (≥30)' : 'Nei',
-                  valueClass: ct.requiresAmu ? 'text-emerald-700' : 'text-neutral-600',
-                },
-              ] as const
-            ).map((item) => (
-              <div
-                key={item.title}
-                className="rounded-lg border border-neutral-200/80 px-5 py-4"
-                style={{ backgroundColor: AB_SCORECARD_CREAM_DEEP }}
-              >
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-600">{item.title}</p>
-                <p className="mt-1 text-xs text-neutral-600">{item.sub}</p>
-                <p className={`mt-2 text-lg font-semibold tabular-nums ${item.valueClass}`}>{item.value}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-      <div
-        className="mt-2 space-y-8 rounded-xl border border-neutral-200/80 bg-white p-4 shadow-sm md:p-6"
-        style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
-      >
-      {/* ── Org chart ─────────────────────────────────────────────────────── */}
-      {tab === 'orgchart' && (
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-neutral-900">Organisasjonskart</h2>
-            <p className="mt-1 text-sm text-neutral-500">Rapporteringslinjer og hierarki — samme visuelle ramme som tabellen under.</p>
-          </div>
-          <OrgChart employees={org.activeEmployees} reportingTree={org.reportingTree} />
-        </section>
-      )}
-
+      <div className="mt-2 space-y-8">
       {/* ── Employees — legacy (standard layout brukes på Ansatte-fanen) ─────── */}
       {tab === 'employees' && !useStandardOrgList && (
         <section className="space-y-4">
@@ -2708,20 +2459,9 @@ export function OrganisationPage() {
         </section>
       )}
 
-      {/* ── Innsikt — oversiktstall (egen fane, aktiv fane lys som referanse) ─ */}
+      {/* ── Innsikt — samme KPI-uttrykk som workspace-hjem ─ */}
       {tab === 'insights' && (
-        <section className="w-full space-y-6">
-          <div>
-            <h2
-              className="text-xl font-semibold text-neutral-900 sm:text-2xl"
-              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-            >
-              Organisasjonsinnsikt
-            </h2>
-            <p className="mt-1 text-sm text-neutral-500">
-              Samlet oversikt over medlemmer, ansatte, enheter og grupper — oppdatert fra dataene dine.
-            </p>
-          </div>
+        <section className="w-full space-y-8">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {(
               [
@@ -2749,11 +2489,12 @@ export function OrganisationPage() {
             ).map((card) => (
               <div
                 key={card.label}
-                className="border border-neutral-200 bg-white px-4 py-4 shadow-sm"
+                className="rounded-lg border border-neutral-200/60 px-5 py-4"
+                style={{ backgroundColor: AB_SCORECARD_CREAM_DEEP }}
               >
-                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{card.label}</p>
-                <p className="mt-2 text-2xl font-semibold tabular-nums text-neutral-900">{card.value}</p>
-                <p className="mt-1 text-xs text-neutral-500">{card.hint}</p>
+                <p className="text-3xl font-bold tabular-nums text-neutral-900">{card.value}</p>
+                <p className="mt-1 text-sm font-medium text-neutral-800">{card.label}</p>
+                <p className="mt-1 text-xs text-neutral-600">{card.hint}</p>
               </div>
             ))}
           </div>
@@ -2806,9 +2547,49 @@ export function OrganisationPage() {
         </section>
       )}
 
-      {/* ── Settings — full bredde; terskler i bokser over (under meny) ─ */}
+      {/* ── Settings — KPI-stripe som på hjem, deretter skjema ─ */}
       {tab === 'settings' && (
-        <section className="w-full">
+        <section className="w-full space-y-8">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {(
+              [
+                {
+                  title: 'Antall ansatte',
+                  sub: 'Grunnlag for terskler',
+                  value: `${org.totalEmployeeCount}`,
+                  valueClass: 'text-neutral-900',
+                },
+                {
+                  title: 'Verneombud (AML §6-1)',
+                  sub: 'Kreves ved ≥5 ansatte',
+                  value: ct.requiresVerneombud ? 'Ja (≥5)' : 'Nei',
+                  valueClass: ct.requiresVerneombud ? 'text-emerald-700' : 'text-neutral-600',
+                },
+                {
+                  title: 'AMU kan kreves',
+                  sub: 'Område 10–29 ansatte',
+                  value: ct.mayRequestAmu ? 'Ja' : 'Nei',
+                  valueClass: ct.mayRequestAmu ? 'text-amber-800' : 'text-neutral-600',
+                },
+                {
+                  title: 'AMU lovpålagt (AML §7-1)',
+                  sub: 'Kreves ved ≥30 ansatte',
+                  value: ct.requiresAmu ? 'Ja (≥30)' : 'Nei',
+                  valueClass: ct.requiresAmu ? 'text-emerald-700' : 'text-neutral-600',
+                },
+              ] as const
+            ).map((item) => (
+              <div
+                key={item.title}
+                className="rounded-lg border border-neutral-200/80 px-5 py-4"
+                style={{ backgroundColor: AB_SCORECARD_CREAM_DEEP }}
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-600">{item.title}</p>
+                <p className="mt-1 text-xs text-neutral-600">{item.sub}</p>
+                <p className={`mt-2 text-lg font-semibold tabular-nums ${item.valueClass}`}>{item.value}</p>
+              </div>
+            ))}
+          </div>
           <Mainbox1
             title="Virksomhetsinnstillinger"
             subtitle="Disse verdiene driver AMU/verneombud-terskler og vises i Council-modulen."

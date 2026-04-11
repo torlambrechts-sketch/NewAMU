@@ -14,7 +14,6 @@ import { useCostSettings } from '../../hooks/useCostSettings'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { Task, TaskStatus } from '../../types/task'
 import {
-  AB_SCORECARD_CREAM,
   AB_SCORECARD_CREAM_DEEP,
   AB_SCORECARD_FOREST,
   ACTION_BOARD_SOURCE_LABELS,
@@ -334,15 +333,7 @@ export function ActionBoardPage() {
       {boardLoading && <p className="mt-4 text-sm text-neutral-500">Laster tavledata…</p>}
 
       {boardTab === 'board' && (
-        <div
-          className="mt-6 w-full space-y-6 rounded-xl border border-neutral-200/80 p-4 shadow-sm md:p-6"
-          style={{
-            fontFamily: 'Inter, system-ui, sans-serif',
-            backgroundColor: AB_SCORECARD_CREAM,
-            color: '#171717',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-          }}
-        >
+        <div className="mt-6 w-full space-y-6 font-[Inter,system-ui,sans-serif] text-[#171717]">
           <WorkplacePageHeading1
             breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Action board' }, { label: 'Tavle' }]}
             title="Global Action Board"
@@ -546,15 +537,7 @@ export function ActionBoardPage() {
       )}
 
       {boardTab === 'costs' && (
-        <div
-          className="mt-6 w-full space-y-6 rounded-xl border border-neutral-200/80 p-4 shadow-sm md:p-6"
-          style={{
-            fontFamily: 'Inter, system-ui, sans-serif',
-            backgroundColor: AB_SCORECARD_CREAM,
-            color: '#171717',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-          }}
-        >
+        <div className="mt-6 w-full space-y-6 font-[Inter,system-ui,sans-serif] text-[#171717]">
           <WorkplacePageHeading1
             breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Action board' }, { label: 'Kostnader' }]}
             title="Kostnadsoversikt"
