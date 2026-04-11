@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Filter, LayoutGrid, List, Plus, Search, Settings, Star, Table2 } from 'lucide-react'
+import { Filter, LayoutGrid, List, Plus, Search, Settings, Table2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { HubMenu1Item } from './HubMenu1Bar'
 import { HubMenu1Bar } from './HubMenu1Bar'
@@ -48,12 +48,6 @@ export type WorkplaceListToolbarProps = {
     onClick?: () => void
     icon?: LucideIcon
   }
-  /** Optional favourite / pin toggle */
-  starToggle?: {
-    active: boolean
-    onToggle: () => void
-    ariaLabel?: string
-  }
   /** Optional settings control (icon button) */
   showSettingsButton?: boolean
   onSettingsClick?: () => void
@@ -62,7 +56,7 @@ export type WorkplaceListToolbarProps = {
 }
 
 /**
- * Toolbar row: optional count, search, filters, star, table/box/list switch, sort, primary CTA.
+ * Toolbar row: optional count, search, filters, table/box/list switch, sort, primary CTA.
  * Use with {@link WorkplaceStandardListLayout} or standalone on cream pages.
  */
 export function WorkplaceListToolbar({
@@ -80,7 +74,6 @@ export function WorkplaceListToolbar({
   viewMode,
   onViewModeChange,
   primaryAction,
-  starToggle,
   showSettingsButton,
   onSettingsClick,
   settingsAriaLabel = 'Innstillinger',
@@ -127,22 +120,6 @@ export function WorkplaceListToolbar({
               Filters
             </button>
             {filterStatusText ? <span className="text-xs text-neutral-500">{filterStatusText}</span> : null}
-            {starToggle ? (
-              <button
-                type="button"
-                onClick={starToggle.onToggle}
-                className={`rounded-lg border p-2 transition-colors ${
-                  starToggle.active
-                    ? 'border-amber-300 bg-amber-50 text-amber-700'
-                    : 'border-neutral-200 bg-white text-amber-600 hover:bg-amber-50/80'
-                }`}
-                aria-pressed={starToggle.active}
-                aria-label={starToggle.ariaLabel ?? (starToggle.active ? 'Vis alle' : 'Kun favoritter')}
-                title={starToggle.ariaLabel}
-              >
-                <Star className={`size-5 ${starToggle.active ? 'fill-current' : ''}`} />
-              </button>
-            ) : null}
             <div className="flex rounded-lg border border-neutral-200 bg-white p-0.5" role="group" aria-label="Visning">
               <button
                 type="button"

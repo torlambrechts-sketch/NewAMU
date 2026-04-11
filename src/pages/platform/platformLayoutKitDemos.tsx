@@ -67,7 +67,6 @@ export function PlatformStandardListLayoutDemo({ surface }: { surface: LayoutKit
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'draft'>('all')
   const [sort, setSort] = useState('title')
-  const [starredOnly, setStarredOnly] = useState(false)
 
   const hubItems: HubMenu1Item[] = useMemo(
     () => [
@@ -92,7 +91,6 @@ export function PlatformStandardListLayoutDemo({ surface }: { surface: LayoutKit
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     let list = DEMO_ITEMS.filter((x) => {
-      if (starredOnly && !x.starred) return false
       if (statusFilter !== 'all' && x.status !== statusFilter) return false
       if (!q) return true
       return (
@@ -106,9 +104,9 @@ export function PlatformStandardListLayoutDemo({ surface }: { surface: LayoutKit
       return a.title.localeCompare(b.title, 'nb')
     })
     return list
-  }, [search, statusFilter, sort, starredOnly])
+  }, [search, statusFilter, sort])
 
-  const activeFilters = statusFilter !== 'all' || starredOnly
+  const activeFilters = statusFilter !== 'all'
 
   return (
     <div className={previewWrapClass(surface)}>
@@ -179,7 +177,6 @@ export function PlatformStandardListLayoutDemo({ surface }: { surface: LayoutKit
                   type="button"
                   onClick={() => {
                     setStatusFilter('all')
-                    setStarredOnly(false)
                   }}
                   className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
                 >
@@ -198,11 +195,6 @@ export function PlatformStandardListLayoutDemo({ surface }: { surface: LayoutKit
             primaryAction: {
               label: 'Opprett ny stilling',
               onClick: () => window.alert('Demo: opprett-handling'),
-            },
-            starToggle: {
-              active: starredOnly,
-              onToggle: () => setStarredOnly((s) => !s),
-              ariaLabel: starredOnly ? 'Vis alle' : 'Kun favoritter',
             },
             showSettingsButton: true,
             onSettingsClick: () => window.alert('Demo: innstillinger'),

@@ -170,8 +170,6 @@ export function TasksPage() {
   const [taskFiltersOpen, setTaskFiltersOpen] = useState(false)
   const [tasksViewMode, setTasksViewMode] = useState<WorkplaceListViewMode>('table')
   const [taskSort, setTaskSort] = useState<'due' | 'title' | 'status' | 'module'>('due')
-  /** Toolbar star: show only non-done tasks (åpne). */
-  const [tasksOpenOnly, setTasksOpenOnly] = useState(false)
   const [formModule, setFormModule] = useState<TaskModule>('general')
   const [formSource, setFormSource] = useState<TaskSourceType>('manual')
   const [sourceId, setSourceId] = useState('')
@@ -450,9 +448,6 @@ export function TasksPage() {
 
   const filtered = useMemo(() => {
     let list = moduleFilter === 'all' ? tasks : tasks.filter((t) => t.module === moduleFilter)
-    if (tasksOpenOnly) {
-      list = list.filter((t) => t.status !== 'done')
-    }
     const q = taskSearch.trim().toLowerCase()
     if (q) {
       list = list.filter(
@@ -464,7 +459,7 @@ export function TasksPage() {
       )
     }
     return list
-  }, [tasks, moduleFilter, taskSearch, tasksOpenOnly])
+  }, [tasks, moduleFilter, taskSearch])
 
   function taskDueSortKey(t: Task) {
     if (!t.dueDate || t.dueDate === '—') return Number.POSITIVE_INFINITY
@@ -736,7 +731,7 @@ export function TasksPage() {
 
   const orgLabel = organization?.name?.trim() || 'Organisasjon'
   const tasksSectionLabel = pageTab === 'whistle' ? 'Varslingssaker' : 'Oppgaver'
-  const taskToolbarActiveFilters = moduleFilter !== 'all' || tasksOpenOnly
+  const taskToolbarActiveFilters = moduleFilter !== 'all'
 
   function taskStatusPill(t: Task) {
     if (t.status === 'done') {
@@ -831,7 +826,6 @@ export function TasksPage() {
               onClick={() => {
                 setTaskSearch('')
                 setModuleFilter('all')
-                setTasksOpenOnly(false)
                 setTaskListPage(1)
               }}
               className="self-start rounded-md border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
@@ -851,14 +845,6 @@ export function TasksPage() {
         viewMode: tasksViewMode,
         onViewModeChange: setTasksViewMode,
         primaryAction: { label: 'Ny oppgave', onClick: openNewTaskPanel },
-        starToggle: {
-          active: tasksOpenOnly,
-          onToggle: () => {
-            setTasksOpenOnly((s) => !s)
-            setTaskListPage(1)
-          },
-          ariaLabel: tasksOpenOnly ? 'Vis alle oppgaver' : 'Kun åpne (ikke ferdig)',
-        },
       }}
       contentClassName="!p-0"
     >
@@ -889,7 +875,6 @@ export function TasksPage() {
             onClick={() => {
               setTaskSearch('')
               setModuleFilter('all')
-              setTasksOpenOnly(false)
               setTaskListPage(1)
             }}
             className="mt-4 rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
