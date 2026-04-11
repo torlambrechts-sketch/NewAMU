@@ -15,6 +15,7 @@ import {
   MessageSquare,
   MoreHorizontal,
   Pencil,
+  Plus,
   Search,
   Settings,
   Share2,
@@ -26,6 +27,8 @@ import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1
 const CREAM = '#F9F7F2'
 const CREAM_DEEP = '#EFE8DC'
 const FOREST = '#1a3d32'
+/** CTA / primary action buttons (layout-reference stillinger) */
+const TABLE_CTA_GREEN = '#2D403A'
 const SERIF = "'Libre Baskerville', Georgia, serif"
 const SANS = "Inter, system-ui, sans-serif"
 
@@ -353,6 +356,238 @@ function ComposableScorecardModuleBlock() {
   )
 }
 
+type DemoPostingRow = {
+  id: string
+  name: string
+  jobTitle: string
+  location: string
+  status: 'active' | 'draft'
+  starred: boolean
+}
+
+const DEMO_POSTING_ROWS: DemoPostingRow[] = [
+  { id: '1', name: 'Standard', jobTitle: 'HR-rådgiver', location: 'Bergen', status: 'active', starred: true },
+  { id: '2', name: 'Default', jobTitle: 'HR-rådgiver', location: 'London', status: 'active', starred: false },
+  { id: '3', name: 'Campus', jobTitle: 'Software Engineer (Internal)', location: 'Oslo', status: 'active', starred: true },
+  { id: '4', name: 'Retail', jobTitle: 'Customer Service Representative', location: 'London', status: 'draft', starred: false },
+  { id: '5', name: 'Support', jobTitle: 'Teknisk konsulent', location: 'Trondheim', status: 'active', starred: false },
+  { id: '6', name: 'Lager', jobTitle: 'Logistikkmedarbeider', location: 'Stavanger', status: 'draft', starred: false },
+]
+
+/** Table heading bar (Active Jobs-style) + demo table; controls filter the rows below. */
+function ComposableTableHeadingToolbarBlock() {
+  const [search, setSearch] = useState('')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [starredOnly, setStarredOnly] = useState(false)
+  const [viewDensity, setViewDensity] = useState<'comfortable' | 'compact'>('comfortable')
+  const [locationFilter, setLocationFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'draft'>('all')
+
+  const locations = useMemo(() => {
+    const u = new Set(DEMO_POSTING_ROWS.map((r) => r.location))
+    return [...u].sort((a, b) => a.localeCompare(b, 'nb'))
+  }, [])
+
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return DEMO_POSTING_ROWS.filter((r) => {
+      if (starredOnly && !r.starred) return false
+      if (locationFilter !== 'all' && r.location !== locationFilter) return false
+      if (statusFilter !== 'all' && r.status !== statusFilter) return false
+      if (!q) return true
+      return (
+        r.name.toLowerCase().includes(q) ||
+        r.jobTitle.toLowerCase().includes(q) ||
+        r.location.toLowerCase().includes(q)
+      )
+    })
+  }, [search, starredOnly, locationFilter, statusFilter])
+
+  const cellPad = viewDensity === 'comfortable' ? 'px-5 py-3' : 'px-3 py-2'
+  const textSize = viewDensity === 'comfortable' ? 'text-sm' : 'text-xs'
+
+  return (
+    <div className="space-y-0">
+      <WhiteCard className="overflow-hidden p-0">
+        <div className="flex flex-wrap items-center gap-3 border-b border-neutral-100 px-4 py-3 md:gap-4 md:px-5">
+          <p className="shrink-0 text-sm text-neutral-900">
+            <span className="text-2xl font-bold tabular-nums text-neutral-900">{filteredRows.length}</span>{' '}
+            <span className="font-medium text-neutral-600">aktive annonser</span>
+          </p>
+          <div className="relative min-w-[200px] flex-1">
+            <label htmlFor="composer-table-heading-search" className="sr-only">
+              Søk
+            </label>
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+            <input
+              id="composer-table-heading-search"
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search…"
+              className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/25"
+            />
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((o) => !o)}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wide ${
+                filtersOpen ? 'border-neutral-400 bg-neutral-50 text-neutral-900' : 'border-neutral-200 bg-white text-neutral-700'
+              }`}
+              aria-expanded={filtersOpen}
+            >
+              <Filter className="size-3.5 text-neutral-500" />
+              Filters
+            </button>
+            <button
+              type="button"
+              onClick={() => setStarredOnly((s) => !s)}
+              className={`rounded-lg border p-2 transition-colors ${
+                starredOnly ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-neutral-200 bg-white text-amber-600 hover:bg-amber-50/80'
+              }`}
+              aria-pressed={starredOnly}
+              aria-label={starredOnly ? 'Vis alle rader' : 'Kun favoritter'}
+              title="Kun favoritter"
+            >
+              <Star className={`size-5 ${starredOnly ? 'fill-current' : ''}`} />
+            </button>
+            <div className="flex rounded-lg border border-neutral-200 bg-white p-0.5" role="group" aria-label="Visningstetthet">
+              <button
+                type="button"
+                onClick={() => setViewDensity('comfortable')}
+                className={`rounded-md p-2 ${viewDensity === 'comfortable' ? 'bg-[#EFE8DC] text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
+                aria-pressed={viewDensity === 'comfortable'}
+                aria-label="Rutenett (romslig)"
+              >
+                <LayoutGrid className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewDensity('compact')}
+                className={`rounded-md p-2 ${viewDensity === 'compact' ? 'bg-[#EFE8DC] text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
+                aria-pressed={viewDensity === 'compact'}
+                aria-label="Liste (kompakt)"
+              >
+                <List className="size-4" />
+              </button>
+            </div>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm"
+              style={{ backgroundColor: TABLE_CTA_GREEN }}
+            >
+              <Plus className="size-4 shrink-0" strokeWidth={2.5} />
+              Opprett ny stilling
+            </button>
+          </div>
+        </div>
+        {filtersOpen ? (
+          <div
+            className="flex flex-wrap items-end gap-4 border-b border-neutral-100 px-4 py-3 md:px-5"
+            style={{ backgroundColor: CREAM_DEEP }}
+          >
+            <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
+              Sted
+              <select
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                className="mt-1.5 block w-full min-w-[140px] rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
+              >
+                <option value="all">Alle steder</option>
+                {locations.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {loc}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
+              Status
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'draft')}
+                className="mt-1.5 block w-full min-w-[140px] rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
+              >
+                <option value="all">Alle</option>
+                <option value="active">Aktiv</option>
+                <option value="draft">Utkast</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setLocationFilter('all')
+                setStatusFilter('all')
+              }}
+              className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+            >
+              Nullstill filter
+            </button>
+          </div>
+        ) : null}
+        <div className="overflow-x-auto">
+          <table className={`w-full min-w-[520px] text-left ${textSize}`}>
+            <thead>
+              <tr className="border-b border-neutral-200 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+                <th className={`${cellPad}`}>Navn</th>
+                <th className={`${cellPad}`}>Stilling</th>
+                <th className={`${cellPad}`}>Sted</th>
+                <th className={`${cellPad}`}>Status</th>
+                <th className={`w-12 ${cellPad}`} />
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-5 py-10 text-center text-sm text-neutral-500">
+                    Ingen treff — juster søk eller filter.
+                  </td>
+                </tr>
+              ) : (
+                filteredRows.map((r) => (
+                  <tr key={r.id} className="border-b border-neutral-100 hover:bg-neutral-50/80">
+                    <td className={`${cellPad} font-medium text-neutral-900`}>
+                      <span className="inline-flex items-center gap-2">
+                        {r.starred ? (
+                          <Star className="size-3.5 shrink-0 fill-amber-400 text-amber-500" aria-hidden />
+                        ) : null}
+                        {r.name}
+                      </span>
+                    </td>
+                    <td className={`${cellPad} text-neutral-700`}>{r.jobTitle}</td>
+                    <td className={`${cellPad} text-neutral-700`}>{r.location}</td>
+                    <td className={cellPad}>
+                      {r.status === 'active' ? (
+                        <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-900">
+                          Active
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-neutral-700">
+                          Draft
+                        </span>
+                      )}
+                    </td>
+                    <td className={`${cellPad} text-right`}>
+                      <button type="button" className="text-neutral-400 hover:text-neutral-700" aria-label="Meny">
+                        <MoreHorizontal className="size-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </WhiteCard>
+      <p className="mt-2 text-xs text-neutral-500">
+        Verktøylinjen styrer tabellen under: søk (navn/stilling/sted), <strong>Filters</strong> (sted + status), stjerne (kun
+        favoritter), og bryter (romslig vs kompakt rader). CTA tilpasses kontekst — her: stillinger.
+      </p>
+    </div>
+  )
+}
+
 /** Job listing cards: toolbar + grid (reference: Active Jobs). */
 function ComposableJobCardsModuleBlock() {
   const [layout, setLayout] = useState<'grid' | 'list'>('grid')
@@ -497,6 +732,11 @@ const BLOCKS = [
     label: 'Modul — Jobbkort (Active jobs)',
     hint: '«6 Active Jobs», søk, Filters, grid/list, tre stillingskort.',
   },
+  {
+    id: 'tableHeading',
+    label: 'Tabell — overskriftsfelt (toolbar)',
+    hint: 'Telling, søk, Filters (panel), favoritt, grid/list-tetthet, CTA + demo-tabell som filtreres.',
+  },
 ] as const
 
 type BlockId = (typeof BLOCKS)[number]['id']
@@ -508,13 +748,14 @@ export function PlatformLayoutComposerPage() {
     table1: true,
     scorecard: true,
     jobCards: true,
+    tableHeading: true,
   })
 
   const toggle = (id: BlockId) => setVisible((v) => ({ ...v, [id]: !v[id] }))
   const selectAll = () =>
-    setVisible({ heading1: true, table1: true, scorecard: true, jobCards: true })
+    setVisible({ heading1: true, table1: true, scorecard: true, jobCards: true, tableHeading: true })
   const selectNone = () =>
-    setVisible({ heading1: false, table1: false, scorecard: false, jobCards: false })
+    setVisible({ heading1: false, table1: false, scorecard: false, jobCards: false, tableHeading: false })
 
   const activeCount = BLOCKS.filter((b) => visible[b.id]).length
 
@@ -523,7 +764,7 @@ export function PlatformLayoutComposerPage() {
       <div>
         <h1 className="text-2xl font-semibold text-white">Layout-komponer</h1>
         <p className="mt-2 max-w-3xl text-sm text-neutral-400">
-          Kombiner ferdige referanseblokker (overskrift + faner, Postings-tabell, scorecard-modul, jobbkort-modul) i én forhåndsvisning.
+          Kombiner ferdige referanseblokker (overskrift + faner, Postings-tabell, tabell-verktøylinje, scorecard-modul, jobbkort-modul) i én forhåndsvisning.
           Velg elementer til venstre — samme visuelle språk som under{' '}
           <Link to="/platform-admin/layout-reference" className="text-amber-400/90 hover:underline">
             Layout-referanse
@@ -608,7 +849,13 @@ export function PlatformLayoutComposerPage() {
                 </section>
               ) : null}
 
-              {!visible.heading1 && !visible.table1 && !visible.scorecard && !visible.jobCards ? (
+              {visible.tableHeading ? (
+                <section aria-label="Tabell overskrift og verktøylinje">
+                  <ComposableTableHeadingToolbarBlock />
+                </section>
+              ) : null}
+
+              {!visible.heading1 && !visible.table1 && !visible.scorecard && !visible.jobCards && !visible.tableHeading ? (
                 <p className="py-12 text-center text-sm text-neutral-500">Velg minst ett element for å vise forhåndsvisning.</p>
               ) : null}
             </div>
