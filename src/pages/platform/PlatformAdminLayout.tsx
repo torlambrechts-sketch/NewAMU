@@ -1,6 +1,6 @@
 import { NavLink, Outlet, Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
-import { Box, Layers, LayoutGrid, Loader2, LogOut, Map, PanelsTopLeft, Rows3, Shield, Sparkles } from 'lucide-react'
+import { Box, Layers, LayoutGrid, LayoutTemplate, Loader2, LogOut, Map, PanelsTopLeft, Rows3, Shield, Sparkles } from 'lucide-react'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 
 const nav: {
@@ -17,6 +17,7 @@ const nav: {
   { to: '/platform-admin/layout-builder', label: 'Layout-designer', icon: Rows3 },
   { to: '/platform-admin/layout-reference', label: 'Layout-referanse', icon: Sparkles },
   { to: '/platform-admin/layout-composer', label: 'Layout-komponer', icon: Layers },
+  { to: '/platform-admin/layout-standard', label: 'Standard layout', icon: LayoutTemplate },
 ]
 
 export function PlatformAdminLayout() {

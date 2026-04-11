@@ -68,6 +68,7 @@ import { PlatformBoxDesignerPage } from './pages/platform/PlatformBoxDesignerPag
 import { PlatformLayoutCompositionPage } from './pages/platform/PlatformLayoutCompositionPage'
 import { PlatformPinpointLayoutsPage } from './pages/platform/PlatformPinpointLayoutsPage'
 import { PlatformLayoutComposerPage } from './pages/platform/PlatformLayoutComposerPage'
+import { PlatformStandardLayoutKitPage } from './pages/platform/PlatformStandardLayoutKitPage'
 import { PublicWhistlePage } from './pages/PublicWhistlePage'
 import { WhistleStatusPage } from './pages/WhistleStatusPage'
 
@@ -100,6 +101,7 @@ function App() {
                 <Route path="layout-builder" element={<PlatformLayoutCompositionPage />} />
                 <Route path="layout-reference" element={<PlatformPinpointLayoutsPage />} />
                 <Route path="layout-composer" element={<PlatformLayoutComposerPage />} />
+                <Route path="layout-standard" element={<PlatformStandardLayoutKitPage />} />
                 <Route path="*" element={<Navigate to="/platform-admin" replace />} />
               </Route>
               <Route path="onboarding" element={<OnboardingWizard />} />
