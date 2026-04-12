@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Calendar,
@@ -15,6 +15,7 @@ import { LegalDisclaimer } from '../components/internalControl/LegalDisclaimer'
 import { RISK_COLOUR_CLASSES, computeRiskScore, riskColour } from '../data/rosTemplate'
 import { useInternalControl } from '../hooks/useInternalControl'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { usePublishedComposerTemplatesRefresh } from '../hooks/usePublishedComposerTemplatesRefresh'
 import type {
   AnnualReview,
   AnnualReviewActionDraft,
@@ -637,6 +638,27 @@ export function InternalControlModule() {
       cancelled = true
     }
   }, [tab, supabase])
+
+  const refreshComposerLayoutsFromDb = useCallback(async () => {
+    if (!supabase) return
+    const [icNext, rosNext] = await Promise.all([
+      resolveIcOverviewComposerLayoutAsync(supabase),
+      resolveRosTabLayoutAsync(supabase),
+    ])
+    setIcOverviewComposer(icNext)
+    setRosTabLayout(rosNext)
+  }, [supabase])
+
+  const refreshComposerLayoutsRef = useRef(refreshComposerLayoutsFromDb)
+  useEffect(() => {
+    refreshComposerLayoutsRef.current = refreshComposerLayoutsFromDb
+  }, [refreshComposerLayoutsFromDb])
+
+  usePublishedComposerTemplatesRefresh(
+    supabase,
+    () => refreshComposerLayoutsRef.current(),
+    { enabled: Boolean(supabaseConfigured && user && supabase) },
+  )
 
   const rosLayoutNodes = useMemo(() => {
     const order = rosTabLayout.order
