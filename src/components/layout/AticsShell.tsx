@@ -280,14 +280,6 @@ const navGroups: NavGroup[] = [
     icon: Shield,
     modules: [
       {
-        to: '/organisation',
-        label: 'Organisasjon',
-        end: false,
-        icon: Building2,
-        subs: [],
-        perm: 'module.view.dashboard',
-      },
-      {
         to: '/organisation/admin',
         label: 'Administrasjon',
         end: true,
@@ -366,6 +358,14 @@ const navGroups: NavGroup[] = [
     modules: [
       { to: '/documents', label: 'Documents', end: false, icon: FileText, subs: documentsSubs, perm: 'module.view.dashboard' },
       { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap, subs: learningSubs, perm: 'module.view.learning' },
+      {
+        to: '/organisation',
+        label: 'Organisasjon',
+        end: false,
+        icon: Building2,
+        subs: [],
+        perm: 'module.view.dashboard',
+      },
     ],
   },
 ]
@@ -561,7 +561,7 @@ export function AticsShell() {
     const activeGroup = visibleGroups.find((g) => g.modules.some((m) => m.to === activeModule.to))
 
     return (
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden">
 
         {/* ── Rail 1: Group icons ──────────────────────────────────────────── */}
         <aside className="flex w-[3.75rem] shrink-0 flex-col bg-[var(--ui-nav-rail)]">
@@ -754,86 +754,122 @@ export function AticsShell() {
     can,
   )
 
+  const topBarGroupNav = (
+    <nav className="flex min-h-0 items-center gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] md:flex-1 md:justify-center md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden" aria-label="Primary">
+      {visibleGroups.map((group) => {
+        const isActiveGroup = activeGroup?.id === group.id
+        return (
+          <NavLink
+            key={group.id}
+            to={group.modules[0].to}
+            end={false}
+            className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors md:px-3.5 md:py-1.5 ${
+              isActiveGroup
+                ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/70'
+                : 'text-white/75 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            {group.label}
+          </NavLink>
+        )
+      })}
+    </nav>
+  )
+
+  const topBarUtilities = (
+    <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2 md:gap-3">
+      <button
+        type="button"
+        className="hidden items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[color:var(--ui-accent)] sm:flex"
+      >
+        <Clock className="size-3.5" />
+        {t('shell.upgrade')}
+      </button>
+      {supabaseConfigured ? (
+        <>
+          <ShellCompanyBlock name={orgDisplayName} variant="topbar" />
+          <ShellQuickCreateMenu variant="topbar" />
+          <ShellComplianceIndicator variant="topbar" />
+          <NotificationTray variant="topbar" />
+          <ShellProfileMenuButton
+            variant="topbar"
+            displayName={profileDisplay}
+            email={profileEmail}
+            profileTo="/profile"
+            navMode={navMode}
+            onNavModeChange={handleNavModeChange}
+            onSignOut={signOut}
+            logInHref="/login"
+            logInLabel={t('shell.logIn')}
+            logOutLabel={t('shell.logOut')}
+            settingsAria={t('shell.settingsAria')}
+            showAuth
+            isLoggedIn={Boolean(user)}
+          />
+        </>
+      ) : null}
+    </div>
+  )
+
   return (
-    <div className="min-h-screen bg-[var(--ui-surface)]">
+    <div className="min-h-[100dvh] min-h-screen bg-[var(--ui-surface)]">
       <header className="bg-[var(--ui-nav-rail)] text-white">
-
-        {/* ── Row 1: logo · group tabs · utilities ───────────────────────── */}
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 md:px-8">
-          {/* Logo + section nav toggle (same persistence as sidebar) */}
-          <div className="flex shrink-0 items-center gap-2">
-            <NavLink to="/" className="flex items-center gap-2" aria-label={t('shell.homeAria')}>
-              <KlarertLogo size={28} variant="onDark" />
-            </NavLink>
-            <button
-              type="button"
-              onClick={toggleSubNavCollapsed}
-              className={`flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                subNavCollapsed ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/50' : 'text-white/70 hover:bg-white/10 hover:text-white'
-              }`}
-              aria-expanded={!subNavCollapsed}
-              aria-label={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
-              title={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
-            >
-              {subNavCollapsed ? (
-                <PanelRight className="size-[1.125rem] shrink-0" aria-hidden />
-              ) : (
-                <PanelLeft className="size-[1.125rem] shrink-0" aria-hidden />
-              )}
-            </button>
+        {/* Row 1: mobile — logo + section toggle | utilities (profile/menu always visible without scrolling) */}
+        <div className="mx-auto max-w-[1400px] px-4 py-2 md:px-8 md:py-3">
+          <div className="flex items-center justify-between gap-2 md:hidden">
+            <div className="flex min-w-0 shrink-0 items-center gap-2">
+              <NavLink to="/" className="flex shrink-0 items-center gap-2" aria-label={t('shell.homeAria')}>
+                <KlarertLogo size={28} variant="onDark" />
+              </NavLink>
+              <button
+                type="button"
+                onClick={toggleSubNavCollapsed}
+                className={`flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                  subNavCollapsed ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/50' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                }`}
+                aria-expanded={!subNavCollapsed}
+                aria-label={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
+                title={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
+              >
+                {subNavCollapsed ? (
+                  <PanelRight className="size-[1.125rem] shrink-0" aria-hidden />
+                ) : (
+                  <PanelLeft className="size-[1.125rem] shrink-0" aria-hidden />
+                )}
+              </button>
+            </div>
+            {topBarUtilities}
           </div>
 
-          {/* Group tabs — one per group, navigates to first module in group */}
-          <nav className="flex flex-1 items-center justify-center gap-1 overflow-x-auto" aria-label="Primary">
-            {visibleGroups.map((group) => {
-              const isActiveGroup = activeGroup?.id === group.id
-              return (
-                <NavLink
-                  key={group.id}
-                  to={group.modules[0].to}
-                  end={false}
-                  className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors ${
-                    isActiveGroup
-                      ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/70'
-                      : 'text-white/75 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  {group.label}
-                </NavLink>
-              )
-            })}
-          </nav>
-
-          {/* Utilities */}
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 md:gap-3">
-            <button type="button" className="hidden items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[color:var(--ui-accent)] sm:flex">
-              <Clock className="size-3.5" />
-              {t('shell.upgrade')}
-            </button>
-            {supabaseConfigured ? (
-              <>
-                <ShellCompanyBlock name={orgDisplayName} variant="topbar" />
-                <ShellQuickCreateMenu variant="topbar" />
-                <ShellComplianceIndicator variant="topbar" />
-                <NotificationTray variant="topbar" />
-                <ShellProfileMenuButton
-                  variant="topbar"
-                  displayName={profileDisplay}
-                  email={profileEmail}
-                  profileTo="/profile"
-                  navMode={navMode}
-                  onNavModeChange={handleNavModeChange}
-                  onSignOut={signOut}
-                  logInHref="/login"
-                  logInLabel={t('shell.logIn')}
-                  logOutLabel={t('shell.logOut')}
-                  settingsAria={t('shell.settingsAria')}
-                  showAuth
-                  isLoggedIn={Boolean(user)}
-                />
-              </>
-            ) : null}
+          {/* md+: single row — logo · groups · utilities */}
+          <div className="hidden items-center justify-between gap-4 md:flex">
+            <div className="flex shrink-0 items-center gap-2">
+              <NavLink to="/" className="flex items-center gap-2" aria-label={t('shell.homeAria')}>
+                <KlarertLogo size={28} variant="onDark" />
+              </NavLink>
+              <button
+                type="button"
+                onClick={toggleSubNavCollapsed}
+                className={`flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                  subNavCollapsed ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/50' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                }`}
+                aria-expanded={!subNavCollapsed}
+                aria-label={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
+                title={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
+              >
+                {subNavCollapsed ? (
+                  <PanelRight className="size-[1.125rem] shrink-0" aria-hidden />
+                ) : (
+                  <PanelLeft className="size-[1.125rem] shrink-0" aria-hidden />
+                )}
+              </button>
+            </div>
+            {topBarGroupNav}
+            {topBarUtilities}
           </div>
+
+          {/* Mobile: group tabs on own row (horizontal scroll, does not push profile off-screen) */}
+          <div className="mt-2 border-t border-white/10 pt-2 md:hidden">{topBarGroupNav}</div>
         </div>
 
         {/* ── Row 2: module tabs for the active group ─────────────────────── */}
