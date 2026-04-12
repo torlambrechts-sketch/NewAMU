@@ -115,6 +115,10 @@ const SETTINGS_INPUT =
 const SETTINGS_CHECK_WRAP =
   'mt-1.5 flex cursor-pointer items-start gap-3 rounded-none border border-neutral-300 bg-neutral-50/80 p-3'
 
+/** Innstillinger-fanen: avrundet som layout-referanse Malbibliotek (rounded-md / rounded-lg). */
+const ORG_SETTINGS_INPUT = SETTINGS_INPUT.replace('rounded-none', 'rounded-md')
+const ORG_SETTINGS_CHECK_WRAP = SETTINGS_CHECK_WRAP.replace('rounded-none', 'rounded-lg')
+
 /** Én samlet mørk panel for skjema (grupper/enheter) — kolonner med vertikal deler */
 const ORG_MERGED_PANEL =
   'flex min-h-0 flex-col border border-black/15 lg:flex-row lg:items-stretch lg:divide-x lg:divide-white/15'
@@ -2645,11 +2649,16 @@ export function OrganisationPage() {
               </div>
             ))}
           </div>
-          <Mainbox1
-            title="Virksomhetsinnstillinger"
-            subtitle="Disse verdiene driver AMU/verneombud-terskler og vises i Council-modulen."
-          >
-            <div className="divide-y divide-neutral-200 border border-neutral-200 bg-white">
+          <OrgInsightWhiteCard className="overflow-hidden p-0">
+            <div className="border-b border-neutral-100 px-5 py-4 md:px-6">
+              <h2 className="text-lg font-semibold text-neutral-900">Virksomhetsinnstillinger</h2>
+              <p className="mt-2 text-sm text-neutral-600">
+                Disse verdiene driver AMU/verneombud-terskler og vises i Council-modulen.
+              </p>
+            </div>
+            <div className="p-4 md:p-6">
+              <div className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white shadow-sm">
+                <div className="divide-y divide-neutral-200">
               <div className={SETTINGS_ROW_GRID}>
                 <p className={SETTINGS_LEAD}>Hvilket navn skal vises for virksomheten i løsningen og i rapporter?</p>
                 <div>
@@ -2660,7 +2669,7 @@ export function OrganisationPage() {
                     id="org-settings-name"
                     value={org.settings.orgName}
                     onChange={(e) => org.updateSettings({ orgName: e.target.value })}
-                    className={SETTINGS_INPUT}
+                    className={ORG_SETTINGS_INPUT}
                     autoComplete="organization"
                   />
                 </div>
@@ -2677,7 +2686,7 @@ export function OrganisationPage() {
                     value={org.settings.orgNumber ?? ''}
                     onChange={(e) => org.updateSettings({ orgNumber: e.target.value || undefined })}
                     placeholder="9 siffer"
-                    className={SETTINGS_INPUT}
+                    className={ORG_SETTINGS_INPUT}
                     inputMode="numeric"
                   />
                 </div>
@@ -2697,7 +2706,7 @@ export function OrganisationPage() {
                     min={0}
                     value={org.settings.employeeCount}
                     onChange={(e) => org.updateSettings({ employeeCount: Number(e.target.value) || 0 })}
-                    className={SETTINGS_INPUT}
+                    className={ORG_SETTINGS_INPUT}
                   />
                   <p className="mt-2 text-xs text-neutral-500">Aktive i ansattlisten: {org.activeEmployees.length}</p>
                 </div>
@@ -2714,7 +2723,7 @@ export function OrganisationPage() {
                     value={org.settings.industrySector ?? ''}
                     onChange={(e) => org.updateSettings({ industrySector: e.target.value || undefined })}
                     placeholder="f.eks. Helse og omsorg"
-                    className={SETTINGS_INPUT}
+                    className={ORG_SETTINGS_INPUT}
                   />
                 </div>
               </div>
@@ -2725,12 +2734,12 @@ export function OrganisationPage() {
                 </p>
                 <div>
                   <span className={SETTINGS_FIELD_LABEL}>Tariffavtale</span>
-                  <label className={SETTINGS_CHECK_WRAP}>
+                  <label className={ORG_SETTINGS_CHECK_WRAP}>
                     <input
                       type="checkbox"
                       checked={org.settings.hasCollectiveAgreement}
                       onChange={(e) => org.updateSettings({ hasCollectiveAgreement: e.target.checked })}
-                      className="mt-0.5 size-4 rounded-none border-neutral-400 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+                      className="mt-0.5 size-4 rounded border-neutral-400 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
                     />
                     <div>
                       <span className="text-sm font-medium text-neutral-900">Tariffavtale gjelder</span>
@@ -2747,7 +2756,7 @@ export function OrganisationPage() {
                         value={org.settings.collectiveAgreementName ?? ''}
                         onChange={(e) => org.updateSettings({ collectiveAgreementName: e.target.value || undefined })}
                         placeholder="f.eks. Hovedavtalen LO-NHO"
-                        className={SETTINGS_INPUT}
+                        className={ORG_SETTINGS_INPUT}
                       />
                     </div>
                   )}
@@ -2765,7 +2774,7 @@ export function OrganisationPage() {
                   <p className="mt-1 text-xs text-neutral-500">
                     Krever e-post på ansatt / medlem. Oppdater under Ansatte eller synk fra medlemmer.
                   </p>
-                  <ul className="mt-3 max-h-56 space-y-2 overflow-y-auto rounded-none border border-neutral-200 bg-white p-3">
+                  <ul className="mt-3 max-h-56 space-y-2 overflow-y-auto rounded-md border border-neutral-200 bg-white p-3">
                     {org.activeEmployees.filter((e) => e.email?.trim()).length === 0 ? (
                       <li className="text-sm text-neutral-500">Ingen aktive med e-post — legg til e-post først.</li>
                     ) : (
@@ -2782,7 +2791,7 @@ export function OrganisationPage() {
                                 type="checkbox"
                                 checked={checked}
                                 onChange={(ev) => org.toggleApprovedTaskSigner(e.id, ev.target.checked)}
-                                className="mt-0.5 size-4 rounded-none border-neutral-400 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+                                className="mt-0.5 size-4 rounded border-neutral-400 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
                                 aria-label={`Godkjenn ${e.name} som signatar`}
                               />
                               <span className="min-w-0">
@@ -2805,8 +2814,10 @@ export function OrganisationPage() {
                   ) : null}
                 </div>
               </div>
+                </div>
+              </div>
             </div>
-          </Mainbox1>
+          </OrgInsightWhiteCard>
         </section>
       )}
       </div>
