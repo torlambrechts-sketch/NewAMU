@@ -800,14 +800,12 @@ function ComposableWorkplaceEventsDayBlock() {
         title: 'Signer årshjul — 2. kvartal',
         startLabel: '09:00',
         endLabel: '09:30',
-        barClassName: 'bg-sky-500',
       },
       {
         id: 'e2',
         category: 'Samsvar',
         title: 'Revisjon internkontroll — frist innlevering',
         startLabel: '14:00',
-        barClassName: 'bg-amber-500',
       },
       {
         id: 'e3',
@@ -815,7 +813,6 @@ function ComposableWorkplaceEventsDayBlock() {
         title: 'AMU — halvårlig gjennomgang',
         startLabel: '15:00',
         endLabel: '16:30',
-        barClassName: 'bg-emerald-600',
       },
     ],
     [],
@@ -829,7 +826,6 @@ function ComposableWorkplaceEventsDayBlock() {
         title: 'Varslingsrutine — årlig gjennomgang',
         startLabel: 'Forfaller',
         endLabel: '30. apr.',
-        barClassName: 'bg-violet-500',
       },
       {
         id: 'c2',
@@ -837,7 +833,6 @@ function ComposableWorkplaceEventsDayBlock() {
         title: 'Oppdater risikovurdering lager',
         startLabel: 'Frist',
         endLabel: '2 d',
-        barClassName: 'bg-orange-500',
       },
     ],
     [],
