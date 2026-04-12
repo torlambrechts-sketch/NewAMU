@@ -793,7 +793,7 @@ export function InternalControlModule() {
             <p className="mb-4 text-sm text-neutral-500">Laster internkontrolldata…</p>
           )}
 
-          {/** Layout-ROS: KPI + varmekart + risiko-oversikt + liste (samme som layout-komponenter i plattform-admin) */}
+          {/** Layout-ROS: KPI → fullbredde ROS-tabell → rad 50/50 (varmekart | risiko-oversikt) */}
           <div className="mt-2 min-w-0 space-y-6">
               <div>
                 <LayoutScoreStatRow
@@ -804,9 +804,6 @@ export function InternalControlModule() {
                   ]}
                 />
               </div>
-
-              <RosWorkplaceLayoutRiskMatrixSection onNewRisk={openNewRosPanel} />
-              <RosWorkplaceLayoutRiskTableSection />
 
               <section aria-label="ROS-vurderinger">
                 <Table1Shell
@@ -900,6 +897,15 @@ export function InternalControlModule() {
               ) : null}
                 </Table1Shell>
               </section>
+
+              <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+                <div className="min-w-0">
+                  <RosWorkplaceLayoutRiskMatrixSection onNewRisk={openNewRosPanel} />
+                </div>
+                <div className="min-w-0">
+                  <RosWorkplaceLayoutRiskTableSection />
+                </div>
+              </div>
           </div>
 
           {rosPanelOpen ? (
