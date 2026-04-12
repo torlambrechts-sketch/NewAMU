@@ -76,7 +76,7 @@ export function PlatformLayoutHubPage() {
         <div>
           <h2 className="text-lg font-semibold text-white">Layout-komponenter — komponer</h2>
           <p className="mt-1 max-w-3xl text-sm text-neutral-500">
-            Kombiner referanseblokker (overskrift, stat-rad, tabeller, scorecard, verktøylinje, list 2, boksrutenett). Velg elementer til venstre.
+            Kombiner referanseblokker (overskrift, stat-rad, tabeller, scorecard, verktøylinje, list 2, boksrutenett, rapportering). Velg elementer til venstre.
           </p>
         </div>
         <PlatformLayoutComposerDemo previewSurface={surface} embedInDarkChrome={false} />

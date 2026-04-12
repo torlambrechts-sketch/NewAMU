@@ -1033,6 +1033,187 @@ function ComposableJobCardsModuleBlock() {
   )
 }
 
+/** Rapportering — én rad: legende venstre + donut høyre (referanse: New hire source). */
+function ComposableReportingDonutOneRowBlock() {
+  const rows = [
+    { label: 'External recruiter', count: 4, pct: 23.53, color: '#22c55e' },
+    { label: 'Referral', count: 3, pct: 17.65, color: '#3b82f6' },
+    { label: 'Job board', count: 6, pct: 35.29, color: '#f97316' },
+    { label: 'Other', count: 4, pct: 23.53, color: '#a855f7' },
+  ]
+  const total = rows.reduce((s, r) => s + r.count, 0)
+  let acc = 0
+  const cone = rows
+    .map((r) => {
+      const start = (acc / total) * 360
+      acc += r.count
+      const end = (acc / total) * 360
+      return `${r.color} ${start}deg ${end}deg`
+    })
+    .join(', ')
+
+  return (
+    <div className="space-y-2">
+      <WhiteCard className="overflow-hidden p-0">
+        <div className="flex items-start justify-between gap-3 border-b border-neutral-100 px-4 py-3 sm:px-5">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-800">New hire source</p>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              Count of hired candidates · Last 12 months · Channel
+            </p>
+          </div>
+          <button type="button" className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100" aria-label="Flere valg">
+            <MoreHorizontal className="size-5" />
+          </button>
+        </div>
+        <div className="grid gap-6 p-4 sm:grid-cols-2 sm:p-5" style={{ backgroundColor: CREAM_DEEP }}>
+          <ul className="min-w-0 divide-y divide-neutral-200/80">
+            {rows.map((r) => (
+              <li key={r.label} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: r.color }} />
+                  <span className="truncate text-sm text-neutral-800">{r.label}</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-3 tabular-nums text-sm">
+                  <span className="font-semibold text-neutral-900">{r.count}</span>
+                  <span className="w-14 text-right text-neutral-600">{r.pct.toFixed(2)}%</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-center justify-center py-2">
+            <div className="relative flex size-44 shrink-0 items-center justify-center">
+              <div
+                className="absolute inset-0 rounded-full"
+                style={{ background: `conic-gradient(${cone})` }}
+              />
+              <div
+                className="relative z-10 flex size-[58%] flex-col items-center justify-center rounded-full bg-[#f7f5f0]"
+                style={{ boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.06)' }}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Total</span>
+                <span className="text-3xl font-bold tabular-nums text-neutral-900">{total}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </WhiteCard>
+      <p className="text-xs text-neutral-500">
+        Rapportering (én rad): kort-header + kremflate med to kolonner — liste med prikker og donut med total i midten.
+      </p>
+    </div>
+  )
+}
+
+/** Rapportering — to rader / to paneler: søylediagram + linjegraf (referanse: Applications by stage / by date). */
+function ComposableReportingChartsTwoRowBlock() {
+  const stages = [
+    { label: 'Rejected', value: 388, max: 400, color: '#ef4444' },
+    { label: 'Video introduction', value: 6, max: 400, color: '#3b82f6' },
+    { label: 'Applied', value: 0, max: 400, color: '#94a3b8' },
+    { label: 'Offer', value: 0, max: 400, color: '#94a3b8' },
+    { label: 'Hired', value: 0, max: 400, color: '#94a3b8' },
+  ]
+  /** Verdi 0–100 (høyere = linjen høyere i diagrammet). */
+  const lineVals = [12, 22, 35, 48, 58, 72, 88]
+  const w = 360
+  const h = 88
+  const pad = 4
+  const innerH = h - pad * 2
+  const step = w / (lineVals.length - 1)
+  const pathD = lineVals
+    .map((val, i) => {
+      const x = i * step
+      const y = pad + innerH - (val / 100) * innerH
+      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`
+    })
+    .join(' ')
+
+  return (
+    <div className="space-y-2">
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
+        <WhiteCard className="flex h-full flex-col overflow-hidden p-0">
+          <div className="flex items-start justify-between gap-3 border-b border-neutral-100 px-4 py-3 sm:px-5">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-800">Applications by stage</p>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                Summary of applications broken down by workflow stage.
+              </p>
+            </div>
+            <button type="button" className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100" aria-label="Flere valg">
+              <MoreHorizontal className="size-5" />
+            </button>
+          </div>
+          <div className="flex flex-1 flex-col p-4 sm:p-5" style={{ backgroundColor: CREAM_DEEP }}>
+            <ul className="divide-y divide-neutral-200/80">
+              {stages.map((s) => (
+                <li key={s.label} className="flex flex-wrap items-center gap-3 py-3 first:pt-0">
+                  <span className="w-36 shrink-0 text-sm text-neutral-800 sm:w-40">{s.label}</span>
+                  <span className="w-9 shrink-0 text-sm font-bold tabular-nums text-neutral-900">{s.value}</span>
+                  <div className="min-h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/80">
+                    <div
+                      className="h-2 rounded-full transition-all"
+                      style={{
+                        width: `${Math.min(100, (s.value / s.max) * 100)}%`,
+                        backgroundColor: s.color,
+                      }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </WhiteCard>
+
+        <WhiteCard className="flex h-full flex-col overflow-hidden p-0">
+          <div className="flex items-start justify-between gap-3 border-b border-neutral-100 px-4 py-3 sm:px-5">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-800">Applications by date</p>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                Cumulative applications by the date they were created.
+              </p>
+            </div>
+            <button type="button" className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100" aria-label="Flere valg">
+              <MoreHorizontal className="size-5" />
+            </button>
+          </div>
+          <div className="flex flex-1 flex-col p-4 sm:p-5" style={{ backgroundColor: CREAM_DEEP }}>
+            <div className="flex min-h-[140px] flex-1 flex-col justify-end">
+              <svg viewBox={`0 0 ${w} ${h}`} className="w-full shrink-0" style={{ height: h }} preserveAspectRatio="xMidYMid meet" aria-hidden>
+                {[0, 25, 50, 75, 100].map((pct) => {
+                  const gy = pad + innerH - (pct / 100) * innerH
+                  return (
+                    <line key={pct} x1="0" y1={gy} x2={w} y2={gy} stroke="rgba(0,0,0,0.06)" strokeWidth="1" />
+                  )
+                })}
+                <path
+                  d={pathD}
+                  fill="none"
+                  stroke={FOREST}
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <div className="mt-2 flex justify-between text-[10px] text-neutral-500">
+                <span>Jun 23</span>
+                <span>08 Jun</span>
+                <span>16 Jun</span>
+                <span>24 Jun</span>
+                <span>Jul &apos;23</span>
+              </div>
+            </div>
+          </div>
+        </WhiteCard>
+      </div>
+
+      <p className="text-xs text-neutral-500">
+        Rapportering (to paneler): venstre horisontale søyler, høyre kumulativ linjegraf — stablet på sm, side ved side på lg.
+      </p>
+    </div>
+  )
+}
+
 const BLOCKS = [
   {
     id: 'heading1',
@@ -1074,6 +1255,16 @@ const BLOCKS = [
     label: 'Boks — stillingskort (rutenett)',
     hint: 'Tre hvite kort på kremflate (tittel, meta, ID, OPEN, kandidater-rad).',
   },
+  {
+    id: 'reportingDonutOneRow',
+    label: 'Rapportering — én rad (liste + donut)',
+    hint: 'Kort-header, krem kropp: legende med prikker og prosent + donut med total i midten.',
+  },
+  {
+    id: 'reportingChartsTwoRow',
+    label: 'Rapportering — to paneler (søyler + linje)',
+    hint: 'To kort: horisontale søyler etter fase og linjegraf over tid (side ved side på stor skjerm).',
+  },
 ] as const
 
 type BlockId = (typeof BLOCKS)[number]['id']
@@ -1113,6 +1304,8 @@ export function PlatformLayoutComposerDemo({
     scoreStatRow: true,
     list2: true,
     jobBoxGrid: true,
+    reportingDonutOneRow: true,
+    reportingChartsTwoRow: true,
   })
 
   const toggle = (id: BlockId) => setVisible((v) => ({ ...v, [id]: !v[id] }))
@@ -1126,6 +1319,8 @@ export function PlatformLayoutComposerDemo({
       scoreStatRow: true,
       list2: true,
       jobBoxGrid: true,
+      reportingDonutOneRow: true,
+      reportingChartsTwoRow: true,
     })
   const selectNone = () =>
     setVisible({
@@ -1137,6 +1332,8 @@ export function PlatformLayoutComposerDemo({
       scoreStatRow: false,
       list2: false,
       jobBoxGrid: false,
+      reportingDonutOneRow: false,
+      reportingChartsTwoRow: false,
     })
 
   const activeCount = BLOCKS.filter((b) => visible[b.id]).length
@@ -1249,6 +1446,18 @@ export function PlatformLayoutComposerDemo({
                 </section>
               ) : null}
 
+              {visible.reportingDonutOneRow ? (
+                <section aria-label="Rapportering liste og donut">
+                  <ComposableReportingDonutOneRowBlock />
+                </section>
+              ) : null}
+
+              {visible.reportingChartsTwoRow ? (
+                <section aria-label="Rapportering søyler og linje">
+                  <ComposableReportingChartsTwoRowBlock />
+                </section>
+              ) : null}
+
               {!visible.heading1 &&
               !visible.table1 &&
               !visible.scorecard &&
@@ -1256,7 +1465,9 @@ export function PlatformLayoutComposerDemo({
               !visible.tableHeading &&
               !visible.scoreStatRow &&
               !visible.list2 &&
-              !visible.jobBoxGrid ? (
+              !visible.jobBoxGrid &&
+              !visible.reportingDonutOneRow &&
+              !visible.reportingChartsTwoRow ? (
                 <p className="py-12 text-center text-sm text-neutral-500">Velg minst ett element for å vise forhåndsvisning.</p>
               ) : null}
             </div>
