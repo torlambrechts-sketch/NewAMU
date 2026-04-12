@@ -332,7 +332,8 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
     const rosRed = ic.rosAssessments.flatMap((r) =>
       r.rows
         .filter((row) => {
-          if (row.done || (row.status ?? 'open') === 'closed') return false
+          const st = row.status ?? 'draft'
+          if (row.done || st === 'finished' || st === 'closed' || st === 'cancelled') return false
           const rs = row.residualScore ?? row.riskScore
           return rs >= 12
         })

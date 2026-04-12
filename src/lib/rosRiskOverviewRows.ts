@@ -6,6 +6,8 @@ export type RosRiskOverviewTableRow = {
   category: string
   rosTitle: string
   riskTitle: string
+  /** Fritekst risikokategori på raden */
+  riskCategory: string
   score: number
   level: 'Lav' | 'Middels' | 'Høy'
 }
@@ -69,6 +71,7 @@ export function buildRosRiskFlattenedRows(assessments: RosAssessment[]): RosRisk
         category: ros.department?.trim() || 'Uten avdeling',
         rosTitle: ros.title,
         riskTitle,
+        riskCategory: row.riskCategory?.trim() || '—',
         score,
         level: scoreToRiskLevel(score),
         impactIndex: impactRow,
@@ -86,6 +89,7 @@ export function buildRosRiskOverviewRows(assessments: RosAssessment[]): RosRiskO
     category: r.category,
     rosTitle: r.rosTitle,
     riskTitle: r.riskTitle,
+    riskCategory: r.riskCategory,
     score: r.score,
     level: r.level,
   }))

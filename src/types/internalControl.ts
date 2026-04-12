@@ -37,7 +37,22 @@ export type AnnualReviewSignature = {
 
 export type AnnualReviewStatus = 'draft' | 'pending_safety_rep' | 'locked'
 
-export type RosRowStatus = 'open' | 'in_progress' | 'closed'
+/** Radstatus: utkast / innsending / ferdig + operative tilstander (eldre «open» mappes til utkast ved lesing). */
+export type RosRowStatus =
+  | 'draft'
+  | 'submitted'
+  | 'finished'
+  | 'in_progress'
+  | 'deferred'
+  | 'cancelled'
+  | 'open'
+  | 'closed'
+
+/** Rader som ikke lenger skal telle som «åpne» i oversikter (utkast/pågår teller som åpne). */
+export function isRosRowDoneForTracking(status: RosRowStatus | undefined): boolean {
+  const s = status ?? 'draft'
+  return s === 'finished' || s === 'closed' || s === 'cancelled'
+}
 
 /** Arbeidsområde for ROS (veiviser / forslag — skiller fra O-ROS juridisk kategori) */
 export type RosWorkspaceCategory =
@@ -50,6 +65,8 @@ export type RosWorkspaceCategory =
 
 export type RosRiskRow = {
   id: string
+  /** Fritekst risikokategori (f.eks. HMS, psykososialt, brann) */
+  riskCategory?: string
   activity: string
   hazard: string
   existingControls: string

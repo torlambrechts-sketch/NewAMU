@@ -39,6 +39,7 @@ const DEMO_FLATTENED: RosRiskFlattenedRow[] = [
     category: 'Demo',
     rosTitle: 'ROS Lager 2025',
     riskTitle: 'Kjemikalier lager',
+    riskCategory: 'Kjemikalier',
     score: 20,
     level: 'Høy',
     impactIndex: 0,
@@ -50,6 +51,7 @@ const DEMO_FLATTENED: RosRiskFlattenedRow[] = [
     category: 'Demo',
     rosTitle: 'ROS Produksjon',
     riskTitle: 'Løfteanordning',
+    riskCategory: 'Maskin',
     score: 16,
     level: 'Høy',
     impactIndex: 1,
@@ -61,6 +63,7 @@ const DEMO_FLATTENED: RosRiskFlattenedRow[] = [
     category: 'Demo',
     rosTitle: 'ROS Kontor',
     riskTitle: 'Ergonomi kontor',
+    riskCategory: 'Ergonomi',
     score: 9,
     level: 'Middels',
     impactIndex: 2,
@@ -72,6 +75,7 @@ const DEMO_FLATTENED: RosRiskFlattenedRow[] = [
     category: 'Demo',
     rosTitle: 'ROS Felles',
     riskTitle: 'Brannøvelse',
+    riskCategory: 'Brann',
     score: 6,
     level: 'Lav',
     impactIndex: 3,
@@ -83,6 +87,7 @@ const DEMO_FLATTENED: RosRiskFlattenedRow[] = [
     category: 'Demo',
     rosTitle: 'ROS IT',
     riskTitle: 'IT-backup',
+    riskCategory: 'IT',
     score: 3,
     level: 'Lav',
     impactIndex: 4,
@@ -94,6 +99,7 @@ const DEMO_FLATTENED: RosRiskFlattenedRow[] = [
     category: 'Demo',
     rosTitle: 'ROS Produksjon',
     riskTitle: 'Maskinvern',
+    riskCategory: 'Maskin',
     score: 15,
     level: 'Høy',
     impactIndex: 1,
@@ -105,6 +111,7 @@ const DEMO_FLATTENED: RosRiskFlattenedRow[] = [
     category: 'Demo',
     rosTitle: 'ROS Innkjøp',
     riskTitle: 'Leverandørstyring',
+    riskCategory: 'Leverandør',
     score: 12,
     level: 'Middels',
     impactIndex: 0,
@@ -391,27 +398,31 @@ export function ComposableRosRiskMatrixBlock() {
 }
 
 const DEMO_TABLE_ROWS: RosRiskOverviewTableRow[] = [
-  { id: '1', category: 'Operasjonelt', rosTitle: 'ROS Produksjon 2025', riskTitle: 'Maskinvern', score: 15, level: 'Høy' },
-  { id: '2', category: 'HMS', rosTitle: 'ROS Lager', riskTitle: 'Kjemikalier', score: 20, level: 'Høy' },
-  { id: '3', category: 'HMS', rosTitle: 'ROS Kontor', riskTitle: 'Ergonomi', score: 9, level: 'Middels' },
-  { id: '4', category: 'Sikkerhet', rosTitle: 'ROS IT', riskTitle: 'Tilgangskontroll', score: 12, level: 'Middels' },
-  { id: '5', category: 'Økonomi', rosTitle: 'ROS Felles', riskTitle: 'Kontraktsrisiko', score: 6, level: 'Lav' },
-  { id: '6', category: 'Juridisk', rosTitle: 'ROS Innkjøp', riskTitle: 'Leverandør', score: 8, level: 'Middels' },
-  { id: '7', category: 'Miljø', rosTitle: 'ROS Anlegg', riskTitle: 'Utslipp', score: 10, level: 'Middels' },
-  { id: '8', category: 'Operasjonelt', rosTitle: 'ROS Produksjon 2025', riskTitle: 'Løfteanordning', score: 16, level: 'Høy' },
+  { id: '1', category: 'Operasjonelt', rosTitle: 'ROS Produksjon 2025', riskTitle: 'Maskinvern', riskCategory: 'Maskin', score: 15, level: 'Høy' },
+  { id: '2', category: 'HMS', rosTitle: 'ROS Lager', riskTitle: 'Kjemikalier', riskCategory: 'Kjemikalier', score: 20, level: 'Høy' },
+  { id: '3', category: 'HMS', rosTitle: 'ROS Kontor', riskTitle: 'Ergonomi', riskCategory: 'Ergonomi', score: 9, level: 'Middels' },
+  { id: '4', category: 'Sikkerhet', rosTitle: 'ROS IT', riskTitle: 'Tilgangskontroll', riskCategory: 'Tilgang', score: 12, level: 'Middels' },
+  { id: '5', category: 'Økonomi', rosTitle: 'ROS Felles', riskTitle: 'Kontraktsrisiko', riskCategory: 'Økonomi', score: 6, level: 'Lav' },
+  { id: '6', category: 'Juridisk', rosTitle: 'ROS Innkjøp', riskTitle: 'Leverandør', riskCategory: 'Juridisk', score: 8, level: 'Middels' },
+  { id: '7', category: 'Miljø', rosTitle: 'ROS Anlegg', riskTitle: 'Utslipp', riskCategory: 'Miljø', score: 10, level: 'Middels' },
+  { id: '8', category: 'Operasjonelt', rosTitle: 'ROS Produksjon 2025', riskTitle: 'Løfteanordning', riskCategory: 'Løft', score: 16, level: 'Høy' },
 ]
 
 /** Tabell: alle risikoer på tvers av ROS-analyser. Uten `assessments` brukes demo-rader (layout-komponist). */
 export function RosWorkplaceLayoutRiskTableSection({
   assessments,
   caption,
+  onRowClick,
 }: {
   assessments?: RosAssessment[]
   caption?: string
+  /** Klikk rad: åpne ROS og fokuser risikoraden (kun når assessments er satt). */
+  onRowClick?: (rosId: string, rowId: string) => void
 }) {
   const [sortDesc, setSortDesc] = useState(true)
   const [colsOpen, setColsOpen] = useState(false)
   const [showRos, setShowRos] = useState(true)
+  const [showRiskCategory, setShowRiskCategory] = useState(true)
 
   const isLive = assessments != null
   const sourceRows = useMemo(
@@ -451,6 +462,15 @@ export function RosWorkplaceLayoutRiskTableSection({
                 <input type="checkbox" checked={showRos} onChange={(e) => setShowRos(e.target.checked)} className="rounded border-neutral-300" />
                 ROS-analyse
               </label>
+              <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
+                <input
+                  type="checkbox"
+                  checked={showRiskCategory}
+                  onChange={(e) => setShowRiskCategory(e.target.checked)}
+                  className="rounded border-neutral-300"
+                />
+                Risikokategori
+              </label>
             </div>
           ) : null}
         </div>
@@ -461,6 +481,7 @@ export function RosWorkplaceLayoutRiskTableSection({
             <tr className="border-b border-neutral-200 bg-neutral-50/90 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
               <th className="px-4 py-3 md:px-5">{isLive ? 'Avdeling' : 'Kategori'}</th>
               {showRos ? <th className="px-4 py-3 md:px-5">ROS-analyse</th> : null}
+              {showRiskCategory ? <th className="px-4 py-3 md:px-5">Risikokategori</th> : null}
               <th className="px-4 py-3 md:px-5">Risiko</th>
               <th className="px-4 py-3 md:px-5">
                 <button
@@ -478,22 +499,57 @@ export function RosWorkplaceLayoutRiskTableSection({
           <tbody>
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={showRos ? 5 : 4} className="px-4 py-10 text-center text-sm text-neutral-500 md:px-5">
+                <td
+                  colSpan={4 + (showRos ? 1 : 0) + (showRiskCategory ? 1 : 0)}
+                  className="px-4 py-10 text-center text-sm text-neutral-500 md:px-5"
+                >
                   {isLive ? 'Ingen risikorader i ROS-vurderingene ennå.' : 'Ingen demo-rader.'}
                 </td>
               </tr>
             ) : (
-              sorted.map((r, i) => (
-                <tr key={r.id} className={`border-b border-neutral-100 ${i % 2 === 0 ? 'bg-white' : 'bg-neutral-50/40'}`}>
+              sorted.map((r, i) => {
+                const parts = r.id.split(':')
+                const rosId = parts[0]
+                const rowId = parts.slice(1).join(':')
+                const clickable = Boolean(isLive && onRowClick && rosId && rowId)
+                return (
+                <tr
+                  key={r.id}
+                  role={clickable ? 'button' : undefined}
+                  tabIndex={clickable ? 0 : undefined}
+                  onClick={
+                    clickable
+                      ? () => {
+                          onRowClick!(rosId, rowId)
+                        }
+                      : undefined
+                  }
+                  onKeyDown={
+                    clickable
+                      ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            onRowClick!(rosId, rowId)
+                          }
+                        }
+                      : undefined
+                  }
+                  className={`border-b border-neutral-100 ${i % 2 === 0 ? 'bg-white' : 'bg-neutral-50/40'} ${
+                    clickable ? 'cursor-pointer hover:bg-[#f4f1ea]/90' : ''
+                  }`}
+                >
                   <td className="px-4 py-3 font-semibold text-neutral-900 md:px-5">{r.category}</td>
                   {showRos ? <td className="px-4 py-3 text-neutral-700 md:px-5">{r.rosTitle}</td> : null}
+                  {showRiskCategory ? (
+                    <td className="px-4 py-3 text-neutral-700 md:px-5">{r.riskCategory}</td>
+                  ) : null}
                   <td className="px-4 py-3 text-neutral-800 md:px-5">{r.riskTitle}</td>
                   <td className="px-4 py-3 tabular-nums font-medium text-neutral-900 md:px-5">{r.score}</td>
                   <td className="px-4 py-3 md:px-5">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${LEVEL_PILL[r.level]}`}>{r.level}</span>
                   </td>
                 </tr>
-              ))
+              )})
             )}
           </tbody>
         </table>

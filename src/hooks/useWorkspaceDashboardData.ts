@@ -83,7 +83,12 @@ export function useWorkspaceDashboardData() {
       ic.rosAssessments
         .flatMap((r) =>
           r.rows
-            .filter((row) => !row.done && (row.status ?? 'open') !== 'closed' && row.riskScore >= 12)
+            .filter((row) => {
+              if (row.done) return false
+              const s = row.status ?? 'draft'
+              const done = s === 'finished' || s === 'closed' || s === 'cancelled'
+              return !done && row.riskScore >= 12
+            })
             .map((row) => ({ ...row, assessmentTitle: r.title })),
         )
         .sort((a, b) => b.riskScore - a.riskScore)

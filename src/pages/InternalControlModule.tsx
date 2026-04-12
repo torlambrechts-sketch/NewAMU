@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { LegalDisclaimer } from '../components/internalControl/LegalDisclaimer'
-import { RISK_COLOUR_CLASSES, computeRiskScore, riskColour } from '../data/rosTemplate'
+import { RISK_COLOUR_CLASSES, riskColour } from '../data/rosTemplate'
 import { useInternalControl } from '../hooks/useInternalControl'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { usePublishedComposerTemplatesRefresh } from '../hooks/usePublishedComposerTemplatesRefresh'
@@ -25,6 +25,7 @@ import type {
   RosCategory,
   RosWorkspaceCategory,
 } from '../types/internalControl'
+import { isRosRowDoneForTracking } from '../types/internalControl'
 import { EMPTY_ANNUAL_REVIEW_SECTIONS, isLegacyAnnualReview } from '../types/internalControl'
 import { useHrCompliance } from '../hooks/useHrCompliance'
 import { useHse } from '../hooks/useHse'
@@ -150,6 +151,7 @@ export function InternalControlModule() {
   const [rosPanelOpen, setRosPanelOpen] = useState(false)
   const [rosPanelMode, setRosPanelMode] = useState<'create' | 'view'>('create')
   const [rosViewId, setRosViewId] = useState<string | null>(null)
+  const [rosHighlightRowId, setRosHighlightRowId] = useState<string | null>(null)
   const [rosListSearch, setRosListSearch] = useState('')
   const [annualListSearch, setAnnualListSearch] = useState('')
   const [annualPanelOpen, setAnnualPanelOpen] = useState(false)
@@ -191,12 +193,14 @@ export function InternalControlModule() {
     setRosPanelOpen(false)
     setRosPanelMode('create')
     setRosViewId(null)
+    setRosHighlightRowId(null)
     resetRosPanelForm()
   }, [resetRosPanelForm])
 
-  const openRosViewPanel = useCallback((id: string) => {
+  const openRosViewPanel = useCallback((id: string, rowId?: string | null) => {
     setRosPanelMode('view')
     setRosViewId(id)
+    setRosHighlightRowId(rowId ?? null)
     setRosPanelOpen(true)
   }, [])
 
@@ -294,7 +298,7 @@ export function InternalControlModule() {
         sub: 'Tiltak / risiko som ikke er lukket',
         value: String(
           ic.rosAssessments.reduce(
-            (n, r) => n + r.rows.filter((row) => row.status !== 'closed').length,
+            (n, r) => n + r.rows.filter((row) => !isRosRowDoneForTracking(row.status)).length,
             0,
           ),
         ),
@@ -674,7 +678,10 @@ export function InternalControlModule() {
               <RosWorkplaceLayoutRiskMatrixSection assessments={ic.rosAssessments} onNewRisk={openNewRosPanel} />
             </div>
             <div className="min-w-0">
-              <RosWorkplaceLayoutRiskTableSection assessments={ic.rosAssessments} />
+              <RosWorkplaceLayoutRiskTableSection
+                assessments={ic.rosAssessments}
+                onRowClick={(rosId, rowId) => openRosViewPanel(rosId, rowId)}
+              />
             </div>
           </div>,
         )
@@ -712,8 +719,11 @@ export function InternalControlModule() {
         )
       } else if (id === 'rosRiskTable') {
         nodes.push(
-          <div key="rosRiskTable" className="min-w-0">
-            <RosWorkplaceLayoutRiskTableSection assessments={ic.rosAssessments} />
+            <div key="rosRiskTable" className="min-w-0">
+            <RosWorkplaceLayoutRiskTableSection
+              assessments={ic.rosAssessments}
+              onRowClick={(rosId, rowId) => openRosViewPanel(rosId, rowId)}
+            />
           </div>,
         )
       } else {
@@ -733,6 +743,15 @@ export function InternalControlModule() {
     openNewRosPanel,
     openRosViewPanel,
   ])
+
+  useEffect(() => {
+    if (!rosPanelOpen || rosPanelMode !== 'view' || !rosHighlightRowId) return
+    const t = window.setTimeout(() => {
+      const el = document.getElementById(`ros-risk-section-${rosHighlightRowId}`)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 150)
+    return () => window.clearTimeout(t)
+  }, [rosPanelOpen, rosPanelMode, rosHighlightRowId, rosViewId])
 
   return (
     <>
@@ -987,6 +1006,7 @@ export function InternalControlModule() {
                         ic={ic}
                         hr={hr}
                         onLocked={handleRosLockTasks}
+                        highlightRowId={rosHighlightRowId}
                         hideDuplicateRevisionButton
                         duplicateRevision={(lockedSourceId) => {
                           const newId = ic.duplicateRosRevision(lockedSourceId)
@@ -1895,6 +1915,7 @@ function RosAssessmentCard({
   hr,
   onLocked,
   duplicateRevision,
+  highlightRowId,
   hideDuplicateRevisionButton,
 }: {
   ros: RosAssessment
@@ -1902,6 +1923,8 @@ function RosAssessmentCard({
   hr: ReturnType<typeof useHrCompliance>
   onLocked: (ros: RosAssessment) => void
   duplicateRevision: (lockedSourceId: string) => void
+  /** Scroll/highlight denne risikoraden (f.eks. fra gruppert oversikt). */
+  highlightRowId?: string | null
   /** When true, omit «Opprett ny revisjon» in card header (e.g. side panel has its own). */
   hideDuplicateRevisionButton?: boolean
 }) {
@@ -2021,134 +2044,229 @@ function RosAssessmentCard({
         </div>
       </div>
 
-      {/* Rows table */}
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1100px] border-collapse text-left text-xs">
-          <thead>
-            <tr className="border-b border-neutral-200 bg-amber-50/80 text-[10px] font-semibold uppercase tracking-wide text-neutral-600">
-              <th className="px-2 py-2">Aktivitet</th>
-              <th className="px-2 py-2">Fare</th>
-              <th className="px-2 py-2">Eks. tiltak</th>
-              <th className="px-2 py-2 text-center">Alv.</th>
-              <th className="px-2 py-2 text-center">San.</th>
-              <th className="px-2 py-2 text-center">Score</th>
-              <th className="px-2 py-2">Foreslått tiltak</th>
-              <th className="px-2 py-2 text-center bg-sky-50">Rest-alv.</th>
-              <th className="px-2 py-2 text-center bg-sky-50">Rest-san.</th>
-              <th className="px-2 py-2 text-center bg-sky-50">Restrisiko</th>
-              <th className="min-w-[140px] px-2 py-2 bg-rose-50/80">Strakstiltak / eskalering (ved rød rest)</th>
-              <th className="px-2 py-2">Ansvarlig</th>
-              <th className="px-2 py-2">Frist</th>
-              <th className="px-2 py-2">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ros.rows.map((row, idx) => {
-              const grossColour = riskColour(row.riskScore)
-              const grossCls = RISK_COLOUR_CLASSES[grossColour]
-              const residual = row.residualScore != null ? row.residualScore : null
-              const residualColour = residual != null ? riskColour(residual) : null
-              const residualCls = residualColour ? RISK_COLOUR_CLASSES[residualColour] : null
-              const rowClosed = row.status === 'closed'
-              const redResidual = residual != null && residual >= 15
-              const needJust = redResidual && !(row.redResidualJustification && row.redResidualJustification.trim().length >= 10)
-              return (
-                <tr key={row.id} className={`border-b border-neutral-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-neutral-50/30'} ${rowClosed ? 'opacity-60' : ''}`}>
-                  <td className="px-1 py-1.5">
-                    <input disabled={isLocked} value={row.activity} onChange={(e) => ic.updateRosRow(ros.id, row.id, { activity: e.target.value })} className="w-full min-w-[90px] rounded-none border border-neutral-200 px-1 py-0.5 disabled:bg-transparent disabled:border-transparent" />
-                  </td>
-                  <td className="px-1 py-1.5">
-                    <input disabled={isLocked} value={row.hazard} onChange={(e) => ic.updateRosRow(ros.id, row.id, { hazard: e.target.value })} className="w-full min-w-[90px] rounded-none border border-neutral-200 px-1 py-0.5 disabled:bg-transparent disabled:border-transparent" />
-                  </td>
-                  <td className="px-1 py-1.5">
-                    <input disabled={isLocked} value={row.existingControls} onChange={(e) => ic.updateRosRow(ros.id, row.id, { existingControls: e.target.value })} className="w-full min-w-[90px] rounded-none border border-neutral-200 px-1 py-0.5 disabled:bg-transparent disabled:border-transparent" />
-                  </td>
-                  {/* Gross severity */}
-                  <td className="px-1 py-1.5 text-center">
-                    <input disabled={isLocked} type="number" min={1} max={5} value={row.severity} onChange={(e) => ic.updateRosRow(ros.id, row.id, { severity: Number(e.target.value) || 1 })} className="w-10 rounded-none border border-neutral-200 px-1 text-center disabled:bg-transparent disabled:border-transparent" />
-                  </td>
-                  {/* Gross likelihood */}
-                  <td className="px-1 py-1.5 text-center">
-                    <input disabled={isLocked} type="number" min={1} max={5} value={row.likelihood} onChange={(e) => ic.updateRosRow(ros.id, row.id, { likelihood: Number(e.target.value) || 1 })} className="w-10 rounded-none border border-neutral-200 px-1 text-center disabled:bg-transparent disabled:border-transparent" />
-                  </td>
-                  {/* Gross score — colour-coded */}
-                  <td className="px-2 py-1.5 text-center">
-                    <span className={`inline-flex h-7 w-9 items-center justify-center rounded-none text-xs font-bold ${grossCls.bg} ${grossCls.text}`}>
-                      {row.riskScore}
-                    </span>
-                  </td>
-                  {/* Proposed measures */}
-                  <td className="px-1 py-1.5">
-                    <input disabled={isLocked} value={row.proposedMeasures} onChange={(e) => ic.updateRosRow(ros.id, row.id, { proposedMeasures: e.target.value })} className="w-full min-w-[110px] rounded-none border border-neutral-200 px-1 py-0.5 disabled:bg-transparent disabled:border-transparent" />
-                  </td>
-                  {/* Residual severity */}
-                  <td className="bg-sky-50/50 px-1 py-1.5 text-center">
-                    <input disabled={isLocked} type="number" min={1} max={5} value={row.residualSeverity ?? ''} placeholder="—"
-                      onChange={(e) => {
-                        const v = e.target.value ? Number(e.target.value) : undefined
-                        const rs = v ?? row.severity
-                        const rl = row.residualLikelihood ?? row.likelihood
-                        ic.updateRosRow(ros.id, row.id, { residualSeverity: v, residualScore: v != null ? computeRiskScore(rs, rl) : undefined })
-                      }}
-                      className="w-10 rounded-none border border-sky-200 bg-sky-50 px-1 text-center placeholder:text-neutral-300 disabled:bg-transparent disabled:border-transparent" />
-                  </td>
-                  {/* Residual likelihood */}
-                  <td className="bg-sky-50/50 px-1 py-1.5 text-center">
-                    <input disabled={isLocked} type="number" min={1} max={5} value={row.residualLikelihood ?? ''} placeholder="—"
-                      onChange={(e) => {
-                        const v = e.target.value ? Number(e.target.value) : undefined
-                        const rs = row.residualSeverity ?? row.severity
-                        const rl = v ?? row.likelihood
-                        ic.updateRosRow(ros.id, row.id, { residualLikelihood: v, residualScore: v != null ? computeRiskScore(rs, rl) : undefined })
-                      }}
-                      className="w-10 rounded-none border border-sky-200 bg-sky-50 px-1 text-center placeholder:text-neutral-300 disabled:bg-transparent disabled:border-transparent" />
-                  </td>
-                  {/* Residual score — colour-coded */}
-                  <td className="bg-sky-50/50 px-2 py-1.5 text-center">
-                    {residual != null && residualCls ? (
-                      <span className={`inline-flex h-7 w-9 items-center justify-center rounded-none text-xs font-bold ${residualCls.bg} ${residualCls.text}`}>
-                        {residual}
-                      </span>
-                    ) : <span className="text-neutral-300">—</span>}
-                  </td>
-                  <td className={`px-1 py-1.5 ${needJust && !isLocked ? 'bg-rose-50' : 'bg-rose-50/30'}`}>
+      {/* Risikoer — én seksjon per rad (lettere å lese enn én komprimert tabellrad) */}
+      <div className="space-y-4 border-t border-neutral-100 bg-[#faf9f6] p-4 sm:p-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Registrerte risikoer</p>
+        <div className="space-y-4">
+          {ros.rows.map((row, idx) => {
+            const grossColour = riskColour(row.riskScore)
+            const grossCls = RISK_COLOUR_CLASSES[grossColour]
+            const residual = row.residualScore != null ? row.residualScore : null
+            const residualColour = residual != null ? riskColour(residual) : null
+            const residualCls = residualColour ? RISK_COLOUR_CLASSES[residualColour] : null
+            const rowDone = isRosRowDoneForTracking(row.status)
+            const redResidual = residual != null && residual >= 15
+            const needJust = redResidual && !(row.redResidualJustification && row.redResidualJustification.trim().length >= 10)
+            const highlighted = highlightRowId === row.id
+            return (
+              <section
+                key={row.id}
+                id={`ros-risk-section-${row.id}`}
+                className={`scroll-mt-4 rounded-lg border bg-white p-4 shadow-sm transition ${
+                  highlighted ? 'border-[#1a3d32] ring-2 ring-[#1a3d32]/25' : 'border-neutral-200/90'
+                } ${rowDone ? 'opacity-75' : ''}`}
+              >
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 pb-2">
+                  <span className="text-xs font-bold text-neutral-500">Risiko {idx + 1}</span>
+                  <select
+                    disabled={isLocked}
+                    value={row.status}
+                    onChange={(e) =>
+                      ic.updateRosRow(ros.id, row.id, {
+                        status: e.target.value as import('../types/internalControl').RosRowStatus,
+                      })
+                    }
+                    className={`max-w-full rounded-md border px-2 py-1 text-xs font-semibold disabled:cursor-default ${
+                      row.status === 'finished' || row.status === 'closed'
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                        : row.status === 'submitted'
+                          ? 'border-amber-300 bg-amber-50 text-amber-950'
+                          : row.status === 'in_progress'
+                            ? 'border-sky-300 bg-sky-50 text-sky-900'
+                            : row.status === 'deferred'
+                              ? 'border-violet-300 bg-violet-50 text-violet-900'
+                              : row.status === 'cancelled'
+                                ? 'border-neutral-300 bg-neutral-100 text-neutral-600'
+                                : 'border-neutral-200 bg-neutral-50 text-neutral-800'
+                    }`}
+                  >
+                    <option value="draft">Utkast</option>
+                    <option value="submitted">Innsendt</option>
+                    <option value="in_progress">Pågår</option>
+                    <option value="deferred">Utsett</option>
+                    <option value="finished">Ferdig</option>
+                    <option value="cancelled">Avbrutt</option>
+                    <option value="open">Åpen (eldre)</option>
+                    <option value="closed">Lukket (eldre)</option>
+                  </select>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label className={SETTINGS_FIELD_LABEL}>Risikokategori</label>
+                    <input
+                      disabled={isLocked}
+                      value={row.riskCategory ?? ''}
+                      onChange={(e) => ic.updateRosRow(ros.id, row.id, { riskCategory: e.target.value })}
+                      placeholder="F.eks. HMS, psykososialt, brann, maskin …"
+                      className={SETTINGS_INPUT}
+                    />
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Aktivitet</label>
                     <textarea
                       disabled={isLocked}
-                      value={row.redResidualJustification ?? ''}
-                      onChange={(e) => ic.updateRosRow(ros.id, row.id, { redResidualJustification: e.target.value })}
-                      rows={2}
-                      placeholder={redResidual ? 'Påkrevd ved rød restrisiko (min. 10 tegn)…' : 'Kun ved behov…'}
-                      className={`w-full min-w-[120px] rounded-none border px-1 py-0.5 text-[11px] disabled:bg-transparent disabled:border-transparent ${
-                        needJust && !isLocked ? 'border-rose-400 bg-white' : 'border-neutral-200'
-                      }`}
+                      value={row.activity}
+                      onChange={(e) => ic.updateRosRow(ros.id, row.id, { activity: e.target.value })}
+                      rows={3}
+                      className={SETTINGS_INPUT}
                     />
-                  </td>
-                  {/* Responsible */}
-                  <td className="px-1 py-1.5">
-                    <input disabled={isLocked} value={row.responsible} onChange={(e) => ic.updateRosRow(ros.id, row.id, { responsible: e.target.value })} className="w-full min-w-[70px] rounded-none border border-neutral-200 px-1 py-0.5 disabled:bg-transparent disabled:border-transparent" />
-                  </td>
-                  {/* Due date */}
-                  <td className="px-1 py-1.5">
-                    <input disabled={isLocked} type="date" value={row.dueDate} onChange={(e) => ic.updateRosRow(ros.id, row.id, { dueDate: e.target.value })} className="rounded-none border border-neutral-200 px-1 py-0.5 text-xs disabled:bg-transparent disabled:border-transparent" />
-                  </td>
-                  {/* Status — replaces OK checkbox */}
-                  <td className="px-1 py-1.5">
-                    <select disabled={isLocked} value={row.status} onChange={(e) => ic.updateRosRow(ros.id, row.id, { status: e.target.value as import('../types/internalControl').RosRowStatus })}
-                      className={`rounded-none border px-2 py-0.5 text-[10px] font-medium disabled:cursor-default ${
-                        row.status === 'closed' ? 'border-emerald-300 bg-emerald-100 text-emerald-800' :
-                        row.status === 'in_progress' ? 'border-sky-300 bg-sky-100 text-sky-800' :
-                        'border-neutral-300 bg-neutral-100 text-neutral-700'
-                      }`}>
-                      <option value="open">Åpen</option>
-                      <option value="in_progress">Pågår</option>
-                      <option value="closed">Lukket</option>
-                    </select>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Fare / hendelse</label>
+                    <textarea
+                      disabled={isLocked}
+                      value={row.hazard}
+                      onChange={(e) => ic.updateRosRow(ros.id, row.id, { hazard: e.target.value })}
+                      rows={3}
+                      className={SETTINGS_INPUT}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className={SETTINGS_FIELD_LABEL}>Eksisterende tiltak</label>
+                    <textarea
+                      disabled={isLocked}
+                      value={row.existingControls}
+                      onChange={(e) => ic.updateRosRow(ros.id, row.id, { existingControls: e.target.value })}
+                      rows={2}
+                      className={SETTINGS_INPUT}
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-wrap items-end gap-4 border-t border-neutral-100 pt-4">
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Alvor (1–5)</label>
+                    <input
+                      disabled={isLocked}
+                      type="number"
+                      min={1}
+                      max={5}
+                      value={row.severity}
+                      onChange={(e) => ic.updateRosRow(ros.id, row.id, { severity: Number(e.target.value) || 1 })}
+                      className={`${SETTINGS_INPUT} max-w-[5.5rem]`}
+                    />
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Sannsynlighet (1–5)</label>
+                    <input
+                      disabled={isLocked}
+                      type="number"
+                      min={1}
+                      max={5}
+                      value={row.likelihood}
+                      onChange={(e) => ic.updateRosRow(ros.id, row.id, { likelihood: Number(e.target.value) || 1 })}
+                      className={`${SETTINGS_INPUT} max-w-[5.5rem]`}
+                    />
+                  </div>
+                  <div>
+                    <span className={SETTINGS_FIELD_LABEL}>Brutt score</span>
+                    <p className={`mt-1.5 inline-flex min-h-[2.5rem] min-w-[3rem] items-center justify-center rounded-md px-3 text-sm font-bold ${grossCls.bg} ${grossCls.text}`}>
+                      {row.riskScore}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <label className={SETTINGS_FIELD_LABEL}>Foreslått tiltak</label>
+                  <textarea
+                    disabled={isLocked}
+                    value={row.proposedMeasures}
+                    onChange={(e) => ic.updateRosRow(ros.id, row.id, { proposedMeasures: e.target.value })}
+                    rows={3}
+                    className={SETTINGS_INPUT}
+                  />
+                </div>
+                <div className="mt-4 rounded-md border border-sky-200/80 bg-sky-50/40 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-sky-900">Restrisiko (etter tiltak)</p>
+                  <div className="mt-3 flex flex-wrap items-end gap-4">
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL}>Rest-alvor</label>
+                      <input
+                        disabled={isLocked}
+                        type="number"
+                        min={1}
+                        max={5}
+                        value={row.residualSeverity ?? ''}
+                        placeholder="—"
+                        onChange={(e) => {
+                          const v = e.target.value === '' ? undefined : Number(e.target.value)
+                          ic.updateRosRow(ros.id, row.id, { residualSeverity: v })
+                        }}
+                        className={`${SETTINGS_INPUT} max-w-[5.5rem] bg-white`}
+                      />
+                    </div>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL}>Rest-sannsynlighet</label>
+                      <input
+                        disabled={isLocked}
+                        type="number"
+                        min={1}
+                        max={5}
+                        value={row.residualLikelihood ?? ''}
+                        placeholder="—"
+                        onChange={(e) => {
+                          const v = e.target.value === '' ? undefined : Number(e.target.value)
+                          ic.updateRosRow(ros.id, row.id, { residualLikelihood: v })
+                        }}
+                        className={`${SETTINGS_INPUT} max-w-[5.5rem] bg-white`}
+                      />
+                    </div>
+                    <div>
+                      <span className={SETTINGS_FIELD_LABEL}>Rest-score</span>
+                      {residual != null && residualCls ? (
+                        <p className={`mt-1.5 inline-flex min-h-[2.5rem] min-w-[3rem] items-center justify-center rounded-md px-3 text-sm font-bold ${residualCls.bg} ${residualCls.text}`}>
+                          {residual}
+                        </p>
+                      ) : (
+                        <p className="mt-1.5 text-sm text-neutral-400">—</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className={`mt-4 rounded-md border p-3 ${needJust && !isLocked ? 'border-rose-300 bg-rose-50' : 'border-rose-100 bg-rose-50/40'}`}>
+                  <label className={SETTINGS_FIELD_LABEL}>Strakstiltak / eskalering (ved rød restrisiko)</label>
+                  <textarea
+                    disabled={isLocked}
+                    value={row.redResidualJustification ?? ''}
+                    onChange={(e) => ic.updateRosRow(ros.id, row.id, { redResidualJustification: e.target.value })}
+                    rows={3}
+                    placeholder={redResidual ? 'Påkrevd ved rød restrisiko (min. 10 tegn)…' : 'Kun ved behov…'}
+                    className={`${SETTINGS_INPUT} bg-white ${needJust && !isLocked ? 'border-rose-400' : ''}`}
+                  />
+                </div>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Ansvarlig</label>
+                    <input
+                      disabled={isLocked}
+                      value={row.responsible}
+                      onChange={(e) => ic.updateRosRow(ros.id, row.id, { responsible: e.target.value })}
+                      className={SETTINGS_INPUT}
+                    />
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Frist</label>
+                    <input
+                      disabled={isLocked}
+                      type="date"
+                      value={row.dueDate}
+                      onChange={(e) => ic.updateRosRow(ros.id, row.id, { dueDate: e.target.value })}
+                      className={SETTINGS_INPUT}
+                    />
+                  </div>
+                </div>
+              </section>
+            )
+          })}
+        </div>
       </div>
 
       {/* Dual electronic signature section (AML §3-1 medvirkning) */}

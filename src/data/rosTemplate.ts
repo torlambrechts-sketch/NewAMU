@@ -4,6 +4,7 @@ import type { RosRiskRow } from '../types/internalControl'
 export function emptyRosRow(): RosRiskRow {
   return {
     id: crypto.randomUUID(),
+    riskCategory: '',
     activity: '',
     hazard: '',
     existingControls: '',
@@ -13,7 +14,7 @@ export function emptyRosRow(): RosRiskRow {
     proposedMeasures: '',
     responsible: '',
     dueDate: '',
-    status: 'open',
+    status: 'draft',
     residualSeverity: undefined,
     residualLikelihood: undefined,
     residualScore: undefined,

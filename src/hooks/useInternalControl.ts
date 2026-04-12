@@ -62,11 +62,18 @@ function normalizeParsed(p: InternalControlState & { whistleCases?: unknown }): 
           signatures: (r as RosAssessment).signatures ?? [],
           locked: (r as RosAssessment).locked ?? false,
           rows: Array.isArray(r.rows)
-            ? r.rows.map((row: RosRiskRow) => ({
-                ...row,
-                redResidualJustification: (row as RosRiskRow).redResidualJustification,
-                status: (row as RosRiskRow).status ?? (row.done ? 'closed' : 'open'),
-              }))
+            ? r.rows.map((row: RosRiskRow) => {
+                const rawStatus = (row as RosRiskRow).status ?? (row.done ? 'closed' : 'open')
+                let status = rawStatus
+                if (rawStatus === 'open') status = 'draft'
+                if (rawStatus === 'closed') status = 'finished'
+                return {
+                  ...row,
+                  riskCategory: (row as RosRiskRow).riskCategory ?? '',
+                  redResidualJustification: (row as RosRiskRow).redResidualJustification,
+                  status,
+                }
+              })
             : [],
         }))
       : [],
@@ -126,7 +133,8 @@ function seedDemoInternalControl(): InternalControlState {
         proposedMeasures: 'Dokumenterte pauserutiner',
         responsible: 'Leder',
         dueDate: '',
-        status: 'open' as const,
+        status: 'draft' as const,
+        riskCategory: '',
       },
     ],
     signatures: [],
@@ -312,17 +320,22 @@ export function useInternalControl() {
       setState((s) => ({
         ...s,
         rosAssessments: s.rosAssessments.map((ros) => {
-          if (ros.id !== rosId || ros.locked) return ros
+          if (ros.id !== rosId) return ros
+          const allowWhenLocked =
+            ros.locked && Object.keys(patch).every((k) => k === 'riskCategory' || k === 'status')
+          if (ros.locked && !allowWhenLocked) return ros
           const rows = ros.rows.map((row) => {
             if (row.id !== rowId) return row
             const next = { ...row, ...patch }
             if (patch.severity != null || patch.likelihood != null) {
               next.riskScore = computeRiskScore(next.severity, next.likelihood)
             }
-            if (patch.residualSeverity != null || patch.residualLikelihood != null) {
-              const rs = next.residualSeverity ?? next.severity
-              const rl = next.residualLikelihood ?? next.likelihood
+            const rs = next.residualSeverity
+            const rl = next.residualLikelihood
+            if (rs != null && rl != null && !Number.isNaN(rs) && !Number.isNaN(rl)) {
               next.residualScore = computeRiskScore(rs, rl)
+            } else {
+              next.residualScore = undefined
             }
             return next
           })
