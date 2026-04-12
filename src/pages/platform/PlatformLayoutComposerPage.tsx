@@ -1277,11 +1277,19 @@ const BLOCKS = [
   },
 ] as const
 
-type BlockId = (typeof BLOCKS)[number]['id']
+export type LayoutComposerBlockId = (typeof BLOCKS)[number]['id']
+
+type BlockId = LayoutComposerBlockId
 
 const CANONICAL_BLOCK_ORDER: BlockId[] = BLOCKS.map((b) => b.id)
 
 const MIME_COMPOSER_BLOCK = 'application/x-klarert-layout-composer-block'
+
+/** For grid composer palette / cell drops */
+export const MIME_GRID_PALETTE_BLOCK = 'application/x-klarert-grid-palette-block'
+export const MIME_GRID_CELL = 'application/x-klarert-grid-cell'
+
+export const LAYOUT_COMPOSER_BLOCK_ORDER: readonly LayoutComposerBlockId[] = CANONICAL_BLOCK_ORDER
 
 function defaultVisibleAll(): Record<BlockId, boolean> {
   return Object.fromEntries(BLOCKS.map((b) => [b.id, true])) as Record<BlockId, boolean>
@@ -1325,6 +1333,17 @@ function renderComposerBlock(id: BlockId): ReactNode {
 }
 
 function blockAriaLabel(id: BlockId): string {
+  return BLOCKS.find((b) => b.id === id)?.label ?? id
+}
+
+/* Shared with PlatformGridComposer — not a React component */
+// eslint-disable-next-line react-refresh/only-export-components -- grid composer imports block renderer
+export function renderLayoutComposerBlock(id: LayoutComposerBlockId): ReactNode {
+  return renderComposerBlock(id as BlockId)
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- grid composer imports block renderer
+export function layoutComposerBlockLabel(id: LayoutComposerBlockId): string {
   return BLOCKS.find((b) => b.id === id)?.label ?? id
 }
 

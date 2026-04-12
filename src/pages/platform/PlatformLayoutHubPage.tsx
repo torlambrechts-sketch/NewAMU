@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { PlatformGridComposer } from './PlatformGridComposer'
 import { PlatformLayoutComposerDemo, type PlatformLayoutPreviewSurface } from './PlatformLayoutComposerPage'
 import {
   PlatformDashboardLayoutDemo,
@@ -82,6 +83,17 @@ export function PlatformLayoutHubPage() {
           </p>
         </div>
         <PlatformLayoutComposerDemo previewSurface={surface} embedInDarkChrome={false} />
+
+        <div className="mt-10 space-y-3 border-t border-white/10 pt-8">
+          <h3 className="text-base font-semibold text-white">Rutenett — rader og kolonner</h3>
+          <p className="max-w-3xl text-sm text-neutral-500">
+            Bygg egne rader med valgfritt antall kolonner og <code className="rounded bg-white/10 px-1 text-xs">fr</code>-bredde (f.eks. 7 og 3 som{' '}
+            <code className="rounded bg-white/10 px-1 text-xs">WorkplaceSplit7030Layout</code>). Dra blokker fra paletten inn i celler, eller dra
+            celle-håndtaket for å bytte innhold. Rutenettet og lagrede oppsett lagres i{' '}
+            <code className="rounded bg-white/10 px-1 text-xs">localStorage</code> (CRUD: lagre som nytt, oppdater, last inn, slett).
+          </p>
+          <PlatformGridComposer previewSurface={surface} />
+        </div>
       </section>
 
       <section id="standard" className="scroll-mt-6 space-y-4">
