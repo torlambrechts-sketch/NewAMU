@@ -903,7 +903,7 @@ export function InternalControlModule() {
                   <RosWorkplaceLayoutRiskMatrixSection onNewRisk={openNewRosPanel} />
                 </div>
                 <div className="min-w-0">
-                  <RosWorkplaceLayoutRiskTableSection />
+                  <RosWorkplaceLayoutRiskTableSection assessments={ic.rosAssessments} />
                 </div>
               </div>
           </div>

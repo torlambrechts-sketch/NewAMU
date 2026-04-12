@@ -1,5 +1,8 @@
 import { ChevronDown, Eye, Filter, LayoutGrid, Plus } from 'lucide-react'
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
+import type { RosAssessment } from '../../types/internalControl'
+import type { RosRiskOverviewTableRow } from '../../lib/rosRiskOverviewRows'
+import { buildRosRiskOverviewRows } from '../../lib/rosRiskOverviewRows'
 
 const FOREST = '#1a3d32'
 const BOX_SHADOW = { boxShadow: '0 1px 2px rgba(0,0,0,0.04)' } as const
@@ -284,16 +287,7 @@ export function ComposableRosRiskMatrixBlock() {
   )
 }
 
-type TableRow = {
-  id: string
-  category: string
-  rosTitle: string
-  riskTitle: string
-  score: number
-  level: 'Lav' | 'Middels' | 'Høy'
-}
-
-const DEMO_TABLE_ROWS: TableRow[] = [
+const DEMO_TABLE_ROWS: RosRiskOverviewTableRow[] = [
   { id: '1', category: 'Operasjonelt', rosTitle: 'ROS Produksjon 2025', riskTitle: 'Maskinvern', score: 15, level: 'Høy' },
   { id: '2', category: 'HMS', rosTitle: 'ROS Lager', riskTitle: 'Kjemikalier', score: 20, level: 'Høy' },
   { id: '3', category: 'HMS', rosTitle: 'ROS Kontor', riskTitle: 'Ergonomi', score: 9, level: 'Middels' },
@@ -304,20 +298,38 @@ const DEMO_TABLE_ROWS: TableRow[] = [
   { id: '8', category: 'Operasjonelt', rosTitle: 'ROS Produksjon 2025', riskTitle: 'Løfteanordning', score: 16, level: 'Høy' },
 ]
 
-/** Tabell: alle risikoer på tvers av ROS-analyser (layout-ROS / demo). */
-export function RosWorkplaceLayoutRiskTableSection({ caption }: { caption?: string }) {
+/** Tabell: alle risikoer på tvers av ROS-analyser. Uten `assessments` brukes demo-rader (layout-komponist). */
+export function RosWorkplaceLayoutRiskTableSection({
+  assessments,
+  caption,
+}: {
+  assessments?: RosAssessment[]
+  caption?: string
+}) {
   const [sortDesc, setSortDesc] = useState(true)
   const [colsOpen, setColsOpen] = useState(false)
   const [showRos, setShowRos] = useState(true)
 
+  const isLive = assessments != null
+  const sourceRows = useMemo(
+    () => (isLive ? buildRosRiskOverviewRows(assessments) : [...DEMO_TABLE_ROWS]),
+    [assessments, isLive],
+  )
+
   const sorted = useMemo(() => {
-    const rows = [...DEMO_TABLE_ROWS]
+    const rows = [...sourceRows]
     rows.sort((a, b) => (sortDesc ? b.score - a.score : a.score - b.score))
     return rows
-  }, [sortDesc])
+  }, [sourceRows, sortDesc])
+
+  const resolvedCaption =
+    caption ??
+    (isLive
+      ? 'Alle registrerte risikoer på tvers av ROS-vurderinger (score = restrisiko når den er satt, ellers brutto).'
+      : 'ROS risiko-oversikt (demo): eksempeldata for layout-komponisten.')
 
   return (
-    <RosMatrixShell caption={caption}>
+    <RosMatrixShell caption={resolvedCaption}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3 md:px-5">
         <SerifHeadingSmall>Gruppert risiko-oversikt</SerifHeadingSmall>
         <div className="relative">
@@ -344,7 +356,7 @@ export function RosWorkplaceLayoutRiskTableSection({ caption }: { caption?: stri
         <table className="w-full min-w-[640px] border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-neutral-200 bg-neutral-50/90 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
-              <th className="px-4 py-3 md:px-5">Kategori</th>
+              <th className="px-4 py-3 md:px-5">{isLive ? 'Avdeling' : 'Kategori'}</th>
               {showRos ? <th className="px-4 py-3 md:px-5">ROS-analyse</th> : null}
               <th className="px-4 py-3 md:px-5">Risiko</th>
               <th className="px-4 py-3 md:px-5">
@@ -361,22 +373,33 @@ export function RosWorkplaceLayoutRiskTableSection({ caption }: { caption?: stri
             </tr>
           </thead>
           <tbody>
-            {sorted.map((r, i) => (
-              <tr key={r.id} className={`border-b border-neutral-100 ${i % 2 === 0 ? 'bg-white' : 'bg-neutral-50/40'}`}>
-                <td className="px-4 py-3 font-semibold text-neutral-900 md:px-5">{r.category}</td>
-                {showRos ? <td className="px-4 py-3 text-neutral-700 md:px-5">{r.rosTitle}</td> : null}
-                <td className="px-4 py-3 text-neutral-800 md:px-5">{r.riskTitle}</td>
-                <td className="px-4 py-3 tabular-nums font-medium text-neutral-900 md:px-5">{r.score}</td>
-                <td className="px-4 py-3 md:px-5">
-                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${LEVEL_PILL[r.level]}`}>{r.level}</span>
+            {sorted.length === 0 ? (
+              <tr>
+                <td colSpan={showRos ? 5 : 4} className="px-4 py-10 text-center text-sm text-neutral-500 md:px-5">
+                  {isLive ? 'Ingen risikorader i ROS-vurderingene ennå.' : 'Ingen demo-rader.'}
                 </td>
               </tr>
-            ))}
+            ) : (
+              sorted.map((r, i) => (
+                <tr key={r.id} className={`border-b border-neutral-100 ${i % 2 === 0 ? 'bg-white' : 'bg-neutral-50/40'}`}>
+                  <td className="px-4 py-3 font-semibold text-neutral-900 md:px-5">{r.category}</td>
+                  {showRos ? <td className="px-4 py-3 text-neutral-700 md:px-5">{r.rosTitle}</td> : null}
+                  <td className="px-4 py-3 text-neutral-800 md:px-5">{r.riskTitle}</td>
+                  <td className="px-4 py-3 tabular-nums font-medium text-neutral-900 md:px-5">{r.score}</td>
+                  <td className="px-4 py-3 md:px-5">
+                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${LEVEL_PILL[r.level]}`}>{r.level}</span>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 px-4 py-2 text-xs text-neutral-500 md:px-5">
-        <span>{sorted.length} risikoer (demo)</span>
+        <span>
+          {sorted.length} risikoer
+          {isLive ? '' : ' (demo)'}
+        </span>
         <button type="button" className="inline-flex items-center gap-1 font-semibold text-[#1a3d32] hover:underline">
           <Filter className="size-3.5" aria-hidden />
           Filtrer
@@ -387,9 +410,7 @@ export function RosWorkplaceLayoutRiskTableSection({ caption }: { caption?: stri
 }
 
 export function ComposableRosRiskTableBlock() {
-  return (
-    <RosWorkplaceLayoutRiskTableSection caption="ROS risiko-oversikt: aggreger risikoer fra flere analyser; sortering og valgfrie kolonner (demo)." />
-  )
+  return <RosWorkplaceLayoutRiskTableSection />
 }
 
 function SerifHeadingSmall({ children }: { children: ReactNode }) {
