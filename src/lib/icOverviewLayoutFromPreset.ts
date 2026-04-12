@@ -1,8 +1,10 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   loadComposerPresets,
   normalizeComposerOrder,
   type LayoutComposerPreset,
 } from './platformLayoutComposerStorage'
+import { fetchPublishedComposerTemplates, type StackTemplatePayload } from './platformComposerTemplatesApi'
 import type { LayoutComposerBlockId } from '../pages/platform/PlatformLayoutComposerPage'
 
 /** Canonical block order — keep in sync with PlatformLayoutComposerPage BLOCKS */
@@ -65,12 +67,7 @@ export type IcOverviewComposerResolved = {
  * Resolves composer blocks for Internkontroll → Oversikt.
  * Reads platform-admin "Lagrede oppsett" from localStorage when name matches.
  */
-export function resolveIcOverviewComposerLayout(): IcOverviewComposerResolved {
-  const presets = loadComposerPresets()
-  const hit = findSavedPreset(presets)
-  if (!hit) {
-    return { order: [...IC_OVERVIEW_COMPOSER_FALLBACK_ORDER], presetNameMatched: null }
-  }
+function resolvedFromPreset(hit: LayoutComposerPreset): IcOverviewComposerResolved {
   const visible = { ...hit.visible } as Record<string, boolean>
   const rawOrder = normalizeComposerOrder(hit.order, CANONICAL) as LayoutComposerBlockId[]
   const order = rawOrder.filter((id) => visible[id] !== false)
@@ -79,4 +76,39 @@ export function resolveIcOverviewComposerLayout(): IcOverviewComposerResolved {
     order: withoutHeading.length > 0 ? withoutHeading : [...IC_OVERVIEW_COMPOSER_FALLBACK_ORDER],
     presetNameMatched: hit.name,
   }
+}
+
+export function resolveIcOverviewComposerLayout(): IcOverviewComposerResolved {
+  const presets = loadComposerPresets()
+  const hit = findSavedPreset(presets)
+  if (!hit) {
+    return { order: [...IC_OVERVIEW_COMPOSER_FALLBACK_ORDER], presetNameMatched: null }
+  }
+  return resolvedFromPreset(hit)
+}
+
+/**
+ * Prefer published stack template from DB (platform_composer_templates), then localStorage.
+ */
+export async function resolveIcOverviewComposerLayoutAsync(
+  supabase: SupabaseClient | null | undefined,
+): Promise<IcOverviewComposerResolved> {
+  if (supabase) {
+    const { data } = await fetchPublishedComposerTemplates(supabase)
+    const fromDb: LayoutComposerPreset[] = data
+      .filter((r) => r.kind === 'stack')
+      .map((row) => {
+        const p = row.payload as StackTemplatePayload
+        return {
+          id: row.id,
+          name: row.name,
+          createdAt: row.created_at,
+          visible: p.visible as Record<string, boolean>,
+          order: p.order as string[],
+        }
+      })
+    const hitDb = findSavedPreset(fromDb)
+    if (hitDb) return resolvedFromPreset(hitDb)
+  }
+  return resolveIcOverviewComposerLayout()
 }

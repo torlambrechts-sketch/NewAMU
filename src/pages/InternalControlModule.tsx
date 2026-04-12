@@ -51,7 +51,11 @@ import {
 } from '../components/insights/ModuleInsightCharts'
 import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { InternalControlTabShell } from './internalControl/InternalControlTabShell'
-import { resolveIcOverviewComposerLayout } from '../lib/icOverviewLayoutFromPreset'
+import {
+  resolveIcOverviewComposerLayout,
+  resolveIcOverviewComposerLayoutAsync,
+  type IcOverviewComposerResolved,
+} from '../lib/icOverviewLayoutFromPreset'
 import { renderLayoutComposerBlock } from './platform/PlatformLayoutComposerPage'
 
 const tabs = [
@@ -161,7 +165,7 @@ export function InternalControlModule() {
   const hr = useHrCompliance()
   const hse = useHse()
   const { addTask } = useTasks()
-  const { supabaseConfigured, profile, user } = useOrgSetupContext()
+  const { supabase, supabaseConfigured, profile, user } = useOrgSetupContext()
   const [searchParams, setSearchParams] = useSearchParams()
   type TabId = (typeof tabs)[number]['id']
   const tabParam = searchParams.get('tab')
@@ -630,8 +634,21 @@ export function InternalControlModule() {
     [tab],
   )
 
-  const icOverviewComposer =
-    tab === 'overview' ? resolveIcOverviewComposerLayout() : { order: [] as const, presetNameMatched: null as string | null }
+  const [icOverviewComposer, setIcOverviewComposer] = useState<IcOverviewComposerResolved>(() =>
+    resolveIcOverviewComposerLayout(),
+  )
+
+  useEffect(() => {
+    if (tab !== 'overview') return
+    let cancelled = false
+    void (async () => {
+      const r = await resolveIcOverviewComposerLayoutAsync(supabase ?? undefined)
+      if (!cancelled) setIcOverviewComposer(r)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [tab, supabase])
 
   return (
     <>

@@ -1,6 +1,6 @@
 /**
- * Local persistence for platform-admin /platform-admin/layout composer (element order + visibility + named presets).
- * Browser-only; no Supabase (platform admins may use shared machines — presets are per-browser).
+ * Local persistence for platform-admin layout composer (element order + visibility + named presets).
+ * Primary sharing is via `platform_composer_templates` (stack kind); localStorage remains for offline / backup.
  */
 
 export type LayoutComposerPreset = {

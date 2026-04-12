@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react'
-import { GripVertical, Plus, Trash2 } from 'lucide-react'
+import { GripVertical, Loader2, Plus, Trash2 } from 'lucide-react'
 import {
   LAYOUT_COMPOSER_BLOCK_ORDER,
   MIME_GRID_CELL,
@@ -23,6 +23,8 @@ import {
   type LayoutGridComposerSession,
   type SavedGridLayout,
 } from '../../lib/layoutGridComposerStorage'
+import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
+import { usePlatformGridComposerTemplates, type GridLayoutUI } from '../../hooks/usePlatformComposerTemplates'
 
 function previewShellClass(surface: PlatformLayoutPreviewSurface) {
   return surface === 'white'
@@ -60,10 +62,25 @@ function parseDragPayload(dt: DataTransfer): DragPayload | null {
 
 export function PlatformGridComposer({ previewSurface }: { previewSurface: PlatformLayoutPreviewSurface }) {
   const baseId = useId()
+  const { userId, isAdmin, loading: adminLoading } = usePlatformAdmin()
+  const {
+    loading: tplLoading,
+    error: tplError,
+    mergedLayouts,
+    saveGridToDatabase,
+    removeGridTemplate,
+    setGridPublished,
+    bumpLocal: bumpGridTemplatesLocal,
+  } = usePlatformGridComposerTemplates(true, userId, isAdmin)
   const [session, setSession] = useState<LayoutGridComposerSession>(() => loadGridSession() ?? defaultGridSession())
   const [savedName, setSavedName] = useState('')
-  const [savedLayouts, setSavedLayouts] = useState<SavedGridLayout[]>(() => loadSavedGridLayouts())
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingDbId, setEditingDbId] = useState<string | null>(null)
+  const [publishToWorkplace, setPublishToWorkplace] = useState(false)
+  const [tplBusy, setTplBusy] = useState(false)
+  const [tplMessage, setTplMessage] = useState<string | null>(null)
+
+  const layoutList = useMemo(() => mergedLayouts(), [mergedLayouts])
 
   useEffect(() => {
     saveGridSession(normalizeGridSession(session))
@@ -162,7 +179,7 @@ export function PlatformGridComposer({ previewSurface }: { previewSurface: Platf
     setSession((s) => ({ rows: [...s.rows, default7030Row()] }))
   }, [])
 
-  const saveAsNew = useCallback(() => {
+  const saveAsNewLocal = useCallback(() => {
     const name = savedName.trim()
     if (!name) return
     const now = new Date().toISOString()
@@ -173,42 +190,92 @@ export function PlatformGridComposer({ previewSurface }: { previewSurface: Platf
       updatedAt: now,
       rows: cloneSession(normalizeGridSession(session)).rows,
     }
-    setSavedLayouts((prev) => {
-      const merged = [...prev, next]
-      saveSavedGridLayouts(merged)
-      return merged
-    })
+    const prev = loadSavedGridLayouts()
+    const merged = [...prev.filter((x) => x.name.trim().toLowerCase() !== name.toLowerCase()), next]
+    saveSavedGridLayouts(merged)
     setEditingId(next.id)
+    setEditingDbId(null)
     setSavedName('')
-  }, [savedName, session])
+    setTplMessage('Lagret lokalt.')
+    bumpGridTemplatesLocal()
+  }, [savedName, session, bumpGridTemplatesLocal])
 
-  const updateSaved = useCallback(() => {
+  const updateSavedLocal = useCallback(() => {
     if (!editingId) return
     const now = new Date().toISOString()
-    setSavedLayouts((prev) => {
-      const merged = prev.map((x) =>
-        x.id === editingId
-          ? { ...x, rows: cloneSession(normalizeGridSession(session)).rows, updatedAt: now }
-          : x,
-      )
-      saveSavedGridLayouts(merged)
-      return merged
-    })
-  }, [editingId, session])
+    const prev = loadSavedGridLayouts()
+    const merged = prev.map((x) =>
+      x.id === editingId ? { ...x, rows: cloneSession(normalizeGridSession(session)).rows, updatedAt: now } : x,
+    )
+    saveSavedGridLayouts(merged)
+    setTplMessage('Oppdatert lokalt.')
+    bumpGridTemplatesLocal()
+  }, [editingId, session, bumpGridTemplatesLocal])
 
-  const loadSaved = useCallback((layout: SavedGridLayout) => {
+  const saveToDatabase = useCallback(async () => {
+    const name = savedName.trim()
+    if (!name) return
+    setTplBusy(true)
+    setTplMessage(null)
+    const rows = cloneSession(normalizeGridSession(session)).rows
+    const { error, id } = await saveGridToDatabase({
+      dbId: editingDbId,
+      name,
+      rows,
+      published: publishToWorkplace,
+    })
+    setTplBusy(false)
+    if (error) {
+      setTplMessage(error)
+      return
+    }
+    if (id) {
+      setEditingDbId(id)
+      setEditingId(id)
+    }
+    setTplMessage('Lagret i database.')
+  }, [savedName, session, editingDbId, publishToWorkplace, saveGridToDatabase])
+
+  const loadSaved = useCallback((layout: GridLayoutUI) => {
     setSession(normalizeGridSession({ rows: layout.rows }))
     setEditingId(layout.id)
+    setEditingDbId(layout.dbId ?? null)
+    setSavedName(layout.name)
+    setPublishToWorkplace(!!layout.published)
+    setTplMessage(null)
   }, [])
 
-  const deleteSaved = useCallback((id: string) => {
-    setSavedLayouts((prev) => {
-      const merged = prev.filter((x) => x.id !== id)
-      saveSavedGridLayouts(merged)
-      return merged
-    })
-    setEditingId((cur) => (cur === id ? null : cur))
-  }, [])
+  const deleteSaved = useCallback(
+    async (layout: GridLayoutUI) => {
+      setTplBusy(true)
+      setTplMessage(null)
+      const err = await removeGridTemplate(layout)
+      setTplBusy(false)
+      if (err) setTplMessage(err)
+      else setTplMessage('Slettet.')
+      if (editingId === layout.id) {
+        setEditingId(null)
+        setEditingDbId(null)
+        setSavedName('')
+      }
+    },
+    [removeGridTemplate, editingId],
+  )
+
+  const toggleGridPublished = useCallback(
+    async (layout: GridLayoutUI) => {
+      if (!layout.dbId) return
+      setTplBusy(true)
+      const err = await setGridPublished(layout.dbId, !layout.published)
+      setTplBusy(false)
+      if (err) setTplMessage(err)
+      else {
+        setTplMessage(!layout.published ? 'Publisert.' : 'Avpublisert.')
+        if (editingDbId === layout.dbId) setPublishToWorkplace(!layout.published)
+      }
+    },
+    [setGridPublished, editingDbId],
+  )
 
   const paletteItems = useMemo(
     () => LAYOUT_COMPOSER_BLOCK_ORDER.map((id) => ({ id, label: layoutComposerBlockLabel(id) })),
@@ -257,11 +324,27 @@ export function PlatformGridComposer({ previewSurface }: { previewSurface: Platf
 
         <div className={`border-t pt-3 ${previewSurface === 'white' ? 'border-neutral-200' : 'border-white/10'}`}>
           <p className={`text-xs font-semibold uppercase tracking-wide ${metaClass}`}>Lagrede rutenett</p>
+          <p className={`mt-1 text-xs ${metaClass}`}>
+            Lokal = nettleser. Database = plattformadmin (valgfri publisering for senere bruk i app).
+          </p>
+          {adminLoading || tplLoading ? (
+            <p className={`mt-2 flex items-center gap-2 text-xs ${metaClass}`}>
+              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              Laster…
+            </p>
+          ) : null}
+          {tplError ? <p className="mt-2 text-xs text-red-400">{tplError}</p> : null}
+          {tplMessage ? (
+            <p className={`mt-2 text-xs ${previewSurface === 'white' ? 'text-amber-800' : 'text-amber-200/90'}`}>{tplMessage}</p>
+          ) : null}
           <div className="mt-2 flex flex-wrap gap-2">
             <input
               type="text"
               value={savedName}
-              onChange={(e) => setSavedName(e.target.value)}
+              onChange={(e) => {
+                setSavedName(e.target.value)
+                setTplMessage(null)
+              }}
               placeholder="Navn"
               className={
                 previewSurface === 'white'
@@ -269,30 +352,61 @@ export function PlatformGridComposer({ previewSurface }: { previewSurface: Platf
                   : 'min-w-0 flex-1 rounded-md border border-white/15 bg-slate-900 px-2 py-1 text-sm text-neutral-100'
               }
             />
-            <button type="button" className={btnClass} onClick={saveAsNew}>
-              Lagre som nytt
+            <button type="button" className={btnClass} disabled={tplBusy} onClick={saveAsNewLocal}>
+              Lagre lokalt
             </button>
+            {isAdmin ? (
+              <button type="button" className={btnClass} disabled={tplBusy} onClick={() => void saveToDatabase()}>
+                Lagre i DB
+              </button>
+            ) : null}
           </div>
+          {isAdmin ? (
+            <label className={`mt-2 flex cursor-pointer items-center gap-2 text-xs ${metaClass}`}>
+              <input
+                type="checkbox"
+                checked={publishToWorkplace}
+                onChange={(e) => setPublishToWorkplace(e.target.checked)}
+                className="rounded border-neutral-300"
+              />
+              Publiser
+            </label>
+          ) : null}
           {editingId ? (
-            <button type="button" className={`${btnClass} mt-2 w-full`} onClick={updateSaved}>
-              Oppdater «{savedLayouts.find((x) => x.id === editingId)?.name ?? '…'}»
+            <button type="button" className={`${btnClass} mt-2 w-full`} disabled={tplBusy} onClick={updateSavedLocal}>
+              Oppdater lokalt
             </button>
           ) : null}
-          {savedLayouts.length > 0 ? (
+          {editingDbId ? (
+            <p className={`mt-1 text-[10px] ${metaClass}`}>DB-rad: {editingDbId.slice(0, 8)}…</p>
+          ) : null}
+          {layoutList.length > 0 ? (
             <ul className="mt-2 max-h-36 space-y-1 overflow-y-auto text-xs">
-              {savedLayouts
-                .slice()
-                .sort((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt))
-                .map((L) => (
-                  <li key={L.id} className="flex items-center gap-1">
-                    <button type="button" className="min-w-0 flex-1 truncate text-left hover:underline" onClick={() => loadSaved(L)}>
-                      {L.name}
+              {layoutList.map((L) => (
+                <li key={`${L.source}-${L.id}`} className="flex flex-wrap items-center gap-1">
+                  <button type="button" className="min-w-0 flex-1 truncate text-left hover:underline" onClick={() => loadSaved(L)}>
+                    {L.name}
+                    <span className={`ml-1 text-[10px] ${metaClass}`}>
+                      {L.source === 'database' ? 'DB' : 'Lokal'}
+                      {L.published ? ' · pub.' : ''}
+                    </span>
+                  </button>
+                  {L.dbId ? (
+                    <button type="button" className={btnClass} disabled={tplBusy} onClick={() => void toggleGridPublished(L)}>
+                      {L.published ? 'Avpub.' : 'Pub.'}
                     </button>
-                    <button type="button" className="shrink-0 p-1 text-red-400 hover:bg-red-500/10" onClick={() => deleteSaved(L.id)} aria-label="Slett">
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </li>
-                ))}
+                  ) : null}
+                  <button
+                    type="button"
+                    className="shrink-0 p-1 text-red-400 hover:bg-red-500/10"
+                    disabled={tplBusy}
+                    onClick={() => void deleteSaved(L)}
+                    aria-label="Slett"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </li>
+              ))}
             </ul>
           ) : (
             <p className={`mt-2 text-xs ${metaClass}`}>Ingen lagrede rutenett.</p>

@@ -9,6 +9,7 @@ import {
   Download,
   Filter,
   GripVertical,
+  Loader2,
   Kanban,
   LayoutGrid,
   List,
@@ -35,6 +36,8 @@ import {
   saveComposerSession,
   type LayoutComposerPreset,
 } from '../../lib/platformLayoutComposerStorage'
+import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
+import { usePlatformStackComposerTemplates, type StackPresetUI } from '../../hooks/usePlatformComposerTemplates'
 
 const CREAM = '#F9F7F2'
 const CREAM_DEEP = '#EFE8DC'
@@ -1357,6 +1360,17 @@ export function PlatformLayoutComposerDemo({
   embedInDarkChrome?: boolean
 }) {
   const baseId = useId()
+  const { userId, isAdmin, loading: adminLoading } = usePlatformAdmin()
+  const templatesEnabled = !embedInDarkChrome
+  const {
+    loading: tplLoading,
+    error: tplError,
+    mergedPresets,
+    bumpLocal: bumpStackTemplatesLocal,
+    saveStackToDatabase,
+    removeStackTemplate,
+    setStackPublished,
+  } = usePlatformStackComposerTemplates(templatesEnabled, userId, isAdmin)
   const dark = embedInDarkChrome
   const asidePanelClass = dark
     ? 'space-y-4 rounded-xl border border-white/10 bg-slate-900/50 p-4'
@@ -1377,7 +1391,10 @@ export function PlatformLayoutComposerDemo({
   const [dragOverListIndex, setDragOverListIndex] = useState<number | null>(null)
   const [dragOverPreviewOrderIndex, setDragOverPreviewOrderIndex] = useState<number | null>(null)
   const [presetName, setPresetName] = useState('')
-  const [presets, setPresets] = useState<LayoutComposerPreset[]>(() => loadComposerPresets())
+  const [editingDbId, setEditingDbId] = useState<string | null>(null)
+  const [publishToWorkplace, setPublishToWorkplace] = useState(false)
+  const [tplBusy, setTplBusy] = useState(false)
+  const [tplMessage, setTplMessage] = useState<string | null>(null)
 
   const [visible, setVisible] = useState<Record<BlockId, boolean>>(() => {
     const s = loadComposerSession()
@@ -1412,7 +1429,9 @@ export function PlatformLayoutComposerDemo({
 
   const activeCount = BLOCKS.filter((b) => visible[b.id]).length
 
-  const savePreset = useCallback(() => {
+  const presetList = useMemo(() => mergedPresets(), [mergedPresets])
+
+  const savePresetLocal = useCallback(() => {
     const name = presetName.trim()
     if (!name) return
     const next: LayoutComposerPreset = {
@@ -1422,27 +1441,84 @@ export function PlatformLayoutComposerDemo({
       visible: { ...visible } as Record<string, boolean>,
       order: [...order],
     }
-    setPresets((p) => {
-      const merged = [...p, next]
-      saveComposerPresets(merged)
-      return merged
-    })
+    const prev = loadComposerPresets()
+    const merged = [...prev.filter((x) => x.name.trim().toLowerCase() !== name.toLowerCase()), next]
+    saveComposerPresets(merged)
     setPresetName('')
-  }, [presetName, visible, order])
+    setEditingDbId(null)
+    setTplMessage('Lagret lokalt.')
+    bumpStackTemplatesLocal()
+  }, [presetName, visible, order, bumpStackTemplatesLocal])
 
-  const loadPreset = useCallback((p: LayoutComposerPreset) => {
+  const savePresetDatabase = useCallback(async () => {
+    const name = presetName.trim()
+    if (!name || !templatesEnabled) return
+    setTplBusy(true)
+    setTplMessage(null)
+    const { error, id } = await saveStackToDatabase({
+      dbId: editingDbId,
+      name,
+      visible: visible as Record<string, boolean>,
+      order: [...order],
+      published: publishToWorkplace,
+    })
+    setTplBusy(false)
+    if (error) {
+      setTplMessage(error)
+      return
+    }
+    if (id) setEditingDbId(id)
+    setTplMessage('Lagret i database.')
+  }, [
+    presetName,
+    templatesEnabled,
+    editingDbId,
+    visible,
+    order,
+    publishToWorkplace,
+    saveStackToDatabase,
+  ])
+
+  const loadPreset = useCallback((p: StackPresetUI) => {
     const nextVisible = { ...defaultVisibleAll(), ...p.visible } as Record<BlockId, boolean>
     setVisible(nextVisible)
     setOrder(normalizeComposerOrder(p.order, CANONICAL_BLOCK_ORDER) as BlockId[])
+    setPresetName(p.name)
+    setEditingDbId(p.dbId ?? null)
+    setPublishToWorkplace(!!p.published)
+    setTplMessage(null)
   }, [])
 
-  const deletePreset = useCallback((id: string) => {
-    setPresets((prev) => {
-      const merged = prev.filter((x) => x.id !== id)
-      saveComposerPresets(merged)
-      return merged
-    })
-  }, [])
+  const deletePreset = useCallback(
+    async (p: StackPresetUI) => {
+      setTplBusy(true)
+      setTplMessage(null)
+      const err = await removeStackTemplate(p)
+      setTplBusy(false)
+      if (err) setTplMessage(err)
+      else setTplMessage('Slettet.')
+      if (editingDbId === p.dbId || presetName === p.name) {
+        setEditingDbId(null)
+        setPresetName('')
+      }
+    },
+    [removeStackTemplate, editingDbId, presetName],
+  )
+
+  const togglePresetPublished = useCallback(
+    async (p: StackPresetUI) => {
+      if (!p.dbId) return
+      setTplBusy(true)
+      const err = await setStackPublished(p.dbId, !p.published)
+      setTplBusy(false)
+      if (err) setTplMessage(err)
+      else {
+        setTplMessage(!p.published ? 'Publisert.' : 'Avpublisert.')
+        if (editingDbId === p.dbId) setPublishToWorkplace(!p.published)
+      }
+    },
+    [setStackPublished, editingDbId],
+  )
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(260px,300px)_minmax(0,1fr)] lg:items-start">
@@ -1462,7 +1538,8 @@ export function PlatformLayoutComposerDemo({
             </button>
           </div>
           <p className={`text-xs ${checklistMetaClass}`}>
-            Dra håndtaket for å endre rekkefølge i forhåndsvisningen. Rekkefølge lagres i denne nettleseren.
+            Dra håndtaket for å endre rekkefølge i forhåndsvisningen. Økt lagres i nettleseren; maler kan også lagres i
+            database (plattformadmin).
           </p>
           <ul className="space-y-1">
             {orderedBlocks.map((b, idx) => {
@@ -1536,17 +1613,29 @@ export function PlatformLayoutComposerDemo({
           <div className={`mt-4 border-t pt-4 ${dark ? 'border-white/10' : 'border-neutral-200'}`}>
             <p className={`text-xs font-semibold uppercase tracking-wide ${checklistMetaClass}`}>Lagrede oppsett</p>
             <p className={`mt-1 text-xs ${checklistMetaClass}`}>
-              Lagres lokalt i nettleseren (localStorage). Bruk som referanse for{' '}
-              <code className={dark ? 'rounded bg-white/10 px-1' : 'rounded bg-neutral-100 px-1'}>
-                WorkplaceStandardListLayout
-              </code>{' '}
-              m.m.
+              <strong>Lokal:</strong> kun denne nettleseren. <strong>Database:</strong> delt mellom plattformadmins;
+              kryss av <em>Publiser</em> for at arbeidsflaten (f.eks. Internkontroll → Oversikt) skal kunne lese malen.
             </p>
+            {!embedInDarkChrome && (adminLoading || tplLoading) ? (
+              <p className={`mt-2 flex items-center gap-2 text-xs ${checklistMetaClass}`}>
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                Laster maler…
+              </p>
+            ) : null}
+            {!embedInDarkChrome && tplError ? (
+              <p className="mt-2 text-xs text-red-400">{tplError}</p>
+            ) : null}
+            {tplMessage ? (
+              <p className={`mt-2 text-xs ${dark ? 'text-amber-200/90' : 'text-amber-800'}`}>{tplMessage}</p>
+            ) : null}
             <div className="mt-2 flex flex-wrap gap-2">
               <input
                 type="text"
                 value={presetName}
-                onChange={(e) => setPresetName(e.target.value)}
+                onChange={(e) => {
+                  setPresetName(e.target.value)
+                  setTplMessage(null)
+                }}
                 placeholder="Navn på oppsett"
                 className={
                   dark
@@ -1554,39 +1643,73 @@ export function PlatformLayoutComposerDemo({
                     : 'min-w-0 flex-1 rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-sm text-neutral-900 placeholder:text-neutral-400'
                 }
               />
-              <button type="button" onClick={savePreset} className={bulkBtnClass}>
-                Lagre
+              <button type="button" onClick={savePresetLocal} disabled={tplBusy} className={bulkBtnClass}>
+                Lagre lokalt
               </button>
+              {!embedInDarkChrome && isAdmin ? (
+                <button type="button" onClick={() => void savePresetDatabase()} disabled={tplBusy} className={bulkBtnClass}>
+                  Lagre i DB
+                </button>
+              ) : null}
             </div>
-            {presets.length > 0 ? (
-              <ul className="mt-3 max-h-40 space-y-1 overflow-y-auto text-sm">
-                {presets
-                  .slice()
-                  .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-                  .map((p) => (
-                    <li
-                      key={p.id}
-                      className={`flex items-center justify-between gap-2 rounded-md px-1 py-1 ${
-                        dark ? 'hover:bg-white/5' : 'hover:bg-neutral-50'
-                      }`}
+            {!embedInDarkChrome && isAdmin ? (
+              <label className={`mt-2 flex cursor-pointer items-center gap-2 text-xs ${checklistMetaClass}`}>
+                <input
+                  type="checkbox"
+                  checked={publishToWorkplace}
+                  onChange={(e) => setPublishToWorkplace(e.target.checked)}
+                  className={checkboxClass}
+                />
+                Publiser (arbeidsflate kan lese ved match på navn)
+              </label>
+            ) : null}
+            {editingDbId ? (
+              <p className={`mt-1 text-[11px] ${checklistMetaClass}`}>Redigerer database-rad: {editingDbId.slice(0, 8)}…</p>
+            ) : null}
+            {presetList.length > 0 ? (
+              <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto text-sm">
+                {presetList.map((p) => (
+                  <li
+                    key={`${p.source}-${p.id}`}
+                    className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-1 py-1 ${
+                      dark ? 'hover:bg-white/5' : 'hover:bg-neutral-50'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => loadPreset(p)}
+                      className={`min-w-0 flex-1 truncate text-left ${dark ? 'text-neutral-200' : 'text-neutral-800'}`}
                     >
+                      {p.name}
+                      <span className={`ml-1 text-[10px] ${checklistMetaClass}`}>
+                        {p.source === 'database' ? 'DB' : 'Lokal'}
+                        {p.published ? ' · pub.' : ''}
+                      </span>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {p.dbId ? (
+                        <button
+                          type="button"
+                          title={p.published ? 'Avpubliser' : 'Publiser'}
+                          onClick={() => void togglePresetPublished(p)}
+                          disabled={tplBusy}
+                          className={bulkBtnClass}
+                        >
+                          {p.published ? 'Avpub.' : 'Pub.'}
+                        </button>
+                      ) : null}
                       <button
                         type="button"
-                        onClick={() => loadPreset(p)}
-                        className={`min-w-0 flex-1 truncate text-left ${dark ? 'text-neutral-200' : 'text-neutral-800'}`}
-                      >
-                        {p.name}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deletePreset(p.id)}
+                        onClick={() => void deletePreset(p)}
+                        disabled={tplBusy}
                         className="shrink-0 rounded p-1 text-red-400 hover:bg-red-500/10"
                         aria-label={`Slett ${p.name}`}
                       >
                         <Trash2 className="size-3.5" />
                       </button>
-                    </li>
-                  ))}
+                    </div>
+                  </li>
+                ))}
               </ul>
             ) : (
               <p className={`mt-2 text-xs ${checklistMetaClass}`}>Ingen lagrede oppsett ennå.</p>

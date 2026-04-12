@@ -78,8 +78,8 @@ export function PlatformLayoutHubPage() {
           <h2 className="text-lg font-semibold text-white">Layout-komponenter — komponer</h2>
           <p className="mt-1 max-w-3xl text-sm text-neutral-500">
             Kombiner referanseblokker (overskrift, stat-rad, tabeller, scorecard, verktøylinje, list 2, boksrutenett, rapportering). Dra for å
-            endre rekkefølge; lagre navngitte oppsett lokalt for gjenbruk (samme mønster som sammensatte arbeidsflate-sider, f.eks.{' '}
-            <code className="rounded bg-white/10 px-1 text-xs">WorkplaceStandardListLayout</code>).
+            endre rekkefølge; lagre som <strong className="text-neutral-300">lokalt</strong> eller i <strong className="text-neutral-300">database</strong>{' '}
+            (plattformadmin). Publiserte stack-maler kan brukes i arbeidsflaten (f.eks. Internkontroll → Oversikt ved navnematch).
           </p>
         </div>
         <PlatformLayoutComposerDemo previewSurface={surface} embedInDarkChrome={false} />
