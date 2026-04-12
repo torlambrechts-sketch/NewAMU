@@ -49,11 +49,17 @@ import { Table1Shell } from '../components/layout/Table1Shell'
 import { Table1Toolbar } from '../components/layout/Table1Toolbar'
 import { RosWorkplaceLayoutRiskMatrixSection, RosWorkplaceLayoutRiskTableSection } from './platform/rosRiskLayoutBlocks'
 import { InternalControlTabShell } from './internalControl/InternalControlTabShell'
+import { RosAssessmentsList2 } from './internalControl/RosAssessmentsList2'
 import {
   resolveIcOverviewComposerLayout,
   resolveIcOverviewComposerLayoutAsync,
   type IcOverviewComposerResolved,
 } from '../lib/icOverviewLayoutFromPreset'
+import {
+  resolveRosTabLayout,
+  resolveRosTabLayoutAsync,
+  type RosTabLayoutResolved,
+} from '../lib/rosLayoutFromPreset'
 import { renderLayoutComposerBlock } from './platform/PlatformLayoutComposerPage'
 
 const tabs = [
@@ -254,15 +260,6 @@ export function InternalControlModule() {
     const drafts = list.filter((r) => !r.locked).length
     return { total: list.length, locked, drafts }
   }, [ic.rosAssessments])
-
-  const rosAssessmentsFiltered = useMemo(() => {
-    const q = rosListSearch.trim().toLowerCase()
-    if (!q) return ic.rosAssessments
-    return ic.rosAssessments.filter((r) => {
-      const hay = `${r.title} ${r.department ?? ''} ${r.assessor ?? ''}`.toLowerCase()
-      return hay.includes(q)
-    })
-  }, [ic.rosAssessments, rosListSearch])
 
   const annualStats = useMemo(() => {
     const list = ic.annualReviews
@@ -627,6 +624,94 @@ export function InternalControlModule() {
     }
   }, [tab, supabase])
 
+  const [rosTabLayout, setRosTabLayout] = useState<RosTabLayoutResolved>(() => resolveRosTabLayout())
+
+  useEffect(() => {
+    if (tab !== 'ros') return
+    let cancelled = false
+    void (async () => {
+      const r = await resolveRosTabLayoutAsync(supabase ?? undefined)
+      if (!cancelled) setRosTabLayout(r)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [tab, supabase])
+
+  const rosLayoutNodes = useMemo(() => {
+    const order = rosTabLayout.order
+    const nodes: ReactNode[] = []
+    let i = 0
+    while (i < order.length) {
+      const id = order[i]
+      const next = order[i + 1]
+      if (id === 'rosRiskMatrix' && next === 'rosRiskTable') {
+        nodes.push(
+          <div key={`ros-split-${i}`} className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+            <div className="min-w-0">
+              <RosWorkplaceLayoutRiskMatrixSection onNewRisk={openNewRosPanel} />
+            </div>
+            <div className="min-w-0">
+              <RosWorkplaceLayoutRiskTableSection assessments={ic.rosAssessments} />
+            </div>
+          </div>,
+        )
+        i += 2
+        continue
+      }
+      if (id === 'scoreStatRow') {
+        nodes.push(
+          <div key="scoreStatRow">
+            <LayoutScoreStatRow
+              items={[
+                { big: String(rosStats.total), title: 'Totalt', sub: 'ROS-vurderinger' },
+                { big: String(rosStats.drafts), title: 'Utkast', sub: 'Ikke signert / låst' },
+                { big: String(rosStats.locked), title: 'Låst', sub: 'Signert leder + VO' },
+              ]}
+            />
+          </div>,
+        )
+      } else if (id === 'list2') {
+        nodes.push(
+          <RosAssessmentsList2
+            key="list2"
+            assessments={ic.rosAssessments}
+            search={rosListSearch}
+            onSearchChange={setRosListSearch}
+            onNewRos={openNewRosPanel}
+            onOpenRow={openRosViewPanel}
+          />,
+        )
+      } else if (id === 'rosRiskMatrix') {
+        nodes.push(
+          <div key="rosRiskMatrix" className="min-w-0">
+            <RosWorkplaceLayoutRiskMatrixSection onNewRisk={openNewRosPanel} />
+          </div>,
+        )
+      } else if (id === 'rosRiskTable') {
+        nodes.push(
+          <div key="rosRiskTable" className="min-w-0">
+            <RosWorkplaceLayoutRiskTableSection assessments={ic.rosAssessments} />
+          </div>,
+        )
+      } else {
+        const demo = renderLayoutComposerBlock(id)
+        if (demo) nodes.push(<div key={id}>{demo}</div>)
+      }
+      i += 1
+    }
+    return nodes
+  }, [
+    rosTabLayout.order,
+    rosStats.total,
+    rosStats.drafts,
+    rosStats.locked,
+    ic.rosAssessments,
+    rosListSearch,
+    openNewRosPanel,
+    openRosViewPanel,
+  ])
+
   return (
     <>
       {tab === 'overview' ? (
@@ -793,119 +878,16 @@ export function InternalControlModule() {
             <p className="mb-4 text-sm text-neutral-500">Laster internkontrolldata…</p>
           )}
 
-          {/** Layout-ROS: KPI → fullbredde ROS-tabell → rad 50/50 (varmekart | risiko-oversikt) */}
+          {/** Layout-ROS: rekkefølge fra publisert stack-mal «Layout_ROS» (DB) eller lokalt oppsett; standard KPI → List 2 → matrise | risiko-tabell */}
           <div className="mt-2 min-w-0 space-y-6">
-              <div>
-                <LayoutScoreStatRow
-                  items={[
-                    { big: String(rosStats.total), title: 'Totalt', sub: 'ROS-vurderinger' },
-                    { big: String(rosStats.drafts), title: 'Utkast', sub: 'Ikke signert / låst' },
-                    { big: String(rosStats.locked), title: 'Låst', sub: 'Signert leder + VO' },
-                  ]}
-                />
-              </div>
-
-              <section aria-label="ROS-vurderinger">
-                <Table1Shell
-              variant="pinpoint"
-              toolbar={
-                <Table1Toolbar
-                  searchSlot={
-                    <div className="relative min-w-[200px] flex-1">
-                      <label htmlFor="ros-list-search" className="sr-only">
-                        Søk i ROS-vurderinger
-                      </label>
-                      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-                      <input
-                        id="ros-list-search"
-                        type="search"
-                        value={rosListSearch}
-                        onChange={(e) => setRosListSearch(e.target.value)}
-                        placeholder="Søk i tittel, avdeling, vurderer …"
-                        className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/25"
-                      />
-                    </div>
-                  }
-                  segmentSlot={<span className="sr-only">Verktøylinje</span>}
-                  endSlot={
-                    <button
-                      type="button"
-                      onClick={openNewRosPanel}
-                      className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#1a3d32] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#142e26]"
-                    >
-                      <Plus className="size-4 shrink-0" aria-hidden />
-                      Ny ROS
-                    </button>
-                  }
-                />
-              }
-            >
-              <div className="border-b border-neutral-100 px-4 py-3 md:px-5">
-                <h2 className="font-semibold text-neutral-900">ROS-vurderinger</h2>
-                <p className="mt-1 text-xs text-neutral-500">
-                  Klikk på en rad for å åpne analysen i sidevinduet. «Ny ROS» oppretter nytt dokument i samme panel.
-                </p>
-              </div>
-              <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-                <thead>
-                  <tr className={theadRow}>
-                    <th className={`${tableCell} font-medium`}>Tittel</th>
-                    <th className={`${tableCell} font-medium`}>Avdeling</th>
-                    <th className={`${tableCell} font-medium`}>Status</th>
-                    <th className={`${tableCell} font-medium`}>Dato</th>
-                    <th className={`${tableCell} font-medium`}>Rader</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rosAssessmentsFiltered.map((r, ri) => (
-                    <tr
-                      key={r.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => openRosViewPanel(r.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          openRosViewPanel(r.id)
-                        }
-                      }}
-                      className={`${table1BodyRowClass(layout, ri)} cursor-pointer transition hover:bg-[#f4f1ea]/80`}
-                    >
-                      <td className={`${tableCell} font-medium text-neutral-900`}>{r.title}</td>
-                      <td className={tableCell}>{r.department || '—'}</td>
-                      <td className={tableCell}>
-                        {r.locked ? (
-                          <span className="rounded-none border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
-                            Låst
-                          </span>
-                        ) : (
-                          <span className="rounded-none border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900">
-                            Utkast
-                          </span>
-                        )}
-                      </td>
-                      <td className={`${tableCell} text-neutral-600`}>{r.assessedAt}</td>
-                      <td className={tableCell}>{r.rows.length}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {rosAssessmentsFiltered.length === 0 ? (
-                <p className="px-4 py-10 text-center text-sm text-neutral-500">
-                  {rosListSearch.trim() ? 'Ingen ROS matcher søket.' : 'Ingen ROS-vurderinger ennå.'}
-                </p>
-              ) : null}
-                </Table1Shell>
-              </section>
-
-              <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-                <div className="min-w-0">
-                  <RosWorkplaceLayoutRiskMatrixSection onNewRisk={openNewRosPanel} />
-                </div>
-                <div className="min-w-0">
-                  <RosWorkplaceLayoutRiskTableSection assessments={ic.rosAssessments} />
-                </div>
-              </div>
+            {rosTabLayout.presetNameMatched ? (
+              <p className="text-xs text-neutral-500">
+                Oppsett fra plattform-admin:{' '}
+                <span className="font-medium text-neutral-700">«{rosTabLayout.presetNameMatched}»</span>
+                {supabaseConfigured ? ' (synket ved åpning av fanen).' : ' (lagret i denne nettleseren).'}
+              </p>
+            ) : null}
+            {rosLayoutNodes}
           </div>
 
           {rosPanelOpen ? (
