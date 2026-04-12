@@ -33,6 +33,8 @@ import {
   type AgendaItemTemplate,
   type AgendaListItem,
 } from '../../components/layout/WorkplaceEditableNoticeList'
+import { WorkplaceEventsDayCard } from '../../components/layout/WorkplaceEventsDayCard'
+import { WorkplaceTodosCard } from '../../components/layout/WorkplaceTodosCard'
 import {
   loadComposerPresets,
   loadComposerSession,
@@ -777,6 +779,139 @@ const DEMO_AGENDA_TEMPLATES: AgendaItemTemplate[] = [
   { id: 'round', label: 'Eventuelt', title: 'Eventuelt', subtitle: 'Etter behov' },
 ]
 
+function formatComposerDayLabel(base: Date, dayOffset: number) {
+  const d = new Date(base)
+  d.setDate(d.getDate() + dayOffset)
+  const s = d.toLocaleDateString('nb-NO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+/** Dagens hendelser: oppgaver, samsvar/frister, faner — som dashboard-kalender i referanse. */
+function ComposableWorkplaceEventsDayBlock() {
+  const [dayOffset, setDayOffset] = useState(0)
+  const base = useMemo(() => new Date(2026, 3, 29), [])
+  const dateLabel = formatComposerDayLabel(base, dayOffset)
+
+  const eventsItems = useMemo(
+    () => [
+      {
+        id: 'e1',
+        category: 'Oppgave',
+        title: 'Signer årshjul — 2. kvartal',
+        startLabel: '09:00',
+        endLabel: '09:30',
+        barClassName: 'bg-sky-500',
+      },
+      {
+        id: 'e2',
+        category: 'Samsvar',
+        title: 'Revisjon internkontroll — frist innlevering',
+        startLabel: '14:00',
+        barClassName: 'bg-amber-500',
+      },
+      {
+        id: 'e3',
+        category: 'Møte',
+        title: 'AMU — halvårlig gjennomgang',
+        startLabel: '15:00',
+        endLabel: '16:30',
+        barClassName: 'bg-emerald-600',
+      },
+    ],
+    [],
+  )
+
+  const complianceItems = useMemo(
+    () => [
+      {
+        id: 'c1',
+        category: 'Samsvar',
+        title: 'Varslingsrutine — årlig gjennomgang',
+        startLabel: 'Forfaller',
+        endLabel: '30. apr.',
+        barClassName: 'bg-violet-500',
+      },
+      {
+        id: 'c2',
+        category: 'Oppgave',
+        title: 'Oppdater risikovurdering lager',
+        startLabel: 'Frist',
+        endLabel: '2 d',
+        barClassName: 'bg-orange-500',
+      },
+    ],
+    [],
+  )
+
+  return (
+    <div className="space-y-2">
+      <WorkplaceEventsDayCard
+        dateLabel={dateLabel}
+        onPrevDay={() => setDayOffset((x) => x - 1)}
+        onNextDay={() => setDayOffset((x) => x + 1)}
+        tabs={[
+          { id: 'events', label: 'Hendelser', count: eventsItems.length, items: eventsItems },
+          { id: 'compliance', label: 'Frister / samsvar', count: complianceItems.length, items: complianceItems },
+        ]}
+        defaultTabId="events"
+        footer={{
+          label: '3 oppgaver med frist denne uken',
+          avatars: [
+            { id: 'a1', initials: 'AK' },
+            { id: 'a2', initials: 'ML' },
+            { id: 'a3', initials: 'SO' },
+          ],
+          to: '/tasks',
+        }}
+      />
+      <p className="text-xs text-neutral-500">
+        Koble til ekte data: filtrer <code className="rounded bg-neutral-100 px-1 text-[11px]">Task</code> og
+        samsvar/datoer på valgt dag; bruk <code className="rounded bg-neutral-100 px-1 text-[11px]">datePickerSlot</code> for
+        kalender.
+      </p>
+    </div>
+  )
+}
+
+/** Oppgaveliste med bokser og frist til høyre — lenk til /tasks. */
+function ComposableWorkplaceTodosBlock() {
+  return (
+    <div className="space-y-2">
+      <WorkplaceTodosCard
+        title="Oppgaver og frister"
+        items={[
+          {
+            id: 't1',
+            title: 'Fullfør vernerunde Q2',
+            description: 'Gå gjennom sjekkliste og lukk åpne avvik i HMS.',
+            dueLabel: 'I dag',
+            href: '/tasks',
+          },
+          {
+            id: 't2',
+            title: 'Revisjon dokumentert samsvar — varsling',
+            description: 'Årlig kontroll av rutine og kontaktpunkter.',
+            dueLabel: '3 d',
+            href: '/compliance',
+          },
+          {
+            id: 't3',
+            title: 'Oppdater stillingsinstruks verneombud',
+            description: 'Koordiner med HR etter valg.',
+            dueLabel: '12. mai',
+            href: '/tasks',
+          },
+        ]}
+      />
+      <p className="text-xs text-neutral-500">
+        Erstatt <code className="rounded bg-neutral-100 px-1 text-[11px]">items</code> med åpne oppgaver; bruk{' '}
+        <code className="rounded bg-neutral-100 px-1 text-[11px]">addTaskSlot</code> med{' '}
+        <code className="rounded bg-neutral-100 px-1 text-[11px]">AddTaskLink</code> for kontekst.
+      </p>
+    </div>
+  )
+}
+
 /** Redigerbar liste (varsel-stil): dra for rekkefølge, mal for nye punkter — egnet som agenda-bygger. */
 function ComposableAgendaBuilderListBlock() {
   const [agendaItems, setAgendaItems] = useState<AgendaListItem[]>(() => [
@@ -1318,6 +1453,16 @@ const BLOCKS = [
     hint: 'Varsel-stil: dra rekkefølge, rediger/slett, legg til tomt punkt eller fra mal (`templates`).',
   },
   {
+    id: 'workplaceEventsDay',
+    label: 'Boks — dagens hendelser (oppgaver / frister)',
+    hint: 'Dato + faner, tidskolonne og farget stripe; for oppgaver, møter og samsvar på valgt dag.',
+  },
+  {
+    id: 'workplaceTodos',
+    label: 'Boks — oppgaver (to-do med frist)',
+    hint: 'Innbokser med tittel, beskrivelse og frist; Ny oppgave → /tasks.',
+  },
+  {
     id: 'list2',
     label: 'List 2 — kandidat/ordre-tabell',
     hint: 'Søk, Filters + status, grå header-rad, piller (action / checks), paginering.',
@@ -1463,6 +1608,10 @@ function renderComposerBlock(id: BlockId): ReactNode {
       return <ComposableScoreStatRowBlock />
     case 'agendaBuilderList':
       return <ComposableAgendaBuilderListBlock />
+    case 'workplaceEventsDay':
+      return <ComposableWorkplaceEventsDayBlock />
+    case 'workplaceTodos':
+      return <ComposableWorkplaceTodosBlock />
     case 'list2':
       return <ComposableList2Block />
     case 'jobBoxGrid':
