@@ -34,6 +34,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
+import { ReferenceDetailPanePlayground } from '../../components/platform/ReferenceDetailPaneDemo'
 import { VisualTemplateEditor } from '../../components/platform/VisualTemplateEditor'
 
 const CREAM = '#F9F7F2'
@@ -270,6 +271,20 @@ function TemplateLibraryBlock() {
               </div>
             </WhiteCard>
           ))}
+        </div>
+
+        <div className="mt-10 max-w-4xl border-t border-neutral-200/80 pt-8">
+          <SerifHeading className="text-lg">Detaljpaneel (komponent)</SerifHeading>
+          <p className="mt-2 text-sm text-neutral-600">
+            Gjenbrukbart mønster fra Kandidatdetalj: sidenavigasjon + hovedflate med felt-rader. Samme blokk finnes under{' '}
+            <Link to="/platform-admin/layout#composer" className="font-medium text-[#1a3d32] underline-offset-2 hover:underline">
+              Layout → komponer
+            </Link>
+            .
+          </p>
+          <div className="mt-5">
+            <ReferenceDetailPanePlayground />
+          </div>
         </div>
       </div>
     </div>
@@ -1826,7 +1841,11 @@ function SimpleDashboardBlock() {
 }
 
 const SECTIONS = [
-  { id: 'library', label: 'Malbibliotek', desc: 'Filter sidebar + 4-kolonne kort (referanse: Template Library).' },
+  {
+    id: 'library',
+    label: 'Malbibliotek',
+    desc: 'Filter sidebar + 4-kolonne kort (referanse: Template Library), pluss detaljpaneel-komponent nederst.',
+  },
   { id: 'jobs', label: 'Stillinger (Jobs)', desc: 'Topp-linje, mørk fanebar Active/Archived, søk, jobbkort med kandidatlinje (uten venstremeny).' },
   {
     id: 'scorecard',
