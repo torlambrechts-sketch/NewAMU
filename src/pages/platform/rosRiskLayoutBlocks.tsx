@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronDown, Download, Eye, Filter, LayoutGrid, Plus, Settings, TrendingUp } from 'lucide-react'
+import { ChevronDown, Download, Eye, Filter, LayoutGrid, Plus, Settings } from 'lucide-react'
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
 
 const FOREST = '#1a3d32'
@@ -101,7 +101,6 @@ function RosMatrixShell({ children, caption }: { children: ReactNode; caption: s
 /** 5×5 ROS-varmekart: enkelt risiko (nummer) eller gruppert (kategori) med hover. */
 export function ComposableRosRiskMatrixBlock() {
   const [mode, setMode] = useState<MatrixMode>('matrix')
-  const [view, setView] = useState<'heatmap' | 'trend' | 'distribution'>('heatmap')
 
   const byCellIndividual = useMemo(() => {
     const m: Record<string, IndividualRisk[]> = {}
@@ -124,8 +123,8 @@ export function ComposableRosRiskMatrixBlock() {
   }, [])
 
   return (
-    <RosMatrixShell caption="ROS-varmekart (5×5): bytt mellom matrise og gruppert visning; hover på badge/kategori for detaljer. Koble til ekte rader fra ROS-analyser.">
-      <div className="border-b border-neutral-100 px-4 py-3 md:px-5">
+    <RosMatrixShell caption="ROS-varmekart (5×5): første rad = modus + handlinger; bytt mellom matrise og gruppert visning; hover på badge/kategori.">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3 md:px-5">
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -148,79 +147,34 @@ export function ComposableRosRiskMatrixBlock() {
             Gruppert analyse
           </button>
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 border-b border-neutral-100 bg-neutral-50/50 px-4 py-2.5 md:px-5">
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-800 shadow-sm"
-        >
-          <CalendarDays className="size-3.5 text-neutral-500" aria-hidden />
-          5. apr. 2026
-          <ChevronDown className="size-3.5 text-neutral-400" aria-hidden />
-        </button>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-800 shadow-sm"
-        >
-          Innherent risiko
-          <ChevronDown className="size-3.5 text-neutral-400" aria-hidden />
-        </button>
-        <button type="button" className="rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-600 shadow-sm hover:bg-neutral-50" aria-label="Innstillinger">
-          <Settings className="size-4" />
-        </button>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-800 shadow-sm"
-        >
-          <Download className="size-3.5" aria-hidden />
-          Eksporter
-        </button>
-        <button
-          type="button"
-          className="ml-auto rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
-          style={{ backgroundColor: FOREST }}
-        >
-          <Plus className="mr-1 inline size-3.5 align-text-bottom" aria-hidden />
-          Ny risiko
-        </button>
-      </div>
-
-      <div className="flex justify-center border-b border-neutral-100 px-4 py-3">
-        <div className="inline-flex rounded-full border border-neutral-200 bg-neutral-100/80 p-0.5">
-          {(
-            [
-              { id: 'heatmap' as const, label: 'Varmekart' },
-              { id: 'trend' as const, label: 'Trend' },
-              { id: 'distribution' as const, label: 'Fordeling' },
-            ] as const
-          ).map((v) => (
-            <button
-              key={v.id}
-              type="button"
-              onClick={() => setView(v.id)}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-                view === v.id ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'
-              }`}
-            >
-              {v.id === 'trend' ? <TrendingUp className="mr-1 inline size-3 align-text-bottom opacity-70" aria-hidden /> : null}
-              {v.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className="rounded-md border border-neutral-200 bg-white p-2 text-neutral-600 shadow-sm hover:bg-neutral-50" aria-label="Innstillinger">
+            <Settings className="size-4" />
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-800 shadow-sm"
+          >
+            <Download className="size-3.5" aria-hidden />
+            Eksporter
+          </button>
+          <button
+            type="button"
+            className="rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+            style={{ backgroundColor: FOREST }}
+          >
+            <Plus className="mr-1 inline size-3.5 align-text-bottom" aria-hidden />
+            Ny risiko
+          </button>
         </div>
       </div>
 
       <div className="p-4 md:p-6" style={{ backgroundColor: '#F9F7F2' }}>
-        {view !== 'heatmap' ? (
-          <p className="rounded-lg border border-dashed border-neutral-300 bg-white/60 px-4 py-8 text-center text-sm text-neutral-500">
-            Demo: {view === 'trend' ? 'Trend' : 'Fordeling'} — koble til grafer ved integrasjon i ROS-modulen.
+        <div className="mx-auto max-w-[720px]">
+          <p className="mb-4 text-center text-sm font-semibold text-neutral-800">
+            {mode === 'matrix' ? 'Risikomatrise' : 'Gruppert risikomatrise'}
           </p>
-        ) : (
-          <div className="mx-auto max-w-[720px]">
-            <p className="mb-4 text-center text-sm font-semibold text-neutral-800">
-              {mode === 'matrix' ? 'Risikomatrise' : 'Gruppert risikomatrise'}
-            </p>
-            <div className="grid grid-cols-[auto_repeat(5,minmax(0,1fr))] gap-1 text-[10px] font-bold uppercase tracking-wide text-neutral-500 sm:text-xs">
+          <div className="grid grid-cols-[auto_repeat(5,minmax(0,1fr))] gap-1 text-[10px] font-bold uppercase tracking-wide text-neutral-500 sm:text-xs">
               <div />
               {LIKELIHOOD_LABELS.map((lab) => (
                 <div key={lab} className="px-1 pb-2 text-center leading-tight text-neutral-600">
@@ -317,12 +271,11 @@ export function ComposableRosRiskMatrixBlock() {
                   })}
                 </Fragment>
               ))}
-            </div>
-            <p className="mt-3 text-center text-[10px] text-neutral-500">
-              Y-aksen: konsekvens (IMPACT) · X-aksen: sannsynlighet (LIKELIHOOD)
-            </p>
           </div>
-        )}
+          <p className="mt-3 text-center text-[10px] text-neutral-500">
+            Y-aksen: konsekvens (IMPACT) · X-aksen: sannsynlighet (LIKELIHOOD)
+          </p>
+        </div>
       </div>
     </RosMatrixShell>
   )
