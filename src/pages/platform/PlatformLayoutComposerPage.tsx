@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
+import { WorkplaceNoticePanel } from '../../components/layout/WorkplaceNoticePanel'
 import {
   WorkplaceEditableNoticeList,
   type AgendaItemTemplate,
@@ -159,6 +160,68 @@ function DemoScoreBar({ value, max = 5 }: { value: number; max?: number }) {
         <div className="h-full rounded-full bg-neutral-700" style={{ width: `${pct}%` }} />
       </div>
       <span className="w-10 text-right text-sm tabular-nums text-neutral-800">{value.toFixed(2)}</span>
+    </div>
+  )
+}
+
+/** Informasjon — varsel-kortliste (samme skall som Ref. notifications). */
+function ComposableWorkplaceNoticeInfoBlock() {
+  return (
+    <div className="space-y-2">
+      <WorkplaceNoticePanel
+        variant="info"
+        title="Informasjon"
+        badge={2}
+        items={[
+          {
+            id: '1',
+            title: 'Ny versjon av internkontroll er tilgjengelig. Se hva som er endret i hjelpesenteret.',
+            subtitle: 'I dag',
+            action: (
+              <button type="button" className="text-neutral-400 hover:text-neutral-700" aria-label="Mer">
+                <MoreHorizontal className="size-4" />
+              </button>
+            ),
+          },
+          {
+            id: '2',
+            title: 'Påminnelse: godkjenn årshjul-aktiviteter før frist 30. april.',
+            subtitle: 'For 3 dager siden',
+          },
+        ]}
+      />
+      <p className="text-xs text-neutral-500">
+        Bruk <code className="rounded bg-neutral-100 px-1 text-[11px]">WorkplaceNoticePanel</code> med{' '}
+        <code className="rounded bg-neutral-100 px-1 text-[11px]">variant=&quot;info&quot;</code> i arbeidsflaten.
+      </p>
+    </div>
+  )
+}
+
+/** Advarsel — samme mønster som informasjon, amber tone. */
+function ComposableWorkplaceNoticeWarningBlock() {
+  return (
+    <div className="space-y-2">
+      <WorkplaceNoticePanel
+        variant="warning"
+        title="Advarsler"
+        badge={1}
+        items={[
+          {
+            id: '1',
+            title: 'ROS «Løfteanordning» har forfalt gjennomgang. Oppdater eller lukk tiltak.',
+            subtitle: 'I går',
+            action: (
+              <button type="button" className="text-neutral-400 hover:text-neutral-700" aria-label="Mer">
+                <MoreHorizontal className="size-4" />
+              </button>
+            ),
+          },
+        ]}
+      />
+      <p className="text-xs text-neutral-500">
+        <code className="rounded bg-neutral-100 px-1 text-[11px]">variant=&quot;warning&quot;</code> for viktige meldinger og samsvar.
+      </p>
     </div>
   )
 }
@@ -1443,6 +1506,16 @@ const BLOCKS = [
     hint: 'Stort tall, tittel, grå undertekst (krem bakgrunn) — som scorecard-rad mellom overskrift og liste.',
   },
   {
+    id: 'noticeInfo',
+    label: 'Boks — informasjon (liste)',
+    hint: 'Varsel-stil: hvit kort, overskrift, badge, rader med info-ikon — som uleste varsler.',
+  },
+  {
+    id: 'noticeWarning',
+    label: 'Boks — advarsel (liste)',
+    hint: 'Samme som informasjonsboksen med varsel-ikon og amber tone.',
+  },
+  {
     id: 'agendaBuilderList',
     label: 'Liste — agenda (rediger, sorter, mal)',
     hint: 'Varsel-stil: dra rekkefølge, rediger/slett, legg til tomt punkt eller fra mal (`templates`).',
@@ -1601,6 +1674,10 @@ function renderComposerBlock(id: BlockId): ReactNode {
       return <ComposableTableHeadingToolbarBlock />
     case 'scoreStatRow':
       return <ComposableScoreStatRowBlock />
+    case 'noticeInfo':
+      return <ComposableWorkplaceNoticeInfoBlock />
+    case 'noticeWarning':
+      return <ComposableWorkplaceNoticeWarningBlock />
     case 'agendaBuilderList':
       return <ComposableAgendaBuilderListBlock />
     case 'workplaceEventsDay':
