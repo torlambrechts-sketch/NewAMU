@@ -87,19 +87,25 @@ function MatrixTooltip({ children, content }: { children: ReactNode; content: Re
   )
 }
 
-function RosMatrixShell({ children, caption }: { children: ReactNode; caption: string }) {
+function RosMatrixShell({ children, caption }: { children: ReactNode; caption?: string }) {
   return (
     <div className="space-y-2">
       <div className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white shadow-sm" style={BOX_SHADOW}>
         {children}
       </div>
-      <p className="text-xs text-neutral-500">{caption}</p>
+      {caption ? <p className="text-xs text-neutral-500">{caption}</p> : null}
     </div>
   )
 }
 
-/** 5×5 ROS-varmekart: enkelt risiko (nummer) eller gruppert (kategori) med hover. */
-export function ComposableRosRiskMatrixBlock() {
+/** Layout-ROS: 5×5-varmekart (samme som layout-komponent i plattform-admin). */
+export function RosWorkplaceLayoutRiskMatrixSection({
+  onNewRisk,
+  caption,
+}: {
+  onNewRisk?: () => void
+  caption?: string
+}) {
   const [mode, setMode] = useState<MatrixMode>('matrix')
 
   const byCellIndividual = useMemo(() => {
@@ -123,7 +129,7 @@ export function ComposableRosRiskMatrixBlock() {
   }, [])
 
   return (
-    <RosMatrixShell caption="ROS-varmekart (5×5): første rad = modus + Ny risiko; bytt mellom matrise og gruppert visning; hover på badge/kategori.">
+    <RosMatrixShell caption={caption}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3 md:px-5">
         <div className="flex flex-wrap gap-2">
           <button
@@ -149,8 +155,10 @@ export function ComposableRosRiskMatrixBlock() {
         </div>
         <button
           type="button"
-          className="rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+          onClick={onNewRisk}
+          className="rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white disabled:cursor-not-allowed disabled:opacity-50"
           style={{ backgroundColor: FOREST }}
+          disabled={!onNewRisk}
         >
           <Plus className="mr-1 inline size-3.5 align-text-bottom" aria-hidden />
           Ny risiko
@@ -269,6 +277,13 @@ export function ComposableRosRiskMatrixBlock() {
   )
 }
 
+/** 5×5 ROS-varmekart: enkelt risiko (nummer) eller gruppert (kategori) med hover. */
+export function ComposableRosRiskMatrixBlock() {
+  return (
+    <RosWorkplaceLayoutRiskMatrixSection caption="ROS-varmekart (5×5): første rad = modus + Ny risiko; bytt mellom matrise og gruppert visning; hover på badge/kategori." />
+  )
+}
+
 type TableRow = {
   id: string
   category: string
@@ -289,8 +304,8 @@ const DEMO_TABLE_ROWS: TableRow[] = [
   { id: '8', category: 'Operasjonelt', rosTitle: 'ROS Produksjon 2025', riskTitle: 'Løfteanordning', score: 16, level: 'Høy' },
 ]
 
-/** Tabell: alle risikoer på tvers av ROS-analyser (demo). */
-export function ComposableRosRiskTableBlock() {
+/** Tabell: alle risikoer på tvers av ROS-analyser (layout-ROS / demo). */
+export function RosWorkplaceLayoutRiskTableSection({ caption }: { caption?: string }) {
   const [sortDesc, setSortDesc] = useState(true)
   const [colsOpen, setColsOpen] = useState(false)
   const [showRos, setShowRos] = useState(true)
@@ -302,7 +317,7 @@ export function ComposableRosRiskTableBlock() {
   }, [sortDesc])
 
   return (
-    <RosMatrixShell caption="ROS risiko-oversikt: aggreger risikoer fra flere analyser; sortering og valgfrie kolonner (demo).">
+    <RosMatrixShell caption={caption}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3 md:px-5">
         <SerifHeadingSmall>Gruppert risiko-oversikt</SerifHeadingSmall>
         <div className="relative">
@@ -368,6 +383,12 @@ export function ComposableRosRiskTableBlock() {
         </button>
       </div>
     </RosMatrixShell>
+  )
+}
+
+export function ComposableRosRiskTableBlock() {
+  return (
+    <RosWorkplaceLayoutRiskTableSection caption="ROS risiko-oversikt: aggreger risikoer fra flere analyser; sortering og valgfrie kolonner (demo)." />
   )
 }
 

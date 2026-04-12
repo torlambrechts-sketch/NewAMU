@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { LegalDisclaimer } from '../components/internalControl/LegalDisclaimer'
-import { ROS_TEMPLATE_HELP, RISK_COLOUR_CLASSES, computeRiskScore, riskColour } from '../data/rosTemplate'
+import { RISK_COLOUR_CLASSES, computeRiskScore, riskColour } from '../data/rosTemplate'
 import { useInternalControl } from '../hooks/useInternalControl'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import type {
@@ -47,7 +47,7 @@ import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { LayoutScoreStatRow } from '../components/layout/LayoutScoreStatRow'
 import { Table1Shell } from '../components/layout/Table1Shell'
 import { Table1Toolbar } from '../components/layout/Table1Toolbar'
-import { WorkplaceNoticePanel } from '../components/layout/WorkplaceNoticePanel'
+import { RosWorkplaceLayoutRiskMatrixSection, RosWorkplaceLayoutRiskTableSection } from './platform/rosRiskLayoutBlocks'
 import { InternalControlTabShell } from './internalControl/InternalControlTabShell'
 import {
   resolveIcOverviewComposerLayout,
@@ -793,9 +793,8 @@ export function InternalControlModule() {
             <p className="mb-4 text-sm text-neutral-500">Laster internkontrolldata…</p>
           )}
 
-          {/** Head–List–Warning: head + liste venstre, juridisk varsel som infoboks høyre (layout-mal) */}
-          <div className="mt-2 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] lg:items-start">
-            <div className="min-w-0 space-y-6">
+          {/** Layout-ROS: KPI + varmekart + risiko-oversikt + liste (samme som layout-komponenter i plattform-admin) */}
+          <div className="mt-2 min-w-0 space-y-6">
               <div>
                 <LayoutScoreStatRow
                   items={[
@@ -805,6 +804,9 @@ export function InternalControlModule() {
                   ]}
                 />
               </div>
+
+              <RosWorkplaceLayoutRiskMatrixSection onNewRisk={openNewRosPanel} />
+              <RosWorkplaceLayoutRiskTableSection />
 
               <section aria-label="ROS-vurderinger">
                 <Table1Shell
@@ -898,40 +900,6 @@ export function InternalControlModule() {
               ) : null}
                 </Table1Shell>
               </section>
-            </div>
-
-            <aside className="min-w-0 lg:sticky lg:top-4 lg:self-start">
-              <WorkplaceNoticePanel
-                variant="warning"
-                title={ROS_TEMPLATE_HELP.title}
-                bodySlot={
-                  <div className="space-y-3 text-neutral-800">
-                    <p>{ROS_TEMPLATE_HELP.intro}</p>
-                    <ul className="list-inside list-disc space-y-1 text-xs text-neutral-600">
-                      <li>{ROS_TEMPLATE_HELP.severityScale}</li>
-                      <li>{ROS_TEMPLATE_HELP.likelihoodScale}</li>
-                      <li>
-                        Ved <strong>rød restrisiko (15–25)</strong> kreves utfylt «Strakstiltak / eskalering» før signering.
-                      </li>
-                      <li>Når ROS låses, opprettes oppgaver på tavlen for rader med tiltak, ansvarlig og frist.</li>
-                    </ul>
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {(['green', 'yellow', 'red'] as const).map((c) => {
-                        const cls = RISK_COLOUR_CLASSES[c]
-                        return (
-                          <span
-                            key={c}
-                            className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium ${cls.bg} ${cls.text} ${cls.border}`}
-                          >
-                            {cls.label} {c === 'green' ? '(1–6)' : c === 'yellow' ? '(7–12)' : '(15–25)'}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  </div>
-                }
-              />
-            </aside>
           </div>
 
           {rosPanelOpen ? (
