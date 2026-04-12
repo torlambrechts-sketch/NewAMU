@@ -15,6 +15,9 @@ import { WorkflowModulePage } from './pages/WorkflowModulePage'
 import { WorkplaceReportingPage } from './pages/WorkplaceReportingPage'
 import { WorkplaceDashboardPage } from './pages/WorkplaceDashboardPage'
 import { WorkplaceIncidentsPage } from './pages/WorkplaceIncidentsPage'
+import { WorkplaceAnonymousAmlPage } from './pages/WorkplaceAnonymousAmlPage'
+import { WorkplaceAnonymousAmlSettingsPage } from './pages/WorkplaceAnonymousAmlSettingsPage'
+import { PublicAnonymousAmlPage } from './pages/PublicAnonymousAmlPage'
 import { HrComplianceHub } from './pages/hr/HrComplianceHub'
 import { HrDiscussionPage } from './pages/hr/HrDiscussionPage'
 import { HrConsultationPage } from './pages/hr/HrConsultationPage'
@@ -90,6 +93,7 @@ function App() {
             <Route path="/invite/:token" element={<InviteAcceptPage />} />
             <Route path="/varsle/status" element={<WhistleStatusPage />} />
             <Route path="/varsle/:slug" element={<PublicWhistlePage />} />
+            <Route path="/anonym-aml/:slug" element={<PublicAnonymousAmlPage />} />
             {/* Landing page — root URL, public */}
             <Route index element={<LandingPage />} />
             <Route path="/landing" element={<Navigate to="/" replace />} />
@@ -126,6 +130,8 @@ function App() {
                   <Route path="workplace-reporting" element={<WorkplaceReportingPage />} />
                   <Route path="workplace-reporting/dashboard" element={<WorkplaceDashboardPage />} />
                   <Route path="workplace-reporting/incidents" element={<WorkplaceIncidentsPage />} />
+                  <Route path="workplace-reporting/anonymous-aml/settings" element={<WorkplaceAnonymousAmlSettingsPage />} />
+                  <Route path="workplace-reporting/anonymous-aml" element={<WorkplaceAnonymousAmlPage />} />
                   <Route path="aarshjul" element={<AarshjulPage />} />
                   <Route path="action-board" element={<ActionBoardPage />} />
                   <Route path="council" element={<CouncilModule />} />

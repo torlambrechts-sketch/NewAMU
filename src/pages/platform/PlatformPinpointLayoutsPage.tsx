@@ -1403,16 +1403,6 @@ function BackgroundChecksPageBlock() {
     <div className="space-y-5">
       <div>
         <SerifTitle className="text-2xl md:text-3xl">Pinpoint Background Checks</SerifTitle>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-neutral-600">
-          <span>powered by</span>
-          <span className="font-semibold italic tracking-tight text-neutral-800">Certn</span>
-          <span
-            className="rounded border border-neutral-300 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-neutral-700"
-            aria-hidden
-          >
-            certn
-          </span>
-        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-x-1 gap-y-2 border-b border-neutral-200 pb-0">

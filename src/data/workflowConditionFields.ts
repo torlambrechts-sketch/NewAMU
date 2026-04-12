@@ -26,12 +26,14 @@ export const WORKFLOW_ARRAY_PATHS: Record<string, { value: string; label: string
   ],
   org_health: [
     { value: 'surveys', label: 'Undersøkelser' },
-    { value: 'anonymousAmlReports', label: 'Anonyme AML-rapporter' },
     { value: 'navSickLeaveReports', label: 'NAV / sykefraværsrapporter' },
     { value: 'laborMetrics', label: 'Arbeidsmiljø-indikatorer' },
   ],
   tasks: [{ value: 'tasks', label: 'Oppgaver' }],
-  workplace_reporting: [{ value: 'cases', label: 'Arbeidsplass-saker' }],
+  workplace_reporting: [
+    { value: 'cases', label: 'Arbeidsplass-saker' },
+    { value: 'anonymousAmlReports', label: 'Anonyme AML-rapporter' },
+  ],
   wiki_published: [],
 }
 

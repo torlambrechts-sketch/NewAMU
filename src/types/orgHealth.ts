@@ -135,6 +135,8 @@ export type AnonymousAmlReport = {
   /** User filled the description box; content is not stored. */
   detailsIndicated: boolean
   urgency: 'low' | 'medium' | 'high'
+  /** Internt notat (HR) — ikke fra innsender. */
+  hrNote?: string
 }
 
 export type OrgHealthAuditAction =

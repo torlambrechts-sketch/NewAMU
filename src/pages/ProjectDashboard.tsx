@@ -23,6 +23,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useOrganisation } from '../hooks/useOrganisation'
+import { useWorkplaceReportingCases } from '../hooks/useWorkplaceReportingCases'
 import { useRepresentatives } from '../hooks/useRepresentatives'
 import {
   daysUntil,
@@ -72,6 +73,7 @@ function KpiCard({
 export function ProjectDashboard() {
   const navigate = useNavigate()
   const org = useOrganisation()
+  const wr = useWorkplaceReportingCases()
   const rep = useRepresentatives()
   const { payload: layoutPayload } = useUiTheme()
   const layout = mergeLayoutPayload(layoutPayload)
@@ -442,7 +444,7 @@ export function ProjectDashboard() {
             <div className="divide-y divide-neutral-100">
               {[
                 { label: 'Sykefravær siste', value: oh.navSummary.latestPercent != null ? `${oh.navSummary.latestPercent}%` : '—', icon: HeartPulse, iconCls: 'text-pink-500' },
-                { label: 'Anon. meldinger', value: String(oh.amlReportStats.total), icon: BarChart3, iconCls: 'text-sky-500' },
+                { label: 'Anon. meldinger', value: String(wr.amlReportStats.total), icon: BarChart3, iconCls: 'text-sky-500' },
                 { label: 'Undersøkelser', value: String(oh.surveys.length), icon: ClipboardList, iconCls: 'text-teal-500' },
               ].map(({ label, value, icon: Icon, iconCls }) => (
                 <div key={label} className="flex items-center justify-between px-5 py-2.5 text-sm">

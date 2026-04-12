@@ -765,46 +765,23 @@ export function useOrgHealth() {
     saveLocal(next)
   }, [useRemote, supabase, orgId, userId])
 
+  /** Anonym AML ligger nå under arbeidsplassrapportering — beholdes som no-op for eldre kall. */
   const submitAnonymousAmlReport = useCallback(
-    (kind: AmlReportKind, options: { detailsIndicated: boolean; urgency: AnonymousAmlReport['urgency'] }): boolean => {
-      const r: AnonymousAmlReport = {
-        id: crypto.randomUUID(),
-        kind,
-        submittedAt: new Date().toISOString(),
-        detailsIndicated: options.detailsIndicated,
-        urgency: options.urgency,
-      }
-      setState((s) => ({
-        ...s,
-        anonymousAmlReports: [r, ...s.anonymousAmlReports],
-      }))
-      appendAudit('anonymous_aml_report', 'Anonym AML-henvendelse registrert (kun kategori, ikke innhold).', {
-        kind,
-        urgency: options.urgency,
-        detailsIndicated: options.detailsIndicated,
-      })
-      return true
+    (_kind: AmlReportKind, _options: { detailsIndicated: boolean; urgency: AnonymousAmlReport['urgency'] }): boolean => {
+      void _kind
+      void _options
+      return false
     },
-    [appendAudit, setState],
+    [],
   )
 
-  const amlReportStats = useMemo(() => {
-    const byKind: Partial<Record<AmlReportKind, number>> = {}
-    for (const r of state.anonymousAmlReports) {
-      byKind[r.kind] = (byKind[r.kind] ?? 0) + 1
-    }
-    return {
-      total: state.anonymousAmlReports.length,
-      byKind,
-      lastAt: state.anonymousAmlReports[0]?.submittedAt ?? null,
-    }
-  }, [state.anonymousAmlReports])
+  const { anonymousAmlReports: _unusedLegacyAml, ...restState } = state
+  void _unusedLegacyAml
 
   return {
-    ...state,
+    ...restState,
     aggregates,
     navSummary,
-    amlReportStats,
     loading: useRemote ? loading : false,
     error: useRemote ? error : null,
     backend: useRemote ? ('supabase' as const) : ('local' as const),

@@ -735,7 +735,7 @@ export function InternalControlModule() {
                   <Link to="/tasks?view=whistle" className="text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline">
                     Varslingssaker →
                   </Link>
-                  <Link to="/org-health?tab=reporting" className="text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline">
+                  <Link to="/workplace-reporting/anonymous-aml" className="text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline">
                     Anonym rapportering →
                   </Link>
                   <Link

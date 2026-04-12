@@ -38,12 +38,12 @@ export const WORKPLACE_REPORTING_NAV: readonly WorkplaceReportingNavItem[] = [
     requirePermAny: ['module.view.workplace_reporting', 'module.view.hse'],
   },
   {
-    to: '/org-health?tab=reporting',
+    to: '/workplace-reporting/anonymous-aml',
     label: 'Anonym rapportering',
     end: false,
     desc: 'AML-kategorier uten lagring av fritekst.',
     icon: ShieldAlert,
-    requirePerm: 'module.view.org_health',
+    requirePermAny: ['module.view.workplace_reporting', 'module.view.org_health'],
   },
   {
     to: '/tasks?view=whistle',
@@ -74,6 +74,10 @@ export function workplaceReportingNavMatch(
   if (!to.includes('?')) {
     if (end) return pathname === to
     if (to === '/workplace-reporting/dashboard') return pathname === to
+    if (to === '/workplace-reporting/anonymous-aml') {
+      if (pathname === '/workplace-reporting/anonymous-aml/settings') return false
+      return pathname === to || pathname.startsWith(`${to}/`)
+    }
     return pathname === to
   }
   const [path, qs] = to.split('?')

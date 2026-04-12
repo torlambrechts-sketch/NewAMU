@@ -140,7 +140,7 @@ export const WORKFLOW_INPUT_PRESETS: WorkflowInputPreset[] = [
     label: 'Anonym AML-rapport',
     description: 'Når en anonym AML-kategori er registrert (metadata i payload).',
     icon: ShieldAlert,
-    modules: ['org_health'],
+    modules: ['workplace_reporting'],
     condition: { match: 'array_any', path: 'anonymousAmlReports', where: {} },
   },
   {
@@ -148,7 +148,7 @@ export const WORKFLOW_INPUT_PRESETS: WorkflowInputPreset[] = [
     label: 'Anonym varsling (AML)',
     description: 'Kategori «varsling» i anonym kanal.',
     icon: Ban,
-    modules: ['org_health'],
+    modules: ['workplace_reporting'],
     condition: { match: 'array_any', path: 'anonymousAmlReports', where: { kind: 'whistleblowing' } },
   },
   {
@@ -156,7 +156,7 @@ export const WORKFLOW_INPUT_PRESETS: WorkflowInputPreset[] = [
     label: 'Anonym rapport: høy hast',
     description: 'Når bruker har valgt høy hastegrad.',
     icon: AlertTriangle,
-    modules: ['org_health'],
+    modules: ['workplace_reporting'],
     condition: { match: 'array_any', path: 'anonymousAmlReports', where: { urgency: 'high' } },
   },
   // ─── Arbeidsplassrapportering (saker) ───────────────────────────────────

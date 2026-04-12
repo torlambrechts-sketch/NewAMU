@@ -9,7 +9,6 @@ import {
   HeartPulse,
   ListTree,
   Shield,
-  ShieldAlert,
 } from 'lucide-react'
 import { ProductRoadmapList } from '../components/ProductRoadmapList'
 import { ComplianceModuleChrome } from '../components/compliance/ComplianceModuleChrome'
@@ -23,7 +22,6 @@ export function OrgHealthSettings() {
       { key: 'surveys', label: 'Undersøkelser', icon: ClipboardCheck, active: false, to: '/org-health?tab=surveys' },
       { key: 'nav', label: 'Sykefravær (NAV)', icon: FileSpreadsheet, active: false, to: '/org-health?tab=nav' },
       { key: 'metrics', label: 'AML-indikatorer', icon: BarChart3, active: false, to: '/org-health?tab=metrics' },
-      { key: 'reporting', label: 'Anonym rapportering', icon: ShieldAlert, active: false, to: '/org-health?tab=reporting' },
       { key: 'settings', label: 'Veikart', icon: BookMarked, active: true, to: '/org-health/settings' },
     ],
     [],
