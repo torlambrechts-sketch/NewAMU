@@ -24,6 +24,7 @@ import {
   Star,
   Trash2,
   Users,
+  Wrench,
   Zap,
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
@@ -1044,6 +1045,19 @@ function ComposableList2Block() {
   return (
     <div className="space-y-2">
       <WhiteCard className="overflow-hidden p-0">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
+          <div>
+            <SerifHeading className="text-xl">Orders</SerifHeading>
+            <p className="mt-1 text-sm text-neutral-600">Search, filter and manage background check orders for candidates.</p>
+          </div>
+          <button
+            type="button"
+            className="rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+            style={{ backgroundColor: FOREST }}
+          >
+            + New order
+          </button>
+        </div>
         <div className="flex flex-wrap items-center gap-3 border-b border-neutral-100 px-4 py-3 md:px-5">
           <div className="relative min-w-[200px] flex-1">
             <label htmlFor="composer-list2-search" className="sr-only">
@@ -1080,9 +1094,9 @@ function ComposableList2Block() {
             <button
               type="button"
               className="ml-auto rounded-lg p-2 text-neutral-500 hover:bg-neutral-100"
-              aria-label="Innstillinger for tabell"
+              aria-label="Konfigurasjon"
             >
-              <Settings className="size-5" />
+              <Wrench className="size-5" aria-hidden />
             </button>
           </div>
         </div>
@@ -1210,7 +1224,7 @@ function ComposableList2Block() {
         </div>
       </WhiteCard>
       <p className="text-xs text-neutral-500">
-        List 2: ordre-/kandidatliste med søk, filterpanel (ordrestatus), status-piller og paginering.
+        List 2: samme topp som Table 1 (overskrift + grønn CTA), deretter søk, filter, konfigurasjon (skiftenøkkel), status-piller og paginering.
       </p>
     </div>
   )
