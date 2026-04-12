@@ -63,8 +63,6 @@ const tabs = [
 ] as const
 
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
-const HERO_ACTION_CLASS =
-  'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-none px-4 text-sm font-medium leading-none'
 const TASK_PANEL_ROW_GRID =
   'grid grid-cols-1 gap-4 border-b border-neutral-200 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-5 md:py-5'
 const SETTINGS_LEAD = 'text-sm leading-relaxed text-neutral-600'
@@ -146,6 +144,7 @@ export function InternalControlModule() {
   const [rosPanelMode, setRosPanelMode] = useState<'create' | 'view'>('create')
   const [rosViewId, setRosViewId] = useState<string | null>(null)
   const [rosListSearch, setRosListSearch] = useState('')
+  const [annualListSearch, setAnnualListSearch] = useState('')
   const [annualPanelOpen, setAnnualPanelOpen] = useState(false)
   type AnnualFormState = {
     id: string
@@ -392,6 +391,21 @@ export function InternalControlModule() {
     () => [...ic.annualReviews].sort((a, b) => b.year - a.year || b.reviewedAt.localeCompare(a.reviewedAt)),
     [ic.annualReviews],
   )
+
+  const annualReviewsFiltered = useMemo(() => {
+    const q = annualListSearch.trim().toLowerCase()
+    if (!q) return sortedAnnuals
+    return sortedAnnuals.filter((a) => {
+      const y = String(a.year)
+      const rev = (a.reviewer ?? '').toLowerCase()
+      const dt = (a.reviewedAt ?? '').toLowerCase()
+      const legacy = isLegacyAnnualReview(a)
+      const st = a.status ?? (a.locked ? 'locked' : legacy ? 'locked' : 'draft')
+      const statusText =
+        st === 'locked' ? 'låst' : st === 'pending_safety_rep' ? 'venter verneombud' : 'utkast'
+      return y.includes(q) || rev.includes(q) || dt.includes(q) || statusText.includes(q)
+    })
+  }, [sortedAnnuals, annualListSearch])
 
   const tbodyRow = useCallback((ri: number) => table1BodyRowClass(layout, ri), [layout])
 
@@ -1221,32 +1235,12 @@ export function InternalControlModule() {
               <Link to="/tasks?view=whistle" className="font-medium text-[#1a3d32] underline">
                 Oppgaver → Varslingssaker
               </Link>
+              .{' '}
+              <Link to="/action-board" className="font-medium text-[#1a3d32] underline">
+                Handlingsplan på tavle
+              </Link>
               .
             </p>
-          }
-          headerActions={
-            <>
-              <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-                Totalt <strong className="ml-1 font-semibold">{annualStats.total}</strong>
-              </span>
-              <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-950`}>
-                Utkast <strong className="ml-1 font-semibold">{annualStats.draft}</strong>
-              </span>
-              <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
-                Venter VO <strong className="ml-1 font-semibold">{annualStats.pending}</strong>
-              </span>
-              <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
-                Låst <strong className="ml-1 font-semibold">{annualStats.locked}</strong>
-              </span>
-              <button
-                type="button"
-                onClick={openNewAnnualPanel}
-                className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
-              >
-                <Plus className="size-4 shrink-0" />
-                Ny årsgjennomgang
-              </button>
-            </>
           }
         >
           {ic.error && (
@@ -1258,43 +1252,64 @@ export function InternalControlModule() {
 
           <LegalDisclaimer compact />
 
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {(
-              [
-                { title: 'Totalt', sub: 'Registrerte år', value: `${annualStats.total}` },
-                { title: 'Utkast', sub: 'Ikke sendt til VO', value: `${annualStats.draft}` },
-                { title: 'Venter VO', sub: 'Leder signert', value: `${annualStats.pending}` },
-                {
-                  title: 'Handlingsplan',
-                  sub: 'Oppgaver fra årsgjennomgang',
-                  value: (
-                    <Link to="/action-board" className="mt-1 inline-block text-sm font-semibold text-white underline">
-                      Åpne tavle
-                    </Link>
-                  ),
-                },
-              ] as const
-            ).map((item) => (
-              <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={kpiStripStyle}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
-                <p className="mt-1 text-xs text-white/70">{item.sub}</p>
-                {typeof item.value === 'string' ? (
-                  <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
-                ) : (
-                  <div className="mt-1">{item.value}</div>
-                )}
-              </div>
-            ))}
+          <div className="mt-6">
+            <LayoutScoreStatRow
+              items={[
+                { big: String(annualStats.total), title: 'Totalt', sub: 'Registrerte år' },
+                { big: String(annualStats.draft), title: 'Utkast', sub: 'Ikke sendt til VO' },
+                { big: String(annualStats.pending), title: 'Venter VO', sub: 'Leder signert' },
+              ]}
+              childrenByIndex={{
+                2: (
+                  <p className="mt-2 text-xs text-neutral-600">
+                    <span className="font-semibold text-neutral-800">{annualStats.locked}</span> låst
+                  </p>
+                ),
+              }}
+            />
           </div>
 
-          <section className="overflow-hidden rounded-none border border-neutral-200 bg-white">
-            <div className="border-b border-neutral-200 px-4 py-3">
-              <h2 className="font-semibold text-neutral-900">Tidligere årsgjennomganger</h2>
-              <p className="mt-1 text-xs text-neutral-500">
-                Nye skjemaer krever obligatoriske felt og dobbeltsignatur (leder → verneombud). Eldre rader viser fri tekst.
-              </p>
-            </div>
-            <div className="overflow-x-auto">
+          <section className="mt-8" aria-label="Tidligere årsgjennomganger">
+            <Table1Shell
+              variant="pinpoint"
+              toolbar={
+                <Table1Toolbar
+                  searchSlot={
+                    <div className="relative min-w-[200px] flex-1">
+                      <label htmlFor="annual-list-search" className="sr-only">
+                        Søk i årsgjennomganger
+                      </label>
+                      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                      <input
+                        id="annual-list-search"
+                        type="search"
+                        value={annualListSearch}
+                        onChange={(e) => setAnnualListSearch(e.target.value)}
+                        placeholder="Søk etter år, status, dato, leder …"
+                        className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/25"
+                      />
+                    </div>
+                  }
+                  segmentSlot={<span className="sr-only">Verktøylinje</span>}
+                  endSlot={
+                    <button
+                      type="button"
+                      onClick={openNewAnnualPanel}
+                      className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#1a3d32] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#142e26]"
+                    >
+                      <Plus className="size-4 shrink-0" aria-hidden />
+                      Ny årsgjennomgang
+                    </button>
+                  }
+                />
+              }
+            >
+              <div className="border-b border-neutral-100 px-4 py-3 md:px-5">
+                <h2 className="font-semibold text-neutral-900">Tidligere årsgjennomganger</h2>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Nye skjemaer krever obligatoriske felt og dobbeltsignatur (leder → verneombud). Eldre rader viser fri tekst.
+                </p>
+              </div>
               <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                 <thead>
                   <tr className={theadRow}>
@@ -1306,7 +1321,7 @@ export function InternalControlModule() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedAnnuals.map((a, ri) => {
+                  {annualReviewsFiltered.map((a, ri) => {
                     const legacy = isLegacyAnnualReview(a)
                     const st = a.status ?? (a.locked ? 'locked' : legacy ? 'locked' : 'draft')
                     const statusLabel =
@@ -1350,7 +1365,12 @@ export function InternalControlModule() {
                   })}
                 </tbody>
               </table>
-            </div>
+              {annualReviewsFiltered.length === 0 ? (
+                <p className="px-4 py-10 text-center text-sm text-neutral-500">
+                  {annualListSearch.trim() ? 'Ingen årsgjennomganger matcher søket.' : 'Ingen årsgjennomganger ennå.'}
+                </p>
+              ) : null}
+            </Table1Shell>
           </section>
 
           {annualPanelOpen && annualForm ? (
