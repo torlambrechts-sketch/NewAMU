@@ -65,6 +65,7 @@ import {
   SurveyInsights7070Block,
   TemplateLibraryBlock,
 } from './platformReferenceLayoutBlocks'
+import { ComposableRosRiskMatrixBlock, ComposableRosRiskTableBlock } from './rosRiskLayoutBlocks'
 
 const CREAM = '#F9F7F2'
 const CREAM_DEEP = '#EFE8DC'
@@ -1550,6 +1551,16 @@ const BLOCKS = [
     hint: 'Søk, Filters + status, grå header-rad, piller (action / checks), paginering.',
   },
   {
+    id: 'rosRiskMatrix',
+    label: 'ROS — risikomatrise 5×5 (enkelt + gruppert)',
+    hint: 'Varmekart med IMPACT × LIKELIHOOD, hover på risiko/kategori; verktøylinje og visningsvalg (demo).',
+  },
+  {
+    id: 'rosRiskTable',
+    label: 'ROS — risiko-oversikt (tabell)',
+    hint: 'Alle risikoer på tvers av analyser: kategori, ROS, score, nivå-pille; sortering og kolonner (demo).',
+  },
+  {
     id: 'jobBoxGrid',
     label: 'Boks — stillingskort (rutenett)',
     hint: 'Tre hvite kort på kremflate (tittel, meta, ID, OPEN, kandidater-rad).',
@@ -1700,6 +1711,10 @@ function renderComposerBlock(id: BlockId): ReactNode {
       return <ComposableWorkplaceTodosBlock />
     case 'list2':
       return <ComposableList2Block />
+    case 'rosRiskMatrix':
+      return <ComposableRosRiskMatrixBlock />
+    case 'rosRiskTable':
+      return <ComposableRosRiskTableBlock />
     case 'jobBoxGrid':
       return <ComposableJobBoxGridBlock />
     case 'reportingDonutOneRow':

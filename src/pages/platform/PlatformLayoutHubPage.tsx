@@ -81,7 +81,7 @@ export function PlatformLayoutHubPage() {
             <Link to="/platform-admin/layout-reference" className="text-amber-400/90 hover:underline">
               layout-referanse
             </Link>{' '}
-            (prefiks «Ref. —»), pluss overskrift, stat-rad, informasjon/advarsel (varsel-liste), tabeller, scorecard, verktøylinje, list 2, boksrutenett og rapportering. Dra for å
+            (prefiks «Ref. —»), pluss overskrift, stat-rad, informasjon/advarsel (varsel-liste), tabeller, scorecard, verktøylinje, list 2, ROS-risikomatrise og ROS-tabell, boksrutenett og rapportering. Dra for å
             endre rekkefølge; lagre som <strong className="text-neutral-300">lokalt</strong> eller i <strong className="text-neutral-300">database</strong>{' '}
             (plattformadmin). Publiserte stack-maler kan brukes i arbeidsflaten (f.eks. Internkontroll → Oversikt ved navnematch).
           </p>
