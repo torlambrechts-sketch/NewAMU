@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   AlertTriangle,
   BarChart3,
@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Download,
   Filter,
+  GripVertical,
   Kanban,
   LayoutGrid,
   List,
@@ -20,11 +21,20 @@ import {
   Settings,
   Share2,
   Star,
+  Trash2,
   Users,
   Zap,
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
+import {
+  loadComposerPresets,
+  loadComposerSession,
+  normalizeComposerOrder,
+  saveComposerPresets,
+  saveComposerSession,
+  type LayoutComposerPreset,
+} from '../../lib/platformLayoutComposerStorage'
 
 const CREAM = '#F9F7F2'
 const CREAM_DEEP = '#EFE8DC'
@@ -1269,6 +1279,55 @@ const BLOCKS = [
 
 type BlockId = (typeof BLOCKS)[number]['id']
 
+const CANONICAL_BLOCK_ORDER: BlockId[] = BLOCKS.map((b) => b.id)
+
+const MIME_COMPOSER_BLOCK = 'application/x-klarert-layout-composer-block'
+
+function defaultVisibleAll(): Record<BlockId, boolean> {
+  return Object.fromEntries(BLOCKS.map((b) => [b.id, true])) as Record<BlockId, boolean>
+}
+
+/** Flytt element fra `from` til rett før indeks `to` i den opprinnelige rekkefølgen. */
+function reorderBlockOrder(order: BlockId[], from: number, to: number): BlockId[] {
+  if (from === to || from < 0 || to < 0 || from >= order.length || to > order.length) return order
+  const next = [...order]
+  const [removed] = next.splice(from, 1)
+  const insertAt = to > from ? to - 1 : to
+  next.splice(insertAt, 0, removed)
+  return next
+}
+
+function renderComposerBlock(id: BlockId): ReactNode {
+  switch (id) {
+    case 'heading1':
+      return <ComposableHeading1Block />
+    case 'table1':
+      return <ComposablePostingsTableBlock />
+    case 'scorecard':
+      return <ComposableScorecardModuleBlock />
+    case 'jobCards':
+      return <ComposableJobCardsModuleBlock />
+    case 'tableHeading':
+      return <ComposableTableHeadingToolbarBlock />
+    case 'scoreStatRow':
+      return <ComposableScoreStatRowBlock />
+    case 'list2':
+      return <ComposableList2Block />
+    case 'jobBoxGrid':
+      return <ComposableJobBoxGridBlock />
+    case 'reportingDonutOneRow':
+      return <ComposableReportingDonutOneRowBlock />
+    case 'reportingChartsTwoRow':
+      return <ComposableReportingChartsTwoRowBlock />
+    default:
+      return null
+  }
+}
+
+function blockAriaLabel(id: BlockId): string {
+  return BLOCKS.find((b) => b.id === id)?.label ?? id
+}
+
 /** Block checklist + live preview (used on layout hub). */
 export function PlatformLayoutComposerDemo({
   previewSurface = 'cream',
@@ -1289,54 +1348,82 @@ export function PlatformLayoutComposerDemo({
     ? 'rounded-md border border-white/15 px-2 py-1 text-xs text-neutral-300 hover:bg-white/5'
     : 'rounded-md border border-neutral-200 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-50'
   const rowLabelClass = dark
-    ? 'flex cursor-pointer gap-3 rounded-lg border border-transparent p-2 hover:border-white/10 hover:bg-white/5'
-    : 'flex cursor-pointer gap-3 rounded-lg border border-transparent p-2 hover:border-neutral-200 hover:bg-neutral-50'
+    ? 'flex min-w-0 flex-1 cursor-pointer gap-2 rounded-lg border border-transparent py-1 pl-1 pr-2 hover:border-white/10 hover:bg-white/5'
+    : 'flex min-w-0 flex-1 cursor-pointer gap-2 rounded-lg border border-transparent py-1 pl-1 pr-2 hover:border-neutral-200 hover:bg-neutral-50'
   const rowTitleClass = dark ? 'text-sm font-medium text-neutral-200' : 'text-sm font-medium text-neutral-900'
   const rowHintClass = dark ? 'mt-0.5 block text-xs text-neutral-500' : 'mt-0.5 block text-xs text-neutral-600'
-  const checkboxClass = dark ? 'mt-1 rounded border-neutral-500 bg-slate-800' : 'mt-1 rounded border-neutral-300 bg-white'
+  const checkboxClass = dark ? 'mt-1 shrink-0 rounded border-neutral-500 bg-slate-800' : 'mt-1 shrink-0 rounded border-neutral-300 bg-white'
   const previewCaptionClass = dark ? 'text-sm text-neutral-500' : 'text-sm text-neutral-600'
-  const [visible, setVisible] = useState<Record<BlockId, boolean>>({
-    heading1: true,
-    table1: true,
-    scorecard: true,
-    jobCards: true,
-    tableHeading: true,
-    scoreStatRow: true,
-    list2: true,
-    jobBoxGrid: true,
-    reportingDonutOneRow: true,
-    reportingChartsTwoRow: true,
+  const [dragBlockId, setDragBlockId] = useState<BlockId | null>(null)
+  const [dragOverListIndex, setDragOverListIndex] = useState<number | null>(null)
+  const [dragOverPreviewOrderIndex, setDragOverPreviewOrderIndex] = useState<number | null>(null)
+  const [presetName, setPresetName] = useState('')
+  const [presets, setPresets] = useState<LayoutComposerPreset[]>(() => loadComposerPresets())
+
+  const [visible, setVisible] = useState<Record<BlockId, boolean>>(() => {
+    const s = loadComposerSession()
+    if (s?.visible) {
+      const v = { ...defaultVisibleAll(), ...s.visible } as Record<BlockId, boolean>
+      return v
+    }
+    return defaultVisibleAll()
   })
 
+  const [order, setOrder] = useState<BlockId[]>(() => {
+    const s = loadComposerSession()
+    if (s?.order?.length) {
+      return normalizeComposerOrder(s.order, CANONICAL_BLOCK_ORDER) as BlockId[]
+    }
+    return [...CANONICAL_BLOCK_ORDER]
+  })
+
+  useEffect(() => {
+    saveComposerSession({
+      visible: visible as Record<string, boolean>,
+      order: [...order],
+    })
+  }, [visible, order])
+
+  const orderedBlocks = useMemo(() => order.map((id) => BLOCKS.find((b) => b.id === id)!).filter(Boolean), [order])
+
   const toggle = (id: BlockId) => setVisible((v) => ({ ...v, [id]: !v[id] }))
-  const selectAll = () =>
-    setVisible({
-      heading1: true,
-      table1: true,
-      scorecard: true,
-      jobCards: true,
-      tableHeading: true,
-      scoreStatRow: true,
-      list2: true,
-      jobBoxGrid: true,
-      reportingDonutOneRow: true,
-      reportingChartsTwoRow: true,
-    })
+  const selectAll = () => setVisible(defaultVisibleAll())
   const selectNone = () =>
-    setVisible({
-      heading1: false,
-      table1: false,
-      scorecard: false,
-      jobCards: false,
-      tableHeading: false,
-      scoreStatRow: false,
-      list2: false,
-      jobBoxGrid: false,
-      reportingDonutOneRow: false,
-      reportingChartsTwoRow: false,
-    })
+    setVisible(Object.fromEntries(BLOCKS.map((b) => [b.id, false])) as Record<BlockId, boolean>)
 
   const activeCount = BLOCKS.filter((b) => visible[b.id]).length
+
+  const savePreset = useCallback(() => {
+    const name = presetName.trim()
+    if (!name) return
+    const next: LayoutComposerPreset = {
+      id: crypto.randomUUID(),
+      name,
+      createdAt: new Date().toISOString(),
+      visible: { ...visible } as Record<string, boolean>,
+      order: [...order],
+    }
+    setPresets((p) => {
+      const merged = [...p, next]
+      saveComposerPresets(merged)
+      return merged
+    })
+    setPresetName('')
+  }, [presetName, visible, order])
+
+  const loadPreset = useCallback((p: LayoutComposerPreset) => {
+    const nextVisible = { ...defaultVisibleAll(), ...p.visible } as Record<BlockId, boolean>
+    setVisible(nextVisible)
+    setOrder(normalizeComposerOrder(p.order, CANONICAL_BLOCK_ORDER) as BlockId[])
+  }, [])
+
+  const deletePreset = useCallback((id: string) => {
+    setPresets((prev) => {
+      const merged = prev.filter((x) => x.id !== id)
+      saveComposerPresets(merged)
+      return merged
+    })
+  }, [])
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(260px,300px)_minmax(0,1fr)] lg:items-start">
@@ -1348,26 +1435,67 @@ export function PlatformLayoutComposerDemo({
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={selectAll}
-              className={bulkBtnClass}
-            >
+            <button type="button" onClick={selectAll} className={bulkBtnClass}>
               Velg alle
             </button>
-            <button
-              type="button"
-              onClick={selectNone}
-              className={bulkBtnClass}
-            >
+            <button type="button" onClick={selectNone} className={bulkBtnClass}>
               Fjern alle
             </button>
           </div>
-          <ul className="space-y-3">
-            {BLOCKS.map((b) => {
+          <p className={`text-xs ${checklistMetaClass}`}>
+            Dra håndtaket for å endre rekkefølge i forhåndsvisningen. Rekkefølge lagres i denne nettleseren.
+          </p>
+          <ul className="space-y-1">
+            {orderedBlocks.map((b, idx) => {
               const sid = `${baseId}-${b.id}`
               return (
-                <li key={b.id}>
+                <li
+                  key={b.id}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(MIME_COMPOSER_BLOCK, b.id)
+                    e.dataTransfer.effectAllowed = 'move'
+                    setDragBlockId(b.id)
+                  }}
+                  onDragEnd={() => {
+                    setDragBlockId(null)
+                    setDragOverListIndex(null)
+                    setDragOverPreviewOrderIndex(null)
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                    setDragOverListIndex(idx)
+                  }}
+                  onDragLeave={() => setDragOverListIndex((cur) => (cur === idx ? null : cur))}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    const raw = e.dataTransfer.getData(MIME_COMPOSER_BLOCK)
+                    if (!raw) return
+                    const droppedId = raw as BlockId
+                    if (!CANONICAL_BLOCK_ORDER.includes(droppedId)) return
+                    const from = order.indexOf(droppedId)
+                    if (from < 0) return
+                    const targetOrderIndex = order.indexOf(b.id)
+                    if (targetOrderIndex < 0) return
+                    setOrder(reorderBlockOrder(order, from, targetOrderIndex))
+                    setDragBlockId(null)
+                    setDragOverListIndex(null)
+                  }}
+                  className={`flex items-start gap-1 rounded-lg border border-transparent py-0.5 pl-0.5 ${
+                    dragOverListIndex === idx ? 'border-amber-400/60 bg-amber-500/10' : ''
+                  } ${dragBlockId === b.id ? 'opacity-60' : ''}`}
+                >
+                  <button
+                    type="button"
+                    className={`mt-0.5 shrink-0 cursor-grab rounded p-1 active:cursor-grabbing ${
+                      dark ? 'text-neutral-500 hover:bg-white/10' : 'text-neutral-400 hover:bg-neutral-100'
+                    }`}
+                    aria-label={`Dra for å flytte: ${b.label}`}
+                    title="Dra for å flytte"
+                  >
+                    <GripVertical className="size-4" aria-hidden />
+                  </button>
                   <label className={rowLabelClass}>
                     <input
                       id={sid}
@@ -1376,7 +1504,7 @@ export function PlatformLayoutComposerDemo({
                       onChange={() => toggle(b.id)}
                       className={checkboxClass}
                     />
-                    <span>
+                    <span className="min-w-0">
                       <span className={rowTitleClass}>{b.label}</span>
                       <span className={rowHintClass}>{b.hint}</span>
                     </span>
@@ -1385,11 +1513,72 @@ export function PlatformLayoutComposerDemo({
               )
             })}
           </ul>
+
+          <div className={`mt-4 border-t pt-4 ${dark ? 'border-white/10' : 'border-neutral-200'}`}>
+            <p className={`text-xs font-semibold uppercase tracking-wide ${checklistMetaClass}`}>Lagrede oppsett</p>
+            <p className={`mt-1 text-xs ${checklistMetaClass}`}>
+              Lagres lokalt i nettleseren (localStorage). Bruk som referanse for{' '}
+              <code className={dark ? 'rounded bg-white/10 px-1' : 'rounded bg-neutral-100 px-1'}>
+                WorkplaceStandardListLayout
+              </code>{' '}
+              m.m.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <input
+                type="text"
+                value={presetName}
+                onChange={(e) => setPresetName(e.target.value)}
+                placeholder="Navn på oppsett"
+                className={
+                  dark
+                    ? 'min-w-0 flex-1 rounded-md border border-white/15 bg-slate-900/80 px-2 py-1.5 text-sm text-neutral-100 placeholder:text-neutral-500'
+                    : 'min-w-0 flex-1 rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-sm text-neutral-900 placeholder:text-neutral-400'
+                }
+              />
+              <button type="button" onClick={savePreset} className={bulkBtnClass}>
+                Lagre
+              </button>
+            </div>
+            {presets.length > 0 ? (
+              <ul className="mt-3 max-h-40 space-y-1 overflow-y-auto text-sm">
+                {presets
+                  .slice()
+                  .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+                  .map((p) => (
+                    <li
+                      key={p.id}
+                      className={`flex items-center justify-between gap-2 rounded-md px-1 py-1 ${
+                        dark ? 'hover:bg-white/5' : 'hover:bg-neutral-50'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => loadPreset(p)}
+                        className={`min-w-0 flex-1 truncate text-left ${dark ? 'text-neutral-200' : 'text-neutral-800'}`}
+                      >
+                        {p.name}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deletePreset(p.id)}
+                        className="shrink-0 rounded p-1 text-red-400 hover:bg-red-500/10"
+                        aria-label={`Slett ${p.name}`}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            ) : (
+              <p className={`mt-2 text-xs ${checklistMetaClass}`}>Ingen lagrede oppsett ennå.</p>
+            )}
+          </div>
         </aside>
 
         <div className="min-w-0 space-y-4">
           <p className={previewCaptionClass}>
-            Forhåndsvisning ({previewSurface === 'white' ? 'helhvit' : 'krem arbeidsflate'}, uten app-topbar)
+            Forhåndsvisning ({previewSurface === 'white' ? 'helhvit' : 'krem arbeidsflate'}, uten app-topbar). Dra seksjoner
+            for å endre rekkefølge — samme mønster som liste-sider med flere blokker.
           </p>
           <div
             className={`rounded-xl border p-4 shadow-lg md:p-6 ${
@@ -1398,76 +1587,45 @@ export function PlatformLayoutComposerDemo({
             style={previewShellStyle(previewSurface)}
           >
             <div className="space-y-8">
-              {visible.heading1 ? (
-                <section aria-label="Overskrift og faner">
-                  <ComposableHeading1Block />
-                </section>
-              ) : null}
+              {order.map((id, orderIndex) => {
+                if (!visible[id]) return null
+                const content = renderComposerBlock(id)
+                if (!content) return null
+                return (
+                  <section
+                    key={id}
+                    aria-label={blockAriaLabel(id)}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      e.dataTransfer.dropEffect = 'move'
+                      setDragOverPreviewOrderIndex(orderIndex)
+                    }}
+                    onDragLeave={() =>
+                      setDragOverPreviewOrderIndex((cur) => (cur === orderIndex ? null : cur))
+                    }
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      const raw = e.dataTransfer.getData(MIME_COMPOSER_BLOCK)
+                      if (!raw) return
+                      const droppedId = raw as BlockId
+                      const from = order.indexOf(droppedId)
+                      if (from < 0) return
+                      const to = order.indexOf(id)
+                      if (to < 0) return
+                      setOrder(reorderBlockOrder(order, from, to))
+                      setDragBlockId(null)
+                      setDragOverPreviewOrderIndex(null)
+                    }}
+                    className={`rounded-lg border border-dashed border-transparent p-1 transition-colors ${
+                      dragOverPreviewOrderIndex === orderIndex ? 'border-amber-500/50 bg-amber-500/5' : ''
+                    }`}
+                  >
+                    {content}
+                  </section>
+                )
+              })}
 
-              {visible.table1 ? (
-                <section aria-label="Postings-tabell">
-                  <ComposablePostingsTableBlock />
-                </section>
-              ) : null}
-
-              {visible.scorecard ? (
-                <section aria-label="Scorecard-modul">
-                  <ComposableScorecardModuleBlock />
-                </section>
-              ) : null}
-
-              {visible.jobCards ? (
-                <section aria-label="Jobbkort-modul">
-                  <ComposableJobCardsModuleBlock />
-                </section>
-              ) : null}
-
-              {visible.tableHeading ? (
-                <section aria-label="Tabell overskrift og verktøylinje">
-                  <ComposableTableHeadingToolbarBlock />
-                </section>
-              ) : null}
-
-              {visible.scoreStatRow ? (
-                <section aria-label="Stat-rad KPI">
-                  <ComposableScoreStatRowBlock />
-                </section>
-              ) : null}
-
-              {visible.list2 ? (
-                <section aria-label="List 2 tabell">
-                  <ComposableList2Block />
-                </section>
-              ) : null}
-
-              {visible.jobBoxGrid ? (
-                <section aria-label="Boks stillingskort">
-                  <ComposableJobBoxGridBlock />
-                </section>
-              ) : null}
-
-              {visible.reportingDonutOneRow ? (
-                <section aria-label="Rapportering liste og donut">
-                  <ComposableReportingDonutOneRowBlock />
-                </section>
-              ) : null}
-
-              {visible.reportingChartsTwoRow ? (
-                <section aria-label="Rapportering søyler og linje">
-                  <ComposableReportingChartsTwoRowBlock />
-                </section>
-              ) : null}
-
-              {!visible.heading1 &&
-              !visible.table1 &&
-              !visible.scorecard &&
-              !visible.jobCards &&
-              !visible.tableHeading &&
-              !visible.scoreStatRow &&
-              !visible.list2 &&
-              !visible.jobBoxGrid &&
-              !visible.reportingDonutOneRow &&
-              !visible.reportingChartsTwoRow ? (
+              {activeCount === 0 ? (
                 <p className="py-12 text-center text-sm text-neutral-500">Velg minst ett element for å vise forhåndsvisning.</p>
               ) : null}
             </div>
