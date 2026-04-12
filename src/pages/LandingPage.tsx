@@ -128,14 +128,18 @@ export function LandingPage() {
             <a href="#pricing" className="hover:text-[#0c1929] transition-colors">Pris</a>
           </nav>
           <div className="flex items-center gap-3">
-            <Link to="/login"
+              <Link to="/login"
               className="hidden text-sm font-medium text-neutral-700 hover:text-[#0c1929] transition-colors md:block">
               Logg inn
             </Link>
-            <Link to="/login?demo=1"
+            <Link to="/app"
+              className="hidden text-sm font-medium text-neutral-700 hover:text-[#0c1929] transition-colors md:block">
+              Til appen
+            </Link>
+            <Link to="/app"
               className="inline-flex h-9 items-center gap-1.5 px-4 text-sm font-semibold text-white transition-colors hover:opacity-90"
               style={{ background: NAVY }}>
-              Prøv gratis
+              Logg inn
             </Link>
           </div>
         </div>
@@ -168,15 +172,15 @@ export function LandingPage() {
               </p>
 
               <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <Link to="/login?demo=1"
+                <Link to="/app"
                   className="inline-flex w-full items-center justify-center gap-2 px-8 py-3.5 text-base font-semibold text-white shadow-lg transition hover:opacity-90 sm:w-auto"
                   style={{ background: NAVY }}>
-                  Start demo — gratis
+                  Logg inn til appen
                   <span aria-hidden>→</span>
                 </Link>
-                <Link to="/signup"
+                <Link to="/login?demo=1"
                   className="inline-flex w-full items-center justify-center gap-2 border border-neutral-300 bg-white px-8 py-3.5 text-base font-semibold text-neutral-800 transition hover:bg-neutral-50 sm:w-auto">
-                  Opprett konto
+                  Prøv demo gratis
                 </Link>
               </div>
 
@@ -461,14 +465,14 @@ export function LandingPage() {
               Start med demoen og se hvordan Klarert gjør lovpålagte oppgaver til en selvfølge.
             </p>
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link to="/login?demo=1"
+              <Link to="/app"
                 className="inline-flex w-full items-center justify-center gap-2 px-8 py-3.5 text-base font-semibold text-white transition hover:opacity-90 sm:w-auto"
                 style={{ background: NAVY }}>
-                Start demo nå
+                Logg inn til appen
               </Link>
-              <Link to="/signup"
+              <Link to="/login?demo=1"
                 className="inline-flex w-full items-center justify-center gap-2 border border-neutral-300 bg-white px-8 py-3.5 text-base font-semibold text-neutral-800 transition hover:bg-neutral-50 sm:w-auto">
-                Opprett konto
+                Prøv demo gratis
               </Link>
             </div>
           </div>

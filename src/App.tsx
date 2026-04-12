@@ -90,7 +90,9 @@ function App() {
             <Route path="/invite/:token" element={<InviteAcceptPage />} />
             <Route path="/varsle/status" element={<WhistleStatusPage />} />
             <Route path="/varsle/:slug" element={<PublicWhistlePage />} />
-            <Route path="/landing" element={<LandingPage />} />
+            {/* Landing page — root URL, public */}
+            <Route index element={<LandingPage />} />
+            <Route path="/landing" element={<Navigate to="/" replace />} />
 
             <Route element={<OrgGate />}>
               <Route path="platform-admin" element={<PlatformAdminLayout />}>
@@ -114,6 +116,7 @@ function App() {
                 <Route element={<AticsShell />}>
                   <Route element={<WorkplaceChrome />}>
                   <Route index element={<WelcomeDashboardPage />} />
+                  <Route path="app" element={<WelcomeDashboardPage />} />
                   <Route path="dashboard/classic" element={<ProjectDashboard />} />
                   <Route path="tasks" element={<TasksPage />} />
                   <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
