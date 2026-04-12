@@ -36,6 +36,7 @@ import { OrganisationPage } from './pages/OrganisationPage'
 import { AarshjulPage } from './pages/aarshjul/AarshjulPage'
 import { ActionBoardPage } from './pages/actionboard/ActionBoardPage'
 import { WorkplaceChrome } from './components/layout/WorkplaceChrome'
+import { WorkplacePublishedComposerProvider } from './context/WorkplacePublishedComposerProvider'
 import { ProjectDashboard } from './pages/ProjectDashboard'
 import { WelcomeDashboardPage } from './pages/WelcomeDashboardPage'
 import { TasksPage } from './pages/TasksPage'
@@ -118,7 +119,7 @@ function App() {
               <Route element={<PermissionGate />}>
                 <Route element={<DocumentsLayout />}>
                   <Route element={<AticsShell />}>
-                    <Route element={<WorkplaceChrome />}>
+                    <Route element={<WorkplacePublishedComposerProvider><WorkplaceChrome /></WorkplacePublishedComposerProvider>}>
                       <Route index element={<WelcomeDashboardPage />} />
                       <Route path="app" element={<WelcomeDashboardPage />} />
                       <Route path="dashboard/classic" element={<ProjectDashboard />} />

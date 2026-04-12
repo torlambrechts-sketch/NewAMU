@@ -4,7 +4,8 @@ import {
   normalizeComposerOrder,
   type LayoutComposerPreset,
 } from './platformLayoutComposerStorage'
-import { fetchPublishedComposerTemplates, type StackTemplatePayload } from './platformComposerTemplatesApi'
+import { fetchPublishedComposerTemplates, type ComposerTemplateRow } from './platformComposerTemplatesApi'
+import { publishedStackRowsToPresets } from './publishedStackPresets'
 import type { LayoutComposerBlockId } from '../pages/platform/PlatformLayoutComposerPage'
 
 /** Canonical block order — keep in sync with PlatformLayoutComposerPage BLOCKS */
@@ -88,27 +89,32 @@ export function resolveIcOverviewComposerLayout(): IcOverviewComposerResolved {
 }
 
 /**
+ * Resolve Oversikt layout from already-fetched published templates (workplace provider cache).
+ * When `rows` is null/empty, falls back to localStorage then built-in fallback.
+ */
+export function resolveIcOverviewComposerFromPublishedRows(
+  rows: ComposerTemplateRow[] | null | undefined,
+): IcOverviewComposerResolved {
+  if (rows && rows.length > 0) {
+    const hitDb = findSavedPreset(publishedStackRowsToPresets(rows))
+    if (hitDb) return resolvedFromPreset(hitDb)
+  }
+  return resolveIcOverviewComposerLayout()
+}
+
+/**
  * Prefer published stack template from DB (platform_composer_templates), then localStorage.
  */
 export async function resolveIcOverviewComposerLayoutAsync(
   supabase: SupabaseClient | null | undefined,
+  opts?: { publishedRows?: ComposerTemplateRow[] | null },
 ): Promise<IcOverviewComposerResolved> {
+  if (opts?.publishedRows != null) {
+    return resolveIcOverviewComposerFromPublishedRows(opts.publishedRows)
+  }
   if (supabase) {
     const { data } = await fetchPublishedComposerTemplates(supabase)
-    const fromDb: LayoutComposerPreset[] = data
-      .filter((r) => r.kind === 'stack')
-      .map((row) => {
-        const p = row.payload as StackTemplatePayload
-        return {
-          id: row.id,
-          name: row.name,
-          createdAt: row.created_at,
-          visible: p.visible as Record<string, boolean>,
-          order: p.order as string[],
-        }
-      })
-    const hitDb = findSavedPreset(fromDb)
-    if (hitDb) return resolvedFromPreset(hitDb)
+    return resolveIcOverviewComposerFromPublishedRows(data)
   }
   return resolveIcOverviewComposerLayout()
 }

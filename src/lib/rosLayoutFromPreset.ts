@@ -4,7 +4,8 @@ import {
   normalizeComposerOrder,
   type LayoutComposerPreset,
 } from './platformLayoutComposerStorage'
-import { fetchPublishedComposerTemplates, type StackTemplatePayload } from './platformComposerTemplatesApi'
+import { fetchPublishedComposerTemplates, type ComposerTemplateRow } from './platformComposerTemplatesApi'
+import { publishedStackRowsToPresets } from './publishedStackPresets'
 import type { LayoutComposerBlockId } from '../pages/platform/PlatformLayoutComposerPage'
 import { LAYOUT_COMPOSER_BLOCK_ORDER } from '../pages/platform/PlatformLayoutComposerPage'
 
@@ -67,26 +68,28 @@ export function resolveRosTabLayout(): RosTabLayoutResolved {
   return resolvedFromPreset(hit)
 }
 
+/** Fra arbeidsflate-cache av publiserte maler (samme kilde som Realtime-oppdateringer). */
+export function resolveRosTabLayoutFromPublishedRows(
+  rows: ComposerTemplateRow[] | null | undefined,
+): RosTabLayoutResolved {
+  if (rows && rows.length > 0) {
+    const hitDb = findRosPreset(publishedStackRowsToPresets(rows))
+    if (hitDb) return resolvedFromPreset(hitDb)
+  }
+  return resolveRosTabLayout()
+}
+
 /** Publiserte stack-maler fra DB, deretter localStorage, ellers standard. */
 export async function resolveRosTabLayoutAsync(
   supabase: SupabaseClient | null | undefined,
+  opts?: { publishedRows?: ComposerTemplateRow[] | null },
 ): Promise<RosTabLayoutResolved> {
+  if (opts?.publishedRows != null) {
+    return resolveRosTabLayoutFromPublishedRows(opts.publishedRows)
+  }
   if (supabase) {
     const { data } = await fetchPublishedComposerTemplates(supabase)
-    const fromDb: LayoutComposerPreset[] = data
-      .filter((r) => r.kind === 'stack')
-      .map((row) => {
-        const p = row.payload as StackTemplatePayload
-        return {
-          id: row.id,
-          name: row.name,
-          createdAt: row.created_at,
-          visible: p.visible as Record<string, boolean>,
-          order: p.order as string[],
-        }
-      })
-    const hitDb = findRosPreset(fromDb)
-    if (hitDb) return resolvedFromPreset(hitDb)
+    return resolveRosTabLayoutFromPublishedRows(data)
   }
   return resolveRosTabLayout()
 }

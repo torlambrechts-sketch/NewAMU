@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Calendar,
@@ -15,7 +15,7 @@ import { LegalDisclaimer } from '../components/internalControl/LegalDisclaimer'
 import { RISK_COLOUR_CLASSES, riskColour } from '../data/rosTemplate'
 import { useInternalControl } from '../hooks/useInternalControl'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
-import { usePublishedComposerTemplatesRefresh } from '../hooks/usePublishedComposerTemplatesRefresh'
+import { useWorkplacePublishedComposerStacks } from '../hooks/useWorkplacePublishedComposerStacks'
 import type {
   AnnualReview,
   AnnualReviewActionDraft,
@@ -53,15 +53,10 @@ import { RosWorkplaceLayoutRiskMatrixSection, RosWorkplaceLayoutRiskTableSection
 import { InternalControlTabShell } from './internalControl/InternalControlTabShell'
 import { RosAssessmentsList2 } from './internalControl/RosAssessmentsList2'
 import {
-  resolveIcOverviewComposerLayout,
-  resolveIcOverviewComposerLayoutAsync,
+  resolveIcOverviewComposerFromPublishedRows,
   type IcOverviewComposerResolved,
 } from '../lib/icOverviewLayoutFromPreset'
-import {
-  resolveRosTabLayout,
-  resolveRosTabLayoutAsync,
-  type RosTabLayoutResolved,
-} from '../lib/rosLayoutFromPreset'
+import { resolveRosTabLayoutFromPublishedRows, type RosTabLayoutResolved } from '../lib/rosLayoutFromPreset'
 import { renderLayoutComposerBlock } from './platform/PlatformLayoutComposerPage'
 
 const tabs = [
@@ -124,7 +119,8 @@ export function InternalControlModule() {
   const hr = useHrCompliance()
   const hse = useHse()
   const { addTask } = useTasks()
-  const { supabase, supabaseConfigured, profile, user } = useOrgSetupContext()
+  const { supabaseConfigured, profile, user } = useOrgSetupContext()
+  const { publishedStackTemplates } = useWorkplacePublishedComposerStacks()
   const [searchParams, setSearchParams] = useSearchParams()
   type TabId = (typeof tabs)[number]['id']
   const tabParam = searchParams.get('tab')
@@ -614,55 +610,17 @@ export function InternalControlModule() {
   )
 
   const [icOverviewComposer, setIcOverviewComposer] = useState<IcOverviewComposerResolved>(() =>
-    resolveIcOverviewComposerLayout(),
+    resolveIcOverviewComposerFromPublishedRows(null),
+  )
+
+  const [rosTabLayout, setRosTabLayout] = useState<RosTabLayoutResolved>(() =>
+    resolveRosTabLayoutFromPublishedRows(null),
   )
 
   useEffect(() => {
-    if (tab !== 'overview') return
-    let cancelled = false
-    void (async () => {
-      const r = await resolveIcOverviewComposerLayoutAsync(supabase ?? undefined)
-      if (!cancelled) setIcOverviewComposer(r)
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [tab, supabase])
-
-  const [rosTabLayout, setRosTabLayout] = useState<RosTabLayoutResolved>(() => resolveRosTabLayout())
-
-  useEffect(() => {
-    if (tab !== 'ros') return
-    let cancelled = false
-    void (async () => {
-      const r = await resolveRosTabLayoutAsync(supabase ?? undefined)
-      if (!cancelled) setRosTabLayout(r)
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [tab, supabase])
-
-  const refreshComposerLayoutsFromDb = useCallback(async () => {
-    if (!supabase) return
-    const [icNext, rosNext] = await Promise.all([
-      resolveIcOverviewComposerLayoutAsync(supabase),
-      resolveRosTabLayoutAsync(supabase),
-    ])
-    setIcOverviewComposer(icNext)
-    setRosTabLayout(rosNext)
-  }, [supabase])
-
-  const refreshComposerLayoutsRef = useRef(refreshComposerLayoutsFromDb)
-  useEffect(() => {
-    refreshComposerLayoutsRef.current = refreshComposerLayoutsFromDb
-  }, [refreshComposerLayoutsFromDb])
-
-  usePublishedComposerTemplatesRefresh(
-    supabase,
-    () => refreshComposerLayoutsRef.current(),
-    { enabled: Boolean(supabaseConfigured && user && supabase) },
-  )
+    setIcOverviewComposer(resolveIcOverviewComposerFromPublishedRows(publishedStackTemplates))
+    setRosTabLayout(resolveRosTabLayoutFromPublishedRows(publishedStackTemplates))
+  }, [publishedStackTemplates])
 
   const rosLayoutNodes = useMemo(() => {
     const order = rosTabLayout.order
@@ -925,7 +883,9 @@ export function InternalControlModule() {
               <p className="text-xs text-neutral-500">
                 Oppsett fra plattform-admin:{' '}
                 <span className="font-medium text-neutral-700">«{rosTabLayout.presetNameMatched}»</span>
-                {supabaseConfigured ? ' (synket ved åpning av fanen).' : ' (lagret i denne nettleseren).'}
+                {supabaseConfigured
+                  ? ' (oppdateres automatisk når publiserte maler endres i plattform-admin).'
+                  : ' (lagret i denne nettleseren).'}
               </p>
             ) : null}
             {rosLayoutNodes}
