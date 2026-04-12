@@ -12,12 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { LegalDisclaimer } from '../components/internalControl/LegalDisclaimer'
-import { legalDisclaimerBody } from '../components/internalControl/legalDisclaimerCopy'
-import { ROS_TEMPLATE_HELP, RISK_COLOUR_CLASSES, computeRiskScore, riskColour, emptyRosRow } from '../data/rosTemplate'
-import {
-  ROS_CHEMICAL_ROW_PRESET,
-  ROS_WORKSPACE_PRESET_HAZARDS,
-} from '../data/rosWizardPresets'
+import { ROS_TEMPLATE_HELP, RISK_COLOUR_CLASSES, computeRiskScore, riskColour } from '../data/rosTemplate'
 import { useInternalControl } from '../hooks/useInternalControl'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import type {
@@ -27,15 +22,12 @@ import type {
   InternalControlAuditEntry,
   RosAssessment,
   RosCategory,
-  RosRiskRow,
   RosWorkspaceCategory,
 } from '../types/internalControl'
-import { EMPTY_ANNUAL_REVIEW_SECTIONS, O_ROS_PRESET_HAZARDS, isLegacyAnnualReview } from '../types/internalControl'
+import { EMPTY_ANNUAL_REVIEW_SECTIONS, isLegacyAnnualReview } from '../types/internalControl'
 import { useHrCompliance } from '../hooks/useHrCompliance'
 import { useHse } from '../hooks/useHse'
 import { useTasks } from '../hooks/useTasks'
-import { WizardButton } from '../components/wizard/WizardButton'
-import { makeRosWizard } from '../components/wizard/wizards'
 import {
   mergeLayoutPayload,
   table1BodyRowClass,
@@ -99,51 +91,6 @@ const ROS_WORKSPACE_LABELS: Record<RosWorkspaceCategory, string> = {
   construction: 'Bygg / anlegg',
   healthcare: 'Helse / omsorg',
 }
-function buildWizardRosRows(v: Record<string, string | boolean>): RosRiskRow[] {
-  const legal = String(v.rosLegalCategory ?? 'general') as RosCategory
-  if (legal === 'organizational_change') {
-    return O_ROS_PRESET_HAZARDS.map((h) => ({
-      ...emptyRosRow(),
-      id: crypto.randomUUID(),
-      activity: h.activity,
-      hazard: h.hazard,
-      existingControls: h.existingControls,
-      severity: 3,
-      likelihood: 3,
-      riskScore: 9,
-    }))
-  }
-  const ws = String(v.workspaceCategory ?? 'general') as RosWorkspaceCategory
-  const presetList = ROS_WORKSPACE_PRESET_HAZARDS[ws] ?? ROS_WORKSPACE_PRESET_HAZARDS.general
-  const rows: RosRiskRow[] = presetList.map((h) => ({
-    ...emptyRosRow(),
-    id: crypto.randomUUID(),
-    activity: h.activity,
-    hazard: h.hazard,
-    existingControls: h.existingControls,
-    severity: 3,
-    likelihood: 3,
-    riskScore: 9,
-  }))
-  const chem =
-    v.chemicalsYes === true ||
-    v.chemicalsYes === 'yes' ||
-    v.chemicalsYes === 'true'
-  if ((ws === 'production' || ws === 'warehouse') && chem) {
-    rows.push({
-      ...emptyRosRow(),
-      id: crypto.randomUUID(),
-      activity: ROS_CHEMICAL_ROW_PRESET.activity,
-      hazard: ROS_CHEMICAL_ROW_PRESET.hazard,
-      existingControls: ROS_CHEMICAL_ROW_PRESET.existingControls,
-      severity: 3,
-      likelihood: 3,
-      riskScore: 9,
-    })
-  }
-  return rows
-}
-
 function formatWhen(iso: string) {
   try {
     return new Date(iso).toLocaleString('no-NO', { dateStyle: 'short', timeStyle: 'short' })
@@ -845,52 +792,6 @@ export function InternalControlModule() {
                 />
               </div>
 
-              <div className="rounded-none border border-neutral-200 bg-white p-5 text-sm text-neutral-700">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-[#1a3d32]">{ROS_TEMPLATE_HELP.title}</p>
-                    <p className="mt-2">{ROS_TEMPLATE_HELP.intro}</p>
-                  </div>
-                  <WizardButton
-                    label="Veiviser"
-                    variant="solid"
-                    className="rounded-none"
-                    def={makeRosWizard((data) => {
-                      const legal = String(data.rosLegalCategory ?? 'general') as RosCategory
-                      const ws = String(data.workspaceCategory ?? 'general') as RosWorkspaceCategory
-                      const rows = buildWizardRosRows({ ...data, rosLegalCategory: legal, workspaceCategory: ws })
-                      ic.createRosAssessment(String(data.title), String(data.department), String(data.assessor), {
-                        category: legal,
-                        seedORosRows: legal === 'organizational_change',
-                        workspaceCategory: ws,
-                        initialRows: legal === 'organizational_change' ? undefined : rows,
-                      })
-                    })}
-                  />
-                </div>
-                <ul className="mt-3 list-inside list-disc text-xs text-neutral-600">
-                  <li>{ROS_TEMPLATE_HELP.severityScale}</li>
-                  <li>{ROS_TEMPLATE_HELP.likelihoodScale}</li>
-                  <li>
-                    Ved <strong>rød restrisiko (15–25)</strong> kreves utfylt «Strakstiltak / eskalering» før signering.
-                  </li>
-                  <li>Når ROS låses, opprettes oppgaver på tavlen for rader med tiltak, ansvarlig og frist.</li>
-                </ul>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(['green', 'yellow', 'red'] as const).map((c) => {
-                    const cls = RISK_COLOUR_CLASSES[c]
-                    return (
-                      <span
-                        key={c}
-                        className={`inline-flex items-center gap-1.5 rounded-none border px-3 py-1.5 text-xs font-medium ${cls.bg} ${cls.text} ${cls.border}`}
-                      >
-                        {cls.label} {c === 'green' ? '(1–6)' : c === 'yellow' ? '(7–12)' : '(15–25)'}
-                      </span>
-                    )
-                  })}
-                </div>
-              </div>
-
               <section aria-label="ROS-vurderinger">
                 <Table1Shell
               variant="pinpoint"
@@ -988,10 +889,31 @@ export function InternalControlModule() {
             <aside className="min-w-0 lg:sticky lg:top-4 lg:self-start">
               <WorkplaceNoticePanel
                 variant="warning"
-                title="Viktig"
+                title={ROS_TEMPLATE_HELP.title}
                 bodySlot={
-                  <div className="[&_a]:text-[#1a3d32] [&_a]:underline">
-                    {legalDisclaimerBody({ compact: true })}
+                  <div className="space-y-3 text-neutral-800">
+                    <p>{ROS_TEMPLATE_HELP.intro}</p>
+                    <ul className="list-inside list-disc space-y-1 text-xs text-neutral-600">
+                      <li>{ROS_TEMPLATE_HELP.severityScale}</li>
+                      <li>{ROS_TEMPLATE_HELP.likelihoodScale}</li>
+                      <li>
+                        Ved <strong>rød restrisiko (15–25)</strong> kreves utfylt «Strakstiltak / eskalering» før signering.
+                      </li>
+                      <li>Når ROS låses, opprettes oppgaver på tavlen for rader med tiltak, ansvarlig og frist.</li>
+                    </ul>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {(['green', 'yellow', 'red'] as const).map((c) => {
+                        const cls = RISK_COLOUR_CLASSES[c]
+                        return (
+                          <span
+                            key={c}
+                            className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium ${cls.bg} ${cls.text} ${cls.border}`}
+                          >
+                            {cls.label} {c === 'green' ? '(1–6)' : c === 'yellow' ? '(7–12)' : '(15–25)'}
+                          </span>
+                        )
+                      })}
+                    </div>
                   </div>
                 }
               />
