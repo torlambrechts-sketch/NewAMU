@@ -117,74 +117,74 @@ function App() {
               <Route path="onboarding" element={<OnboardingWizard />} />
               <Route element={<PermissionGate />}>
                 <Route element={<DocumentsLayout />}>
-                <Route element={<AticsShell />}>
-                  <Route element={<WorkplaceChrome />}>
-                  <Route index element={<WelcomeDashboardPage />} />
-                  <Route path="app" element={<WelcomeDashboardPage />} />
-                  <Route path="dashboard/classic" element={<ProjectDashboard />} />
-                  <Route path="tasks" element={<TasksPage />} />
-                  <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
-                  <Route path="organisation" element={<OrganisationPage />} />
-                  <Route path="organisation/admin" element={<AdminPage />} />
-                  <Route path="reports" element={<ReportingEnginePage />} />
-                  <Route path="workplace-reporting" element={<WorkplaceReportingPage />} />
-                  <Route path="workplace-reporting/dashboard" element={<WorkplaceDashboardPage />} />
-                  <Route path="workplace-reporting/incidents" element={<WorkplaceIncidentsPage />} />
-                  <Route path="workplace-reporting/anonymous-aml/settings" element={<WorkplaceAnonymousAmlSettingsPage />} />
-                  <Route path="workplace-reporting/anonymous-aml" element={<WorkplaceAnonymousAmlPage />} />
-                  <Route path="aarshjul" element={<AarshjulPage />} />
-                  <Route path="action-board" element={<ActionBoardPage />} />
-                  <Route path="council" element={<CouncilModule />} />
-                  <Route path="members" element={<MembersModule />} />
-                  <Route path="org-health" element={<OrgHealthModule />} />
-                  <Route path="org-health/settings" element={<OrgHealthSettings />} />
-                  <Route path="compliance" element={<ComplianceDashboardPage />} />
-                  <Route path="internal-control" element={<InternalControlModule />} />
-                  <Route path="hse" element={<HseModule />} />
-                  <Route path="admin" element={<Navigate to="/organisation/admin" replace />} />
-                  <Route path="profile" element={<ProfilePage />} />
-                  <Route path="learning/play/:courseId" element={<LearningPlayer />} />
-                  <Route path="learning/flow" element={<LearningFlowEntry />} />
-                  <Route path="learning" element={<LearningLayout />}>
-                    <Route index element={<LearningDashboard />} />
-                    <Route path="courses" element={<LearningCoursesList />} />
-                    <Route path="courses/:courseId" element={<LearningCourseBuilder />} />
-                    <Route path="certifications" element={<LearningCertifications />} />
-                    <Route path="insights" element={<LearningInsights />} />
-                    <Route path="participants" element={<LearningParticipants />} />
-                    <Route path="compliance" element={<LearningComplianceMatrix />} />
-                    <Route path="paths" element={<LearningPathsPage />} />
-                    <Route path="external" element={<LearningExternalTraining />} />
-                    <Route path="settings" element={<LearningSettings />} />
+                  <Route element={<AticsShell />}>
+                    <Route element={<WorkplaceChrome />}>
+                      <Route index element={<WelcomeDashboardPage />} />
+                      <Route path="app" element={<WelcomeDashboardPage />} />
+                      <Route path="dashboard/classic" element={<ProjectDashboard />} />
+                      <Route path="tasks" element={<TasksPage />} />
+                      <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
+                      <Route path="organisation" element={<OrganisationPage />} />
+                      <Route path="organisation/admin" element={<AdminPage />} />
+                      <Route path="reports" element={<ReportingEnginePage />} />
+                      <Route path="workplace-reporting" element={<WorkplaceReportingPage />} />
+                      <Route path="workplace-reporting/dashboard" element={<WorkplaceDashboardPage />} />
+                      <Route path="workplace-reporting/incidents" element={<WorkplaceIncidentsPage />} />
+                      <Route path="workplace-reporting/anonymous-aml/settings" element={<WorkplaceAnonymousAmlSettingsPage />} />
+                      <Route path="workplace-reporting/anonymous-aml" element={<WorkplaceAnonymousAmlPage />} />
+                      <Route path="aarshjul" element={<AarshjulPage />} />
+                      <Route path="action-board" element={<ActionBoardPage />} />
+                      <Route path="council" element={<CouncilModule />} />
+                      <Route path="members" element={<MembersModule />} />
+                      <Route path="org-health" element={<OrgHealthModule />} />
+                      <Route path="org-health/settings" element={<OrgHealthSettings />} />
+                      <Route path="compliance" element={<ComplianceDashboardPage />} />
+                      <Route path="internal-control" element={<InternalControlModule />} />
+                      <Route path="hse" element={<HseModule />} />
+                      <Route path="admin" element={<Navigate to="/organisation/admin" replace />} />
+                      <Route path="profile" element={<ProfilePage />} />
+                      <Route path="learning/play/:courseId" element={<LearningPlayer />} />
+                      <Route path="learning/flow" element={<LearningFlowEntry />} />
+                      <Route path="learning" element={<LearningLayout />}>
+                        <Route index element={<LearningDashboard />} />
+                        <Route path="courses" element={<LearningCoursesList />} />
+                        <Route path="courses/:courseId" element={<LearningCourseBuilder />} />
+                        <Route path="certifications" element={<LearningCertifications />} />
+                        <Route path="insights" element={<LearningInsights />} />
+                        <Route path="participants" element={<LearningParticipants />} />
+                        <Route path="compliance" element={<LearningComplianceMatrix />} />
+                        <Route path="paths" element={<LearningPathsPage />} />
+                        <Route path="external" element={<LearningExternalTraining />} />
+                        <Route path="settings" element={<LearningSettings />} />
+                      </Route>
+                      <Route path="prosesser" element={<Navigate to="/workflow" replace />} />
+                      <Route path="workflow" element={<WorkflowModulePage />} />
+                      <Route path="hr" element={<HrComplianceHub />} />
+                      <Route path="hr/discussion" element={<HrDiscussionPage />} />
+                      <Route path="hr/consultation" element={<HrConsultationPage />} />
+                      <Route path="hr/o-ros" element={<HrORosPage />} />
+                      <Route path="documents" element={<DocumentsHome />} />
+                      <Route path="documents/space/:spaceId" element={<WikiSpaceView />} />
+                      <Route
+                        path="documents/page/:pageId"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise dokumentet">
+                            <WikiPageView />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="documents/page/:pageId/edit"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke åpne redigering">
+                            <WikiPageEditor />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route path="documents/compliance" element={<ComplianceDashboard />} />
+                      <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
+                    </Route>
                   </Route>
-                  <Route path="prosesser" element={<Navigate to="/workflow" replace />} />
-                  <Route path="workflow" element={<WorkflowModulePage />} />
-                  <Route path="hr" element={<HrComplianceHub />} />
-                  <Route path="hr/discussion" element={<HrDiscussionPage />} />
-                  <Route path="hr/consultation" element={<HrConsultationPage />} />
-                  <Route path="hr/o-ros" element={<HrORosPage />} />
-                  <Route path="documents" element={<DocumentsHome />} />
-                  <Route path="documents/space/:spaceId" element={<WikiSpaceView />} />
-                  <Route
-                    path="documents/page/:pageId"
-                    element={
-                      <RouteErrorBoundary title="Kunne ikke vise dokumentet">
-                        <WikiPageView />
-                      </RouteErrorBoundary>
-                    }
-                  />
-                  <Route
-                    path="documents/page/:pageId/edit"
-                    element={
-                      <RouteErrorBoundary title="Kunne ikke åpne redigering">
-                        <WikiPageEditor />
-                      </RouteErrorBoundary>
-                    }
-                  />
-                  <Route path="documents/compliance" element={<ComplianceDashboard />} />
-                  <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
-                  </Route>
-                </Route>
                 </Route>
               </Route>
             </Route>
