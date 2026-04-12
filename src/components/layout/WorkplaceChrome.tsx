@@ -12,7 +12,7 @@ export const WORKPLACE_FOREST = '#1a3d32'
 export function WorkplaceChrome() {
   return (
     <div
-      className="min-h-screen w-full"
+      className="min-h-0 w-full min-h-full"
       style={{
         backgroundColor: WORKPLACE_CREAM,
         fontFamily: 'Inter, system-ui, sans-serif',

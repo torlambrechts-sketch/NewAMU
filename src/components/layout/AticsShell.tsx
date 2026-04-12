@@ -812,8 +812,8 @@ export function AticsShell() {
   )
 
   return (
-    <div className="min-h-[100dvh] min-h-screen bg-[var(--ui-surface)]">
-      <header className="bg-[var(--ui-nav-rail)] text-white">
+    <div className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-[var(--ui-surface)]">
+      <header className="shrink-0 bg-[var(--ui-nav-rail)] text-white">
         {/* Row 1: mobile — logo + section toggle | utilities (profile/menu always visible without scrolling) */}
         <div className="mx-auto max-w-[1400px] px-4 py-2 md:px-8 md:py-3">
           <div className="flex items-center justify-between gap-2 md:hidden">
@@ -941,7 +941,7 @@ export function AticsShell() {
 
       </header>
 
-      <main>
+      <main className="min-h-0 flex-1 overflow-y-auto bg-[var(--ui-surface)]">
         <Outlet />
       </main>
     </div>
