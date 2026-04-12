@@ -40,9 +40,14 @@ export function usePermissions(userId: string | undefined) {
     })
   }, [supabase, userId, refresh])
 
+  /**
+   * Match {@link PermissionGate}: when Supabase is on but RPC returns no rows (migration / seed not run yet),
+   * `permissionKeys.size === 0` — routes stay open, so checks must not deny everything (avoids blank hubs).
+   */
   const can = useCallback(
     (key: PermissionKey) => {
       if (!supabase) return true
+      if (keys.size === 0) return true
       return keys.has(key)
     },
     [supabase, keys],
@@ -50,6 +55,7 @@ export function usePermissions(userId: string | undefined) {
 
   const isAdmin = useMemo(() => {
     if (!supabase) return true
+    if (keys.size === 0) return true
     return keys.has('module.view.admin') || keys.has('roles.manage')
   }, [supabase, keys])
 
