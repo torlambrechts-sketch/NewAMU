@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
+import { WorkplaceNoticePanel } from '../../components/layout/WorkplaceNoticePanel'
 import {
   loadComposerPresets,
   loadComposerSession,
@@ -153,6 +154,57 @@ function DemoScoreBar({ value, max = 5 }: { value: number; max?: number }) {
       </div>
       <span className="w-10 text-right text-sm tabular-nums text-neutral-800">{value.toFixed(2)}</span>
     </div>
+  )
+}
+
+/** Informasjonsliste — samme kortskall som Ref. notifications, med info-ikon og blå tone. */
+function ComposableWorkplaceNoticeInfoBlock() {
+  return (
+    <WorkplaceNoticePanel
+      variant="info"
+      title="Informasjon"
+      badge={2}
+      items={[
+        {
+          id: '1',
+          title: 'Ny versjon av internkontroll er tilgjengelig. Se hva som er endret i hjelpesenteret.',
+          subtitle: 'I dag',
+          action: (
+            <button type="button" className="text-neutral-400 hover:text-neutral-700" aria-label="Mer">
+              <MoreHorizontal className="size-4" />
+            </button>
+          ),
+        },
+        {
+          id: '2',
+          title: 'Påminnelse: godkjenn årshjul-aktiviteter før frist 30. april.',
+          subtitle: 'For 3 dager siden',
+        },
+      ]}
+    />
+  )
+}
+
+/** Advarselliste — samme mønster som informasjon, med varsel-ikon og amber tone. */
+function ComposableWorkplaceNoticeWarningBlock() {
+  return (
+    <WorkplaceNoticePanel
+      variant="warning"
+      title="Advarsler"
+      badge={1}
+      items={[
+        {
+          id: '1',
+          title: 'ROS «Løfteanordning» har forfalt gjennomgang. Oppdater eller lukk tiltak.',
+          subtitle: 'I går',
+          action: (
+            <button type="button" className="text-neutral-400 hover:text-neutral-700" aria-label="Mer">
+              <MoreHorizontal className="size-4" />
+            </button>
+          ),
+        },
+      ]}
+    />
   )
 }
 
@@ -1277,6 +1329,16 @@ const BLOCKS = [
     hint: 'Stort tall, tittel, grå undertekst (krem bakgrunn) — som scorecard-rad mellom overskrift og liste.',
   },
   {
+    id: 'noticeInfo',
+    label: 'Boks — informasjon (liste)',
+    hint: 'Hvit kort med overskrift, valgfri badge og rader med info-ikon — samme struktur som uleste varsler.',
+  },
+  {
+    id: 'noticeWarning',
+    label: 'Boks — advarsel (liste)',
+    hint: 'Samme som informasjonsboksen, med varsel-ikon og amber tone for viktige meldinger.',
+  },
+  {
     id: 'list2',
     label: 'List 2 — kandidat/ordre-tabell',
     hint: 'Søk, Filters + status, grå header-rad, piller (action / checks), paginering.',
@@ -1420,6 +1482,10 @@ function renderComposerBlock(id: BlockId): ReactNode {
       return <ComposableTableHeadingToolbarBlock />
     case 'scoreStatRow':
       return <ComposableScoreStatRowBlock />
+    case 'noticeInfo':
+      return <ComposableWorkplaceNoticeInfoBlock />
+    case 'noticeWarning':
+      return <ComposableWorkplaceNoticeWarningBlock />
     case 'list2':
       return <ComposableList2Block />
     case 'jobBoxGrid':
