@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
+import { ReferenceDetailPanePlayground } from '../../components/platform/ReferenceDetailPaneDemo'
 import {
   loadComposerPresets,
   loadComposerSession,
@@ -762,6 +763,18 @@ function ComposableScoreStatRowBlock() {
   )
 }
 
+/** Detaljpaneel: krem sidenav + serif H1 + nøkkel/verdi-rader (samme mønster som Kandidatdetalj). */
+function ComposableDetailPaneBlock() {
+  return (
+    <div className="space-y-2">
+      <ReferenceDetailPanePlayground />
+      <p className="text-xs text-neutral-500">
+        Detaljpaneel: vertikal navigasjon med aktiv grønn markør, hovedflate med seksjonslabel og redigerbare felt-rader.
+      </p>
+    </div>
+  )
+}
+
 /** List 2: candidate / order table with search, filters strip, status pills, pagination (reference screenshot). */
 function ComposableList2Block() {
   const [search, setSearch] = useState('')
@@ -1261,6 +1274,11 @@ const BLOCKS = [
     hint: 'Søk, Filters + status, grå header-rad, piller (action / checks), paginering.',
   },
   {
+    id: 'detailPane',
+    label: 'Detaljpaneel — sidenav + felt',
+    hint: 'Krem sidenav, serif-tittel, label/verdi-rader med blyant (Kandidatdetalj-referanse).',
+  },
+  {
     id: 'jobBoxGrid',
     label: 'Boks — stillingskort (rutenett)',
     hint: 'Tre hvite kort på kremflate (tittel, meta, ID, OPEN, kandidater-rad).',
@@ -1313,6 +1331,8 @@ function renderComposerBlock(id: BlockId): ReactNode {
       return <ComposableScoreStatRowBlock />
     case 'list2':
       return <ComposableList2Block />
+    case 'detailPane':
+      return <ComposableDetailPaneBlock />
     case 'jobBoxGrid':
       return <ComposableJobBoxGridBlock />
     case 'reportingDonutOneRow':
