@@ -681,12 +681,61 @@ export function JobPostingsPageBlock() {
   )
 }
 
+const REF_SURVEY_RESPONSE_COMMENTS = [
+  {
+    name: 'Noreen Keeling — Software Engineer (Internal)',
+    when: '7 months ago',
+    body: 'Great process and clear communication throughout. The team was welcoming and the technical discussion felt fair.',
+  },
+  { name: 'Rafael', when: '16 days ago', body: 'Overall positive experience. Would appreciate slightly faster feedback between stages.' },
+  { name: 'Eduardo', when: '22 days ago', body: 'Professional interviewers and well-structured scorecard. Room to improve scheduling flexibility.' },
+] as const
+
+/** Survey insights — høyre kolonne «Survey responses» (layout-referanse), brukes også i 70/30-demoen. */
+export function RefSurveyResponsesBlock() {
+  return (
+    <WhiteCard className="overflow-hidden p-0">
+      <div className="border-b border-neutral-100 px-4 py-3">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Survey responses</p>
+      </div>
+      <ul className="max-h-[min(70vh,520px)] divide-y divide-neutral-100 overflow-y-auto">
+        {REF_SURVEY_RESPONSE_COMMENTS.map((c) => (
+          <li key={c.name} className="px-4 py-4">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-sm font-semibold text-neutral-900">7 / 10</span>
+              <button type="button" className="text-xs font-medium text-sky-700 hover:underline">
+                View full response
+              </button>
+            </div>
+            <p className="mt-2 text-[10px] font-bold uppercase text-neutral-400">Comment</p>
+            <p className="mt-1 text-sm leading-relaxed text-neutral-600">{c.body}</p>
+            <div className="mt-3 rounded-md bg-neutral-50 px-3 py-2 text-xs">
+              <p className="font-medium text-neutral-800">{c.name}</p>
+              <p className="text-neutral-500">{c.when}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="flex items-center justify-center gap-2 border-t border-neutral-100 py-3">
+        <button type="button" className="rounded p-1 text-neutral-400 hover:bg-neutral-100">
+          <ChevronLeft className="size-4" />
+        </button>
+        <span className="flex size-8 items-center justify-center rounded-full bg-[#1a3d32] text-xs font-bold text-white">1</span>
+        <button type="button" className="text-sm text-neutral-600">
+          2
+        </button>
+        <button type="button" className="text-sm text-neutral-600">
+          3
+        </button>
+        <button type="button" className="rounded p-1 text-neutral-400 hover:bg-neutral-100">
+          <ChevronRight className="size-4" />
+        </button>
+      </div>
+    </WhiteCard>
+  )
+}
+
 export function SurveyInsights7070Block() {
-  const comments = [
-    { name: 'Noreen Keeling — Software Engineer (Internal)', when: '7 months ago', body: 'Great process and clear communication throughout. The team was welcoming and the technical discussion felt fair.' },
-    { name: 'Rafael', when: '16 days ago', body: 'Overall positive experience. Would appreciate slightly faster feedback between stages.' },
-    { name: 'Eduardo', when: '22 days ago', body: 'Professional interviewers and well-structured scorecard. Room to improve scheduling flexibility.' },
-  ]
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)] lg:items-start">
@@ -802,61 +851,25 @@ export function SurveyInsights7070Block() {
           </WhiteCard>
         </div>
         <aside className="min-w-0 space-y-3">
-          <WhiteCard className="overflow-hidden p-0">
-            <div className="border-b border-neutral-100 px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Survey responses</p>
-            </div>
-            <ul className="max-h-[min(70vh,520px)] divide-y divide-neutral-100 overflow-y-auto">
-              {comments.map((c) => (
-                <li key={c.name} className="px-4 py-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-semibold text-neutral-900">7 / 10</span>
-                    <button type="button" className="text-xs font-medium text-sky-700 hover:underline">
-                      View full response
-                    </button>
-                  </div>
-                  <p className="mt-2 text-[10px] font-bold uppercase text-neutral-400">Comment</p>
-                  <p className="mt-1 text-sm leading-relaxed text-neutral-600">{c.body}</p>
-                  <div className="mt-3 rounded-md bg-neutral-50 px-3 py-2 text-xs">
-                    <p className="font-medium text-neutral-800">{c.name}</p>
-                    <p className="text-neutral-500">{c.when}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <div className="flex items-center justify-center gap-2 border-t border-neutral-100 py-3">
-              <button type="button" className="rounded p-1 text-neutral-400 hover:bg-neutral-100">
-                <ChevronLeft className="size-4" />
-              </button>
-              <span className="flex size-8 items-center justify-center rounded-full bg-[#1a3d32] text-xs font-bold text-white">1</span>
-              <button type="button" className="text-sm text-neutral-600">
-                2
-              </button>
-              <button type="button" className="text-sm text-neutral-600">
-                3
-              </button>
-              <button type="button" className="rounded p-1 text-neutral-400 hover:bg-neutral-100">
-                <ChevronRight className="size-4" />
-              </button>
-            </div>
-          </WhiteCard>
+          <RefSurveyResponsesBlock />
         </aside>
       </div>
     </div>
   )
 }
 
-export function CandidateDetailBlock() {
-  const nav = ['Application', 'Résumé', 'Scorecards', 'Comments', 'Emails']
-  const [active, setActive] = useState('Application')
-  const rows = [
-    ['First name', 'Taneka'],
-    ['Last name', 'Oberbrunner'],
-    ['Email address', 'taneka.oberbrunner@example.com'],
-    ['Phone', '+44 7700 900123'],
-    ['Source', 'Employee referral'],
-  ]
+const REF_CANDIDATE_DETAIL_NAV = ['Application', 'Résumé', 'Scorecards', 'Comments', 'Emails'] as const
 
+const REF_CANDIDATE_DETAIL_ROWS: [string, string][] = [
+  ['First name', 'Taneka'],
+  ['Last name', 'Oberbrunner'],
+  ['Email address', 'taneka.oberbrunner@example.com'],
+  ['Phone', '+44 7700 900123'],
+  ['Source', 'Employee referral'],
+]
+
+/** Kandidatdetalj — topp (brødsmule, stillingstittel, kandidat-headerkort). */
+export function RefCandidateDetailHeaderBlock() {
   return (
     <div className="space-y-4">
       <Breadcrumb items={['Jobs', 'Software Developer', 'Candidates — Applied']} />
@@ -904,43 +917,59 @@ export function CandidateDetailBlock() {
           </button>
         </div>
       </WhiteCard>
-      <div className="grid grid-cols-1 gap-0 overflow-hidden rounded-lg border border-neutral-200 bg-white lg:grid-cols-[minmax(200px,22%)_1fr]">
-        <aside className="border-b border-neutral-200 lg:border-b-0 lg:border-r" style={{ backgroundColor: BEIGE_NAV }}>
-          <nav className="p-2">
-            {nav.map((item) => {
-              const on = item === active
-              return (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setActive(item)}
-                  className={`mb-0.5 flex w-full items-center rounded-md px-3 py-2.5 text-left text-sm font-medium ${
-                    on ? 'bg-white/70 text-neutral-900 shadow-sm' : 'text-neutral-600 hover:bg-white/40'
-                  }`}
-                  style={on ? { boxShadow: `inset 3px 0 0 ${FOREST}` } : undefined}
-                >
-                  {item}
-                </button>
-              )
-            })}
-          </nav>
-        </aside>
-        <div className="p-6 md:p-8">
-          <SerifHeading className="text-2xl">{active}</SerifHeading>
-          <p className="mt-6 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Application details</p>
-          <ul className="mt-3 divide-y divide-neutral-200">
-            {rows.map(([k, v]) => (
-              <li key={String(k)} className="flex flex-wrap items-center gap-2 py-3 text-sm">
-                <span className="w-40 shrink-0 text-neutral-500">{k}</span>
-                <span className="min-w-0 flex-1 font-medium text-neutral-900">{v}</span>
-                <button type="button" className="shrink-0 text-neutral-400 hover:text-neutral-700" aria-label="Rediger">
-                  <Pencil className="size-4" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+    </div>
+  )
+}
+
+/** Kandidatdetalj — beige sidemeny + innhold med faner (Application, Résumé, …). */
+export function RefCandidateDetailPaneBlock() {
+  const [active, setActive] = useState<string>(REF_CANDIDATE_DETAIL_NAV[0])
+  return (
+    <div className="grid grid-cols-1 gap-0 overflow-hidden rounded-lg border border-neutral-200 bg-white lg:grid-cols-[minmax(200px,22%)_1fr]">
+      <aside className="border-b border-neutral-200 lg:border-b-0 lg:border-r" style={{ backgroundColor: BEIGE_NAV }}>
+        <nav className="p-2">
+          {REF_CANDIDATE_DETAIL_NAV.map((item) => {
+            const on = item === active
+            return (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setActive(item)}
+                className={`mb-0.5 flex w-full items-center rounded-md px-3 py-2.5 text-left text-sm font-medium ${
+                  on ? 'bg-white/70 text-neutral-900 shadow-sm' : 'text-neutral-600 hover:bg-white/40'
+                }`}
+                style={on ? { boxShadow: `inset 3px 0 0 ${FOREST}` } : undefined}
+              >
+                {item}
+              </button>
+            )
+          })}
+        </nav>
+      </aside>
+      <div className="p-6 md:p-8">
+        <SerifHeading className="text-2xl">{active}</SerifHeading>
+        <p className="mt-6 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Application details</p>
+        <ul className="mt-3 divide-y divide-neutral-200">
+          {REF_CANDIDATE_DETAIL_ROWS.map(([k, v]) => (
+            <li key={String(k)} className="flex flex-wrap items-center gap-2 py-3 text-sm">
+              <span className="w-40 shrink-0 text-neutral-500">{k}</span>
+              <span className="min-w-0 flex-1 font-medium text-neutral-900">{v}</span>
+              <button type="button" className="shrink-0 text-neutral-400 hover:text-neutral-700" aria-label="Rediger">
+                <Pencil className="size-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
+    </div>
+  )
+}
+
+export function CandidateDetailBlock() {
+  return (
+    <div className="space-y-4">
+      <RefCandidateDetailHeaderBlock />
+      <RefCandidateDetailPaneBlock />
     </div>
   )
 }
@@ -1580,7 +1609,8 @@ function DonutMini({
   )
 }
 
-function InterviewsSidebarCard() {
+/** Dashboard 70/30 — intervjuer med kalender (layout-referanse). */
+export function RefInterviewsCalendarBlock() {
   const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
   return (
     <WhiteCard className="overflow-hidden p-0">
@@ -1624,7 +1654,8 @@ function InterviewsSidebarCard() {
   )
 }
 
-function NotificationsSidebarCard() {
+/** Dashboard 70/30 — uleste varsler (layout-referanse). */
+export function RefUnreadNotificationsBlock() {
   const items = [
     { t: 'A new job for Operations Manager has been created.', when: 'Yesterday' },
     { t: 'Approval required for a new offer.', when: '2 days ago' },
@@ -1737,8 +1768,8 @@ export function DashboardMainRightBlock() {
 
   const side = (
     <>
-      <InterviewsSidebarCard />
-      <NotificationsSidebarCard />
+      <RefInterviewsCalendarBlock />
+      <RefUnreadNotificationsBlock />
     </>
   )
 

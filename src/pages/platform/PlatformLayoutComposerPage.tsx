@@ -47,6 +47,11 @@ import {
   JobPostingsPageBlock,
   JobScorecardPageBlock,
   JobsListPinpointBlock,
+  RefCandidateDetailHeaderBlock,
+  RefCandidateDetailPaneBlock,
+  RefInterviewsCalendarBlock,
+  RefSurveyResponsesBlock,
+  RefUnreadNotificationsBlock,
   SimpleDashboardBlock,
   SurveyInsights7070Block,
   TemplateLibraryBlock,
@@ -1346,6 +1351,31 @@ const BLOCKS = [
     label: 'Ref. — Dashboard (kompakt)',
     hint: 'Layout-referanse: enkel dash med KPI, jobbkort og pipeline-søyler.',
   },
+  {
+    id: 'refSurveyResponses',
+    label: 'Ref. — Survey responses (liste)',
+    hint: 'Layout-referanse: svarliste med paginering (brukes i Survey insights 70/30).',
+  },
+  {
+    id: 'refUnreadNotifications',
+    label: 'Ref. — Unread notifications',
+    hint: 'Layout-referanse: varselkort fra dashboard 70/30.',
+  },
+  {
+    id: 'refInterviewsCalendar',
+    label: 'Ref. — Interviews (kalender)',
+    hint: 'Layout-referanse: intervjukort med mini-kalender (dashboard 70/30).',
+  },
+  {
+    id: 'refCandidateDetailHeader',
+    label: 'Ref. — Kandidatdetalj (topp)',
+    hint: 'Brødsmule, stillingstittel og kandidat-headerkort.',
+  },
+  {
+    id: 'refCandidateDetailPane',
+    label: 'Ref. — Kandidatdetalj (faner + innhold)',
+    hint: 'Beige sidemeny og innholdsområde med faner (Application, Résumé, …).',
+  },
 ] as const
 
 export type LayoutComposerBlockId = (typeof BLOCKS)[number]['id']
@@ -1420,6 +1450,16 @@ function renderComposerBlock(id: BlockId): ReactNode {
       return <DashboardMainRightBlock />
     case 'refDashboardCompact':
       return <SimpleDashboardBlock />
+    case 'refSurveyResponses':
+      return <RefSurveyResponsesBlock />
+    case 'refUnreadNotifications':
+      return <RefUnreadNotificationsBlock />
+    case 'refInterviewsCalendar':
+      return <RefInterviewsCalendarBlock />
+    case 'refCandidateDetailHeader':
+      return <RefCandidateDetailHeaderBlock />
+    case 'refCandidateDetailPane':
+      return <RefCandidateDetailPaneBlock />
     default:
       return null
   }
