@@ -1,8 +1,9 @@
 import { ChevronDown, Eye, Filter, LayoutGrid, Plus } from 'lucide-react'
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
+import { riskColour } from '../../data/rosTemplate'
 import type { RosAssessment } from '../../types/internalControl'
-import type { RosRiskOverviewTableRow } from '../../lib/rosRiskOverviewRows'
-import { buildRosRiskOverviewRows } from '../../lib/rosRiskOverviewRows'
+import type { RosRiskFlattenedRow, RosRiskOverviewTableRow } from '../../lib/rosRiskOverviewRows'
+import { buildRosRiskFlattenedRows, buildRosRiskOverviewRows } from '../../lib/rosRiskOverviewRows'
 
 const FOREST = '#1a3d32'
 const BOX_SHADOW = { boxShadow: '0 1px 2px rgba(0,0,0,0.04)' } as const
@@ -21,18 +22,6 @@ const CELL_BG: string[][] = [
 
 type MatrixMode = 'matrix' | 'grouped'
 
-type IndividualRisk = {
-  id: string
-  /** 0 top = svært høy */
-  impact: number
-  /** 0 left = svært usannsynlig */
-  likelihood: number
-  title: string
-  rosTitle: string
-  score: number
-  level: 'Lav' | 'Middels' | 'Høy'
-}
-
 type GroupedRisk = {
   category: string
   impact: number
@@ -42,24 +31,118 @@ type GroupedRisk = {
   level: 'Lav' | 'Middels' | 'Høy'
 }
 
-const DEMO_INDIVIDUAL: IndividualRisk[] = [
-  { id: '1', impact: 0, likelihood: 4, title: 'Kjemikalier lager', rosTitle: 'ROS Lager 2025', score: 20, level: 'Høy' },
-  { id: '2', impact: 1, likelihood: 3, title: 'Løfteanordning', rosTitle: 'ROS Produksjon', score: 16, level: 'Høy' },
-  { id: '3', impact: 2, likelihood: 2, title: 'Ergonomi kontor', rosTitle: 'ROS Kontor', score: 9, level: 'Middels' },
-  { id: '4', impact: 3, likelihood: 1, title: 'Brannøvelse', rosTitle: 'ROS Felles', score: 6, level: 'Lav' },
-  { id: '5', impact: 4, likelihood: 0, title: 'IT-backup', rosTitle: 'ROS IT', score: 3, level: 'Lav' },
-  { id: '6', impact: 1, likelihood: 4, title: 'Maskinvern', rosTitle: 'ROS Produksjon', score: 15, level: 'Høy' },
-  { id: '7', impact: 0, likelihood: 3, title: 'Leverandørstyring', rosTitle: 'ROS Innkjøp', score: 12, level: 'Middels' },
+/** Demo: samme struktur som `buildRosRiskFlattenedRows` (én rad per risiko + matrise-celle). */
+const DEMO_FLATTENED: RosRiskFlattenedRow[] = [
+  {
+    id: 'demo-1',
+    displayIndex: 1,
+    category: 'Demo',
+    rosTitle: 'ROS Lager 2025',
+    riskTitle: 'Kjemikalier lager',
+    score: 20,
+    level: 'Høy',
+    impactIndex: 0,
+    likelihoodIndex: 4,
+  },
+  {
+    id: 'demo-2',
+    displayIndex: 2,
+    category: 'Demo',
+    rosTitle: 'ROS Produksjon',
+    riskTitle: 'Løfteanordning',
+    score: 16,
+    level: 'Høy',
+    impactIndex: 1,
+    likelihoodIndex: 3,
+  },
+  {
+    id: 'demo-3',
+    displayIndex: 3,
+    category: 'Demo',
+    rosTitle: 'ROS Kontor',
+    riskTitle: 'Ergonomi kontor',
+    score: 9,
+    level: 'Middels',
+    impactIndex: 2,
+    likelihoodIndex: 2,
+  },
+  {
+    id: 'demo-4',
+    displayIndex: 4,
+    category: 'Demo',
+    rosTitle: 'ROS Felles',
+    riskTitle: 'Brannøvelse',
+    score: 6,
+    level: 'Lav',
+    impactIndex: 3,
+    likelihoodIndex: 1,
+  },
+  {
+    id: 'demo-5',
+    displayIndex: 5,
+    category: 'Demo',
+    rosTitle: 'ROS IT',
+    riskTitle: 'IT-backup',
+    score: 3,
+    level: 'Lav',
+    impactIndex: 4,
+    likelihoodIndex: 0,
+  },
+  {
+    id: 'demo-6',
+    displayIndex: 6,
+    category: 'Demo',
+    rosTitle: 'ROS Produksjon',
+    riskTitle: 'Maskinvern',
+    score: 15,
+    level: 'Høy',
+    impactIndex: 1,
+    likelihoodIndex: 4,
+  },
+  {
+    id: 'demo-7',
+    displayIndex: 7,
+    category: 'Demo',
+    rosTitle: 'ROS Innkjøp',
+    riskTitle: 'Leverandørstyring',
+    score: 12,
+    level: 'Middels',
+    impactIndex: 0,
+    likelihoodIndex: 3,
+  },
 ]
 
-const DEMO_GROUPED: GroupedRisk[] = [
-  { category: 'Juridisk', impact: 0, likelihood: 0, count: 1, avgResidual: 3.0, level: 'Lav' },
-  { category: 'Omdømme og samsvar', impact: 0, likelihood: 1, count: 2, avgResidual: 5.5, level: 'Middels' },
-  { category: 'Sikkerhet', impact: 0, likelihood: 2, count: 4, avgResidual: 6.7, level: 'Middels' },
-  { category: 'Operasjonelt og personell', impact: 1, likelihood: 2, count: 6, avgResidual: 5.9, level: 'Middels' },
-  { category: 'Strategisk', impact: 1, likelihood: 3, count: 2, avgResidual: 9.0, level: 'Middels' },
-  { category: 'Økonomi', impact: 2, likelihood: 2, count: 3, avgResidual: 4.0, level: 'Lav' },
-]
+function scoreBandToLevel(score: number): GroupedRisk['level'] {
+  const b = riskColour(score)
+  if (b === 'green') return 'Lav'
+  if (b === 'yellow') return 'Middels'
+  return 'Høy'
+}
+
+function buildGroupedRisksFromFlattened(flat: RosRiskFlattenedRow[]): GroupedRisk[] {
+  const m = new Map<string, { category: string; impact: number; likelihood: number; scores: number[] }>()
+  for (const r of flat) {
+    const key = `${r.category}|${r.impactIndex}|${r.likelihoodIndex}`
+    const cur = m.get(key)
+    if (!cur) {
+      m.set(key, { category: r.category, impact: r.impactIndex, likelihood: r.likelihoodIndex, scores: [r.score] })
+    } else {
+      cur.scores.push(r.score)
+    }
+  }
+  return Array.from(m.values()).map((g) => {
+    const sum = g.scores.reduce((a, b) => a + b, 0)
+    const avgResidual = sum / g.scores.length
+    return {
+      category: g.category,
+      impact: g.impact,
+      likelihood: g.likelihood,
+      count: g.scores.length,
+      avgResidual,
+      level: scoreBandToLevel(avgResidual),
+    }
+  })
+}
 
 const LEVEL_PILL: Record<GroupedRisk['level'], string> = {
   Lav: 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/80',
@@ -101,38 +184,53 @@ function RosMatrixShell({ children, caption }: { children: ReactNode; caption?: 
   )
 }
 
-/** Layout-ROS: 5×5-varmekart (samme som layout-komponent i plattform-admin). */
+/** Layout-ROS: 5×5-varmekart — samme flate rader som risiko-oversiktstabellen. */
 export function RosWorkplaceLayoutRiskMatrixSection({
+  assessments,
   onNewRisk,
   caption,
 }: {
+  assessments?: RosAssessment[]
   onNewRisk?: () => void
   caption?: string
 }) {
   const [mode, setMode] = useState<MatrixMode>('matrix')
 
+  const isLive = assessments != null
+  const flatRows = useMemo(
+    () => (isLive ? buildRosRiskFlattenedRows(assessments) : DEMO_FLATTENED),
+    [assessments, isLive],
+  )
+
   const byCellIndividual = useMemo(() => {
-    const m: Record<string, IndividualRisk[]> = {}
-    for (const r of DEMO_INDIVIDUAL) {
-      const k = `${r.impact}-${r.likelihood}`
+    const m: Record<string, RosRiskFlattenedRow[]> = {}
+    for (const r of flatRows) {
+      const k = `${r.impactIndex}-${r.likelihoodIndex}`
       if (!m[k]) m[k] = []
       m[k].push(r)
     }
     return m
-  }, [])
+  }, [flatRows])
 
   const byCellGrouped = useMemo(() => {
     const m: Record<string, GroupedRisk[]> = {}
-    for (const g of DEMO_GROUPED) {
+    const grouped = buildGroupedRisksFromFlattened(flatRows)
+    for (const g of grouped) {
       const k = `${g.impact}-${g.likelihood}`
       if (!m[k]) m[k] = []
       m[k].push(g)
     }
     return m
-  }, [])
+  }, [flatRows])
+
+  const resolvedCaption =
+    caption ??
+    (isLive
+      ? 'Varmekart fra alle risikorader (samme data som tabellen): celle = alvor × sannsynlighet (restfelt når begge er satt, ellers brutto).'
+      : 'ROS-varmekart (demo): samme struktur som arbeidsflate.')
 
   return (
-    <RosMatrixShell caption={caption}>
+    <RosMatrixShell caption={resolvedCaption}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3 md:px-5">
         <div className="flex flex-wrap gap-2">
           <button
@@ -207,7 +305,7 @@ export function RosWorkplaceLayoutRiskMatrixSection({
                                 key={r.id}
                                 content={
                                   <div className="space-y-1.5">
-                                    <p className="font-semibold text-white">{r.title}</p>
+                                    <p className="font-semibold text-white">{r.riskTitle}</p>
                                     <p className="text-neutral-300">{r.rosTitle}</p>
                                     <p>
                                       <span className="text-neutral-400">Score:</span> {r.score}{' '}
@@ -230,7 +328,7 @@ export function RosWorkplaceLayoutRiskMatrixSection({
                                   type="button"
                                   className="flex size-7 items-center justify-center rounded-md bg-white text-xs font-bold text-neutral-900 shadow-sm ring-1 ring-neutral-200/80 hover:ring-[#1a3d32]/40"
                                 >
-                                  {r.id}
+                                  {r.displayIndex}
                                 </button>
                               </MatrixTooltip>
                             ))
@@ -240,10 +338,12 @@ export function RosWorkplaceLayoutRiskMatrixSection({
                         ) : (
                           groups.map((g) => (
                             <MatrixTooltip
-                              key={g.category}
+                              key={`${g.category}-${g.impact}-${g.likelihood}`}
                               content={
                                 <div className="space-y-1.5">
-                                  <p className="font-semibold text-white">{g.count} {g.count === 1 ? 'kategori' : 'kategorier'} i denne cellen</p>
+                                  <p className="font-semibold text-white">
+                                    {g.count} {g.count === 1 ? 'gruppe' : 'grupper'} i denne cellen
+                                  </p>
                                   <ul className="list-inside list-disc text-neutral-200">
                                     <li>
                                       {g.category}{' '}
@@ -252,7 +352,10 @@ export function RosWorkplaceLayoutRiskMatrixSection({
                                       </span>
                                     </li>
                                   </ul>
-                                  <p className="text-[10px] text-neutral-400">Snitt rest: {g.avgResidual.toFixed(1)} · {g.count} risikoer</p>
+                                  <p className="text-[10px] text-neutral-400">
+                                    Snitt score: {g.avgResidual.toFixed(1)} · {g.count}{' '}
+                                    {g.count === 1 ? 'risiko' : 'risikoer'}
+                                  </p>
                                 </div>
                               }
                             >
@@ -280,10 +383,10 @@ export function RosWorkplaceLayoutRiskMatrixSection({
   )
 }
 
-/** 5×5 ROS-varmekart: enkelt risiko (nummer) eller gruppert (kategori) med hover. */
+/** 5×5 ROS-varmekart: enkelt risiko (nummer) eller gruppert (avdeling) med hover — demo-data. */
 export function ComposableRosRiskMatrixBlock() {
   return (
-    <RosWorkplaceLayoutRiskMatrixSection caption="ROS-varmekart (5×5): første rad = modus + Ny risiko; bytt mellom matrise og gruppert visning; hover på badge/kategori." />
+    <RosWorkplaceLayoutRiskMatrixSection caption="ROS-varmekart (5×5, demo): første rad = modus + Ny risiko; bytt mellom matrise og gruppert visning etter avdeling." />
   )
 }
 

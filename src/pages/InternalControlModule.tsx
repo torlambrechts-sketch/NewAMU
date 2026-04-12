@@ -649,7 +649,7 @@ export function InternalControlModule() {
         nodes.push(
           <div key={`ros-split-${i}`} className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
             <div className="min-w-0">
-              <RosWorkplaceLayoutRiskMatrixSection onNewRisk={openNewRosPanel} />
+              <RosWorkplaceLayoutRiskMatrixSection assessments={ic.rosAssessments} onNewRisk={openNewRosPanel} />
             </div>
             <div className="min-w-0">
               <RosWorkplaceLayoutRiskTableSection assessments={ic.rosAssessments} />
@@ -685,7 +685,7 @@ export function InternalControlModule() {
       } else if (id === 'rosRiskMatrix') {
         nodes.push(
           <div key="rosRiskMatrix" className="min-w-0">
-            <RosWorkplaceLayoutRiskMatrixSection onNewRisk={openNewRosPanel} />
+            <RosWorkplaceLayoutRiskMatrixSection assessments={ic.rosAssessments} onNewRisk={openNewRosPanel} />
           </div>,
         )
       } else if (id === 'rosRiskTable') {
