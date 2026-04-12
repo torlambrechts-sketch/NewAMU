@@ -1,4 +1,4 @@
-import { ChevronDown, Download, Eye, Filter, LayoutGrid, Plus, Settings } from 'lucide-react'
+import { ChevronDown, Eye, Filter, LayoutGrid, Plus } from 'lucide-react'
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
 
 const FOREST = '#1a3d32'
@@ -123,7 +123,7 @@ export function ComposableRosRiskMatrixBlock() {
   }, [])
 
   return (
-    <RosMatrixShell caption="ROS-varmekart (5×5): første rad = modus + handlinger; bytt mellom matrise og gruppert visning; hover på badge/kategori.">
+    <RosMatrixShell caption="ROS-varmekart (5×5): første rad = modus + Ny risiko; bytt mellom matrise og gruppert visning; hover på badge/kategori.">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3 md:px-5">
         <div className="flex flex-wrap gap-2">
           <button
@@ -147,26 +147,14 @@ export function ComposableRosRiskMatrixBlock() {
             Gruppert analyse
           </button>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className="rounded-md border border-neutral-200 bg-white p-2 text-neutral-600 shadow-sm hover:bg-neutral-50" aria-label="Innstillinger">
-            <Settings className="size-4" />
-          </button>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-800 shadow-sm"
-          >
-            <Download className="size-3.5" aria-hidden />
-            Eksporter
-          </button>
-          <button
-            type="button"
-            className="rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
-            style={{ backgroundColor: FOREST }}
-          >
-            <Plus className="mr-1 inline size-3.5 align-text-bottom" aria-hidden />
-            Ny risiko
-          </button>
-        </div>
+        <button
+          type="button"
+          className="rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+          style={{ backgroundColor: FOREST }}
+        >
+          <Plus className="mr-1 inline size-3.5 align-text-bottom" aria-hidden />
+          Ny risiko
+        </button>
       </div>
 
       <div className="p-4 md:p-6" style={{ backgroundColor: '#F9F7F2' }}>

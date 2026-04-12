@@ -24,7 +24,6 @@ import {
   Star,
   Trash2,
   Users,
-  Wrench,
   Zap,
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
@@ -1092,13 +1091,6 @@ function ComposableList2Block() {
               Filters
             </button>
             <span className="text-xs text-neutral-500">{activeFilters ? 'Filter aktive' : 'No filters applied'}</span>
-            <button
-              type="button"
-              className="ml-auto rounded-lg p-2 text-neutral-500 hover:bg-neutral-100"
-              aria-label="Konfigurasjon"
-            >
-              <Wrench className="size-5" aria-hidden />
-            </button>
           </div>
         </div>
         {filtersOpen ? (
@@ -1225,7 +1217,7 @@ function ComposableList2Block() {
         </div>
       </WhiteCard>
       <p className="text-xs text-neutral-500">
-        List 2: samme topp som Table 1 (overskrift + grønn CTA), deretter søk, filter, konfigurasjon (skiftenøkkel), status-piller og paginering.
+        List 2: samme topp som Table 1 (overskrift + grønn CTA), deretter søk, filter, status-piller og paginering.
       </p>
     </div>
   )
