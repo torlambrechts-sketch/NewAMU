@@ -4,9 +4,7 @@ import {
   AlertTriangle,
   Archive,
   BarChart3,
-  Bell,
   Briefcase,
-  Building2,
   CheckCircle2,
   CheckSquare,
   CalendarDays,
@@ -14,7 +12,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
   Download,
   Eye,
   Filter,
@@ -248,20 +245,8 @@ function TemplateLibraryBlock() {
       </WhiteCard>
 
       <div>
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="mb-4">
           <SerifTitle className="text-2xl md:text-3xl">Template Library</SerifTitle>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="rounded-md border border-neutral-200 bg-white p-2 text-neutral-600 shadow-sm hover:bg-neutral-50"
-              aria-label="Rediger"
-            >
-              <Pencil className="size-4" />
-            </button>
-            <div className="flex size-9 items-center justify-center rounded-full bg-neutral-200 text-neutral-600">
-              <User className="size-4" />
-            </div>
-          </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {templates.map((tpl) => (
@@ -285,72 +270,6 @@ function TemplateLibraryBlock() {
               </div>
             </WhiteCard>
           ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function PinpointChecksAppBar() {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200/60 pb-3">
-      <p className="text-sm font-semibold tracking-tight text-neutral-900">Pinpoint Checks</p>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-800 shadow-sm"
-        >
-          <Building2 className="size-3.5 text-neutral-600" />
-          PINPOINT MARKETING
-          <ChevronDown className="size-3 opacity-60" />
-        </button>
-        <button
-          type="button"
-          className="relative rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-sm hover:bg-neutral-50"
-          aria-label="Tasks"
-        >
-          <CheckSquare className="size-4" />
-          <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-red-500 ring-2 ring-white" />
-        </button>
-        <button
-          type="button"
-          className="relative rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-sm hover:bg-neutral-50"
-          aria-label="Varsler"
-        >
-          <Bell className="size-4" />
-          <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-red-500 ring-2 ring-white" />
-        </button>
-        <div
-          className="flex size-8 items-center justify-center rounded-full text-[10px] font-bold text-white"
-          style={{ backgroundColor: FOREST }}
-        >
-          EN
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function PinpointTopUtilityBar({ deptLabel = 'Marketing' }: { deptLabel?: string }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200/60 pb-3">
-      <p className="text-xs text-neutral-500">Jobs</p>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-neutral-700 shadow-sm"
-        >
-          {deptLabel} <ChevronDown className="size-3 opacity-60" />
-        </button>
-        <button type="button" className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100" aria-label="Oppgaver">
-          <ClipboardList className="size-4" />
-        </button>
-        <button type="button" className="relative rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100" aria-label="Varsler">
-          <Bell className="size-4" />
-          <span className="absolute right-1 top-1 size-1.5 rounded-full bg-red-500" />
-        </button>
-        <div className="flex size-8 items-center justify-center rounded-full bg-neutral-800 text-[10px] font-bold text-white">
-          ME
         </div>
       </div>
     </div>
@@ -385,7 +304,6 @@ function JobsListPinpointBlock() {
 
   return (
     <div className="space-y-4">
-      <PinpointTopUtilityBar />
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-1 py-2" style={{ backgroundColor: FOREST }}>
         <div className="flex flex-wrap gap-1">
           <button
@@ -581,7 +499,6 @@ function JobScorecardPageBlock() {
 
   return (
     <div className="space-y-4">
-      <PinpointTopUtilityBar />
       <Breadcrumb items={['Jobs', 'Software Engineer (Internal)', 'Scorecard ratings']} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -687,7 +604,6 @@ function JobPostingsPageBlock() {
 
   return (
     <div className="space-y-4">
-      <PinpointTopUtilityBar deptLabel="Organisasjon" />
       <Breadcrumb items={['Stillinger', 'Stillingsannonser']} />
       <SerifTitle className="text-2xl md:text-3xl">Stillingsannonser</SerifTitle>
       <HubMenu1Bar ariaLabel="Stillingsfaner" items={hubItems} />
@@ -785,7 +701,6 @@ function SurveyInsights7070Block() {
   ]
   return (
     <div className="space-y-4">
-      <PinpointTopUtilityBar />
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)] lg:items-start">
         <div className="min-w-0 space-y-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1228,7 +1143,6 @@ function CandidatesVideoScreenBlock() {
 
   return (
     <div className="space-y-4">
-      <PinpointTopUtilityBar deptLabel="Company" />
       <Breadcrumb items={['Jobs', 'Customer Success Manager', 'Candidates — Video screen']} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -1487,8 +1401,6 @@ function BackgroundChecksPageBlock() {
 
   return (
     <div className="space-y-5">
-      <PinpointChecksAppBar />
-
       <div>
         <SerifTitle className="text-2xl md:text-3xl">Pinpoint Background Checks</SerifTitle>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-neutral-600">
@@ -1771,19 +1683,8 @@ function DashboardMainRightBlock() {
     <>
       <div>
         <Breadcrumb items={['Dashboard']} />
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-2">
           <SerifTitle className="text-2xl md:text-3xl">Welcome back, Leon</SerifTitle>
-          <div className="flex items-center gap-2 text-neutral-500">
-            <button type="button" className="rounded-md p-2 hover:bg-white/80" aria-label="Varsler">
-              <Bell className="size-5" />
-            </button>
-            <button type="button" className="rounded-md p-2 hover:bg-white/80" aria-label="Innstillinger">
-              <Settings className="size-5" />
-            </button>
-            <div className="flex size-9 items-center justify-center rounded-full bg-neutral-300 text-neutral-700">
-              <User className="size-4" />
-            </div>
-          </div>
         </div>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
