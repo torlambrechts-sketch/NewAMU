@@ -2,8 +2,10 @@ import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-rea
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { WORKPLACE_LAYOUT_BOX_CARD, WORKPLACE_LAYOUT_BOX_SHADOW } from './workplaceLayoutKit'
+import { WORKPLACE_PAGE_SERIF } from './WorkplacePageHeading1'
 
 const FOREST = '#1a3d32'
+const SANS = "Inter, system-ui, sans-serif"
 
 export type WorkplaceEventsDayItem = {
   id: string
@@ -53,7 +55,7 @@ export type WorkplaceEventsDayCardProps = {
 const DEFAULT_BARS = ['bg-sky-500', 'bg-amber-500', 'bg-emerald-600', 'bg-violet-500', 'bg-orange-500']
 
 function tabButtonClass(active: boolean) {
-  return `relative pb-2.5 pt-1 text-sm font-medium transition ${
+  return `relative pb-2.5 pt-1 text-sm font-semibold transition ${
     active ? 'text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'
   }`
 }
@@ -87,16 +89,24 @@ export function WorkplaceEventsDayCard({
   const items = activeTab?.items ?? []
 
   return (
-    <div className={`${WORKPLACE_LAYOUT_BOX_CARD} ${className}`} style={WORKPLACE_LAYOUT_BOX_SHADOW}>
+    <div
+      className={`${WORKPLACE_LAYOUT_BOX_CARD} ${className}`}
+      style={{ ...WORKPLACE_LAYOUT_BOX_SHADOW, fontFamily: SANS }}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {datePickerSlot ?? (
             <button
               type="button"
-              className="inline-flex max-w-full items-center gap-1.5 rounded-md text-left text-sm font-semibold text-neutral-900 hover:bg-neutral-50"
+              className="inline-flex max-w-full items-center gap-1.5 rounded-md text-left hover:bg-neutral-50"
             >
               <CalendarDays className="size-4 shrink-0 text-neutral-500" aria-hidden />
-              <span className="truncate">{dateLabel}</span>
+              <span
+                className="truncate text-lg font-semibold tracking-tight text-neutral-900 sm:text-xl"
+                style={{ fontFamily: WORKPLACE_PAGE_SERIF }}
+              >
+                {dateLabel}
+              </span>
               <ChevronDown className="size-4 shrink-0 text-neutral-400" aria-hidden />
             </button>
           )}
@@ -149,7 +159,7 @@ export function WorkplaceEventsDayCard({
 
       <ul className="divide-y divide-neutral-100">
         {items.length === 0 ? (
-          <li className="px-4 py-8 text-center text-sm text-neutral-500">Ingen hendelser denne dagen.</li>
+          <li className="px-4 py-8 text-center text-sm leading-relaxed text-neutral-600">Ingen hendelser denne dagen.</li>
         ) : (
           items.map((ev, i) => {
             const bar = ev.barClassName ?? DEFAULT_BARS[i % DEFAULT_BARS.length]
@@ -161,8 +171,13 @@ export function WorkplaceEventsDayCard({
                 </div>
                 <div className={`w-1 shrink-0 self-stretch ${bar}`} aria-hidden />
                 <div className="min-w-0 flex-1 py-3 pr-4 pl-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{ev.category}</p>
-                  <p className="mt-0.5 text-sm font-semibold text-neutral-900">{ev.title}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">{ev.category}</p>
+                  <p
+                    className="mt-1 text-base font-semibold tracking-tight text-neutral-900"
+                    style={{ fontFamily: WORKPLACE_PAGE_SERIF }}
+                  >
+                    {ev.title}
+                  </p>
                 </div>
               </li>
             )
@@ -175,14 +190,14 @@ export function WorkplaceEventsDayCard({
           {footer.to ? (
             <Link
               to={footer.to}
-              className="flex items-center justify-between gap-3 px-4 py-3 text-sm text-neutral-700 transition hover:bg-neutral-50"
+              className="flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium leading-relaxed text-neutral-700 transition hover:bg-neutral-50"
             >
               <FooterInner footer={footer} />
             </Link>
           ) : footer.href ? (
             <a
               href={footer.href}
-              className="flex items-center justify-between gap-3 px-4 py-3 text-sm text-neutral-700 transition hover:bg-neutral-50"
+              className="flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium leading-relaxed text-neutral-700 transition hover:bg-neutral-50"
             >
               <FooterInner footer={footer} />
             </a>
@@ -190,7 +205,7 @@ export function WorkplaceEventsDayCard({
             <button
               type="button"
               onClick={footer.onMoreClick}
-              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm text-neutral-700 transition hover:bg-neutral-50"
+              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium leading-relaxed text-neutral-700 transition hover:bg-neutral-50"
             >
               <FooterInner footer={footer} />
             </button>

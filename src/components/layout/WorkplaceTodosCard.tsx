@@ -2,6 +2,9 @@ import { CheckCircle2, Plus } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { WORKPLACE_LAYOUT_BOX_CARD, WORKPLACE_LAYOUT_BOX_SHADOW } from './workplaceLayoutKit'
+import { WORKPLACE_PAGE_SERIF } from './WorkplacePageHeading1'
+
+const SANS = "Inter, system-ui, sans-serif"
 
 export type WorkplaceTodoItem = {
   id: string
@@ -35,18 +38,26 @@ export function WorkplaceTodosCard({
   className = '',
 }: WorkplaceTodosCardProps) {
   return (
-    <div className={`${WORKPLACE_LAYOUT_BOX_CARD} ${className}`} style={WORKPLACE_LAYOUT_BOX_SHADOW}>
+    <div
+      className={`${WORKPLACE_LAYOUT_BOX_CARD} ${className}`}
+      style={{ ...WORKPLACE_LAYOUT_BOX_SHADOW, fontFamily: SANS }}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#1a3d32]/10 text-[#1a3d32]">
             <CheckCircle2 className="size-4" aria-hidden />
           </span>
-          <p className="text-sm font-semibold text-neutral-900">{title}</p>
+          <p
+            className="text-base font-semibold tracking-tight text-neutral-900 sm:text-lg"
+            style={{ fontFamily: WORKPLACE_PAGE_SERIF }}
+          >
+            {title}
+          </p>
         </div>
         {addTaskSlot ?? (
           <Link
             to="/tasks?quickNew=task"
-            className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#1a3d32] shadow-sm hover:bg-neutral-50"
+            className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-bold uppercase tracking-wide text-[#1a3d32] shadow-sm hover:bg-neutral-50"
           >
             <Plus className="size-3.5" aria-hidden />
             Ny oppgave
@@ -56,7 +67,7 @@ export function WorkplaceTodosCard({
 
       <div className="max-h-[min(420px,55vh)] space-y-2 overflow-y-auto p-3">
         {items.length === 0 ? (
-          <p className="px-1 py-6 text-center text-sm text-neutral-500">{emptyHint}</p>
+          <p className="px-1 py-6 text-center text-sm leading-relaxed text-neutral-600">{emptyHint}</p>
         ) : (
           items.map((it) => {
             const inner = (
@@ -66,14 +77,19 @@ export function WorkplaceTodosCard({
                 } ${it.done ? 'opacity-75' : ''}`}
               >
                 <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold text-neutral-900 ${it.done ? 'line-through' : ''}`}>{it.title}</p>
+                  <p
+                    className={`text-sm font-semibold tracking-tight text-neutral-900 ${it.done ? 'line-through' : ''}`}
+                    style={{ fontFamily: WORKPLACE_PAGE_SERIF }}
+                  >
+                    {it.title}
+                  </p>
                   {it.description ? (
-                    <p className="mt-1 text-xs leading-relaxed text-neutral-500">{it.description}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-neutral-600">{it.description}</p>
                   ) : null}
                 </div>
                 {it.dueLabel ? (
                   <div className="shrink-0 pt-0.5 text-right">
-                    <p className="text-xs tabular-nums text-neutral-400">{it.dueLabel}</p>
+                    <p className="text-xs font-medium tabular-nums text-neutral-500">{it.dueLabel}</p>
                   </div>
                 ) : null}
               </div>
