@@ -29,6 +29,11 @@ import {
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
 import {
+  WorkplaceEditableNoticeList,
+  type AgendaItemTemplate,
+  type AgendaListItem,
+} from '../../components/layout/WorkplaceEditableNoticeList'
+import {
   loadComposerPresets,
   loadComposerSession,
   normalizeComposerOrder,
@@ -765,6 +770,37 @@ const DEMO_LIST2_ROWS: List2Row[] = [
   },
 ]
 
+const DEMO_AGENDA_TEMPLATES: AgendaItemTemplate[] = [
+  { id: 'opening', label: 'Åpning', title: 'Velkommen og innkalling', subtitle: '5 min' },
+  { id: 'minutes', label: 'Referat forrige møte', title: 'Godkjenning av referat', subtitle: '10 min' },
+  { id: 'safety', label: 'HMS / arbeidsmiljø', title: 'Hendelser og tiltak', subtitle: '15 min' },
+  { id: 'round', label: 'Eventuelt', title: 'Eventuelt', subtitle: 'Etter behov' },
+]
+
+/** Redigerbar liste (varsel-stil): dra for rekkefølge, mal for nye punkter — egnet som agenda-bygger. */
+function ComposableAgendaBuilderListBlock() {
+  const [agendaItems, setAgendaItems] = useState<AgendaListItem[]>(() => [
+    { id: 'demo-1', title: 'Gjennomgang av årsplan', subtitle: '20 min' },
+    { id: 'demo-2', title: 'Oppsummering og neste steg', subtitle: '10 min' },
+  ])
+
+  return (
+    <div className="space-y-2">
+      <WorkplaceEditableNoticeList
+        title="Agenda (redigerbar)"
+        badge={agendaItems.length}
+        items={agendaItems}
+        onChange={setAgendaItems}
+        templates={DEMO_AGENDA_TEMPLATES}
+      />
+      <p className="text-xs text-neutral-500">
+        Varsel-kort med dra-og-slipp, rediger/slett, og «Legg til fra mal» for forhåndsdefinerte punkter (bruk{' '}
+        <code className="rounded bg-neutral-100 px-1 text-[11px]">templates</code> i koden).
+      </p>
+    </div>
+  )
+}
+
 /** KPI-rad: tre beige bokser (stort tall, tittel, undertekst) mellom Overskrift 1 og List 2. */
 function ComposableScoreStatRowBlock() {
   return (
@@ -1277,6 +1313,11 @@ const BLOCKS = [
     hint: 'Stort tall, tittel, grå undertekst (krem bakgrunn) — som scorecard-rad mellom overskrift og liste.',
   },
   {
+    id: 'agendaBuilderList',
+    label: 'Liste — agenda (rediger, sorter, mal)',
+    hint: 'Varsel-stil: dra rekkefølge, rediger/slett, legg til tomt punkt eller fra mal (`templates`).',
+  },
+  {
     id: 'list2',
     label: 'List 2 — kandidat/ordre-tabell',
     hint: 'Søk, Filters + status, grå header-rad, piller (action / checks), paginering.',
@@ -1420,6 +1461,8 @@ function renderComposerBlock(id: BlockId): ReactNode {
       return <ComposableTableHeadingToolbarBlock />
     case 'scoreStatRow':
       return <ComposableScoreStatRowBlock />
+    case 'agendaBuilderList':
+      return <ComposableAgendaBuilderListBlock />
     case 'list2':
       return <ComposableList2Block />
     case 'jobBoxGrid':
