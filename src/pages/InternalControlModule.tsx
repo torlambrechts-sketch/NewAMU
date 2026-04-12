@@ -1218,8 +1218,6 @@ export function InternalControlModule() {
             <p className="mb-4 text-sm text-neutral-500">Laster internkontrolldata…</p>
           )}
 
-          <LegalDisclaimer compact />
-
           <div className="mt-6">
             <LayoutScoreStatRow
               items={[
