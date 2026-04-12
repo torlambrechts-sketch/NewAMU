@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useId, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   AlertTriangle,
   BarChart3,
@@ -24,6 +24,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
+import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
 
 const CREAM = '#F9F7F2'
 const CREAM_DEEP = '#EFE8DC'
@@ -733,6 +734,24 @@ const DEMO_LIST2_ROWS: List2Row[] = [
   },
 ]
 
+/** KPI-rad: tre beige bokser (stort tall, tittel, undertekst) mellom Overskrift 1 og List 2. */
+function ComposableScoreStatRowBlock() {
+  return (
+    <div className="space-y-2">
+      <LayoutScoreStatRow
+        items={[
+          { big: '12', title: 'Åpne punkter', sub: 'Siste 7 dager' },
+          { big: '48', title: 'Fullført', sub: 'Denne måneden' },
+          { big: '3', title: 'Varsler', sub: 'Krever oppmerksomhet' },
+        ]}
+      />
+      <p className="text-xs text-neutral-500">
+        Stat-rad: tre KPI-bokser på krem (#f2eee6), avrundet — plasseres typisk under Overskrift 1 og over List 2.
+      </p>
+    </div>
+  )
+}
+
 /** List 2: candidate / order table with search, filters strip, status pills, pagination (reference screenshot). */
 function ComposableList2Block() {
   const [search, setSearch] = useState('')
@@ -762,10 +781,6 @@ function ComposableList2Block() {
   const start = (pageSafe - 1) * perPage
   const pageRows = filtered.slice(start, start + perPage)
 
-  useEffect(() => {
-    setPage(1)
-  }, [search, statusFilter, perPage])
-
   return (
     <div className="space-y-2">
       <WhiteCard className="overflow-hidden p-0">
@@ -779,7 +794,10 @@ function ComposableList2Block() {
               id="composer-list2-search"
               type="search"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
               placeholder="Search by candidate name, ID, or job title…"
               className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/25"
             />
@@ -814,7 +832,10 @@ function ComposableList2Block() {
               Ordrestatus
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'action' | 'ok')}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value as 'all' | 'action' | 'ok')
+                  setPage(1)
+                }}
                 className="mt-1.5 block max-w-xs rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
               >
                 <option value="all">Alle</option>
@@ -892,7 +913,10 @@ function ComposableList2Block() {
               <span className="text-neutral-500">Items per page</span>
               <select
                 value={perPage}
-                onChange={(e) => setPerPage(Number(e.target.value))}
+                onChange={(e) => {
+                  setPerPage(Number(e.target.value))
+                  setPage(1)
+                }}
                 className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-sm"
               >
                 <option value={10}>10</option>
@@ -1036,6 +1060,11 @@ const BLOCKS = [
     hint: 'Telling, søk, Filters (panel), favoritt, grid/list-tetthet, CTA + demo-tabell som filtreres.',
   },
   {
+    id: 'scoreStatRow',
+    label: 'Stat-rad — tre KPI-bokser',
+    hint: 'Stort tall, tittel, grå undertekst (krem bakgrunn) — som scorecard-rad mellom overskrift og liste.',
+  },
+  {
     id: 'list2',
     label: 'List 2 — kandidat/ordre-tabell',
     hint: 'Søk, Filters + status, grå header-rad, piller (action / checks), paginering.',
@@ -1081,6 +1110,7 @@ export function PlatformLayoutComposerDemo({
     scorecard: true,
     jobCards: true,
     tableHeading: true,
+    scoreStatRow: true,
     list2: true,
     jobBoxGrid: true,
   })
@@ -1093,6 +1123,7 @@ export function PlatformLayoutComposerDemo({
       scorecard: true,
       jobCards: true,
       tableHeading: true,
+      scoreStatRow: true,
       list2: true,
       jobBoxGrid: true,
     })
@@ -1103,6 +1134,7 @@ export function PlatformLayoutComposerDemo({
       scorecard: false,
       jobCards: false,
       tableHeading: false,
+      scoreStatRow: false,
       list2: false,
       jobBoxGrid: false,
     })
@@ -1199,6 +1231,12 @@ export function PlatformLayoutComposerDemo({
                 </section>
               ) : null}
 
+              {visible.scoreStatRow ? (
+                <section aria-label="Stat-rad KPI">
+                  <ComposableScoreStatRowBlock />
+                </section>
+              ) : null}
+
               {visible.list2 ? (
                 <section aria-label="List 2 tabell">
                   <ComposableList2Block />
@@ -1216,6 +1254,7 @@ export function PlatformLayoutComposerDemo({
               !visible.scorecard &&
               !visible.jobCards &&
               !visible.tableHeading &&
+              !visible.scoreStatRow &&
               !visible.list2 &&
               !visible.jobBoxGrid ? (
                 <p className="py-12 text-center text-sm text-neutral-500">Velg minst ett element for å vise forhåndsvisning.</p>
