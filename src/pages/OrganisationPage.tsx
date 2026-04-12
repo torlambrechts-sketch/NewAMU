@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -67,6 +67,31 @@ const EMPLOYMENT_LABELS: Record<EmploymentType, string> = {
 }
 const ROLE_OPTIONS = ['Leder', 'Fagansvarlig', 'Fagmedarbeider', 'Saksbehandler', 'Verneombud', 'Tillitsvalgt', 'Konsulent', 'Annet']
 
+/** Layout-reference «Dashboard (kompakt)»: tan KPI uten handlingsknapp. */
+function OrgInsightTanStat({ big, title, sub }: { big: string; title: string; sub: string }) {
+  return (
+    <div
+      className="rounded-lg border border-neutral-200/60 px-5 py-4"
+      style={{ backgroundColor: AB_SCORECARD_CREAM_DEEP }}
+    >
+      <p className="text-3xl font-bold tabular-nums text-neutral-900">{big}</p>
+      <p className="mt-1 text-sm font-medium text-neutral-800">{title}</p>
+      <p className="text-xs text-neutral-600">{sub}</p>
+    </div>
+  )
+}
+
+function OrgInsightWhiteCard({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-lg border border-neutral-200/80 bg-white shadow-sm ${className}`}
+      style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+    >
+      {children}
+    </div>
+  )
+}
+
 /** Matches ProjectDashboard — shell content column */
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
@@ -117,12 +142,12 @@ function initials(name: string) {
 
 type Tab = 'employees' | 'units' | 'groups' | 'insights' | 'settings'
 
-const TAB_VALUES: Tab[] = ['employees', 'units', 'groups', 'insights', 'settings']
+const TAB_VALUES: Tab[] = ['insights', 'employees', 'units', 'groups', 'settings']
 
 function tabFromSearch(raw: string | null): Tab {
-  if (raw === 'orgchart') return 'employees'
+  if (raw === 'orgchart') return 'insights'
   if (raw && TAB_VALUES.includes(raw as Tab)) return raw as Tab
-  return 'employees'
+  return 'insights'
 }
 
 /** Virtual rows from `organization_members` use ids `m-{memberId}`; resolve to a persisted org employee by email when possible */
@@ -153,7 +178,7 @@ export function OrganisationPage() {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev)
-          if (id === 'employees') next.delete('tab')
+          if (id === 'insights') next.delete('tab')
           else next.set('tab', id)
           return next
         },
@@ -165,7 +190,7 @@ export function OrganisationPage() {
 
   useEffect(() => {
     if (searchParams.get('tab') === 'orgchart') {
-      navigate({ pathname: '/organisation', search: '?tab=employees' }, { replace: true })
+      navigate({ pathname: '/organisation', search: '' }, { replace: true })
     }
   }, [searchParams, navigate])
   type OrgSlidePanel =
@@ -542,11 +567,24 @@ export function OrganisationPage() {
     }
   }, [org, orgMembers])
 
+  const orgInsightKindBars = useMemo(() => {
+    const kinds = ['division', 'department', 'team', 'location'] as const
+    const rows = kinds.map((kind) => ({
+      kind,
+      label: KIND_LABELS[kind],
+      count: insightStats.byKind[kind] ?? 0,
+    }))
+    rows.sort((a, b) => b.count - a.count)
+    const max = Math.max(...rows.map((r) => r.count), 1)
+    const colors = ['#2563eb', '#dc2626', WORKPLACE_FOREST, '#ea580c'] as const
+    return rows.map((r, i) => ({ ...r, color: colors[i % colors.length], max }))
+  }, [insightStats.byKind])
+
   const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { id: 'insights', label: 'Innsikt', icon: PieChart },
     { id: 'employees', label: 'Ansatte', icon: Users },
     { id: 'units', label: 'Enheter', icon: Building2 },
     { id: 'groups', label: 'Brukergrupper', icon: UserCheck },
-    { id: 'insights', label: 'Innsikt', icon: PieChart },
     { id: 'settings', label: 'Innstillinger', icon: Settings2 },
   ]
 
@@ -558,7 +596,8 @@ export function OrganisationPage() {
   }))
 
   const tabLabel = TABS.find((x) => x.id === tab)?.label ?? 'Organisasjon'
-  const useStandardOrgList = tab === 'employees' || tab === 'units' || tab === 'groups'
+  const useStandardOrgList =
+    tab === 'insights' || tab === 'employees' || tab === 'units' || tab === 'groups'
 
   const orgHubMenuItems = useMemo((): HubMenu1Item[] => {
     return TABS.map((t) => ({
@@ -1195,6 +1234,110 @@ export function OrganisationPage() {
               />
             }
           />
+        ) : null}
+
+        {tab === 'insights' ? (
+          <WorkplaceStandardListLayout
+            className="!mt-0"
+            breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Organisasjon' }, { label: 'Innsikt' }]}
+            title="Innsikt"
+            description={
+              <>
+                <p className="text-sm text-neutral-500">{memberHeadline}</p>
+                <p className="mt-2 max-w-2xl leading-relaxed">
+                  {ct.totalEmployeeCount} i beregning for AML-terskler
+                  {ct.requiresVerneombud ? ' · Verneombud lovpålagt' : ''}
+                  {ct.requiresAmu ? ' · AMU lovpålagt' : ct.mayRequestAmu ? ' · AMU kan kreves' : ''}.
+                </p>
+              </>
+            }
+            hubAriaLabel="Organisasjon — faner"
+            hubItems={orgHubMenuItems}
+            contentClassName="!p-0"
+          >
+            <div className="space-y-6 p-4 md:p-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <OrgInsightTanStat
+                  big={String(insightStats.members)}
+                  title="Medlemmer (app)"
+                  sub="Kontoer tilknyttet organisasjonen"
+                />
+                <OrgInsightTanStat
+                  big={String(insightStats.employeesTotal)}
+                  title="Ansatte (totalt)"
+                  sub={`${insightStats.employeesActive} aktive · ${insightStats.employeesInactive} inaktive`}
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <OrgInsightTanStat
+                  big={String(insightStats.units)}
+                  title="Enheter"
+                  sub={`${insightStats.unitsTopLevel} på toppnivå`}
+                />
+                <OrgInsightTanStat
+                  big={String(insightStats.groups)}
+                  title="Brukergrupper"
+                  sub="Definerte grupper"
+                />
+              </div>
+              <OrgInsightWhiteCard className="p-0">
+                <div className="flex items-center border-b border-neutral-100 px-4 py-3">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+                    <Building2 className="size-4 text-neutral-500" aria-hidden />
+                    Enheter etter type
+                  </p>
+                </div>
+                <div className="p-4">
+                  <div className="rounded-md border border-neutral-100 p-4">
+                    <p className="text-[10px] font-bold uppercase text-neutral-500">Fordeling</p>
+                    <p className="mt-1 text-sm text-neutral-600">Divisjon, avdeling, team og lokasjon.</p>
+                    <div className="mt-4 space-y-3">
+                      {orgInsightKindBars.map((row) => (
+                        <div key={row.kind} className="flex items-center gap-3 text-sm">
+                          <span className="w-28 shrink-0 text-neutral-600 sm:w-32">{row.label}</span>
+                          <span className="w-6 tabular-nums font-semibold text-neutral-900">{row.count}</span>
+                          <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-neutral-100">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${(row.count / row.max) * 100}%`,
+                                backgroundColor: row.color,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </OrgInsightWhiteCard>
+              <OrgInsightWhiteCard className="p-5">
+                <p className="text-sm font-semibold text-neutral-900">Samsvar (AML-terskler)</p>
+                <p className="text-[10px] font-bold uppercase text-neutral-500">Basert på antall ansatte i beregningen</p>
+                <p className="mt-1 text-sm text-neutral-600">Verneombud og AMU etter arbeidsmiljøloven.</p>
+                <div className="mt-5 space-y-3">
+                  {(
+                    [
+                      { label: 'Verneombud (§6-1)', v: ct.requiresVerneombud ? 1 : 0, c: ct.requiresVerneombud ? WORKPLACE_FOREST : '#d4d4d4' },
+                      { label: 'AMU kan kreves (10–29)', v: ct.mayRequestAmu ? 1 : 0, c: ct.mayRequestAmu ? '#ea580c' : '#d4d4d4' },
+                      { label: 'AMU lovpålagt (§7-1)', v: ct.requiresAmu ? 1 : 0, c: ct.requiresAmu ? '#2563eb' : '#d4d4d4' },
+                    ] as const
+                  ).map((row) => (
+                    <div key={row.label} className="flex items-center gap-3 text-sm">
+                      <span className="w-40 shrink-0 text-neutral-600 sm:w-44">{row.label}</span>
+                      <span className="w-6 tabular-nums font-semibold text-neutral-900">{row.v}</span>
+                      <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-neutral-100">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${row.v * 100}%`, backgroundColor: row.c }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </OrgInsightWhiteCard>
+            </div>
+          </WorkplaceStandardListLayout>
         ) : null}
 
         {tab === 'employees' ? (
@@ -2455,94 +2598,6 @@ export function OrganisationPage() {
                 ))}
               </div>
             )}
-          </Mainbox1>
-        </section>
-      )}
-
-      {/* ── Innsikt — samme KPI-uttrykk som workspace-hjem ─ */}
-      {tab === 'insights' && (
-        <section className="w-full space-y-8">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {(
-              [
-                {
-                  label: 'Medlemmer (app)',
-                  value: insightStats.members,
-                  hint: 'Kontoer tilknyttet organisasjonen',
-                },
-                {
-                  label: 'Ansatte (totalt)',
-                  value: insightStats.employeesTotal,
-                  hint: `${insightStats.employeesActive} aktive · ${insightStats.employeesInactive} inaktive`,
-                },
-                {
-                  label: 'Enheter',
-                  value: insightStats.units,
-                  hint: `${insightStats.unitsTopLevel} på toppnivå`,
-                },
-                {
-                  label: 'Brukergrupper',
-                  value: insightStats.groups,
-                  hint: 'Definerte grupper',
-                },
-              ] as const
-            ).map((card) => (
-              <div
-                key={card.label}
-                className="rounded-lg border border-neutral-200/60 px-5 py-4"
-                style={{ backgroundColor: AB_SCORECARD_CREAM_DEEP }}
-              >
-                <p className="text-3xl font-bold tabular-nums text-neutral-900">{card.value}</p>
-                <p className="mt-1 text-sm font-medium text-neutral-800">{card.label}</p>
-                <p className="mt-1 text-xs text-neutral-600">{card.hint}</p>
-              </div>
-            ))}
-          </div>
-          <Mainbox1 title="Enheter etter type" subtitle="Fordeling på divisjon, avdeling, team og lokasjon.">
-            <div className="divide-y divide-neutral-200 border border-neutral-200 bg-white">
-              {(['division', 'department', 'team', 'location'] as const).map((kind) => (
-                <div key={kind} className={SETTINGS_ROW_GRID}>
-                  <p className={SETTINGS_LEAD}>{KIND_LABELS[kind]}</p>
-                  <div className="text-right sm:text-left">
-                    <span className={SETTINGS_FIELD_LABEL}>Antall</span>
-                    <p className="mt-1.5 text-lg font-semibold tabular-nums text-neutral-900">
-                      {insightStats.byKind[kind] ?? 0}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Mainbox1>
-          <Mainbox1 title="Samsvar (AML-terskler)" subtitle="Basert på antall ansatte i beregningen.">
-            <div className="divide-y divide-neutral-200 border border-neutral-200 bg-white">
-              <div className={SETTINGS_ROW_GRID}>
-                <p className={SETTINGS_LEAD}>Verneombud etter arbeidsmiljøloven §6-1.</p>
-                <div>
-                  <span className={SETTINGS_FIELD_LABEL}>Status</span>
-                  <p className={`mt-1.5 text-base font-semibold ${ct.requiresVerneombud ? 'text-emerald-700' : 'text-neutral-600'}`}>
-                    {ct.requiresVerneombud ? 'Lovpålagt (≥5 ansatte)' : 'Ikke påkrevd (&lt;5)'}
-                  </p>
-                </div>
-              </div>
-              <div className={SETTINGS_ROW_GRID}>
-                <p className={SETTINGS_LEAD}>AMU kan kreves i området 10–29 ansatte.</p>
-                <div>
-                  <span className={SETTINGS_FIELD_LABEL}>Status</span>
-                  <p className={`mt-1.5 text-base font-semibold ${ct.mayRequestAmu ? 'text-amber-800' : 'text-neutral-600'}`}>
-                    {ct.mayRequestAmu ? 'Ja' : 'Nei'}
-                  </p>
-                </div>
-              </div>
-              <div className={SETTINGS_ROW_GRID}>
-                <p className={SETTINGS_LEAD}>AMU etter arbeidsmiljøloven §7-1 (vanligvis ≥30 ansatte).</p>
-                <div>
-                  <span className={SETTINGS_FIELD_LABEL}>Status</span>
-                  <p className={`mt-1.5 text-base font-semibold ${ct.requiresAmu ? 'text-emerald-700' : 'text-neutral-600'}`}>
-                    {ct.requiresAmu ? 'Lovpålagt (≥30)' : 'Nei'}
-                  </p>
-                </div>
-              </div>
-            </div>
           </Mainbox1>
         </section>
       )}
