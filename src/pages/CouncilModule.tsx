@@ -58,6 +58,7 @@ import {
   type InsightSeg,
 } from '../components/insights/ModuleInsightCharts'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { WorkplaceSplit7030Layout } from '../components/layout/WorkplaceSplit7030Layout'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 
@@ -82,8 +83,6 @@ const COUNCIL_MAIN_SIDE_GRID = 'grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3f
 const COUNCIL_DASH7030_CREAM = '#F9F7F2'
 const COUNCIL_DASH7030_CREAM_DEEP = '#EFE8DC'
 const COUNCIL_DASH7030_SERIF = "'Libre Baskerville', Georgia, serif"
-const COUNCIL_DASH7030_GRID =
-  'grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)] lg:items-start'
 const COUNCIL_DASH7030_WHITECARD =
   'rounded-lg border border-neutral-200/80 bg-white shadow-sm'
 const COUNCIL_DASH7030_WHITECARD_SHADOW = { boxShadow: '0 1px 2px rgba(0,0,0,0.04)' } as const
@@ -974,289 +973,293 @@ export function CouncilModule() {
               <p className={`mt-2 max-w-2xl ${COUNCIL_BODY}`}>{tabBlurbs.overview.description}</p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              {councilOverviewKpis.map((item) => (
-                <button
-                  key={item.title}
-                  type="button"
-                  onClick={() => setTab(item.tab)}
-                  className="flex w-full items-center justify-between gap-4 rounded-lg border border-neutral-200/60 px-5 py-4 text-left transition hover:border-neutral-300"
-                  style={{ backgroundColor: COUNCIL_DASH7030_CREAM_DEEP }}
-                >
-                  <div>
-                    <p className="text-3xl font-bold tabular-nums text-neutral-900">{item.value}</p>
-                    <p className="mt-1 text-sm font-medium text-neutral-800">{item.title}</p>
-                    <p className="text-xs text-neutral-600">{item.sub}</p>
-                  </div>
-                  <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold uppercase tracking-wide text-neutral-700">
-                    Åpne <ChevronRight className="size-3.5" aria-hidden />
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            <div className={COUNCIL_DASH7030_GRID}>
-              <div className="min-w-0 space-y-6">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <ModuleDonutCard
-                    className="!rounded-lg"
-                    title="Valg"
-                    subtitle="Åpne og avsluttede"
-                    segments={councilElectionSegments.entries}
-                    total={councilElectionSegments.total}
-                    emptyHint="Ingen valg registrert."
-                  />
-                  <ModuleDonutCard
-                    className="!rounded-lg"
-                    title={`Møter ${wheelYear}`}
-                    subtitle="Planlagt, gjennomført og avlyst"
-                    segments={councilMeetingYearSegments.entries}
-                    total={councilMeetingYearSegments.total}
-                    emptyHint="Ingen møter i året."
-                  />
-                  <ModuleDonutCard
-                    className="!rounded-lg"
-                    title="Samsvarssjekk"
-                    subtitle="Oppfylt vs. gjenstående"
-                    segments={councilComplianceSegments.entries}
-                    total={councilComplianceSegments.total}
-                    emptyHint="Ingen sjekklistepunkter."
-                  />
-                  <ModuleDonutCard
-                    className="!rounded-lg"
-                    title="Signaler siden siste møte"
-                    subtitle="Hendelser, sykefravær, ROS"
-                    segments={councilLiveSignalsSegments.entries}
-                    total={councilLiveSignalsSegments.total}
-                    emptyHint="Ingen signaler å vise."
-                  />
-                </div>
-
-                <p className={COUNCIL_BODY}>
-                  Registrerte ordinære møter i {wheelYear}: <strong>{meetingsThisYear}</strong> / {MEETINGS_PER_YEAR}{' '}
-                  (justér år under «Møter»).
-                </p>
-                <div className="h-2 overflow-hidden rounded-full bg-neutral-200">
-                  <div
-                    className="h-full rounded-full bg-[#c9a227] transition-all"
-                    style={{ width: `${complianceProgress.pct}%` }}
-                  />
-                </div>
-                <p className={COUNCIL_SMALL}>
-                  {complianceProgress.done} av {complianceProgress.total} punkter i samsvarssjekken er markert som
-                  oppfylt.
-                </p>
-
-                <div className={`${COUNCIL_DASH7030_WHITECARD} p-5`} style={COUNCIL_DASH7030_WHITECARD_SHADOW}>
-                  <p className={COUNCIL_OVERLINE}>Lovpålagte terskler (AML 2024)</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="rounded-md bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">
-                      {ct.totalEmployeeCount} ansatte
-                    </span>
-                    {ct.requiresVerneombud ? (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
-                        <CheckCircle2 className="size-3" />
-                        Verneombud lovpålagt
-                      </span>
-                    ) : (
-                      <span className="rounded-md bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">
-                        Verneombud: &lt;5 ansatte
-                      </span>
-                    )}
-                    {ct.requiresAmu ? (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
-                        <CheckCircle2 className="size-3" />
-                        AMU lovpålagt (≥30)
-                      </span>
-                    ) : ct.mayRequestAmu ? (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
-                        <AlertTriangle className="size-3" />
-                        AMU kan kreves (10–29)
-                      </span>
-                    ) : (
-                      <span className="rounded-md bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">
-                        AMU: &lt;10 ansatte
-                      </span>
-                    )}
-                  </div>
-                  {ct.totalEmployeeCount === 0 && (
-                    <p className="mt-2 text-xs text-amber-800">
-                      Antall ansatte ikke konfigurert —{' '}
-                      <Link to="/organisation" className="font-medium underline">
-                        oppdater i Organisasjon
-                      </Link>
-                      .
-                    </p>
-                  )}
-                </div>
-
-                <div className={`${COUNCIL_DASH7030_WHITECARD} p-5`} style={COUNCIL_DASH7030_WHITECARD_SHADOW}>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`${COUNCIL_SUBHEADING} text-neutral-800`}>AMU-sammensetting</span>
-                    {rep.validation.ok ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-900">
-                        <CheckCircle2 className="size-3.5" />
-                        Krav oppfylt
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-950">
-                        <AlertTriangle className="size-3.5" />
-                        {rep.validation.issues.length} avvik
-                      </span>
-                    )}
-                  </div>
-                  <p className={`mt-2 ${COUNCIL_SMALL}`}>
-                    {rep.validation.empCount} AT · {rep.validation.leadCount} AG · Mål: {rep.validation.seatsPerSide}{' '}
-                    per side
-                  </p>
-                </div>
-              </div>
-
-              <div className="min-w-0 space-y-6">
-                <div className={`${COUNCIL_DASH7030_WHITECARD} p-5`} style={COUNCIL_DASH7030_WHITECARD_SHADOW}>
-                  <p className={COUNCIL_OVERLINE}>Møter</p>
-                  {meetingsThisWeekCount > 0 ? (
-                    <div className="mt-3 rounded-md border border-orange-200/90 bg-orange-50/90 px-3 py-2.5 text-sm text-orange-950">
-                      <span className="font-semibold text-orange-900">{meetingsThisWeekCount}</span>{' '}
-                      {meetingsThisWeekCount === 1 ? 'møte planlagt' : 'møter planlagt'} de neste 7 dagene.
-                    </div>
-                  ) : (
-                    <div className="mt-3 rounded-md border border-neutral-200/80 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-600">
-                      Ingen planlagte møter de neste 7 dagene.
-                    </div>
-                  )}
-
-                  <div className="mt-4 flex items-center justify-between gap-2 border-b border-neutral-100 pb-3">
-                    <span className="min-w-0 truncate text-sm font-semibold capitalize text-neutral-900">
-                      {interviewCalTitle}
-                    </span>
-                    <div className="flex shrink-0 items-center gap-0.5">
+            <WorkplaceSplit7030Layout
+              cardWrap={false}
+              main={
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {councilOverviewKpis.map((item) => (
                       <button
+                        key={item.title}
                         type="button"
-                        onClick={() => setInterviewCalMonth((m) => addCalendarMonths(m, -1))}
-                        className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100"
-                        aria-label="Forrige måned"
+                        onClick={() => setTab(item.tab)}
+                        className="flex w-full items-center justify-between gap-4 rounded-lg border border-neutral-200/60 px-5 py-4 text-left transition hover:border-neutral-300"
+                        style={{ backgroundColor: COUNCIL_DASH7030_CREAM_DEEP }}
                       >
-                        <ChevronLeft className="size-4" />
+                        <div>
+                          <p className="text-3xl font-bold tabular-nums text-neutral-900">{item.value}</p>
+                          <p className="mt-1 text-sm font-medium text-neutral-800">{item.title}</p>
+                          <p className="text-xs text-neutral-600">{item.sub}</p>
+                        </div>
+                        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold uppercase tracking-wide text-neutral-700">
+                          Åpne <ChevronRight className="size-3.5" aria-hidden />
+                        </span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setInterviewCalMonth((m) => addCalendarMonths(m, 1))}
-                        className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100"
-                        aria-label="Neste måned"
-                      >
-                        <ChevronRight className="size-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {nextMeeting && nextMeetingCalendarMeta ? (
-                    <p className="mt-3 text-xs capitalize text-neutral-500">
-                      {nextMeetingCalendarMeta.weekdayLabel}, {nextMeetingCalendarMeta.dayMonthLabel}
-                    </p>
-                  ) : null}
-
-                  <div className="mt-2 grid grid-cols-7 gap-y-1 text-center text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                    {CAL_WEEKDAYS_NB.map((d) => (
-                      <span key={d}>{d}</span>
                     ))}
                   </div>
-                  <div className="mt-1 grid grid-cols-7 gap-y-1 text-center text-sm">
-                    {interviewCalCells.map((cell, idx) => {
-                      const isNext =
-                        cell &&
-                        nextMeetingCalendarMeta &&
-                        interviewCalMonth.getFullYear() === nextMeetingCalendarMeta.year &&
-                        interviewCalMonth.getMonth() === nextMeetingCalendarMeta.month &&
-                        cell.day === nextMeetingCalendarMeta.day
-                      return (
-                        <div key={idx} className="flex h-9 items-center justify-center">
-                          {cell ? (
-                            <span
-                              className={`relative flex size-8 items-center justify-center rounded-full tabular-nums ${
-                                isNext ? 'bg-[#c9a227] font-semibold text-white' : 'text-neutral-700'
-                              }`}
-                            >
-                              {cell.day}
-                              {isNext ? (
-                                <span className="absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-white" />
-                              ) : null}
-                            </span>
-                          ) : (
-                            <span />
-                          )}
-                        </div>
-                      )
-                    })}
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <ModuleDonutCard
+                      className="!rounded-lg"
+                      title="Valg"
+                      subtitle="Åpne og avsluttede"
+                      segments={councilElectionSegments.entries}
+                      total={councilElectionSegments.total}
+                      emptyHint="Ingen valg registrert."
+                    />
+                    <ModuleDonutCard
+                      className="!rounded-lg"
+                      title={`Møter ${wheelYear}`}
+                      subtitle="Planlagt, gjennomført og avlyst"
+                      segments={councilMeetingYearSegments.entries}
+                      total={councilMeetingYearSegments.total}
+                      emptyHint="Ingen møter i året."
+                    />
+                    <ModuleDonutCard
+                      className="!rounded-lg"
+                      title="Samsvarssjekk"
+                      subtitle="Oppfylt vs. gjenstående"
+                      segments={councilComplianceSegments.entries}
+                      total={councilComplianceSegments.total}
+                      emptyHint="Ingen sjekklistepunkter."
+                    />
+                    <ModuleDonutCard
+                      className="!rounded-lg"
+                      title="Signaler siden siste møte"
+                      subtitle="Hendelser, sykefravær, ROS"
+                      segments={councilLiveSignalsSegments.entries}
+                      total={councilLiveSignalsSegments.total}
+                      emptyHint="Ingen signaler å vise."
+                    />
                   </div>
 
-                  {nextMeeting && nextMeetingCalendarMeta ? (
-                    <div className="mt-5 border-t border-neutral-100 pt-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-neutral-900">{nextMeeting.title}</p>
-                          <p className="mt-1 text-sm text-neutral-600">{nextMeeting.location || 'Sted ikke satt'}</p>
-                          {nextMeeting.agendaItems[0] ? (
-                            <p className="mt-2 text-xs text-neutral-500">
-                              Første punkt: {nextMeeting.agendaItems[0].title}
-                            </p>
-                          ) : null}
-                        </div>
-                        <span className="shrink-0 text-sm font-semibold tabular-nums text-[#c9a227]">
-                          {nextMeetingCalendarMeta.timeLabel}
+                  <p className={COUNCIL_BODY}>
+                    Registrerte ordinære møter i {wheelYear}: <strong>{meetingsThisYear}</strong> / {MEETINGS_PER_YEAR}{' '}
+                    (justér år under «Møter»).
+                  </p>
+                  <div className="h-2 overflow-hidden rounded-full bg-neutral-200">
+                    <div
+                      className="h-full rounded-full bg-[#c9a227] transition-all"
+                      style={{ width: `${complianceProgress.pct}%` }}
+                    />
+                  </div>
+                  <p className={COUNCIL_SMALL}>
+                    {complianceProgress.done} av {complianceProgress.total} punkter i samsvarssjekken er markert som
+                    oppfylt.
+                  </p>
+
+                  <div className={`${COUNCIL_DASH7030_WHITECARD} p-5`} style={COUNCIL_DASH7030_WHITECARD_SHADOW}>
+                    <p className={COUNCIL_OVERLINE}>Lovpålagte terskler (AML 2024)</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="rounded-md bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">
+                        {ct.totalEmployeeCount} ansatte
+                      </span>
+                      {ct.requiresVerneombud ? (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
+                          <CheckCircle2 className="size-3" />
+                          Verneombud lovpålagt
                         </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTab('meetings')
-                          setSelectedMeetingId(nextMeeting.id)
-                        }}
-                        className="mt-4 text-left text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline"
-                      >
-                        Åpne møte →
-                      </button>
+                      ) : (
+                        <span className="rounded-md bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">
+                          Verneombud: &lt;5 ansatte
+                        </span>
+                      )}
+                      {ct.requiresAmu ? (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
+                          <CheckCircle2 className="size-3" />
+                          AMU lovpålagt (≥30)
+                        </span>
+                      ) : ct.mayRequestAmu ? (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
+                          <AlertTriangle className="size-3" />
+                          AMU kan kreves (10–29)
+                        </span>
+                      ) : (
+                        <span className="rounded-md bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600">
+                          AMU: &lt;10 ansatte
+                        </span>
+                      )}
                     </div>
-                  ) : (
-                    <p className="mt-5 border-t border-neutral-100 pt-4 text-sm text-neutral-500">
-                      Ingen planlagte møter.
-                    </p>
-                  )}
-                </div>
-
-                <div className={`${COUNCIL_DASH7030_WHITECARD} overflow-hidden p-0`} style={COUNCIL_DASH7030_WHITECARD_SHADOW}>
-                  <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Siste hendelser</p>
-                    <Link
-                      to="/workspace/revisjonslogg?source=representatives"
-                      className="text-xs font-semibold uppercase tracking-wide text-neutral-600 hover:text-neutral-900"
-                    >
-                      Revisjonslogg
-                    </Link>
+                    {ct.totalEmployeeCount === 0 && (
+                      <p className="mt-2 text-xs text-amber-800">
+                        Antall ansatte ikke konfigurert —{' '}
+                        <Link to="/organisation" className="font-medium underline">
+                          oppdater i Organisasjon
+                        </Link>
+                        .
+                      </p>
+                    )}
                   </div>
-                  {overviewRecentAudit.length === 0 ? (
-                    <p className="px-4 py-6 text-sm text-neutral-500">Ingen hendelser i loggen ennå.</p>
-                  ) : (
-                    <ul className="divide-y divide-neutral-100">
-                      {overviewRecentAudit.map((it) => (
-                        <li key={it.id} className="flex gap-3 px-4 py-3">
-                          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-500">
-                            <Mail className="size-4" aria-hidden />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm text-neutral-800">{it.text}</p>
-                            <p className="mt-1 text-xs text-neutral-400">{it.when}</p>
-                          </div>
-                          <span className="shrink-0 text-neutral-400" aria-hidden>
-                            <MoreHorizontal className="size-4" />
-                          </span>
-                        </li>
+
+                  <div className={`${COUNCIL_DASH7030_WHITECARD} p-5`} style={COUNCIL_DASH7030_WHITECARD_SHADOW}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`${COUNCIL_SUBHEADING} text-neutral-800`}>AMU-sammensetting</span>
+                      {rep.validation.ok ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-900">
+                          <CheckCircle2 className="size-3.5" />
+                          Krav oppfylt
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-950">
+                          <AlertTriangle className="size-3.5" />
+                          {rep.validation.issues.length} avvik
+                        </span>
+                      )}
+                    </div>
+                    <p className={`mt-2 ${COUNCIL_SMALL}`}>
+                      {rep.validation.empCount} AT · {rep.validation.leadCount} AG · Mål: {rep.validation.seatsPerSide}{' '}
+                      per side
+                    </p>
+                  </div>
+                </>
+              }
+              aside={
+                <>
+                  <div className={`${COUNCIL_DASH7030_WHITECARD} p-5`} style={COUNCIL_DASH7030_WHITECARD_SHADOW}>
+                    <p className={COUNCIL_OVERLINE}>Møter</p>
+                    {meetingsThisWeekCount > 0 ? (
+                      <div className="mt-3 rounded-md border border-orange-200/90 bg-orange-50/90 px-3 py-2.5 text-sm text-orange-950">
+                        <span className="font-semibold text-orange-900">{meetingsThisWeekCount}</span>{' '}
+                        {meetingsThisWeekCount === 1 ? 'møte planlagt' : 'møter planlagt'} de neste 7 dagene.
+                      </div>
+                    ) : (
+                      <div className="mt-3 rounded-md border border-neutral-200/80 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-600">
+                        Ingen planlagte møter de neste 7 dagene.
+                      </div>
+                    )}
+
+                    <div className="mt-4 flex items-center justify-between gap-2 border-b border-neutral-100 pb-3">
+                      <span className="min-w-0 truncate text-sm font-semibold capitalize text-neutral-900">
+                        {interviewCalTitle}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setInterviewCalMonth((m) => addCalendarMonths(m, -1))}
+                          className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100"
+                          aria-label="Forrige måned"
+                        >
+                          <ChevronLeft className="size-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setInterviewCalMonth((m) => addCalendarMonths(m, 1))}
+                          className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100"
+                          aria-label="Neste måned"
+                        >
+                          <ChevronRight className="size-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {nextMeeting && nextMeetingCalendarMeta ? (
+                      <p className="mt-3 text-xs capitalize text-neutral-500">
+                        {nextMeetingCalendarMeta.weekdayLabel}, {nextMeetingCalendarMeta.dayMonthLabel}
+                      </p>
+                    ) : null}
+
+                    <div className="mt-2 grid grid-cols-7 gap-y-1 text-center text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                      {CAL_WEEKDAYS_NB.map((d) => (
+                        <span key={d}>{d}</span>
                       ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            </div>
+                    </div>
+                    <div className="mt-1 grid grid-cols-7 gap-y-1 text-center text-sm">
+                      {interviewCalCells.map((cell, idx) => {
+                        const isNext =
+                          cell &&
+                          nextMeetingCalendarMeta &&
+                          interviewCalMonth.getFullYear() === nextMeetingCalendarMeta.year &&
+                          interviewCalMonth.getMonth() === nextMeetingCalendarMeta.month &&
+                          cell.day === nextMeetingCalendarMeta.day
+                        return (
+                          <div key={idx} className="flex h-9 items-center justify-center">
+                            {cell ? (
+                              <span
+                                className={`relative flex size-8 items-center justify-center rounded-full tabular-nums ${
+                                  isNext ? 'bg-[#c9a227] font-semibold text-white' : 'text-neutral-700'
+                                }`}
+                              >
+                                {cell.day}
+                                {isNext ? (
+                                  <span className="absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-white" />
+                                ) : null}
+                              </span>
+                            ) : (
+                              <span />
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {nextMeeting && nextMeetingCalendarMeta ? (
+                      <div className="mt-5 border-t border-neutral-100 pt-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-neutral-900">{nextMeeting.title}</p>
+                            <p className="mt-1 text-sm text-neutral-600">{nextMeeting.location || 'Sted ikke satt'}</p>
+                            {nextMeeting.agendaItems[0] ? (
+                              <p className="mt-2 text-xs text-neutral-500">
+                                Første punkt: {nextMeeting.agendaItems[0].title}
+                              </p>
+                            ) : null}
+                          </div>
+                          <span className="shrink-0 text-sm font-semibold tabular-nums text-[#c9a227]">
+                            {nextMeetingCalendarMeta.timeLabel}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTab('meetings')
+                            setSelectedMeetingId(nextMeeting.id)
+                          }}
+                          className="mt-4 text-left text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline"
+                        >
+                          Åpne møte →
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="mt-5 border-t border-neutral-100 pt-4 text-sm text-neutral-500">
+                        Ingen planlagte møter.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className={`${COUNCIL_DASH7030_WHITECARD} overflow-hidden p-0`} style={COUNCIL_DASH7030_WHITECARD_SHADOW}>
+                    <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Siste hendelser</p>
+                      <Link
+                        to="/workspace/revisjonslogg?source=representatives"
+                        className="text-xs font-semibold uppercase tracking-wide text-neutral-600 hover:text-neutral-900"
+                      >
+                        Revisjonslogg
+                      </Link>
+                    </div>
+                    {overviewRecentAudit.length === 0 ? (
+                      <p className="px-4 py-6 text-sm text-neutral-500">Ingen hendelser i loggen ennå.</p>
+                    ) : (
+                      <ul className="divide-y divide-neutral-100">
+                        {overviewRecentAudit.map((it) => (
+                          <li key={it.id} className="flex gap-3 px-4 py-3">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-500">
+                              <Mail className="size-4" aria-hidden />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm text-neutral-800">{it.text}</p>
+                              <p className="mt-1 text-xs text-neutral-400">{it.when}</p>
+                            </div>
+                            <span className="shrink-0 text-neutral-400" aria-hidden>
+                              <MoreHorizontal className="size-4" />
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              }
+            />
           </section>
         </div>
       )}
