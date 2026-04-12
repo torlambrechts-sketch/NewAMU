@@ -1189,45 +1189,51 @@ export function OrganisationPage() {
               </>
             }
             headerActions={
-              <>
+              tab === 'settings' ? (
                 <div className="hidden shrink-0 justify-center sm:flex" aria-hidden>
                   <OrganisationHeaderIllustration className="h-[7.5rem] w-auto max-w-[min(100%,220px)] md:h-32" />
                 </div>
-                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-                  <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-                    {ct.totalEmployeeCount} i beregning
-                  </span>
-                  {ct.requiresVerneombud ? (
-                    <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
-                      <CheckCircle2 className="size-4 shrink-0" />
-                      Verneombud lovpålagt
+              ) : (
+                <>
+                  <div className="hidden shrink-0 justify-center sm:flex" aria-hidden>
+                    <OrganisationHeaderIllustration className="h-[7.5rem] w-auto max-w-[min(100%,220px)] md:h-32" />
+                  </div>
+                  <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+                    <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
+                      {ct.totalEmployeeCount} i beregning
                     </span>
-                  ) : (
-                    <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>Verneombud: &lt;5</span>
-                  )}
-                  {ct.requiresAmu ? (
-                    <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
-                      <CheckCircle2 className="size-4 shrink-0" />
-                      AMU lovpålagt
-                    </span>
-                  ) : ct.mayRequestAmu ? (
-                    <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
-                      <AlertTriangle className="size-4 shrink-0" />
-                      AMU kan kreves
-                    </span>
-                  ) : (
-                    <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>AMU: &lt;10</span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setOrgSlidePanel({ kind: 'employee', mode: 'create' })}
-                    className={`${HERO_ACTION_CLASS} text-white shadow-sm hover:opacity-95`}
-                    style={{ backgroundColor: WORKPLACE_FOREST }}
-                  >
-                    <Plus className="size-4 shrink-0" /> Ny ansatt
-                  </button>
-                </div>
-              </>
+                    {ct.requiresVerneombud ? (
+                      <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
+                        <CheckCircle2 className="size-4 shrink-0" />
+                        Verneombud lovpålagt
+                      </span>
+                    ) : (
+                      <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>Verneombud: &lt;5</span>
+                    )}
+                    {ct.requiresAmu ? (
+                      <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-800`}>
+                        <CheckCircle2 className="size-4 shrink-0" />
+                        AMU lovpålagt
+                      </span>
+                    ) : ct.mayRequestAmu ? (
+                      <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
+                        <AlertTriangle className="size-4 shrink-0" />
+                        AMU kan kreves
+                      </span>
+                    ) : (
+                      <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>AMU: &lt;10</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setOrgSlidePanel({ kind: 'employee', mode: 'create' })}
+                      className={`${HERO_ACTION_CLASS} text-white shadow-sm hover:opacity-95`}
+                      style={{ backgroundColor: WORKPLACE_FOREST }}
+                    >
+                      <Plus className="size-4 shrink-0" /> Ny ansatt
+                    </button>
+                  </div>
+                </>
+              )
             }
             menu={
               <WorkplaceBoardTabStrip
@@ -2609,46 +2615,6 @@ export function OrganisationPage() {
       {/* ── Settings — KPI-stripe som på hjem, deretter skjema ─ */}
       {tab === 'settings' && (
         <section className="w-full space-y-8">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {(
-              [
-                {
-                  title: 'Antall ansatte',
-                  sub: 'Grunnlag for terskler',
-                  value: `${org.totalEmployeeCount}`,
-                  valueClass: 'text-neutral-900',
-                },
-                {
-                  title: 'Verneombud (AML §6-1)',
-                  sub: 'Kreves ved ≥5 ansatte',
-                  value: ct.requiresVerneombud ? 'Ja (≥5)' : 'Nei',
-                  valueClass: ct.requiresVerneombud ? 'text-emerald-700' : 'text-neutral-600',
-                },
-                {
-                  title: 'AMU kan kreves',
-                  sub: 'Område 10–29 ansatte',
-                  value: ct.mayRequestAmu ? 'Ja' : 'Nei',
-                  valueClass: ct.mayRequestAmu ? 'text-amber-800' : 'text-neutral-600',
-                },
-                {
-                  title: 'AMU lovpålagt (AML §7-1)',
-                  sub: 'Kreves ved ≥30 ansatte',
-                  value: ct.requiresAmu ? 'Ja (≥30)' : 'Nei',
-                  valueClass: ct.requiresAmu ? 'text-emerald-700' : 'text-neutral-600',
-                },
-              ] as const
-            ).map((item) => (
-              <div
-                key={item.title}
-                className="rounded-lg border border-neutral-200/80 px-5 py-4"
-                style={{ backgroundColor: AB_SCORECARD_CREAM_DEEP }}
-              >
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-600">{item.title}</p>
-                <p className="mt-1 text-xs text-neutral-600">{item.sub}</p>
-                <p className={`mt-2 text-lg font-semibold tabular-nums ${item.valueClass}`}>{item.value}</p>
-              </div>
-            ))}
-          </div>
           <OrgInsightWhiteCard className="overflow-hidden p-0">
             <div className="border-b border-neutral-100 px-5 py-4 md:px-6">
               <h2 className="text-lg font-semibold text-neutral-900">Virksomhetsinnstillinger</h2>
