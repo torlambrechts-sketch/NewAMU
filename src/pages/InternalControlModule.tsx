@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Lock,
   Plus,
+  Search,
   ShieldCheck,
   X,
 } from 'lucide-react'
@@ -50,6 +51,9 @@ import {
   type InsightSeg,
 } from '../components/insights/ModuleInsightCharts'
 import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { LayoutScoreStatRow } from '../components/layout/LayoutScoreStatRow'
+import { Table1Shell } from '../components/layout/Table1Shell'
+import { Table1Toolbar } from '../components/layout/Table1Toolbar'
 import { InternalControlTabShell } from './internalControl/InternalControlTabShell'
 import {
   resolveIcOverviewComposerLayout,
@@ -192,6 +196,7 @@ export function InternalControlModule() {
   const [rosPanelOpen, setRosPanelOpen] = useState(false)
   const [rosPanelMode, setRosPanelMode] = useState<'create' | 'view'>('create')
   const [rosViewId, setRosViewId] = useState<string | null>(null)
+  const [rosListSearch, setRosListSearch] = useState('')
   const [annualPanelOpen, setAnnualPanelOpen] = useState(false)
   type AnnualFormState = {
     id: string
@@ -301,6 +306,15 @@ export function InternalControlModule() {
     const drafts = list.filter((r) => !r.locked).length
     return { total: list.length, locked, drafts }
   }, [ic.rosAssessments])
+
+  const rosAssessmentsFiltered = useMemo(() => {
+    const q = rosListSearch.trim().toLowerCase()
+    if (!q) return ic.rosAssessments
+    return ic.rosAssessments.filter((r) => {
+      const hay = `${r.title} ${r.department ?? ''} ${r.assessor ?? ''}`.toLowerCase()
+      return hay.includes(q)
+    })
+  }, [ic.rosAssessments, rosListSearch])
 
   const annualStats = useMemo(() => {
     const list = ic.annualReviews
@@ -808,27 +822,6 @@ export function InternalControlModule() {
               .
             </p>
           }
-          headerActions={
-            <>
-              <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-                Totalt <strong className="ml-1 font-semibold">{rosStats.total}</strong>
-              </span>
-              <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
-                Utkast <strong className="ml-1 font-semibold">{rosStats.drafts}</strong>
-              </span>
-              <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
-                Låst <strong className="ml-1 font-semibold">{rosStats.locked}</strong>
-              </span>
-              <button
-                type="button"
-                onClick={openNewRosPanel}
-                className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
-              >
-                <Plus className="size-4 shrink-0" />
-                Ny ROS
-              </button>
-            </>
-          }
         >
           {ic.error && (
             <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{ic.error}</p>
@@ -839,33 +832,14 @@ export function InternalControlModule() {
 
           <LegalDisclaimer compact />
 
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {(
-              [
-                { title: 'Totalt', sub: 'ROS-vurderinger', value: `${rosStats.total}` },
-                { title: 'Utkast', sub: 'Ikke signert / låst', value: `${rosStats.drafts}` },
-                { title: 'Låst', sub: 'Signert leder + VO', value: `${rosStats.locked}` },
-                {
-                  title: 'Oppfølging',
-                  sub: 'Oppgaver fra ROS',
-                  value: (
-                    <Link to="/tasks" className="mt-1 inline-block text-sm font-semibold text-white underline">
-                      Åpne oppgaver
-                    </Link>
-                  ),
-                },
-              ] as const
-            ).map((item) => (
-              <div key={item.title} className={SETTINGS_THRESHOLD_BOX} style={kpiStripStyle}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
-                <p className="mt-1 text-xs text-white/70">{item.sub}</p>
-                {typeof item.value === 'string' ? (
-                  <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
-                ) : (
-                  <div className="mt-1">{item.value}</div>
-                )}
-              </div>
-            ))}
+          <div className="mt-6">
+            <LayoutScoreStatRow
+              items={[
+                { big: String(rosStats.total), title: 'Totalt', sub: 'ROS-vurderinger' },
+                { big: String(rosStats.drafts), title: 'Utkast', sub: 'Ikke signert / låst' },
+                { big: String(rosStats.locked), title: 'Låst', sub: 'Signert leder + VO' },
+              ]}
+            />
           </div>
 
           <div className="rounded-none border border-neutral-200 bg-white p-5 text-sm text-neutral-700">
@@ -914,14 +888,47 @@ export function InternalControlModule() {
             </div>
           </div>
 
-          <section className="overflow-hidden rounded-none border border-neutral-200 bg-white">
-            <div className="border-b border-neutral-200 px-4 py-3">
-              <h2 className="font-semibold text-neutral-900">ROS-vurderinger</h2>
-              <p className="mt-1 text-xs text-neutral-500">
-                Klikk på en rad for å åpne analysen i sidevinduet. Bruk «Ny ROS» for nytt dokument — samme panel som ved opprettelse.
-              </p>
-            </div>
-            <div className="overflow-x-auto">
+          <section className="mt-8" aria-label="ROS-vurderinger">
+            <Table1Shell
+              variant="pinpoint"
+              toolbar={
+                <Table1Toolbar
+                  searchSlot={
+                    <div className="relative min-w-[200px] flex-1">
+                      <label htmlFor="ros-list-search" className="sr-only">
+                        Søk i ROS-vurderinger
+                      </label>
+                      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                      <input
+                        id="ros-list-search"
+                        type="search"
+                        value={rosListSearch}
+                        onChange={(e) => setRosListSearch(e.target.value)}
+                        placeholder="Søk i tittel, avdeling, vurderer …"
+                        className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/25"
+                      />
+                    </div>
+                  }
+                  segmentSlot={<span className="sr-only">Verktøylinje</span>}
+                  endSlot={
+                    <button
+                      type="button"
+                      onClick={openNewRosPanel}
+                      className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#1a3d32] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#142e26]"
+                    >
+                      <Plus className="size-4 shrink-0" aria-hidden />
+                      Ny ROS
+                    </button>
+                  }
+                />
+              }
+            >
+              <div className="border-b border-neutral-100 px-4 py-3 md:px-5">
+                <h2 className="font-semibold text-neutral-900">ROS-vurderinger</h2>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Klikk på en rad for å åpne analysen i sidevinduet. «Ny ROS» oppretter nytt dokument i samme panel.
+                </p>
+              </div>
               <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                 <thead>
                   <tr className={theadRow}>
@@ -933,7 +940,7 @@ export function InternalControlModule() {
                   </tr>
                 </thead>
                 <tbody>
-                  {ic.rosAssessments.map((r, ri) => (
+                  {rosAssessmentsFiltered.map((r, ri) => (
                     <tr
                       key={r.id}
                       role="button"
@@ -966,7 +973,12 @@ export function InternalControlModule() {
                   ))}
                 </tbody>
               </table>
-            </div>
+              {rosAssessmentsFiltered.length === 0 ? (
+                <p className="px-4 py-10 text-center text-sm text-neutral-500">
+                  {rosListSearch.trim() ? 'Ingen ROS matcher søket.' : 'Ingen ROS-vurderinger ennå.'}
+                </p>
+              ) : null}
+            </Table1Shell>
           </section>
 
           {rosPanelOpen ? (
