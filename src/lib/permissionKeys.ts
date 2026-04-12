@@ -78,7 +78,7 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/learning', permission: 'module.view.learning' },
   /** Same gate as workspace — report data is still scoped per org in RPCs */
   { pathPrefix: '/reports', permission: 'module.view.dashboard' },
-  { pathPrefix: '/workplace-reporting', permission: 'module.view.workplace_reporting' },
+  /** Hub gate: see ROUTE_PERMISSION_ANY (`workplace_reporting` ∪ `dashboard`) */
   { pathPrefix: '/workflow', permission: 'module.view.workflow' },
   { pathPrefix: '/hr', permission: 'module.view.hr_compliance' },
   { pathPrefix: '/organisation/admin', permission: 'module.view.admin' },
@@ -90,6 +90,22 @@ export const ROUTE_PERMISSION_ANY: { pathPrefix: string; permissions: Permission
     pathPrefix: '/workplace-reporting/incidents',
     permissions: ['module.view.workplace_reporting', 'module.view.hse'],
   },
+  /**
+   * Anonym kanal — same audience as nav (org health + workplace reporting).
+   * Listed before the broad `/workplace-reporting` rule so paths under here do not fall through to dashboard-only.
+   */
+  {
+    pathPrefix: '/workplace-reporting/anonymous-aml',
+    permissions: ['module.view.workplace_reporting', 'module.view.org_health'],
+  },
+  /**
+   * Reporting hub routes: shell shows this group to anyone with dashboard when RBAC rows exist,
+   * so the gate must match — sub-routes that need HSE / AML stay on stricter rules above.
+   */
+  {
+    pathPrefix: '/workplace-reporting',
+    permissions: ['module.view.workplace_reporting', 'module.view.dashboard'],
+  },
   {
     pathPrefix: '/compliance',
     permissions: [
@@ -97,6 +113,8 @@ export const ROUTE_PERMISSION_ANY: { pathPrefix: string; permissions: Permission
       'module.view.hse',
       'module.view.org_health',
       'module.view.hr_compliance',
+      /** Hub is in Compliance nav for all workspace users with dashboard access */
+      'module.view.dashboard',
     ],
   },
 ]
