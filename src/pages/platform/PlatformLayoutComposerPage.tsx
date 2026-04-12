@@ -38,6 +38,19 @@ import {
 } from '../../lib/platformLayoutComposerStorage'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { usePlatformStackComposerTemplates, type StackPresetUI } from '../../hooks/usePlatformComposerTemplates'
+import {
+  BackgroundChecksPageBlock,
+  CandidateDetailBlock,
+  CandidatesListBlock,
+  CandidatesVideoScreenBlock,
+  DashboardMainRightBlock,
+  JobPostingsPageBlock,
+  JobScorecardPageBlock,
+  JobsListPinpointBlock,
+  SimpleDashboardBlock,
+  SurveyInsights7070Block,
+  TemplateLibraryBlock,
+} from './platformReferenceLayoutBlocks'
 
 const CREAM = '#F9F7F2'
 const CREAM_DEEP = '#EFE8DC'
@@ -1278,6 +1291,61 @@ const BLOCKS = [
     label: 'Rapportering — to paneler (søyler + linje)',
     hint: 'To kort: horisontale søyler etter fase og linjegraf over tid (side ved side på stor skjerm).',
   },
+  {
+    id: 'refTemplateLibrary',
+    label: 'Ref. — Malbibliotek (filter + kort)',
+    hint: 'Layout-referanse: søk, tag-filtre og 4-kolonne mal-kort.',
+  },
+  {
+    id: 'refJobsList',
+    label: 'Ref. — Stillinger (Active jobs, full side)',
+    hint: 'Layout-referanse: mørk fanebar, verktøylinje, grid/list og jobbkort.',
+  },
+  {
+    id: 'refScorecardPage',
+    label: 'Ref. — Scorecard (full side)',
+    hint: 'Layout-referanse: breadcrumb, faner, filterrad og tre kandidatkort med skills.',
+  },
+  {
+    id: 'refSurveyInsights7030',
+    label: 'Ref. — Survey insights 70/30',
+    hint: 'Layout-referanse: KPI, NPS, trend og svarliste i høyre kolonne.',
+  },
+  {
+    id: 'refJobPostingsFull',
+    label: 'Ref. — Stillingsannonser (full side)',
+    hint: 'Layout-referanse: H1, hub, Postings-kort med tabell og paginering (samme som referanse-fanen).',
+  },
+  {
+    id: 'refCandidateDetail',
+    label: 'Ref. — Kandidatdetalj',
+    hint: 'Layout-referanse: beige sidenav + detaljliste.',
+  },
+  {
+    id: 'refCandidatesList',
+    label: 'Ref. — Kandidatliste',
+    hint: 'Layout-referanse: segmentknapper, søk og tabell med tags/stjerner.',
+  },
+  {
+    id: 'refVideoScreen',
+    label: 'Ref. — Video screen (Interviews)',
+    hint: 'Layout-referanse: pipeline, segmentfilter og intervju-tabell.',
+  },
+  {
+    id: 'refBackgroundChecks',
+    label: 'Ref. — Background checks',
+    hint: 'Layout-referanse: statusfaner, søk og ordre-tabell.',
+  },
+  {
+    id: 'refDashboard7030',
+    label: 'Ref. — Dashboard 70/30',
+    hint: 'Layout-referanse: velkomst, KPI, jobber, donut + intervjuer/varsler.',
+  },
+  {
+    id: 'refDashboardCompact',
+    label: 'Ref. — Dashboard (kompakt)',
+    hint: 'Layout-referanse: enkel dash med KPI, jobbkort og pipeline-søyler.',
+  },
 ] as const
 
 export type LayoutComposerBlockId = (typeof BLOCKS)[number]['id']
@@ -1330,6 +1398,28 @@ function renderComposerBlock(id: BlockId): ReactNode {
       return <ComposableReportingDonutOneRowBlock />
     case 'reportingChartsTwoRow':
       return <ComposableReportingChartsTwoRowBlock />
+    case 'refTemplateLibrary':
+      return <TemplateLibraryBlock />
+    case 'refJobsList':
+      return <JobsListPinpointBlock />
+    case 'refScorecardPage':
+      return <JobScorecardPageBlock />
+    case 'refSurveyInsights7030':
+      return <SurveyInsights7070Block />
+    case 'refJobPostingsFull':
+      return <JobPostingsPageBlock />
+    case 'refCandidateDetail':
+      return <CandidateDetailBlock />
+    case 'refCandidatesList':
+      return <CandidatesListBlock />
+    case 'refVideoScreen':
+      return <CandidatesVideoScreenBlock />
+    case 'refBackgroundChecks':
+      return <BackgroundChecksPageBlock />
+    case 'refDashboard7030':
+      return <DashboardMainRightBlock />
+    case 'refDashboardCompact':
+      return <SimpleDashboardBlock />
     default:
       return null
   }

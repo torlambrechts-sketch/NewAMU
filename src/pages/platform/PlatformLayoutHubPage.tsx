@@ -77,7 +77,11 @@ export function PlatformLayoutHubPage() {
         <div>
           <h2 className="text-lg font-semibold text-white">Layout-komponenter — komponer</h2>
           <p className="mt-1 max-w-3xl text-sm text-neutral-500">
-            Kombiner referanseblokker (overskrift, stat-rad, tabeller, scorecard, verktøylinje, list 2, boksrutenett, rapportering). Dra for å
+            Kombiner atomære blokker og hele sider fra{' '}
+            <Link to="/platform-admin/layout-reference" className="text-amber-400/90 hover:underline">
+              layout-referanse
+            </Link>{' '}
+            (prefiks «Ref. —»), pluss overskrift, stat-rad, tabeller, scorecard, verktøylinje, list 2, boksrutenett og rapportering. Dra for å
             endre rekkefølge; lagre som <strong className="text-neutral-300">lokalt</strong> eller i <strong className="text-neutral-300">database</strong>{' '}
             (plattformadmin). Publiserte stack-maler kan brukes i arbeidsflaten (f.eks. Internkontroll → Oversikt ved navnematch).
           </p>
