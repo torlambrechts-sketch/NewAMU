@@ -295,12 +295,38 @@ export function PlatformGridComposer({ previewSurface }: { previewSurface: Platf
     previewSurface === 'white'
       ? 'w-14 rounded border border-neutral-200 bg-white px-1 py-0.5 text-xs tabular-nums text-neutral-900'
       : 'w-14 rounded border border-white/15 bg-slate-900 px-1 py-0.5 text-xs tabular-nums text-neutral-100'
+  const selectBlockClass =
+    previewSurface === 'white'
+      ? 'min-w-0 max-w-full flex-1 rounded border border-neutral-200 bg-white px-1.5 py-1 text-[11px] text-neutral-900 sm:text-xs'
+      : 'min-w-0 max-w-full flex-1 rounded border border-white/20 bg-slate-950/40 px-1.5 py-1 text-[11px] text-neutral-100 sm:text-xs'
+
+  const setCellBlock = useCallback((rowId: string, cellId: string, blockId: string) => {
+    const id = blockId === '' ? null : (blockId as LayoutComposerBlockId)
+    setSession((s) => ({
+      rows: s.rows.map((r) =>
+        r.id !== rowId
+          ? r
+          : {
+              ...r,
+              columns: r.columns.map((c) => (c.id === cellId ? { ...c, blockId: id } : c)),
+            },
+      ),
+    }))
+  }, [])
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] lg:items-start">
       <aside className={panelClass}>
         <p className={`text-xs font-semibold uppercase tracking-wide ${metaClass}`}>Element-palett</p>
-        <p className={`text-xs ${metaClass}`}>Dra et element inn i en celle. Celle-til-celle bytter innhold.</p>
+        <p className={`text-xs ${metaClass}`}>
+          Dra element inn i en celle (skrivebord), eller bruk{' '}
+          <strong
+            className={`font-medium ${previewSurface === 'white' ? 'text-neutral-800' : 'text-neutral-200'}`}
+          >
+            rullegardin i hver celle
+          </strong>{' '}
+          nedenfor — samme blokker som under Layout-komponenter — komponer.
+        </p>
         <ul className="max-h-64 space-y-1 overflow-y-auto">
           {paletteItems.map((b) => (
             <li
@@ -513,9 +539,28 @@ export function PlatformGridComposer({ previewSurface }: { previewSurface: Platf
                               Fjern kolonne
                             </button>
                           </div>
+                          <div className="mb-2 w-full min-w-0">
+                            <label htmlFor={`${sid}-block`} className="sr-only">
+                              Velg blokk for celle
+                            </label>
+                            <select
+                              id={`${sid}-block`}
+                              value={cell.blockId ?? ''}
+                              onChange={(ev) => setCellBlock(row.id, cell.id, ev.target.value)}
+                              className={selectBlockClass}
+                              aria-label="Velg layout-blokk (samme som komponer-palett)"
+                            >
+                              <option value="">— Velg blokk (mobil) —</option>
+                              {paletteItems.map((b) => (
+                                <option key={b.id} value={b.id}>
+                                  {b.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                           <div className="min-w-0 flex-1 overflow-x-auto">
                             {content ?? (
-                              <p className={`py-8 text-center text-sm ${metaClass}`}>Slipp element her</p>
+                              <p className={`py-8 text-center text-sm ${metaClass}`}>Velg blokk over eller slipp her</p>
                             )}
                           </div>
                         </div>
