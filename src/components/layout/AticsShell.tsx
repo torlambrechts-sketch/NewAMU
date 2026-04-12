@@ -275,21 +275,6 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    id: 'admin',
-    label: 'Admin',
-    icon: Shield,
-    modules: [
-      {
-        to: '/organisation/admin',
-        label: 'Administrasjon',
-        end: true,
-        icon: Shield,
-        subs: organisationAdminSubs,
-        perm: 'module.view.admin',
-      },
-    ],
-  },
-  {
     id: 'workplace_reporting',
     label: 'Arbeidsplassrapportering',
     icon: Megaphone,
@@ -358,6 +343,13 @@ const navGroups: NavGroup[] = [
     modules: [
       { to: '/documents', label: 'Documents', end: false, icon: FileText, subs: documentsSubs, perm: 'module.view.dashboard' },
       { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap, subs: learningSubs, perm: 'module.view.learning' },
+    ],
+  },
+  {
+    id: 'admin',
+    label: 'Admin',
+    icon: Shield,
+    modules: [
       {
         to: '/organisation',
         label: 'Organisasjon',
@@ -365,6 +357,14 @@ const navGroups: NavGroup[] = [
         icon: Building2,
         subs: [],
         perm: 'module.view.dashboard',
+      },
+      {
+        to: '/organisation/admin',
+        label: 'Administrasjon',
+        end: true,
+        icon: Shield,
+        subs: organisationAdminSubs,
+        perm: 'module.view.admin',
       },
     ],
   },
