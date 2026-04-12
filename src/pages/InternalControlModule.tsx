@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Calendar,
@@ -51,6 +51,8 @@ import {
 } from '../components/insights/ModuleInsightCharts'
 import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { InternalControlTabShell } from './internalControl/InternalControlTabShell'
+import { resolveIcOverviewComposerLayout } from '../lib/icOverviewLayoutFromPreset'
+import { renderLayoutComposerBlock } from './platform/PlatformLayoutComposerPage'
 
 const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: LayoutDashboard, iconOnly: false as const },
@@ -628,6 +630,9 @@ export function InternalControlModule() {
     [tab],
   )
 
+  const icOverviewComposer =
+    tab === 'overview' ? resolveIcOverviewComposerLayout() : { order: [] as const, presetNameMatched: null as string | null }
+
   return (
     <>
       {tab === 'overview' ? (
@@ -657,97 +662,114 @@ export function InternalControlModule() {
           )}
 
           <div className="space-y-10">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {icOverviewKpis.map((item) => (
-              <div key={item.title} className={IC_THRESHOLD_STRIP} style={kpiStripStyle}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
-                <p className="mt-1 text-xs text-white/70">{item.sub}</p>
-                <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
+          {icOverviewComposer.presetNameMatched ? (
+            <div className="space-y-8">
+              <p className="text-xs text-neutral-500">
+                Oppsett fra plattform-admin layout-komponer:{' '}
+                <span className="font-medium text-neutral-700">«{icOverviewComposer.presetNameMatched}»</span> (lagret i
+                denne nettleseren).
+              </p>
+              {icOverviewComposer.order.map((blockId) => {
+                const node: ReactNode = renderLayoutComposerBlock(blockId)
+                if (!node) return null
+                return <div key={blockId}>{node}</div>
+              })}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {icOverviewKpis.map((item) => (
+                  <div key={item.title} className={IC_THRESHOLD_STRIP} style={kpiStripStyle}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-white/85">{item.title}</p>
+                    <p className="mt-1 text-xs text-white/70">{item.sub}</p>
+                    <p className="mt-2 text-lg font-semibold tabular-nums text-white">{item.value}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          <section>
-            <div className="mb-4 flex flex-wrap items-center gap-2">
-              <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Internkontroll-innsikt</h2>
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <ModuleDonutCard
-                title="ROS etter type"
-                subtitle="Generell vs. organisatorisk endring"
-                segments={icRosCategorySegments.entries}
-                total={icRosCategorySegments.total}
-                emptyHint="Ingen ROS registrert ennå."
-              />
-              <ModuleDonutCard
-                title="ROS etter arbeidsområde"
-                subtitle="Fordeling i registeret"
-                segments={icRosWorkspaceSegments.entries}
-                total={icRosWorkspaceSegments.total}
-                emptyHint="Ingen ROS å vise."
-              />
-              <ModuleDonutCard
-                title="Årsgjennomgang"
-                subtitle="Status på år"
-                segments={icAnnualStatusSegments.entries}
-                total={icAnnualStatusSegments.total}
-                emptyHint="Ingen årsgjennomgang registrert."
-              />
-              <ModuleDonutCard
-                title="ROS-rader etter risiko (brutto)"
-                subtitle="Alle rader i alle ROS"
-                segments={icRosRowRiskSegments.entries}
-                total={icRosRowRiskSegments.total}
-                emptyHint="Ingen risikorader."
-              />
-              <ModuleDonutCard
-                title="Revisjonslogg (kategorier)"
-                subtitle="Totalt i loggen fordelt"
-                segments={icAuditSegmentSlices.entries}
-                total={icAuditSegmentSlices.total}
-                emptyHint="Loggen er tom."
-              />
-              <div className={INSIGHT_CARD}>
-                <div className={INSIGHT_CARD_TOP_RULE} />
-                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Drift og koblinger</p>
-                <p className="mt-3 text-3xl font-semibold tabular-nums text-[#1a3d32]">{rosStats.drafts}</p>
-                <p className="mt-1 text-sm text-neutral-600">ROS-utkast (åpne)</p>
-                <div className="mt-4 space-y-2 border-t border-neutral-100 pt-4 text-sm text-neutral-700">
-                  <div className="flex justify-between gap-2">
-                    <span className="text-neutral-500">Årsgj. utkast / venter VO</span>
-                    <span className="font-semibold tabular-nums">
-                      {annualStats.draft} / {annualStats.pending}
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-neutral-500">Hendelser i logg (90 d.)</span>
-                    <span className="font-semibold tabular-nums">{auditEntriesLast90.length}</span>
+              <section>
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Internkontroll-innsikt</h2>
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <ModuleDonutCard
+                    title="ROS etter type"
+                    subtitle="Generell vs. organisatorisk endring"
+                    segments={icRosCategorySegments.entries}
+                    total={icRosCategorySegments.total}
+                    emptyHint="Ingen ROS registrert ennå."
+                  />
+                  <ModuleDonutCard
+                    title="ROS etter arbeidsområde"
+                    subtitle="Fordeling i registeret"
+                    segments={icRosWorkspaceSegments.entries}
+                    total={icRosWorkspaceSegments.total}
+                    emptyHint="Ingen ROS å vise."
+                  />
+                  <ModuleDonutCard
+                    title="Årsgjennomgang"
+                    subtitle="Status på år"
+                    segments={icAnnualStatusSegments.entries}
+                    total={icAnnualStatusSegments.total}
+                    emptyHint="Ingen årsgjennomgang registrert."
+                  />
+                  <ModuleDonutCard
+                    title="ROS-rader etter risiko (brutto)"
+                    subtitle="Alle rader i alle ROS"
+                    segments={icRosRowRiskSegments.entries}
+                    total={icRosRowRiskSegments.total}
+                    emptyHint="Ingen risikorader."
+                  />
+                  <ModuleDonutCard
+                    title="Revisjonslogg (kategorier)"
+                    subtitle="Totalt i loggen fordelt"
+                    segments={icAuditSegmentSlices.entries}
+                    total={icAuditSegmentSlices.total}
+                    emptyHint="Loggen er tom."
+                  />
+                  <div className={INSIGHT_CARD}>
+                    <div className={INSIGHT_CARD_TOP_RULE} />
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Drift og koblinger</p>
+                    <p className="mt-3 text-3xl font-semibold tabular-nums text-[#1a3d32]">{rosStats.drafts}</p>
+                    <p className="mt-1 text-sm text-neutral-600">ROS-utkast (åpne)</p>
+                    <div className="mt-4 space-y-2 border-t border-neutral-100 pt-4 text-sm text-neutral-700">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-neutral-500">Årsgj. utkast / venter VO</span>
+                        <span className="font-semibold tabular-nums">
+                          {annualStats.draft} / {annualStats.pending}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-neutral-500">Hendelser i logg (90 d.)</span>
+                        <span className="font-semibold tabular-nums">{auditEntriesLast90.length}</span>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-col gap-2 border-t border-neutral-100 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setTab('ros')}
+                        className="text-left text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline"
+                      >
+                        Gå til ROS →
+                      </button>
+                      <Link to="/tasks?view=whistle" className="text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline">
+                        Varslingssaker →
+                      </Link>
+                      <Link to="/workplace-reporting/anonymous-aml" className="text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline">
+                        Anonym rapportering →
+                      </Link>
+                      <Link
+                        to="/workspace/revisjonslogg?source=internal_control"
+                        className="text-left text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline"
+                      >
+                        Revisjonslogg →
+                      </Link>
+                    </div>
                   </div>
                 </div>
-                <div className="mt-4 flex flex-col gap-2 border-t border-neutral-100 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setTab('ros')}
-                    className="text-left text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline"
-                  >
-                    Gå til ROS →
-                  </button>
-                  <Link to="/tasks?view=whistle" className="text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline">
-                    Varslingssaker →
-                  </Link>
-                  <Link to="/workplace-reporting/anonymous-aml" className="text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline">
-                    Anonym rapportering →
-                  </Link>
-                  <Link
-                    to="/workspace/revisjonslogg?source=internal_control"
-                    className="text-left text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline"
-                  >
-                    Revisjonslogg →
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </section>
+              </section>
+            </>
+          )}
 
           <div className="rounded-none border border-amber-200/80 bg-amber-50/90 p-5 text-sm text-amber-950">
             <strong>Meldingsflyt:</strong> Mottatt → vurdering → undersøkelse → intern revisjon ved behov → avsluttet når
