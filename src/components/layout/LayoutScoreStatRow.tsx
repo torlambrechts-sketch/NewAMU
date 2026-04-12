@@ -10,14 +10,19 @@ type Props = {
 
 /**
  * Tre (eller flere) KPI-bokser: stort tall, tittel, undertekst — som i layout-referanse scorecard-rad.
+ * Én rad over hele bredden (like brede kolonner); `min-w-0` lar innhold bryte innenfor smale skjermer.
  */
 export function LayoutScoreStatRow({ items, className = '', childrenByIndex }: Props) {
+  const n = Math.max(1, items.length)
   return (
-    <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 ${className}`.trim()}>
+    <div
+      className={`grid gap-3 ${className}`.trim()}
+      style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}
+    >
       {items.map((it, idx) => (
         <div
           key={`${it.title}-${idx}`}
-          className="rounded-xl px-5 py-4"
+          className="min-w-0 rounded-xl px-4 py-4 sm:px-5"
           style={{ backgroundColor: LAYOUT_SCORE_STAT_CREAM }}
         >
           <p className="text-3xl font-bold tabular-nums text-neutral-900">{it.big}</p>
