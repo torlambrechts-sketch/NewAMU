@@ -8,11 +8,12 @@ export function OrgGate() {
   const { supabaseConfigured, loadState, needsOnboarding, user } = useOrgSetupContext()
   const location = useLocation()
 
-  if (loadState === 'loading') {
+  /** Block protected routes until session is read from storage (avoids false redirect to /login on refresh) */
+  if (supabaseConfigured && (loadState === 'loading' || loadState === 'idle')) {
     return (
       <div className="flex min-h-screen items-center justify-center gap-2 bg-[#f5f0e8] text-neutral-600">
         <Loader2 className="size-6 animate-spin" aria-hidden />
-        Laster organisasjon…
+        Laster sesjon…
       </div>
     )
   }

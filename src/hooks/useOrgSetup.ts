@@ -29,7 +29,8 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 export function useOrgSetup() {
   const location = useLocation()
   const supabase = getSupabaseBrowserClient()
-  const [loadState, setLoadState] = useState<LoadState>('idle')
+  /** Must not be 'idle' when Supabase is on — OrgGate would redirect before getSession() restores from storage */
+  const [loadState, setLoadState] = useState<LoadState>(() => (supabase ? 'loading' : 'ready'))
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<ProfileRow | null>(null)
@@ -198,8 +199,7 @@ export function useOrgSetup() {
 
       setUser(next)
 
-      if (next && (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED')) {
-        if (event === 'TOKEN_REFRESHED') return
+      if (next && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
         void (async () => {
           try {
             await hydrateUser(next.id)
@@ -207,6 +207,9 @@ export function useOrgSetup() {
             /* ignore */
           }
         })()
+      }
+      if (event === 'TOKEN_REFRESHED' && next) {
+        void refreshPermissions()
       }
     })
 

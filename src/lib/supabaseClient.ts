@@ -35,8 +35,14 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
   }
   browserClient = createClient(c.url, c.anonKey, {
     auth: {
+      /** Persist refresh token in localStorage so users stay signed in across refresh / new tabs */
       persistSession: true,
       autoRefreshToken: true,
+      /** PKCE for SPA — recommended for sign-in flows and token exchange */
+      flowType: 'pkce',
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      storageKey: 'klarert.supabase.auth',
+      detectSessionInUrl: true,
     },
   })
   return browserClient
