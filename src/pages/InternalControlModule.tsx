@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { LegalDisclaimer } from '../components/internalControl/LegalDisclaimer'
+import { legalDisclaimerBody } from '../components/internalControl/legalDisclaimerCopy'
 import { ROS_TEMPLATE_HELP, RISK_COLOUR_CLASSES, computeRiskScore, riskColour, emptyRosRow } from '../data/rosTemplate'
 import {
   ROS_CHEMICAL_ROW_PRESET,
@@ -54,6 +55,7 @@ import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { LayoutScoreStatRow } from '../components/layout/LayoutScoreStatRow'
 import { Table1Shell } from '../components/layout/Table1Shell'
 import { Table1Toolbar } from '../components/layout/Table1Toolbar'
+import { WorkplaceNoticePanel } from '../components/layout/WorkplaceNoticePanel'
 import { InternalControlTabShell } from './internalControl/InternalControlTabShell'
 import {
   resolveIcOverviewComposerLayout,
@@ -830,66 +832,67 @@ export function InternalControlModule() {
             <p className="mb-4 text-sm text-neutral-500">Laster internkontrolldata…</p>
           )}
 
-          <LegalDisclaimer compact />
-
-          <div className="mt-6">
-            <LayoutScoreStatRow
-              items={[
-                { big: String(rosStats.total), title: 'Totalt', sub: 'ROS-vurderinger' },
-                { big: String(rosStats.drafts), title: 'Utkast', sub: 'Ikke signert / låst' },
-                { big: String(rosStats.locked), title: 'Låst', sub: 'Signert leder + VO' },
-              ]}
-            />
-          </div>
-
-          <div className="rounded-none border border-neutral-200 bg-white p-5 text-sm text-neutral-700">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+          {/** Head–List–Warning: head + liste venstre, juridisk varsel som infoboks høyre (layout-mal) */}
+          <div className="mt-2 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] lg:items-start">
+            <div className="min-w-0 space-y-6">
               <div>
-                <p className="font-semibold text-[#1a3d32]">{ROS_TEMPLATE_HELP.title}</p>
-                <p className="mt-2">{ROS_TEMPLATE_HELP.intro}</p>
+                <LayoutScoreStatRow
+                  items={[
+                    { big: String(rosStats.total), title: 'Totalt', sub: 'ROS-vurderinger' },
+                    { big: String(rosStats.drafts), title: 'Utkast', sub: 'Ikke signert / låst' },
+                    { big: String(rosStats.locked), title: 'Låst', sub: 'Signert leder + VO' },
+                  ]}
+                />
               </div>
-              <WizardButton
-                label="Veiviser"
-                variant="solid"
-                className="rounded-none"
-                def={makeRosWizard((data) => {
-                  const legal = String(data.rosLegalCategory ?? 'general') as RosCategory
-                  const ws = String(data.workspaceCategory ?? 'general') as RosWorkspaceCategory
-                  const rows = buildWizardRosRows({ ...data, rosLegalCategory: legal, workspaceCategory: ws })
-                  ic.createRosAssessment(String(data.title), String(data.department), String(data.assessor), {
-                    category: legal,
-                    seedORosRows: legal === 'organizational_change',
-                    workspaceCategory: ws,
-                    initialRows: legal === 'organizational_change' ? undefined : rows,
-                  })
-                })}
-              />
-            </div>
-            <ul className="mt-3 list-inside list-disc text-xs text-neutral-600">
-              <li>{ROS_TEMPLATE_HELP.severityScale}</li>
-              <li>{ROS_TEMPLATE_HELP.likelihoodScale}</li>
-              <li>
-                Ved <strong>rød restrisiko (15–25)</strong> kreves utfylt «Strakstiltak / eskalering» før signering.
-              </li>
-              <li>Når ROS låses, opprettes oppgaver på tavlen for rader med tiltak, ansvarlig og frist.</li>
-            </ul>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {(['green', 'yellow', 'red'] as const).map((c) => {
-                const cls = RISK_COLOUR_CLASSES[c]
-                return (
-                  <span
-                    key={c}
-                    className={`inline-flex items-center gap-1.5 rounded-none border px-3 py-1.5 text-xs font-medium ${cls.bg} ${cls.text} ${cls.border}`}
-                  >
-                    {cls.label} {c === 'green' ? '(1–6)' : c === 'yellow' ? '(7–12)' : '(15–25)'}
-                  </span>
-                )
-              })}
-            </div>
-          </div>
 
-          <section className="mt-8" aria-label="ROS-vurderinger">
-            <Table1Shell
+              <div className="rounded-none border border-neutral-200 bg-white p-5 text-sm text-neutral-700">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-[#1a3d32]">{ROS_TEMPLATE_HELP.title}</p>
+                    <p className="mt-2">{ROS_TEMPLATE_HELP.intro}</p>
+                  </div>
+                  <WizardButton
+                    label="Veiviser"
+                    variant="solid"
+                    className="rounded-none"
+                    def={makeRosWizard((data) => {
+                      const legal = String(data.rosLegalCategory ?? 'general') as RosCategory
+                      const ws = String(data.workspaceCategory ?? 'general') as RosWorkspaceCategory
+                      const rows = buildWizardRosRows({ ...data, rosLegalCategory: legal, workspaceCategory: ws })
+                      ic.createRosAssessment(String(data.title), String(data.department), String(data.assessor), {
+                        category: legal,
+                        seedORosRows: legal === 'organizational_change',
+                        workspaceCategory: ws,
+                        initialRows: legal === 'organizational_change' ? undefined : rows,
+                      })
+                    })}
+                  />
+                </div>
+                <ul className="mt-3 list-inside list-disc text-xs text-neutral-600">
+                  <li>{ROS_TEMPLATE_HELP.severityScale}</li>
+                  <li>{ROS_TEMPLATE_HELP.likelihoodScale}</li>
+                  <li>
+                    Ved <strong>rød restrisiko (15–25)</strong> kreves utfylt «Strakstiltak / eskalering» før signering.
+                  </li>
+                  <li>Når ROS låses, opprettes oppgaver på tavlen for rader med tiltak, ansvarlig og frist.</li>
+                </ul>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(['green', 'yellow', 'red'] as const).map((c) => {
+                    const cls = RISK_COLOUR_CLASSES[c]
+                    return (
+                      <span
+                        key={c}
+                        className={`inline-flex items-center gap-1.5 rounded-none border px-3 py-1.5 text-xs font-medium ${cls.bg} ${cls.text} ${cls.border}`}
+                      >
+                        {cls.label} {c === 'green' ? '(1–6)' : c === 'yellow' ? '(7–12)' : '(15–25)'}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <section aria-label="ROS-vurderinger">
+                <Table1Shell
               variant="pinpoint"
               toolbar={
                 <Table1Toolbar
@@ -978,8 +981,22 @@ export function InternalControlModule() {
                   {rosListSearch.trim() ? 'Ingen ROS matcher søket.' : 'Ingen ROS-vurderinger ennå.'}
                 </p>
               ) : null}
-            </Table1Shell>
-          </section>
+                </Table1Shell>
+              </section>
+            </div>
+
+            <aside className="min-w-0 lg:sticky lg:top-4 lg:self-start">
+              <WorkplaceNoticePanel
+                variant="warning"
+                title="Viktig"
+                bodySlot={
+                  <div className="[&_a]:text-[#1a3d32] [&_a]:underline">
+                    {legalDisclaimerBody({ compact: true })}
+                  </div>
+                }
+              />
+            </aside>
+          </div>
 
           {rosPanelOpen ? (
             <div
