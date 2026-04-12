@@ -1,6 +1,28 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import { WORKPLACE_FOREST } from './WorkplaceChrome'
+
+/**
+ * NavLink's isActive only compares pathname by default, so every
+ * `/internal-control?tab=x` link matches the same pathname and all look active.
+ * When `to` includes a query string, require pathname + those search params to match.
+ */
+function hubNavLinkActive(
+  to: string,
+  loc: { pathname: string; search: string },
+  navLinkIsActive: boolean,
+): boolean {
+  const q = to.indexOf('?')
+  if (q < 0) return navLinkIsActive
+  const pathPart = to.slice(0, q)
+  if (loc.pathname !== pathPart) return false
+  const want = new URLSearchParams(to.slice(q + 1))
+  const have = new URLSearchParams(loc.search.startsWith('?') ? loc.search.slice(1) : loc.search)
+  for (const key of want.keys()) {
+    if (want.get(key) !== have.get(key)) return false
+  }
+  return true
+}
 
 export type HubMenu1Item = {
   key: string
@@ -35,6 +57,8 @@ const TAB_INACTIVE = 'border-transparent text-neutral-600 hover:bg-white/70 hove
  * Works with NavLink (`to`) or buttons (`onClick`).
  */
 export function HubMenu1Bar({ ariaLabel, items }: Props) {
+  const location = useLocation()
+
   return (
     <nav aria-label={ariaLabel} className="w-full">
       <div className="flex flex-wrap gap-2 border-b border-neutral-200/80 pb-4">
@@ -52,24 +76,33 @@ export function HubMenu1Bar({ ariaLabel, items }: Props) {
                 replace={item.replace}
                 title={compact ? item.label : undefined}
                 aria-label={compact ? item.label : undefined}
-                className={({ isActive }) => `${tabClass} ${isActive ? TAB_ACTIVE : TAB_INACTIVE}`}
-                style={({ isActive }) => (isActive ? { backgroundColor: WORKPLACE_FOREST } : undefined)}
+                className={({ isActive }) => {
+                  const on = hubNavLinkActive(item.to!, location, isActive)
+                  return `${tabClass} ${on ? TAB_ACTIVE : TAB_INACTIVE}`
+                }}
+                style={({ isActive }) => {
+                  const on = hubNavLinkActive(item.to!, location, isActive)
+                  return on ? { backgroundColor: WORKPLACE_FOREST } : undefined
+                }}
               >
-                {({ isActive }) => (
-                  <>
-                    <Icon className={`size-4 shrink-0 ${isActive ? 'text-white' : 'text-neutral-500'}`} aria-hidden={compact} />
-                    {compact ? <span className="sr-only">{item.label}</span> : <span className="whitespace-nowrap">{item.label}</span>}
-                    {!compact && item.badgeCount != null && item.badgeCount >= 0 ? (
-                      <span
-                        className={`rounded-md px-2 py-0.5 text-[10px] font-semibold tabular-nums ${
-                          isActive ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
-                        }`}
-                      >
-                        {item.badgeCount}
-                      </span>
-                    ) : null}
-                  </>
-                )}
+                {({ isActive }) => {
+                  const on = hubNavLinkActive(item.to!, location, isActive)
+                  return (
+                    <>
+                      <Icon className={`size-4 shrink-0 ${on ? 'text-white' : 'text-neutral-500'}`} aria-hidden={compact} />
+                      {compact ? <span className="sr-only">{item.label}</span> : <span className="whitespace-nowrap">{item.label}</span>}
+                      {!compact && item.badgeCount != null && item.badgeCount >= 0 ? (
+                        <span
+                          className={`rounded-md px-2 py-0.5 text-[10px] font-semibold tabular-nums ${
+                            on ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+                          }`}
+                        >
+                          {item.badgeCount}
+                        </span>
+                      ) : null}
+                    </>
+                  )
+                }}
               </NavLink>
             )
           }
