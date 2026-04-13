@@ -669,27 +669,6 @@ export function HseModule() {
       })
   }, [upcomingSafetyRounds, calendarDayIso])
 
-  const calendarEventsItems = useMemo(
-    () =>
-      roundsOnCalendarDay.map((r) => {
-        const iso = r.scheduleKind === 'planned' && r.plannedAt ? r.plannedAt : r.conductedAt
-        const time = safetyRoundCalendarTimeLabel(iso)
-        const cat =
-          r.scheduleKind === 'planned'
-            ? r.seriesId
-              ? 'Planlagt · serie'
-              : 'Planlagt'
-            : 'Registrert (kommende)'
-        return {
-          id: r.id,
-          category: cat,
-          title: r.title,
-          startLabel: time || 'Hele dagen',
-        }
-      }),
-    [roundsOnCalendarDay],
-  )
-
   const roundsFiltered = useMemo(() => {
     const q = roundSearch.trim().toLowerCase()
     let list = [...hse.safetyRounds]
@@ -724,6 +703,42 @@ export function HseModule() {
   const closeRoundPanel = useCallback(() => {
     setRoundPanelId(null)
   }, [])
+
+  const calendarEventsItems = useMemo(
+    () =>
+      roundsOnCalendarDay.map((r) => {
+        const iso = r.scheduleKind === 'planned' && r.plannedAt ? r.plannedAt : r.conductedAt
+        const time = safetyRoundCalendarTimeLabel(iso)
+        const cat =
+          r.scheduleKind === 'planned'
+            ? r.seriesId
+              ? 'Planlagt · serie'
+              : 'Planlagt'
+            : 'Registrert (kommende)'
+        return {
+          id: r.id,
+          category: cat,
+          title: r.title,
+          startLabel: time || 'Hele dagen',
+          onClick: () => openRoundPanel(r.id),
+        }
+      }),
+    [roundsOnCalendarDay, openRoundPanel],
+  )
+
+  const isoToDatetimeLocalFromDate = useCallback((d: Date) => {
+    const p = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+  }, [])
+
+  const openSchedulePanelForCalendarDay = useCallback(() => {
+    setScheduleDraft((d) => ({
+      ...d,
+      mode: 'single',
+      plannedAt: isoToDatetimeLocalFromDate(calendarSelectedDate),
+    }))
+    setSchedulePanelOpen(true)
+  }, [calendarSelectedDate, isoToDatetimeLocalFromDate])
 
   const submitSchedule = useCallback(() => {
     const title = scheduleDraft.title.trim()
@@ -831,7 +846,13 @@ export function HseModule() {
     return () => window.removeEventListener('keydown', onKey)
   }, [roundPanelId, schedulePanelOpen, closeRoundPanel])
 
-  const openSchedulePanel = useCallback(() => setSchedulePanelOpen(true), [])
+  const openSchedulePanel = useCallback(() => {
+    setScheduleDraft((d) => ({
+      ...d,
+      plannedAt: d.plannedAt.trim() ? d.plannedAt : isoToDatetimeLocalFromDate(calendarSelectedDate),
+    }))
+    setSchedulePanelOpen(true)
+  }, [calendarSelectedDate, isoToDatetimeLocalFromDate])
   const closeSchedulePanel = useCallback(() => setSchedulePanelOpen(false), [])
 
   const setCalendarDayFromIso = useCallback((isoDate: string) => {
@@ -999,10 +1020,20 @@ export function HseModule() {
               />
             </label>
           }
+          primaryActionSlot={
+            <button
+              type="button"
+              onClick={openSchedulePanelForCalendarDay}
+              className="w-full rounded-md px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-white"
+              style={{ backgroundColor: '#1a3d32' }}
+            >
+              Planlegg for denne dagen
+            </button>
+          }
           tabs={[{ id: 'upcoming', label: 'På denne dagen', count: calendarEventsItems.length, items: calendarEventsItems }]}
           defaultTabId="upcoming"
           footer={{
-            label: 'Planlegg vernerunde (én eller serie)',
+            label: 'Flere valg: én dato eller serie med intervall',
             onMoreClick: openSchedulePanel,
           }}
         />
@@ -1035,6 +1066,7 @@ export function HseModule() {
     user?.email,
     openNewRoundPanel,
     openSchedulePanel,
+    openSchedulePanelForCalendarDay,
     openRoundPanel,
     setCalendarDayFromIso,
   ])

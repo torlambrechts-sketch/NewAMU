@@ -13,6 +13,8 @@ export type WorkplaceEventsDayItem = {
   /** Tidslinje, f.eks. «09:00» */
   startLabel: string
   endLabel?: string
+  /** Når satt: raden er klikkbar (f.eks. åpne detalj) */
+  onClick?: () => void
 }
 
 export type WorkplaceEventsTab = {
@@ -51,6 +53,8 @@ export type WorkplaceEventsDayCardProps = {
   defaultTabId?: string
   onTabChange?: (id: string) => void
   footer?: WorkplaceEventsFooter
+  /** Primærknapp under dato-raden (f.eks. «Planlegg» på Vernerunder-kalenderen) */
+  primaryActionSlot?: ReactNode
   className?: string
 }
 
@@ -77,6 +81,7 @@ export function WorkplaceEventsDayCard({
   defaultTabId,
   onTabChange,
   footer,
+  primaryActionSlot,
   className = '',
 }: WorkplaceEventsDayCardProps) {
   const initialTab = defaultTabId ?? tabs[0]?.id ?? 'tab'
@@ -141,6 +146,7 @@ export function WorkplaceEventsDayCard({
             </button>
           </div>
         </div>
+        {primaryActionSlot ? <div className="mt-3 w-full min-w-0">{primaryActionSlot}</div> : null}
       </div>
 
       {tabs.length > 1 ? (
@@ -177,15 +183,34 @@ export function WorkplaceEventsDayCard({
             const timeLine = [ev.startLabel, ev.endLabel].filter(Boolean).join(' – ')
             const subParts = [timeLine, ev.category].filter(Boolean)
             const subtitle = subParts.join(' · ')
+            const interactive = typeof ev.onClick === 'function'
             return (
-              <li key={ev.id} className="flex gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-600">
-                  <Clock className="size-4 shrink-0" aria-hidden />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-neutral-800">{ev.title}</p>
-                  {subtitle ? <p className="mt-1 text-xs text-neutral-400">{subtitle}</p> : null}
-                </div>
+              <li key={ev.id}>
+                {interactive ? (
+                  <button
+                    type="button"
+                    onClick={ev.onClick}
+                    className="flex w-full gap-2 px-3 py-2.5 text-left transition hover:bg-neutral-50/90 sm:gap-3 sm:px-4 sm:py-3"
+                  >
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-600">
+                      <Clock className="size-4 shrink-0" aria-hidden />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-neutral-800">{ev.title}</p>
+                      {subtitle ? <p className="mt-1 text-xs text-neutral-400">{subtitle}</p> : null}
+                    </div>
+                  </button>
+                ) : (
+                  <div className="flex gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-600">
+                      <Clock className="size-4 shrink-0" aria-hidden />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-neutral-800">{ev.title}</p>
+                      {subtitle ? <p className="mt-1 text-xs text-neutral-400">{subtitle}</p> : null}
+                    </div>
+                  </div>
+                )}
               </li>
             )
           })
