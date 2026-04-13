@@ -11,7 +11,9 @@ import { LAYOUT_COMPOSER_BLOCK_ORDER } from '../pages/platform/PlatformLayoutCom
 
 /**
  * Layout_vernerunder — rekkefølge styres av publisert/lokal stack-mal:
- * - heading1 — Overskrift 1 + beskrivelse (samme mønster som andre arbeidsflate-sider)
+ * - pageHeading1 — serif H1 + ingress (uten hub)
+ * - hubMenu1Bar — HubMenu1Bar-faner (demo i komponisten; på HMS ligger faner ofte i modulskall)
+ * - heading1 — eldre samlet blokk (behandles som pageHeading1 + hubMenu1Bar hvis nye id-er mangler)
  * - scoreStatRow — KPI
  * - workplaceTasksActions — knapper (Tasks-stil, transparent rad)
  * - table1 — tabell (2/3 i splittet rad)
@@ -19,14 +21,15 @@ import { LAYOUT_COMPOSER_BLOCK_ORDER } from '../pages/platform/PlatformLayoutCom
  * Tabell er alltid venstre kolonne og kalender høyre når begge er synlige.
  */
 export const VERNERUNDER_TAB_LAYOUT_BLOCK_IDS = [
-  'heading1',
+  'pageHeading1',
+  'hubMenu1Bar',
   'scoreStatRow',
   'workplaceTasksActions',
   'table1',
   'vernerunderScheduleCalendar',
 ] as const satisfies readonly LayoutComposerBlockId[]
 
-const BLOCK_SET = new Set<string>(VERNERUNDER_TAB_LAYOUT_BLOCK_IDS)
+const BLOCK_SET = new Set<string>([...VERNERUNDER_TAB_LAYOUT_BLOCK_IDS, 'heading1'])
 
 const PRESET_NAME_CANDIDATES = ['Layout_vernerunder', 'LayoutVernerunder', 'VernerunderLayout']
 
@@ -59,12 +62,24 @@ export type VernerunderTabLayoutResolved = {
   presetNameMatched: string | null
 }
 
+/** Legacy maler brukte én `heading1`-blokk; nye maler bruker `pageHeading1` + `hubMenu1Bar`. */
+export function expandLegacyHeadingInLayoutOrder(order: LayoutComposerBlockId[]): LayoutComposerBlockId[] {
+  const hasNew = order.some((id) => id === 'pageHeading1' || id === 'hubMenu1Bar')
+  const hasLegacy = order.includes('heading1')
+  if (!hasLegacy) return order
+  if (hasNew) return order.filter((id) => id !== 'heading1')
+  return order.flatMap((id) =>
+    id === 'heading1' ? (['pageHeading1', 'hubMenu1Bar'] as LayoutComposerBlockId[]) : [id],
+  )
+}
+
 function resolvedFromPreset(hit: LayoutComposerPreset): VernerunderTabLayoutResolved {
   const visible = { ...hit.visible } as Record<string, boolean>
   const rawOrder = normalizeComposerOrder(hit.order, LAYOUT_COMPOSER_BLOCK_ORDER) as LayoutComposerBlockId[]
   const filtered = rawOrder.filter((id) => BLOCK_SET.has(id) && visible[id] !== false)
+  const order = expandLegacyHeadingInLayoutOrder(filtered)
   return {
-    order: filtered.length > 0 ? filtered : [],
+    order: order.length > 0 ? order : [],
     presetNameMatched: hit.name,
   }
 }
@@ -113,7 +128,7 @@ export async function resolveVernerunderTabLayoutAsync(
 /** Vertikal sortering: hvert segment får min(indeks) blant blokkene i segmentet */
 export function vernerunderVerticalSegments(order: LayoutComposerBlockId[]): {
   sortIndex: number
-  kind: 'heading1' | 'scoreStatRow' | 'workplaceTasksActions' | 'split'
+  kind: 'pageHeading1' | 'hubMenu1Bar' | 'scoreStatRow' | 'workplaceTasksActions' | 'split'
 }[] {
   const idx = (id: LayoutComposerBlockId) => {
     const i = order.indexOf(id)
@@ -123,11 +138,14 @@ export function vernerunderVerticalSegments(order: LayoutComposerBlockId[]): {
   const hasCal = order.includes('vernerunderScheduleCalendar')
   const pieces: {
     sortIndex: number
-    kind: 'heading1' | 'scoreStatRow' | 'workplaceTasksActions' | 'split'
+    kind: 'pageHeading1' | 'hubMenu1Bar' | 'scoreStatRow' | 'workplaceTasksActions' | 'split'
   }[] = []
 
-  if (order.includes('heading1')) {
-    pieces.push({ sortIndex: idx('heading1'), kind: 'heading1' })
+  if (order.includes('pageHeading1')) {
+    pieces.push({ sortIndex: idx('pageHeading1'), kind: 'pageHeading1' })
+  }
+  if (order.includes('hubMenu1Bar')) {
+    pieces.push({ sortIndex: idx('hubMenu1Bar'), kind: 'hubMenu1Bar' })
   }
   if (order.includes('scoreStatRow')) {
     pieces.push({ sortIndex: idx('scoreStatRow'), kind: 'scoreStatRow' })

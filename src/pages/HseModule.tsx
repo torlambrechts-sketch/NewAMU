@@ -32,7 +32,7 @@ import {
 } from 'lucide-react'
 import { ComplianceModuleChrome } from '../components/compliance/ComplianceModuleChrome'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
-import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { mergeSickLeaveMilestonesOnDateChange, useHse } from '../hooks/useHse'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
@@ -50,6 +50,7 @@ import {
 } from '../lib/layoutLabTokens'
 import { resolveInspectionsTabLayoutFromPublishedRows } from '../lib/inspectionsLayoutFromPreset'
 import {
+  expandLegacyHeadingInLayoutOrder,
   resolveVernerunderTabLayoutFromPublishedRows,
   vernerunderVerticalSegments,
 } from '../lib/vernerunderLayoutFromPreset'
@@ -260,6 +261,25 @@ export function HseModule() {
   }, [tabParam, navigate])
 
   const tab: TabId = tabParam && tabs.some((x) => x.id === tabParam) ? (tabParam as TabId) : 'overview'
+
+  const hseHubItems: HubMenu1Item[] = useMemo(
+    () =>
+      tabs.map(({ id, label, icon: Icon }) => {
+        let badgeCount: number | undefined
+        if (id === 'sja' && hse.stats.openSja > 0) badgeCount = hse.stats.openSja
+        if (id === 'training' && hse.stats.expiredTraining > 0) badgeCount = hse.stats.expiredTraining
+        if (id === 'sickness' && hse.stats.overdueMilestones > 0) badgeCount = hse.stats.overdueMilestones
+        return {
+          key: id,
+          label,
+          icon: Icon,
+          active: tab === id,
+          to: `/hse?tab=${id}`,
+          badgeCount,
+        }
+      }),
+    [tab, hse.stats.openSja, hse.stats.expiredTraining, hse.stats.overdueMilestones],
+  )
 
   useEffect(() => {
     if (tabParam === 'incidents') {
@@ -695,6 +715,28 @@ export function HseModule() {
     [publishedComposerTemplates],
   )
 
+  const stackVernerunderOrder = useMemo(
+    () => expandLegacyHeadingInLayoutOrder(vernerunderTabLayout.order as LayoutComposerBlockId[]),
+    [vernerunderTabLayout.order],
+  )
+
+  const stackInspectionsOrder = useMemo(
+    () => expandLegacyHeadingInLayoutOrder(inspectionsTabLayout.order as LayoutComposerBlockId[]),
+    [inspectionsTabLayout.order],
+  )
+
+  /** Når layout-mal legger hub i egen blokk, skjul modulskallets dupliserte faner på berørte faner. */
+  const hseShellHubOverride = useMemo(() => {
+    const out: Partial<Record<TabId, 'hide'>> = {}
+    if (!vernerunderGridResolved && stackVernerunderOrder.includes('hubMenu1Bar')) {
+      out.rounds = 'hide'
+    }
+    if (!inspectionsGridResolved && stackInspectionsOrder.includes('hubMenu1Bar')) {
+      out.inspections = 'hide'
+    }
+    return out
+  }, [vernerunderGridResolved, inspectionsGridResolved, stackVernerunderOrder, stackInspectionsOrder])
+
   const calendarSelectedDate = useMemo(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
@@ -988,13 +1030,28 @@ export function HseModule() {
       }
 
       switch (id) {
-        case 'heading1':
+        case 'pageHeading1':
           return (
             <WorkplacePageHeading1
               breadcrumb={[]}
               title="Vernerunder"
               description={VERNERUNDER_PAGE_DESCRIPTION}
             />
+          )
+        case 'hubMenu1Bar':
+          return <HubMenu1Bar ariaLabel="HSE / HMS — faner" items={hseHubItems} />
+        case 'heading1':
+          return (
+            <>
+              <WorkplacePageHeading1
+                breadcrumb={[]}
+                title="Vernerunder"
+                description={VERNERUNDER_PAGE_DESCRIPTION}
+              />
+              <div className="mt-4 min-w-0">
+                <HubMenu1Bar ariaLabel="HSE / HMS — faner" items={hseHubItems} />
+              </div>
+            </>
           )
         case 'scoreStatRow':
           return (
@@ -1154,7 +1211,7 @@ export function HseModule() {
     }
 
     /** Stack-mal: tabell + kalender holdes på én rad (2/3 | 1/3) som før — grid-mal styrer kolonner selv. */
-    const order = vernerunderTabLayout.order as LayoutComposerBlockId[]
+    const order = stackVernerunderOrder
     const showTable = order.includes('table1')
     const showCalendar = order.includes('vernerunderScheduleCalendar')
     const splitRow =
@@ -1175,8 +1232,11 @@ export function HseModule() {
 
     const nodes: ReactNode[] = []
     for (const seg of vernerunderVerticalSegments(order)) {
-      if (seg.kind === 'heading1' && order.includes('heading1')) {
-        nodes.push(<Fragment key="heading1">{renderVernerunderComposerBlock('heading1')}</Fragment>)
+      if (seg.kind === 'pageHeading1' && order.includes('pageHeading1')) {
+        nodes.push(<Fragment key="pageHeading1">{renderVernerunderComposerBlock('pageHeading1')}</Fragment>)
+      }
+      if (seg.kind === 'hubMenu1Bar' && order.includes('hubMenu1Bar')) {
+        nodes.push(<Fragment key="hubMenu1Bar">{renderVernerunderComposerBlock('hubMenu1Bar')}</Fragment>)
       }
       if (seg.kind === 'scoreStatRow' && order.includes('scoreStatRow')) {
         nodes.push(<Fragment key="scoreStatRow">{renderVernerunderComposerBlock('scoreStatRow')}</Fragment>)
@@ -1194,7 +1254,8 @@ export function HseModule() {
     return <>{nodes}</>
   }, [
     vernerunderGridResolved,
-    vernerunderTabLayout.order,
+    stackVernerunderOrder,
+    hseHubItems,
     roundStats.total,
     roundStats.planned,
     roundStats.inProgress,
@@ -1430,13 +1491,28 @@ export function HseModule() {
       }
 
       switch (id) {
-        case 'heading1':
+        case 'pageHeading1':
           return (
             <WorkplacePageHeading1
               breadcrumb={[]}
               title="Inspeksjoner"
               description={INSPECTIONS_PAGE_DESCRIPTION}
             />
+          )
+        case 'hubMenu1Bar':
+          return <HubMenu1Bar ariaLabel="HSE / HMS — faner" items={hseHubItems} />
+        case 'heading1':
+          return (
+            <>
+              <WorkplacePageHeading1
+                breadcrumb={[]}
+                title="Inspeksjoner"
+                description={INSPECTIONS_PAGE_DESCRIPTION}
+              />
+              <div className="mt-4 min-w-0">
+                <HubMenu1Bar ariaLabel="HSE / HMS — faner" items={hseHubItems} />
+              </div>
+            </>
           )
         case 'scoreStatRow':
           return (
@@ -1580,7 +1656,7 @@ export function HseModule() {
       )
     }
 
-    const order = inspectionsTabLayout.order as LayoutComposerBlockId[]
+    const order = stackInspectionsOrder
     const showTable = order.includes('table1')
     const showCalendar = order.includes('vernerunderScheduleCalendar')
     const splitRow =
@@ -1601,8 +1677,11 @@ export function HseModule() {
 
     const nodes: ReactNode[] = []
     for (const seg of vernerunderVerticalSegments(order)) {
-      if (seg.kind === 'heading1' && order.includes('heading1')) {
-        nodes.push(<Fragment key="ins-heading1">{renderInspectionsComposerBlock('heading1')}</Fragment>)
+      if (seg.kind === 'pageHeading1' && order.includes('pageHeading1')) {
+        nodes.push(<Fragment key="ins-pageHeading1">{renderInspectionsComposerBlock('pageHeading1')}</Fragment>)
+      }
+      if (seg.kind === 'hubMenu1Bar' && order.includes('hubMenu1Bar')) {
+        nodes.push(<Fragment key="ins-hubMenu1Bar">{renderInspectionsComposerBlock('hubMenu1Bar')}</Fragment>)
       }
       if (seg.kind === 'scoreStatRow' && order.includes('scoreStatRow')) {
         nodes.push(<Fragment key="ins-scoreStatRow">{renderInspectionsComposerBlock('scoreStatRow')}</Fragment>)
@@ -1622,7 +1701,8 @@ export function HseModule() {
     return <>{nodes}</>
   }, [
     inspectionsGridResolved,
-    inspectionsTabLayout.order,
+    stackInspectionsOrder,
+    hseHubItems,
     inspectionLayoutStats.total,
     inspectionLayoutStats.open,
     inspectionLayoutStats.closedUnlocked,
@@ -2098,25 +2178,6 @@ export function HseModule() {
       .sort((a, b) => b.value - a.value)
   }, [hse.trainingRecords])
 
-  const hseHubItems: HubMenu1Item[] = useMemo(
-    () =>
-      tabs.map(({ id, label, icon: Icon }) => {
-        let badgeCount: number | undefined
-        if (id === 'sja' && hse.stats.openSja > 0) badgeCount = hse.stats.openSja
-        if (id === 'training' && hse.stats.expiredTraining > 0) badgeCount = hse.stats.expiredTraining
-        if (id === 'sickness' && hse.stats.overdueMilestones > 0) badgeCount = hse.stats.overdueMilestones
-        return {
-          key: id,
-          label,
-          icon: Icon,
-          active: tab === id,
-          to: `/hse?tab=${id}`,
-          badgeCount,
-        }
-      }),
-    [tab, hse.stats.openSja, hse.stats.expiredTraining, hse.stats.overdueMilestones],
-  )
-
   return (
     <>
     <ComplianceModuleChrome
@@ -2141,7 +2202,7 @@ export function HseModule() {
       }
       showTitleBlock={tab !== 'rounds' && tab !== 'inspections'}
       hubAriaLabel="HSE / HMS — faner"
-      hubItems={hseHubItems}
+      hubItems={hseShellHubOverride[tab] === 'hide' ? [] : hseHubItems}
       contentCard={tab !== 'rounds' && tab !== 'inspections'}
     >
       {hse.error && (

@@ -806,8 +806,8 @@ export function TasksPage() {
   const varslingssakerLayoutNodes = useMemo(() => {
     const order = varslingssakerTabLayout.order
     const nodes: ReactNode[] = []
-    const showHeading = order.includes('heading1')
-    const rest = order.filter((id) => id !== 'heading1')
+    const showHeading = order.some((id) => id === 'heading1' || id === 'pageHeading1' || id === 'hubMenu1Bar')
+    const rest = order.filter((id) => id !== 'heading1' && id !== 'pageHeading1' && id !== 'hubMenu1Bar')
 
     for (let ri = 0; ri < rest.length; ri++) {
       const id = rest[ri]

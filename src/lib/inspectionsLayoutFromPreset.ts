@@ -10,9 +10,10 @@ import { LAYOUT_COMPOSER_BLOCK_ORDER } from '../pages/platform/PlatformLayoutCom
 import {
   VERNERUNDER_TAB_LAYOUT_BLOCK_IDS,
   VERNERUNDER_TAB_LAYOUT_DEFAULT_ORDER,
+  expandLegacyHeadingInLayoutOrder,
 } from './vernerunderLayoutFromPreset'
 
-const BLOCK_SET = new Set<string>(VERNERUNDER_TAB_LAYOUT_BLOCK_IDS)
+const BLOCK_SET = new Set<string>([...VERNERUNDER_TAB_LAYOUT_BLOCK_IDS, 'heading1'])
 
 const PRESET_NAME_CANDIDATES = [
   'Layout_inspeksjoner',
@@ -52,8 +53,9 @@ function resolvedFromPreset(hit: LayoutComposerPreset): InspectionsTabLayoutReso
   const visible = { ...hit.visible } as Record<string, boolean>
   const rawOrder = normalizeComposerOrder(hit.order, LAYOUT_COMPOSER_BLOCK_ORDER) as LayoutComposerBlockId[]
   const filtered = rawOrder.filter((id) => BLOCK_SET.has(id) && visible[id] !== false)
+  const order = expandLegacyHeadingInLayoutOrder(filtered)
   return {
-    order: filtered.length > 0 ? filtered : [],
+    order: order.length > 0 ? order : [],
     presetNameMatched: hit.name,
   }
 }
