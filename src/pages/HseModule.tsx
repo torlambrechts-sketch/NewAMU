@@ -871,7 +871,7 @@ export function HseModule() {
       <LayoutTable1PostingsShell
         wrap={false}
         title="Vernerunder"
-        description="Tidligere og kommende runder — samme Table 1 (Postings) som i layout-komponisten."
+        description="Tidligere og kommende runder — sortert etter dato."
         headerActions={
           <button
             type="button"
@@ -1644,6 +1644,7 @@ export function HseModule() {
       }
       hubAriaLabel="HSE / HMS — faner"
       hubItems={hseHubItems}
+      contentCard={tab !== 'rounds'}
     >
       {hse.error && (
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{hse.error}</p>
@@ -1753,22 +1754,7 @@ export function HseModule() {
 
       {/* ── Safety rounds — Layout_vernerunder (DB / lokal stack-mal) ─────────── */}
       {tab === 'rounds' && (
-        <div className="mt-8 space-y-6">
-          <header className="min-w-0 max-w-3xl space-y-2">
-            <h2
-              className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-            >
-              Vernerunder
-            </h2>
-            <p className="text-sm text-neutral-600">
-              Planlegg i kalenderen til høyre (én runde eller serie), eller registrer gjennomført runde. Tabellen til venstre
-              viser alle runder. Malen Layout_vernerunder: KPI-rad (valgfri fra plattform-admin), deretter{' '}
-              <span className="whitespace-nowrap">2/3 tabell</span> og <span className="whitespace-nowrap">1/3 kalender</span>{' '}
-              på samme rad.
-            </p>
-          </header>
-
+        <div className="mt-2 min-w-0 space-y-6">
           {vernerunderTabLayout.presetNameMatched ? (
             <p className="text-xs text-neutral-500">
               Oppsett fra plattform-admin:{' '}
