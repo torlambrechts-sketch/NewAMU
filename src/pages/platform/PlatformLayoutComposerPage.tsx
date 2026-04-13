@@ -36,6 +36,10 @@ import {
   type AgendaListItem,
 } from '../../components/layout/WorkplaceEditableNoticeList'
 import { WorkplaceEventsDayCard } from '../../components/layout/WorkplaceEventsDayCard'
+import {
+  VERNERUNDER_TAB_LAYOUT_BLOCK_IDS,
+  VERNERUNDER_TAB_LAYOUT_DEFAULT_ORDER,
+} from '../../lib/vernerunderLayoutFromPreset'
 import { WorkplaceTodosCard } from '../../components/layout/WorkplaceTodosCard'
 import {
   WorkplaceTasksActionButtonsRow,
@@ -2042,6 +2046,36 @@ export function PlatformLayoutComposerDemo({
     saveStackToDatabase,
   ])
 
+  /** One-click: create or overwrite Layout_vernerunder with default blocks, published = true. */
+  const seedLayoutVernerunder = useCallback(async () => {
+    if (!templatesEnabled) return
+    setTplBusy(true)
+    setTplMessage(null)
+    const name = 'Layout_vernerunder'
+    const seedVisible: Record<string, boolean> = {}
+    for (const id of VERNERUNDER_TAB_LAYOUT_BLOCK_IDS) {
+      seedVisible[id] = true
+    }
+    const existing = presetList.find((p) => p.name.trim() === name && p.source === 'database')
+    const { error } = await saveStackToDatabase({
+      dbId: existing?.dbId,
+      name,
+      visible: seedVisible,
+      order: [...VERNERUNDER_TAB_LAYOUT_DEFAULT_ORDER],
+      published: true,
+    })
+    setTplBusy(false)
+    if (error) {
+      setTplMessage(error)
+      return
+    }
+    setPresetName(name)
+    setVisible((v) => ({ ...v, ...seedVisible }))
+    setOrder([...VERNERUNDER_TAB_LAYOUT_DEFAULT_ORDER] as BlockId[])
+    setPublishToWorkplace(true)
+    setTplMessage('Layout_vernerunder opprettet og publisert. Vernerunder-siden bruker nå dette oppsettet.')
+  }, [templatesEnabled, presetList, saveStackToDatabase])
+
   const loadPreset = useCallback((p: StackPresetUI) => {
     const nextVisible = { ...defaultVisibleAll(), ...p.visible } as Record<BlockId, boolean>
     setVisible(nextVisible)
@@ -2212,6 +2246,17 @@ export function PlatformLayoutComposerDemo({
               {!embedInDarkChrome && isAdmin ? (
                 <button type="button" onClick={() => void savePresetDatabase()} disabled={tplBusy} className={bulkBtnClass}>
                   Lagre i DB
+                </button>
+              ) : null}
+              {!embedInDarkChrome && isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => void seedLayoutVernerunder()}
+                  disabled={tplBusy}
+                  title="Opprett Layout_vernerunder med standardblokker og publiser til arbeidsflaten i én operasjon"
+                  className={`${bulkBtnClass} border-teal-400/60 text-teal-700 hover:bg-teal-50`}
+                >
+                  ⚡ Seed Layout_vernerunder
                 </button>
               ) : null}
             </div>
