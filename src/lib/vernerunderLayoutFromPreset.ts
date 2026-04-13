@@ -87,13 +87,22 @@ export function resolveVernerunderTabLayoutFromPublishedRows(
   rows: ComposerTemplateRow[] | null | undefined,
 ): VernerunderTabLayoutResolved {
   if (rows && rows.length > 0) {
-    const hitDb = findPreset(publishedStackRowsToPresets(rows))
+    const stackOnly = rows.filter((x) => x.kind === 'stack')
+    const hitDb = findPreset(publishedStackRowsToPresets(stackOnly))
     if (hitDb) {
       const r = resolvedFromPreset(hitDb)
       return { ...r, order: mergeWithDefaults(r.order) }
     }
   }
   return resolveVernerunderTabLayout()
+}
+
+/** For diagnostics: same name rules as {@link findPreset} (stack templates in DB). */
+export function matchesVernerunderTemplateName(name: string): boolean {
+  const targets = new Set(PRESET_NAME_CANDIDATES.map(normName))
+  const n = normName(name)
+  if (targets.has(n)) return true
+  return n.includes('layout') && n.includes('vernerunder')
 }
 
 export async function resolveVernerunderTabLayoutAsync(

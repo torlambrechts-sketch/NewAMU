@@ -19,6 +19,7 @@ import {
   HardHat,
   ImagePlus,
   ListChecks,
+  Layers,
   Lock,
   MessageSquare,
   MoreHorizontal,
@@ -50,6 +51,7 @@ import {
 } from '../lib/layoutLabTokens'
 import { resolveInspectionsTabLayoutFromPublishedRows } from '../lib/inspectionsLayoutFromPreset'
 import {
+  matchesVernerunderTemplateName,
   resolveVernerunderTabLayoutFromPublishedRows,
   vernerunderVerticalSegments,
 } from '../lib/vernerunderLayoutFromPreset'
@@ -150,6 +152,7 @@ const HSE_CARD_TOP_RULE = 'mb-4 h-0.5 w-full shrink-0 bg-[#1a3d32]'
 const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: HardHat, iconOnly: false as const },
   { id: 'rounds' as const, label: 'Vernerunder', icon: ListChecks, iconOnly: false as const },
+  { id: 'rounds2' as const, label: 'Vernerunder2', icon: Layers, iconOnly: false as const },
   { id: 'inspections' as const, label: 'Inspeksjoner', icon: Search, iconOnly: false as const },
   { id: 'sja' as const, label: 'SJA', icon: ShieldCheck, iconOnly: false as const },
   { id: 'training' as const, label: 'Opplæring', icon: GraduationCap, iconOnly: false as const },
@@ -237,7 +240,8 @@ function isoToDatetimeLocal(iso: string) {
 
 export function HseModule() {
   const hse = useHse()
-  const { publishedStackTemplates, publishedComposerTemplates } = useWorkplacePublishedComposerStacks()
+  const { publishedStackTemplates, publishedComposerTemplates, loadState: composerLoadState } =
+    useWorkplacePublishedComposerStacks()
   const { supabaseConfigured, supabase, organization, profile, user, isAdmin, departments } = useOrgSetupContext()
   const org = useOrganisation()
   const { addTask } = useTasks()
@@ -958,7 +962,7 @@ export function HseModule() {
    * Vernerunder: én renderer for blokk-ID → innhold (samme kode som i stack og i publisert **Komponer**-rutenett).
    * Publisert **kind=grid** med navn som Layout_vernerunder brukes i stedet for stack-rekkefølge (matcher platform-admin).
    */
-  const vernerunderLayoutNodes = useMemo(() => {
+  const buildVernerunderLayoutUi = useCallback((): ReactNode => {
     const layoutTableCell = `${LAYOUT_TABLE1_POSTINGS_TD} text-neutral-800`
 
     const safetyRoundWizardDef = makeSafetyRoundWizard(
@@ -1213,6 +1217,34 @@ export function HseModule() {
     openSchedulePanelForCalendarDay,
     openRoundPanel,
     setCalendarDayFromIso,
+  ])
+
+  const vernerunderLayoutNodes = useMemo(() => buildVernerunderLayoutUi(), [buildVernerunderLayoutUi])
+
+  const vernerunder2Diagnostics = useMemo(() => {
+    const all = publishedComposerTemplates ?? []
+    const publishedGrids = all.filter((r) => r.published && r.kind === 'grid')
+    const publishedStacks = all.filter((r) => r.published && r.kind === 'stack')
+    const gridMatch = publishedGrids.find((r) => matchesVernerunderTemplateName(r.name))
+    const stackMatch = publishedStacks.find((r) => matchesVernerunderTemplateName(r.name))
+    return {
+      composerLoadState,
+      publishedGridCount: publishedGrids.length,
+      publishedStackCount: publishedStacks.length,
+      gridMatchName: gridMatch?.name ?? null,
+      gridMatchKind: gridMatch?.kind ?? null,
+      stackMatchName: stackMatch?.name ?? null,
+      stackMatchKind: stackMatch?.kind ?? null,
+      vernerunderGridActive: Boolean(vernerunderGridResolved),
+      vernerunderStackPreset: vernerunderTabLayout.presetNameMatched,
+      stackOrder: vernerunderTabLayout.order,
+    }
+  }, [
+    publishedComposerTemplates,
+    composerLoadState,
+    vernerunderGridResolved,
+    vernerunderTabLayout.presetNameMatched,
+    vernerunderTabLayout.order,
   ])
 
   const inspectionsFiltered = useMemo(() => {
@@ -2139,10 +2171,10 @@ export function HseModule() {
           .
         </p>
       }
-      showTitleBlock={tab !== 'rounds' && tab !== 'inspections'}
+      showTitleBlock={tab !== 'rounds' && tab !== 'rounds2' && tab !== 'inspections'}
       hubAriaLabel="HSE / HMS — faner"
       hubItems={hseHubItems}
-      contentCard={tab !== 'rounds' && tab !== 'inspections'}
+      contentCard={tab !== 'rounds' && tab !== 'rounds2' && tab !== 'inspections'}
     >
       {hse.error && (
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{hse.error}</p>
@@ -2250,26 +2282,93 @@ export function HseModule() {
         </div>
       )}
 
-      {/* ── Safety rounds — Layout_vernerunder (DB / lokal stack-mal) ─────────── */}
-      {tab === 'rounds' && (
+      {/* ── Vernerunder + Vernerunder2 (samme Layout_vernerunder-motor) ───────── */}
+      {(tab === 'rounds' || tab === 'rounds2') && (
         <div className="mt-2 min-w-0 space-y-6">
-          {vernerunderGridResolved ? (
-            <p className="text-xs text-neutral-500">
-              Oppsett fra plattform-admin (Komponer / rutenett):{' '}
-              <span className="font-medium text-neutral-700">«{vernerunderGridResolved.templateName}»</span>
-              {supabaseConfigured
-                ? ' — samme rader og kolonnebredder (fr) som i layout-designer.'
-                : '.'}
-            </p>
-          ) : vernerunderTabLayout.presetNameMatched ? (
-            <p className="text-xs text-neutral-500">
-              Oppsett fra plattform-admin (Layout-komponenter / stack):{' '}
-              <span className="font-medium text-neutral-700">«{vernerunderTabLayout.presetNameMatched}»</span>
-              {supabaseConfigured
-                ? ' (oppdateres når publiserte maler endres).'
-                : ' (lagret i denne nettleseren).'}
-            </p>
+          {tab === 'rounds2' ? (
+            <div className="rounded-lg border border-sky-200/90 bg-sky-50/90 p-4 text-sm text-sky-950">
+              <p className="font-semibold text-neutral-900">Vernerunder2 — diagnose for Layout_vernerunder</p>
+              <p className="mt-2 text-xs leading-relaxed text-neutral-700">
+                Denne fanen bruker <strong>samme blokk-renderer og data</strong> som «Vernerunder». Forskjellen er bare denne
+                boksen: den viser hva som faktisk ble hentet fra <code className="rounded bg-white/80 px-1">platform_composer_templates</code>.
+                Mal-navn må matche (f.eks. <strong>Layout_vernerunder</strong>). <strong>Komponer</strong> ={' '}
+                <code className="rounded bg-white/80 px-1">kind: grid</code>, <strong>Layout-komponenter</strong> ={' '}
+                <code className="rounded bg-white/80 px-1">kind: stack</code> — begge må være <strong>publisert</strong>.
+              </p>
+              <dl className="mt-3 grid gap-2 text-xs text-neutral-800 sm:grid-cols-2">
+                <div>
+                  <dt className="text-neutral-500">Lastetilstand (arbeidsflate)</dt>
+                  <dd className="font-mono">{vernerunder2Diagnostics.composerLoadState}</dd>
+                </div>
+                <div>
+                  <dt className="text-neutral-500">Publiserte maler i cache</dt>
+                  <dd>
+                    {publishedComposerTemplates === null
+                      ? 'null (ikke lastet)'
+                      : `${publishedComposerTemplates.length} rader totalt`}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-neutral-500">Grid «Layout_vernerunder» (Komponer)</dt>
+                  <dd className="font-mono">
+                    {vernerunder2Diagnostics.gridMatchName
+                      ? `treff: ${vernerunder2Diagnostics.gridMatchName} (${vernerunder2Diagnostics.gridMatchKind})`
+                      : 'ingen treff blant publiserte grid-maler'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-neutral-500">Stack «Layout_vernerunder»</dt>
+                  <dd className="font-mono">
+                    {vernerunder2Diagnostics.stackMatchName
+                      ? `treff: ${vernerunder2Diagnostics.stackMatchName} (${vernerunder2Diagnostics.stackMatchKind})`
+                      : 'ingen treff blant publiserte stack-maler'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-neutral-500">Aktiv grid på siden</dt>
+                  <dd>{vernerunder2Diagnostics.vernerunderGridActive ? 'ja' : 'nei (bruker stack eller fallback)'}</dd>
+                </div>
+                <div>
+                  <dt className="text-neutral-500">Stack preset brukt</dt>
+                  <dd className="font-mono">
+                    {vernerunder2Diagnostics.vernerunderStackPreset ?? 'null (lokal/default)'}
+                  </dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-neutral-500">Stack-rekkefølge (filtrert)</dt>
+                  <dd className="mt-0.5 break-all font-mono text-[11px]">
+                    {vernerunder2Diagnostics.stackOrder.join(' → ') || '(tom)'}
+                  </dd>
+                </div>
+              </dl>
+            </div>
           ) : null}
+
+          {tab === 'rounds' ? (
+            <>
+              {vernerunderGridResolved ? (
+                <p className="text-xs text-neutral-500">
+                  Oppsett fra plattform-admin (Komponer / rutenett):{' '}
+                  <span className="font-medium text-neutral-700">«{vernerunderGridResolved.templateName}»</span>
+                  {supabaseConfigured
+                    ? ' — samme rader og kolonnebredder (fr) som i layout-designer.'
+                    : '.'}
+                </p>
+              ) : vernerunderTabLayout.presetNameMatched ? (
+                <p className="text-xs text-neutral-500">
+                  Oppsett fra plattform-admin (Layout-komponenter / stack):{' '}
+                  <span className="font-medium text-neutral-700">«{vernerunderTabLayout.presetNameMatched}»</span>
+                  {supabaseConfigured
+                    ? ' (oppdateres når publiserte maler endres).'
+                    : ' (lagret i denne nettleseren).'}
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-xs text-neutral-500">
+              Samme innhold som «Vernerunder» — se diagnoseboksen over om DB-matching feiler.
+            </p>
+          )}
 
           <div className="min-w-0 space-y-6">{vernerunderLayoutNodes}</div>
 

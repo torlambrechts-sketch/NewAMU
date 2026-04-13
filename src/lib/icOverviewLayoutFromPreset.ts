@@ -96,7 +96,8 @@ export function resolveIcOverviewComposerFromPublishedRows(
   rows: ComposerTemplateRow[] | null | undefined,
 ): IcOverviewComposerResolved {
   if (rows && rows.length > 0) {
-    const hitDb = findSavedPreset(publishedStackRowsToPresets(rows))
+    const stackOnly = rows.filter((x) => x.kind === 'stack')
+    const hitDb = findSavedPreset(publishedStackRowsToPresets(stackOnly))
     if (hitDb) return resolvedFromPreset(hitDb)
   }
   return resolveIcOverviewComposerLayout()

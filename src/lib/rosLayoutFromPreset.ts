@@ -73,7 +73,8 @@ export function resolveRosTabLayoutFromPublishedRows(
   rows: ComposerTemplateRow[] | null | undefined,
 ): RosTabLayoutResolved {
   if (rows && rows.length > 0) {
-    const hitDb = findRosPreset(publishedStackRowsToPresets(rows))
+    const stackOnly = rows.filter((x) => x.kind === 'stack')
+    const hitDb = findRosPreset(publishedStackRowsToPresets(stackOnly))
     if (hitDb) return resolvedFromPreset(hitDb)
   }
   return resolveRosTabLayout()

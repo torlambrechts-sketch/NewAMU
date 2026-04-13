@@ -1,7 +1,7 @@
 import type { LayoutComposerPreset } from './platformLayoutComposerStorage'
 import type { ComposerTemplateRow, StackTemplatePayload } from './platformComposerTemplatesApi'
 
-/** Map published DB rows to composer presets (stack kind only). */
+/** Map published DB rows to composer presets (stack kind only — ignore grid rows in the same fetch). */
 export function publishedStackRowsToPresets(rows: ComposerTemplateRow[]): LayoutComposerPreset[] {
   return rows
     .filter((r) => r.kind === 'stack')

@@ -87,7 +87,8 @@ export function resolveVarslingssakerTabLayoutFromPublishedRows(
   rows: ComposerTemplateRow[] | null | undefined,
 ): VarslingssakerTabLayoutResolved {
   if (rows && rows.length > 0) {
-    const hitDb = findPreset(publishedStackRowsToPresets(rows))
+    const stackOnly = rows.filter((x) => x.kind === 'stack')
+    const hitDb = findPreset(publishedStackRowsToPresets(stackOnly))
     if (hitDb) {
       const r = resolvedFromPreset(hitDb)
       return { ...r, order: mergeWithDefaults(r.order) }
