@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { Mainbox1 } from '../components/layout/Mainbox1'
@@ -62,6 +62,12 @@ import {
 } from '../components/layout/WorkplaceTasksActionButtons'
 import { WorkplaceSplit7030Layout } from '../components/layout/WorkplaceSplit7030Layout'
 import { useWorkplacePublishedComposerStacks } from '../hooks/useWorkplacePublishedComposerStacks'
+import { WorkplacePublishedGridLayout } from '../components/workplace/WorkplacePublishedGridLayout'
+import { resolveVernerunderGridFromPublishedRows } from '../lib/workplaceComposerGrid'
+import {
+  LAYOUT_COMPOSER_BLOCK_ORDER,
+  type LayoutComposerBlockId,
+} from './platform/PlatformLayoutComposerPage'
 import { SAFETY_ROUND_TEMPLATE_ID, TRAINING_KIND_LABELS } from '../data/hseTemplates'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeSickLeaveWizard, makeSjaWizard, makeSafetyRoundWizard } from '../components/wizard/wizards'
@@ -210,7 +216,7 @@ function isoToDatetimeLocal(iso: string) {
 
 export function HseModule() {
   const hse = useHse()
-  const { publishedStackTemplates } = useWorkplacePublishedComposerStacks()
+  const { publishedStackTemplates, publishedComposerTemplates } = useWorkplacePublishedComposerStacks()
   const { supabaseConfigured, supabase, organization, profile, user, isAdmin, departments } = useOrgSetupContext()
   const org = useOrganisation()
   const { addTask } = useTasks()
@@ -653,6 +659,11 @@ export function HseModule() {
     setVernerunderTabLayout(resolveVernerunderTabLayoutFromPublishedRows(publishedStackTemplates))
   }, [publishedStackTemplates])
 
+  const vernerunderGridResolved = useMemo(
+    () => resolveVernerunderGridFromPublishedRows(publishedComposerTemplates),
+    [publishedComposerTemplates],
+  )
+
   const calendarSelectedDate = useMemo(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
@@ -912,26 +923,12 @@ export function HseModule() {
     setCalendarDayOffset(diff)
   }, [])
 
-  /** Layout_vernerunder: hele rekkefølgen fra DB/lokal preset (heading1, scoreStatRow, workplaceTasksActions, table1, vernerunderScheduleCalendar). */
+  /**
+   * Vernerunder: én renderer for blokk-ID → innhold (samme kode som i stack og i publisert **Komponer**-rutenett).
+   * Publisert **kind=grid** med navn som Layout_vernerunder brukes i stedet for stack-rekkefølge (matcher platform-admin).
+   */
   const vernerunderLayoutNodes = useMemo(() => {
-    const order = vernerunderTabLayout.order
-    const showHeading1 = order.includes('heading1')
-    const showKpi = order.includes('scoreStatRow')
-    const showActions = order.includes('workplaceTasksActions')
-    const showTable = order.includes('table1')
-    const showCalendar = order.includes('vernerunderScheduleCalendar')
-
     const layoutTableCell = `${LAYOUT_TABLE1_POSTINGS_TD} text-neutral-800`
-
-    const headingBlock = showHeading1 ? (
-      <div key="vernerunder-heading1">
-        <WorkplacePageHeading1
-          breadcrumb={[]}
-          title="Vernerunder"
-          description={VERNERUNDER_PAGE_DESCRIPTION}
-        />
-      </div>
-    ) : null
 
     const safetyRoundWizardDef = makeSafetyRoundWizard(
       (data) => {
@@ -949,175 +946,223 @@ export function HseModule() {
       hse.checklistTemplates.map((t) => ({ value: t.id, label: t.name })),
     )
 
-    const actionsRow = showActions ? (
-      <WorkplaceTasksActionButtonsRow key="vernerunder-actions">
-        <WorkplaceTasksPrimaryButton label="Registrer gjennomført runde" onClick={openNewRoundPanel} />
-        <WorkplaceTasksSplitButton
-          label="Planlegg"
-          onMainClick={openSchedulePanelForCalendarDay}
-          options={[
-            { id: 'day', label: 'For valgt dag', onSelect: openSchedulePanelForCalendarDay },
-            { id: 'full', label: 'Én dato eller serie…', onSelect: openSchedulePanel },
-          ]}
-        />
-        <WizardButton
-          def={safetyRoundWizardDef}
-          label="Veiviser"
-          renderTrigger={(open) => (
-            <WorkplaceTasksPrimaryButton label="Veiviser" icon={Wand2} onClick={open} />
-          )}
-        />
-      </WorkplaceTasksActionButtonsRow>
-    ) : null
+    const renderVernerunderComposerBlock = (blockId: string): ReactNode => {
+      const id = blockId as LayoutComposerBlockId
+      if (!LAYOUT_COMPOSER_BLOCK_ORDER.includes(id)) {
+        return (
+          <div className="rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-xs text-amber-950">
+            Ukjent blokk <strong className="font-mono">{blockId}</strong> — ikke i layout-registeret.
+          </div>
+        )
+      }
 
-    const tableBlock = showTable ? (
-      <LayoutTable1PostingsShell
-        key="vernerunder-table"
-        wrap
-        title="Runder"
-        description="Tidligere og kommende runder — sortert etter dato."
-        toolbar={
-          <>
-            <div className="relative min-w-[200px] flex-1">
-              <label className="sr-only" htmlFor="round-search">
-                Søk
-              </label>
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-              <input
-                id="round-search"
-                type="search"
-                value={roundSearch}
-                onChange={(e) => setRoundSearch(e.target.value)}
-                placeholder="Søk i tittel, sted, avdeling …"
-                className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
+      switch (id) {
+        case 'heading1':
+          return (
+            <WorkplacePageHeading1
+              breadcrumb={[]}
+              title="Vernerunder"
+              description={VERNERUNDER_PAGE_DESCRIPTION}
+            />
+          )
+        case 'scoreStatRow':
+          return (
+            <LayoutScoreStatRow
+              items={[
+                { big: String(roundStats.total), title: 'Totalt', sub: 'I registeret' },
+                { big: String(roundStats.planned), title: 'Planlagt', sub: 'Kommende' },
+                { big: String(roundStats.inProgress), title: 'Utfylling', sub: 'Ikke planlagt' },
+                { big: String(roundStats.approved), title: 'Godkjent', sub: 'Arkiv' },
+              ]}
+            />
+          )
+        case 'workplaceTasksActions':
+          return (
+            <WorkplaceTasksActionButtonsRow>
+              <WorkplaceTasksPrimaryButton label="Registrer gjennomført runde" onClick={openNewRoundPanel} />
+              <WorkplaceTasksSplitButton
+                label="Planlegg"
+                onMainClick={openSchedulePanelForCalendarDay}
+                options={[
+                  { id: 'day', label: 'For valgt dag', onSelect: openSchedulePanelForCalendarDay },
+                  { id: 'full', label: 'Én dato eller serie…', onSelect: openSchedulePanel },
+                ]}
+              />
+              <WizardButton
+                def={safetyRoundWizardDef}
+                label="Veiviser"
+                renderTrigger={(open) => (
+                  <WorkplaceTasksPrimaryButton label="Veiviser" icon={Wand2} onClick={open} />
+                )}
+              />
+            </WorkplaceTasksActionButtonsRow>
+          )
+        case 'table1':
+          return (
+            <LayoutTable1PostingsShell
+              wrap
+              title="Runder"
+              description="Tidligere og kommende runder — sortert etter dato."
+              toolbar={
+                <div className="relative min-w-[200px] flex-1">
+                  <label className="sr-only" htmlFor="round-search">
+                    Søk
+                  </label>
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                  <input
+                    id="round-search"
+                    type="search"
+                    value={roundSearch}
+                    onChange={(e) => setRoundSearch(e.target.value)}
+                    placeholder="Søk i tittel, sted, avdeling …"
+                    className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
+                  />
+                </div>
+              }
+              footer={
+                <span className="text-neutral-500">
+                  {roundSearch.trim()
+                    ? `${roundsFiltered.length} treff`
+                    : `Viser ${roundsFiltered.length} runder`}
+                </span>
+              }
+            >
+              <>
+                <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
+                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
+                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Lokasjon</th>
+                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type / status</th>
+                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Dato</th>
+                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Avvik</th>
+                      <th className={`w-12 ${LAYOUT_TABLE1_POSTINGS_TH}`} aria-label="Handling" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {roundsFiltered.map((sr) => (
+                      <SafetyRoundTableRow
+                        key={sr.id}
+                        round={sr}
+                        templates={hse.checklistTemplates}
+                        rowClass={LAYOUT_TABLE1_POSTINGS_BODY_ROW}
+                        cellClass={layoutTableCell}
+                        actionStyle="icon"
+                        onOpen={() => openRoundPanel(sr.id)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+                {roundsFiltered.length === 0 ? (
+                  <p className="px-5 py-10 text-center text-sm text-neutral-500">Ingen runder matcher søket.</p>
+                ) : null}
+              </>
+            </LayoutTable1PostingsShell>
+          )
+        case 'vernerunderScheduleCalendar':
+          return (
+            <div className="min-w-0">
+              <WorkplaceEventsDayCard
+                cardTitle="Kommende vernerunder"
+                badge={calendarAllUpcomingEventsItems.length}
+                dateLabel={calendarDayLabel}
+                onPrevDay={() => setCalendarDayOffset((x) => x - 1)}
+                onNextDay={() => setCalendarDayOffset((x) => x + 1)}
+                datePickerSlot={
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-800">
+                    <Calendar className="size-3.5 shrink-0 text-neutral-500" aria-hidden />
+                    <input
+                      type="date"
+                      value={calendarDayIso}
+                      onChange={(e) => setCalendarDayFromIso(e.target.value)}
+                      className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900"
+                    />
+                  </label>
+                }
+                tabs={[
+                  {
+                    id: 'all',
+                    label: 'Alle kommende',
+                    count: calendarAllUpcomingEventsItems.length,
+                    items: calendarAllUpcomingEventsItems,
+                    emptyHint: 'Ingen kommende vernerunder. Bruk «Planlegg» i verktøylinjen over.',
+                  },
+                  {
+                    id: 'day',
+                    label: 'Valgt dag',
+                    count: calendarDayEventsItems.length,
+                    items: calendarDayEventsItems,
+                    emptyHint: 'Ingen vernerunder på valgt dato.',
+                  },
+                ]}
+                defaultTabId="all"
+                footer={{
+                  label: 'Serie med intervall (avansert)',
+                  onMoreClick: openSchedulePanel,
+                }}
               />
             </div>
-          </>
-        }
-        footer={
-          <span className="text-neutral-500">
-            {roundSearch.trim()
-              ? `${roundsFiltered.length} treff`
-              : `Viser ${roundsFiltered.length} runder`}
-          </span>
-        }
-      >
-        <>
-          <table className="w-full min-w-[520px] border-collapse text-left text-sm">
-            <thead>
-              <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
-                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Lokasjon</th>
-                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type / status</th>
-                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Dato</th>
-                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Avvik</th>
-                <th className={`w-12 ${LAYOUT_TABLE1_POSTINGS_TH}`} aria-label="Handling" />
-              </tr>
-            </thead>
-            <tbody>
-              {roundsFiltered.map((sr) => (
-                <SafetyRoundTableRow
-                  key={sr.id}
-                  round={sr}
-                  templates={hse.checklistTemplates}
-                  rowClass={LAYOUT_TABLE1_POSTINGS_BODY_ROW}
-                  cellClass={layoutTableCell}
-                  actionStyle="icon"
-                  onOpen={() => openRoundPanel(sr.id)}
-                />
-              ))}
-            </tbody>
-          </table>
-          {roundsFiltered.length === 0 ? (
-            <p className="px-5 py-10 text-center text-sm text-neutral-500">Ingen runder matcher søket.</p>
-          ) : null}
-        </>
-      </LayoutTable1PostingsShell>
-    ) : null
+          )
+        default:
+          return (
+            <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50/80 px-3 py-2 text-xs text-neutral-600">
+              <strong className="font-mono">{blockId}</strong> — ikke koblet til vernerunder-data ennå. Bruk blokker fra
+              Layout_vernerunder-malen, eller utvid registeret på siden.
+            </div>
+          )
+      }
+    }
 
-    const calendarBlock = showCalendar ? (
-      <div key="vernerunder-calendar" className="min-w-0">
-        <WorkplaceEventsDayCard
-          cardTitle="Kommende vernerunder"
-          badge={calendarAllUpcomingEventsItems.length}
-          dateLabel={calendarDayLabel}
-          onPrevDay={() => setCalendarDayOffset((x) => x - 1)}
-          onNextDay={() => setCalendarDayOffset((x) => x + 1)}
-          datePickerSlot={
-            <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-800">
-              <Calendar className="size-3.5 shrink-0 text-neutral-500" aria-hidden />
-              <input
-                type="date"
-                value={calendarDayIso}
-                onChange={(e) => setCalendarDayFromIso(e.target.value)}
-                className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900"
-              />
-            </label>
-          }
-          tabs={[
-            {
-              id: 'all',
-              label: 'Alle kommende',
-              count: calendarAllUpcomingEventsItems.length,
-              items: calendarAllUpcomingEventsItems,
-              emptyHint: 'Ingen kommende vernerunder. Bruk «Planlegg» i verktøylinjen over.',
-            },
-            {
-              id: 'day',
-              label: 'Valgt dag',
-              count: calendarDayEventsItems.length,
-              items: calendarDayEventsItems,
-              emptyHint: 'Ingen vernerunder på valgt dato.',
-            },
-          ]}
-          defaultTabId="all"
-          footer={{
-            label: 'Serie med intervall (avansert)',
-            onMoreClick: openSchedulePanel,
-          }}
+    if (vernerunderGridResolved) {
+      return (
+        <WorkplacePublishedGridLayout
+          rows={vernerunderGridResolved.rows}
+          renderBlock={renderVernerunderComposerBlock}
         />
-      </div>
-    ) : null
+      )
+    }
 
+    /** Stack-mal: tabell + kalender holdes på én rad (2/3 | 1/3) som før — grid-mal styrer kolonner selv. */
+    const order = vernerunderTabLayout.order as LayoutComposerBlockId[]
+    const showTable = order.includes('table1')
+    const showCalendar = order.includes('vernerunderScheduleCalendar')
     const splitRow =
       showTable && showCalendar ? (
         <WorkplaceSplit7030Layout
           key="vernerunder-split"
           cardWrap={false}
-          main={<div className="min-w-0">{tableBlock}</div>}
-          aside={calendarBlock}
+          main={<div className="min-w-0">{renderVernerunderComposerBlock('table1')}</div>}
+          aside={renderVernerunderComposerBlock('vernerunderScheduleCalendar')}
         />
       ) : showTable ? (
         <div key="vernerunder-table-only" className="min-w-0">
-          {tableBlock}
+          {renderVernerunderComposerBlock('table1')}
         </div>
       ) : showCalendar ? (
-        calendarBlock
+        renderVernerunderComposerBlock('vernerunderScheduleCalendar')
       ) : null
-
-    const kpiBlock = showKpi ? (
-      <div key="scoreStatRow">
-        <LayoutScoreStatRow
-          items={[
-            { big: String(roundStats.total), title: 'Totalt', sub: 'I registeret' },
-            { big: String(roundStats.planned), title: 'Planlagt', sub: 'Kommende' },
-            { big: String(roundStats.inProgress), title: 'Utfylling', sub: 'Ikke planlagt' },
-            { big: String(roundStats.approved), title: 'Godkjent', sub: 'Arkiv' },
-          ]}
-        />
-      </div>
-    ) : null
 
     const nodes: ReactNode[] = []
     for (const seg of vernerunderVerticalSegments(order)) {
-      if (seg.kind === 'heading1' && headingBlock) nodes.push(headingBlock)
-      if (seg.kind === 'scoreStatRow' && kpiBlock) nodes.push(kpiBlock)
-      if (seg.kind === 'workplaceTasksActions' && actionsRow) nodes.push(actionsRow)
-      if (seg.kind === 'split' && splitRow) nodes.push(splitRow)
+      if (seg.kind === 'heading1' && order.includes('heading1')) {
+        nodes.push(<Fragment key="heading1">{renderVernerunderComposerBlock('heading1')}</Fragment>)
+      }
+      if (seg.kind === 'scoreStatRow' && order.includes('scoreStatRow')) {
+        nodes.push(<Fragment key="scoreStatRow">{renderVernerunderComposerBlock('scoreStatRow')}</Fragment>)
+      }
+      if (seg.kind === 'workplaceTasksActions' && order.includes('workplaceTasksActions')) {
+        nodes.push(
+          <Fragment key="workplaceTasksActions">{renderVernerunderComposerBlock('workplaceTasksActions')}</Fragment>,
+        )
+      }
+      if (seg.kind === 'split' && splitRow) {
+        nodes.push(<Fragment key="vernerunder-split-wrap">{splitRow}</Fragment>)
+      }
     }
 
-    return nodes
+    return <>{nodes}</>
   }, [
+    vernerunderGridResolved,
     vernerunderTabLayout.order,
     roundStats.total,
     roundStats.planned,
@@ -2129,12 +2174,20 @@ export function HseModule() {
       {/* ── Safety rounds — Layout_vernerunder (DB / lokal stack-mal) ─────────── */}
       {tab === 'rounds' && (
         <div className="mt-2 min-w-0 space-y-6">
-          {vernerunderTabLayout.presetNameMatched ? (
+          {vernerunderGridResolved ? (
             <p className="text-xs text-neutral-500">
-              Oppsett fra plattform-admin:{' '}
+              Oppsett fra plattform-admin (Komponer / rutenett):{' '}
+              <span className="font-medium text-neutral-700">«{vernerunderGridResolved.templateName}»</span>
+              {supabaseConfigured
+                ? ' — samme rader og kolonnebredder (fr) som i layout-designer.'
+                : '.'}
+            </p>
+          ) : vernerunderTabLayout.presetNameMatched ? (
+            <p className="text-xs text-neutral-500">
+              Oppsett fra plattform-admin (Layout-komponenter / stack):{' '}
               <span className="font-medium text-neutral-700">«{vernerunderTabLayout.presetNameMatched}»</span>
               {supabaseConfigured
-                ? ' (oppdateres når publiserte stack-maler endres).'
+                ? ' (oppdateres når publiserte maler endres).'
                 : ' (lagret i denne nettleseren).'}
             </p>
           ) : null}
