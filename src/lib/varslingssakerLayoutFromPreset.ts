@@ -8,20 +8,24 @@ import { fetchPublishedComposerTemplates, type ComposerTemplateRow } from './pla
 import { publishedStackRowsToPresets } from './publishedStackPresets'
 import type { LayoutComposerBlockId } from '../pages/platform/PlatformLayoutComposerPage'
 import { LAYOUT_COMPOSER_BLOCK_ORDER } from '../pages/platform/PlatformLayoutComposerPage'
+import { expandLegacyHeadingInLayoutOrder } from './vernerunderLayoutFromPreset'
 
 /**
  * Stack-mal **Layout_varslingssaker** (eller liknende navn) på Oppgaver → Varslingssaker:
- * - heading1 — Overskrift 1 + handlinger på én rad (2/3 | 1/3 på stor skjerm)
+ * - pageHeading1 — H1 + ingress (uten hub; hub ligger i Tasks-skjell)
+ * - hubMenu1Bar — faner (demo; valgfri)
+ * - heading1 — eldre samlet blokk (migreres til pageHeading1 + hubMenu1Bar)
  * - scoreStatRow — KPI-bokser
  * - list2 — liste / tabell-seksjon (søk, filter, rader)
  */
 export const VARSLINGSSAKER_TAB_LAYOUT_BLOCK_IDS = [
-  'heading1',
+  'pageHeading1',
+  'hubMenu1Bar',
   'scoreStatRow',
   'list2',
 ] as const satisfies readonly LayoutComposerBlockId[]
 
-const BLOCK_SET = new Set<string>(VARSLINGSSAKER_TAB_LAYOUT_BLOCK_IDS)
+const BLOCK_SET = new Set<string>([...VARSLINGSSAKER_TAB_LAYOUT_BLOCK_IDS, 'heading1'])
 
 const PRESET_NAME_CANDIDATES = [
   'Layout_varslingssaker',
@@ -63,8 +67,9 @@ function resolvedFromPreset(hit: LayoutComposerPreset): VarslingssakerTabLayoutR
   const visible = { ...hit.visible } as Record<string, boolean>
   const rawOrder = normalizeComposerOrder(hit.order, LAYOUT_COMPOSER_BLOCK_ORDER) as LayoutComposerBlockId[]
   const filtered = rawOrder.filter((id) => BLOCK_SET.has(id) && visible[id] !== false)
+  const order = expandLegacyHeadingInLayoutOrder(filtered)
   return {
-    order: filtered.length > 0 ? filtered : [],
+    order: order.length > 0 ? order : [],
     presetNameMatched: hit.name,
   }
 }

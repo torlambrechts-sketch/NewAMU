@@ -72,7 +72,9 @@ function resolvedFromPreset(hit: LayoutComposerPreset): IcOverviewComposerResolv
   const visible = { ...hit.visible } as Record<string, boolean>
   const rawOrder = normalizeComposerOrder(hit.order, CANONICAL) as LayoutComposerBlockId[]
   const order = rawOrder.filter((id) => visible[id] !== false)
-  const withoutHeading = order.filter((id) => id !== 'heading1')
+  const withoutHeading = order.filter(
+    (id) => id !== 'heading1' && id !== 'pageHeading1' && id !== 'hubMenu1Bar',
+  )
   return {
     order: withoutHeading.length > 0 ? withoutHeading : [...IC_OVERVIEW_COMPOSER_FALLBACK_ORDER],
     presetNameMatched: hit.name,

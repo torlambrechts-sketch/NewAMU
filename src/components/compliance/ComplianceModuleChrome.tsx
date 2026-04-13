@@ -50,7 +50,9 @@ export function ComplianceModuleChrome({
         description={description}
         headerActions={headerActions}
         showTitleBlock={showTitleBlock}
-        menu={<HubMenu1Bar ariaLabel={hubAriaLabel} items={hubItems} />}
+        menu={
+          hubItems.length > 0 ? <HubMenu1Bar ariaLabel={hubAriaLabel} items={hubItems} /> : undefined
+        }
       />
 
       {contentCard ? (

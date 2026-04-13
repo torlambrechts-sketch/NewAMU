@@ -245,10 +245,9 @@ function ComposableWorkplaceNoticeWarningBlock() {
   )
 }
 
-/** Overskrift 1: brødsmule, H1, hub med aktiv fane for gjeldende seksjon (Stillingsannonser + Postings under). */
-function ComposableHeading1Block() {
+function useDemoJobHubItems(): HubMenu1Item[] {
   const [jobTab, setJobTab] = useState('adverts')
-  const hubItems: HubMenu1Item[] = useMemo(
+  return useMemo(
     () =>
       [
         { key: 'candidates', label: 'Kandidater', icon: Users, active: jobTab === 'candidates', onClick: () => setJobTab('candidates') },
@@ -262,15 +261,56 @@ function ComposableHeading1Block() {
       ] satisfies HubMenu1Item[],
     [jobTab],
   )
+}
 
+/** Overskrift 1 — kun brødsmule, serif H1 og ingress (uten hub-faner). */
+function ComposablePageHeading1Block() {
   return (
-    <div className="space-y-4">
-      <Breadcrumb items={['Stillinger', 'Stillingsannonser']} />
-      <SerifTitle className="text-2xl md:text-3xl">Stillingsannonser</SerifTitle>
-      <p className="text-sm text-neutral-600">
-        Kort ingress under tittelen — samme mønster som <code className="rounded bg-neutral-100 px-1 text-xs">WorkplacePageHeading1</code> i appen.
+    <div className="space-y-2">
+      <div className="space-y-4">
+        <Breadcrumb items={['Stillinger', 'Stillingsannonser']} />
+        <SerifTitle className="text-2xl md:text-3xl">Stillingsannonser</SerifTitle>
+        <p className="text-sm text-neutral-600">
+          Kort ingress under tittelen — samme mønster som <code className="rounded bg-neutral-100 px-1 text-xs">WorkplacePageHeading1</code>{' '}
+          uten <code className="rounded bg-neutral-100 px-1 text-xs">menu</code>-prop.
+        </p>
+      </div>
+      <p className="text-xs text-neutral-500">
+        Bruk <strong>Overskrift 1 — hub / faner</strong> rett under for <code className="rounded bg-neutral-100 px-1 text-[11px]">HubMenu1Bar</code>.
       </p>
+    </div>
+  )
+}
+
+/** Hub / faner — én rad med ikonfaner (samme som modulens sekundær navigasjon). */
+function ComposableHubMenu1BarBlock() {
+  const hubItems = useDemoJobHubItems()
+  return (
+    <div className="space-y-2">
       <HubMenu1Bar ariaLabel="Stillingsfaner (komponer)" items={hubItems} />
+      <p className="text-xs text-neutral-500">
+        Plasser etter <strong>Overskrift 1 — tittel + beskrivelse</strong> når du vil styre tittel og faner hver for seg i stack-malen.
+      </p>
+    </div>
+  )
+}
+
+/** Eldre samlet blokk (bakoverkompatibilitet): tittel + ingress + hub i én forhåndsvisning. */
+function ComposableHeading1LegacyBlock() {
+  const hubItems = useDemoJobHubItems()
+  return (
+    <div className="space-y-2">
+      <div className="space-y-4">
+        <Breadcrumb items={['Stillinger', 'Stillingsannonser']} />
+        <SerifTitle className="text-2xl md:text-3xl">Stillingsannonser</SerifTitle>
+        <p className="text-sm text-neutral-600">
+          Kort ingress under tittelen — samme mønster som <code className="rounded bg-neutral-100 px-1 text-xs">WorkplacePageHeading1</code> i appen.
+        </p>
+        <HubMenu1Bar ariaLabel="Stillingsfaner (komponer)" items={hubItems} />
+      </div>
+      <p className="text-xs text-amber-800">
+        Foreldet: bruk <strong>Overskrift 1 — tittel + beskrivelse</strong> og <strong>Overskrift 1 — hub / faner</strong> som to elementer for tydelig rekkefølge i maler.
+      </p>
     </div>
   )
 }
@@ -930,7 +970,8 @@ function ComposableVernerunderScheduleCalendarBlock() {
         }}
       />
       <p className="text-xs text-neutral-500">
-        Publiser <strong>Layout_vernerunder</strong> med <strong>heading1</strong>, <strong>scoreStatRow</strong> osv. for
+        Publiser <strong>Layout_vernerunder</strong> med <strong>pageHeading1</strong>, <strong>hubMenu1Bar</strong>,{' '}
+        <strong>scoreStatRow</strong> osv. for
         rekkefølge og synlighet. Tabell og kalender er 2/3 + 1/3 på arbeidsflaten når begge er med.
       </p>
     </div>
@@ -1614,9 +1655,19 @@ function ComposableReportingChartsTwoRowBlock() {
 
 const BLOCKS = [
   {
+    id: 'pageHeading1',
+    label: 'Overskrift 1 — tittel + beskrivelse',
+    hint: 'Brødsmule, serif H1 og ingress — uten hub. Kombiner med «Overskrift 1 — hub / faner» for fullt sidetopp-mønster.',
+  },
+  {
+    id: 'hubMenu1Bar',
+    label: 'Overskrift 1 — hub / faner',
+    hint: 'Én rad HubMenu1Bar (ikonfaner). Legg under tittel-blokken når malen skal skille tekst og navigasjon.',
+  },
+  {
     id: 'heading1',
-    label: 'Overskrift 1 — tittel + faner',
-    hint: 'Stillinger › Stillingsannonser, serif H1, hub med Stillingsannonser aktiv (samme stil som Action board). På Oppgaver → Varslingssaker: bruk stack-mal Layout_varslingssaker sammen med scoreStatRow og list2.',
+    label: 'Overskrift 1 — samlet (eldre)',
+    hint: 'Tittel, beskrivelse og hub i én blokk — beholdes for eldre maler. Foretrekk pageHeading1 + hubMenu1Bar i nye oppsett.',
   },
   {
     id: 'table1',
@@ -1671,7 +1722,7 @@ const BLOCKS = [
   {
     id: 'vernerunderScheduleCalendar',
     label: 'Vernerunder — planlegging og kalender (dag)',
-    hint: 'Demo: kalenderkort. Stack-mal Layout_vernerunder: heading1, scoreStatRow, workplaceTasksActions, table1, vernerunderScheduleCalendar — rekkefølge og synlighet fra DB.',
+    hint: 'Demo: kalenderkort. Stack-mal Layout_vernerunder: pageHeading1, hubMenu1Bar, scoreStatRow, workplaceTasksActions, table1, vernerunderScheduleCalendar — rekkefølge og synlighet fra DB.',
   },
   {
     id: 'workplaceTodos',
@@ -1825,8 +1876,12 @@ function reorderBlockOrder(order: BlockId[], from: number, to: number): BlockId[
 
 function renderComposerBlock(id: BlockId): ReactNode {
   switch (id) {
+    case 'pageHeading1':
+      return <ComposablePageHeading1Block />
+    case 'hubMenu1Bar':
+      return <ComposableHubMenu1BarBlock />
     case 'heading1':
-      return <ComposableHeading1Block />
+      return <ComposableHeading1LegacyBlock />
     case 'table1':
       return <ComposablePostingsTableBlock />
     case 'scorecard':
