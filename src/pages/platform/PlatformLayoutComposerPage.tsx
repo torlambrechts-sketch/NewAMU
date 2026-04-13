@@ -1617,7 +1617,7 @@ const BLOCKS = [
   {
     id: 'vernerunderScheduleCalendar',
     label: 'Vernerunder — planlegging og kalender (dag)',
-    hint: 'Demo: kalenderkort. På HSE → Vernerunder ligger tabell og kalender alltid på én rad 2/3 | 1/3 (Layout_vernerunder). Preset styrer kun KPI-rad (scoreStatRow).',
+    hint: 'Demo: kalenderkort. Stack-mal Layout_vernerunder: scoreStatRow, workplaceTasksActions, table1, vernerunderScheduleCalendar — rekkefølge og synlighet fra DB.',
   },
   {
     id: 'workplaceTodos',

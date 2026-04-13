@@ -10,12 +10,19 @@ import type { LayoutComposerBlockId } from '../pages/platform/PlatformLayoutComp
 import { LAYOUT_COMPOSER_BLOCK_ORDER } from '../pages/platform/PlatformLayoutComposerPage'
 
 /**
- * Malen Layout_vernerunder i arbeidsflaten er **fast strukturert**:
- * 1) valgfri KPI-rad (`scoreStatRow`, styrt av publisert/lokal preset),
- * 2) alltid én rad **2/3 tabell | 1/3 kalender** (samme proporsjon som Dashboard 70/30).
- * Eldre presets med `table1` / `vernerunderScheduleCalendar` ignoreres — strukturen kommer fra koden.
+ * Layout_vernerunder — rekkefølge styres av publisert/lokal stack-mal:
+ * - scoreStatRow — KPI
+ * - workplaceTasksActions — knapper (Tasks-stil, transparent rad)
+ * - table1 — tabell (2/3 i splittet rad)
+ * - vernerunderScheduleCalendar — kalender (1/3)
+ * Tabell er alltid venstre kolonne og kalender høyre når begge er synlige.
  */
-export const VERNERUNDER_TAB_LAYOUT_BLOCK_IDS = ['scoreStatRow'] as const satisfies readonly LayoutComposerBlockId[]
+export const VERNERUNDER_TAB_LAYOUT_BLOCK_IDS = [
+  'scoreStatRow',
+  'workplaceTasksActions',
+  'table1',
+  'vernerunderScheduleCalendar',
+] as const satisfies readonly LayoutComposerBlockId[]
 
 const BLOCK_SET = new Set<string>(VERNERUNDER_TAB_LAYOUT_BLOCK_IDS)
 
@@ -29,7 +36,9 @@ function normName(s: string) {
     .replace(/[^a-z0-9æøå]/gi, '')
 }
 
-export const VERNERUNDER_TAB_LAYOUT_DEFAULT_ORDER: LayoutComposerBlockId[] = [...VERNERUNDER_TAB_LAYOUT_BLOCK_IDS]
+export const VERNERUNDER_TAB_LAYOUT_DEFAULT_ORDER: LayoutComposerBlockId[] = [
+  ...VERNERUNDER_TAB_LAYOUT_BLOCK_IDS,
+]
 
 function findPreset(presets: LayoutComposerPreset[]): LayoutComposerPreset | null {
   const targets = new Set(PRESET_NAME_CANDIDATES.map(normName))
@@ -58,16 +67,18 @@ function resolvedFromPreset(hit: LayoutComposerPreset): VernerunderTabLayoutReso
   }
 }
 
+function mergeWithDefaults(order: LayoutComposerBlockId[]): LayoutComposerBlockId[] {
+  if (order.length > 0) return order
+  return [...VERNERUNDER_TAB_LAYOUT_DEFAULT_ORDER]
+}
+
 export function resolveVernerunderTabLayout(): VernerunderTabLayoutResolved {
   const hit = findPreset(loadComposerPresets())
   if (!hit) {
     return { order: [...VERNERUNDER_TAB_LAYOUT_DEFAULT_ORDER], presetNameMatched: null }
   }
   const r = resolvedFromPreset(hit)
-  return {
-    ...r,
-    order: r.order.length > 0 ? r.order : [...VERNERUNDER_TAB_LAYOUT_DEFAULT_ORDER],
-  }
+  return { ...r, order: mergeWithDefaults(r.order) }
 }
 
 export function resolveVernerunderTabLayoutFromPublishedRows(
@@ -77,10 +88,7 @@ export function resolveVernerunderTabLayoutFromPublishedRows(
     const hitDb = findPreset(publishedStackRowsToPresets(rows))
     if (hitDb) {
       const r = resolvedFromPreset(hitDb)
-      return {
-        ...r,
-        order: r.order.length > 0 ? r.order : [...VERNERUNDER_TAB_LAYOUT_DEFAULT_ORDER],
-      }
+      return { ...r, order: mergeWithDefaults(r.order) }
     }
   }
   return resolveVernerunderTabLayout()
@@ -98,4 +106,32 @@ export async function resolveVernerunderTabLayoutAsync(
     return resolveVernerunderTabLayoutFromPublishedRows(data)
   }
   return resolveVernerunderTabLayout()
+}
+
+/** Vertikal sortering: hvert segment får min(indeks) blant blokkene i segmentet */
+export function vernerunderVerticalSegments(order: LayoutComposerBlockId[]): {
+  sortIndex: number
+  kind: 'scoreStatRow' | 'workplaceTasksActions' | 'split'
+}[] {
+  const idx = (id: LayoutComposerBlockId) => {
+    const i = order.indexOf(id)
+    return i === -1 ? 9999 : i
+  }
+  const hasTable = order.includes('table1')
+  const hasCal = order.includes('vernerunderScheduleCalendar')
+  const pieces: { sortIndex: number; kind: 'scoreStatRow' | 'workplaceTasksActions' | 'split' }[] = []
+
+  if (order.includes('scoreStatRow')) {
+    pieces.push({ sortIndex: idx('scoreStatRow'), kind: 'scoreStatRow' })
+  }
+  if (order.includes('workplaceTasksActions')) {
+    pieces.push({ sortIndex: idx('workplaceTasksActions'), kind: 'workplaceTasksActions' })
+  }
+  if (hasTable || hasCal) {
+    const splitIdx = Math.min(idx('table1'), idx('vernerunderScheduleCalendar'))
+    pieces.push({ sortIndex: splitIdx, kind: 'split' })
+  }
+
+  pieces.sort((a, b) => a.sortIndex - b.sortIndex)
+  return pieces
 }

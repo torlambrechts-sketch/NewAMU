@@ -13,7 +13,8 @@ export type LayoutTable1PostingsShellProps = {
   wrap?: boolean
   title: string
   description?: string
-  headerActions: ReactNode
+  /** Valgfri høyre kolonne i tittelrad (f.eks. CTA); utelates når knapper ligger utenfor */
+  headerActions?: ReactNode
   toolbar: ReactNode
   footer?: ReactNode
   children: ReactNode
@@ -44,7 +45,9 @@ export function LayoutTable1PostingsShell({
           </h2>
           {description ? <p className="mt-1 text-sm text-neutral-600">{description}</p> : null}
         </div>
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{headerActions}</div>
+        {headerActions ? (
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{headerActions}</div>
+        ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-3 border-b border-neutral-100 px-5 py-3">{toolbar}</div>
       <div className="overflow-x-auto">{children}</div>

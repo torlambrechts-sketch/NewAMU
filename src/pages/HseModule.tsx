@@ -10,14 +10,11 @@ import {
   LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
   LAYOUT_TABLE1_POSTINGS_TD,
   LAYOUT_TABLE1_POSTINGS_TH,
-  layoutTable1PostingsPrimaryButtonClass,
-  layoutTable1PostingsPrimaryButtonStyle,
 } from '../components/layout/layoutTable1PostingsKit'
 import {
   AlertTriangle,
   Calendar,
   CheckCircle2,
-  Filter,
   GraduationCap,
   HardHat,
   ImagePlus,
@@ -30,6 +27,7 @@ import {
   Send,
   ShieldCheck,
   Users,
+  Wand2,
   X,
 } from 'lucide-react'
 import { ComplianceModuleChrome } from '../components/compliance/ComplianceModuleChrome'
@@ -49,10 +47,18 @@ import {
   table1CellPadding,
   table1HeaderRowClass,
 } from '../lib/layoutLabTokens'
-import { resolveVernerunderTabLayoutFromPublishedRows } from '../lib/vernerunderLayoutFromPreset'
+import {
+  resolveVernerunderTabLayoutFromPublishedRows,
+  vernerunderVerticalSegments,
+} from '../lib/vernerunderLayoutFromPreset'
 import { isSafetyRoundUpcoming, safetyRoundCalendarDateIso, safetyRoundCalendarTimeLabel } from '../lib/safetyRoundCalendar'
 import { LayoutScoreStatRow } from '../components/layout/LayoutScoreStatRow'
 import { WorkplaceEventsDayCard } from '../components/layout/WorkplaceEventsDayCard'
+import {
+  WorkplaceTasksActionButtonsRow,
+  WorkplaceTasksPrimaryButton,
+  WorkplaceTasksSplitButton,
+} from '../components/layout/WorkplaceTasksActionButtons'
 import { WorkplaceSplit7030Layout } from '../components/layout/WorkplaceSplit7030Layout'
 import { useWorkplacePublishedComposerStacks } from '../hooks/useWorkplacePublishedComposerStacks'
 import { SAFETY_ROUND_TEMPLATE_ID, TRAINING_KIND_LABELS } from '../data/hseTemplates'
@@ -891,44 +897,59 @@ export function HseModule() {
     setCalendarDayOffset(diff)
   }, [])
 
-  /** Layout_vernerunder: KPI fra preset + 2/3 | 1/3. Tabell = Table 1 fra layout-komponist (Postings), uten ytre hvit boks. */
+  /** Layout_vernerunder: rekkefølge fra DB/lokal preset (scoreStatRow, workplaceTasksActions, table1, vernerunderScheduleCalendar). */
   const vernerunderLayoutNodes = useMemo(() => {
     const order = vernerunderTabLayout.order
-    const nodes: ReactNode[] = []
-    for (const id of order) {
-      if (id === 'scoreStatRow') {
-        nodes.push(
-          <div key="scoreStatRow">
-            <LayoutScoreStatRow
-              items={[
-                { big: String(roundStats.total), title: 'Totalt', sub: 'I registeret' },
-                { big: String(roundStats.planned), title: 'Planlagt', sub: 'Kommende' },
-                { big: String(roundStats.inProgress), title: 'Utfylling', sub: 'Ikke planlagt' },
-                { big: String(roundStats.approved), title: 'Godkjent', sub: 'Arkiv' },
-              ]}
-            />
-          </div>,
-        )
-      }
-    }
+    const showKpi = order.includes('scoreStatRow')
+    const showActions = order.includes('workplaceTasksActions')
+    const showTable = order.includes('table1')
+    const showCalendar = order.includes('vernerunderScheduleCalendar')
 
     const layoutTableCell = `${LAYOUT_TABLE1_POSTINGS_TD} text-neutral-800`
 
-    const tableColumn = (
+    const safetyRoundWizardDef = makeSafetyRoundWizard(
+      (data) => {
+        const sr = hse.createSafetyRound({
+          title: String(data.title),
+          conductedAt: new Date(String(data.conductedAt)).toISOString(),
+          location: String(data.location) || '—',
+          department: String(data.department) || undefined,
+          conductedBy: profile?.display_name?.trim() || user?.email?.trim() || 'Registrert bruker',
+          notes: String(data.notes) || '',
+          checklistTemplateId: String(data.templateId) || SAFETY_ROUND_TEMPLATE_ID,
+        })
+        openRoundPanel(sr.id)
+      },
+      hse.checklistTemplates.map((t) => ({ value: t.id, label: t.name })),
+    )
+
+    const actionsRow = showActions ? (
+      <WorkplaceTasksActionButtonsRow key="vernerunder-actions">
+        <WorkplaceTasksPrimaryButton label="Registrer gjennomført runde" onClick={openNewRoundPanel} />
+        <WorkplaceTasksSplitButton
+          label="Planlegg"
+          onMainClick={openSchedulePanelForCalendarDay}
+          options={[
+            { id: 'day', label: 'For valgt dag', onSelect: openSchedulePanelForCalendarDay },
+            { id: 'full', label: 'Én dato eller serie…', onSelect: openSchedulePanel },
+          ]}
+        />
+        <WizardButton
+          def={safetyRoundWizardDef}
+          label="Veiviser"
+          renderTrigger={(open) => (
+            <WorkplaceTasksPrimaryButton label="Veiviser" icon={Wand2} onClick={open} />
+          )}
+        />
+      </WorkplaceTasksActionButtonsRow>
+    ) : null
+
+    const tableBlock = showTable ? (
       <LayoutTable1PostingsShell
+        key="vernerunder-table"
         wrap
         title="Vernerunder"
         description="Tidligere og kommende runder — sortert etter dato."
-        headerActions={
-          <button
-            type="button"
-            onClick={openNewRoundPanel}
-            className={layoutTable1PostingsPrimaryButtonClass()}
-            style={layoutTable1PostingsPrimaryButtonStyle()}
-          >
-            + Registrer gjennomført runde
-          </button>
-        }
         toolbar={
           <>
             <div className="relative min-w-[200px] flex-1">
@@ -945,44 +966,6 @@ export function HseModule() {
                 className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
               />
             </div>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:text-neutral-900"
-              aria-label="Filter (kommer)"
-            >
-              <Filter className="size-3.5 shrink-0" aria-hidden />
-              Filter
-            </button>
-            <button
-              type="button"
-              onClick={openSchedulePanel}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:text-neutral-900"
-            >
-              <Calendar className="size-3.5 shrink-0" aria-hidden />
-              Planlegg
-            </button>
-            <WizardButton
-              label="Veiviser"
-              variant="ghost"
-              size="xs"
-              className="!rounded-none font-semibold uppercase tracking-wide text-neutral-700 hover:text-neutral-900"
-              def={makeSafetyRoundWizard(
-                (data) => {
-                  const sr = hse.createSafetyRound({
-                    title: String(data.title),
-                    conductedAt: new Date(String(data.conductedAt)).toISOString(),
-                    location: String(data.location) || '—',
-                    department: String(data.department) || undefined,
-                    conductedBy:
-                      profile?.display_name?.trim() || user?.email?.trim() || 'Registrert bruker',
-                    notes: String(data.notes) || '',
-                    checklistTemplateId: String(data.templateId) || SAFETY_ROUND_TEMPLATE_ID,
-                  })
-                  openRoundPanel(sr.id)
-                },
-                hse.checklistTemplates.map((t) => ({ value: t.id, label: t.name })),
-              )}
-            />
           </>
         }
         footer={
@@ -1024,10 +1007,10 @@ export function HseModule() {
           ) : null}
         </>
       </LayoutTable1PostingsShell>
-    )
+    ) : null
 
-    const calendarColumn = (
-      <div className="min-w-0">
+    const calendarBlock = showCalendar ? (
+      <div key="vernerunder-calendar" className="min-w-0">
         <WorkplaceEventsDayCard
           cardTitle="Kommende vernerunder"
           badge={calendarAllUpcomingEventsItems.length}
@@ -1045,23 +1028,13 @@ export function HseModule() {
               />
             </label>
           }
-          primaryActionSlot={
-            <button
-              type="button"
-              onClick={openSchedulePanelForCalendarDay}
-              className="w-full rounded-md px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-white"
-              style={{ backgroundColor: '#1a3d32' }}
-            >
-              Planlegg vernerunde
-            </button>
-          }
           tabs={[
             {
               id: 'all',
               label: 'Alle kommende',
               count: calendarAllUpcomingEventsItems.length,
               items: calendarAllUpcomingEventsItems,
-              emptyHint: 'Ingen kommende vernerunder. Bruk «Planlegg vernerunde» for å legge til.',
+              emptyHint: 'Ingen kommende vernerunder. Bruk «Planlegg» i verktøylinjen over.',
             },
             {
               id: 'day',
@@ -1073,21 +1046,48 @@ export function HseModule() {
           ]}
           defaultTabId="all"
           footer={{
-            label: 'Flere valg: én dato eller serie med intervall',
+            label: 'Serie med intervall (avansert)',
             onMoreClick: openSchedulePanel,
           }}
         />
       </div>
-    )
+    ) : null
 
-    nodes.push(
-      <WorkplaceSplit7030Layout
-        key="vernerunder-split"
-        cardWrap={false}
-        main={tableColumn}
-        aside={calendarColumn}
-      />,
-    )
+    const splitRow =
+      showTable && showCalendar ? (
+        <WorkplaceSplit7030Layout
+          key="vernerunder-split"
+          cardWrap={false}
+          main={<div className="min-w-0">{tableBlock}</div>}
+          aside={calendarBlock}
+        />
+      ) : showTable ? (
+        <div key="vernerunder-table-only" className="min-w-0">
+          {tableBlock}
+        </div>
+      ) : showCalendar ? (
+        calendarBlock
+      ) : null
+
+    const kpiBlock = showKpi ? (
+      <div key="scoreStatRow">
+        <LayoutScoreStatRow
+          items={[
+            { big: String(roundStats.total), title: 'Totalt', sub: 'I registeret' },
+            { big: String(roundStats.planned), title: 'Planlagt', sub: 'Kommende' },
+            { big: String(roundStats.inProgress), title: 'Utfylling', sub: 'Ikke planlagt' },
+            { big: String(roundStats.approved), title: 'Godkjent', sub: 'Arkiv' },
+          ]}
+        />
+      </div>
+    ) : null
+
+    const nodes: ReactNode[] = []
+    for (const seg of vernerunderVerticalSegments(order)) {
+      if (seg.kind === 'scoreStatRow' && kpiBlock) nodes.push(kpiBlock)
+      if (seg.kind === 'workplaceTasksActions' && actionsRow) nodes.push(actionsRow)
+      if (seg.kind === 'split' && splitRow) nodes.push(splitRow)
+    }
 
     return nodes
   }, [

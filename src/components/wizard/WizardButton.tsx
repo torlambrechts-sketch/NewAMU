@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Wand2 } from 'lucide-react'
 import { WizardModal } from './WizardModal'
 import type { WizardDef } from './types'
@@ -13,14 +13,18 @@ export function WizardButton({
   size = 'sm',
   variant = 'outline',
   className,
+  renderTrigger,
 }: {
   def: WizardDef
   label?: string
   size?: 'xs' | 'sm'
   variant?: 'outline' | 'solid' | 'ghost'
   className?: string
+  /** Egen utløser (f.eks. Tasks-stil knapp); modal er uendret */
+  renderTrigger?: (open: () => void) => ReactNode
 }) {
   const [open, setOpen] = useState(false)
+  const openModal = () => setOpen(true)
 
   const sizeClass = size === 'xs'
     ? 'gap-1 px-2.5 py-1 text-xs'
@@ -35,14 +39,18 @@ export function WizardButton({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={`inline-flex items-center rounded-full font-medium transition-colors ${sizeClass} ${variantClass} ${className ?? ''}`}
-      >
-        <Wand2 className={size === 'xs' ? 'size-3' : 'size-3.5'} />
-        {label}
-      </button>
+      {renderTrigger ? (
+        renderTrigger(openModal)
+      ) : (
+        <button
+          type="button"
+          onClick={openModal}
+          className={`inline-flex items-center rounded-full font-medium transition-colors ${sizeClass} ${variantClass} ${className ?? ''}`}
+        >
+          <Wand2 className={size === 'xs' ? 'size-3' : 'size-3.5'} />
+          {label}
+        </button>
+      )}
 
       {open && (
         <WizardModal
