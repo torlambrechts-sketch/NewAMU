@@ -1,21 +1,12 @@
 import type { ComposerTemplateRow, GridTemplatePayload } from './platformComposerTemplatesApi'
 import { normalizeGridSession, type GridRowPersist } from './layoutGridComposerStorage'
 
-const GRID_NAME_CANDIDATES = ['Layout_vernerunder', 'LayoutVernerunder', 'VernerunderLayout']
-
-function normName(s: string) {
+export function normComposerTemplateName(s: string) {
   return s
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '')
     .replace(/[^a-z0-9æøå]/gi, '')
-}
-
-function findGridNameMatch(name: string): boolean {
-  const n = normName(name)
-  const targets = new Set(GRID_NAME_CANDIDATES.map(normName))
-  if (targets.has(n)) return true
-  return n.includes('layout') && n.includes('vernerunder')
 }
 
 /** Parse and normalize grid payload from a published composer row (same shape as PlatformGridComposer). */
@@ -28,26 +19,72 @@ export function parsePublishedGridPayload(payload: unknown): GridTemplatePayload
   return { rows: session.rows }
 }
 
-export type ResolvedVernerunderGridTemplate = {
+export type ResolvedPublishedGridTemplate = {
   templateId: string
   templateName: string
   rows: GridRowPersist[]
 }
 
+export type ResolvePublishedGridOptions = {
+  /** Exact normalized name matches, e.g. Layout_vernerunder */
+  nameCandidates: string[]
+  /** Optional: match when normalized name includes both tokens (e.g. layout + vernerunder) */
+  fuzzy?: { includeAll: string[] }
+}
+
 /**
- * Published **kind=grid** template named like Layout_vernerunder — same structure as «Komponer» in platform-admin.
- * When found, workplace Vernerunder should render this grid instead of the stack (vertical list) interpretation.
+ * First published **kind=grid** row matching name candidates or fuzzy rule.
  */
-export function resolveVernerunderGridFromPublishedRows(
+export function resolvePublishedGridFromRows(
   rows: ComposerTemplateRow[] | null | undefined,
-): ResolvedVernerunderGridTemplate | null {
+  opts: ResolvePublishedGridOptions,
+): ResolvedPublishedGridTemplate | null {
   if (!rows?.length) return null
+  const targets = new Set(opts.nameCandidates.map(normComposerTemplateName))
+  const fuzzy = opts.fuzzy?.includeAll.map(normComposerTemplateName) ?? []
+
+  function matches(name: string): boolean {
+    const n = normComposerTemplateName(name)
+    if (targets.has(n)) return true
+    if (fuzzy.length > 0 && fuzzy.every((t) => n.includes(t))) return true
+    return false
+  }
+
   for (const r of rows) {
     if (r.kind !== 'grid') continue
-    if (!findGridNameMatch(r.name)) continue
+    if (!matches(r.name)) continue
     const parsed = parsePublishedGridPayload(r.payload)
     if (!parsed) continue
     return { templateId: r.id, templateName: r.name, rows: parsed.rows }
   }
   return null
+}
+
+const VERNERUNDER_GRID_NAMES = ['Layout_vernerunder', 'LayoutVernerunder', 'VernerunderLayout']
+
+export function resolveVernerunderGridFromPublishedRows(
+  rows: ComposerTemplateRow[] | null | undefined,
+): ResolvedPublishedGridTemplate | null {
+  return resolvePublishedGridFromRows(rows, {
+    nameCandidates: VERNERUNDER_GRID_NAMES,
+    fuzzy: { includeAll: ['layout', 'vernerunder'] },
+  })
+}
+
+const INSPECTIONS_GRID_NAMES = [
+  'Layout_inspeksjoner',
+  'LayoutInspeksjoner',
+  'InspeksjonerLayout',
+  'Layout_inspections',
+  'LayoutInspections',
+]
+
+/** Published Komponer-mal for HSE → Inspeksjoner (samme mønster som Vernerunder). */
+export function resolveInspectionsGridFromPublishedRows(
+  rows: ComposerTemplateRow[] | null | undefined,
+): ResolvedPublishedGridTemplate | null {
+  return resolvePublishedGridFromRows(rows, {
+    nameCandidates: INSPECTIONS_GRID_NAMES,
+    fuzzy: { includeAll: ['layout', 'inspeksjon'] },
+  })
 }

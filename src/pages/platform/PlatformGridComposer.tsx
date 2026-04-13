@@ -351,9 +351,10 @@ export function PlatformGridComposer({ previewSurface }: { previewSurface: Platf
         <div className={`border-t pt-3 ${previewSurface === 'white' ? 'border-neutral-200' : 'border-white/10'}`}>
           <p className={`text-xs font-semibold uppercase tracking-wide ${metaClass}`}>Lagrede rutenett</p>
           <p className={`mt-1 text-xs ${metaClass}`}>
-            Lokal = nettleser. Database = plattformadmin. Publiser et rutenett med navn som{' '}
-            <strong className="font-medium text-inherit">Layout_vernerunder</strong> for å styre HSE → Vernerunder (samme
-            rader/fr som her).
+            Lokal = nettleser. Database = plattformadmin.             Publiser rutenett med navn som{' '}
+            <strong className="font-medium text-inherit">Layout_vernerunder</strong> (HSE → Vernerunder) eller{' '}
+            <strong className="font-medium text-inherit">Layout_inspeksjoner</strong> (HSE → Inspeksjoner) — samme rader/fr som
+            her.
           </p>
           {adminLoading || tplLoading ? (
             <p className={`mt-2 flex items-center gap-2 text-xs ${metaClass}`}>

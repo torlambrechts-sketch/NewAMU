@@ -48,6 +48,7 @@ import {
   table1CellPadding,
   table1HeaderRowClass,
 } from '../lib/layoutLabTokens'
+import { resolveInspectionsTabLayoutFromPublishedRows } from '../lib/inspectionsLayoutFromPreset'
 import {
   resolveVernerunderTabLayoutFromPublishedRows,
   vernerunderVerticalSegments,
@@ -63,7 +64,7 @@ import {
 import { WorkplaceSplit7030Layout } from '../components/layout/WorkplaceSplit7030Layout'
 import { useWorkplacePublishedComposerStacks } from '../hooks/useWorkplacePublishedComposerStacks'
 import { WorkplacePublishedGridLayout } from '../components/workplace/WorkplacePublishedGridLayout'
-import { resolveVernerunderGridFromPublishedRows } from '../lib/workplaceComposerGrid'
+import { resolveInspectionsGridFromPublishedRows, resolveVernerunderGridFromPublishedRows } from '../lib/workplaceComposerGrid'
 import {
   LAYOUT_COMPOSER_BLOCK_ORDER,
   type LayoutComposerBlockId,
@@ -115,6 +116,26 @@ const VERNERUNDER_PAGE_DESCRIPTION = (
     <p>
       Vernerunder er lovpålagt og utgjør en sentral del av virksomhetens systematiske helse-, miljø- og sikkerhetsarbeid
       (HMS).
+    </p>
+  </div>
+)
+
+const INSPECTIONS_PAGE_DESCRIPTION = (
+  <div className="max-w-3xl space-y-3">
+    <p>En inspeksjon er en målrettet og systematisk kontroll av utstyr, anlegg, prosesser eller tjenester.</p>
+    <p>
+      Den gjennomføres for å sikre at kvalitetskrav, sikkerhetsstandarder, lover og regler faktisk overholdes i praksis.
+    </p>
+    <p>
+      Mens vernerunder fokuserer bredt på arbeidsmiljø, er inspeksjoner ofte mer tekniske og spisset mot spesifikke
+      fagområder.
+    </p>
+    <p>
+      Alle avvik og feil som avdekkes dokumenteres i en rapport som gir grunnlag for nødvendig vedlikehold eller
+      utbedringer.
+    </p>
+    <p>
+      De kan utføres internt av bedriften selv, eller eksternt av tilsynsmyndigheter og uavhengige kontrollorganer.
     </p>
   </div>
 )
@@ -655,12 +676,22 @@ export function HseModule() {
     resolveVernerunderTabLayoutFromPublishedRows(null),
   )
 
+  const [inspectionsTabLayout, setInspectionsTabLayout] = useState(() =>
+    resolveInspectionsTabLayoutFromPublishedRows(null),
+  )
+
   useEffect(() => {
     setVernerunderTabLayout(resolveVernerunderTabLayoutFromPublishedRows(publishedStackTemplates))
+    setInspectionsTabLayout(resolveInspectionsTabLayoutFromPublishedRows(publishedStackTemplates))
   }, [publishedStackTemplates])
 
   const vernerunderGridResolved = useMemo(
     () => resolveVernerunderGridFromPublishedRows(publishedComposerTemplates),
+    [publishedComposerTemplates],
+  )
+
+  const inspectionsGridResolved = useMemo(
+    () => resolveInspectionsGridFromPublishedRows(publishedComposerTemplates),
     [publishedComposerTemplates],
   )
 
@@ -1381,169 +1412,217 @@ export function HseModule() {
     }
   }, [hse.inspections])
 
-  /** Inspeksjoner: samme stack-mal som Layout_vernerunder (rekkefølge fra DB). */
+  /**
+   * Inspeksjoner: samme mønster som Vernerunder — publisert **Komponer** (grid) eller stack + 2/3|1/3 for tabell+kalender.
+   * Publiser grid med navn **Layout_inspeksjoner** (eller fuzzy «layout»+«inspeksjon»).
+   */
   const inspectionsLayoutNodes = useMemo(() => {
-    const order = vernerunderTabLayout.order
-    const showKpi = order.includes('scoreStatRow')
-    const showActions = order.includes('workplaceTasksActions')
-    const showTable = order.includes('table1')
-    const showCalendar = order.includes('vernerunderScheduleCalendar')
-
     const layoutTableCell = `${LAYOUT_TABLE1_POSTINGS_TD} text-neutral-800`
 
-    const actionsRow = showActions ? (
-      <WorkplaceTasksActionButtonsRow key="inspections-actions">
-        <WorkplaceTasksPrimaryButton label="Ny inspeksjon" onClick={openNewInspectionPanel} />
-      </WorkplaceTasksActionButtonsRow>
-    ) : null
-
-    const tableBlock = showTable ? (
-      <LayoutTable1PostingsShell
-        key="inspections-table"
-        wrap
-        title="Inspeksjoner"
-        description="Tidligere inspeksjoner — sortert etter gjennomført tid. Åpne en rad i sidevinduet for redigering, signatur og låsing."
-        toolbar={
-          <div className="relative min-w-[200px] flex-1">
-            <label className="sr-only" htmlFor="ins-search-layout">
-              Søk
-            </label>
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-            <input
-              id="ins-search-layout"
-              type="search"
-              value={insSearch}
-              onChange={(e) => setInsSearch(e.target.value)}
-              placeholder="Søk i tittel, omfang, funn …"
-              className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
-            />
+    const renderInspectionsComposerBlock = (blockId: string): ReactNode => {
+      const id = blockId as LayoutComposerBlockId
+      if (!LAYOUT_COMPOSER_BLOCK_ORDER.includes(id)) {
+        return (
+          <div className="rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-xs text-amber-950">
+            Ukjent blokk <strong className="font-mono">{blockId}</strong> — ikke i layout-registeret.
           </div>
-        }
-        footer={
-          <span className="text-neutral-500">
-            {insSearch.trim()
-              ? `${inspectionsFiltered.length} treff`
-              : `Viser ${inspectionsFiltered.length} inspeksjoner`}
-          </span>
-        }
-      >
-        <>
-          <table className="w-full min-w-[520px] border-collapse text-left text-sm">
-            <thead>
-              <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
-                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type</th>
-                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Gjennomført</th>
-                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Ansvarlig</th>
-                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Avvik</th>
-                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
-                <th className={`w-12 ${LAYOUT_TABLE1_POSTINGS_TH}`} aria-label="Handling" />
-              </tr>
-            </thead>
-            <tbody>
-              {inspectionsFiltered.map((ins) => (
-                <InspectionTableRow
-                  key={ins.id}
-                  ins={ins}
-                  rowClass={LAYOUT_TABLE1_POSTINGS_BODY_ROW}
-                  cellClass={layoutTableCell}
-                  actionStyle="icon"
-                  onOpen={() => openEditInspectionPanel(ins)}
-                />
-              ))}
-            </tbody>
-          </table>
-          {inspectionsFiltered.length === 0 ? (
-            <p className="px-5 py-10 text-center text-sm text-neutral-500">Ingen inspeksjoner matcher søket.</p>
-          ) : null}
-        </>
-      </LayoutTable1PostingsShell>
-    ) : null
+        )
+      }
 
-    const calendarBlock = showCalendar ? (
-      <div key="inspections-calendar" className="min-w-0">
-        <WorkplaceEventsDayCard
-          surface="flat"
-          cardTitle="Inspeksjoner etter dato"
-          badge={inspectionCalendarAllItems.length}
-          dateLabel={inspectionsCalendarDayLabel}
-          onPrevDay={() => setInspectionsCalendarDayOffset((x) => x - 1)}
-          onNextDay={() => setInspectionsCalendarDayOffset((x) => x + 1)}
-          datePickerSlot={
-            <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-800">
-              <Calendar className="size-3.5 shrink-0 text-neutral-500" aria-hidden />
-              <input
-                type="date"
-                value={inspectionsCalendarDayIso}
-                onChange={(e) => setInspectionsCalendarDayFromIso(e.target.value)}
-                className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900"
+      switch (id) {
+        case 'heading1':
+          return (
+            <WorkplacePageHeading1
+              breadcrumb={[]}
+              title="Inspeksjoner"
+              description={INSPECTIONS_PAGE_DESCRIPTION}
+            />
+          )
+        case 'scoreStatRow':
+          return (
+            <LayoutScoreStatRow
+              items={[
+                { big: String(inspectionLayoutStats.total), title: 'Totalt', sub: 'I registeret' },
+                { big: String(inspectionLayoutStats.open), title: 'Åpne', sub: 'Pågår' },
+                {
+                  big: String(inspectionLayoutStats.closedUnlocked),
+                  title: 'Lukket (utkast)',
+                  sub: 'Kan låses',
+                },
+                { big: String(inspectionLayoutStats.locked), title: 'Låst', sub: 'Arkiv' },
+              ]}
+            />
+          )
+        case 'workplaceTasksActions':
+          return (
+            <WorkplaceTasksActionButtonsRow>
+              <WorkplaceTasksPrimaryButton label="Ny inspeksjon" onClick={openNewInspectionPanel} />
+            </WorkplaceTasksActionButtonsRow>
+          )
+        case 'table1':
+          return (
+            <LayoutTable1PostingsShell
+              wrap
+              title="Inspeksjoner"
+              description="Tidligere inspeksjoner — sortert etter gjennomført tid. Åpne en rad i sidevinduet for redigering, signatur og låsing."
+              toolbar={
+                <div className="relative min-w-[200px] flex-1">
+                  <label className="sr-only" htmlFor="ins-search-layout">
+                    Søk
+                  </label>
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                  <input
+                    id="ins-search-layout"
+                    type="search"
+                    value={insSearch}
+                    onChange={(e) => setInsSearch(e.target.value)}
+                    placeholder="Søk i tittel, omfang, funn …"
+                    className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
+                  />
+                </div>
+              }
+              footer={
+                <span className="text-neutral-500">
+                  {insSearch.trim()
+                    ? `${inspectionsFiltered.length} treff`
+                    : `Viser ${inspectionsFiltered.length} inspeksjoner`}
+                </span>
+              }
+            >
+              <>
+                <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
+                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
+                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type</th>
+                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Gjennomført</th>
+                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Ansvarlig</th>
+                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Avvik</th>
+                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
+                      <th className={`w-12 ${LAYOUT_TABLE1_POSTINGS_TH}`} aria-label="Handling" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inspectionsFiltered.map((ins) => (
+                      <InspectionTableRow
+                        key={ins.id}
+                        ins={ins}
+                        rowClass={LAYOUT_TABLE1_POSTINGS_BODY_ROW}
+                        cellClass={layoutTableCell}
+                        actionStyle="icon"
+                        onOpen={() => openEditInspectionPanel(ins)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+                {inspectionsFiltered.length === 0 ? (
+                  <p className="px-5 py-10 text-center text-sm text-neutral-500">Ingen inspeksjoner matcher søket.</p>
+                ) : null}
+              </>
+            </LayoutTable1PostingsShell>
+          )
+        case 'vernerunderScheduleCalendar':
+          return (
+            <div className="min-w-0">
+              <WorkplaceEventsDayCard
+                surface="flat"
+                cardTitle="Inspeksjoner etter dato"
+                badge={inspectionCalendarAllItems.length}
+                dateLabel={inspectionsCalendarDayLabel}
+                onPrevDay={() => setInspectionsCalendarDayOffset((x) => x - 1)}
+                onNextDay={() => setInspectionsCalendarDayOffset((x) => x + 1)}
+                datePickerSlot={
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-800">
+                    <Calendar className="size-3.5 shrink-0 text-neutral-500" aria-hidden />
+                    <input
+                      type="date"
+                      value={inspectionsCalendarDayIso}
+                      onChange={(e) => setInspectionsCalendarDayFromIso(e.target.value)}
+                      className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900"
+                    />
+                  </label>
+                }
+                tabs={[
+                  {
+                    id: 'all',
+                    label: 'Alle',
+                    count: inspectionCalendarAllItems.length,
+                    items: inspectionCalendarAllItems,
+                    emptyHint: 'Ingen inspeksjoner registrert ennå.',
+                  },
+                  {
+                    id: 'day',
+                    label: 'Valgt dag',
+                    count: inspectionCalendarDayItems.length,
+                    items: inspectionCalendarDayItems,
+                    emptyHint: 'Ingen inspeksjoner på valgt dato.',
+                  },
+                ]}
+                defaultTabId="all"
               />
-            </label>
-          }
-          tabs={[
-            {
-              id: 'all',
-              label: 'Alle',
-              count: inspectionCalendarAllItems.length,
-              items: inspectionCalendarAllItems,
-              emptyHint: 'Ingen inspeksjoner registrert ennå.',
-            },
-            {
-              id: 'day',
-              label: 'Valgt dag',
-              count: inspectionCalendarDayItems.length,
-              items: inspectionCalendarDayItems,
-              emptyHint: 'Ingen inspeksjoner på valgt dato.',
-            },
-          ]}
-          defaultTabId="all"
-        />
-      </div>
-    ) : null
+            </div>
+          )
+        default:
+          return (
+            <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50/80 px-3 py-2 text-xs text-neutral-600">
+              <strong className="font-mono">{blockId}</strong> — ikke koblet til inspeksjoner-data ennå.
+            </div>
+          )
+      }
+    }
 
+    if (inspectionsGridResolved) {
+      return (
+        <WorkplacePublishedGridLayout
+          rows={inspectionsGridResolved.rows}
+          renderBlock={renderInspectionsComposerBlock}
+        />
+      )
+    }
+
+    const order = inspectionsTabLayout.order as LayoutComposerBlockId[]
+    const showTable = order.includes('table1')
+    const showCalendar = order.includes('vernerunderScheduleCalendar')
     const splitRow =
       showTable && showCalendar ? (
         <WorkplaceSplit7030Layout
           key="inspections-split"
           cardWrap={false}
-          main={<div className="min-w-0">{tableBlock}</div>}
-          aside={calendarBlock}
+          main={<div className="min-w-0">{renderInspectionsComposerBlock('table1')}</div>}
+          aside={renderInspectionsComposerBlock('vernerunderScheduleCalendar')}
         />
       ) : showTable ? (
         <div key="inspections-table-only" className="min-w-0">
-          {tableBlock}
+          {renderInspectionsComposerBlock('table1')}
         </div>
       ) : showCalendar ? (
-        calendarBlock
+        renderInspectionsComposerBlock('vernerunderScheduleCalendar')
       ) : null
-
-    const kpiBlock = showKpi ? (
-      <div key="inspections-scoreStatRow">
-        <LayoutScoreStatRow
-          items={[
-            { big: String(inspectionLayoutStats.total), title: 'Totalt', sub: 'I registeret' },
-            { big: String(inspectionLayoutStats.open), title: 'Åpne', sub: 'Pågår' },
-            {
-              big: String(inspectionLayoutStats.closedUnlocked),
-              title: 'Lukket (utkast)',
-              sub: 'Kan låses',
-            },
-            { big: String(inspectionLayoutStats.locked), title: 'Låst', sub: 'Arkiv' },
-          ]}
-        />
-      </div>
-    ) : null
 
     const nodes: ReactNode[] = []
     for (const seg of vernerunderVerticalSegments(order)) {
-      if (seg.kind === 'scoreStatRow' && kpiBlock) nodes.push(kpiBlock)
-      if (seg.kind === 'workplaceTasksActions' && actionsRow) nodes.push(actionsRow)
-      if (seg.kind === 'split' && splitRow) nodes.push(splitRow)
+      if (seg.kind === 'heading1' && order.includes('heading1')) {
+        nodes.push(<Fragment key="ins-heading1">{renderInspectionsComposerBlock('heading1')}</Fragment>)
+      }
+      if (seg.kind === 'scoreStatRow' && order.includes('scoreStatRow')) {
+        nodes.push(<Fragment key="ins-scoreStatRow">{renderInspectionsComposerBlock('scoreStatRow')}</Fragment>)
+      }
+      if (seg.kind === 'workplaceTasksActions' && order.includes('workplaceTasksActions')) {
+        nodes.push(
+          <Fragment key="ins-workplaceTasksActions">
+            {renderInspectionsComposerBlock('workplaceTasksActions')}
+          </Fragment>,
+        )
+      }
+      if (seg.kind === 'split' && splitRow) {
+        nodes.push(<Fragment key="ins-split">{splitRow}</Fragment>)
+      }
     }
 
-    return nodes
+    return <>{nodes}</>
   }, [
-    vernerunderTabLayout.order,
+    inspectionsGridResolved,
+    inspectionsTabLayout.order,
     inspectionLayoutStats.total,
     inspectionLayoutStats.open,
     inspectionLayoutStats.closedUnlocked,
@@ -2060,10 +2139,10 @@ export function HseModule() {
           .
         </p>
       }
-      showTitleBlock={tab !== 'rounds'}
+      showTitleBlock={tab !== 'rounds' && tab !== 'inspections'}
       hubAriaLabel="HSE / HMS — faner"
       hubItems={hseHubItems}
-      contentCard={tab !== 'rounds'}
+      contentCard={tab !== 'rounds' && tab !== 'inspections'}
     >
       {hse.error && (
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{hse.error}</p>
@@ -2571,43 +2650,21 @@ export function HseModule() {
         </div>
       )}
 
-      {/* ── Inspections — Layout_vernerunder (samme stack-mal som vernerunder, fra DB) ── */}
+      {/* ── Inspections — Layout_inspeksjoner (grid Komponer eller stack, fra DB) ── */}
       {tab === 'inspections' && (
         <div className="mt-2 min-w-0 space-y-6">
-          <div className="min-w-0 border-b border-neutral-200/80 pb-8">
-            <h2
-              className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-            >
-              Inspeksjoner
-            </h2>
-            <div className="mt-3 max-w-3xl space-y-3 text-sm leading-relaxed text-neutral-600">
-              <p>En inspeksjon er en målrettet og systematisk kontroll av utstyr, anlegg, prosesser eller tjenester.</p>
-              <p>
-                Den gjennomføres for å sikre at kvalitetskrav, sikkerhetsstandarder, lover og regler faktisk overholdes i
-                praksis.
-              </p>
-              <p>
-                Mens vernerunder fokuserer bredt på arbeidsmiljø, er inspeksjoner ofte mer tekniske og spisset mot
-                spesifikke fagområder.
-              </p>
-              <p>
-                Alle avvik og feil som avdekkes dokumenteres i en rapport som gir grunnlag for nødvendig vedlikehold eller
-                utbedringer.
-              </p>
-              <p>
-                De kan utføres internt av bedriften selv, eller eksternt av tilsynsmyndigheter og uavhengige
-                kontrollorganer.
-              </p>
-            </div>
-          </div>
-
-          {vernerunderTabLayout.presetNameMatched ? (
+          {inspectionsGridResolved ? (
             <p className="text-xs text-neutral-500">
-              Oppsett fra plattform-admin:{' '}
-              <span className="font-medium text-neutral-700">«{vernerunderTabLayout.presetNameMatched}»</span>
+              Oppsett fra plattform-admin (Komponer / rutenett):{' '}
+              <span className="font-medium text-neutral-700">«{inspectionsGridResolved.templateName}»</span>
+              {supabaseConfigured ? ' — samme rader og kolonnebredder (fr) som i layout-designer.' : '.'}
+            </p>
+          ) : inspectionsTabLayout.presetNameMatched ? (
+            <p className="text-xs text-neutral-500">
+              Oppsett fra plattform-admin (Layout-komponenter / stack):{' '}
+              <span className="font-medium text-neutral-700">«{inspectionsTabLayout.presetNameMatched}»</span>
               {supabaseConfigured
-                ? ' (oppdateres når publiserte stack-maler endres).'
+                ? ' (oppdateres når publiserte maler endres).'
                 : ' (lagret i denne nettleseren).'}
             </p>
           ) : null}
