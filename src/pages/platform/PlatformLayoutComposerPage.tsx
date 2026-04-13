@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
+import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
 import { WorkplaceNoticePanel } from '../../components/layout/WorkplaceNoticePanel'
 import {
   WorkplaceEditableNoticeList,
@@ -1095,6 +1096,50 @@ function ComposableScoreStatRowBlock() {
   )
 }
 
+const KPI_INFO_BOX_DEMO_ITEMS: LayoutScoreStatItem[] = [
+  { big: '12', title: 'Åpne punkter', sub: 'Siste 7 dager' },
+  { big: '48', title: 'Fullført', sub: 'Denne måneden' },
+  { big: '3', title: 'Varsler', sub: 'Krever oppmerksomhet' },
+  { big: '5', title: 'Frister', sub: 'Denne uken' },
+  { big: '98', title: 'Oppfylt %', sub: 'Siste kvartal' },
+  { big: '2', title: 'Avvik', sub: 'Under oppfølging' },
+]
+
+/** Informasjonsbokser — samme visuelle stil som KPI-stat-raden; antall bokser velges i demoen (1–6). */
+function ComposableKpiInfoBoxesBlock() {
+  const [boxCount, setBoxCount] = useState(3)
+  const n = Math.min(6, Math.max(1, boxCount))
+  const items = KPI_INFO_BOX_DEMO_ITEMS.slice(0, n)
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-neutral-200 bg-white/90 px-3 py-2.5">
+        <label htmlFor="composer-kpi-info-box-count" className="text-xs font-semibold text-neutral-800">
+          Antall bokser
+        </label>
+        <select
+          id="composer-kpi-info-box-count"
+          value={n}
+          onChange={(e) => setBoxCount(Number(e.target.value))}
+          className="rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-sm text-neutral-900"
+        >
+          {[1, 2, 3, 4, 5, 6].map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs text-neutral-500">Samme rutenett som Stat-rad (krem KPI-bokser).</span>
+      </div>
+      <LayoutScoreStatRow items={items} />
+      <p className="text-xs text-neutral-500">
+        Brukes når du trenger fleksibel bredde: én til seks informative KPI-lignende felt. I produksjon fylles innholdet av
+        moduldata; her er det demo-tekst per boks.
+      </p>
+    </div>
+  )
+}
+
 /** List 2: candidate / order table with search, filters strip, status pills, pagination (reference screenshot). */
 function ComposableList2Block() {
   const [search, setSearch] = useState('')
@@ -1595,6 +1640,11 @@ const BLOCKS = [
     hint: 'Stort tall, tittel, grå undertekst (krem bakgrunn) — som scorecard-rad mellom overskrift og liste.',
   },
   {
+    id: 'kpiInfoBoxes',
+    label: 'Boks — informasjon (KPI-rad, velg antall)',
+    hint: 'Samme stil som tre KPI-bokser; i komponisten velger du 1–6 bokser for forhåndsvisning.',
+  },
+  {
     id: 'noticeInfo',
     label: 'Boks — informasjon (liste)',
     hint: 'Varsel-stil: hvit kort, overskrift, badge, rader med info-ikon — som uleste varsler.',
@@ -1783,6 +1833,8 @@ function renderComposerBlock(id: BlockId): ReactNode {
       return <ComposableTableHeadingToolbarBlock />
     case 'scoreStatRow':
       return <ComposableScoreStatRowBlock />
+    case 'kpiInfoBoxes':
+      return <ComposableKpiInfoBoxesBlock />
     case 'noticeInfo':
       return <ComposableWorkplaceNoticeInfoBlock />
     case 'noticeWarning':
