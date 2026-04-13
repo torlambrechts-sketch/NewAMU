@@ -33,6 +33,11 @@ export type WorkplaceEventsFooter = {
 }
 
 export type WorkplaceEventsDayCardProps = {
+  /**
+   * `card` — standard hvit boks (layout «boks»).
+   * `flat` — ingen ytre hvit ramme/skygge; kun indre skiller (f.eks. Layout_vernerunder på kremflate).
+   */
+  surface?: 'card' | 'flat'
   /** Korttittel som «Liste agenda» — store bokstaver i header */
   cardTitle?: string
   /** Telling i badge (som agenda), standard = antall rader i aktiv fane */
@@ -60,6 +65,7 @@ function tabButtonClass(active: boolean) {
  * uppercase header + badge, verktøyrad på neutral-50/60, divide-y-rader med ikon-sirkel.
  */
 export function WorkplaceEventsDayCard({
+  surface = 'card',
   cardTitle = 'Dagens hendelser',
   badge: badgeProp,
   dateLabel,
@@ -87,8 +93,14 @@ export function WorkplaceEventsDayCard({
 
   const badge = badgeProp ?? items.length
 
+  const shellClass =
+    surface === 'flat'
+      ? `overflow-hidden rounded-none border-0 bg-transparent shadow-none ${className}`
+      : `${WORKPLACE_LAYOUT_BOX_CARD} ${className}`
+  const shellStyle = surface === 'flat' ? undefined : WORKPLACE_LAYOUT_BOX_SHADOW
+
   return (
-    <div className={`${WORKPLACE_LAYOUT_BOX_CARD} ${className}`} style={WORKPLACE_LAYOUT_BOX_SHADOW}>
+    <div className={shellClass.trim()} style={shellStyle}>
       <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
         <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">{cardTitle}</p>
         {badge != null && badge !== '' ? (

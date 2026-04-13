@@ -36,6 +36,14 @@ import {
 } from '../../components/layout/WorkplaceEditableNoticeList'
 import { WorkplaceEventsDayCard } from '../../components/layout/WorkplaceEventsDayCard'
 import { WorkplaceTodosCard } from '../../components/layout/WorkplaceTodosCard'
+import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
+import {
+  layoutTable1PostingsPrimaryButtonClass,
+  layoutTable1PostingsPrimaryButtonStyle,
+  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
+  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
+  LAYOUT_TABLE1_POSTINGS_TH,
+} from '../../components/layout/layoutTable1PostingsKit'
 import {
   loadComposerPresets,
   loadComposerSession,
@@ -257,91 +265,88 @@ function ComposableHeading1Block() {
   )
 }
 
-/** Table 1: Postings card (search, table, pagination). */
+/** Table 1: Postings — delt skall med {@link LayoutTable1PostingsShell} (wrap på krem/hvit demo). */
 function ComposablePostingsTableBlock() {
   return (
-    <WhiteCard className="overflow-hidden p-0">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
-        <div>
-          <SerifHeading className="text-xl">Postings</SerifHeading>
-          <p className="mt-1 text-sm text-neutral-600">Create and manage multiple postings for this job</p>
-        </div>
-        <button
-          type="button"
-          className="rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
-          style={{ backgroundColor: FOREST }}
-        >
+    <LayoutTable1PostingsShell
+      title="Postings"
+      description="Create and manage multiple postings for this job"
+      headerActions={
+        <button type="button" className={layoutTable1PostingsPrimaryButtonClass()} style={layoutTable1PostingsPrimaryButtonStyle()}>
           + Create posting
         </button>
-      </div>
-      <div className="flex flex-wrap items-center gap-3 border-b border-neutral-100 px-5 py-3">
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-          <input
-            type="search"
-            placeholder="Search…"
-            className="w-full rounded-lg border border-neutral-200 py-2 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
-          />
-        </div>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:text-neutral-900"
-        >
-          <Filter className="size-3.5" />
-          Filters
-        </button>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[520px] text-left text-sm">
-          <thead>
-            <tr className="border-b border-neutral-200 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
-              <th className="px-5 py-3">Name</th>
-              <th className="px-5 py-3">Job title</th>
-              <th className="px-5 py-3">Location</th>
-              <th className="px-5 py-3">Status</th>
-              <th className="w-12 px-5 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-b border-neutral-100 hover:bg-neutral-50/80">
-              <td className="px-5 py-3 font-medium text-neutral-900">Default</td>
-              <td className="px-5 py-3 text-neutral-700">HR-rådgiver</td>
-              <td className="px-5 py-3 text-neutral-700">London</td>
-              <td className="px-5 py-3">
-                <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-900">
-                  Active
-                </span>
-              </td>
-              <td className="px-5 py-3 text-right">
-                <button type="button" className="text-neutral-400 hover:text-neutral-700" aria-label="Meny">
-                  <MoreHorizontal className="size-5" />
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 px-5 py-3 text-xs text-neutral-600">
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2">
-            <span className="text-neutral-500">Items per page</span>
-            <select className="rounded-md border border-neutral-200 bg-white px-2 py-1">
-              <option>10</option>
-              <option>25</option>
-            </select>
-          </label>
-          <span className="text-neutral-500">Showing 1 – 1 of 1</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <button type="button" className="rounded p-1 text-neutral-400 hover:bg-neutral-100" aria-label="Forrige">
-            <ChevronLeft className="size-4" />
+      }
+      toolbar={
+        <>
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+            <input
+              type="search"
+              placeholder="Search…"
+              className="w-full rounded-lg border border-neutral-200 py-2 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
+            />
+          </div>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:text-neutral-900"
+          >
+            <Filter className="size-3.5" />
+            Filters
           </button>
-          <button type="button" className="rounded p-1 text-neutral-400 hover:bg-neutral-100" aria-label="Neste">
-            <ChevronRight className="size-4" />
-          </button>
-        </div>
-      </div>
-    </WhiteCard>
+        </>
+      }
+      footer={
+        <>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2">
+              <span className="text-neutral-500">Items per page</span>
+              <select className="rounded-md border border-neutral-200 bg-white px-2 py-1">
+                <option>10</option>
+                <option>25</option>
+              </select>
+            </label>
+            <span className="text-neutral-500">Showing 1 – 1 of 1</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button type="button" className="rounded p-1 text-neutral-400 hover:bg-neutral-100" aria-label="Forrige">
+              <ChevronLeft className="size-4" />
+            </button>
+            <button type="button" className="rounded p-1 text-neutral-400 hover:bg-neutral-100" aria-label="Neste">
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
+        </>
+      }
+    >
+      <table className="w-full min-w-[520px] text-left text-sm">
+        <thead>
+          <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
+            <th className={LAYOUT_TABLE1_POSTINGS_TH}>Name</th>
+            <th className={LAYOUT_TABLE1_POSTINGS_TH}>Job title</th>
+            <th className={LAYOUT_TABLE1_POSTINGS_TH}>Location</th>
+            <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
+            <th className={`w-12 ${LAYOUT_TABLE1_POSTINGS_TH}`} />
+          </tr>
+        </thead>
+        <tbody>
+          <tr className={LAYOUT_TABLE1_POSTINGS_BODY_ROW}>
+            <td className="px-5 py-3 font-medium text-neutral-900">Default</td>
+            <td className="px-5 py-3 text-neutral-700">HR-rådgiver</td>
+            <td className="px-5 py-3 text-neutral-700">London</td>
+            <td className="px-5 py-3">
+              <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-900">
+                Active
+              </span>
+            </td>
+            <td className="px-5 py-3 text-right">
+              <button type="button" className="text-neutral-400 hover:text-neutral-700" aria-label="Meny">
+                <MoreHorizontal className="size-5" />
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </LayoutTable1PostingsShell>
   )
 }
 
