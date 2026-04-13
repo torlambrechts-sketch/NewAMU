@@ -32,7 +32,6 @@ import {
   X,
 } from 'lucide-react'
 import { ComplianceModuleChrome } from '../components/compliance/ComplianceModuleChrome'
-import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { mergeSickLeaveMilestonesOnDateChange, useHse } from '../hooks/useHse'
 import { useOrganisation } from '../hooks/useOrganisation'
@@ -993,8 +992,10 @@ export function HseModule() {
 
       switch (id) {
         case 'heading1':
+        case 'pageHeading1':
+        case 'hubMenu1Bar':
           // ComplianceModuleChrome already renders breadcrumb + title + hub menu.
-          // The heading1 layout block is a no-op here to avoid a duplicate header.
+          // These layout blocks are no-ops here to avoid a duplicate header.
           return null
         case 'scoreStatRow':
           return (
@@ -1174,8 +1175,9 @@ export function HseModule() {
 
     const nodes: ReactNode[] = []
     for (const seg of vernerunderVerticalSegments(order)) {
-      if (seg.kind === 'heading1' && order.includes('heading1')) {
-        nodes.push(<Fragment key="heading1">{renderVernerunderComposerBlock('heading1')}</Fragment>)
+      if ((seg.kind === 'pageHeading1' || seg.kind === 'hubMenu1Bar') &&
+          (order.includes('pageHeading1') || order.includes('hubMenu1Bar'))) {
+        // no-op: ComplianceModuleChrome owns the heading + hub
       }
       if (seg.kind === 'scoreStatRow' && order.includes('scoreStatRow')) {
         nodes.push(<Fragment key="scoreStatRow">{renderVernerunderComposerBlock('scoreStatRow')}</Fragment>)
@@ -1458,13 +1460,10 @@ export function HseModule() {
 
       switch (id) {
         case 'heading1':
-          return (
-            <WorkplacePageHeading1
-              breadcrumb={[]}
-              title="Inspeksjoner"
-              description={INSPECTIONS_PAGE_DESCRIPTION}
-            />
-          )
+        case 'pageHeading1':
+        case 'hubMenu1Bar':
+          // ComplianceModuleChrome already renders breadcrumb + title + hub menu.
+          return null
         case 'scoreStatRow':
           return (
             <LayoutScoreStatRow
@@ -1628,20 +1627,17 @@ export function HseModule() {
 
     const nodes: ReactNode[] = []
     for (const seg of vernerunderVerticalSegments(order)) {
-      if (seg.kind === 'heading1' && order.includes('heading1')) {
-        nodes.push(<Fragment key="ins-heading1">{renderInspectionsComposerBlock('heading1')}</Fragment>)
-      }
-      if (seg.kind === 'scoreStatRow' && order.includes('scoreStatRow')) {
+      if (seg.kind === 'pageHeading1' || seg.kind === 'hubMenu1Bar') {
+        // no-op: ComplianceModuleChrome owns the heading + hub
+      } else if (seg.kind === 'scoreStatRow' && order.includes('scoreStatRow')) {
         nodes.push(<Fragment key="ins-scoreStatRow">{renderInspectionsComposerBlock('scoreStatRow')}</Fragment>)
-      }
-      if (seg.kind === 'workplaceTasksActions' && order.includes('workplaceTasksActions')) {
+      } else if (seg.kind === 'workplaceTasksActions' && order.includes('workplaceTasksActions')) {
         nodes.push(
           <Fragment key="ins-workplaceTasksActions">
             {renderInspectionsComposerBlock('workplaceTasksActions')}
           </Fragment>,
         )
-      }
-      if (seg.kind === 'split' && splitRow) {
+      } else if (seg.kind === 'split' && splitRow) {
         nodes.push(<Fragment key="ins-split">{splitRow}</Fragment>)
       }
     }
@@ -2156,19 +2152,21 @@ export function HseModule() {
       description={
         tab === 'rounds' || tab === 'rounds2'
           ? VERNERUNDER_PAGE_DESCRIPTION
-          : (
-            <p className="max-w-2xl">
-              Vernerunder, inspeksjoner, SJA, sykefraværsoppfølging og revisjonslogg. Hendelser finner du under{' '}
-              <Link to="/workplace-reporting/incidents" className="text-[#1a3d32] underline">
-                Arbeidsplassrapportering
-              </Link>
-              . Støtteverktøy — verifiser mot{' '}
-              <a href="https://lovdata.no" className="text-[#1a3d32] underline" target="_blank" rel="noreferrer">
-                lovdata.no
-              </a>
-              .
-            </p>
-          )
+          : tab === 'inspections'
+            ? INSPECTIONS_PAGE_DESCRIPTION
+            : (
+              <p className="max-w-2xl">
+                Vernerunder, inspeksjoner, SJA, sykefraværsoppfølging og revisjonslogg. Hendelser finner du under{' '}
+                <Link to="/workplace-reporting/incidents" className="text-[#1a3d32] underline">
+                  Arbeidsplassrapportering
+                </Link>
+                . Støtteverktøy — verifiser mot{' '}
+                <a href="https://lovdata.no" className="text-[#1a3d32] underline" target="_blank" rel="noreferrer">
+                  lovdata.no
+                </a>
+                .
+              </p>
+            )
       }
       showTitleBlock={tab !== 'rounds' && tab !== 'rounds2' && tab !== 'inspections'}
       hubAriaLabel="HSE / HMS — faner"
