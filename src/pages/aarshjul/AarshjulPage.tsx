@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, ChevronRight } from 'lucide-react'
 import { useCouncil } from '../../hooks/useCouncil'
 import { useHse } from '../../hooks/useHse'
+import { isSafetyRoundUpcoming, safetyRoundCalendarDateIso } from '../../lib/safetyRoundCalendar'
 import { useInternalControl } from '../../hooks/useInternalControl'
 import { useOrgHealth } from '../../hooks/useOrgHealth'
 import { useLearning } from '../../hooks/useLearning'
@@ -113,13 +114,28 @@ export function AarshjulPage() {
         })
       })
 
-    // Safety rounds
-    hse.safetyRounds
-      .filter((r) => new Date(r.conductedAt).getFullYear() === year)
-      .forEach((r) => {
-        const { month } = isoToMonthYear(r.conductedAt)
-        all.push({ id: r.id, kind: 'safety_round', label: r.title, month, year, status: 'done', link: '/hse?tab=rounds', detail: r.location })
+    // Safety rounds (planlagt = kalenderdato fra plannedAt; ellers gjennomført)
+    hse.safetyRounds.forEach((r) => {
+      const calIso = safetyRoundCalendarDateIso(r)
+      if (new Date(calIso).getFullYear() !== year) return
+      const { month } = isoToMonthYear(calIso)
+      const planned = r.scheduleKind === 'planned'
+      const st = planned
+        ? isSafetyRoundUpcoming(r)
+          ? 'pending'
+          : 'overdue'
+        : 'done'
+      all.push({
+        id: r.id,
+        kind: 'safety_round',
+        label: r.title,
+        month,
+        year,
+        status: st,
+        link: '/hse?tab=rounds',
+        detail: planned ? `Planlagt · ${r.location}` : r.location,
       })
+    })
 
     // Inspections
     hse.inspections

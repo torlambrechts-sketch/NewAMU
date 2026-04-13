@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { Mainbox1 } from '../components/layout/Mainbox1'
@@ -38,6 +38,12 @@ import {
   table1CellPadding,
   table1HeaderRowClass,
 } from '../lib/layoutLabTokens'
+import { resolveVernerunderTabLayoutFromPublishedRows } from '../lib/vernerunderLayoutFromPreset'
+import { isSafetyRoundUpcoming, safetyRoundCalendarDateIso, safetyRoundCalendarTimeLabel } from '../lib/safetyRoundCalendar'
+import { renderLayoutComposerBlock } from '../pages/platform/PlatformLayoutComposerPage'
+import { LayoutScoreStatRow } from '../components/layout/LayoutScoreStatRow'
+import { WorkplaceEventsDayCard } from '../components/layout/WorkplaceEventsDayCard'
+import { useWorkplacePublishedComposerStacks } from '../hooks/useWorkplacePublishedComposerStacks'
 import { SAFETY_ROUND_TEMPLATE_ID, TRAINING_KIND_LABELS } from '../data/hseTemplates'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeSickLeaveWizard, makeSjaWizard, makeSafetyRoundWizard } from '../components/wizard/wizards'
@@ -163,6 +169,7 @@ function isoToDatetimeLocal(iso: string) {
 
 export function HseModule() {
   const hse = useHse()
+  const { publishedStackTemplates } = useWorkplacePublishedComposerStacks()
   const { supabaseConfigured, supabase, organization, profile, user, isAdmin, departments } = useOrgSetupContext()
   const org = useOrganisation()
   const { addTask } = useTasks()
@@ -194,6 +201,8 @@ export function HseModule() {
 
   const [roundSearch, setRoundSearch] = useState('')
   const [roundPanelId, setRoundPanelId] = useState<string | null>(null)
+  const [schedulePanelOpen, setSchedulePanelOpen] = useState(false)
+  const [calendarDayOffset, setCalendarDayOffset] = useState(0)
   const [roundDraft, setRoundDraft] = useState({
     templateId: 'tpl-standard',
     title: '',
@@ -201,6 +210,18 @@ export function HseModule() {
     location: '',
     department: '',
     notes: '',
+  })
+
+  const [scheduleDraft, setScheduleDraft] = useState({
+    mode: 'single' as 'single' | 'series',
+    templateId: 'tpl-standard',
+    title: '',
+    plannedAt: '',
+    location: '',
+    department: '',
+    notes: '',
+    intervalWeeks: 4,
+    seriesEndAt: '',
   })
 
   const [inspectionPanelOpen, setInspectionPanelOpen] = useState(false)
@@ -584,12 +605,79 @@ export function HseModule() {
     const list = hse.safetyRounds
     return {
       total: list.length,
-      inProgress: list.filter((r) => r.status === 'in_progress').length,
+      planned: list.filter((r) => r.scheduleKind === 'planned' && isSafetyRoundUpcoming(r)).length,
+      inProgress: list.filter((r) => r.status === 'in_progress' && r.scheduleKind !== 'planned').length,
       pending: list.filter((r) => r.status === 'pending_verneombud' || r.status === 'pending_approval').length,
       approved: list.filter((r) => r.status === 'approved').length,
       withIssues: list.filter((r) => Object.values(r.items).some((v) => v === 'issue')).length,
     }
   }, [hse.safetyRounds])
+
+  const [vernerunderTabLayout, setVernerunderTabLayout] = useState(() =>
+    resolveVernerunderTabLayoutFromPublishedRows(null),
+  )
+
+  useEffect(() => {
+    setVernerunderTabLayout(resolveVernerunderTabLayoutFromPublishedRows(publishedStackTemplates))
+  }, [publishedStackTemplates])
+
+  const calendarSelectedDate = useMemo(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() + calendarDayOffset)
+    return d
+  }, [calendarDayOffset])
+
+  const calendarDayIso = useMemo(
+    () => calendarSelectedDate.toISOString().slice(0, 10),
+    [calendarSelectedDate],
+  )
+
+  const calendarDayLabel = useMemo(() => {
+    const s = calendarSelectedDate.toLocaleDateString('nb-NO', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+    return s.charAt(0).toUpperCase() + s.slice(1)
+  }, [calendarSelectedDate])
+
+  const upcomingSafetyRounds = useMemo(
+    () => hse.safetyRounds.filter((r) => isSafetyRoundUpcoming(r)),
+    [hse.safetyRounds],
+  )
+
+  const roundsOnCalendarDay = useMemo(() => {
+    return upcomingSafetyRounds
+      .filter((r) => safetyRoundCalendarDateIso(r) === calendarDayIso)
+      .sort((a, b) => {
+        const ta = new Date(a.scheduleKind === 'planned' && a.plannedAt ? a.plannedAt : a.conductedAt).getTime()
+        const tb = new Date(b.scheduleKind === 'planned' && b.plannedAt ? b.plannedAt : b.conductedAt).getTime()
+        return ta - tb
+      })
+  }, [upcomingSafetyRounds, calendarDayIso])
+
+  const calendarEventsItems = useMemo(
+    () =>
+      roundsOnCalendarDay.map((r) => {
+        const iso = r.scheduleKind === 'planned' && r.plannedAt ? r.plannedAt : r.conductedAt
+        const time = safetyRoundCalendarTimeLabel(iso)
+        const cat =
+          r.scheduleKind === 'planned'
+            ? r.seriesId
+              ? 'Planlagt · serie'
+              : 'Planlagt'
+            : 'Registrert (kommende)'
+        return {
+          id: r.id,
+          category: cat,
+          title: r.title,
+          startLabel: time || 'Hele dagen',
+        }
+      }),
+    [roundsOnCalendarDay],
+  )
 
   const roundsFiltered = useMemo(() => {
     const q = roundSearch.trim().toLowerCase()
@@ -603,7 +691,14 @@ export function HseModule() {
           r.conductedBy.toLowerCase().includes(q),
       )
     }
-    list.sort((a, b) => b.conductedAt.localeCompare(a.conductedAt))
+    list.sort((a, b) => {
+      const da = safetyRoundCalendarDateIso(a)
+      const db = safetyRoundCalendarDateIso(b)
+      if (da !== db) return db.localeCompare(da)
+      const ta = new Date(a.scheduleKind === 'planned' && a.plannedAt ? a.plannedAt : a.conductedAt).getTime()
+      const tb = new Date(b.scheduleKind === 'planned' && b.plannedAt ? b.plannedAt : b.conductedAt).getTime()
+      return tb - ta
+    })
     return list
   }, [hse.safetyRounds, roundSearch])
 
@@ -618,6 +713,63 @@ export function HseModule() {
   const closeRoundPanel = useCallback(() => {
     setRoundPanelId(null)
   }, [])
+
+  const submitSchedule = useCallback(() => {
+    const title = scheduleDraft.title.trim()
+    const plannedAt = scheduleDraft.plannedAt.trim()
+    if (!title || !plannedAt) return
+    const conductedBy =
+      profile?.display_name?.trim() || user?.email?.trim() || 'Registrert bruker'
+    const base = {
+      title,
+      conductedAt: new Date(plannedAt).toISOString(),
+      location: scheduleDraft.location.trim() || '—',
+      department: scheduleDraft.department.trim() || undefined,
+      conductedBy,
+      notes: scheduleDraft.notes.trim() || '',
+      checklistTemplateId: scheduleDraft.templateId,
+      scheduleKind: 'planned' as const,
+      plannedAt: new Date(plannedAt).toISOString(),
+    }
+    if (scheduleDraft.mode === 'single') {
+      const sr = hse.createSafetyRound(base)
+      openRoundPanel(sr.id)
+    } else {
+      const interval = Math.max(1, Math.floor(scheduleDraft.intervalWeeks || 1))
+      const endRaw = scheduleDraft.seriesEndAt.trim()
+      if (!endRaw) return
+      const start = new Date(plannedAt)
+      const end = new Date(endRaw)
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return
+      const seriesId = crypto.randomUUID()
+      let cursor = new Date(start)
+      const createdIds: string[] = []
+      while (cursor <= end) {
+        const iso = cursor.toISOString()
+        const sr = hse.createSafetyRound({
+          ...base,
+          title: `${title} (${iso.slice(0, 10)})`,
+          conductedAt: iso,
+          plannedAt: iso,
+          seriesId,
+          seriesIntervalWeeks: interval,
+          seriesEndPlannedAt: end.toISOString(),
+        })
+        createdIds.push(sr.id)
+        cursor = new Date(cursor)
+        cursor.setDate(cursor.getDate() + interval * 7)
+      }
+      if (createdIds[0]) openRoundPanel(createdIds[0])
+    }
+    setSchedulePanelOpen(false)
+    setScheduleDraft((d) => ({
+      ...d,
+      title: '',
+      plannedAt: '',
+      notes: '',
+      seriesEndAt: '',
+    }))
+  }, [scheduleDraft, hse, profile?.display_name, user?.email, openRoundPanel])
 
   useEffect(() => {
     try {
@@ -649,22 +801,216 @@ export function HseModule() {
   }, [roundDraft])
 
   useEffect(() => {
-    if (!roundPanelId) return
+    if (!roundPanelId && !schedulePanelOpen) return
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
       document.body.style.overflow = prev
     }
-  }, [roundPanelId])
+  }, [roundPanelId, schedulePanelOpen])
 
   useEffect(() => {
-    if (!roundPanelId) return
+    if (!roundPanelId && !schedulePanelOpen) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeRoundPanel()
+      if (e.key !== 'Escape') return
+      if (roundPanelId) closeRoundPanel()
+      if (schedulePanelOpen) setSchedulePanelOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [roundPanelId, closeRoundPanel])
+  }, [roundPanelId, schedulePanelOpen, closeRoundPanel])
+
+  const openSchedulePanel = useCallback(() => setSchedulePanelOpen(true), [])
+  const closeSchedulePanel = useCallback(() => setSchedulePanelOpen(false), [])
+
+  const setCalendarDayFromIso = useCallback((isoDate: string) => {
+    if (!isoDate) return
+    const pick = new Date(`${isoDate}T12:00:00`)
+    if (Number.isNaN(pick.getTime())) return
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const pick0 = new Date(pick.getFullYear(), pick.getMonth(), pick.getDate())
+    const diff = Math.round((pick0.getTime() - today.getTime()) / 86400000)
+    setCalendarDayOffset(diff)
+  }, [])
+
+  const vernerunderLayoutNodes = useMemo(() => {
+    const order = vernerunderTabLayout.order
+    const nodes: ReactNode[] = []
+    for (const id of order) {
+      if (id === 'scoreStatRow') {
+        nodes.push(
+          <div key="scoreStatRow">
+            <LayoutScoreStatRow
+              items={[
+                { big: String(roundStats.total), title: 'Totalt', sub: 'I registeret' },
+                { big: String(roundStats.planned), title: 'Planlagt', sub: 'Kommende' },
+                { big: String(roundStats.inProgress), title: 'Utfylling', sub: 'Ikke planlagt' },
+                { big: String(roundStats.approved), title: 'Godkjent', sub: 'Arkiv' },
+              ]}
+            />
+          </div>,
+        )
+      } else if (id === 'vernerunderScheduleCalendar') {
+        nodes.push(
+          <div key="vernerunderScheduleCalendar" className="space-y-2">
+            <WorkplaceEventsDayCard
+              cardTitle="Kommende vernerunder — valgt dag"
+              badge={calendarEventsItems.length}
+              dateLabel={calendarDayLabel}
+              onPrevDay={() => setCalendarDayOffset((x) => x - 1)}
+              onNextDay={() => setCalendarDayOffset((x) => x + 1)}
+              datePickerSlot={
+                <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-800">
+                  <Calendar className="size-3.5 shrink-0 text-neutral-500" aria-hidden />
+                  <input
+                    type="date"
+                    value={calendarDayIso}
+                    onChange={(e) => setCalendarDayFromIso(e.target.value)}
+                    className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900"
+                  />
+                </label>
+              }
+              tabs={[{ id: 'upcoming', label: 'På denne dagen', count: calendarEventsItems.length, items: calendarEventsItems }]}
+              defaultTabId="upcoming"
+              footer={{
+                label: 'Planlegg vernerunde (én eller serie)',
+                onMoreClick: openSchedulePanel,
+              }}
+            />
+            <p className="text-xs text-neutral-500">
+              Planlagte runder vises i årshjulet. Tabellen under viser både tidligere og kommende runder — sortert etter dato.
+            </p>
+          </div>,
+        )
+      } else if (id === 'table1') {
+        nodes.push(
+          <div key="table1">
+            <Mainbox1
+              title="Vernerunder"
+              subtitle="Tidligere og kommende — sortert etter dato. Åpne raden for sjekkliste, avvik og signatur."
+            >
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={openNewRoundPanel}
+                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                >
+                  <Plus className="size-4 shrink-0" />
+                  Registrer gjennomført runde
+                </button>
+                <button
+                  type="button"
+                  onClick={openSchedulePanel}
+                  className={`${HERO_ACTION_CLASS} gap-2 border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50`}
+                >
+                  <Calendar className="size-4 shrink-0" />
+                  Planlegg i kalender
+                </button>
+                <WizardButton
+                  label="Veiviser"
+                  variant="solid"
+                  className={HERO_ACTION_CLASS}
+                  def={makeSafetyRoundWizard(
+                    (data) => {
+                      const sr = hse.createSafetyRound({
+                        title: String(data.title),
+                        conductedAt: new Date(String(data.conductedAt)).toISOString(),
+                        location: String(data.location) || '—',
+                        department: String(data.department) || undefined,
+                        conductedBy:
+                          profile?.display_name?.trim() || user?.email?.trim() || 'Registrert bruker',
+                        notes: String(data.notes) || '',
+                        checklistTemplateId: String(data.templateId) || SAFETY_ROUND_TEMPLATE_ID,
+                      })
+                      openRoundPanel(sr.id)
+                    },
+                    hse.checklistTemplates.map((t) => ({ value: t.id, label: t.name })),
+                  )}
+                />
+              </div>
+              <Table1Shell
+                variant="pinpoint"
+                toolbar={
+                  <Table1Toolbar
+                    searchSlot={
+                      <div className="min-w-[200px] flex-1">
+                        <label className="sr-only" htmlFor="round-search">
+                          Søk
+                        </label>
+                        <input
+                          id="round-search"
+                          value={roundSearch}
+                          onChange={(e) => setRoundSearch(e.target.value)}
+                          placeholder="Søk i tittel, sted, avdeling …"
+                          className={`${SETTINGS_INPUT} bg-white`}
+                        />
+                      </div>
+                    }
+                  />
+                }
+              >
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border-collapse text-left">
+                    <thead>
+                      <tr className={theadRow}>
+                        <th className={tableCell}>Tittel</th>
+                        <th className={tableCell}>Lokasjon</th>
+                        <th className={tableCell}>Type / status</th>
+                        <th className={tableCell}>Dato</th>
+                        <th className={tableCell}>Avvik</th>
+                        <th className={`${tableCell} text-right`}>Handling</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {roundsFiltered.map((sr, ri) => (
+                        <SafetyRoundTableRow
+                          key={sr.id}
+                          round={sr}
+                          templates={hse.checklistTemplates}
+                          rowClass={table1BodyRowClass(layout, ri)}
+                          cellClass={tableCell}
+                          onOpen={() => openRoundPanel(sr.id)}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {roundsFiltered.length === 0 ? (
+                  <p className="px-4 py-10 text-center text-sm text-neutral-500">Ingen runder matcher søket.</p>
+                ) : null}
+              </Table1Shell>
+            </Mainbox1>
+          </div>,
+        )
+      } else {
+        const demo = renderLayoutComposerBlock(id)
+        if (demo) nodes.push(<div key={id}>{demo}</div>)
+      }
+    }
+    return nodes
+  }, [
+    vernerunderTabLayout.order,
+    roundStats.total,
+    roundStats.planned,
+    roundStats.inProgress,
+    roundStats.approved,
+    calendarDayLabel,
+    calendarDayIso,
+    calendarEventsItems,
+    roundsFiltered,
+    roundSearch,
+    layout,
+    theadRow,
+    tableCell,
+    hse,
+    profile?.display_name,
+    user?.email,
+    openNewRoundPanel,
+    openSchedulePanel,
+    openRoundPanel,
+    setCalendarDayFromIso,
+  ])
 
   const inspectionsFiltered = useMemo(() => {
     const q = insSearch.trim().toLowerCase()
@@ -1379,7 +1725,7 @@ export function HseModule() {
         </div>
       )}
 
-      {/* ── Safety rounds (samme mønster som inspeksjoner) ───────────────────── */}
+      {/* ── Safety rounds — Layout_vernerunder (DB / lokal stack-mal) ─────────── */}
       {tab === 'rounds' && (
         <div className="mt-8 space-y-6">
           <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between">
@@ -1391,132 +1737,205 @@ export function HseModule() {
                 Vernerunder
               </h2>
               <p className="mt-1 max-w-2xl text-sm text-neutral-600">
-                Velg mal — sjekklisten lastes inn med én gang. Registrer avvik per punkt (bilde + kommentar). Ved signering (leder + verneombud, nivå 1) låses runden og åpne avvik sendes til Kanban-tavlen. Utkast lagres lokalt i nettleseren til du oppretter runden (støtte for arbeid uten nett).
+                Planlegg kommende runder i kalenderen (én eller serie med intervall), eller registrer en gjennomført runde. Sjekklisten lastes fra valgt mal; ved signering (leder + verneombud) låses runden og åpne avvik kan sendes til Kanban.
               </p>
-              <div className="mt-5 flex flex-wrap items-center gap-2">
-                <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-                  Totalt <strong className="ml-1 font-semibold">{roundStats.total}</strong>
-                </span>
-                <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
-                  Pågår <strong className="ml-1 font-semibold">{roundStats.inProgress}</strong>
-                </span>
-                <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
-                  Signering <strong className="ml-1 font-semibold">{roundStats.pending}</strong>
-                </span>
-                <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
-                  Låst <strong className="ml-1 font-semibold">{roundStats.approved}</strong>
-                </span>
-                <span className={`${HERO_ACTION_CLASS} bg-rose-50 text-rose-900 ring-1 ring-rose-200`}>
-                  Med avvik <strong className="ml-1 font-semibold">{roundStats.withIssues}</strong>
-                </span>
-                <button
-                  type="button"
-                  onClick={openNewRoundPanel}
-                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
-                >
-                  <Plus className="size-4 shrink-0" />
-                  Ny vernerunde
-                </button>
-                <WizardButton
-                  label="Veiviser"
-                  variant="solid"
-                  className={HERO_ACTION_CLASS}
-                  def={makeSafetyRoundWizard(
-                    (data) => {
-                      const sr = hse.createSafetyRound({
-                        title: String(data.title),
-                        conductedAt: new Date(String(data.conductedAt)).toISOString(),
-                        location: String(data.location) || '—',
-                        department: String(data.department) || undefined,
-                        conductedBy:
-                          profile?.display_name?.trim() || user?.email?.trim() || 'Registrert bruker',
-                        notes: String(data.notes) || '',
-                        checklistTemplateId: String(data.templateId) || SAFETY_ROUND_TEMPLATE_ID,
-                      })
-                      openRoundPanel(sr.id)
-                    },
-                    hse.checklistTemplates.map((t) => ({ value: t.id, label: t.name })),
-                  )}
-                />
-              </div>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
-              <div className="text-2xl font-semibold">{roundStats.total}</div>
-              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Registrert</div>
-            </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
-              <div className="text-2xl font-semibold">{roundStats.inProgress}</div>
-              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Utfylling</div>
-            </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
-              <div className="text-2xl font-semibold">{roundStats.pending}</div>
-              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Venter signatur</div>
-            </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
-              <div className="text-2xl font-semibold">{roundStats.approved}</div>
-              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Arkiv</div>
-            </div>
-          </div>
+          {vernerunderTabLayout.presetNameMatched ? (
+            <p className="text-xs text-neutral-500">
+              Oppsett fra plattform-admin:{' '}
+              <span className="font-medium text-neutral-700">«{vernerunderTabLayout.presetNameMatched}»</span>
+              {supabaseConfigured
+                ? ' (oppdateres når publiserte stack-maler endres).'
+                : ' (lagret i denne nettleseren).'}
+            </p>
+          ) : null}
 
-          <Mainbox1
-            title="Vernerunder"
-            subtitle="Sortert etter gjennomføringstid. Åpne raden i sidevinduet for sjekkliste, avvik og dobbeltsignatur."
-          >
-            <Table1Shell
-              variant="pinpoint"
-              toolbar={
-                <Table1Toolbar
-                  searchSlot={
-                    <div className="min-w-[200px] flex-1">
-                      <label className="sr-only" htmlFor="round-search">
-                        Søk
+          <div className="min-w-0 space-y-6">{vernerunderLayoutNodes}</div>
+
+          {schedulePanelOpen ? (
+            <div
+              className="fixed inset-0 z-[100] flex justify-end bg-black/45 backdrop-blur-[2px]"
+              role="presentation"
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) closeSchedulePanel()
+              }}
+            >
+              <aside
+                className="flex h-full w-full max-w-[min(100vw,520px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="schedule-panel-title"
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <header className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 bg-[#f7f6f2] px-6 py-5">
+                  <h2 id="schedule-panel-title" className="text-xl font-semibold text-neutral-900">
+                    Planlegg vernerunde
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={closeSchedulePanel}
+                    className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-200/60 hover:text-neutral-800`}
+                    aria-label="Lukk"
+                  >
+                    <X className="size-6" />
+                  </button>
+                </header>
+                <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setScheduleDraft((d) => ({ ...d, mode: 'single' }))}
+                      className={`${R_FLAT} flex-1 border px-3 py-2 text-sm font-medium ${
+                        scheduleDraft.mode === 'single'
+                          ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                          : 'border-neutral-300 bg-white text-neutral-800'
+                      }`}
+                    >
+                      Én dato
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScheduleDraft((d) => ({ ...d, mode: 'series' }))}
+                      className={`${R_FLAT} flex-1 border px-3 py-2 text-sm font-medium ${
+                        scheduleDraft.mode === 'series'
+                          ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                          : 'border-neutral-300 bg-white text-neutral-800'
+                      }`}
+                    >
+                      Serie med intervall
+                    </button>
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-template">
+                      Sjekklistemal
+                    </label>
+                    <select
+                      id="sched-template"
+                      value={scheduleDraft.templateId}
+                      onChange={(e) => setScheduleDraft((d) => ({ ...d, templateId: e.target.value }))}
+                      className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                    >
+                      {hse.checklistTemplates.map((tpl) => (
+                        <option key={tpl.id} value={tpl.id}>
+                          {tpl.name}
+                          {tpl.department ? ` (${tpl.department})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-title">
+                      Tittel
+                    </label>
+                    <input
+                      id="sched-title"
+                      value={scheduleDraft.title}
+                      onChange={(e) => setScheduleDraft((d) => ({ ...d, title: e.target.value }))}
+                      className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                      placeholder="f.eks. Vernerunde — Lager"
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-when">
+                        {scheduleDraft.mode === 'series' ? 'Første planlagte tid' : 'Planlagt tid'}
                       </label>
                       <input
-                        id="round-search"
-                        value={roundSearch}
-                        onChange={(e) => setRoundSearch(e.target.value)}
-                        placeholder="Søk i tittel, sted, avdeling …"
-                        className={`${SETTINGS_INPUT} bg-white`}
+                        id="sched-when"
+                        type="datetime-local"
+                        value={scheduleDraft.plannedAt}
+                        onChange={(e) => setScheduleDraft((d) => ({ ...d, plannedAt: e.target.value }))}
+                        className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
                       />
                     </div>
-                  }
-                />
-              }
-            >
-              <div className="overflow-x-auto">
-                <table className="min-w-full border-collapse text-left">
-                  <thead>
-                    <tr className={theadRow}>
-                      <th className={tableCell}>Tittel</th>
-                      <th className={tableCell}>Lokasjon</th>
-                      <th className={tableCell}>Status</th>
-                      <th className={tableCell}>Gjennomført</th>
-                      <th className={tableCell}>Avvik</th>
-                      <th className={`${tableCell} text-right`}>Handling</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {roundsFiltered.map((sr, ri) => (
-                      <SafetyRoundTableRow
-                        key={sr.id}
-                        round={sr}
-                        templates={hse.checklistTemplates}
-                        rowClass={table1BodyRowClass(layout, ri)}
-                        cellClass={tableCell}
-                        onOpen={() => openRoundPanel(sr.id)}
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-loc">
+                        Område / lokasjon
+                      </label>
+                      <input
+                        id="sched-loc"
+                        value={scheduleDraft.location}
+                        onChange={(e) => setScheduleDraft((d) => ({ ...d, location: e.target.value }))}
+                        className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
                       />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {roundsFiltered.length === 0 ? (
-                <p className="px-4 py-10 text-center text-sm text-neutral-500">Ingen runder matcher søket.</p>
-              ) : null}
-            </Table1Shell>
-          </Mainbox1>
+                    </div>
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-dept">
+                      Avdeling
+                    </label>
+                    <input
+                      id="sched-dept"
+                      value={scheduleDraft.department}
+                      onChange={(e) => setScheduleDraft((d) => ({ ...d, department: e.target.value }))}
+                      className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                    />
+                  </div>
+                  {scheduleDraft.mode === 'series' ? (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-interval">
+                          Intervall (uker)
+                        </label>
+                        <input
+                          id="sched-interval"
+                          type="number"
+                          min={1}
+                          value={scheduleDraft.intervalWeeks}
+                          onChange={(e) =>
+                            setScheduleDraft((d) => ({ ...d, intervalWeeks: Number(e.target.value) || 1 }))
+                          }
+                          className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                        />
+                      </div>
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-end">
+                          Siste planlagte dato
+                        </label>
+                        <input
+                          id="sched-end"
+                          type="date"
+                          value={scheduleDraft.seriesEndAt}
+                          onChange={(e) => setScheduleDraft((d) => ({ ...d, seriesEndAt: e.target.value }))}
+                          className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-notes">
+                      Notater
+                    </label>
+                    <textarea
+                      id="sched-notes"
+                      value={scheduleDraft.notes}
+                      onChange={(e) => setScheduleDraft((d) => ({ ...d, notes: e.target.value }))}
+                      rows={3}
+                      className={`${SETTINGS_INPUT} mt-1.5 bg-white`}
+                    />
+                  </div>
+                </div>
+                <footer className="shrink-0 border-t border-neutral-200/90 bg-[#f0efe9] px-6 py-5">
+                  <button
+                    type="button"
+                    className="w-full rounded-none bg-[#1a3d32] px-5 py-3 text-sm font-semibold text-white hover:bg-[#142e26]"
+                    onClick={submitSchedule}
+                  >
+                    {scheduleDraft.mode === 'series' ? 'Opprett serie og åpne første' : 'Opprett planlagt runde'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeSchedulePanel}
+                    className="mt-3 w-full rounded-none border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700"
+                  >
+                    Avbryt
+                  </button>
+                </footer>
+              </aside>
+            </div>
+          ) : null}
 
           {roundPanelId ? (
             <div
@@ -4327,22 +4746,51 @@ function SafetyRoundTableRow({
       pending_approval: { label: 'Signering', cls: 'border-amber-300 bg-amber-50 text-amber-950' },
       approved: { label: 'Låst', cls: 'border-emerald-300 bg-emerald-50 text-emerald-900' },
     }[round.status] ?? { label: round.status, cls: 'border-neutral-200 bg-neutral-50 text-neutral-700' }
+  const isPlanned = round.scheduleKind === 'planned'
+  const plannedUpcoming = isPlanned && isSafetyRoundUpcoming(round)
 
   return (
     <tr className={rowClass}>
       <td className={cellClass}>
         <div className="max-w-[240px] font-medium text-neutral-900">{round.title}</div>
+        {round.seriesId ? (
+          <div className="mt-0.5 text-xs text-neutral-500">Serie · hver {round.seriesIntervalWeeks ?? '?'} uke(r)</div>
+        ) : null}
       </td>
       <td className={cellClass}>
         <div className="text-neutral-800">{round.location}</div>
         {round.department ? <div className="text-xs text-neutral-500">{round.department}</div> : null}
       </td>
       <td className={cellClass}>
-        <span className={`${R_FLAT} inline-block border px-2 py-0.5 text-xs font-medium ${statusBadge.cls}`}>
-          {statusBadge.label}
-        </span>
+        {isPlanned ? (
+          <div className="flex flex-col gap-1">
+            <span
+              className={`${R_FLAT} inline-block w-fit border px-2 py-0.5 text-xs font-medium ${
+                plannedUpcoming ? 'border-violet-300 bg-violet-50 text-violet-950' : 'border-neutral-300 bg-neutral-50 text-neutral-700'
+              }`}
+            >
+              {plannedUpcoming ? 'Planlagt' : 'Planlagt (dato passert)'}
+            </span>
+            <span className={`${R_FLAT} inline-block w-fit border px-2 py-0.5 text-xs font-medium ${statusBadge.cls}`}>
+              {statusBadge.label}
+            </span>
+          </div>
+        ) : (
+          <span className={`${R_FLAT} inline-block border px-2 py-0.5 text-xs font-medium ${statusBadge.cls}`}>
+            {statusBadge.label}
+          </span>
+        )}
       </td>
-      <td className={`${cellClass} text-neutral-600`}>{formatWhen(round.conductedAt)}</td>
+      <td className={`${cellClass} text-neutral-600`}>
+        {isPlanned && round.plannedAt ? (
+          <>
+            <div className="font-medium text-neutral-800">Plan: {formatWhen(round.plannedAt)}</div>
+            <div className="text-xs text-neutral-500">Registrert: {formatWhen(round.conductedAt)}</div>
+          </>
+        ) : (
+          formatWhen(round.conductedAt)
+        )}
+      </td>
       <td className={cellClass}>
         {issueCount > 0 ? (
           <span className={`${R_FLAT} inline-flex items-center gap-1 border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900`}>

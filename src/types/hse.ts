@@ -50,6 +50,9 @@ export type SafetyRoundApproval = {
   level1?: Level1SystemSignatureMeta
 }
 
+/** `planned` = fremtidig plan i kalender; `as_conducted` = standard (gjennomføringstidspunkt). */
+export type SafetyRoundScheduleKind = 'as_conducted' | 'planned'
+
 export type SafetyRound = {
   id: string
   title: string
@@ -65,6 +68,16 @@ export type SafetyRound = {
   /** checklist item id -> avvik detail (only set when status === 'issue') */
   itemDetails: Record<string, ChecklistItemDetail>
   notes: string
+  /** Plan vs. gjennomført registrering — styrer kalender og tabell */
+  scheduleKind?: SafetyRoundScheduleKind
+  /** Når `scheduleKind === 'planned'`: planlagt tidspunkt (ISO). Ellers kan utelates. */
+  plannedAt?: string
+  /** Felles id for serie (én eller flere planlagte runder) */
+  seriesId?: string
+  /** Uker mellom planlagte runder i serie */
+  seriesIntervalWeeks?: number
+  /** Siste planlagte dato i serie (ISO) */
+  seriesEndPlannedAt?: string
   /** Workflow status */
   status: SafetyRoundStatus
   /** Set when status reaches 'pending_approval' */

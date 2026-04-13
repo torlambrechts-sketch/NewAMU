@@ -850,6 +850,52 @@ function formatComposerDayLabel(base: Date, dayOffset: number) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+/** Demo for stack-mal Layout_vernerunder — arbeidsflate bytter inn ekte HSE-data. */
+function ComposableVernerunderScheduleCalendarBlock() {
+  const [dayOffset, setDayOffset] = useState(0)
+  const base = useMemo(() => new Date(2026, 3, 29), [])
+  const dateLabel = formatComposerDayLabel(base, dayOffset)
+
+  const demoItems = useMemo(
+    () => [
+      {
+        id: 'vr1',
+        category: 'Planlagt',
+        title: 'Vernerunde — Lager (demo)',
+        startLabel: '09:00',
+      },
+      {
+        id: 'vr2',
+        category: 'Planlagt',
+        title: 'Vernerunde — Kontor (demo)',
+        startLabel: '13:30',
+      },
+    ],
+    [],
+  )
+
+  return (
+    <div className="space-y-2">
+      <WorkplaceEventsDayCard
+        cardTitle="Vernerunder — valgt dag"
+        dateLabel={dateLabel}
+        onPrevDay={() => setDayOffset((x) => x - 1)}
+        onNextDay={() => setDayOffset((x) => x + 1)}
+        tabs={[{ id: 'rounds', label: 'Kommende på dagen', count: demoItems.length, items: demoItems }]}
+        defaultTabId="rounds"
+        footer={{
+          label: 'Planlegg vernerunde (én eller serie)',
+          onMoreClick: () => undefined,
+        }}
+      />
+      <p className="text-xs text-neutral-500">
+        Publiser en stack-mal med navn <strong>Layout_vernerunder</strong> for å styre rekkefølge (KPI → kalender → tabell) på
+        HSE → Vernerunder.
+      </p>
+    </div>
+  )
+}
+
 /** Dagens hendelser: oppgaver, samsvar/frister, faner — som dashboard-kalender i referanse. */
 function ComposableWorkplaceEventsDayBlock() {
   const [dayOffset, setDayOffset] = useState(0)
@@ -1533,6 +1579,11 @@ const BLOCKS = [
     hint: 'Dato + faner, tidskolonne og farget stripe; for oppgaver, møter og samsvar på valgt dag.',
   },
   {
+    id: 'vernerunderScheduleCalendar',
+    label: 'Vernerunder — planlegging og kalender (dag)',
+    hint: 'Stack-mal «Layout_vernerunder»: KPI-rad, denne kalenderboksen (kommende vernerunder på valgt dag), deretter tabell.',
+  },
+  {
     id: 'workplaceTodos',
     label: 'Boks — oppgaver (to-do med frist)',
     hint: 'Innbokser med tittel, beskrivelse og frist; Ny oppgave → /tasks.',
@@ -1699,6 +1750,8 @@ function renderComposerBlock(id: BlockId): ReactNode {
       return <ComposableAgendaBuilderListBlock />
     case 'workplaceEventsDay':
       return <ComposableWorkplaceEventsDayBlock />
+    case 'vernerunderScheduleCalendar':
+      return <ComposableVernerunderScheduleCalendarBlock />
     case 'workplaceTodos':
       return <ComposableWorkplaceTodosBlock />
     case 'list2':

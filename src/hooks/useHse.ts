@@ -167,6 +167,14 @@ function normalizeParsed(p: HseState): HseState {
             signatures: sigs,
             checklistTemplateId: r.checklistTemplateId ?? SAFETY_ROUND_TEMPLATE_ID,
             issueTasksSynced: issueSynced,
+            scheduleKind: r.scheduleKind === 'planned' ? 'planned' : 'as_conducted',
+            plannedAt: typeof r.plannedAt === 'string' ? r.plannedAt : undefined,
+            seriesId: typeof r.seriesId === 'string' ? r.seriesId : undefined,
+            seriesIntervalWeeks:
+              typeof r.seriesIntervalWeeks === 'number' && Number.isFinite(r.seriesIntervalWeeks)
+                ? r.seriesIntervalWeeks
+                : undefined,
+            seriesEndPlannedAt: typeof r.seriesEndPlannedAt === 'string' ? r.seriesEndPlannedAt : undefined,
           }
         })
       : [],
@@ -387,15 +395,43 @@ export function useHse() {
   checklistTemplatesRef.current = state.checklistTemplates
 
   const createSafetyRound = useCallback(
-    (partial: Omit<SafetyRound, 'id' | 'createdAt' | 'updatedAt' | 'items' | 'itemDetails' | 'status' | 'signatures' | 'issueTasksSynced'> & { checklistTemplateId?: string }) => {
+    (
+      partial: Omit<
+        SafetyRound,
+        'id' | 'createdAt' | 'updatedAt' | 'items' | 'itemDetails' | 'status' | 'signatures' | 'issueTasksSynced'
+      > & {
+        checklistTemplateId?: string
+        scheduleKind?: SafetyRound['scheduleKind']
+        plannedAt?: string
+        seriesId?: string
+        seriesIntervalWeeks?: number
+        seriesEndPlannedAt?: string
+      },
+    ) => {
       const now = new Date().toISOString()
       const tid = partial.checklistTemplateId ?? SAFETY_ROUND_TEMPLATE_ID
       const tpl = checklistTemplatesRef.current.find((t) => t.id === tid)
       const items = tpl?.items ?? DEFAULT_SAFETY_ROUND_CHECKLIST
+      const scheduleKind = partial.scheduleKind === 'planned' ? 'planned' : 'as_conducted'
+      const plannedAt =
+        scheduleKind === 'planned' && partial.plannedAt?.trim()
+          ? new Date(partial.plannedAt).toISOString()
+          : undefined
       const sr: SafetyRound = {
         ...partial,
         checklistTemplateId: tid,
         conductedBy: partial.conductedBy?.trim() ? partial.conductedBy.trim() : '—',
+        scheduleKind,
+        plannedAt,
+        seriesId: partial.seriesId?.trim() || undefined,
+        seriesIntervalWeeks:
+          typeof partial.seriesIntervalWeeks === 'number' && partial.seriesIntervalWeeks > 0
+            ? Math.floor(partial.seriesIntervalWeeks)
+            : undefined,
+        seriesEndPlannedAt:
+          typeof partial.seriesEndPlannedAt === 'string' && partial.seriesEndPlannedAt.trim()
+            ? new Date(partial.seriesEndPlannedAt).toISOString()
+            : undefined,
         id: crypto.randomUUID(),
         items: emptyChecklistForItems(items),
         itemDetails: {},
