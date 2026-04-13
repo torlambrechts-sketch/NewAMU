@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react'
-import { GripVertical, Loader2, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, GripVertical, Loader2, Plus, Trash2, Zap } from 'lucide-react'
 import {
   LAYOUT_COMPOSER_BLOCK_ORDER,
   MIME_GRID_CELL,
@@ -25,11 +25,225 @@ import {
 } from '../../lib/layoutGridComposerStorage'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { usePlatformGridComposerTemplates, type GridLayoutUI } from '../../hooks/usePlatformComposerTemplates'
+import {
+  VERNERUNDER_TAB_LAYOUT_BLOCK_IDS,
+  VERNERUNDER_TAB_LAYOUT_DEFAULT_ORDER,
+} from '../../lib/vernerunderLayoutFromPreset'
+import {
+  ROS_TAB_LAYOUT_BLOCK_IDS,
+  ROS_TAB_LAYOUT_DEFAULT_ORDER,
+} from '../../lib/rosLayoutFromPreset'
+import {
+  VARSLINGSSAKER_TAB_LAYOUT_BLOCK_IDS,
+  VARSLINGSSAKER_TAB_LAYOUT_DEFAULT_ORDER,
+} from '../../lib/varslingssakerLayoutFromPreset'
+import { usePlatformStackComposerTemplates } from '../../hooks/usePlatformComposerTemplates'
 
 function previewShellClass(surface: PlatformLayoutPreviewSurface) {
   return surface === 'white'
     ? 'rounded-xl border border-neutral-200 bg-white text-neutral-900'
     : 'rounded-xl border border-white/10 bg-[#F9F7F2] text-neutral-900'
+}
+
+// ─── Known named stack templates ──────────────────────────────────────────────
+
+type KnownStackTemplate = {
+  name: string
+  description: string
+  page: string
+  blocks: readonly LayoutComposerBlockId[]
+  order: readonly LayoutComposerBlockId[]
+}
+
+const KNOWN_STACK_TEMPLATES: KnownStackTemplate[] = [
+  {
+    name: 'Layout_vernerunder',
+    description: 'HSE → Vernerunder (KPI, handlinger, tabell + kalender)',
+    page: '/hse?tab=rounds',
+    blocks: VERNERUNDER_TAB_LAYOUT_BLOCK_IDS,
+    order: VERNERUNDER_TAB_LAYOUT_DEFAULT_ORDER,
+  },
+  {
+    name: 'Layout_inspeksjoner',
+    description: 'HSE → Inspeksjoner (KPI, handlinger, tabell + kalender)',
+    page: '/hse?tab=inspections',
+    blocks: VERNERUNDER_TAB_LAYOUT_BLOCK_IDS,
+    order: VERNERUNDER_TAB_LAYOUT_DEFAULT_ORDER,
+  },
+  {
+    name: 'Layout_ROS',
+    description: 'Internkontroll → ROS (KPI-rad, liste 2, risikomatrise, risikotabell)',
+    page: '/internal-control?tab=ros',
+    blocks: ROS_TAB_LAYOUT_BLOCK_IDS,
+    order: ROS_TAB_LAYOUT_DEFAULT_ORDER,
+  },
+  {
+    name: 'Layout_varslingssaker',
+    description: 'Internkontroll → Varslingssaker (overskrift, KPI, liste 2)',
+    page: '/internal-control?tab=whistle',
+    blocks: VARSLINGSSAKER_TAB_LAYOUT_BLOCK_IDS,
+    order: VARSLINGSSAKER_TAB_LAYOUT_DEFAULT_ORDER,
+  },
+]
+
+// ─── Template seed panel ──────────────────────────────────────────────────────
+
+function TemplateSeedPanel({
+  userId,
+  isAdmin,
+  metaClass,
+  btnClass,
+}: {
+  userId: string | null
+  isAdmin: boolean
+  metaClass: string
+  btnClass: string
+}) {
+  const { mergedPresets, saveStackToDatabase } = usePlatformStackComposerTemplates(
+    isAdmin,
+    userId,
+    isAdmin,
+  )
+  const [open, setOpen] = useState(false)
+  const [seeding, setSeeding] = useState<string | null>(null)
+  const [seedMsg, setSeedMsg] = useState<string | null>(null)
+
+  const presetList = useMemo(() => mergedPresets(), [mergedPresets])
+
+  const seedTemplate = useCallback(
+    async (tpl: KnownStackTemplate) => {
+      setSeeding(tpl.name)
+      setSeedMsg(null)
+      const visible: Record<string, boolean> = {}
+      for (const id of tpl.blocks) visible[id] = true
+      const existing = presetList.find(
+        (p) => p.name.trim().toLowerCase() === tpl.name.toLowerCase() && p.source === 'database',
+      )
+      const { error } = await saveStackToDatabase({
+        dbId: existing?.dbId,
+        name: tpl.name,
+        visible,
+        order: [...tpl.order],
+        published: true,
+      })
+      setSeeding(null)
+      setSeedMsg(error ? `Feil: ${error}` : `✓ ${tpl.name} publisert.`)
+    },
+    [presetList, saveStackToDatabase],
+  )
+
+  if (!isAdmin) return null
+
+  return (
+    <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 p-4">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-2 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <Zap className="size-4 shrink-0 text-amber-400" />
+          <span className="text-sm font-semibold text-amber-200">Seed kjente mal-layouter</span>
+        </div>
+        {open ? (
+          <ChevronDown className="size-4 shrink-0 text-amber-400" />
+        ) : (
+          <ChevronRight className="size-4 shrink-0 text-amber-400" />
+        )}
+      </button>
+      <p className={`mt-1 text-xs ${metaClass}`}>
+        Opprett og publiser standardblokker for navngitte stack-maler (én klikk per mal). Arbeidsflaten bruker disse
+        automatisk ved navnematch. Idempotent — trygt å kjøre på nytt.
+      </p>
+
+      {open && (
+        <div className="mt-4 space-y-3">
+          {seedMsg && (
+            <p className={`text-xs ${seedMsg.startsWith('Feil') ? 'text-red-300' : 'text-emerald-300'}`}>
+              {seedMsg}
+            </p>
+          )}
+          <div className="space-y-2">
+            {KNOWN_STACK_TEMPLATES.map((tpl) => {
+              const exists = presetList.some(
+                (p) => p.name.trim().toLowerCase() === tpl.name.toLowerCase(),
+              )
+              const published = presetList.some(
+                (p) =>
+                  p.name.trim().toLowerCase() === tpl.name.toLowerCase() && p.published,
+              )
+              return (
+                <div
+                  key={tpl.name}
+                  className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-white/10 bg-slate-900/60 p-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <code className="rounded bg-white/10 px-1.5 py-0.5 text-xs font-bold text-amber-200">
+                        {tpl.name}
+                      </code>
+                      {published ? (
+                        <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                          publisert
+                        </span>
+                      ) : exists ? (
+                        <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-300">
+                          finnes (ikke publisert)
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-neutral-500/20 px-2 py-0.5 text-[10px] text-neutral-400">
+                          mangler
+                        </span>
+                      )}
+                    </div>
+                    <p className={`mt-1 text-xs ${metaClass}`}>{tpl.description}</p>
+                    <p className={`mt-0.5 text-[10px] ${metaClass}`}>
+                      Blokker: {tpl.order.join(' → ')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={seeding === tpl.name}
+                    onClick={() => void seedTemplate(tpl)}
+                    className={`shrink-0 ${btnClass} flex items-center gap-1 border-amber-400/40 text-amber-200 hover:bg-amber-500/10`}
+                  >
+                    {seeding === tpl.name ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <Zap className="size-3" />
+                    )}
+                    {published ? 'Re-seed' : 'Seed + publiser'}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="mt-3 rounded-lg border border-white/10 bg-slate-950/40 p-3 text-xs">
+            <p className={`font-semibold ${metaClass}`}>Hvordan lage en ny mal for en annen side:</p>
+            <ol className={`mt-1.5 list-decimal space-y-1 pl-4 ${metaClass}`}>
+              <li>
+                Velg blokker og rekkefølge i <strong className="text-neutral-200">Layout-komponenter — komponer</strong> (fanen
+                over).
+              </li>
+              <li>
+                Skriv inn et navn som samsvarer med det siden forventer (f.eks.{' '}
+                <code className="rounded bg-white/10 px-1">Layout_vernerunder</code>).
+              </li>
+              <li>
+                Huk av <strong className="text-neutral-200">Publiser</strong> og klikk{' '}
+                <strong className="text-neutral-200">Lagre i DB</strong>.
+              </li>
+              <li>
+                Siden henter automatisk den publiserte malen via{' '}
+                <code className="rounded bg-white/10 px-1">WorkplacePublishedComposerProvider</code>.
+              </li>
+            </ol>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function cloneSession(s: LayoutGridComposerSession): LayoutGridComposerSession {
@@ -441,6 +655,14 @@ export function PlatformGridComposer({ previewSurface }: { previewSurface: Platf
             <p className={`mt-2 text-xs ${metaClass}`}>Ingen lagrede rutenett.</p>
           )}
         </div>
+
+        {/* ── Stack template seed panel ─────────────────────────────────── */}
+        <TemplateSeedPanel
+          userId={userId}
+          isAdmin={isAdmin === true}
+          metaClass={metaClass}
+          btnClass={btnClass}
+        />
       </aside>
 
       <div className="min-w-0 space-y-4">
