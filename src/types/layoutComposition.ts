@@ -414,12 +414,20 @@ function deepMergeLayout<T extends Record<string, unknown>>(target: T, source: P
 
 function normalizeCell(c: LegacySlot | LayoutCompositionSlot, defaultGap: string): LayoutCompositionSlot {
   const m = migrateLegacySlot(c as LegacySlot)
-  const mode =
-    (c as LayoutCompositionSlot).mode ??
-    (m.componentReferenceKey ? 'component' : 'widget')
-  let widget =
-    (c as LayoutCompositionSlot).widget ??
-    (mode === 'component' ? null : emptyWidget('text'))
+  // Prefer explicit mode; fall back to inference from saved fields
+  const explicitMode = (c as LayoutCompositionSlot).mode
+  const mode: 'component' | 'widget' =
+    explicitMode === 'component' || explicitMode === 'widget'
+      ? explicitMode
+      : m.componentReferenceKey
+        ? 'component'
+        : 'widget'
+  // Preserve existing widget; only create a placeholder for widget-mode cells that have none
+  let widget: LayoutWidgetPayload | null =
+    (c as LayoutCompositionSlot).widget ?? null
+  if (mode === 'widget' && widget === null) {
+    widget = emptyWidget('text')
+  }
   widget = normalizeWidgetDeep(widget, defaultGap)
   const slotStyle = { ...defaultSlotStyle(), ...m.slotStyle, ...(c as LayoutCompositionSlot).slotStyle }
   return {
@@ -636,8 +644,9 @@ export function moveCellInTree(
       const cells = [...row.cells]
       const [c] = cells.splice(fromIndex, 1)
       if (!c) return row
-      const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex
-      cells.splice(Math.max(0, insertAt), 0, c)
+      // After removing the element at fromIndex, the target index shifts when moving forward
+      const insertAt = Math.max(0, Math.min(fromIndex < toIndex ? toIndex - 1 : toIndex, cells.length))
+      cells.splice(insertAt, 0, c)
       return { ...row, cells }
     })
   }
@@ -657,18 +666,21 @@ export function moveCellInTree(
   return mapRowCellsDeep(afterExtract, (row) => {
     if (row.id !== toRowId) return row
     const cells = [...row.cells]
+    // Cross-row: no prior splice on this row, toIndex is already final
     const insertAt = Math.max(0, Math.min(toIndex, cells.length))
     cells.splice(insertAt, 0, extracted!)
     return { ...row, cells }
   })
 }
 
-/** Move a row by index within the same row list (root or nested under a layout widget). */
+/** Move a row by index within the same row list (root or nested under a layout widget).
+ *  `from` and `to` are indices in the ORIGINAL array (before any mutation). */
 export function moveRowInList(rows: LayoutCompositionRow[], from: number, to: number): LayoutCompositionRow[] {
   if (from < 0 || from >= rows.length || to < 0 || to > rows.length || from === to) return rows
   const next = [...rows]
   const [r] = next.splice(from, 1)
-  const insertAt = from < to ? to - 1 : to
+  // After splice, array is 1 shorter. When moving forward (from < to), target shifts left by 1.
+  const insertAt = Math.max(0, Math.min(from < to ? to - 1 : to, next.length))
   next.splice(insertAt, 0, r)
   return next
 }

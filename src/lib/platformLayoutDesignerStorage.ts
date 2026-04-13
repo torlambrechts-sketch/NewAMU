@@ -12,6 +12,8 @@ export type LayoutDesignerPersistedTab = {
 export type LayoutDesignerDraft = {
   tabs: LayoutDesignerPersistedTab[]
   activeIdx: number
+  /** ISO timestamp of when the draft was written — used to detect stale drafts */
+  savedAt?: string
 }
 
 function storageKey(userId: string): string {
@@ -26,8 +28,14 @@ export function readLayoutDesignerDraft(userId: string): LayoutDesignerDraft | n
     if (!parsed || typeof parsed !== 'object') return null
     const tabs = (parsed as { tabs?: unknown }).tabs
     const activeIdx = (parsed as { activeIdx?: unknown }).activeIdx
+    const savedAt = (parsed as { savedAt?: unknown }).savedAt
     if (!Array.isArray(tabs) || tabs.length === 0) return null
     if (typeof activeIdx !== 'number' || activeIdx < 0) return null
+    // Expire drafts older than 30 minutes — force a server read instead
+    if (typeof savedAt === 'string') {
+      const ageMs = Date.now() - new Date(savedAt).getTime()
+      if (ageMs > 30 * 60 * 1000) return null
+    }
     const normalized: LayoutDesignerPersistedTab[] = []
     for (const t of tabs) {
       if (!t || typeof t !== 'object') continue
@@ -43,6 +51,7 @@ export function readLayoutDesignerDraft(userId: string): LayoutDesignerDraft | n
     return {
       tabs: normalized,
       activeIdx: Math.min(Math.max(0, activeIdx), normalized.length - 1),
+      savedAt: typeof savedAt === 'string' ? savedAt : undefined,
     }
   } catch {
     return null
@@ -51,7 +60,7 @@ export function readLayoutDesignerDraft(userId: string): LayoutDesignerDraft | n
 
 export function writeLayoutDesignerDraft(userId: string, draft: LayoutDesignerDraft): void {
   try {
-    localStorage.setItem(storageKey(userId), JSON.stringify(draft))
+    localStorage.setItem(storageKey(userId), JSON.stringify({ ...draft, savedAt: new Date().toISOString() }))
   } catch {
     /* quota or private mode */
   }

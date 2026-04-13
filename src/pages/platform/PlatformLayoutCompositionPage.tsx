@@ -292,10 +292,11 @@ export function PlatformLayoutCompositionPage() {
         const next = [...prev]
         const cur = next[activeIdx]
         if (!cur) return prev
-        const merged = { ...cur.payload, ...patch }
+        // Shallow-merge only the patched keys — do NOT re-normalize rows through mergeLayoutComposition
+        // as that runs structuredClone+normalizeRow on every keystroke and can corrupt existing row IDs
         next[activeIdx] = {
           ...cur,
-          payload: mergeLayoutComposition(merged as Record<string, unknown>),
+          payload: { ...cur.payload, ...patch },
         }
         return next
       })
@@ -581,6 +582,8 @@ export function PlatformLayoutCompositionPage() {
         }
         return next
       })
+      // Refresh the component library so newly saved designs are available as references
+      void loadLibrary()
       setMessage(`Mal lagret som «${key}». JSON inneholder rader, typografi og widgets — gjenbruk i nye sider.`)
     } catch (err) {
       setError(getSupabaseErrorMessage(err))
