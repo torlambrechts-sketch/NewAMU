@@ -81,6 +81,20 @@ export type RosRiskRow = {
   activity: string
   hazard: string
   existingControls: string
+  /** Sårbarhet — menneskelige faktorer */
+  vulnerabilityHuman?: string
+  /** Sårbarhet — tekniske faktorer */
+  vulnerabilityTechnical?: string
+  /** Sårbarhet — organisatoriske faktorer */
+  vulnerabilityOrganizational?: string
+  /** Forebyggende barrierer (sløyfemodell) */
+  barrierPreventive?: string
+  /** Konsekvensreduserende barrierer */
+  barrierConsequenceReducing?: string
+  /** Usikkerhet og kunnskapsgrunnlag (f.eks. NS 5814) */
+  uncertaintyNotes?: string
+  /** Tekst om restrisiko / aksept etter tiltak */
+  residualNarrative?: string
   /** 1–5 illustrativ skala — brutto (før tiltak) */
   severity: number
   /** 1–5 illustrativ skala — brutto */

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { LegalDisclaimer } from '../components/internalControl/LegalDisclaimer'
 import { ROS_CONSEQUENCE_CATEGORIES } from '../data/rosConsequenceCategories'
+import { buildRosApprovedTaskDescription, shouldCreateTaskForRosRow } from '../lib/rosTaskFromLock'
 import { RISK_COLOUR_CLASSES, riskColour } from '../data/rosTemplate'
 import { useInternalControl } from '../hooks/useInternalControl'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
@@ -579,13 +580,13 @@ export function InternalControlModule() {
   const handleRosLockTasks = useCallback(
     (ros: RosAssessment) => {
       for (const row of ros.rows) {
-        const measure = row.proposedMeasures?.trim()
-        const who = row.responsible?.trim()
-        const due = row.dueDate?.trim()
-        if (!measure || !who || !due) continue
+        if (!shouldCreateTaskForRosRow(row)) continue
+        const measure = row.proposedMeasures!.trim()
+        const who = row.responsible!.trim()
+        const due = row.dueDate!.trim()
         addTask({
           title: `ROS-tiltak: ${measure.slice(0, 80)}${measure.length > 80 ? '…' : ''}`,
-          description: `Automatisk fra låst ROS «${ros.title}».\n\nAktivitet: ${row.activity}\nFare: ${row.hazard}\nForeslått tiltak: ${measure}`,
+          description: buildRosApprovedTaskDescription(ros, row),
           assignee: who,
           ownerRole: 'Ansvarlig (ROS)',
           dueDate: due,
@@ -2254,13 +2255,100 @@ function RosAssessmentCard({
                       className={SETTINGS_INPUT}
                     />
                   </div>
+                  <div className="sm:col-span-2 rounded-md border border-neutral-200/80 bg-neutral-50/50 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
+                      1. Sårbarhetsvurdering (hvorfor rammes vi?)
+                    </p>
+                    <p className="mt-1 text-xs text-neutral-500">
+                      Trussel × intern sårbarhet. Kartlegg svakheter i eget system.
+                    </p>
+                    <div className="mt-3 space-y-3">
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL}>Menneskelige faktorer</label>
+                        <textarea
+                          disabled={rowBodyDisabled}
+                          value={row.vulnerabilityHuman ?? ''}
+                          onChange={(e) => ic.updateRosRow(ros.id, row.id, { vulnerabilityHuman: e.target.value })}
+                          rows={2}
+                          placeholder="Opplæring, nøkkelpersoner, bemanning …"
+                          className={SETTINGS_INPUT}
+                        />
+                      </div>
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL}>Tekniske faktorer</label>
+                        <textarea
+                          disabled={rowBodyDisabled}
+                          value={row.vulnerabilityTechnical ?? ''}
+                          onChange={(e) => ic.updateRosRow(ros.id, row.id, { vulnerabilityTechnical: e.target.value })}
+                          rows={2}
+                          placeholder="Utstyr, redundans, single points of failure …"
+                          className={SETTINGS_INPUT}
+                        />
+                      </div>
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL}>Organisatoriske faktorer</label>
+                        <textarea
+                          disabled={rowBodyDisabled}
+                          value={row.vulnerabilityOrganizational ?? ''}
+                          onChange={(e) =>
+                            ic.updateRosRow(ros.id, row.id, { vulnerabilityOrganizational: e.target.value })
+                          }
+                          rows={2}
+                          placeholder="Ansvar, rutiner, sikkerhetskultur …"
+                          className={SETTINGS_INPUT}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2 rounded-md border border-amber-200/60 bg-amber-50/30 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-amber-950">
+                      2. Eksisterende barrierer (forsvarsverk / sløyfemodell)
+                    </p>
+                    <div className="mt-3 space-y-3">
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL}>Forebyggende barrierer</label>
+                        <textarea
+                          disabled={rowBodyDisabled}
+                          value={row.barrierPreventive ?? ''}
+                          onChange={(e) => ic.updateRosRow(ros.id, row.id, { barrierPreventive: e.target.value })}
+                          rows={2}
+                          placeholder="Reduserer sannsynlighet (tilsyn, adgangskontroll, brannmur …)"
+                          className={SETTINGS_INPUT}
+                        />
+                      </div>
+                      <div>
+                        <label className={SETTINGS_FIELD_LABEL}>Konsekvensreduserende barrierer</label>
+                        <textarea
+                          disabled={rowBodyDisabled}
+                          value={row.barrierConsequenceReducing ?? ''}
+                          onChange={(e) =>
+                            ic.updateRosRow(ros.id, row.id, { barrierConsequenceReducing: e.target.value })
+                          }
+                          rows={2}
+                          placeholder="Begrenser skade når hendelsen inntreffer (sprinkler, beredskap, backup …)"
+                          className={SETTINGS_INPUT}
+                        />
+                      </div>
+                    </div>
+                  </div>
                   <div className="sm:col-span-2">
-                    <label className={SETTINGS_FIELD_LABEL}>Eksisterende tiltak</label>
+                    <label className={SETTINGS_FIELD_LABEL}>Eksisterende tiltak (øvrig / sammendrag)</label>
                     <textarea
                       disabled={rowBodyDisabled}
                       value={row.existingControls}
                       onChange={(e) => ic.updateRosRow(ros.id, row.id, { existingControls: e.target.value })}
                       rows={2}
+                      className={SETTINGS_INPUT}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className={SETTINGS_FIELD_LABEL}>3. Usikkerhet og kunnskapsgrunnlag</label>
+                    <textarea
+                      disabled={rowBodyDisabled}
+                      value={row.uncertaintyNotes ?? ''}
+                      onChange={(e) => ic.updateRosRow(ros.id, row.id, { uncertaintyNotes: e.target.value })}
+                      rows={2}
+                      placeholder="F.eks. NS 5814: solid data vs. gjetting, datagrunnlag for vurderingen …"
                       className={SETTINGS_INPUT}
                     />
                   </div>
@@ -2297,8 +2385,14 @@ function RosAssessmentCard({
                     </p>
                   </div>
                 </div>
-                <div className="mt-4">
-                  <label className={SETTINGS_FIELD_LABEL}>Foreslått tiltak</label>
+                <div className="mt-4 rounded-md border border-[#1a3d32]/20 bg-[#f4f7f5] p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[#1a3d32]">
+                    4. Risikoreduserende tiltak (handlingsplan)
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-600">
+                    Ved godkjenning og låsing av ROS opprettes oppgave automatisk når risiko er gul/rød og tiltak, ansvarlig og frist er utfylt.
+                  </p>
+                  <label className={`${SETTINGS_FIELD_LABEL} mt-3 block`}>Konkret tiltak</label>
                   <textarea
                     disabled={rowBodyDisabled}
                     value={row.proposedMeasures}
@@ -2308,7 +2402,7 @@ function RosAssessmentCard({
                   />
                 </div>
                 <div className="mt-4 rounded-md border border-sky-200/80 bg-sky-50/40 p-4">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-sky-900">Restrisiko (etter tiltak)</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-sky-900">5. Restrisiko (etter tiltak)</p>
                   <div className="mt-3 flex flex-wrap items-end gap-4">
                     <div>
                       <label className={SETTINGS_FIELD_LABEL}>Rest-alvor</label>
@@ -2352,6 +2446,17 @@ function RosAssessmentCard({
                         <p className="mt-1.5 text-sm text-neutral-400">—</p>
                       )}
                     </div>
+                  </div>
+                  <div className="mt-3 sm:col-span-2">
+                    <label className={SETTINGS_FIELD_LABEL}>Vurdering av restrisiko og aksept</label>
+                    <textarea
+                      disabled={rowBodyDisabled}
+                      value={row.residualNarrative ?? ''}
+                      onChange={(e) => ic.updateRosRow(ros.id, row.id, { residualNarrative: e.target.value })}
+                      rows={3}
+                      placeholder="Hvordan situasjonen er etter tiltak, om restrisiko aksepteres av ledelse / systemeier …"
+                      className={`${SETTINGS_INPUT} bg-white`}
+                    />
                   </div>
                 </div>
                 <div className={`mt-4 rounded-md border p-3 ${needJust && !rowBodyDisabled ? 'border-rose-300 bg-rose-50' : 'border-rose-100 bg-rose-50/40'}`}>
@@ -2475,7 +2580,10 @@ function RosAssessmentCard({
 
         {!isLocked && !bothSigned && (
           <p className="mt-3 text-xs text-neutral-400">
-            Dokumentet låses automatisk når begge parter har signert. Signering bruker <strong>nivå 1</strong> (innlogget bruker + SHA-256 av innhold + logg i databasen).
+            Dokumentet låses automatisk når begge parter har signert (godkjent ROS). Signering bruker <strong>nivå 1</strong>{' '}
+            (innlogget bruker + SHA-256 av innhold + logg i databasen). Når ROS er låst, opprettes oppgaver på tavlen for
+            handlingsplaner der risikoen er gul eller rød (brutto eller restrisiko) og tiltak, ansvarlig og frist er satt —
+            med full kontekst fra beskrivelse og risikoraden.
           </p>
         )}
       </div>

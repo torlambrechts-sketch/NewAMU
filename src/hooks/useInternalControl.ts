@@ -71,11 +71,19 @@ function normalizeParsed(p: InternalControlState & { whistleCases?: unknown }): 
                 let status = rawStatus
                 if (rawStatus === 'open') status = 'draft'
                 if (rawStatus === 'closed') status = 'finished'
+                const rr = row as RosRiskRow
                 return {
                   ...row,
-                  riskCategory: (row as RosRiskRow).riskCategory ?? '',
-                  consequenceCategory: (row as RosRiskRow).consequenceCategory ?? '',
-                  redResidualJustification: (row as RosRiskRow).redResidualJustification,
+                  riskCategory: rr.riskCategory ?? '',
+                  consequenceCategory: rr.consequenceCategory ?? '',
+                  vulnerabilityHuman: rr.vulnerabilityHuman ?? '',
+                  vulnerabilityTechnical: rr.vulnerabilityTechnical ?? '',
+                  vulnerabilityOrganizational: rr.vulnerabilityOrganizational ?? '',
+                  barrierPreventive: rr.barrierPreventive ?? '',
+                  barrierConsequenceReducing: rr.barrierConsequenceReducing ?? '',
+                  uncertaintyNotes: rr.uncertaintyNotes ?? '',
+                  residualNarrative: rr.residualNarrative ?? '',
+                  redResidualJustification: rr.redResidualJustification,
                   status,
                 }
               })
