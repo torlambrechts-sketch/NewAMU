@@ -8,7 +8,7 @@ const WRAP_CLASS =
 export type LayoutTable1PostingsShellProps = {
   /**
    * `true` — ytre hvit boks (layout-komponist / demo på hvit eller krem).
-   * `false` — kun indre seksjoner (Layout_vernerunder på kremflate uten ekstra «kort» rundt tabellen).
+   * `false` — kun indre seksjoner (full bredde uten ytre kort).
    */
   wrap?: boolean
   title: string
@@ -21,7 +21,7 @@ export type LayoutTable1PostingsShellProps = {
 
 /**
  * Table 1 — Postings: samme oppbygging som i plattform layout-komponist og layout-referanse.
- * Brukes med `wrap={false}` på HSE Vernerunder for å følge malen uten ekstra hvit ramme.
+ * HSE Vernerunder bruker `wrap` (hvit Postings-kort) for å matche layout-komponisten.
  */
 export function LayoutTable1PostingsShell({
   wrap = true,

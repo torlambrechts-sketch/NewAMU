@@ -24,6 +24,7 @@ import {
   ListChecks,
   Lock,
   MessageSquare,
+  MoreHorizontal,
   Plus,
   Search,
   Send,
@@ -869,7 +870,7 @@ export function HseModule() {
 
     const tableColumn = (
       <LayoutTable1PostingsShell
-        wrap={false}
+        wrap
         title="Vernerunder"
         description="Tidligere og kommende runder — sortert etter dato."
         headerActions={
@@ -955,7 +956,7 @@ export function HseModule() {
                 <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type / status</th>
                 <th className={LAYOUT_TABLE1_POSTINGS_TH}>Dato</th>
                 <th className={LAYOUT_TABLE1_POSTINGS_TH}>Avvik</th>
-                <th className={`${LAYOUT_TABLE1_POSTINGS_TH} text-right`}>Handling</th>
+                <th className={`w-12 ${LAYOUT_TABLE1_POSTINGS_TH}`} aria-label="Handling" />
               </tr>
             </thead>
             <tbody>
@@ -966,6 +967,7 @@ export function HseModule() {
                   templates={hse.checklistTemplates}
                   rowClass={LAYOUT_TABLE1_POSTINGS_BODY_ROW}
                   cellClass={layoutTableCell}
+                  actionStyle="icon"
                   onOpen={() => openRoundPanel(sr.id)}
                 />
               ))}
@@ -981,7 +983,6 @@ export function HseModule() {
     const calendarColumn = (
       <div className="min-w-0">
         <WorkplaceEventsDayCard
-          surface="flat"
           cardTitle="Kommende — valgt dag"
           badge={calendarEventsItems.length}
           dateLabel={calendarDayLabel}
@@ -4742,12 +4743,15 @@ function SafetyRoundTableRow({
   templates,
   rowClass,
   cellClass,
+  actionStyle = 'button',
   onOpen,
 }: {
   round: SafetyRound
   templates: ChecklistTemplate[]
   rowClass: string
   cellClass: string
+  /** `icon` — som Table 1 (Postings) i layout-komponisten */
+  actionStyle?: 'button' | 'icon'
   onOpen: () => void
 }) {
   const tpl = templates.find((t) => t.id === (round.checklistTemplateId ?? SAFETY_ROUND_TEMPLATE_ID))
@@ -4815,9 +4819,20 @@ function SafetyRoundTableRow({
         )}
       </td>
       <td className={`${cellClass} text-right`}>
-        <button type="button" onClick={onOpen} className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}>
-          Åpne
-        </button>
+        {actionStyle === 'icon' ? (
+          <button
+            type="button"
+            onClick={onOpen}
+            className="text-neutral-400 hover:text-neutral-700"
+            aria-label="Åpne"
+          >
+            <MoreHorizontal className="size-5" aria-hidden />
+          </button>
+        ) : (
+          <button type="button" onClick={onOpen} className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}>
+            Åpne
+          </button>
+        )}
       </td>
     </tr>
   )
