@@ -11,6 +11,7 @@ import { LAYOUT_COMPOSER_BLOCK_ORDER } from '../pages/platform/PlatformLayoutCom
 
 /**
  * Layout_vernerunder — rekkefølge styres av publisert/lokal stack-mal:
+ * - heading1 — Overskrift 1 + beskrivelse (samme mønster som andre arbeidsflate-sider)
  * - scoreStatRow — KPI
  * - workplaceTasksActions — knapper (Tasks-stil, transparent rad)
  * - table1 — tabell (2/3 i splittet rad)
@@ -18,6 +19,7 @@ import { LAYOUT_COMPOSER_BLOCK_ORDER } from '../pages/platform/PlatformLayoutCom
  * Tabell er alltid venstre kolonne og kalender høyre når begge er synlige.
  */
 export const VERNERUNDER_TAB_LAYOUT_BLOCK_IDS = [
+  'heading1',
   'scoreStatRow',
   'workplaceTasksActions',
   'table1',
@@ -111,7 +113,7 @@ export async function resolveVernerunderTabLayoutAsync(
 /** Vertikal sortering: hvert segment får min(indeks) blant blokkene i segmentet */
 export function vernerunderVerticalSegments(order: LayoutComposerBlockId[]): {
   sortIndex: number
-  kind: 'scoreStatRow' | 'workplaceTasksActions' | 'split'
+  kind: 'heading1' | 'scoreStatRow' | 'workplaceTasksActions' | 'split'
 }[] {
   const idx = (id: LayoutComposerBlockId) => {
     const i = order.indexOf(id)
@@ -119,8 +121,14 @@ export function vernerunderVerticalSegments(order: LayoutComposerBlockId[]): {
   }
   const hasTable = order.includes('table1')
   const hasCal = order.includes('vernerunderScheduleCalendar')
-  const pieces: { sortIndex: number; kind: 'scoreStatRow' | 'workplaceTasksActions' | 'split' }[] = []
+  const pieces: {
+    sortIndex: number
+    kind: 'heading1' | 'scoreStatRow' | 'workplaceTasksActions' | 'split'
+  }[] = []
 
+  if (order.includes('heading1')) {
+    pieces.push({ sortIndex: idx('heading1'), kind: 'heading1' })
+  }
   if (order.includes('scoreStatRow')) {
     pieces.push({ sortIndex: idx('scoreStatRow'), kind: 'scoreStatRow' })
   }

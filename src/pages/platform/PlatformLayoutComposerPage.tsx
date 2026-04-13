@@ -925,8 +925,8 @@ function ComposableVernerunderScheduleCalendarBlock() {
         }}
       />
       <p className="text-xs text-neutral-500">
-        Publiser <strong>Layout_vernerunder</strong> med <strong>scoreStatRow</strong> for å vise/skjule KPI-rad. Tabell og kalender
-        er alltid 2/3 + 1/3 på arbeidsflaten.
+        Publiser <strong>Layout_vernerunder</strong> med <strong>heading1</strong>, <strong>scoreStatRow</strong> osv. for
+        rekkefølge og synlighet. Tabell og kalender er 2/3 + 1/3 på arbeidsflaten når begge er med.
       </p>
     </div>
   )
@@ -1617,7 +1617,7 @@ const BLOCKS = [
   {
     id: 'vernerunderScheduleCalendar',
     label: 'Vernerunder — planlegging og kalender (dag)',
-    hint: 'Demo: kalenderkort. Stack-mal Layout_vernerunder: scoreStatRow, workplaceTasksActions, table1, vernerunderScheduleCalendar — rekkefølge og synlighet fra DB.',
+    hint: 'Demo: kalenderkort. Stack-mal Layout_vernerunder: heading1, scoreStatRow, workplaceTasksActions, table1, vernerunderScheduleCalendar — rekkefølge og synlighet fra DB.',
   },
   {
     id: 'workplaceTodos',

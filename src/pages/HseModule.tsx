@@ -31,6 +31,7 @@ import {
   X,
 } from 'lucide-react'
 import { ComplianceModuleChrome } from '../components/compliance/ComplianceModuleChrome'
+import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { mergeSickLeaveMilestonesOnDateChange, useHse } from '../hooks/useHse'
 import { useOrganisation } from '../hooks/useOrganisation'
@@ -94,6 +95,23 @@ const TASK_PANEL_INSET = 'rounded-none border border-neutral-200/90 bg-[#f4f1ea]
 const R_FLAT = 'rounded-none'
 const HSE_INSPECTION_BUCKET = 'hse_inspection_files'
 const ROUND_DRAFT_STORAGE_KEY = 'atics-hse-new-round-draft-v1'
+
+const VERNERUNDER_PAGE_DESCRIPTION = (
+  <div className="max-w-3xl space-y-3">
+    <p>En vernerunde er en systematisk inspeksjon av det fysiske og psykososiale arbeidsmiljøet i en bedrift.</p>
+    <p>Den gjennomføres regelmessig, vanligvis av leder og verneombud i fellesskap.</p>
+    <p>
+      Hovedmålet er å forebygge ulykker og helseskader ved å avdekke farer, feil og mangler på arbeidsplassen.
+    </p>
+    <p>
+      Funnene dokumenteres alltid i en handlingsplan der konkrete tiltak, ansvarlige og tidsfrister fastsettes.
+    </p>
+    <p>
+      Vernerunder er lovpålagt og utgjør en sentral del av virksomhetens systematiske helse-, miljø- og sikkerhetsarbeid
+      (HMS).
+    </p>
+  </div>
+)
 /** Same strip boxes as rapporter / organisasjonsinnsikt */
 const HSE_THRESHOLD_BOX =
   'flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5'
@@ -897,15 +915,26 @@ export function HseModule() {
     setCalendarDayOffset(diff)
   }, [])
 
-  /** Layout_vernerunder: rekkefølge fra DB/lokal preset (scoreStatRow, workplaceTasksActions, table1, vernerunderScheduleCalendar). */
+  /** Layout_vernerunder: hele rekkefølgen fra DB/lokal preset (heading1, scoreStatRow, workplaceTasksActions, table1, vernerunderScheduleCalendar). */
   const vernerunderLayoutNodes = useMemo(() => {
     const order = vernerunderTabLayout.order
+    const showHeading1 = order.includes('heading1')
     const showKpi = order.includes('scoreStatRow')
     const showActions = order.includes('workplaceTasksActions')
     const showTable = order.includes('table1')
     const showCalendar = order.includes('vernerunderScheduleCalendar')
 
     const layoutTableCell = `${LAYOUT_TABLE1_POSTINGS_TD} text-neutral-800`
+
+    const headingBlock = showHeading1 ? (
+      <div key="vernerunder-heading1">
+        <WorkplacePageHeading1
+          breadcrumb={[]}
+          title="Vernerunder"
+          description={VERNERUNDER_PAGE_DESCRIPTION}
+        />
+      </div>
+    ) : null
 
     const safetyRoundWizardDef = makeSafetyRoundWizard(
       (data) => {
@@ -948,7 +977,7 @@ export function HseModule() {
       <LayoutTable1PostingsShell
         key="vernerunder-table"
         wrap
-        title="Vernerunder"
+        title="Runder"
         description="Tidligere og kommende runder — sortert etter dato."
         toolbar={
           <>
@@ -1084,6 +1113,7 @@ export function HseModule() {
 
     const nodes: ReactNode[] = []
     for (const seg of vernerunderVerticalSegments(order)) {
+      if (seg.kind === 'heading1' && headingBlock) nodes.push(headingBlock)
       if (seg.kind === 'scoreStatRow' && kpiBlock) nodes.push(kpiBlock)
       if (seg.kind === 'workplaceTasksActions' && actionsRow) nodes.push(actionsRow)
       if (seg.kind === 'split' && splitRow) nodes.push(splitRow)
@@ -1716,6 +1746,7 @@ export function HseModule() {
           .
         </p>
       }
+      showTitleBlock={tab !== 'rounds'}
       hubAriaLabel="HSE / HMS — faner"
       hubItems={hseHubItems}
       contentCard={tab !== 'rounds'}

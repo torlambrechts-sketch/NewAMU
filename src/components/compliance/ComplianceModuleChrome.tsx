@@ -15,6 +15,8 @@ type Props = {
   title: string
   description?: ReactNode
   headerActions?: ReactNode
+  /** Hide module H1/description row; tab content may render Overskrift 1 from layout (e.g. Vernerunder). */
+  showTitleBlock?: boolean
   hubAriaLabel: string
   hubItems: HubMenu1Item[]
   children: ReactNode
@@ -31,6 +33,7 @@ export function ComplianceModuleChrome({
   title,
   description,
   headerActions,
+  showTitleBlock = true,
   hubAriaLabel,
   hubItems,
   children,
@@ -46,6 +49,7 @@ export function ComplianceModuleChrome({
         title={title}
         description={description}
         headerActions={headerActions}
+        showTitleBlock={showTitleBlock}
         menu={<HubMenu1Bar ariaLabel={hubAriaLabel} items={hubItems} />}
       />
 
