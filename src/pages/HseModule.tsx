@@ -172,6 +172,12 @@ const SL_ABSENCE_LABELS: Record<SickLeaveAbsenceType, string> = {
   medical_certificate: 'Sykemelding (lege)',
 }
 
+const INSPECTION_KIND_LABEL: Record<Inspection['kind'], string> = {
+  internal: 'Intern',
+  external: 'Ekstern',
+  audit: 'Revisjon',
+}
+
 function formatDate(iso: string) {
   try {
     return new Date(iso).toLocaleDateString('no-NO', { dateStyle: 'short' })
@@ -278,6 +284,7 @@ export function HseModule() {
   const [newFindingText, setNewFindingText] = useState('')
   const [insFileQueue, setInsFileQueue] = useState<File[]>([])
   const [insSearch, setInsSearch] = useState('')
+  const [inspectionsCalendarDayOffset, setInspectionsCalendarDayOffset] = useState(0)
   const [protoName, setProtoName] = useState('')
   const [protoRole, setProtoRole] = useState<HseProtocolSignature['role']>('inspector')
   const [finalizeName, setFinalizeName] = useState('')
@@ -625,16 +632,6 @@ export function HseModule() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [sjaPanelId, slPanelId, trainingPanelId, closeSjaPanel, closeSlPanel, closeTrainingPanel])
-
-  const inspectionStats = useMemo(() => {
-    const list = hse.inspections
-    return {
-      total: list.length,
-      open: list.filter((i) => i.status === 'open' && !i.locked).length,
-      closedUnlocked: list.filter((i) => i.status === 'closed' && !i.locked).length,
-      locked: list.filter((i) => i.locked).length,
-    }
-  }, [hse.inspections])
 
   const roundStats = useMemo(() => {
     const list = hse.safetyRounds
@@ -1245,6 +1242,278 @@ export function HseModule() {
     setFinalizeName('')
     setInspectionPanelOpen(true)
   }, [])
+
+  const inspectionsCalendarSelectedDate = useMemo(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() + inspectionsCalendarDayOffset)
+    return d
+  }, [inspectionsCalendarDayOffset])
+
+  const inspectionsCalendarDayIso = useMemo(
+    () => inspectionsCalendarSelectedDate.toISOString().slice(0, 10),
+    [inspectionsCalendarSelectedDate],
+  )
+
+  const inspectionsCalendarDayLabel = useMemo(() => {
+    const s = inspectionsCalendarSelectedDate.toLocaleDateString('nb-NO', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+    return s.charAt(0).toUpperCase() + s.slice(1)
+  }, [inspectionsCalendarSelectedDate])
+
+  const setInspectionsCalendarDayFromIso = useCallback((isoDate: string) => {
+    if (!isoDate) return
+    const pick = new Date(`${isoDate}T12:00:00`)
+    if (Number.isNaN(pick.getTime())) return
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const pick0 = new Date(pick.getFullYear(), pick.getMonth(), pick.getDate())
+    const diff = Math.round((pick0.getTime() - today.getTime()) / 86400000)
+    setInspectionsCalendarDayOffset(diff)
+  }, [])
+
+  const inspectionCalendarDateIso = useCallback((ins: Inspection) => ins.conductedAt.slice(0, 10), [])
+
+  const inspectionsOnCalendarDay = useMemo(() => {
+    return inspectionsFiltered
+      .filter((i) => inspectionCalendarDateIso(i) === inspectionsCalendarDayIso)
+      .sort((a, b) => b.conductedAt.localeCompare(a.conductedAt))
+  }, [inspectionsFiltered, inspectionsCalendarDayIso, inspectionCalendarDateIso])
+
+  const toInspectionCalendarListItem = useCallback(
+    (ins: Inspection) => {
+      const dateIso = inspectionCalendarDateIso(ins)
+      let time = ''
+      try {
+        time = new Date(ins.conductedAt).toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })
+      } catch {
+        /* keep empty */
+      }
+      let dateLabel = dateIso
+      try {
+        dateLabel = new Date(`${dateIso}T12:00:00`).toLocaleDateString('nb-NO', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        })
+      } catch {
+        /* keep dateIso */
+      }
+      const cat = INSPECTION_KIND_LABEL[ins.kind]
+      return {
+        id: ins.id,
+        category: cat,
+        title: ins.title,
+        startLabel: dateLabel,
+        endLabel: time || undefined,
+        onClick: () => openEditInspectionPanel(ins),
+      }
+    },
+    [inspectionCalendarDateIso, openEditInspectionPanel],
+  )
+
+  const inspectionCalendarAllItems = useMemo(() => {
+    const sorted = [...inspectionsFiltered].sort((a, b) => b.conductedAt.localeCompare(a.conductedAt))
+    return sorted.map(toInspectionCalendarListItem)
+  }, [inspectionsFiltered, toInspectionCalendarListItem])
+
+  const inspectionCalendarDayItems = useMemo(
+    () => inspectionsOnCalendarDay.map(toInspectionCalendarListItem),
+    [inspectionsOnCalendarDay, toInspectionCalendarListItem],
+  )
+
+  const inspectionLayoutStats = useMemo(() => {
+    const list = hse.inspections
+    return {
+      total: list.length,
+      open: list.filter((i) => i.status === 'open' && !i.locked).length,
+      closedUnlocked: list.filter((i) => i.status === 'closed' && !i.locked).length,
+      locked: list.filter((i) => i.locked).length,
+    }
+  }, [hse.inspections])
+
+  /** Inspeksjoner: samme stack-mal som Layout_vernerunder (rekkefølge fra DB). */
+  const inspectionsLayoutNodes = useMemo(() => {
+    const order = vernerunderTabLayout.order
+    const showKpi = order.includes('scoreStatRow')
+    const showActions = order.includes('workplaceTasksActions')
+    const showTable = order.includes('table1')
+    const showCalendar = order.includes('vernerunderScheduleCalendar')
+
+    const layoutTableCell = `${LAYOUT_TABLE1_POSTINGS_TD} text-neutral-800`
+
+    const actionsRow = showActions ? (
+      <WorkplaceTasksActionButtonsRow key="inspections-actions">
+        <WorkplaceTasksPrimaryButton label="Ny inspeksjon" onClick={openNewInspectionPanel} />
+      </WorkplaceTasksActionButtonsRow>
+    ) : null
+
+    const tableBlock = showTable ? (
+      <LayoutTable1PostingsShell
+        key="inspections-table"
+        wrap
+        title="Inspeksjoner"
+        description="Tidligere inspeksjoner — sortert etter gjennomført tid. Åpne en rad i sidevinduet for redigering, signatur og låsing."
+        toolbar={
+          <div className="relative min-w-[200px] flex-1">
+            <label className="sr-only" htmlFor="ins-search-layout">
+              Søk
+            </label>
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+            <input
+              id="ins-search-layout"
+              type="search"
+              value={insSearch}
+              onChange={(e) => setInsSearch(e.target.value)}
+              placeholder="Søk i tittel, omfang, funn …"
+              className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
+            />
+          </div>
+        }
+        footer={
+          <span className="text-neutral-500">
+            {insSearch.trim()
+              ? `${inspectionsFiltered.length} treff`
+              : `Viser ${inspectionsFiltered.length} inspeksjoner`}
+          </span>
+        }
+      >
+        <>
+          <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+            <thead>
+              <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
+                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
+                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type</th>
+                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Gjennomført</th>
+                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Ansvarlig</th>
+                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Avvik</th>
+                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
+                <th className={`w-12 ${LAYOUT_TABLE1_POSTINGS_TH}`} aria-label="Handling" />
+              </tr>
+            </thead>
+            <tbody>
+              {inspectionsFiltered.map((ins) => (
+                <InspectionTableRow
+                  key={ins.id}
+                  ins={ins}
+                  rowClass={LAYOUT_TABLE1_POSTINGS_BODY_ROW}
+                  cellClass={layoutTableCell}
+                  actionStyle="icon"
+                  onOpen={() => openEditInspectionPanel(ins)}
+                />
+              ))}
+            </tbody>
+          </table>
+          {inspectionsFiltered.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-neutral-500">Ingen inspeksjoner matcher søket.</p>
+          ) : null}
+        </>
+      </LayoutTable1PostingsShell>
+    ) : null
+
+    const calendarBlock = showCalendar ? (
+      <div key="inspections-calendar" className="min-w-0">
+        <WorkplaceEventsDayCard
+          surface="flat"
+          cardTitle="Inspeksjoner etter dato"
+          badge={inspectionCalendarAllItems.length}
+          dateLabel={inspectionsCalendarDayLabel}
+          onPrevDay={() => setInspectionsCalendarDayOffset((x) => x - 1)}
+          onNextDay={() => setInspectionsCalendarDayOffset((x) => x + 1)}
+          datePickerSlot={
+            <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-800">
+              <Calendar className="size-3.5 shrink-0 text-neutral-500" aria-hidden />
+              <input
+                type="date"
+                value={inspectionsCalendarDayIso}
+                onChange={(e) => setInspectionsCalendarDayFromIso(e.target.value)}
+                className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900"
+              />
+            </label>
+          }
+          tabs={[
+            {
+              id: 'all',
+              label: 'Alle',
+              count: inspectionCalendarAllItems.length,
+              items: inspectionCalendarAllItems,
+              emptyHint: 'Ingen inspeksjoner registrert ennå.',
+            },
+            {
+              id: 'day',
+              label: 'Valgt dag',
+              count: inspectionCalendarDayItems.length,
+              items: inspectionCalendarDayItems,
+              emptyHint: 'Ingen inspeksjoner på valgt dato.',
+            },
+          ]}
+          defaultTabId="all"
+        />
+      </div>
+    ) : null
+
+    const splitRow =
+      showTable && showCalendar ? (
+        <WorkplaceSplit7030Layout
+          key="inspections-split"
+          cardWrap={false}
+          main={<div className="min-w-0">{tableBlock}</div>}
+          aside={calendarBlock}
+        />
+      ) : showTable ? (
+        <div key="inspections-table-only" className="min-w-0">
+          {tableBlock}
+        </div>
+      ) : showCalendar ? (
+        calendarBlock
+      ) : null
+
+    const kpiBlock = showKpi ? (
+      <div key="inspections-scoreStatRow">
+        <LayoutScoreStatRow
+          items={[
+            { big: String(inspectionLayoutStats.total), title: 'Totalt', sub: 'I registeret' },
+            { big: String(inspectionLayoutStats.open), title: 'Åpne', sub: 'Pågår' },
+            {
+              big: String(inspectionLayoutStats.closedUnlocked),
+              title: 'Lukket (utkast)',
+              sub: 'Kan låses',
+            },
+            { big: String(inspectionLayoutStats.locked), title: 'Låst', sub: 'Arkiv' },
+          ]}
+        />
+      </div>
+    ) : null
+
+    const nodes: ReactNode[] = []
+    for (const seg of vernerunderVerticalSegments(order)) {
+      if (seg.kind === 'scoreStatRow' && kpiBlock) nodes.push(kpiBlock)
+      if (seg.kind === 'workplaceTasksActions' && actionsRow) nodes.push(actionsRow)
+      if (seg.kind === 'split' && splitRow) nodes.push(splitRow)
+    }
+
+    return nodes
+  }, [
+    vernerunderTabLayout.order,
+    inspectionLayoutStats.total,
+    inspectionLayoutStats.open,
+    inspectionLayoutStats.closedUnlocked,
+    inspectionLayoutStats.locked,
+    inspectionsFiltered,
+    insSearch,
+    inspectionsCalendarDayLabel,
+    inspectionsCalendarDayIso,
+    inspectionCalendarAllItems,
+    inspectionCalendarDayItems,
+    openNewInspectionPanel,
+    openEditInspectionPanel,
+    setInspectionsCalendarDayFromIso,
+    setInsSearch,
+  ])
 
   async function submitInspectionPanel(e: React.FormEvent) {
     e.preventDefault()
@@ -2249,117 +2518,48 @@ export function HseModule() {
         </div>
       )}
 
-      {/* ── Inspections (Tasks / Organisasjon layout) ─────────────────────────── */}
+      {/* ── Inspections — Layout_vernerunder (samme stack-mal som vernerunder, fra DB) ── */}
       {tab === 'inspections' && (
-        <div className="mt-8 space-y-6">
-          <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 flex-1">
-              <h2
-                className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-              >
-                Inspeksjoner
-              </h2>
-              <p className="mt-1 max-w-2xl text-sm text-neutral-600">
-                Registrer inspeksjoner med sporbar ansvarlig, inspeksjonsobjekt, konkrete avvik og vedlegg. Når status er lukket og du låser rapporten, opprettes Kanban-oppgaver per åpent avvik og dokumentet blir skrivebeskyttet.
-              </p>
-              <div className="mt-5 flex flex-wrap items-center gap-2">
-                <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-                  Totalt <strong className="ml-1 font-semibold">{inspectionStats.total}</strong>
-                </span>
-                <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
-                  Åpne <strong className="ml-1 font-semibold">{inspectionStats.open}</strong>
-                </span>
-                <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
-                  Lukket (utkast) <strong className="ml-1 font-semibold">{inspectionStats.closedUnlocked}</strong>
-                </span>
-                <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
-                  Låst <strong className="ml-1 font-semibold">{inspectionStats.locked}</strong>
-                </span>
-                <button
-                  type="button"
-                  onClick={openNewInspectionPanel}
-                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
-                >
-                  <Plus className="size-4 shrink-0" />
-                  Ny inspeksjon
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
-              <div className="text-2xl font-semibold">{inspectionStats.total}</div>
-              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Registrert</div>
-            </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
-              <div className="text-2xl font-semibold">{inspectionStats.open}</div>
-              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Pågår</div>
-            </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
-              <div className="text-2xl font-semibold">{inspectionStats.closedUnlocked}</div>
-              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Lukket — kan låses</div>
-            </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
-              <div className="text-2xl font-semibold">{inspectionStats.locked}</div>
-              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Arkiv (signert)</div>
-            </div>
-          </div>
-
-          <Mainbox1 title="Tidligere inspeksjoner" subtitle="Sortert etter gjennomført tid. Åpne en rad i sidevinduet for redigering, signatur og låsing.">
-            <Table1Shell
-              variant="pinpoint"
-              toolbar={
-                <Table1Toolbar
-                  searchSlot={
-                    <div className="min-w-[200px] flex-1">
-                      <label className="sr-only" htmlFor="ins-search">
-                        Søk
-                      </label>
-                      <input
-                        id="ins-search"
-                        value={insSearch}
-                        onChange={(e) => setInsSearch(e.target.value)}
-                        placeholder="Søk i tittel, omfang, funn …"
-                        className={`${SETTINGS_INPUT} bg-white`}
-                      />
-                    </div>
-                  }
-                />
-              }
+        <div className="mt-2 min-w-0 space-y-6">
+          <div className="min-w-0 border-b border-neutral-200/80 pb-8">
+            <h2
+              className="text-2xl font-semibold text-neutral-900 md:text-3xl"
+              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
             >
-              <div className="overflow-x-auto">
-                <table className="min-w-full border-collapse text-left">
-                  <thead>
-                    <tr className={theadRow}>
-                      <th className={tableCell}>Tittel</th>
-                      <th className={tableCell}>Type</th>
-                      <th className={tableCell}>Gjennomført</th>
-                      <th className={tableCell}>Ansvarlig</th>
-                      <th className={tableCell}>Avvik</th>
-                      <th className={tableCell}>Status</th>
-                      <th className={`${tableCell} text-right`}>Handling</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inspectionsFiltered.map((ins, ri) => (
-                      <InspectionTableRow
-                        key={ins.id}
-                        ins={ins}
-                        rowClass={table1BodyRowClass(layout, ri)}
-                        cellClass={tableCell}
-                        onOpen={() => openEditInspectionPanel(ins)}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {inspectionsFiltered.length === 0 ? (
-                <p className="px-4 py-10 text-center text-sm text-neutral-500">Ingen inspeksjoner matcher søket.</p>
-              ) : null}
-            </Table1Shell>
-          </Mainbox1>
+              Inspeksjoner
+            </h2>
+            <div className="mt-3 max-w-3xl space-y-3 text-sm leading-relaxed text-neutral-600">
+              <p>En inspeksjon er en målrettet og systematisk kontroll av utstyr, anlegg, prosesser eller tjenester.</p>
+              <p>
+                Den gjennomføres for å sikre at kvalitetskrav, sikkerhetsstandarder, lover og regler faktisk overholdes i
+                praksis.
+              </p>
+              <p>
+                Mens vernerunder fokuserer bredt på arbeidsmiljø, er inspeksjoner ofte mer tekniske og spisset mot
+                spesifikke fagområder.
+              </p>
+              <p>
+                Alle avvik og feil som avdekkes dokumenteres i en rapport som gir grunnlag for nødvendig vedlikehold eller
+                utbedringer.
+              </p>
+              <p>
+                De kan utføres internt av bedriften selv, eller eksternt av tilsynsmyndigheter og uavhengige
+                kontrollorganer.
+              </p>
+            </div>
+          </div>
+
+          {vernerunderTabLayout.presetNameMatched ? (
+            <p className="text-xs text-neutral-500">
+              Oppsett fra plattform-admin:{' '}
+              <span className="font-medium text-neutral-700">«{vernerunderTabLayout.presetNameMatched}»</span>
+              {supabaseConfigured
+                ? ' (oppdateres når publiserte stack-maler endres).'
+                : ' (lagret i denne nettleseren).'}
+            </p>
+          ) : null}
+
+          <div className="min-w-0 space-y-6">{inspectionsLayoutNodes}</div>
         </div>
       )}
 
@@ -4673,12 +4873,6 @@ function HseFilledListCard({
   )
 }
 
-const INSPECTION_KIND_LABEL: Record<Inspection['kind'], string> = {
-  internal: 'Intern',
-  external: 'Ekstern',
-  audit: 'Revisjon',
-}
-
 function SjaTableRow({
   sja,
   deptLabel,
@@ -4766,11 +4960,13 @@ function InspectionTableRow({
   ins,
   rowClass,
   cellClass,
+  actionStyle = 'button',
   onOpen,
 }: {
   ins: Inspection
   rowClass: string
   cellClass: string
+  actionStyle?: 'button' | 'icon'
   onOpen: () => void
 }) {
   const org = useOrganisation()
@@ -4830,13 +5026,24 @@ function InspectionTableRow({
         )}
       </td>
       <td className={`${cellClass} text-right`}>
-        <button
-          type="button"
-          onClick={onOpen}
-          className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
-        >
-          Åpne
-        </button>
+        {actionStyle === 'icon' ? (
+          <button
+            type="button"
+            onClick={onOpen}
+            className="text-neutral-400 hover:text-neutral-700"
+            aria-label="Åpne"
+          >
+            <MoreHorizontal className="size-5" aria-hidden />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onOpen}
+            className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+          >
+            Åpne
+          </button>
+        )}
       </td>
     </tr>
   )
