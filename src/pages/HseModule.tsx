@@ -40,9 +40,9 @@ import {
 } from '../lib/layoutLabTokens'
 import { resolveVernerunderTabLayoutFromPublishedRows } from '../lib/vernerunderLayoutFromPreset'
 import { isSafetyRoundUpcoming, safetyRoundCalendarDateIso, safetyRoundCalendarTimeLabel } from '../lib/safetyRoundCalendar'
-import { renderLayoutComposerBlock } from '../pages/platform/PlatformLayoutComposerPage'
 import { LayoutScoreStatRow } from '../components/layout/LayoutScoreStatRow'
 import { WorkplaceEventsDayCard } from '../components/layout/WorkplaceEventsDayCard'
+import { WorkplaceSplit7030Layout } from '../components/layout/WorkplaceSplit7030Layout'
 import { useWorkplacePublishedComposerStacks } from '../hooks/useWorkplacePublishedComposerStacks'
 import { SAFETY_ROUND_TEMPLATE_ID, TRAINING_KIND_LABELS } from '../data/hseTemplates'
 import { WizardButton } from '../components/wizard/WizardButton'
@@ -834,6 +834,7 @@ export function HseModule() {
     setCalendarDayOffset(diff)
   }, [])
 
+  /** Layout_vernerunder: KPI fra preset (kun scoreStatRow) + fast 2/3 tabell | 1/3 kalender-rad (ingen ytre Mainbox). */
   const vernerunderLayoutNodes = useMemo(() => {
     const order = vernerunderTabLayout.order
     const nodes: ReactNode[] = []
@@ -851,143 +852,140 @@ export function HseModule() {
             />
           </div>,
         )
-      } else if (id === 'vernerunderScheduleCalendar') {
-        nodes.push(
-          <div key="vernerunderScheduleCalendar" className="space-y-2">
-            <WorkplaceEventsDayCard
-              cardTitle="Kommende vernerunder — valgt dag"
-              badge={calendarEventsItems.length}
-              dateLabel={calendarDayLabel}
-              onPrevDay={() => setCalendarDayOffset((x) => x - 1)}
-              onNextDay={() => setCalendarDayOffset((x) => x + 1)}
-              datePickerSlot={
-                <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-800">
-                  <Calendar className="size-3.5 shrink-0 text-neutral-500" aria-hidden />
-                  <input
-                    type="date"
-                    value={calendarDayIso}
-                    onChange={(e) => setCalendarDayFromIso(e.target.value)}
-                    className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900"
-                  />
-                </label>
-              }
-              tabs={[{ id: 'upcoming', label: 'På denne dagen', count: calendarEventsItems.length, items: calendarEventsItems }]}
-              defaultTabId="upcoming"
-              footer={{
-                label: 'Planlegg vernerunde (én eller serie)',
-                onMoreClick: openSchedulePanel,
-              }}
-            />
-            <p className="text-xs text-neutral-500">
-              Planlagte runder vises i årshjulet. Tabellen under viser både tidligere og kommende runder — sortert etter dato.
-            </p>
-          </div>,
-        )
-      } else if (id === 'table1') {
-        nodes.push(
-          <div key="table1">
-            <Mainbox1
-              title="Vernerunder"
-              subtitle="Tidligere og kommende — sortert etter dato. Åpne raden for sjekkliste, avvik og signatur."
-            >
-              <div className="mb-4 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={openNewRoundPanel}
-                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
-                >
-                  <Plus className="size-4 shrink-0" />
-                  Registrer gjennomført runde
-                </button>
-                <button
-                  type="button"
-                  onClick={openSchedulePanel}
-                  className={`${HERO_ACTION_CLASS} gap-2 border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50`}
-                >
-                  <Calendar className="size-4 shrink-0" />
-                  Planlegg i kalender
-                </button>
-                <WizardButton
-                  label="Veiviser"
-                  variant="solid"
-                  className={HERO_ACTION_CLASS}
-                  def={makeSafetyRoundWizard(
-                    (data) => {
-                      const sr = hse.createSafetyRound({
-                        title: String(data.title),
-                        conductedAt: new Date(String(data.conductedAt)).toISOString(),
-                        location: String(data.location) || '—',
-                        department: String(data.department) || undefined,
-                        conductedBy:
-                          profile?.display_name?.trim() || user?.email?.trim() || 'Registrert bruker',
-                        notes: String(data.notes) || '',
-                        checklistTemplateId: String(data.templateId) || SAFETY_ROUND_TEMPLATE_ID,
-                      })
-                      openRoundPanel(sr.id)
-                    },
-                    hse.checklistTemplates.map((t) => ({ value: t.id, label: t.name })),
-                  )}
-                />
-              </div>
-              <Table1Shell
-                variant="pinpoint"
-                toolbar={
-                  <Table1Toolbar
-                    searchSlot={
-                      <div className="min-w-[200px] flex-1">
-                        <label className="sr-only" htmlFor="round-search">
-                          Søk
-                        </label>
-                        <input
-                          id="round-search"
-                          value={roundSearch}
-                          onChange={(e) => setRoundSearch(e.target.value)}
-                          placeholder="Søk i tittel, sted, avdeling …"
-                          className={`${SETTINGS_INPUT} bg-white`}
-                        />
-                      </div>
-                    }
-                  />
-                }
-              >
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border-collapse text-left">
-                    <thead>
-                      <tr className={theadRow}>
-                        <th className={tableCell}>Tittel</th>
-                        <th className={tableCell}>Lokasjon</th>
-                        <th className={tableCell}>Type / status</th>
-                        <th className={tableCell}>Dato</th>
-                        <th className={tableCell}>Avvik</th>
-                        <th className={`${tableCell} text-right`}>Handling</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {roundsFiltered.map((sr, ri) => (
-                        <SafetyRoundTableRow
-                          key={sr.id}
-                          round={sr}
-                          templates={hse.checklistTemplates}
-                          rowClass={table1BodyRowClass(layout, ri)}
-                          cellClass={tableCell}
-                          onOpen={() => openRoundPanel(sr.id)}
-                        />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {roundsFiltered.length === 0 ? (
-                  <p className="px-4 py-10 text-center text-sm text-neutral-500">Ingen runder matcher søket.</p>
-                ) : null}
-              </Table1Shell>
-            </Mainbox1>
-          </div>,
-        )
-      } else {
-        const demo = renderLayoutComposerBlock(id)
-        if (demo) nodes.push(<div key={id}>{demo}</div>)
       }
     }
+
+    const tableColumn = (
+      <div className="min-w-0 space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={openNewRoundPanel}
+            className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+          >
+            <Plus className="size-4 shrink-0" />
+            Registrer gjennomført runde
+          </button>
+          <button
+            type="button"
+            onClick={openSchedulePanel}
+            className={`${HERO_ACTION_CLASS} gap-2 border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50`}
+          >
+            <Calendar className="size-4 shrink-0" />
+            Planlegg i kalender
+          </button>
+          <WizardButton
+            label="Veiviser"
+            variant="solid"
+            className={HERO_ACTION_CLASS}
+            def={makeSafetyRoundWizard(
+              (data) => {
+                const sr = hse.createSafetyRound({
+                  title: String(data.title),
+                  conductedAt: new Date(String(data.conductedAt)).toISOString(),
+                  location: String(data.location) || '—',
+                  department: String(data.department) || undefined,
+                  conductedBy:
+                    profile?.display_name?.trim() || user?.email?.trim() || 'Registrert bruker',
+                  notes: String(data.notes) || '',
+                  checklistTemplateId: String(data.templateId) || SAFETY_ROUND_TEMPLATE_ID,
+                })
+                openRoundPanel(sr.id)
+              },
+              hse.checklistTemplates.map((t) => ({ value: t.id, label: t.name })),
+            )}
+          />
+        </div>
+        <Table1Shell
+          variant="default"
+          toolbar={
+            <Table1Toolbar
+              searchSlot={
+                <div className="min-w-[200px] flex-1">
+                  <label className="sr-only" htmlFor="round-search">
+                    Søk
+                  </label>
+                  <input
+                    id="round-search"
+                    value={roundSearch}
+                    onChange={(e) => setRoundSearch(e.target.value)}
+                    placeholder="Søk i tittel, sted, avdeling …"
+                    className={`${SETTINGS_INPUT} bg-white`}
+                  />
+                </div>
+              }
+            />
+          }
+        >
+          <table className="min-w-full border-collapse text-left">
+            <thead>
+              <tr className={theadRow}>
+                <th className={tableCell}>Tittel</th>
+                <th className={tableCell}>Lokasjon</th>
+                <th className={tableCell}>Type / status</th>
+                <th className={tableCell}>Dato</th>
+                <th className={tableCell}>Avvik</th>
+                <th className={`${tableCell} text-right`}>Handling</th>
+              </tr>
+            </thead>
+            <tbody>
+              {roundsFiltered.map((sr, ri) => (
+                <SafetyRoundTableRow
+                  key={sr.id}
+                  round={sr}
+                  templates={hse.checklistTemplates}
+                  rowClass={table1BodyRowClass(layout, ri)}
+                  cellClass={tableCell}
+                  onOpen={() => openRoundPanel(sr.id)}
+                />
+              ))}
+            </tbody>
+          </table>
+          {roundsFiltered.length === 0 ? (
+            <p className="px-4 py-10 text-center text-sm text-neutral-500">Ingen runder matcher søket.</p>
+          ) : null}
+        </Table1Shell>
+      </div>
+    )
+
+    const calendarColumn = (
+      <div className="min-w-0">
+        <WorkplaceEventsDayCard
+          cardTitle="Kommende — valgt dag"
+          badge={calendarEventsItems.length}
+          dateLabel={calendarDayLabel}
+          onPrevDay={() => setCalendarDayOffset((x) => x - 1)}
+          onNextDay={() => setCalendarDayOffset((x) => x + 1)}
+          datePickerSlot={
+            <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-800">
+              <Calendar className="size-3.5 shrink-0 text-neutral-500" aria-hidden />
+              <input
+                type="date"
+                value={calendarDayIso}
+                onChange={(e) => setCalendarDayFromIso(e.target.value)}
+                className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900"
+              />
+            </label>
+          }
+          tabs={[{ id: 'upcoming', label: 'På denne dagen', count: calendarEventsItems.length, items: calendarEventsItems }]}
+          defaultTabId="upcoming"
+          footer={{
+            label: 'Planlegg vernerunde (én eller serie)',
+            onMoreClick: openSchedulePanel,
+          }}
+        />
+      </div>
+    )
+
+    nodes.push(
+      <WorkplaceSplit7030Layout
+        key="vernerunder-split"
+        cardWrap={false}
+        main={tableColumn}
+        aside={calendarColumn}
+      />,
+    )
+
     return nodes
   }, [
     vernerunderTabLayout.order,
@@ -1728,19 +1726,20 @@ export function HseModule() {
       {/* ── Safety rounds — Layout_vernerunder (DB / lokal stack-mal) ─────────── */}
       {tab === 'rounds' && (
         <div className="mt-8 space-y-6">
-          <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 flex-1">
-              <h2
-                className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-              >
-                Vernerunder
-              </h2>
-              <p className="mt-1 max-w-2xl text-sm text-neutral-600">
-                Planlegg kommende runder i kalenderen (én eller serie med intervall), eller registrer en gjennomført runde. Sjekklisten lastes fra valgt mal; ved signering (leder + verneombud) låses runden og åpne avvik kan sendes til Kanban.
-              </p>
-            </div>
-          </div>
+          <header className="min-w-0 max-w-3xl space-y-2">
+            <h2
+              className="text-2xl font-semibold text-neutral-900 md:text-3xl"
+              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+            >
+              Vernerunder
+            </h2>
+            <p className="text-sm text-neutral-600">
+              Planlegg i kalenderen til høyre (én runde eller serie), eller registrer gjennomført runde. Tabellen til venstre
+              viser alle runder. Malen Layout_vernerunder: KPI-rad (valgfri fra plattform-admin), deretter{' '}
+              <span className="whitespace-nowrap">2/3 tabell</span> og <span className="whitespace-nowrap">1/3 kalender</span>{' '}
+              på samme rad.
+            </p>
+          </header>
 
           {vernerunderTabLayout.presetNameMatched ? (
             <p className="text-xs text-neutral-500">

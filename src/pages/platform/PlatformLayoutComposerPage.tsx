@@ -889,8 +889,8 @@ function ComposableVernerunderScheduleCalendarBlock() {
         }}
       />
       <p className="text-xs text-neutral-500">
-        Publiser en stack-mal med navn <strong>Layout_vernerunder</strong> for å styre rekkefølge (KPI → kalender → tabell) på
-        HSE → Vernerunder.
+        Publiser <strong>Layout_vernerunder</strong> med <strong>scoreStatRow</strong> for å vise/skjule KPI-rad. Tabell og kalender
+        er alltid 2/3 + 1/3 på arbeidsflaten.
       </p>
     </div>
   )
@@ -1581,7 +1581,7 @@ const BLOCKS = [
   {
     id: 'vernerunderScheduleCalendar',
     label: 'Vernerunder — planlegging og kalender (dag)',
-    hint: 'Stack-mal «Layout_vernerunder»: KPI-rad, denne kalenderboksen (kommende vernerunder på valgt dag), deretter tabell.',
+    hint: 'Demo: kalenderkort. På HSE → Vernerunder ligger tabell og kalender alltid på én rad 2/3 | 1/3 (Layout_vernerunder). Preset styrer kun KPI-rad (scoreStatRow).',
   },
   {
     id: 'workplaceTodos',
