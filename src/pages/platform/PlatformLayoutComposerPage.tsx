@@ -36,6 +36,11 @@ import {
 } from '../../components/layout/WorkplaceEditableNoticeList'
 import { WorkplaceEventsDayCard } from '../../components/layout/WorkplaceEventsDayCard'
 import { WorkplaceTodosCard } from '../../components/layout/WorkplaceTodosCard'
+import {
+  WorkplaceTasksActionButtonsRow,
+  WorkplaceTasksPrimaryButton,
+  WorkplaceTasksSplitButton,
+} from '../../components/layout/WorkplaceTasksActionButtons'
 import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
 import {
   layoutTable1PostingsPrimaryButtonClass,
@@ -855,6 +860,32 @@ function formatComposerDayLabel(base: Date, dayOffset: number) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+/** Primær + splittet nedtrekk — samme grønn CTA som Tasks; wrapper uten bakgrunn. */
+function ComposableWorkplaceTasksActionButtonsBlock() {
+  return (
+    <div className="space-y-3">
+      <WorkplaceTasksActionButtonsRow>
+        <WorkplaceTasksPrimaryButton label="Ny oppgave" onClick={() => undefined} />
+        <WorkplaceTasksSplitButton
+          label="Opprett"
+          onMainClick={() => undefined}
+          options={[
+            { id: 'a', label: 'Fra mal', onSelect: () => undefined },
+            { id: 'b', label: 'Tom oppgave', onSelect: () => undefined },
+            { id: 'c', label: 'Importer…', onSelect: () => undefined },
+          ]}
+        />
+      </WorkplaceTasksActionButtonsRow>
+      <p className="text-xs text-neutral-500">
+        Bruk <code className="rounded bg-neutral-100 px-1 text-[11px]">WorkplaceTasksPrimaryButton</code>,{' '}
+        <code className="rounded bg-neutral-100 px-1 text-[11px]">WorkplaceTasksSplitButton</code> og{' '}
+        <code className="rounded bg-neutral-100 px-1 text-[11px]">WorkplaceTasksActionButtonsRow</code> på sider — samme stil som
+        verktøylinjen på Oppgaver (grønn #2D403A, uppercase, avrundet).
+      </p>
+    </div>
+  )
+}
+
 /** Demo for stack-mal Layout_vernerunder — arbeidsflate bytter inn ekte HSE-data. */
 function ComposableVernerunderScheduleCalendarBlock() {
   const [dayOffset, setDayOffset] = useState(0)
@@ -1594,6 +1625,11 @@ const BLOCKS = [
     hint: 'Innbokser med tittel, beskrivelse og frist; Ny oppgave → /tasks.',
   },
   {
+    id: 'workplaceTasksActions',
+    label: 'Knapper — Oppgaver (transparent rad)',
+    hint: 'Én primærknapp + splittet knapp med nedtrekk; samme CTA som Tasks; ingen kortbakgrunn — legg på krem/hvit flate.',
+  },
+  {
     id: 'list2',
     label: 'List 2 — kandidat/ordre-tabell',
     hint: 'Søk, Filters + status, grå header-rad, piller (action / checks), paginering.',
@@ -1759,6 +1795,8 @@ function renderComposerBlock(id: BlockId): ReactNode {
       return <ComposableVernerunderScheduleCalendarBlock />
     case 'workplaceTodos':
       return <ComposableWorkplaceTodosBlock />
+    case 'workplaceTasksActions':
+      return <ComposableWorkplaceTasksActionButtonsBlock />
     case 'list2':
       return <ComposableList2Block />
     case 'rosRiskMatrix':
