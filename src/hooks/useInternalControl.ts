@@ -330,12 +330,10 @@ export function useInternalControl() {
         rosAssessments: s.rosAssessments.map((ros) => {
           if (ros.id !== rosId) return ros
           const patchKeys = Object.keys(patch)
-          const allowWhenLocked =
-            ros.locked && patchKeys.length > 0 && patchKeys.every((k) => ROS_ROW_META_PATCH_KEYS.has(k))
-          if (ros.locked && !allowWhenLocked) return ros
           const rows = ros.rows.map((row) => {
             if (row.id !== rowId) return row
-            if (!ros.locked && !isRosRiskRowDraft(row)) {
+            // Rader i «Utkast» kan redigeres fullt selv om ROS er låst; øvrige rader kun metadata-felt.
+            if (!isRosRiskRowDraft(row)) {
               const onlyMeta = patchKeys.length > 0 && patchKeys.every((k) => ROS_ROW_META_PATCH_KEYS.has(k))
               if (!onlyMeta) return row
             }
@@ -401,7 +399,7 @@ export function useInternalControl() {
       setState((s) => ({
         ...s,
         rosAssessments: s.rosAssessments.map((ros) => {
-          if (ros.id !== rosId || ros.locked) return ros
+          if (ros.id !== rosId) return ros
           const row = ros.rows.find((r) => r.id === rowId)
           if (!row || !isRosRiskRowDraft(row)) return ros
           if (ros.rows.length <= 1) return ros
@@ -572,7 +570,7 @@ export function useInternalControl() {
       setState((s) => ({
         ...s,
         rosAssessments: s.rosAssessments.map((ros) => {
-          if (ros.id !== rosId || ros.locked || !isRosDocumentDraft(ros)) return ros
+          if (ros.id !== rosId) return ros
           return { ...ros, rows: [...ros.rows, emptyRosRow()], updatedAt: new Date().toISOString() }
         }),
       }))

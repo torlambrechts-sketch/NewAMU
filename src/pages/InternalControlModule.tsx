@@ -1986,16 +1986,13 @@ function RosAssessmentCard({
               Slett ROS
             </button>
           ) : null}
-          {!isLocked ? (
-            <button
-              type="button"
-              onClick={() => ic.addRosRow(ros.id)}
-              disabled={!rosDocDraft}
-              className="text-sm font-medium text-[#1a3d32] hover:underline disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              + Risiko
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={() => ic.addRosRow(ros.id)}
+            className="text-sm font-medium text-[#1a3d32] hover:underline"
+          >
+            + Risiko
+          </button>
         </div>
       </div>
 
@@ -2138,7 +2135,8 @@ function RosAssessmentCard({
             const residualCls = residualColour ? RISK_COLOUR_CLASSES[residualColour] : null
             const rowDone = isRosRowDoneForTracking(row.status)
             const rowDraft = isRosRiskRowDraft(row)
-            const rowBodyDisabled = isLocked || !rowDraft
+            /** Hele radinnhold kan redigeres i «Utkast» selv om ROS-dokumentet er låst. */
+            const rowBodyDisabled = !rowDraft
             const redResidual = residual != null && residual >= 15
             const needJust = redResidual && !(row.redResidualJustification && row.redResidualJustification.trim().length >= 10)
             const highlighted = highlightRowId === row.id
@@ -2153,7 +2151,7 @@ function RosAssessmentCard({
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 pb-2">
                   <span className="text-xs font-bold text-neutral-500">Risiko {idx + 1}</span>
                   <div className="flex flex-wrap items-center gap-2">
-                  {rosDocDraft && rowDraft && ros.rows.length > 1 ? (
+                  {rowDraft && ros.rows.length > 1 ? (
                     <button
                       type="button"
                       onClick={() => {
@@ -2202,7 +2200,7 @@ function RosAssessmentCard({
                   <div>
                     <label className={SETTINGS_FIELD_LABEL}>Konsekvenskategori (hva som rammes)</label>
                     <select
-                      disabled={isLocked}
+                      disabled={rowBodyDisabled}
                       value={row.consequenceCategory ?? ''}
                       onChange={(e) =>
                         ic.updateRosRow(ros.id, row.id, { consequenceCategory: e.target.value || undefined })
@@ -2229,7 +2227,7 @@ function RosAssessmentCard({
                   <div>
                     <label className={SETTINGS_FIELD_LABEL}>Tema / risikotype (valgfritt)</label>
                     <input
-                      disabled={isLocked}
+                      disabled={rowBodyDisabled}
                       value={row.riskCategory ?? ''}
                       onChange={(e) => ic.updateRosRow(ros.id, row.id, { riskCategory: e.target.value })}
                       placeholder="F.eks. brann, kjemikalier, ergonomi …"
@@ -2356,7 +2354,7 @@ function RosAssessmentCard({
                     </div>
                   </div>
                 </div>
-                <div className={`mt-4 rounded-md border p-3 ${needJust && !isLocked ? 'border-rose-300 bg-rose-50' : 'border-rose-100 bg-rose-50/40'}`}>
+                <div className={`mt-4 rounded-md border p-3 ${needJust && !rowBodyDisabled ? 'border-rose-300 bg-rose-50' : 'border-rose-100 bg-rose-50/40'}`}>
                   <label className={SETTINGS_FIELD_LABEL}>Strakstiltak / eskalering (ved rød restrisiko)</label>
                   <textarea
                     disabled={rowBodyDisabled}
@@ -2364,7 +2362,7 @@ function RosAssessmentCard({
                     onChange={(e) => ic.updateRosRow(ros.id, row.id, { redResidualJustification: e.target.value })}
                     rows={3}
                     placeholder={redResidual ? 'Påkrevd ved rød restrisiko (min. 10 tegn)…' : 'Kun ved behov…'}
-                    className={`${SETTINGS_INPUT} bg-white ${needJust && !isLocked ? 'border-rose-400' : ''}`}
+                    className={`${SETTINGS_INPUT} bg-white ${needJust && !rowBodyDisabled ? 'border-rose-400' : ''}`}
                   />
                 </div>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
