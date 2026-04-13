@@ -1027,7 +1027,7 @@ export function HseModule() {
               className="w-full rounded-md px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-white"
               style={{ backgroundColor: '#1a3d32' }}
             >
-              Planlegg for denne dagen
+              Planlegg vernerunde
             </button>
           }
           tabs={[{ id: 'upcoming', label: 'På denne dagen', count: calendarEventsItems.length, items: calendarEventsItems }]}

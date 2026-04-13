@@ -53,7 +53,7 @@ export type WorkplaceEventsDayCardProps = {
   defaultTabId?: string
   onTabChange?: (id: string) => void
   footer?: WorkplaceEventsFooter
-  /** Primærknapp under dato-raden (f.eks. «Planlegg» på Vernerunder-kalenderen) */
+  /** Primærknapp rett under tittelraden (øverst i kortet) */
   primaryActionSlot?: ReactNode
   className?: string
 }
@@ -113,6 +113,10 @@ export function WorkplaceEventsDayCard({
         ) : null}
       </div>
 
+      {primaryActionSlot ? (
+        <div className="border-b border-neutral-100 px-4 py-3">{primaryActionSlot}</div>
+      ) : null}
+
       <div className="border-b border-neutral-100 bg-neutral-50/60 px-4 py-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -146,7 +150,6 @@ export function WorkplaceEventsDayCard({
             </button>
           </div>
         </div>
-        {primaryActionSlot ? <div className="mt-3 w-full min-w-0">{primaryActionSlot}</div> : null}
       </div>
 
       {tabs.length > 1 ? (
