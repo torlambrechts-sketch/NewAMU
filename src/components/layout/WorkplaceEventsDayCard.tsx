@@ -22,6 +22,8 @@ export type WorkplaceEventsTab = {
   label: string
   count?: number
   items: WorkplaceEventsDayItem[]
+  /** Tekst når listen er tom (standard: «Ingen hendelser denne dagen.») */
+  emptyHint?: string
 }
 
 export type WorkplaceEventsFooter = {
@@ -180,7 +182,9 @@ export function WorkplaceEventsDayCard({
 
       <ul className="divide-y divide-neutral-100">
         {items.length === 0 ? (
-          <li className="px-4 py-6 text-center text-sm text-neutral-500">Ingen hendelser denne dagen.</li>
+          <li className="px-4 py-6 text-center text-sm text-neutral-500">
+            {activeTab?.emptyHint ?? 'Ingen hendelser denne dagen.'}
+          </li>
         ) : (
           items.map((ev) => {
             const timeLine = [ev.startLabel, ev.endLabel].filter(Boolean).join(' – ')

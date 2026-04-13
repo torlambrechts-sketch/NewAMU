@@ -704,26 +704,51 @@ export function HseModule() {
     setRoundPanelId(null)
   }, [])
 
-  const calendarEventsItems = useMemo(
-    () =>
-      roundsOnCalendarDay.map((r) => {
-        const iso = r.scheduleKind === 'planned' && r.plannedAt ? r.plannedAt : r.conductedAt
-        const time = safetyRoundCalendarTimeLabel(iso)
-        const cat =
-          r.scheduleKind === 'planned'
-            ? r.seriesId
-              ? 'Planlagt · serie'
-              : 'Planlagt'
-            : 'Registrert (kommende)'
-        return {
-          id: r.id,
-          category: cat,
-          title: r.title,
-          startLabel: time || 'Hele dagen',
-          onClick: () => openRoundPanel(r.id),
-        }
-      }),
-    [roundsOnCalendarDay, openRoundPanel],
+  const toCalendarListItem = useCallback(
+    (r: SafetyRound) => {
+      const dateIso = safetyRoundCalendarDateIso(r)
+      const iso = r.scheduleKind === 'planned' && r.plannedAt ? r.plannedAt : r.conductedAt
+      const time = safetyRoundCalendarTimeLabel(iso)
+      const cat =
+        r.scheduleKind === 'planned'
+          ? r.seriesId
+            ? 'Planlagt · serie'
+            : 'Planlagt'
+          : 'Kommende'
+      let dateLabel = dateIso
+      try {
+        dateLabel = new Date(`${dateIso}T12:00:00`).toLocaleDateString('nb-NO', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        })
+      } catch {
+        /* keep dateIso */
+      }
+      return {
+        id: r.id,
+        category: cat,
+        title: r.title,
+        startLabel: dateLabel,
+        endLabel: time || undefined,
+        onClick: () => openRoundPanel(r.id),
+      }
+    },
+    [openRoundPanel],
+  )
+
+  const calendarAllUpcomingEventsItems = useMemo(() => {
+    const sorted = [...upcomingSafetyRounds].sort((a, b) => {
+      const ta = new Date(a.scheduleKind === 'planned' && a.plannedAt ? a.plannedAt : a.conductedAt).getTime()
+      const tb = new Date(b.scheduleKind === 'planned' && b.plannedAt ? b.plannedAt : b.conductedAt).getTime()
+      return ta - tb
+    })
+    return sorted.map(toCalendarListItem)
+  }, [upcomingSafetyRounds, toCalendarListItem])
+
+  const calendarDayEventsItems = useMemo(
+    () => roundsOnCalendarDay.map(toCalendarListItem),
+    [roundsOnCalendarDay, toCalendarListItem],
   )
 
   const isoToDatetimeLocalFromDate = useCallback((d: Date) => {
@@ -1004,8 +1029,8 @@ export function HseModule() {
     const calendarColumn = (
       <div className="min-w-0">
         <WorkplaceEventsDayCard
-          cardTitle="Kommende — valgt dag"
-          badge={calendarEventsItems.length}
+          cardTitle="Kommende vernerunder"
+          badge={calendarAllUpcomingEventsItems.length}
           dateLabel={calendarDayLabel}
           onPrevDay={() => setCalendarDayOffset((x) => x - 1)}
           onNextDay={() => setCalendarDayOffset((x) => x + 1)}
@@ -1030,8 +1055,23 @@ export function HseModule() {
               Planlegg vernerunde
             </button>
           }
-          tabs={[{ id: 'upcoming', label: 'På denne dagen', count: calendarEventsItems.length, items: calendarEventsItems }]}
-          defaultTabId="upcoming"
+          tabs={[
+            {
+              id: 'all',
+              label: 'Alle kommende',
+              count: calendarAllUpcomingEventsItems.length,
+              items: calendarAllUpcomingEventsItems,
+              emptyHint: 'Ingen kommende vernerunder. Bruk «Planlegg vernerunde» for å legge til.',
+            },
+            {
+              id: 'day',
+              label: 'Valgt dag',
+              count: calendarDayEventsItems.length,
+              items: calendarDayEventsItems,
+              emptyHint: 'Ingen vernerunder på valgt dato.',
+            },
+          ]}
+          defaultTabId="all"
           footer={{
             label: 'Flere valg: én dato eller serie med intervall',
             onMoreClick: openSchedulePanel,
@@ -1058,7 +1098,8 @@ export function HseModule() {
     roundStats.approved,
     calendarDayLabel,
     calendarDayIso,
-    calendarEventsItems,
+    calendarAllUpcomingEventsItems,
+    calendarDayEventsItems,
     roundsFiltered,
     roundSearch,
     hse,
