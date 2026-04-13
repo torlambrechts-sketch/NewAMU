@@ -1567,7 +1567,7 @@ const BLOCKS = [
   {
     id: 'heading1',
     label: 'Overskrift 1 — tittel + faner',
-    hint: 'Stillinger › Stillingsannonser, serif H1, hub med Stillingsannonser aktiv (samme stil som Action board).',
+    hint: 'Stillinger › Stillingsannonser, serif H1, hub med Stillingsannonser aktiv (samme stil som Action board). På Oppgaver → Varslingssaker: bruk stack-mal Layout_varslingssaker sammen med scoreStatRow og list2.',
   },
   {
     id: 'table1',

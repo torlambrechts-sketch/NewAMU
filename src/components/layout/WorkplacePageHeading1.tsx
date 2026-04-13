@@ -16,6 +16,7 @@ export function WorkplacePageHeading1({
   description,
   menu,
   headerActions,
+  headerActionsLayout = 'default',
   className = '',
   id,
 }: {
@@ -25,6 +26,8 @@ export function WorkplacePageHeading1({
   /** Hub navigation row (e.g. HubMenu1Bar or WorkplaceBoardTabStrip) */
   menu?: ReactNode
   headerActions?: ReactNode
+  /** `split7030` — tittel ~2/3, handlinger ~1/3 på lg (f.eks. Varslingssaker) */
+  headerActionsLayout?: 'default' | 'split7030'
   className?: string
   /** Set when the page has no hub menu so skip-link targets still exist */
   id?: string
@@ -46,8 +49,14 @@ export function WorkplacePageHeading1({
         ))}
       </nav>
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 flex-1">
+      <div
+        className={
+          headerActionsLayout === 'split7030'
+            ? 'grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] lg:items-start lg:gap-6'
+            : 'flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between'
+        }
+      >
+        <div className="min-w-0 lg:min-w-0">
           <h1
             className="text-2xl font-semibold tracking-tight text-neutral-900 md:text-3xl"
             style={{ fontFamily: WORKPLACE_PAGE_SERIF }}
@@ -57,7 +66,15 @@ export function WorkplacePageHeading1({
           {description ? <div className="mt-2 text-sm text-neutral-600">{description}</div> : null}
         </div>
         {headerActions ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">{headerActions}</div>
+          <div
+            className={
+              headerActionsLayout === 'split7030'
+                ? 'flex min-w-0 flex-wrap items-center justify-start gap-2 lg:min-w-0 lg:justify-end'
+                : 'flex shrink-0 flex-wrap items-center gap-2 lg:justify-end'
+            }
+          >
+            {headerActions}
+          </div>
         ) : null}
       </div>
 

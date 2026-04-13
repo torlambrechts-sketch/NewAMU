@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Calendar,
@@ -38,6 +38,10 @@ import {
   type WorkplaceListViewMode,
 } from '../components/layout/WorkplaceStandardListLayout'
 import { LayoutScoreStatRow } from '../components/layout/LayoutScoreStatRow'
+import { useWorkplacePublishedComposerStacks } from '../hooks/useWorkplacePublishedComposerStacks'
+import {
+  resolveVarslingssakerTabLayoutFromPublishedRows,
+} from '../lib/varslingssakerLayoutFromPreset'
 import { WORKPLACE_LAYOUT_BOX_CARD, WORKPLACE_LAYOUT_BOX_SHADOW } from '../components/layout/workplaceLayoutKit'
 import { TASK_POSTINGS_FOREST } from '../components/tasks/tasksPostingsLayout'
 
@@ -106,6 +110,7 @@ const WHISTLE_STATUS_LABELS: Record<WhistleblowingCaseStatus, string> = {
 export function TasksPage() {
   const { payload: layoutPayload } = useUiTheme()
   const layout = mergeLayoutPayload(layoutPayload)
+  const { publishedStackTemplates } = useWorkplacePublishedComposerStacks()
 
   const { supabaseConfigured, organization, profile, user } = useOrgSetupContext()
   const org = useOrganisation()
@@ -196,7 +201,14 @@ export function TasksPage() {
   const [whistlePerPage, setWhistlePerPage] = useState(10)
   const [whistleListPage, setWhistleListPage] = useState(1)
 
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- React setState identities are stable
+  const [varslingssakerTabLayout, setVarslingssakerTabLayout] = useState(() =>
+    resolveVarslingssakerTabLayoutFromPublishedRows(null),
+  )
+
+  useEffect(() => {
+    setVarslingssakerTabLayout(resolveVarslingssakerTabLayoutFromPublishedRows(publishedStackTemplates))
+  }, [publishedStackTemplates])
+
   const resetTaskForm = useCallback(() => {
     setTitle('')
     setDescription('')
@@ -215,7 +227,6 @@ export function TasksPage() {
     setEditingId(null)
   }, [])
 
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- React setState identities are stable
   const resetWhistleForm = useCallback(() => {
     setWCategory(WHISTLE_CATEGORY_OPTIONS[0]?.value ?? 'other')
     setWTitle('')
@@ -228,10 +239,10 @@ export function TasksPage() {
     setWSubmitKey(null)
   }, [])
 
-  function openWhistlePanel() {
+  const openWhistlePanel = useCallback(() => {
     resetWhistleForm()
     setWhistlePanelOpen(true)
-  }
+  }, [resetWhistleForm])
 
   const closeWhistlePanel = useCallback(() => {
     setWhistlePanelOpen(false)
@@ -768,6 +779,298 @@ export function TasksPage() {
   const whistlePageRows = whistleFilteredCases.slice(whistleSliceStart, whistleSliceStart + whistlePerPage)
   const whistleFilterActive = whistleStatusFilter !== 'all'
 
+  const whistleHeaderActions = useMemo(
+    () => (
+      <>
+        <span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-teal-900">
+          {wb.cases.length} saker
+        </span>
+        <button
+          type="button"
+          onClick={openWhistlePanel}
+          disabled={!wb.canAccessVault}
+          className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold uppercase text-white disabled:opacity-40"
+          style={{ backgroundColor: TASK_POSTINGS_FOREST }}
+        >
+          <Plus className="size-3.5" />
+          Ny varsling
+        </button>
+        <button type="button" className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100" aria-label="Mer">
+          <MoreHorizontal className="size-5" />
+        </button>
+      </>
+    ),
+    [wb.cases.length, wb.canAccessVault, openWhistlePanel],
+  )
+
+  const varslingssakerLayoutNodes = useMemo(() => {
+    const order = varslingssakerTabLayout.order
+    const nodes: ReactNode[] = []
+    const showHeading = order.includes('heading1')
+    const rest = order.filter((id) => id !== 'heading1')
+
+    for (let ri = 0; ri < rest.length; ri++) {
+      const id = rest[ri]
+      const marginTop = ri === 0 ? 'mt-6' : id === 'list2' ? 'mt-8' : 'mt-6'
+      if (id === 'scoreStatRow') {
+        nodes.push(
+          <div key="whistle-scoreStatRow" className={marginTop}>
+            <LayoutScoreStatRow
+              items={[
+                {
+                  big: String(whistleStats.openLast7),
+                  title: 'Åpne punkter',
+                  sub: 'Siste 7 dager (åpne saker)',
+                },
+                {
+                  big: String(whistleStats.closedThisMonth),
+                  title: 'Fullført',
+                  sub: 'Denne måneden (avsluttet)',
+                },
+                {
+                  big: String(whistleStats.attention),
+                  title: 'Varsler',
+                  sub: 'Krever oppmerksomhet (frist / forfalt)',
+                },
+              ]}
+            />
+          </div>,
+        )
+      } else if (id === 'list2') {
+        nodes.push(
+          <section
+            key="whistle-list2"
+            className={`${marginTop} ${WORKPLACE_LAYOUT_BOX_CARD} overflow-hidden p-0`}
+            style={WORKPLACE_LAYOUT_BOX_SHADOW}
+            aria-label="Varslingssaker — liste"
+          >
+            <div className="flex flex-wrap items-center gap-3 border-b border-neutral-100 px-4 py-3 md:px-5">
+              <div className="relative min-w-[200px] flex-1">
+                <label htmlFor="whistle-list-search" className="sr-only">
+                  Søk i varslingssaker
+                </label>
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                <input
+                  id="whistle-list-search"
+                  type="search"
+                  value={whistleSearch}
+                  onChange={(e) => {
+                    setWhistleSearch(e.target.value)
+                    setWhistleListPage(1)
+                  }}
+                  placeholder="Søk etter sak, kategori eller beskrivelse…"
+                  className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/25"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setWhistleFiltersOpen((o) => !o)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wide ${
+                    whistleFiltersOpen || whistleFilterActive
+                      ? 'border-neutral-400 bg-neutral-50 text-neutral-900'
+                      : 'border-neutral-200 bg-white text-neutral-700'
+                  }`}
+                  aria-expanded={whistleFiltersOpen}
+                >
+                  <Filter className="size-3.5 text-neutral-500" />
+                  Filters
+                </button>
+                <span className="text-xs text-neutral-500">
+                  {whistleFilterActive ? 'Filter aktive' : 'Alle statuser'}
+                </span>
+                <button
+                  type="button"
+                  className="ml-auto rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 md:ml-0"
+                  aria-label="Tabellinnstillinger"
+                >
+                  <Settings className="size-5" />
+                </button>
+              </div>
+            </div>
+            {whistleFiltersOpen ? (
+              <div
+                className="border-b border-neutral-100 px-4 py-3 md:px-5"
+                style={{ backgroundColor: '#EFE8DC' }}
+              >
+                <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
+                  Status
+                  <select
+                    value={whistleStatusFilter}
+                    onChange={(e) => {
+                      setWhistleStatusFilter(e.target.value as 'all' | 'open' | 'closed' | 'attention')
+                      setWhistleListPage(1)
+                    }}
+                    className="mt-1.5 block max-w-xs rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
+                  >
+                    <option value="all">Alle</option>
+                    <option value="open">Åpne</option>
+                    <option value="closed">Avsluttet</option>
+                    <option value="attention">Krever oppmerksomhet</option>
+                  </select>
+                </label>
+              </div>
+            ) : null}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[920px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-neutral-200 bg-neutral-50/90 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+                    <th className="px-5 py-3">Sak</th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3">Mottatt</th>
+                    <th className="px-5 py-3">Bekreftelsesfrist</th>
+                    <th className="px-5 py-3">Notater</th>
+                    <th className="w-28 px-5 py-3 text-right">Handlinger</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {wb.cases.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-10 text-center text-sm text-neutral-500">
+                        Ingen varslingssaker ennå.
+                      </td>
+                    </tr>
+                  ) : whistlePageRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-10 text-center text-sm text-neutral-500">
+                        Ingen treff med gjeldende søk og filter.
+                      </td>
+                    </tr>
+                  ) : (
+                    whistlePageRows.map((c, rowIdx) => {
+                      const urg = acknowledgementUrgency(c.acknowledgement_due_at)
+                      const fristCls =
+                        urg === 'overdue'
+                          ? 'text-red-700 font-semibold'
+                          : urg === 'soon'
+                            ? 'text-amber-800 font-medium'
+                            : 'text-neutral-700'
+                      const daysLeft = Math.ceil(
+                        (new Date(c.acknowledgement_due_at).getTime() - nowMs) / (24 * 60 * 60 * 1000),
+                      )
+                      return (
+                        <tr
+                          key={c.id}
+                          className={`${table1BodyRowClass(layout, rowIdx)} border-b border-neutral-100 hover:bg-neutral-50/80`}
+                        >
+                          <td className="px-5 py-4 align-top">
+                            <div className="font-semibold text-neutral-900">{c.title}</div>
+                            <div className="mt-0.5 text-xs text-neutral-500">{c.category}</div>
+                            {c.description ? (
+                              <div className="mt-1 line-clamp-2 text-xs text-neutral-600">{c.description}</div>
+                            ) : null}
+                          </td>
+                          <td className="px-5 py-4 align-top">
+                            <span className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-medium text-neutral-800">
+                              {WHISTLE_STATUS_LABELS[c.status]}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 align-top text-xs text-neutral-600">
+                            {new Date(c.received_at).toLocaleString('no-NO', {
+                              dateStyle: 'short',
+                              timeStyle: 'short',
+                            })}
+                          </td>
+                          <td className={`px-5 py-4 align-top text-xs ${fristCls}`}>
+                            {new Date(c.acknowledgement_due_at).toLocaleDateString('no-NO')}
+                            <div className="mt-0.5">
+                              {urg === 'overdue'
+                                ? `Forfalt (${Math.abs(daysLeft)} d)`
+                                : `Gjenstår ca. ${daysLeft} d`}
+                            </div>
+                          </td>
+                          <td className="max-w-[240px] px-5 py-4 align-top">
+                            <p className="text-[11px] text-neutral-500">
+                              {(wb.notesByCase[c.id] ?? []).length} notat(er)
+                            </p>
+                          </td>
+                          <td className="px-5 py-4 align-top text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setWhistleCasePanelId(c.id)
+                                setWhistlePanelNote('')
+                              }}
+                              className={`${HERO_ACTION_CLASS} rounded-lg border border-neutral-300 bg-white text-neutral-800`}
+                            >
+                              Åpne
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 px-5 py-3 text-xs text-neutral-600">
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2">
+                  <span className="text-neutral-500">Rader per side</span>
+                  <select
+                    value={whistlePerPage}
+                    onChange={(e) => {
+                      setWhistlePerPage(Number(e.target.value))
+                      setWhistleListPage(1)
+                    }}
+                    className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-sm"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                </label>
+                <span className="text-neutral-500">
+                  {whistleTotalFiltered === 0
+                    ? 'Ingen rader å vise'
+                    : `Viser ${whistleSliceStart + 1} – ${Math.min(whistleSliceStart + whistlePerPage, whistleTotalFiltered)} av ${whistleTotalFiltered}`}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={whistlePageSafe <= 1}
+                  onClick={() => setWhistleListPage((p) => Math.max(1, p - 1))}
+                  className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-40"
+                  aria-label="Forrige side"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  disabled={whistlePageSafe >= whistleTotalPages}
+                  onClick={() => setWhistleListPage((p) => Math.min(whistleTotalPages, p + 1))}
+                  className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-40"
+                  aria-label="Neste side"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
+            </div>
+          </section>,
+        )
+      }
+    }
+
+    return { showHeading, nodes }
+  }, [
+    varslingssakerTabLayout.order,
+    whistleStats,
+    whistleSearch,
+    whistleFiltersOpen,
+    whistleFilterActive,
+    whistleStatusFilter,
+    whistlePageRows,
+    whistlePerPage,
+    whistleSliceStart,
+    whistleTotalFiltered,
+    whistlePageSafe,
+    whistleTotalPages,
+    nowMs,
+    layout,
+    wb,
+  ])
+
   const orgLabel = organization?.name?.trim() || 'Organisasjon'
   const tasksSectionLabel = pageTab === 'whistle' ? 'Varslingssaker' : 'Oppgaver'
   const taskToolbarActiveFilters = moduleFilter !== 'all'
@@ -1232,41 +1535,25 @@ export function TasksPage() {
             breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Oppgaver' }, { label: tasksSectionLabel }]}
             title="Varslingssaker"
             description={
-              <>
-                <p className="text-sm text-neutral-500">{orgLabel} · Varslingshvelv</p>
-                {organization?.whistle_public_slug ? (
-                  <p className="mt-2 text-xs text-neutral-500">
-                    Offentlig lenke:{' '}
-                    <code className="rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px]">
-                      /varsle/{organization.whistle_public_slug}
-                    </code>
+              varslingssakerLayoutNodes.showHeading ? (
+                <>
+                  <p className="text-sm text-neutral-500">{orgLabel} · Varslingshvelv</p>
+                  {organization?.whistle_public_slug ? (
+                    <p className="mt-2 text-xs text-neutral-500">
+                      Offentlig lenke:{' '}
+                      <code className="rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px]">
+                        /varsle/{organization.whistle_public_slug}
+                      </code>
+                    </p>
+                  ) : null}
+                  <p className="mt-2 max-w-2xl leading-relaxed">
+                    Lukket hvelv: kun varslingsmottak og administrator ser saker. Notater kan ikke slettes.
                   </p>
-                ) : null}
-                <p className="mt-2 max-w-2xl leading-relaxed">
-                  Lukket hvelv: kun varslingsmottak og administrator ser saker. Notater kan ikke slettes.
-                </p>
-              </>
+                </>
+              ) : undefined
             }
-            headerActions={
-              <>
-                <span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-teal-900">
-                  {wb.cases.length} saker
-                </span>
-                <button
-                  type="button"
-                  onClick={openWhistlePanel}
-                  disabled={!wb.canAccessVault}
-                  className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold uppercase text-white disabled:opacity-40"
-                  style={{ backgroundColor: TASK_POSTINGS_FOREST }}
-                >
-                  <Plus className="size-3.5" />
-                  Ny varsling
-                </button>
-                <button type="button" className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100" aria-label="Mer">
-                  <MoreHorizontal className="size-5" />
-                </button>
-              </>
-            }
+            headerActions={whistleHeaderActions}
+            headerActionsLayout="split7030"
             menu={<HubMenu1Bar ariaLabel="Oppgaver — faner" items={hubMenuItems} />}
           />
 
@@ -1296,237 +1583,16 @@ export function TasksPage() {
                 <p className="mt-6 text-sm text-neutral-500">Laster varslingssaker…</p>
               ) : (
                 <>
-                  <div className="mt-6">
-                    <LayoutScoreStatRow
-                      items={[
-                        {
-                          big: String(whistleStats.openLast7),
-                          title: 'Åpne punkter',
-                          sub: 'Siste 7 dager (åpne saker)',
-                        },
-                        {
-                          big: String(whistleStats.closedThisMonth),
-                          title: 'Fullført',
-                          sub: 'Denne måneden (avsluttet)',
-                        },
-                        {
-                          big: String(whistleStats.attention),
-                          title: 'Varsler',
-                          sub: 'Krever oppmerksomhet (frist / forfalt)',
-                        },
-                      ]}
-                    />
-                  </div>
-
-                  <section
-                    className={`mt-8 ${WORKPLACE_LAYOUT_BOX_CARD} overflow-hidden p-0`}
-                    style={WORKPLACE_LAYOUT_BOX_SHADOW}
-                    aria-label="Varslingssaker — liste"
-                  >
-                    <div className="flex flex-wrap items-center gap-3 border-b border-neutral-100 px-4 py-3 md:px-5">
-                      <div className="relative min-w-[200px] flex-1">
-                        <label htmlFor="whistle-list-search" className="sr-only">
-                          Søk i varslingssaker
-                        </label>
-                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-                        <input
-                          id="whistle-list-search"
-                          type="search"
-                          value={whistleSearch}
-                          onChange={(e) => {
-                            setWhistleSearch(e.target.value)
-                            setWhistleListPage(1)
-                          }}
-                          placeholder="Søk etter sak, kategori eller beskrivelse…"
-                          className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/25"
-                        />
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setWhistleFiltersOpen((o) => !o)}
-                          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wide ${
-                            whistleFiltersOpen || whistleFilterActive
-                              ? 'border-neutral-400 bg-neutral-50 text-neutral-900'
-                              : 'border-neutral-200 bg-white text-neutral-700'
-                          }`}
-                          aria-expanded={whistleFiltersOpen}
-                        >
-                          <Filter className="size-3.5 text-neutral-500" />
-                          Filters
-                        </button>
-                        <span className="text-xs text-neutral-500">
-                          {whistleFilterActive ? 'Filter aktive' : 'Alle statuser'}
-                        </span>
-                        <button
-                          type="button"
-                          className="ml-auto rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 md:ml-0"
-                          aria-label="Tabellinnstillinger"
-                        >
-                          <Settings className="size-5" />
-                        </button>
-                      </div>
-                    </div>
-                    {whistleFiltersOpen ? (
-                      <div
-                        className="border-b border-neutral-100 px-4 py-3 md:px-5"
-                        style={{ backgroundColor: '#EFE8DC' }}
-                      >
-                        <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
-                          Status
-                          <select
-                            value={whistleStatusFilter}
-                            onChange={(e) => {
-                              setWhistleStatusFilter(e.target.value as 'all' | 'open' | 'closed' | 'attention')
-                              setWhistleListPage(1)
-                            }}
-                            className="mt-1.5 block max-w-xs rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
-                          >
-                            <option value="all">Alle</option>
-                            <option value="open">Åpne</option>
-                            <option value="closed">Avsluttet</option>
-                            <option value="attention">Krever oppmerksomhet</option>
-                          </select>
-                        </label>
-                      </div>
-                    ) : null}
-                    <div className="overflow-x-auto">
-                      <table className="w-full min-w-[920px] text-left text-sm">
-                        <thead>
-                          <tr className="border-b border-neutral-200 bg-neutral-50/90 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
-                            <th className="px-5 py-3">Sak</th>
-                            <th className="px-5 py-3">Status</th>
-                            <th className="px-5 py-3">Mottatt</th>
-                            <th className="px-5 py-3">Bekreftelsesfrist</th>
-                            <th className="px-5 py-3">Notater</th>
-                            <th className="w-28 px-5 py-3 text-right">Handlinger</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {wb.cases.length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="px-5 py-10 text-center text-sm text-neutral-500">
-                                Ingen varslingssaker ennå.
-                              </td>
-                            </tr>
-                          ) : whistlePageRows.length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="px-5 py-10 text-center text-sm text-neutral-500">
-                                Ingen treff med gjeldende søk og filter.
-                              </td>
-                            </tr>
-                          ) : (
-                            whistlePageRows.map((c, rowIdx) => {
-                              const urg = acknowledgementUrgency(c.acknowledgement_due_at)
-                              const fristCls =
-                                urg === 'overdue'
-                                  ? 'text-red-700 font-semibold'
-                                  : urg === 'soon'
-                                    ? 'text-amber-800 font-medium'
-                                    : 'text-neutral-700'
-                              const daysLeft = Math.ceil(
-                                (new Date(c.acknowledgement_due_at).getTime() - nowMs) / (24 * 60 * 60 * 1000),
-                              )
-                              return (
-                                <tr
-                                  key={c.id}
-                                  className={`${table1BodyRowClass(layout, rowIdx)} border-b border-neutral-100 hover:bg-neutral-50/80`}
-                                >
-                                  <td className="px-5 py-4 align-top">
-                                    <div className="font-semibold text-neutral-900">{c.title}</div>
-                                    <div className="mt-0.5 text-xs text-neutral-500">{c.category}</div>
-                                    {c.description ? (
-                                      <div className="mt-1 line-clamp-2 text-xs text-neutral-600">{c.description}</div>
-                                    ) : null}
-                                  </td>
-                                  <td className="px-5 py-4 align-top">
-                                    <span className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-medium text-neutral-800">
-                                      {WHISTLE_STATUS_LABELS[c.status]}
-                                    </span>
-                                  </td>
-                                  <td className="px-5 py-4 align-top text-xs text-neutral-600">
-                                    {new Date(c.received_at).toLocaleString('no-NO', {
-                                      dateStyle: 'short',
-                                      timeStyle: 'short',
-                                    })}
-                                  </td>
-                                  <td className={`px-5 py-4 align-top text-xs ${fristCls}`}>
-                                    {new Date(c.acknowledgement_due_at).toLocaleDateString('no-NO')}
-                                    <div className="mt-0.5">
-                                      {urg === 'overdue'
-                                        ? `Forfalt (${Math.abs(daysLeft)} d)`
-                                        : `Gjenstår ca. ${daysLeft} d`}
-                                    </div>
-                                  </td>
-                                  <td className="max-w-[240px] px-5 py-4 align-top">
-                                    <p className="text-[11px] text-neutral-500">
-                                      {(wb.notesByCase[c.id] ?? []).length} notat(er)
-                                    </p>
-                                  </td>
-                                  <td className="px-5 py-4 align-top text-right">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setWhistleCasePanelId(c.id)
-                                        setWhistlePanelNote('')
-                                      }}
-                                      className={`${HERO_ACTION_CLASS} rounded-lg border border-neutral-300 bg-white text-neutral-800`}
-                                    >
-                                      Åpne
-                                    </button>
-                                  </td>
-                                </tr>
-                              )
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 px-5 py-3 text-xs text-neutral-600">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <label className="flex items-center gap-2">
-                          <span className="text-neutral-500">Rader per side</span>
-                          <select
-                            value={whistlePerPage}
-                            onChange={(e) => {
-                              setWhistlePerPage(Number(e.target.value))
-                              setWhistleListPage(1)
-                            }}
-                            className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-sm"
-                          >
-                            <option value={10}>10</option>
-                            <option value={25}>25</option>
-                            <option value={50}>50</option>
-                          </select>
-                        </label>
-                        <span className="text-neutral-500">
-                          {whistleTotalFiltered === 0
-                            ? 'Ingen rader å vise'
-                            : `Viser ${whistleSliceStart + 1} – ${Math.min(whistleSliceStart + whistlePerPage, whistleTotalFiltered)} av ${whistleTotalFiltered}`}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          disabled={whistlePageSafe <= 1}
-                          onClick={() => setWhistleListPage((p) => Math.max(1, p - 1))}
-                          className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-40"
-                          aria-label="Forrige side"
-                        >
-                          <ChevronLeft className="size-4" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={whistlePageSafe >= whistleTotalPages}
-                          onClick={() => setWhistleListPage((p) => Math.min(whistleTotalPages, p + 1))}
-                          className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-40"
-                          aria-label="Neste side"
-                        >
-                          <ChevronRight className="size-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </section>
+                  {varslingssakerTabLayout.presetNameMatched ? (
+                    <p className="mt-4 text-xs text-neutral-500">
+                      Oppsett fra plattform-admin:{' '}
+                      <span className="font-medium text-neutral-700">«{varslingssakerTabLayout.presetNameMatched}»</span>
+                      {supabaseConfigured
+                        ? ' (oppdateres når publiserte stack-maler endres).'
+                        : ' (lagret i denne nettleseren).'}
+                    </p>
+                  ) : null}
+                  <div className="min-w-0 space-y-0">{varslingssakerLayoutNodes.nodes}</div>
                 </>
               )}
             </>
