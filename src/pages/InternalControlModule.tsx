@@ -9,9 +9,11 @@ import {
   Plus,
   Search,
   ShieldCheck,
+  Trash2,
   X,
 } from 'lucide-react'
 import { LegalDisclaimer } from '../components/internalControl/LegalDisclaimer'
+import { ROS_CONSEQUENCE_CATEGORIES } from '../data/rosConsequenceCategories'
 import { RISK_COLOUR_CLASSES, riskColour } from '../data/rosTemplate'
 import { useInternalControl } from '../hooks/useInternalControl'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
@@ -25,7 +27,7 @@ import type {
   RosCategory,
   RosWorkspaceCategory,
 } from '../types/internalControl'
-import { isRosRowDoneForTracking } from '../types/internalControl'
+import { isRosDocumentDraft, isRosRiskRowDraft, isRosRowDoneForTracking } from '../types/internalControl'
 import { EMPTY_ANNUAL_REVIEW_SECTIONS, isLegacyAnnualReview } from '../types/internalControl'
 import { useHrCompliance } from '../hooks/useHrCompliance'
 import { useHse } from '../hooks/useHse'
@@ -138,6 +140,7 @@ export function InternalControlModule() {
   const [overviewTimeAnchor] = useState(() => Date.now())
 
   const [rosTitle, setRosTitle] = useState('')
+  const [rosDescription, setRosDescription] = useState('')
   const [rosDept, setRosDept] = useState('')
   const [rosAssessor, setRosAssessor] = useState('')
   const [rosCategory, setRosCategory] = useState<RosCategory>('general')
@@ -177,6 +180,7 @@ export function InternalControlModule() {
 
   const resetRosPanelForm = useCallback(() => {
     setRosTitle('')
+    setRosDescription('')
     setRosDept('')
     setRosAssessor('')
     setRosCategory('general')
@@ -972,6 +976,10 @@ export function InternalControlModule() {
                           const newId = ic.duplicateRosRevision(lockedSourceId)
                           if (newId) setRosViewId(newId)
                         }}
+                        onDeleteRos={(rosId) => {
+                          ic.deleteRosAssessment(rosId)
+                          closeRosPanel()
+                        }}
                       />
                     </div>
                   ) : (
@@ -999,6 +1007,7 @@ export function InternalControlModule() {
                       category: rosCategory,
                       seedORosRows: isO,
                       workspaceCategory: rosWorkspace,
+                      description: rosDescription,
                     })
                     if (isO && r && supabaseConfigured && oRosAmuId && oRosVoId) {
                       void hr.upsertRosSignoff(r.id, oRosAmuId, oRosVoId)
@@ -1034,6 +1043,19 @@ export function InternalControlModule() {
                               required
                               className={SETTINGS_INPUT}
                               placeholder="f.eks. ROS — Lager 2027"
+                            />
+                          </div>
+                          <div>
+                            <label className={SETTINGS_FIELD_LABEL} htmlFor="ros-panel-description">
+                              Beskrivelse / omfang
+                            </label>
+                            <textarea
+                              id="ros-panel-description"
+                              value={rosDescription}
+                              onChange={(e) => setRosDescription(e.target.value)}
+                              rows={4}
+                              className={SETTINGS_INPUT}
+                              placeholder="Bakgrunn, avgrensning, metode, referanser …"
                             />
                           </div>
                           <div>
@@ -1877,6 +1899,7 @@ function RosAssessmentCard({
   duplicateRevision,
   highlightRowId,
   hideDuplicateRevisionButton,
+  onDeleteRos,
 }: {
   ros: RosAssessment
   ic: ReturnType<typeof useInternalControl>
@@ -1887,6 +1910,8 @@ function RosAssessmentCard({
   highlightRowId?: string | null
   /** When true, omit «Opprett ny revisjon» in card header (e.g. side panel has its own). */
   hideDuplicateRevisionButton?: boolean
+  /** Slett hele ROS (kun utkast uten signaturer). */
+  onDeleteRos?: (rosId: string) => void
 }) {
   const [leaderName, setLeaderName] = useState('')
   const [verneombudName, setVerneombudName] = useState('')
@@ -1897,6 +1922,7 @@ function RosAssessmentCard({
   const oRosBlock = hr.rosSignoffs.find((s) => s.ros_assessment_id === ros.id)
   const oRosBlocked = ros.rosCategory === 'organizational_change' && oRosBlock?.blocked === true
   const isLocked = ros.locked
+  const rosDocDraft = isRosDocumentDraft(ros)
 
   function fmtDate(iso: string) {
     try { return new Date(iso).toLocaleDateString('no-NO', { dateStyle: 'short' }) } catch { return iso }
@@ -1948,17 +1974,113 @@ function RosAssessmentCard({
               Opprett ny revisjon
             </button>
           ) : null}
+          {rosDocDraft && onDeleteRos ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Slette denne ROS-vurderingen? Dette kan ikke angres.')) onDeleteRos(ros.id)
+              }}
+              className="inline-flex items-center gap-1 rounded-none border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-900 hover:bg-red-100"
+            >
+              <Trash2 className="size-3.5 shrink-0" aria-hidden />
+              Slett ROS
+            </button>
+          ) : null}
           {!isLocked ? (
             <button
               type="button"
               onClick={() => ic.addRosRow(ros.id)}
-              className="text-sm font-medium text-[#1a3d32] hover:underline"
+              disabled={!rosDocDraft}
+              className="text-sm font-medium text-[#1a3d32] hover:underline disabled:cursor-not-allowed disabled:opacity-40"
             >
-              + Rad
+              + Risiko
             </button>
           ) : null}
         </div>
       </div>
+
+      {rosDocDraft ? (
+        <div className="border-b border-neutral-100 bg-white px-4 py-4 sm:px-5">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">Dokument (utkast)</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className={SETTINGS_FIELD_LABEL}>Tittel</label>
+              <input
+                value={ros.title}
+                onChange={(e) => ic.updateRosAssessment(ros.id, { title: e.target.value })}
+                className={SETTINGS_INPUT}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={SETTINGS_FIELD_LABEL}>Beskrivelse / omfang</label>
+              <textarea
+                value={ros.description ?? ''}
+                onChange={(e) => ic.updateRosAssessment(ros.id, { description: e.target.value })}
+                rows={4}
+                className={SETTINGS_INPUT}
+                placeholder="Bakgrunn, avgrensning, metode …"
+              />
+            </div>
+            <div>
+              <label className={SETTINGS_FIELD_LABEL}>Avdeling / område</label>
+              <input
+                value={ros.department}
+                onChange={(e) => ic.updateRosAssessment(ros.id, { department: e.target.value })}
+                className={SETTINGS_INPUT}
+              />
+            </div>
+            <div>
+              <label className={SETTINGS_FIELD_LABEL}>Vurdert av</label>
+              <input
+                value={ros.assessor}
+                onChange={(e) => ic.updateRosAssessment(ros.id, { assessor: e.target.value })}
+                className={SETTINGS_INPUT}
+              />
+            </div>
+            <div>
+              <label className={SETTINGS_FIELD_LABEL}>Vurderingsdato</label>
+              <input
+                type="date"
+                value={ros.assessedAt}
+                onChange={(e) => ic.updateRosAssessment(ros.id, { assessedAt: e.target.value })}
+                className={SETTINGS_INPUT}
+              />
+            </div>
+            <div>
+              <label className={SETTINGS_FIELD_LABEL}>Arbeidsområde (veiledning)</label>
+              <select
+                value={ros.workspaceCategory ?? 'general'}
+                onChange={(e) =>
+                  ic.updateRosAssessment(ros.id, { workspaceCategory: e.target.value as RosWorkspaceCategory })
+                }
+                className={SETTINGS_INPUT}
+              >
+                {Object.entries(ROS_WORKSPACE_LABELS).map(([k, lab]) => (
+                  <option key={k} value={k}>
+                    {lab}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className={SETTINGS_FIELD_LABEL}>Juridisk type</label>
+              <select
+                value={ros.rosCategory ?? 'general'}
+                onChange={(e) => ic.updateRosAssessment(ros.id, { rosCategory: e.target.value as RosCategory })}
+                className={SETTINGS_INPUT}
+              >
+                <option value="general">Generell ROS</option>
+                <option value="organizational_change">Organisatorisk endring (O-ROS)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      ) : ros.description?.trim() ? (
+        <div className="border-b border-neutral-100 bg-neutral-50/50 px-4 py-3 sm:px-5">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Beskrivelse</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-800">{ros.description}</p>
+        </div>
+      ) : null}
 
       {/* 5×5 visual risk matrix */}
       <div className="border-b border-neutral-100 p-4">
@@ -2015,6 +2137,8 @@ function RosAssessmentCard({
             const residualColour = residual != null ? riskColour(residual) : null
             const residualCls = residualColour ? RISK_COLOUR_CLASSES[residualColour] : null
             const rowDone = isRosRowDoneForTracking(row.status)
+            const rowDraft = isRosRiskRowDraft(row)
+            const rowBodyDisabled = isLocked || !rowDraft
             const redResidual = residual != null && residual >= 15
             const needJust = redResidual && !(row.redResidualJustification && row.redResidualJustification.trim().length >= 10)
             const highlighted = highlightRowId === row.id
@@ -2028,6 +2152,19 @@ function RosAssessmentCard({
               >
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 pb-2">
                   <span className="text-xs font-bold text-neutral-500">Risiko {idx + 1}</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                  {rosDocDraft && rowDraft && ros.rows.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm('Fjerne denne risikoraden?')) ic.removeRosRow(ros.id, row.id)
+                      }}
+                      className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-900 hover:bg-red-100"
+                    >
+                      <Trash2 className="size-3.5" aria-hidden />
+                      Fjern rad
+                    </button>
+                  ) : null}
                   <select
                     disabled={isLocked}
                     value={row.status}
@@ -2059,22 +2196,50 @@ function RosAssessmentCard({
                     <option value="open">Åpen (eldre)</option>
                     <option value="closed">Lukket (eldre)</option>
                   </select>
+                  </div>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <label className={SETTINGS_FIELD_LABEL}>Risikokategori</label>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Konsekvenskategori (hva som rammes)</label>
+                    <select
+                      disabled={isLocked}
+                      value={row.consequenceCategory ?? ''}
+                      onChange={(e) =>
+                        ic.updateRosRow(ros.id, row.id, { consequenceCategory: e.target.value || undefined })
+                      }
+                      className={SETTINGS_INPUT}
+                    >
+                      <option value="">Velg …</option>
+                      {ROS_CONSEQUENCE_CATEGORIES.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                    {row.consequenceCategory ? (
+                      <p className="mt-1 text-xs text-neutral-500">
+                        {ROS_CONSEQUENCE_CATEGORIES.find((c) => c.id === row.consequenceCategory)?.hint ?? ''}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-neutral-500">
+                        Grader konsekvens på skala (f.eks. 1–5) i alvor-feltet under — typisk fra ubetydelig til katastrofal.
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL}>Tema / risikotype (valgfritt)</label>
                     <input
                       disabled={isLocked}
                       value={row.riskCategory ?? ''}
                       onChange={(e) => ic.updateRosRow(ros.id, row.id, { riskCategory: e.target.value })}
-                      placeholder="F.eks. HMS, psykososialt, brann, maskin …"
+                      placeholder="F.eks. brann, kjemikalier, ergonomi …"
                       className={SETTINGS_INPUT}
                     />
                   </div>
                   <div>
                     <label className={SETTINGS_FIELD_LABEL}>Aktivitet</label>
                     <textarea
-                      disabled={isLocked}
+                      disabled={rowBodyDisabled}
                       value={row.activity}
                       onChange={(e) => ic.updateRosRow(ros.id, row.id, { activity: e.target.value })}
                       rows={3}
@@ -2084,7 +2249,7 @@ function RosAssessmentCard({
                   <div>
                     <label className={SETTINGS_FIELD_LABEL}>Fare / hendelse</label>
                     <textarea
-                      disabled={isLocked}
+                      disabled={rowBodyDisabled}
                       value={row.hazard}
                       onChange={(e) => ic.updateRosRow(ros.id, row.id, { hazard: e.target.value })}
                       rows={3}
@@ -2094,7 +2259,7 @@ function RosAssessmentCard({
                   <div className="sm:col-span-2">
                     <label className={SETTINGS_FIELD_LABEL}>Eksisterende tiltak</label>
                     <textarea
-                      disabled={isLocked}
+                      disabled={rowBodyDisabled}
                       value={row.existingControls}
                       onChange={(e) => ic.updateRosRow(ros.id, row.id, { existingControls: e.target.value })}
                       rows={2}
@@ -2106,7 +2271,7 @@ function RosAssessmentCard({
                   <div>
                     <label className={SETTINGS_FIELD_LABEL}>Alvor (1–5)</label>
                     <input
-                      disabled={isLocked}
+                      disabled={rowBodyDisabled}
                       type="number"
                       min={1}
                       max={5}
@@ -2118,7 +2283,7 @@ function RosAssessmentCard({
                   <div>
                     <label className={SETTINGS_FIELD_LABEL}>Sannsynlighet (1–5)</label>
                     <input
-                      disabled={isLocked}
+                      disabled={rowBodyDisabled}
                       type="number"
                       min={1}
                       max={5}
@@ -2137,7 +2302,7 @@ function RosAssessmentCard({
                 <div className="mt-4">
                   <label className={SETTINGS_FIELD_LABEL}>Foreslått tiltak</label>
                   <textarea
-                    disabled={isLocked}
+                    disabled={rowBodyDisabled}
                     value={row.proposedMeasures}
                     onChange={(e) => ic.updateRosRow(ros.id, row.id, { proposedMeasures: e.target.value })}
                     rows={3}
@@ -2150,7 +2315,7 @@ function RosAssessmentCard({
                     <div>
                       <label className={SETTINGS_FIELD_LABEL}>Rest-alvor</label>
                       <input
-                        disabled={isLocked}
+                        disabled={rowBodyDisabled}
                         type="number"
                         min={1}
                         max={5}
@@ -2166,7 +2331,7 @@ function RosAssessmentCard({
                     <div>
                       <label className={SETTINGS_FIELD_LABEL}>Rest-sannsynlighet</label>
                       <input
-                        disabled={isLocked}
+                        disabled={rowBodyDisabled}
                         type="number"
                         min={1}
                         max={5}
@@ -2194,7 +2359,7 @@ function RosAssessmentCard({
                 <div className={`mt-4 rounded-md border p-3 ${needJust && !isLocked ? 'border-rose-300 bg-rose-50' : 'border-rose-100 bg-rose-50/40'}`}>
                   <label className={SETTINGS_FIELD_LABEL}>Strakstiltak / eskalering (ved rød restrisiko)</label>
                   <textarea
-                    disabled={isLocked}
+                    disabled={rowBodyDisabled}
                     value={row.redResidualJustification ?? ''}
                     onChange={(e) => ic.updateRosRow(ros.id, row.id, { redResidualJustification: e.target.value })}
                     rows={3}
@@ -2206,7 +2371,7 @@ function RosAssessmentCard({
                   <div>
                     <label className={SETTINGS_FIELD_LABEL}>Ansvarlig</label>
                     <input
-                      disabled={isLocked}
+                      disabled={rowBodyDisabled}
                       value={row.responsible}
                       onChange={(e) => ic.updateRosRow(ros.id, row.id, { responsible: e.target.value })}
                       className={SETTINGS_INPUT}
@@ -2215,7 +2380,7 @@ function RosAssessmentCard({
                   <div>
                     <label className={SETTINGS_FIELD_LABEL}>Frist</label>
                     <input
-                      disabled={isLocked}
+                      disabled={rowBodyDisabled}
                       type="date"
                       value={row.dueDate}
                       onChange={(e) => ic.updateRosRow(ros.id, row.id, { dueDate: e.target.value })}

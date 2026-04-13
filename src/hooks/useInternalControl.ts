@@ -24,11 +24,14 @@ import type {
   RosSignatureRole,
   RosWorkspaceCategory,
 } from '../types/internalControl'
-import { isLegacyAnnualReview } from '../types/internalControl'
+import { isLegacyAnnualReview, isRosDocumentDraft, isRosRiskRowDraft } from '../types/internalControl'
 import { O_ROS_PRESET_HAZARDS } from '../types/internalControl'
 
 const STORAGE_KEY = 'atics-internal-control-v1'
 const MODULE_KEY = 'internal_control' as const
+
+/** Felter som kan endres på rad selv etter ROS-lås (metadata / arbeidsflyt). */
+const ROS_ROW_META_PATCH_KEYS = new Set(['status', 'riskCategory', 'consequenceCategory'])
 
 type InternalControlState = {
   rosAssessments: RosAssessment[]
@@ -55,6 +58,7 @@ function normalizeParsed(p: InternalControlState & { whistleCases?: unknown }): 
     rosAssessments: Array.isArray(p.rosAssessments)
       ? p.rosAssessments.map((r) => ({
           ...r,
+          description: (r as RosAssessment).description,
           rosCategory: (r as RosAssessment).rosCategory ?? 'general',
           workspaceCategory: (r as RosAssessment).workspaceCategory,
           revisionParentId: (r as RosAssessment).revisionParentId,
@@ -70,6 +74,7 @@ function normalizeParsed(p: InternalControlState & { whistleCases?: unknown }): 
                 return {
                   ...row,
                   riskCategory: (row as RosRiskRow).riskCategory ?? '',
+                  consequenceCategory: (row as RosRiskRow).consequenceCategory ?? '',
                   redResidualJustification: (row as RosRiskRow).redResidualJustification,
                   status,
                 }
@@ -135,6 +140,7 @@ function seedDemoInternalControl(): InternalControlState {
         dueDate: '',
         status: 'draft' as const,
         riskCategory: '',
+        consequenceCategory: '',
       },
     ],
     signatures: [],
@@ -270,6 +276,7 @@ export function useInternalControl() {
         seedORosRows?: boolean
         workspaceCategory?: RosWorkspaceCategory
         initialRows?: RosRiskRow[]
+        description?: string
       },
     ) => {
       const cat = opts?.category ?? 'general'
@@ -293,6 +300,7 @@ export function useInternalControl() {
       const r: RosAssessment = {
         id: crypto.randomUUID(),
         title: title.trim(),
+        description: opts?.description?.trim() || undefined,
         department: department.trim(),
         assessedAt: new Date().toISOString().slice(0, 10),
         assessor: assessor.trim(),
@@ -321,11 +329,16 @@ export function useInternalControl() {
         ...s,
         rosAssessments: s.rosAssessments.map((ros) => {
           if (ros.id !== rosId) return ros
+          const patchKeys = Object.keys(patch)
           const allowWhenLocked =
-            ros.locked && Object.keys(patch).every((k) => k === 'riskCategory' || k === 'status')
+            ros.locked && patchKeys.length > 0 && patchKeys.every((k) => ROS_ROW_META_PATCH_KEYS.has(k))
           if (ros.locked && !allowWhenLocked) return ros
           const rows = ros.rows.map((row) => {
             if (row.id !== rowId) return row
+            if (!ros.locked && !isRosRiskRowDraft(row)) {
+              const onlyMeta = patchKeys.length > 0 && patchKeys.every((k) => ROS_ROW_META_PATCH_KEYS.has(k))
+              if (!onlyMeta) return row
+            }
             const next = { ...row, ...patch }
             if (patch.severity != null || patch.likelihood != null) {
               next.riskScore = computeRiskScore(next.severity, next.likelihood)
@@ -340,6 +353,63 @@ export function useInternalControl() {
             return next
           })
           return { ...ros, rows, updatedAt: new Date().toISOString() }
+        }),
+      }))
+    },
+    [setState],
+  )
+
+  const updateRosAssessment = useCallback(
+    (rosId: string, patch: Partial<Pick<RosAssessment, 'title' | 'description' | 'department' | 'assessor' | 'assessedAt' | 'workspaceCategory' | 'rosCategory'>>) => {
+      setState((s) => ({
+        ...s,
+        rosAssessments: s.rosAssessments.map((ros) => {
+          if (ros.id !== rosId) return ros
+          if (!isRosDocumentDraft(ros)) return ros
+          const next = { ...ros, ...patch, updatedAt: new Date().toISOString() }
+          if (patch.title != null) next.title = patch.title.trim()
+          if (patch.department != null) next.department = patch.department.trim()
+          if (patch.assessor != null) next.assessor = patch.assessor.trim()
+          if (patch.description !== undefined) {
+            const d = patch.description.trim()
+            next.description = d || undefined
+          }
+          return next
+        }),
+      }))
+    },
+    [setState],
+  )
+
+  const deleteRosAssessment = useCallback(
+    (rosId: string) => {
+      setState((s) => {
+        const target = s.rosAssessments.find((x) => x.id === rosId)
+        if (!target || !isRosDocumentDraft(target)) return s
+        return {
+          ...s,
+          rosAssessments: s.rosAssessments.filter((r) => r.id !== rosId),
+          auditTrail: [...s.auditTrail, audit('ros_deleted', `ROS slettet: ${target.title}`, { rosId })],
+        }
+      })
+    },
+    [setState],
+  )
+
+  const removeRosRow = useCallback(
+    (rosId: string, rowId: string) => {
+      setState((s) => ({
+        ...s,
+        rosAssessments: s.rosAssessments.map((ros) => {
+          if (ros.id !== rosId || ros.locked) return ros
+          const row = ros.rows.find((r) => r.id === rowId)
+          if (!row || !isRosRiskRowDraft(row)) return ros
+          if (ros.rows.length <= 1) return ros
+          return {
+            ...ros,
+            rows: ros.rows.filter((r) => r.id !== rowId),
+            updatedAt: new Date().toISOString(),
+          }
         }),
       }))
     },
@@ -470,6 +540,7 @@ export function useInternalControl() {
           ...src,
           id: copyId,
           title: `${src.title.replace(/\s*\(revisjon v\d+\)\s*$/i, '').trim()} (revisjon v${nextVersion})`,
+          description: src.description,
           assessedAt: new Date().toISOString().slice(0, 10),
           rows: cloneRows,
           signatures: [],
@@ -500,11 +571,10 @@ export function useInternalControl() {
     (rosId: string) => {
       setState((s) => ({
         ...s,
-        rosAssessments: s.rosAssessments.map((ros) =>
-          ros.id === rosId
-            ? { ...ros, rows: [...ros.rows, emptyRosRow()], updatedAt: new Date().toISOString() }
-            : ros,
-        ),
+        rosAssessments: s.rosAssessments.map((ros) => {
+          if (ros.id !== rosId || ros.locked || !isRosDocumentDraft(ros)) return ros
+          return { ...ros, rows: [...ros.rows, emptyRosRow()], updatedAt: new Date().toISOString() }
+        }),
       }))
     },
     [setState],
@@ -828,7 +898,10 @@ export function useInternalControl() {
     error: useRemote ? error : null,
     backend: useRemote ? ('supabase' as const) : ('local' as const),
     createRosAssessment,
+    updateRosAssessment,
+    deleteRosAssessment,
     updateRosRow,
+    removeRosRow,
     addRosRow,
     signRos,
     duplicateRosRevision,

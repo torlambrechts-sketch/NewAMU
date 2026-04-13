@@ -54,6 +54,15 @@ export function isRosRowDoneForTracking(status: RosRowStatus | undefined): boole
   return s === 'finished' || s === 'closed' || s === 'cancelled'
 }
 
+/** Hele ROS-dokumentet regnes som utkast: ikke låst og ingen signaturer ennå. */
+export function isRosDocumentDraft(ros: RosAssessment): boolean {
+  return !ros.locked && (ros.signatures?.length ?? 0) === 0
+}
+
+export function isRosRiskRowDraft(row: RosRiskRow): boolean {
+  return row.status === 'draft'
+}
+
 /** Arbeidsområde for ROS (veiviser / forslag — skiller fra O-ROS juridisk kategori) */
 export type RosWorkspaceCategory =
   | 'general'
@@ -67,6 +76,8 @@ export type RosRiskRow = {
   id: string
   /** Fritekst risikokategori (f.eks. HMS, psykososialt, brann) */
   riskCategory?: string
+  /** Konsekvenskategori — hva som rammes (liv/helse, økonomi, miljø, …) */
+  consequenceCategory?: string
   activity: string
   hazard: string
   existingControls: string
@@ -119,6 +130,8 @@ export const O_ROS_PRESET_HAZARDS: { activity: string; hazard: string; existingC
 export type RosAssessment = {
   id: string
   title: string
+  /** Bakgrunn, omfang, metode — fritekst */
+  description?: string
   department: string
   assessedAt: string
   assessor: string

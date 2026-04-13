@@ -5,6 +5,7 @@ export function emptyRosRow(): RosRiskRow {
   return {
     id: crypto.randomUUID(),
     riskCategory: '',
+    consequenceCategory: '',
     activity: '',
     hazard: '',
     existingControls: '',
