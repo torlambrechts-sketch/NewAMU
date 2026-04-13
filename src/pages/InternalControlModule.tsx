@@ -138,6 +138,23 @@ export function InternalControlModule() {
     }
   }, [tabParam, navigate])
 
+  const annualFocus = searchParams.get('focus')
+  useEffect(() => {
+    if (tab !== 'annual' || annualFocus !== 'yearskontroll') return
+    const t = window.setTimeout(() => {
+      document.getElementById('ic-annual-yearskontroll')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev)
+          p.delete('focus')
+          return p
+        },
+        { replace: true },
+      )
+    }, 250)
+    return () => window.clearTimeout(t)
+  }, [tab, annualFocus, setSearchParams])
+
   const [overviewTimeAnchor] = useState(() => Date.now())
 
   const [rosTitle, setRosTitle] = useState('')
@@ -561,6 +578,31 @@ export function InternalControlModule() {
   const persistAnnualDraftFromForm = useCallback(() => {
     if (!annualForm) return
     const cur = ic.annualReviews.find((x) => x.id === annualForm.id)
+    const prevSec = cur?.sections
+    const nextSec = annualForm.sections
+    const labels: Partial<Record<keyof typeof nextSec, string>> = {
+      goalsLastYearComment: 'Kommentar fjorårets mål',
+      deviationsReview: 'Avvik',
+      rosReview: 'ROS',
+      sickLeaveReview: 'Sykefravær',
+      goalsNextYear: 'HMS-mål',
+      actionPlanStatusReview: 'Tiltaksplan (årskontroll)',
+      effectEvaluation: 'Effektevaluering',
+      incidentsRealityCheck: 'Hendelser/avvik',
+      threatLandscapeChanges: 'Trusselbilde',
+      pdcaCheckActNotes: 'PDCA Check/Act',
+    }
+    let changeLog = [...(cur?.changeLog ?? [])]
+    if (prevSec && cur && !cur.locked) {
+      const at = new Date().toISOString()
+      for (const k of Object.keys(labels) as (keyof typeof nextSec)[]) {
+        const a = (prevSec[k] ?? '').trim()
+        const b = (nextSec[k] ?? '').trim()
+        if (a !== b && labels[k]) {
+          changeLog = [...changeLog, { at, message: `Oppdatert: ${labels[k]}` }].slice(-80)
+        }
+      }
+    }
     ic.upsertAnnualReview({
       id: annualForm.id,
       year: annualForm.year,
@@ -574,6 +616,7 @@ export function InternalControlModule() {
       locked: cur?.locked ?? false,
       signatures: cur?.signatures ?? [],
       createdAt: cur?.createdAt,
+      changeLog,
     })
   }, [annualForm, ic])
 
@@ -1556,10 +1599,19 @@ export function InternalControlModule() {
                             />
                           </div>
                           <div>
-                            <label className={SETTINGS_FIELD_LABEL}>ROS — oppdatert? Nye risikoer?</label>
+                            <label className={SETTINGS_FIELD_LABEL}>ROS — årskontroll og oppdatering</label>
+                            <p className="mt-1 text-xs text-neutral-600">
+                              Kobling til{' '}
+                              <Link to="/internal-control?tab=ros" className="font-medium text-[#1a3d32] underline">
+                                ROS / risiko
+                              </Link>
+                              : vurder om analyser er oppdatert, om restrisiko og tiltak fra låste ROS stemmer med
+                              erfaring i perioden, og om matrisen må justeres etter hendelser.
+                            </p>
                             <textarea
                               disabled={annualFormFieldsLocked}
-                              rows={3}
+                              rows={4}
+                              placeholder="F.eks. hvilke ROS er revidert, nye farer, avvik mot tidligere sannsynlighetsvurdering …"
                               value={annualForm.sections.rosReview}
                               onChange={(e) =>
                                 setAnnualForm((f) =>
@@ -1571,7 +1623,7 @@ export function InternalControlModule() {
                                     : f,
                                 )
                               }
-                              className={SETTINGS_INPUT}
+                              className={`${SETTINGS_INPUT} mt-2`}
                             />
                           </div>
                           <div>
@@ -1614,6 +1666,155 @@ export function InternalControlModule() {
                           </div>
                         </div>
                       </div>
+
+                      <div
+                        id="ic-annual-yearskontroll"
+                        className="my-8 scroll-mt-24 rounded-lg border border-[#1a3d32]/20 bg-[#f6f8f7] p-4 sm:p-5"
+                      >
+                        <h3 className="text-base font-semibold text-[#1a3d32]">Årskontroll (PDCA Check / Act)</h3>
+                        <p className={`${SETTINGS_LEAD} mt-2`}>
+                          Utfyllende gjennomgang av tiltak, effekt, hendelser og endret trusselbilde. Neste planlagte
+                          revisjon registreres i feltet «Neste gjennomgang» over.
+                        </p>
+                        <div className="mt-4 space-y-4">
+                          <div>
+                            <label className={SETTINGS_FIELD_LABEL}>1. Status på tiltaksplan (oppfølging)</label>
+                            <p className="text-xs text-neutral-500">
+                              Fremdrift: gjennomført i tide og av riktig ansvarlig? Ressursbruk vs. forventning?
+                            </p>
+                            <textarea
+                              disabled={annualFormFieldsLocked}
+                              rows={3}
+                              value={annualForm.sections.actionPlanStatusReview}
+                              onChange={(e) =>
+                                setAnnualForm((f) =>
+                                  f
+                                    ? {
+                                        ...f,
+                                        sections: { ...f.sections, actionPlanStatusReview: e.target.value },
+                                      }
+                                    : f,
+                                )
+                              }
+                              className={`${SETTINGS_INPUT} mt-1`}
+                            />
+                          </div>
+                          <div>
+                            <label className={SETTINGS_FIELD_LABEL}>2. Effektevaluering</label>
+                            <p className="text-xs text-neutral-500">
+                              Har tiltak redusert restrisikoen som antatt? (Teknikk uten opplæring kan f.eks. gi vedvarende
+                              menneskelig risiko.)
+                            </p>
+                            <textarea
+                              disabled={annualFormFieldsLocked}
+                              rows={3}
+                              value={annualForm.sections.effectEvaluation}
+                              onChange={(e) =>
+                                setAnnualForm((f) =>
+                                  f
+                                    ? {
+                                        ...f,
+                                        sections: { ...f.sections, effectEvaluation: e.target.value },
+                                      }
+                                    : f,
+                                )
+                              }
+                              className={`${SETTINGS_INPUT} mt-1`}
+                            />
+                          </div>
+                          <div>
+                            <label className={SETTINGS_FIELD_LABEL}>3. Hendelser og avvik (reality check)</label>
+                            <p className="text-xs text-neutral-500">
+                              Faktiske hendelser og nesten-ulykker. Juster ROS hvis virkeligheten ikke matcher vurderingen.
+                            </p>
+                            <textarea
+                              disabled={annualFormFieldsLocked}
+                              rows={3}
+                              value={annualForm.sections.incidentsRealityCheck}
+                              onChange={(e) =>
+                                setAnnualForm((f) =>
+                                  f
+                                    ? {
+                                        ...f,
+                                        sections: { ...f.sections, incidentsRealityCheck: e.target.value },
+                                      }
+                                    : f,
+                                )
+                              }
+                              className={`${SETTINGS_INPUT} mt-1`}
+                            />
+                          </div>
+                          <div>
+                            <label className={SETTINGS_FIELD_LABEL}>4. Endringer i trusselbildet og rammebetingelser</label>
+                            <p className="text-xs text-neutral-500">
+                              Ny teknologi, arbeidsmåter, omorganisering; lover, forskrifter, kundekrav.
+                            </p>
+                            <textarea
+                              disabled={annualFormFieldsLocked}
+                              rows={3}
+                              value={annualForm.sections.threatLandscapeChanges}
+                              onChange={(e) =>
+                                setAnnualForm((f) =>
+                                  f
+                                    ? {
+                                        ...f,
+                                        sections: { ...f.sections, threatLandscapeChanges: e.target.value },
+                                      }
+                                    : f,
+                                )
+                              }
+                              className={`${SETTINGS_INPUT} mt-1`}
+                            />
+                          </div>
+                          <div>
+                            <label className={SETTINGS_FIELD_LABEL}>5. PDCA — Check / Act (oppsummering)</label>
+                            <textarea
+                              disabled={annualFormFieldsLocked}
+                              rows={2}
+                              placeholder="Hva lærte vi, hva endres neste år …"
+                              value={annualForm.sections.pdcaCheckActNotes}
+                              onChange={(e) =>
+                                setAnnualForm((f) =>
+                                  f
+                                    ? {
+                                        ...f,
+                                        sections: { ...f.sections, pdcaCheckActNotes: e.target.value },
+                                      }
+                                    : f,
+                                )
+                              }
+                              className={`${SETTINGS_INPUT} mt-1`}
+                            />
+                          </div>
+                        </div>
+                        <p className="mt-3 text-xs text-neutral-500">
+                          Mer bakgrunn:{' '}
+                          <Link to="/modules/aarskontroll" className="font-medium text-[#1a3d32] underline">
+                            Modul Årskontroll
+                          </Link>
+                          .
+                        </p>
+                      </div>
+
+                      {(ic.annualReviews.find((x) => x.id === annualForm.id)?.changeLog?.length ?? 0) > 0 ? (
+                        <div className="rounded-lg border border-neutral-200 bg-neutral-50/80 p-4">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
+                            Historikk (utkast — tekstendringer)
+                          </p>
+                          <ul className="mt-2 max-h-40 space-y-1.5 overflow-y-auto text-xs text-neutral-700">
+                            {(
+                              ic.annualReviews.find((x) => x.id === annualForm.id)?.changeLog ?? []
+                            )
+                              .slice()
+                              .reverse()
+                              .map((e) => (
+                                <li key={`${e.at}-${e.message}`}>
+                                  <span className="text-neutral-400">{formatWhen(e.at)}</span> — {e.message}
+                                </li>
+                              ))}
+                          </ul>
+                        </div>
+                      ) : null}
 
                       <div className="my-6 border-t border-neutral-200/90" />
 

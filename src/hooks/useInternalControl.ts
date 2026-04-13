@@ -24,7 +24,12 @@ import type {
   RosSignatureRole,
   RosWorkspaceCategory,
 } from '../types/internalControl'
-import { isLegacyAnnualReview, isRosDocumentDraft, isRosRiskRowDraft } from '../types/internalControl'
+import {
+  EMPTY_ANNUAL_REVIEW_SECTIONS,
+  isLegacyAnnualReview,
+  isRosDocumentDraft,
+  isRosRiskRowDraft,
+} from '../types/internalControl'
 import { O_ROS_PRESET_HAZARDS } from '../types/internalControl'
 
 const STORAGE_KEY = 'atics-internal-control-v1'
@@ -114,6 +119,8 @@ function normalizeParsed(p: InternalControlState & { whistleCases?: unknown }): 
           }
           return {
             ...ar,
+            sections: ar.sections ? { ...EMPTY_ANNUAL_REVIEW_SECTIONS, ...ar.sections } : ar.sections,
+            changeLog: ar.changeLog ?? [],
             actionPlanDrafts: ar.actionPlanDrafts ?? [],
             signatures: sigs,
             status,
@@ -167,6 +174,7 @@ function seedDemoInternalControl(): InternalControlState {
     status: 'locked',
     locked: true,
     sections: {
+      ...EMPTY_ANNUAL_REVIEW_SECTIONS,
       goalsLastYearAchieved: 'yes',
       goalsLastYearComment: 'Hovedmål om vernerunder er nådd.',
       deviationsReview: 'Rapporteringskultur god; åpne avvik følges opp i oppgavelisten.',
@@ -686,7 +694,12 @@ export function useInternalControl() {
       check(sec.deviationsReview, 'Vurdering av avvik') ||
       check(sec.rosReview, 'Vurdering av ROS') ||
       check(sec.sickLeaveReview, 'Vurdering av sykefravær') ||
-      check(sec.goalsNextYear, 'Nye HMS-mål')
+      check(sec.goalsNextYear, 'Nye HMS-mål') ||
+      check(sec.actionPlanStatusReview, 'Status på tiltaksplan (årskontroll)') ||
+      check(sec.effectEvaluation, 'Effektevaluering') ||
+      check(sec.incidentsRealityCheck, 'Hendelser og avvik (reality check)') ||
+      check(sec.threatLandscapeChanges, 'Endringer i trusselbildet') ||
+      check(sec.pdcaCheckActNotes, 'PDCA Check/Act')
     )
   }
 

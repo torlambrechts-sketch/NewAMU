@@ -15,6 +15,16 @@ export type AnnualReviewSections = {
   sickLeaveReview: string
   /** Konkrete HMS-mål neste 12 mnd */
   goalsNextYear: string
+  /** Årskontroll: status på risikoreduserende tiltak (fremdrift, ressursbruk) */
+  actionPlanStatusReview: string
+  /** Har tiltak redusert restrisiko som antatt? */
+  effectEvaluation: string
+  /** Hendelser, avvik, nesten-ulykker — reality check mot ROS */
+  incidentsRealityCheck: string
+  /** Nye trusler, teknologi, omorganisering, lovkrav */
+  threatLandscapeChanges: string
+  /** PDCA Check/Act — kort oppsummering */
+  pdcaCheckActNotes: string
 }
 
 export type AnnualReviewActionDraft = {
@@ -167,6 +177,11 @@ export type RosAssessment = {
 }
 
 /** Årlig gjennomgang av internkontrollen (IK-f § 5 nr. 8) */
+export type AnnualReviewChangeLogEntry = {
+  at: string
+  message: string
+}
+
 export type AnnualReview = {
   id: string
   year: number
@@ -180,6 +195,8 @@ export type AnnualReview = {
   actionPlanDrafts?: AnnualReviewActionDraft[]
   signatures?: AnnualReviewSignature[]
   locked?: boolean
+  /** Enkel historikk ved lagring av utkast (tekstendringer) */
+  changeLog?: AnnualReviewChangeLogEntry[]
   createdAt?: string
   updatedAt?: string
 }
@@ -191,6 +208,11 @@ export const EMPTY_ANNUAL_REVIEW_SECTIONS: AnnualReviewSections = {
   rosReview: '',
   sickLeaveReview: '',
   goalsNextYear: '',
+  actionPlanStatusReview: '',
+  effectEvaluation: '',
+  incidentsRealityCheck: '',
+  threatLandscapeChanges: '',
+  pdcaCheckActNotes: '',
 }
 
 export function isLegacyAnnualReview(a: AnnualReview): boolean {

@@ -74,6 +74,7 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/org-health', permission: 'module.view.org_health' },
   { pathPrefix: '/hse', permission: 'module.view.hse' },
   { pathPrefix: '/internal-control', permission: 'module.view.internal_control' },
+  { pathPrefix: '/modules/aarskontroll', permission: 'module.view.internal_control' },
   { pathPrefix: '/tasks', permission: 'module.view.tasks' },
   { pathPrefix: '/learning', permission: 'module.view.learning' },
   /** Same gate as workspace — report data is still scoped per org in RPCs */
