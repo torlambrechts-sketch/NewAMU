@@ -69,6 +69,7 @@ import { SAFETY_ROUND_TEMPLATE_ID, TRAINING_KIND_LABELS } from '../data/hseTempl
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeSickLeaveWizard, makeSjaWizard, makeSafetyRoundWizard } from '../components/wizard/wizards'
 import { usePageLayout } from '../hooks/usePageLayout'
+import { PageLayoutRenderer } from '../components/layout/PageLayoutRenderer'
 import { InPageLayoutEditor } from '../components/layout/InPageLayoutEditor'
 import { renderLibraryBlock, UNHANDLED } from '../components/layout/LayoutBlockLibrary'
 import type { RenderBlockProps } from '../components/layout/PageLayoutRenderer'
@@ -190,6 +191,21 @@ function makeDefaultInspectionsSections(): PageLayoutSection[] {
     ]},
   ]
 }
+
+/**
+ * Validates that saved sections contain at least one of the real page-specific
+ * block IDs. Rejects layouts containing only generic demo blocks (e.g. those
+ * created with the platform composer before the vernerunder blocks were wired in).
+ */
+const VERNERUNDER_REAL_BLOCK_IDS = new Set([
+  'hubMenu1Bar', 'scoreStatRow', 'workplaceTasksActions', 'table1', 'vernerunderScheduleCalendar',
+])
+function isValidVernerunderLayout(sections: PageLayoutSection[]): boolean {
+  return sections.some((s) =>
+    s.cols.some((c) => c.blocks.some((b) => VERNERUNDER_REAL_BLOCK_IDS.has(b.blockId)))
+  )
+}
+
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
 const tabs = [
@@ -740,8 +756,14 @@ export function HseModule() {
   const [vnLayoutSaving, setVnLayoutSaving] = useState(false)
   const [insLayoutSaving, setInsLayoutSaving] = useState(false)
 
-  const vnSections = vernerunderPageLayout.layout?.sections ?? makeDefaultVernerunderSections()
-  const insSections = inspectionsPageLayout.layout?.sections ?? makeDefaultInspectionsSections()
+  const savedVn = vernerunderPageLayout.layout?.sections
+  const vnSections = (savedVn && isValidVernerunderLayout(savedVn))
+    ? savedVn
+    : makeDefaultVernerunderSections()
+  const savedIns = inspectionsPageLayout.layout?.sections
+  const insSections = (savedIns && isValidVernerunderLayout(savedIns))
+    ? savedIns
+    : makeDefaultInspectionsSections()
 
   // Ref so render callbacks (declared before hseHubItems useMemo) can read the latest hub items.
   const hseHubItemsRef = useRef<HubMenu1Item[]>([])
@@ -2225,20 +2247,13 @@ export function HseModule() {
             </div>
           ) : null}
 
-          {/* ── Vernerunder layout — hardcoded structure, editor controls block visibility ── */}
-          {renderVernerunderBlock({ blockId: 'hubMenu1Bar' })}
-          {renderVernerunderBlock({ blockId: 'scoreStatRow' })}
-          {renderVernerunderBlock({ blockId: 'workplaceTasksActions' })}
-          <div className="grid grid-cols-3 gap-6 items-start">
-            <div className="col-span-2 min-w-0">
-              {renderVernerunderBlock({ blockId: 'table1' })}
-            </div>
-            <div className="col-span-1 min-w-0">
-              {renderVernerunderBlock({ blockId: 'vernerunderScheduleCalendar' })}
-            </div>
-          </div>
+          <PageLayoutRenderer
+            layout={{ id: vernerunderPageLayout.layout?.id ?? 'default', pageKey: 'hse.vernerunder', sections: vnSections }}
+            renderBlock={renderVernerunderBlock}
+            editMode={false}
+          />
 
-          {/* Layout editor drawer — only controls block visibility, not structure */}
+          {/* Layout editor drawer */}
           {vnLayoutEditOpen && (
             <div className="fixed inset-0 z-[200] flex">
               <div className="flex-1 bg-black/30 backdrop-blur-[1px]" onClick={() => setVnLayoutEditOpen(false)} />
@@ -2655,18 +2670,12 @@ export function HseModule() {
             </div>
           )}
 
-          {/* ── Inspeksjoner layout — hardcoded structure ── */}
-          {renderInspectionsBlock({ blockId: 'hubMenu1Bar' })}
-          {renderInspectionsBlock({ blockId: 'scoreStatRow' })}
-          {renderInspectionsBlock({ blockId: 'workplaceTasksActions' })}
-          <div className="grid grid-cols-3 gap-6 items-start">
-            <div className="col-span-2 min-w-0">
-              {renderInspectionsBlock({ blockId: 'table1' })}
-            </div>
-            <div className="col-span-1 min-w-0">
-              {renderInspectionsBlock({ blockId: 'vernerunderScheduleCalendar' })}
-            </div>
-          </div>
+          {/* ── Inspeksjoner layout — rendered by PageLayoutRenderer ── */}
+          <PageLayoutRenderer
+            layout={{ id: inspectionsPageLayout.layout?.id ?? 'default', pageKey: 'hse.inspections', sections: insSections }}
+            renderBlock={renderInspectionsBlock}
+            editMode={false}
+          />
 
           {insLayoutEditOpen && (
             <div className="fixed inset-0 z-[200] flex">
