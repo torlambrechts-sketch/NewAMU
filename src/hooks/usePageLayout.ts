@@ -171,7 +171,10 @@ export function usePageLayout(pageKey: string): UsePageLayoutReturn {
         }
         return
       } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
+        const msg =
+          e instanceof Error ? e.message
+          : (e && typeof e === 'object' && 'message' in e) ? String((e as { message: unknown }).message)
+          : String(e)
         setError(`Lagring feilet: ${msg} — lagrer lokalt.`)
       }
     }
