@@ -324,6 +324,7 @@ export function HseModule() {
   const [inspectionPanelOpen, setInspectionPanelOpen] = useState(false)
   const [insDraftId, setInsDraftId] = useState<string | null>(null)
   const [insKind, setInsKind] = useState<Inspection['kind']>('internal')
+  const [insCaseTypeId, setInsCaseTypeId] = useState('')  // template-driven category
   const [insTitle, setInsTitle] = useState('')
   const [insConductedAt, setInsConductedAt] = useState('')
   const [insScope, setInsScope] = useState('')
@@ -337,7 +338,9 @@ export function HseModule() {
   const [findingDrafts, setFindingDrafts] = useState<
     { id: string; description: string; photoDataUrl?: string; status?: InspectionFinding['status'] }[]
   >([])
-  const [newFindingText, setNewFindingText] = useState('')
+  // newFindingText kept for reset/open compatibility; finding input is in the concrete findings section
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_newFindingText, _setNewFindingText] = useState('')
   const [insFileQueue, setInsFileQueue] = useState<File[]>([])
   const [insSearch, setInsSearch] = useState('')
 
@@ -358,6 +361,7 @@ export function HseModule() {
   const resetInspectionPanel = useCallback(() => {
     setInsDraftId(null)
     setInsKind('internal')
+    setInsCaseTypeId('')
     setInsTitle('')
     setInsConductedAt('')
     setInsScope('')
@@ -369,7 +373,7 @@ export function HseModule() {
     setInsSubjectLabel('')
     setInsResponsibleEmployeeId('')
     setFindingDrafts([])
-    setNewFindingText('')
+    void 0 // newFindingText cleared
     setInsFileQueue([])
   }, [])
 
@@ -1396,6 +1400,7 @@ export function HseModule() {
     }
     setInsDraftId(ins.id)
     setInsKind(ins.kind)
+    setInsCaseTypeId((ins as unknown as { caseTypeId?: string }).caseTypeId ?? '')
     setInsTitle(ins.title)
     setInsConductedAt(isoToDatetimeLocal(ins.conductedAt))
     setInsScope(scopeForForm)
@@ -1414,7 +1419,7 @@ export function HseModule() {
         status: f.status,
       })),
     )
-    setNewFindingText('')
+    void 0 // newFindingText cleared
     setInsFileQueue([])
     setProtoName('')
     setProtoRole('inspector')
@@ -1812,7 +1817,7 @@ export function HseModule() {
       window.alert('Ved ekstern inspeksjon (Arbeidstilsynet, Mattilsynet, brannvesen m.m.) må offisiell PDF-rapport lastes opp.')
       return
     }
-    const base: Omit<Inspection, 'createdAt' | 'updatedAt'> & { id?: string } = {
+    const base: Omit<Inspection, 'createdAt' | 'updatedAt'> & { id?: string; caseTypeId?: string } = {
       id: insDraftId,
       kind: insKind,
       title: insTitle.trim(),
@@ -1832,6 +1837,7 @@ export function HseModule() {
       locked: existing?.locked ?? false,
       closureSignature: existing?.closureSignature,
       findingTasksSynced: existing?.findingTasksSynced ?? false,
+      ...(insCaseTypeId ? { caseTypeId: insCaseTypeId } : {}),
     }
     if (existing) {
       hse.updateInspection(insDraftId, base)
@@ -4582,10 +4588,10 @@ export function HseModule() {
             className="fixed inset-0 z-[60] bg-black/40"
             onClick={closeInspectionPanel}
           />
-          <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[920px] flex-col border-l border-neutral-200 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+          <aside className="fixed inset-y-0 right-0 z-[70] flex h-full w-full max-w-[min(100vw,520px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 bg-[#f7f6f2] px-6 py-5">
               <div>
-                <h2 className="text-lg font-semibold text-neutral-900">
+                <h2 className="text-xl font-semibold text-neutral-900">
                   {isNewInspectionDraft
                     ? 'Ny inspeksjon'
                     : insFormLocked
@@ -4593,27 +4599,39 @@ export function HseModule() {
                       : 'Rediger inspeksjon'}
                 </h2>
                 <p className="text-xs text-neutral-500">
-                  {isNewInspectionDraft ? `Utkast-ID: ${insDraftId}` : `ID: ${insDraftId}`}
+                  {isNewInspectionDraft ? 'Ny registrering' : `ID: ${insDraftId?.slice(0, 8)}`}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={closeInspectionPanel}
-                className={`${R_FLAT} p-2 text-neutral-500 hover:bg-neutral-100`}
+                className="rounded-none p-2 text-neutral-500 hover:bg-neutral-200/60 hover:text-neutral-800"
               >
-                <X className="size-5" />
+                <X className="size-6" />
               </button>
             </div>
-            <form onSubmit={submitInspectionPanel} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-              <div className={TASK_PANEL_ROW_GRID}>
-                <div>
-                  <p className={SETTINGS_LEAD}>
-                    Registrer inspeksjon med relasjonell ansvarlig (ansatt), inspeksjonsobjekt (enhet eller utstyr/lokasjon) og
-                    konkrete avvik som hver kan følges på Kanban. Ved ekstern tilsyn kreves PDF-rapport som vedlegg.
-                  </p>
-                </div>
-                <div className={TASK_PANEL_INSET}>
-                  <label className={SETTINGS_FIELD_LABEL}>Type</label>
+            <form onSubmit={submitInspectionPanel} className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+
+              {/* ── Kategori / Inspeksjonstype (fra modul-innstillinger) ── */}
+              <div className="space-y-1">
+                <label className={SETTINGS_FIELD_LABEL}>
+                  Inspeksjonstype
+                </label>
+                {inspModuleTemplate.template.caseTypes.filter(ct => ct.active).length > 0 ? (
+                  <select
+                    value={insCaseTypeId}
+                    onChange={(e) => setInsCaseTypeId(e.target.value)}
+                    disabled={insFormLocked}
+                    className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
+                    required
+                  >
+                    <option value="">Velg type …</option>
+                    {inspModuleTemplate.template.caseTypes.filter(ct => ct.active).map(ct => (
+                      <option key={ct.id} value={ct.id}>{ct.label}</option>
+                    ))}
+                  </select>
+                ) : (
+                  /* Fallback to hardcoded kind if no template types configured */
                   <select
                     value={insKind}
                     onChange={(e) => setInsKind(e.target.value as Inspection['kind'])}
@@ -4624,257 +4642,156 @@ export function HseModule() {
                     <option value="external">Ekstern</option>
                     <option value="audit">Revisjon</option>
                   </select>
-                </div>
+                )}
               </div>
-              <div className={TASK_PANEL_ROW_GRID}>
-                <div>
-                  <p className={SETTINGS_LEAD}>Tittel og tidspunkt for gjennomføring.</p>
-                </div>
-                <div className={TASK_PANEL_INSET} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL}>Tittel *</label>
-                    <input
-                      value={insTitle}
-                      onChange={(e) => setInsTitle(e.target.value)}
-                      disabled={insFormLocked}
-                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL}>Dato / tid</label>
-                    <input
-                      type="datetime-local"
-                      value={insConductedAt}
-                      onChange={(e) => setInsConductedAt(e.target.value)}
-                      disabled={insFormLocked}
-                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                    />
-                  </div>
-                </div>
+
+              {/* ── Tittel ── */}
+              <div className="space-y-1">
+                <label className={SETTINGS_FIELD_LABEL}>Tittel *</label>
+                <input
+                  value={insTitle}
+                  onChange={(e) => setInsTitle(e.target.value)}
+                  disabled={insFormLocked}
+                  placeholder="F.eks. HMS-runde lager Q2"
+                  className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
+                  required
+                />
               </div>
-              <div className={TASK_PANEL_ROW_GRID}>
-                <div>
-                  <p className={SETTINGS_LEAD}>Velg hva som inspiseres for sporbarhet i rapporter (historikk per maskin, rom, enhet).</p>
-                </div>
-                <div className={TASK_PANEL_INSET} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL}>Inspeksjonsobjekt</label>
-                    <select
-                      value={insSubjectKind}
-                      onChange={(e) => setInsSubjectKind(e.target.value as InspectionSubjectKind)}
-                      disabled={insFormLocked}
-                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                    >
-                      <option value="free_text">Kun fritekst i omfang</option>
-                      <option value="org_unit">Organisasjonsenhet</option>
-                      <option value="equipment_or_area">Utstyr / lokasjon (merkelapp)</option>
-                    </select>
-                  </div>
-                  {insSubjectKind === 'org_unit' && (
-                    <div>
-                      <label className={SETTINGS_FIELD_LABEL}>Enhet</label>
-                      <select
-                        value={insSubjectUnitId}
-                        onChange={(e) => setInsSubjectUnitId(e.target.value)}
-                        disabled={insFormLocked}
-                        className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                      >
-                        <option value="">Velg enhet …</option>
-                        {org.units.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  {insSubjectKind === 'equipment_or_area' && (
-                    <div>
-                      <label className={SETTINGS_FIELD_LABEL}>Merkelapp (f.eks. Truck 3, Fryserom B)</label>
-                      <input
-                        value={insSubjectLabel}
-                        onChange={(e) => setInsSubjectLabel(e.target.value)}
-                        disabled={insFormLocked}
-                        className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                        placeholder="Beskriv objektet"
-                      />
-                    </div>
-                  )}
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL}>Omfang / notater</label>
-                    <textarea
-                      value={insScope}
-                      onChange={(e) => setInsScope(e.target.value)}
-                      rows={3}
-                      disabled={insFormLocked}
-                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                    />
-                  </div>
-                </div>
+
+              {/* ── Dato / tid ── */}
+              <div className="space-y-1">
+                <label className={SETTINGS_FIELD_LABEL}>Dato / tid</label>
+                <input
+                  type="datetime-local"
+                  value={insConductedAt}
+                  onChange={(e) => setInsConductedAt(e.target.value)}
+                  disabled={insFormLocked}
+                  className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
+                />
               </div>
-              <div className={TASK_PANEL_ROW_GRID}>
-                <div>
-                  <p className={SETTINGS_LEAD}>
-                    Kort oppsummering av funn pluss én rad per konkret avvik — hver rad kan få egen status og Kanban-oppgave ved låsing.
-                  </p>
-                </div>
-                <div className={TASK_PANEL_INSET} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL}>Funn (kort oppsummering)</label>
-                    <textarea
-                      value={insFindingsSummary}
-                      onChange={(e) => setInsFindingsSummary(e.target.value)}
-                      rows={2}
-                      disabled={insFormLocked}
-                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                    />
-                  </div>
-                  {!insFormLocked && (
-                    <div className="flex flex-wrap gap-2 border border-neutral-200/80 bg-white p-3">
-                      <input
-                        value={newFindingText}
-                        onChange={(e) => setNewFindingText(e.target.value)}
-                        placeholder="Beskriv konkret avvik …"
-                        className={`min-w-[200px] flex-1 ${SETTINGS_INPUT} bg-neutral-50`}
-                      />
-                      <button
-                        type="button"
-                        className={`${HERO_ACTION_CLASS} bg-neutral-800 text-white hover:bg-neutral-900`}
-                        onClick={() => {
-                          const t = newFindingText.trim()
-                          if (!t) return
-                          setFindingDrafts((d) => [...d, { id: crypto.randomUUID(), description: t, status: 'open' }])
-                          setNewFindingText('')
-                        }}
-                      >
-                        + Registrer konkret avvik
-                      </button>
-                    </div>
-                  )}
-                  {findingDrafts.length > 0 && (
-                    <ul className="space-y-2 text-sm">
-                      {findingDrafts.map((f) => (
-                        <li key={f.id} className="flex flex-col gap-2 border border-neutral-200 bg-white p-3 sm:flex-row sm:items-start">
-                          {insFormLocked ? (
-                            <div className="min-w-0 flex-1">
-                              <p className="text-neutral-900">{f.description}</p>
-                              <p className="mt-1 text-xs text-neutral-500">
-                                Status: {f.status === 'resolved' ? 'Løst' : 'Åpen'}
-                              </p>
-                              {f.photoDataUrl ? (
-                                <img src={f.photoDataUrl} alt="" className="mt-2 max-h-24 border border-neutral-200" />
-                              ) : null}
-                            </div>
-                          ) : (
-                            <>
-                              <textarea
-                                value={f.description}
-                                onChange={(e) =>
-                                  setFindingDrafts((rows) =>
-                                    rows.map((x) => (x.id === f.id ? { ...x, description: e.target.value } : x)),
-                                  )
-                                }
-                                className={`min-h-[60px] flex-1 ${SETTINGS_INPUT} bg-neutral-50`}
-                              />
-                              <div className="flex w-full shrink-0 flex-col gap-2 sm:w-40">
-                                <label className={SETTINGS_FIELD_LABEL}>Status</label>
-                                <select
-                                  value={f.status ?? 'open'}
-                                  onChange={(e) =>
-                                    setFindingDrafts((rows) =>
-                                      rows.map((x) =>
-                                        x.id === f.id
-                                          ? { ...x, status: e.target.value as InspectionFinding['status'] }
-                                          : x,
-                                      ),
-                                    )
-                                  }
-                                  className={`${SETTINGS_INPUT} bg-white text-xs`}
-                                >
-                                  <option value="open">Åpen</option>
-                                  <option value="resolved">Løst</option>
-                                </select>
-                                <label className={`${SETTINGS_FIELD_LABEL} cursor-pointer`}>
-                                  <span className="inline-flex items-center gap-1">
-                                    <ImagePlus className="size-3.5" /> Bilde
-                                  </span>
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="sr-only"
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0]
-                                      if (!file) return
-                                      const reader = new FileReader()
-                                      reader.onload = () => {
-                                        const url = typeof reader.result === 'string' ? reader.result : undefined
-                                        setFindingDrafts((rows) =>
-                                          rows.map((x) => (x.id === f.id ? { ...x, photoDataUrl: url } : x)),
-                                        )
-                                      }
-                                      reader.readAsDataURL(file)
-                                      e.target.value = ''
-                                    }}
-                                  />
-                                </label>
-                                <button
-                                  type="button"
-                                  className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-700`}
-                                  onClick={() => setFindingDrafts((rows) => rows.filter((x) => x.id !== f.id))}
-                                >
-                                  Fjern
-                                </button>
-                              </div>
-                              {f.photoDataUrl ? (
-                                <img src={f.photoDataUrl} alt="" className="max-h-24 rounded border border-neutral-200" />
-                              ) : null}
-                            </>
-                          )}
-                        </li>
+
+              {/* ── Status ── */}
+              <div className="space-y-1">
+                <label className={SETTINGS_FIELD_LABEL}>Status</label>
+                {inspModuleTemplate.template.statuses.length > 0 ? (
+                  <select
+                    value={insStatus}
+                    onChange={(e) => setInsStatus(e.target.value as Inspection['status'])}
+                    disabled={insFormLocked}
+                    className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    {inspModuleTemplate.template.statuses
+                      .sort((a, b) => a.sortOrder - b.sortOrder)
+                      .map(s => (
+                        <option key={s.key} value={s.key}>{s.label}</option>
                       ))}
-                    </ul>
-                  )}
-                </div>
+                  </select>
+                ) : (
+                  <select
+                    value={insStatus}
+                    onChange={(e) => setInsStatus(e.target.value as Inspection['status'])}
+                    disabled={insFormLocked}
+                    className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    <option value="open">Åpen</option>
+                    <option value="closed">Lukket</option>
+                  </select>
+                )}
               </div>
-              <div className={TASK_PANEL_ROW_GRID}>
-                <div>
-                  <p className={SETTINGS_LEAD}>
-                    Last opp bilder av forhold eller offisiell PDF ved ekstern inspeksjon. Filer lagres under organisasjonens mappe i Supabase Storage når klient er konfigurert.
-                  </p>
-                </div>
-                <div className={TASK_PANEL_INSET}>
-                  <label className={SETTINGS_FIELD_LABEL}>Vedlegg</label>
-                  {!insFormLocked && (
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*,application/pdf"
-                      onChange={(e) => {
-                        const files = e.target.files ? Array.from(e.target.files) : []
-                        setInsFileQueue((q) => [...q, ...files])
-                        e.target.value = ''
-                      }}
-                      className="mt-2 block w-full text-sm text-neutral-600"
-                    />
-                  )}
-                  {insFileQueue.length > 0 && (
-                    <ul className="mt-2 space-y-1 text-xs text-neutral-600">
-                      {insFileQueue.map((f, i) => (
-                        <li key={`${f.name}-${i}`} className="flex items-center justify-between gap-2">
-                          <span className="truncate">{f.name}</span>
-                          <button
-                            type="button"
-                            className="shrink-0 text-red-600 hover:underline"
-                            onClick={() => setInsFileQueue((q) => q.filter((_, j) => j !== i))}
-                          >
-                            Fjern
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {panelInspection && (panelInspection.attachments ?? []).length > 0 && (
+
+              {/* ── Ansvarlig ── */}
+              <div className="space-y-1">
+                <label className={SETTINGS_FIELD_LABEL}>Ansvarlig (ansatt)</label>
+                <select
+                  id="ins-responsible"
+                  value={insResponsibleEmployeeId}
+                  onChange={(e) => setInsResponsibleEmployeeId(e.target.value)}
+                  disabled={insFormLocked}
+                  className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
+                >
+                  <option value="">Velg ansatt …</option>
+                  {employeePickList.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name}{e.unitName ? ` — ${e.unitName}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ── Inspeksjonsobjekt ── */}
+              <div className="space-y-1">
+                <label className={SETTINGS_FIELD_LABEL}>Inspeksjonsobjekt</label>
+                <select
+                  value={insSubjectKind}
+                  onChange={(e) => setInsSubjectKind(e.target.value as InspectionSubjectKind)}
+                  disabled={insFormLocked}
+                  className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
+                >
+                  <option value="free_text">Fritekst / omfang</option>
+                  <option value="org_unit">Organisasjonsenhet</option>
+                  <option value="equipment_or_area">Utstyr / lokasjon</option>
+                </select>
+                {insSubjectKind === 'org_unit' && (
+                  <select
+                    value={insSubjectUnitId}
+                    onChange={(e) => setInsSubjectUnitId(e.target.value)}
+                    disabled={insFormLocked}
+                    className={`${SETTINGS_INPUT} mt-2 bg-white disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    <option value="">Velg enhet …</option>
+                    {org.units.map((u) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                )}
+                {insSubjectKind === 'equipment_or_area' && (
+                  <input
+                    value={insSubjectLabel}
+                    onChange={(e) => setInsSubjectLabel(e.target.value)}
+                    disabled={insFormLocked}
+                    placeholder="F.eks. Truck 3, Fryserom B"
+                    className={`${SETTINGS_INPUT} mt-2 bg-white disabled:cursor-not-allowed disabled:opacity-60`}
+                  />
+                )}
+              </div>
+
+              {/* ── Omfang ── */}
+              <div className="space-y-1">
+                <label className={SETTINGS_FIELD_LABEL}>Omfang / notater</label>
+                <textarea
+                  value={insScope}
+                  onChange={(e) => setInsScope(e.target.value)}
+                  rows={3}
+                  disabled={insFormLocked}
+                  className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
+                />
+              </div>
+
+              {/* ── Funn (sammendrag) ── */}
+              <div className="space-y-1">
+                <label className={SETTINGS_FIELD_LABEL}>Funn — sammendrag</label>
+                <textarea
+                  value={insFindingsSummary}
+                  onChange={(e) => setInsFindingsSummary(e.target.value)}
+                  rows={2}
+                  disabled={insFormLocked}
+                  className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
+                />
+              </div>
+
+              {/* ── Oppfølging ── */}
+              <div className="space-y-1">
+                <label className={SETTINGS_FIELD_LABEL}>Oppfølging</label>
+                <textarea
+                  value={insFollowUp}
+                  onChange={(e) => setInsFollowUp(e.target.value)}
+                  rows={2}
+                  disabled={insFormLocked}
+                  className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
+                />
+              </div>
+
+              {panelInspection && (panelInspection.attachments ?? []).length > 0 && (
                     <ul className="mt-3 space-y-1 border-t border-neutral-200/80 pt-3 text-xs">
                       <li className={SETTINGS_FIELD_LABEL}>Lagrede vedlegg</li>
                       {(panelInspection.attachments ?? []).map((a) => (
@@ -4899,57 +4816,7 @@ export function HseModule() {
                         </li>
                       ))}
                     </ul>
-                  )}
-                </div>
-              </div>
-              <div className={TASK_PANEL_ROW_GRID}>
-                <div>
-                  <p className={SETTINGS_LEAD}>
-                    Ansvarlig kobles til ansattlisten slik at oppfølgingsoppgaver kan tildeles riktig person på Kanban.
-                  </p>
-                </div>
-                <div className={TASK_PANEL_INSET} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL}>Ansvarlig (ansatt)</label>
-                    <select
-                      value={insResponsibleEmployeeId}
-                      onChange={(e) => setInsResponsibleEmployeeId(e.target.value)}
-                      disabled={insFormLocked}
-                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                    >
-                      <option value="">Velg ansatt …</option>
-                      {employeePickList.map((e) => (
-                        <option key={e.id} value={e.id}>
-                          {e.name}
-                          {e.unitName ? ` — ${e.unitName}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL}>Oppfølging</label>
-                    <textarea
-                      value={insFollowUp}
-                      onChange={(e) => setInsFollowUp(e.target.value)}
-                      rows={2}
-                      disabled={insFormLocked}
-                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                    />
-                  </div>
-                  <div>
-                    <label className={SETTINGS_FIELD_LABEL}>Status</label>
-                    <select
-                      value={insStatus}
-                      onChange={(e) => setInsStatus(e.target.value as Inspection['status'])}
-                      disabled={insFormLocked}
-                      className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                    >
-                      <option value="open">Åpen</option>
-                      <option value="closed">Lukket / fullført (klar for låsing)</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
+              )}
 
               {panelInspection && (
                 <div className={`${R_FLAT} mx-4 mb-4 border border-neutral-200 bg-white p-4 md:mx-5`}>
@@ -5072,18 +4939,18 @@ export function HseModule() {
                 </div>
               )}
 
-              <div className="mt-auto flex flex-wrap justify-end gap-2 border-t border-neutral-200 px-5 py-4">
+              <div className="mt-auto flex flex-wrap justify-end gap-2 border-t border-neutral-200/90 px-6 py-4">
                 <button
                   type="button"
                   onClick={closeInspectionPanel}
-                  className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-neutral-800`}
+                  className="rounded-none border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
                 >
                   {insFormLocked ? 'Lukk' : 'Avbryt'}
                 </button>
                 {!insFormLocked && (
                   <button
                     type="submit"
-                    className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+                    className="rounded-none bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white hover:bg-[#142e26]"
                   >
                     Lagre inspeksjon
                   </button>
