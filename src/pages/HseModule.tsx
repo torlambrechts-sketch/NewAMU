@@ -745,9 +745,8 @@ export function HseModule() {
       out.rounds = 'hide'
       out.rounds2 = 'hide'
     }
-    if (!inspectionsGridResolved && stackInspectionsOrder.includes('hubMenu1Bar')) {
-      out.inspections = 'hide'
-    }
+    // Inspeksjoner tab always uses ModulePageRenderer which owns its own hub menu
+    out.inspections = 'hide'
     return out
   }, [vernerunderGridResolved, inspectionsGridResolved, stackVernerunderOrder, stackInspectionsOrder])
 
