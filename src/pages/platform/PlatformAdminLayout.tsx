@@ -27,6 +27,7 @@ const nav: {
   { to: '/platform-admin/box-designer', label: 'Komponentdesigner', icon: Box },
   { to: '/platform-admin/layout-builder', label: 'Layout-designer', icon: Rows3 },
   { to: '/platform-admin/layout-reference', label: 'Layout-referanse', icon: Sparkles },
+  { to: '/platform-admin/layout-templates', label: 'Layout-maler', icon: LayoutTemplate },
   { to: '/platform-admin/layout', label: 'Layout (arbeidsflate)', icon: LayoutTemplate },
 ]
 
