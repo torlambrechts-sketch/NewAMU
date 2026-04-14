@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useOrgSetupContext } from './useOrgSetupContext'
-import type { PageLayout, PageLayoutRow, PageLayoutSection } from '../types/pageLayout'
+import type { ColumnPreset, PageLayout, PageLayoutRow, PageLayoutSection } from '../types/pageLayout'
 
 // v2: bumped to invalidate all localStorage data saved with the old colSpan-number system
 const LS_PREFIX = 'klarert_page_layout_v2'
@@ -9,11 +9,34 @@ function lsKey(pageKey: string) {
   return `${LS_PREFIX}:${pageKey}`
 }
 
+/**
+ * Migrate legacy sections that were saved without a `preset` field.
+ * Infers the best preset from colSpan values so old DB rows work correctly.
+ */
+function migrateSections(sections: PageLayoutSection[]): PageLayoutSection[] {
+  return sections.map((s) => {
+    if (s.preset) return s
+    const n = s.cols?.length ?? 1
+    if (n === 2) {
+      const spans = s.cols.map((c) => Number(c.colSpan) || 1)
+      const total = spans[0] + spans[1]
+      if (total > 0) {
+        const pct0 = spans[0] / total
+        if (pct0 >= 0.6) return { ...s, preset: 'split-2-1' as ColumnPreset }
+        if (pct0 <= 0.4) return { ...s, preset: 'split-1-2' as ColumnPreset }
+      }
+      return { ...s, preset: 'halves' as ColumnPreset }
+    }
+    if (n === 3) return { ...s, preset: 'thirds' as ColumnPreset }
+    return { ...s, preset: 'full' as ColumnPreset }
+  })
+}
+
 function rowToLayout(row: PageLayoutRow): PageLayout {
   return {
     id: row.id,
     pageKey: row.page_key,
-    sections: row.sections ?? [],
+    sections: migrateSections(row.sections ?? []),
     publishedAt: row.published ? row.updated_at : null,
     updatedAt: row.updated_at,
     createdBy: row.created_by ?? undefined,
@@ -29,7 +52,7 @@ function readLocalLayout(pageKey: string): PageLayout | null {
     return {
       id: parsed.id ?? 'local',
       pageKey,
-      sections: parsed.sections,
+      sections: migrateSections(parsed.sections),
       updatedAt: parsed.updatedAt,
     }
   } catch {

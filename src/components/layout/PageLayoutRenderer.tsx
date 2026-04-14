@@ -16,33 +16,46 @@ type Props = {
 }
 
 /**
- * Hardcoded Tailwind grid classes — these strings are LITERALS so Tailwind v4
- * JIT always compiles them. Never construct these dynamically.
- *
- * Each preset maps to: [containerClass, ...perColumnClass[]]
+ * Returns a className string for a section row given its preset.
+ * Every class string is a COMPLETE LITERAL so Tailwind v4 JIT always compiles them.
+ * No string concatenation, no dynamic class generation.
  */
-const PRESET_CLASSES: Record<ColumnPreset, { container: string; cols: string[] }> = {
-  'full':      { container: 'grid grid-cols-1 gap-6',                                 cols: [''] },
-  'split-2-1': { container: 'grid gap-6',    cols: ['col-span-2', 'col-span-1'] },    // uses grid-cols-3 below
-  'split-1-2': { container: 'grid gap-6',    cols: ['col-span-1', 'col-span-2'] },
-  'halves':    { container: 'grid grid-cols-2 gap-6',                                 cols: ['', ''] },
-  'thirds':    { container: 'grid grid-cols-3 gap-6',                                 cols: ['', '', ''] },
+function sectionClassName(preset: ColumnPreset): string {
+  switch (preset) {
+    case 'full':      return 'grid grid-cols-1 gap-6 items-start'
+    case 'split-2-1': return 'grid grid-cols-3 gap-6 items-start'
+    case 'split-1-2': return 'grid grid-cols-3 gap-6 items-start'
+    case 'halves':    return 'grid grid-cols-2 gap-6 items-start'
+    case 'thirds':    return 'grid grid-cols-3 gap-6 items-start'
+    default:          return 'grid grid-cols-1 gap-6 items-start'
+  }
 }
 
 /**
- * For split presets we need grid-cols-3 as parent so col-span-2/col-span-1
- * have a 3-column grid to span within.
+ * Returns a className for a column cell given its preset and column index.
+ * Every class string is a COMPLETE LITERAL.
  */
-function containerClass(preset: ColumnPreset): string {
-  const base = PRESET_CLASSES[preset]?.container ?? 'grid grid-cols-1 gap-6'
-  if (preset === 'split-2-1' || preset === 'split-1-2') {
-    return base + ' grid-cols-3'
+function colClassName(preset: ColumnPreset, colIdx: number): string {
+  if (preset === 'split-2-1') {
+    return colIdx === 0 ? 'col-span-2 min-w-0' : 'col-span-1 min-w-0'
   }
-  return base
+  if (preset === 'split-1-2') {
+    return colIdx === 0 ? 'col-span-1 min-w-0' : 'col-span-2 min-w-0'
+  }
+  return 'min-w-0'
 }
 
-function colClass(preset: ColumnPreset, colIdx: number): string {
-  return PRESET_CLASSES[preset]?.cols[colIdx] ?? ''
+/**
+ * Resolves preset from section data, handling legacy sections (no preset field).
+ */
+function resolvePreset(section: PageLayoutSection): ColumnPreset {
+  if (section.preset) return section.preset
+  // Legacy fallback — infer from number of columns
+  switch (section.cols?.length) {
+    case 2:  return 'halves'
+    case 3:  return 'thirds'
+    default: return 'full'
+  }
 }
 
 function BlockShell({
@@ -69,19 +82,6 @@ function BlockShell({
   )
 }
 
-/**
- * Resolves a section's preset, falling back gracefully for old saved data
- * that may have no preset (e.g. sections saved before the preset system).
- */
-function resolvePreset(section: PageLayoutSection): ColumnPreset {
-  if (section.preset) return section.preset
-  // Legacy: infer from number of cols
-  const n = section.cols?.length ?? 1
-  if (n === 2) return 'halves'
-  if (n === 3) return 'thirds'
-  return 'full'
-}
-
 export function PageLayoutRenderer({ layout, renderBlock, editMode, onSectionClick, onBlockClick }: Props) {
   return (
     <div className="space-y-6">
@@ -90,22 +90,22 @@ export function PageLayoutRenderer({ layout, renderBlock, editMode, onSectionCli
         if (!cols || cols.length === 0) return null
 
         const preset = resolvePreset(section)
-        const cc = containerClass(preset)
+        const secClass = sectionClassName(preset)
 
         return (
           <div
             key={section.id}
-            className={cc}
+            className={secClass}
             onClick={editMode ? (e) => { if (e.target === e.currentTarget) onSectionClick?.(section.id) } : undefined}
           >
             {cols.map((col: PageLayoutColumn, colIdx: number) => {
               const blocks = col.blocks.filter((b: PageLayoutBlock) => b.visible !== false)
               if (!editMode && blocks.length === 0) return null
 
-              const cc2 = colClass(preset, colIdx)
+              const cc = colClassName(preset, colIdx)
 
               return (
-                <div key={col.id} className={`min-w-0 ${cc2}`.trim()}>
+                <div key={col.id} className={cc}>
                   {blocks.length > 0
                     ? (
                       <div className="space-y-4">
