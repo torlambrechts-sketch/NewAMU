@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { Mainbox1 } from '../components/layout/Mainbox1'
@@ -151,6 +151,7 @@ const HSE_CARD_TOP_RULE = 'mb-4 h-0.5 w-full shrink-0 bg-[#1a3d32]'
 // ── New page-layout system ──────────────────────────────────────────────────
 
 const VERNERUNDER_BLOCK_DEFS: PageLayoutBlockDef[] = [
+  { id: 'hubMenu1Bar', label: 'Navigasjon — fanelinje (HSE-faner)', description: 'Viser alle HSE-modulens faner (Oversikt, Vernerunder, SJA …)', defaultColSpan: 12 },
   { id: 'scoreStatRow', label: 'Nøkkeltall (KPI)', description: '3 statistikkbokser: totalt, planlagt, godkjent', defaultColSpan: 12 },
   { id: 'workplaceTasksActions', label: 'Handlingsknapper', description: 'Registrer runde / Planlegg / Veiviser', defaultColSpan: 12 },
   { id: 'table1', label: 'Rundeoversikt (tabell)', description: 'Alle vernerunder sortert etter dato', defaultColSpan: 8,
@@ -159,6 +160,7 @@ const VERNERUNDER_BLOCK_DEFS: PageLayoutBlockDef[] = [
 ]
 
 const INSPECTIONS_BLOCK_DEFS: PageLayoutBlockDef[] = [
+  { id: 'hubMenu1Bar', label: 'Navigasjon — fanelinje (HSE-faner)', description: 'Viser alle HSE-modulens faner (Oversikt, Vernerunder, SJA …)', defaultColSpan: 12 },
   { id: 'scoreStatRow', label: 'Nøkkeltall (KPI)', description: '4 statistikkbokser: totalt, åpne, lukket, låst', defaultColSpan: 12 },
   { id: 'workplaceTasksActions', label: 'Handlingsknapper', description: 'Registrer inspeksjon / Veiviser', defaultColSpan: 12 },
   { id: 'table1', label: 'Inspeksjonsoversikt (tabell)', description: 'Alle inspeksjoner sortert etter dato', defaultColSpan: 8,
@@ -167,8 +169,9 @@ const INSPECTIONS_BLOCK_DEFS: PageLayoutBlockDef[] = [
 ]
 
 function makeDefaultVernerunderSections(): PageLayoutSection[] {
-  const s1id = 'vn-s1'; const s2id = 'vn-s2'; const s3id = 'vn-s3'
+  const s0id = 'vn-s0'; const s1id = 'vn-s1'; const s2id = 'vn-s2'; const s3id = 'vn-s3'
   return [
+    { id: s0id, label: 'Navigasjon', cols: [{ id: 'vn-c0', colSpan: 12, blocks: [{ id: 'vn-b0', blockId: 'hubMenu1Bar', visible: true }] }] },
     { id: s1id, label: 'Nøkkeltall', cols: [{ id: 'vn-c1', colSpan: 12, blocks: [{ id: 'vn-b1', blockId: 'scoreStatRow', visible: true }] }] },
     { id: s2id, label: 'Handlinger', cols: [{ id: 'vn-c2', colSpan: 12, blocks: [{ id: 'vn-b2', blockId: 'workplaceTasksActions', visible: true }] }] },
     { id: s3id, label: 'Innhold', cols: [
@@ -179,8 +182,9 @@ function makeDefaultVernerunderSections(): PageLayoutSection[] {
 }
 
 function makeDefaultInspectionsSections(): PageLayoutSection[] {
-  const s1id = 'ins-s1'; const s2id = 'ins-s2'; const s3id = 'ins-s3'
+  const s0id = 'ins-s0'; const s1id = 'ins-s1'; const s2id = 'ins-s2'; const s3id = 'ins-s3'
   return [
+    { id: s0id, label: 'Navigasjon', cols: [{ id: 'ins-c0', colSpan: 12, blocks: [{ id: 'ins-b0', blockId: 'hubMenu1Bar', visible: true }] }] },
     { id: s1id, label: 'Nøkkeltall', cols: [{ id: 'ins-c1', colSpan: 12, blocks: [{ id: 'ins-b1', blockId: 'scoreStatRow', visible: true }] }] },
     { id: s2id, label: 'Handlinger', cols: [{ id: 'ins-c2', colSpan: 12, blocks: [{ id: 'ins-b2', blockId: 'workplaceTasksActions', visible: true }] }] },
     { id: s3id, label: 'Innhold', cols: [
@@ -742,6 +746,9 @@ export function HseModule() {
   const vnSections = vernerunderPageLayout.layout?.sections ?? makeDefaultVernerunderSections()
   const insSections = inspectionsPageLayout.layout?.sections ?? makeDefaultInspectionsSections()
 
+  // Ref so render callbacks (declared before hseHubItems useMemo) can read the latest hub items.
+  const hseHubItemsRef = useRef<HubMenu1Item[]>([])
+
   const calendarSelectedDate = useMemo(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
@@ -1034,8 +1041,9 @@ export function HseModule() {
     switch (id) {
       case 'heading1':
       case 'pageHeading1':
-      case 'hubMenu1Bar':
         return null
+      case 'hubMenu1Bar':
+        return <HubMenu1Bar ariaLabel="HSE / HMS — faner" items={hseHubItemsRef.current} />
       case 'scoreStatRow':
         return (
           <LayoutScoreStatRow
@@ -1405,8 +1413,9 @@ export function HseModule() {
     switch (id) {
       case 'heading1':
       case 'pageHeading1':
-      case 'hubMenu1Bar':
         return null
+      case 'hubMenu1Bar':
+        return <HubMenu1Bar ariaLabel="HSE / HMS — faner" items={hseHubItemsRef.current} />
       case 'scoreStatRow':
         return (
           <LayoutScoreStatRow
@@ -2002,6 +2011,9 @@ export function HseModule() {
     [tab, hse.stats.openSja, hse.stats.expiredTraining, hse.stats.overdueMilestones],
   )
 
+  // Keep ref in sync so render callbacks declared earlier can read the latest items.
+  hseHubItemsRef.current = hseHubItems
+
   return (
     <>
     <ComplianceModuleChrome
@@ -2144,9 +2156,6 @@ export function HseModule() {
       {/* ── Vernerunder + Vernerunder2 (samme Layout_vernerunder-motor) ───────── */}
       {(tab === 'rounds' || tab === 'rounds2') && (
         <div className="mt-2 min-w-0 space-y-6">
-          {/* Hub navigation — rendered here because the chrome menu is suppressed for layout-controlled tabs */}
-          <HubMenu1Bar ariaLabel="HSE / HMS — faner" items={hseHubItems} />
-
           {tab === 'rounds2' ? (
             <div className="rounded-lg border border-sky-200/90 bg-sky-50/90 p-4 text-sm text-sky-950">
               <p className="font-semibold text-neutral-900">Vernerunder2 — diagnose for Layout_vernerunder</p>
@@ -2637,9 +2646,6 @@ export function HseModule() {
       {/* ── Inspections — Layout_inspeksjoner (grid Komponer eller stack, fra DB) ── */}
       {tab === 'inspections' && (
         <div className="mt-2 min-w-0 space-y-6">
-          {/* Hub navigation — rendered here because the chrome menu is suppressed for layout-controlled tabs */}
-          <HubMenu1Bar ariaLabel="HSE / HMS — faner" items={hseHubItems} />
-
           {isAdmin && (
             <div className="flex items-center justify-between">
               <p className="text-xs text-neutral-400">
