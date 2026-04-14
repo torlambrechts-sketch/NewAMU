@@ -1,6 +1,8 @@
-# Firebase — HMS inspeksjonsmodul (anbefalt struktur)
+# HMS inspeksjonsdata — lagring
 
-Klienten i repoet bruker **localStorage** (`atics-hse-v2`) med samme JSON-form som anbefales lagret i Firestore.
+**Primær:** Supabase Postgres — tabell `app_hse_state` (se `supabase/migrations/`). Klienten synker hele HSE-payloaden (vernerunder, klassiske inspeksjoner, hendelser, inspeksjonsmodul) når `VITE_SUPABASE_*` er satt.
+
+**Alternativ / arkivert:** Firebase Firestore — samme JSON-form kan speiles dit ved behov.
 
 ## Suggested paths
 

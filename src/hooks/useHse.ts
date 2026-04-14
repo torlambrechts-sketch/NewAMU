@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AML_VERNEOMBUD_STRUCTURE,
   DEFAULT_SAFETY_ROUND_CHECKLIST,
@@ -27,6 +27,12 @@ import type {
   Inspection,
   SafetyRound,
 } from '../types/hse'
+import {
+  fetchHseStateFromSupabase,
+  upsertHseStateToSupabase,
+  type HsePersistedState,
+} from '../lib/hseStatePersistence'
+import { isSupabaseConfigured } from '../lib/supabaseClient'
 
 const STORAGE_KEY = 'atics-hse-v2'
 const LEGACY_STORAGE_KEY = 'atics-hse-v1'
@@ -156,8 +162,31 @@ function load(): HseState {
   }
 }
 
-function save(state: HseState) {
+function saveLocal(state: HseState) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+}
+
+function isPersistedEmpty(p: HsePersistedState): boolean {
+  return (
+    p.safetyRounds.length === 0 &&
+    p.inspections.length === 0 &&
+    p.incidents.length === 0 &&
+    p.auditTrail.length === 0 &&
+    p.inspectionRuns.length === 0
+  )
+}
+
+function mergeRemoteInitial(local: HseState, remote: HsePersistedState | null): HseState {
+  if (!remote) return local
+  if (isPersistedEmpty(remote)) return local
+  return {
+    safetyRounds: remote.safetyRounds,
+    inspections: remote.inspections,
+    incidents: remote.incidents,
+    auditTrail: remote.auditTrail,
+    inspectionModuleConfig: remote.inspectionModuleConfig,
+    inspectionRuns: remote.inspectionRuns,
+  }
 }
 
 function addMs(iso: string, value: number, unit: InspectionScheduleRule['intervalUnit']): string {
@@ -187,9 +216,44 @@ function addMs(iso: string, value: number, unit: InspectionScheduleRule['interva
 
 export function useHse() {
   const [state, setState] = useState<HseState>(() => load())
+  const supabaseSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const supabaseReady = useRef(!isSupabaseConfigured())
 
   useEffect(() => {
-    save(state)
+    saveLocal(state)
+  }, [state])
+
+  /** Første lasting fra Supabase, deretter debouncet skriving. */
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      supabaseReady.current = true
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const remote = await fetchHseStateFromSupabase()
+      if (cancelled) return
+      if (remote && !isPersistedEmpty(remote)) {
+        setState(mergeRemoteInitial(load(), remote))
+      } else {
+        await upsertHseStateToSupabase(load())
+      }
+      supabaseReady.current = true
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isSupabaseConfigured() || !supabaseReady.current) return
+    if (supabaseSyncTimer.current) clearTimeout(supabaseSyncTimer.current)
+    supabaseSyncTimer.current = setTimeout(() => {
+      void upsertHseStateToSupabase(state)
+    }, 800)
+    return () => {
+      if (supabaseSyncTimer.current) clearTimeout(supabaseSyncTimer.current)
+    }
   }, [state])
 
   const replaceInspectionConfig = useCallback((config: HseInspectionConfig) => {
