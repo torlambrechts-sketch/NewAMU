@@ -7,6 +7,7 @@ import { PlaceholderPage } from './pages/PlaceholderPage'
 import { CouncilModule } from './pages/CouncilModule'
 import { MembersModule } from './pages/MembersModule'
 import { HseModule } from './pages/HseModule'
+import { HseInspectionSettings } from './pages/HseInspectionSettings'
 import { OrgHealthModule } from './pages/OrgHealthModule'
 import { OrgHealthSettings } from './pages/OrgHealthSettings'
 import { InternalControlModule } from './pages/InternalControlModule'
@@ -65,6 +66,7 @@ function App() {
             <Route path=":documentId" element={<DocumentEditor />} />
           </Route>
           <Route path="hse" element={<HseModule />} />
+          <Route path="hse/inspection-settings" element={<HseInspectionSettings />} />
           <Route path="learning" element={<LearningLayout />}>
             <Route index element={<LearningDashboard />} />
             <Route path="courses" element={<LearningCoursesList />} />

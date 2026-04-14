@@ -84,6 +84,11 @@ const hseSubs: SubItem[] = [
   },
   { label: 'Vernerunder', path: '/hse?tab=rounds', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'rounds' },
   { label: 'Inspeksjoner', path: '/hse?tab=inspections', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'inspections' },
+  {
+    label: 'Inspeksjon innstillinger',
+    path: '/hse/inspection-settings',
+    match: ({ pathname }) => pathname === '/hse/inspection-settings',
+  },
   { label: 'Hendelser', path: '/hse?tab=incidents', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'incidents' },
   { label: 'AML & verneombud', path: '/hse?tab=aml', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'aml' },
   { label: 'Revisjonslogg', path: '/hse?tab=audit', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'audit' },
@@ -253,7 +258,7 @@ function subNavForPath(pathname: string): SubItem[] {
   if (pathname === '/internal-control') return internalControlSubs
   if (pathname.startsWith('/workflows')) return workflowSubs
   if (pathname === '/dashboards') return dashboardsSubs
-  if (pathname === '/hse') return hseSubs
+  if (pathname === '/hse' || pathname.startsWith('/hse/')) return hseSubs
   if (pathname === '/tasks') return tasksSubs
   return []
 }

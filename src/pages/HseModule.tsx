@@ -11,6 +11,7 @@ import {
   ListChecks,
   Search,
 } from 'lucide-react'
+import { HseInspectionRunsPanel } from '../components/hse/HseInspectionRunsPanel'
 import { useHse } from '../hooks/useHse'
 import type {
   ChecklistItemStatus,
@@ -220,8 +221,14 @@ export function HseModule() {
 
       {tab === 'inspections' && (
         <div className="mt-8 space-y-8">
+          <HseInspectionRunsPanel hse={hse} />
+
           <section className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">Registrer inspeksjon</h2>
+            <h2 className="text-lg font-semibold text-neutral-900">Enkel inspeksjonslogg (klassisk)</h2>
+            <p className="mt-1 text-xs text-neutral-500">
+              Fritekstbasert registrering uten mal — beholdes for enkle protokoller. For strukturerte sjekklister bruk
+              seksjonen over.
+            </p>
             <form
               className="mt-4 grid gap-3 sm:grid-cols-2"
               onSubmit={(e) => {

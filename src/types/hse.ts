@@ -67,6 +67,9 @@ export type HseAuditAction =
   | 'safety_round_updated'
   | 'inspection_created'
   | 'inspection_updated'
+  | 'inspection_config_updated'
+  | 'inspection_run_created'
+  | 'inspection_run_updated'
   | 'incident_created'
   | 'incident_updated'
   | 'settings_note'
@@ -76,7 +79,7 @@ export type HseAuditEntry = {
   id: string
   at: string
   action: HseAuditAction
-  entityType: 'safety_round' | 'inspection' | 'incident' | 'system'
+  entityType: 'safety_round' | 'inspection' | 'incident' | 'system' | 'inspection_config' | 'inspection_run'
   entityId: string
   summary: string
   /** Immutable snapshot detail for audit (JSON-serializable) */

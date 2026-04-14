@@ -47,6 +47,11 @@ export const INTERNAL_SOURCE_PRESETS: InternalSourcePreset[] = [
     path: '/hse?tab=incidents',
   },
   {
+    category: 'HMS og sikkerhet',
+    label: 'HSE — inspeksjon innstillinger',
+    path: '/hse/inspection-settings',
+  },
+  {
     category: 'Internkontroll og risiko',
     label: 'Internkontroll — oversikt',
     path: '/internal-control?tab=overview',

@@ -480,7 +480,9 @@ export function DashboardsPage() {
         </h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <KpiCard label="Vernerunder" value={hse.stats.rounds} to="/hse?tab=rounds" />
-          <KpiCard label="Inspeksjoner" value={hse.stats.inspections} to="/hse?tab=inspections" />
+          <KpiCard label="Inspeksjoner (klassisk)" value={hse.stats.inspections} to="/hse?tab=inspections" />
+          <KpiCard label="Malbaserte runder" value={hse.stats.runsTotal} to="/hse?tab=inspections" />
+          <KpiCard label="Åpne mal-runder" value={hse.stats.runsOpen} to="/hse?tab=inspections" />
           <KpiCard label="Åpne inspeksjoner" value={hse.stats.openInspections} to="/hse?tab=inspections" />
           <KpiCard label="Hendelser / nestenulykker" value={hse.stats.incidents + hse.stats.nearMiss} to="/hse?tab=incidents" />
         </div>
