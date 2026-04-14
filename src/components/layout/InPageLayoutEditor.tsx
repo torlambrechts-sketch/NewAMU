@@ -6,6 +6,7 @@ import type {
   PageLayoutColumn,
   PageLayoutSection,
 } from '../../types/pageLayout'
+import { LIBRARY_BLOCK_DEFS } from './LayoutBlockLibrary'
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -170,8 +171,8 @@ type DragPayload = { sectionIdx: number; colIdx: number; blockIdx: number }
 export type InPageLayoutEditorProps = {
   /** Current sections to edit (shallow copy passed from parent). */
   sections: PageLayoutSection[]
-  /** Available block catalogue. */
-  blockDefs: PageLayoutBlockDef[]
+  /** Available block catalogue. Extra defs are merged with LIBRARY_BLOCK_DEFS. */
+  blockDefs?: PageLayoutBlockDef[]
   /** Is Supabase available? Controls "Publiser" button visibility. */
   hasDb: boolean
   /** Whether the current layout is already published. */
@@ -190,7 +191,7 @@ export type InPageLayoutEditorProps = {
 
 export function InPageLayoutEditor({
   sections: initialSections,
-  blockDefs,
+  blockDefs: extraDefs = [],
   hasDb,
   isPublished,
   saving,
@@ -199,6 +200,13 @@ export function InPageLayoutEditor({
   onUnpublish,
   onClose,
 }: InPageLayoutEditorProps) {
+  // Merge library defs with page-specific extra defs (extras take priority)
+  const extraIds = new Set(extraDefs.map((d) => d.id))
+  const blockDefs: PageLayoutBlockDef[] = [
+    ...LIBRARY_BLOCK_DEFS.filter((d) => !extraIds.has(d.id)),
+    ...extraDefs,
+  ]
+
   const [sections, setSections] = useState<PageLayoutSection[]>(() =>
     cloneDeep(initialSections),
   )
@@ -295,11 +303,17 @@ export function InPageLayoutEditor({
   /* ── Block operations ───────────────────────────────────────────────────── */
 
   const addBlock = useCallback((sectionId: string, colId: string, def: PageLayoutBlockDef) => {
+    // Initialise default blockProps for blocks that need them
+    const defaultProps: Record<string, unknown> = {}
+    if (def.id === 'kpiInfoBoxes') defaultProps.boxCount = 3
+    if (def.id === 'infoCard') defaultProps.variant = 'neutral'
+
     const block: PageLayoutBlock = {
       id: uid(),
       blockId: def.id,
       visible: true,
       textOverride: {},
+      blockProps: Object.keys(defaultProps).length > 0 ? defaultProps : undefined,
     }
     mutate((draft) =>
       draft.map((s) =>
@@ -373,6 +387,36 @@ export function InPageLayoutEditor({
                       blocks: c.blocks.map((b) =>
                         b.id === blockId
                           ? { ...b, textOverride: { ...(b.textOverride ?? {}), [key]: value } }
+                          : b,
+                      ),
+                    }
+                  : c,
+              ),
+            }
+          : s,
+      ),
+    )
+  }, [mutate])
+
+  const updateBlockProp = useCallback((
+    sectionId: string,
+    colId: string,
+    blockId: string,
+    key: string,
+    value: unknown,
+  ) => {
+    mutate((draft) =>
+      draft.map((s) =>
+        s.id === sectionId
+          ? {
+              ...s,
+              cols: s.cols.map((c) =>
+                c.id === colId
+                  ? {
+                      ...c,
+                      blocks: c.blocks.map((b) =>
+                        b.id === blockId
+                          ? { ...b, blockProps: { ...(b.blockProps ?? {}), [key]: value } }
                           : b,
                       ),
                     }
@@ -735,6 +779,42 @@ export function InPageLayoutEditor({
 
               {sel.def?.description && (
                 <p className="text-xs text-neutral-500">{sel.def.description}</p>
+              )}
+
+              {/* Block-level props — e.g. box count for kpiInfoBoxes, variant for infoCard */}
+              {sel.block.blockId === 'kpiInfoBoxes' && (
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Antall bokser</p>
+                  <select
+                    value={Number(sel.block.blockProps?.boxCount ?? 3)}
+                    onChange={(e) =>
+                      updateBlockProp(selection.sectionId, selection.colId, selection.blockId, 'boxCount', Number(e.target.value))
+                    }
+                    className="w-full rounded border border-neutral-200 bg-white px-2 py-1.5 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
+                  >
+                    {[1, 2, 3, 4, 5, 6].map((n) => (
+                      <option key={n} value={n}>{n} {n === 1 ? 'boks' : 'bokser'}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {sel.block.blockId === 'infoCard' && (
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Variant</p>
+                  <select
+                    value={String(sel.block.blockProps?.variant ?? 'neutral')}
+                    onChange={(e) =>
+                      updateBlockProp(selection.sectionId, selection.colId, selection.blockId, 'variant', e.target.value)
+                    }
+                    className="w-full rounded border border-neutral-200 bg-white px-2 py-1.5 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
+                  >
+                    <option value="neutral">Nøytral (hvit)</option>
+                    <option value="info">Info (blå)</option>
+                    <option value="warning">Advarsel (gul)</option>
+                    <option value="success">Suksess (grønn)</option>
+                  </select>
+                </div>
               )}
 
               <div>

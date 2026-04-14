@@ -71,6 +71,8 @@ import { makeSickLeaveWizard, makeSjaWizard, makeSafetyRoundWizard } from '../co
 import { usePageLayout } from '../hooks/usePageLayout'
 import { PageLayoutRenderer } from '../components/layout/PageLayoutRenderer'
 import { InPageLayoutEditor } from '../components/layout/InPageLayoutEditor'
+import { renderLibraryBlock, UNHANDLED } from '../components/layout/LayoutBlockLibrary'
+import type { RenderBlockProps } from '../components/layout/PageLayoutRenderer'
 import type { PageLayoutBlockDef, PageLayoutSection } from '../types/pageLayout'
 import type {
   ChecklistTemplate,
@@ -1006,7 +1008,11 @@ export function HseModule() {
 
   // Standalone render function — used by both buildVernerunderLayoutUi (legacy stack/grid)
   // and PageLayoutRenderer (new system).
-  const renderVernerunderBlock = useCallback((blockId: string): ReactNode => {
+  const renderVernerunderBlock = useCallback(({ blockId, textOverride, blockProps }: RenderBlockProps): ReactNode => {
+    // Try generic library blocks first (headings, notices, charts, etc.)
+    const lib = renderLibraryBlock({ blockId, textOverride, blockProps })
+    if (lib !== UNHANDLED) return lib
+
     const layoutTableCell = `${LAYOUT_TABLE1_POSTINGS_TD} text-neutral-800`
     const safetyRoundWizardDef = makeSafetyRoundWizard(
       (data) => {
@@ -1390,7 +1396,10 @@ export function HseModule() {
    * Inspeksjoner: samme mønster som Vernerunder — publisert **Komponer** (grid) eller stack + 2/3|1/3 for tabell+kalender.
    * Publiser grid med namn **Layout_inspeksjoner** (eller fuzzy «layout»+«inspeksjon»).
    */
-  const renderInspectionsBlock = useCallback((blockId: string): ReactNode => {
+  const renderInspectionsBlock = useCallback(({ blockId, textOverride, blockProps }: RenderBlockProps): ReactNode => {
+    const lib = renderLibraryBlock({ blockId, textOverride, blockProps })
+    if (lib !== UNHANDLED) return lib
+
     const layoutTableCell = `${LAYOUT_TABLE1_POSTINGS_TD} text-neutral-800`
     const id = blockId as LayoutComposerBlockId
     switch (id) {
@@ -2217,7 +2226,7 @@ export function HseModule() {
 
           <PageLayoutRenderer
             layout={{ id: vernerunderPageLayout.layout?.id ?? 'default', pageKey: 'hse.vernerunder', sections: vnSections }}
-            renderBlock={({ blockId }) => renderVernerunderBlock(blockId)}
+            renderBlock={renderVernerunderBlock}
             editMode={false}
           />
 
@@ -2648,7 +2657,7 @@ export function HseModule() {
 
           <PageLayoutRenderer
             layout={{ id: inspectionsPageLayout.layout?.id ?? 'default', pageKey: 'hse.inspections', sections: insSections }}
-            renderBlock={({ blockId }) => renderInspectionsBlock(blockId)}
+            renderBlock={renderInspectionsBlock}
             editMode={false}
           />
 

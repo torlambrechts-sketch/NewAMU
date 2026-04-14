@@ -10,9 +10,11 @@
 
 export type PageLayoutBlock = {
   id: string            // stable uuid for this block instance
-  blockId: string       // e.g. "scoreStatRow", "table1", "vernerunderScheduleCalendar"
+  blockId: string       // e.g. "scoreStatRow", "kpiInfoBoxes", "noticeInfo"
   /** Admin-editable text overrides, keyed by a stable label. */
   textOverride?: Record<string, string>
+  /** Generic block-level props (e.g. { boxCount: 4 } for kpiInfoBoxes). */
+  blockProps?: Record<string, unknown>
   /** Whether this block is visible (soft-hide without removing). */
   visible?: boolean
 }
