@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import type { PageLayout, PageLayoutRow, PageLayoutSection } from '../types/pageLayout'
 
-const LS_PREFIX = 'klarert_page_layout_v1'
+// v2: bumped to invalidate all localStorage data saved with the old colSpan-number system
+const LS_PREFIX = 'klarert_page_layout_v2'
 
 function lsKey(pageKey: string) {
   return `${LS_PREFIX}:${pageKey}`

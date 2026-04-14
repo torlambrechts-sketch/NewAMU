@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { PageLayout, PageLayoutBlock, PageLayoutColumn, PageLayoutSection } from '../../types/pageLayout'
+import type { ColumnPreset, PageLayout, PageLayoutBlock, PageLayoutColumn, PageLayoutSection } from '../../types/pageLayout'
 
 export type RenderBlockProps = {
   blockId: string
@@ -13,6 +13,36 @@ type Props = {
   editMode?: boolean
   onSectionClick?: (sectionId: string) => void
   onBlockClick?: (sectionId: string, colId: string, blockId: string) => void
+}
+
+/**
+ * Hardcoded Tailwind grid classes — these strings are LITERALS so Tailwind v4
+ * JIT always compiles them. Never construct these dynamically.
+ *
+ * Each preset maps to: [containerClass, ...perColumnClass[]]
+ */
+const PRESET_CLASSES: Record<ColumnPreset, { container: string; cols: string[] }> = {
+  'full':      { container: 'grid grid-cols-1 gap-6',                                 cols: [''] },
+  'split-2-1': { container: 'grid gap-6',    cols: ['col-span-2', 'col-span-1'] },    // uses grid-cols-3 below
+  'split-1-2': { container: 'grid gap-6',    cols: ['col-span-1', 'col-span-2'] },
+  'halves':    { container: 'grid grid-cols-2 gap-6',                                 cols: ['', ''] },
+  'thirds':    { container: 'grid grid-cols-3 gap-6',                                 cols: ['', '', ''] },
+}
+
+/**
+ * For split presets we need grid-cols-3 as parent so col-span-2/col-span-1
+ * have a 3-column grid to span within.
+ */
+function containerClass(preset: ColumnPreset): string {
+  const base = PRESET_CLASSES[preset]?.container ?? 'grid grid-cols-1 gap-6'
+  if (preset === 'split-2-1' || preset === 'split-1-2') {
+    return base + ' grid-cols-3'
+  }
+  return base
+}
+
+function colClass(preset: ColumnPreset, colIdx: number): string {
+  return PRESET_CLASSES[preset]?.cols[colIdx] ?? ''
 }
 
 function BlockShell({
@@ -39,48 +69,46 @@ function BlockShell({
   )
 }
 
+/**
+ * Resolves a section's preset, falling back gracefully for old saved data
+ * that may have no preset (e.g. sections saved before the preset system).
+ */
+function resolvePreset(section: PageLayoutSection): ColumnPreset {
+  if (section.preset) return section.preset
+  // Legacy: infer from number of cols
+  const n = section.cols?.length ?? 1
+  if (n === 2) return 'halves'
+  if (n === 3) return 'thirds'
+  return 'full'
+}
+
 export function PageLayoutRenderer({ layout, renderBlock, editMode, onSectionClick, onBlockClick }: Props) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
+    <div className="space-y-6">
       {layout.sections.map((section: PageLayoutSection) => {
         const cols = section.cols
         if (!cols || cols.length === 0) return null
 
+        const preset = resolvePreset(section)
+        const cc = containerClass(preset)
+
         return (
-          /*
-           * Flexbox row — each column gets flex: N (colSpan value).
-           * This is the direct flexbox equivalent of CSS Grid `Nfr`:
-           * available width is distributed proportionally to N values.
-           * flex-basis: 0 (included in shorthand `flex: N`) means the
-           * space is divided purely by ratio, ignoring content size.
-           * minWidth: 0 on each child allows shrinking below content width.
-           */
           <div
             key={section.id}
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              flexWrap: 'nowrap',
-              gap: '1.5rem',
-              alignItems: 'flex-start',
-              width: '100%',
-            }}
+            className={cc}
             onClick={editMode ? (e) => { if (e.target === e.currentTarget) onSectionClick?.(section.id) } : undefined}
           >
-            {cols.map((col: PageLayoutColumn) => {
-              const span = Math.max(1, Number(col.colSpan) || 1)
+            {cols.map((col: PageLayoutColumn, colIdx: number) => {
               const blocks = col.blocks.filter((b: PageLayoutBlock) => b.visible !== false)
-
               if (!editMode && blocks.length === 0) return null
 
+              const cc2 = colClass(preset, colIdx)
+
               return (
-                <div
-                  key={col.id}
-                  style={{ flex: span, minWidth: 0 }}
-                >
+                <div key={col.id} className={`min-w-0 ${cc2}`.trim()}>
                   {blocks.length > 0
                     ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <div className="space-y-4">
                         {blocks.map((block: PageLayoutBlock) => (
                           <BlockShell
                             key={block.id}
@@ -101,7 +129,7 @@ export function PageLayoutRenderer({ layout, renderBlock, editMode, onSectionCli
                     )
                     : editMode
                       ? (
-                        <div style={{ display: 'flex', minHeight: 60, alignItems: 'center', justifyContent: 'center', border: '1px dashed #d4d4d4', borderRadius: 8, background: '#fafafa', fontSize: 12, color: '#a3a3a3' }}>
+                        <div className="flex min-h-[60px] items-center justify-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50 text-xs text-neutral-400">
                           Tom kolonne
                         </div>
                       )
@@ -115,7 +143,7 @@ export function PageLayoutRenderer({ layout, renderBlock, editMode, onSectionCli
       })}
 
       {editMode && layout.sections.length === 0 && (
-        <div style={{ display: 'flex', minHeight: 120, alignItems: 'center', justifyContent: 'center', border: '2px dashed #d4d4d4', borderRadius: 12, background: '#fafafa', fontSize: 14, color: '#a3a3a3' }}>
+        <div className="flex min-h-[120px] items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 bg-neutral-50 text-sm text-neutral-400">
           Ingen seksjoner ennå — legg til en seksjon i editoren
         </div>
       )}

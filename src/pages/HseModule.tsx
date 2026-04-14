@@ -169,27 +169,25 @@ const INSPECTIONS_BLOCK_DEFS: PageLayoutBlockDef[] = [
 ]
 
 function makeDefaultVernerunderSections(): PageLayoutSection[] {
-  const s0id = 'vn-s0'; const s1id = 'vn-s1'; const s2id = 'vn-s2'; const s3id = 'vn-s3'
   return [
-    { id: s0id, label: 'Navigasjon', cols: [{ id: 'vn-c0', colSpan: 12, blocks: [{ id: 'vn-b0', blockId: 'hubMenu1Bar', visible: true }] }] },
-    { id: s1id, label: 'Nøkkeltall', cols: [{ id: 'vn-c1', colSpan: 12, blocks: [{ id: 'vn-b1', blockId: 'scoreStatRow', visible: true }] }] },
-    { id: s2id, label: 'Handlinger', cols: [{ id: 'vn-c2', colSpan: 12, blocks: [{ id: 'vn-b2', blockId: 'workplaceTasksActions', visible: true }] }] },
-    { id: s3id, label: 'Innhold', cols: [
-      { id: 'vn-c3', colSpan: 8, blocks: [{ id: 'vn-b3', blockId: 'table1', visible: true }] },
-      { id: 'vn-c4', colSpan: 4, blocks: [{ id: 'vn-b4', blockId: 'vernerunderScheduleCalendar', visible: true }] },
+    { id: 'vn-s0', preset: 'full',      label: 'Navigasjon', cols: [{ id: 'vn-c0', blocks: [{ id: 'vn-b0', blockId: 'hubMenu1Bar', visible: true }] }] },
+    { id: 'vn-s1', preset: 'full',      label: 'Nøkkeltall', cols: [{ id: 'vn-c1', blocks: [{ id: 'vn-b1', blockId: 'scoreStatRow', visible: true }] }] },
+    { id: 'vn-s2', preset: 'full',      label: 'Handlinger', cols: [{ id: 'vn-c2', blocks: [{ id: 'vn-b2', blockId: 'workplaceTasksActions', visible: true }] }] },
+    { id: 'vn-s3', preset: 'split-2-1', label: 'Innhold',    cols: [
+      { id: 'vn-c3', blocks: [{ id: 'vn-b3', blockId: 'table1', visible: true }] },
+      { id: 'vn-c4', blocks: [{ id: 'vn-b4', blockId: 'vernerunderScheduleCalendar', visible: true }] },
     ]},
   ]
 }
 
 function makeDefaultInspectionsSections(): PageLayoutSection[] {
-  const s0id = 'ins-s0'; const s1id = 'ins-s1'; const s2id = 'ins-s2'; const s3id = 'ins-s3'
   return [
-    { id: s0id, label: 'Navigasjon', cols: [{ id: 'ins-c0', colSpan: 12, blocks: [{ id: 'ins-b0', blockId: 'hubMenu1Bar', visible: true }] }] },
-    { id: s1id, label: 'Nøkkeltall', cols: [{ id: 'ins-c1', colSpan: 12, blocks: [{ id: 'ins-b1', blockId: 'scoreStatRow', visible: true }] }] },
-    { id: s2id, label: 'Handlinger', cols: [{ id: 'ins-c2', colSpan: 12, blocks: [{ id: 'ins-b2', blockId: 'workplaceTasksActions', visible: true }] }] },
-    { id: s3id, label: 'Innhold', cols: [
-      { id: 'ins-c3', colSpan: 8, blocks: [{ id: 'ins-b3', blockId: 'table1', visible: true }] },
-      { id: 'ins-c4', colSpan: 4, blocks: [{ id: 'ins-b4', blockId: 'vernerunderScheduleCalendar', visible: true }] },
+    { id: 'ins-s0', preset: 'full',      label: 'Navigasjon', cols: [{ id: 'ins-c0', blocks: [{ id: 'ins-b0', blockId: 'hubMenu1Bar', visible: true }] }] },
+    { id: 'ins-s1', preset: 'full',      label: 'Nøkkeltall', cols: [{ id: 'ins-c1', blocks: [{ id: 'ins-b1', blockId: 'scoreStatRow', visible: true }] }] },
+    { id: 'ins-s2', preset: 'full',      label: 'Handlinger', cols: [{ id: 'ins-c2', blocks: [{ id: 'ins-b2', blockId: 'workplaceTasksActions', visible: true }] }] },
+    { id: 'ins-s3', preset: 'split-2-1', label: 'Innhold',    cols: [
+      { id: 'ins-c3', blocks: [{ id: 'ins-b3', blockId: 'table1', visible: true }] },
+      { id: 'ins-c4', blocks: [{ id: 'ins-b4', blockId: 'vernerunderScheduleCalendar', visible: true }] },
     ]},
   ]
 }

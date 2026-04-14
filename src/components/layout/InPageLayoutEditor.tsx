@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import type {
+  ColumnPreset,
   PageLayoutBlock,
   PageLayoutBlockDef,
   PageLayoutColumn,
   PageLayoutSection,
 } from '../../types/pageLayout'
+import { COLUMN_PRESET_COUNT, COLUMN_PRESET_LABELS } from '../../types/pageLayout'
 import { LIBRARY_BLOCK_DEFS } from './LayoutBlockLibrary'
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
@@ -231,17 +233,32 @@ export function InPageLayoutEditor({
 
   /* ── Section operations ─────────────────────────────────────────────────── */
 
-  const addSection = useCallback((colCount: 1 | 2 | 3) => {
-    const spanMap: Record<1 | 2 | 3, number[]> = { 1: [12], 2: [8, 4], 3: [4, 4, 4] }
-    const spans = spanMap[colCount]
+  const addSection = useCallback((preset: ColumnPreset) => {
+    const colCount = COLUMN_PRESET_COUNT[preset]
     mutate((draft) => [
       ...draft,
       {
         id: uid(),
+        preset,
         label: `Seksjon ${draft.length + 1}`,
-        cols: spans.map((span) => ({ id: uid(), colSpan: span, blocks: [] })),
+        cols: Array.from({ length: colCount }, () => ({ id: uid(), colSpan: 1, blocks: [] })),
       },
     ])
+  }, [mutate])
+
+  const updatePreset = useCallback((sectionId: string, preset: ColumnPreset) => {
+    const colCount = COLUMN_PRESET_COUNT[preset]
+    mutate((draft) =>
+      draft.map((s) => {
+        if (s.id !== sectionId) return s
+        // Keep existing cols content, add or trim to match new col count
+        const existing = s.cols ?? []
+        const cols: PageLayoutColumn[] = Array.from({ length: colCount }, (_, i) =>
+          existing[i] ?? { id: uid(), colSpan: 1, blocks: [] },
+        )
+        return { ...s, preset, cols }
+      }),
+    )
   }, [mutate])
 
   const removeSection = useCallback((sectionId: string) => {
@@ -266,39 +283,6 @@ export function InPageLayoutEditor({
   }, [mutate])
 
   /* ── Column operations ──────────────────────────────────────────────────── */
-
-  const updateColSpan = useCallback((sectionId: string, colId: string, span: number) => {
-    mutate((draft) =>
-      draft.map((s) =>
-        s.id === sectionId
-          ? {
-              ...s,
-              cols: s.cols.map((c) => (c.id === colId ? { ...c, colSpan: Math.max(1, Math.min(12, span)) } : c)),
-            }
-          : s,
-      ),
-    )
-  }, [mutate])
-
-  const addColumn = useCallback((sectionId: string) => {
-    mutate((draft) =>
-      draft.map((s) =>
-        s.id === sectionId
-          ? { ...s, cols: [...s.cols, { id: uid(), colSpan: 4, blocks: [] }] }
-          : s,
-      ),
-    )
-  }, [mutate])
-
-  const removeColumn = useCallback((sectionId: string, colId: string) => {
-    mutate((draft) =>
-      draft.map((s) =>
-        s.id === sectionId
-          ? { ...s, cols: s.cols.filter((c) => c.id !== colId) }
-          : s,
-      ),
-    )
-  }, [mutate])
 
   /* ── Block operations ───────────────────────────────────────────────────── */
 
@@ -632,15 +616,15 @@ export function InPageLayoutEditor({
             <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
               Ny seksjon
             </p>
-            {([1, 2, 3] as const).map((n) => (
+            {(Object.keys(COLUMN_PRESET_LABELS) as ColumnPreset[]).map((preset) => (
               <button
-                key={n}
+                key={preset}
                 type="button"
                 className={BTN_GHOST + ' w-full justify-start text-[11px]'}
-                onClick={() => addSection(n)}
+                onClick={() => addSection(preset)}
               >
                 <Icon d={ICONS.layout} size={3} />
-                {n === 1 ? '1 kolonne' : n === 2 ? '2 kolonner (8/4)' : '3 kolonner (4/4/4)'}
+                {COLUMN_PRESET_LABELS[preset]}
               </button>
             ))}
           </div>
@@ -697,50 +681,21 @@ export function InPageLayoutEditor({
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-                    Kolonner ({sel.section.cols.length})
-                  </p>
-                  {sel.section.cols.length < 4 && (
-                    <button
-                      type="button"
-                      className={BTN_GHOST}
-                      onClick={() => addColumn(sel.section!.id)}
-                    >
-                      <Icon d={ICONS.plus} />
-                      Legg til
-                    </button>
-                  )}
-                </div>
-
-                {sel.section.cols.map((col, ci) => (
-                  <div key={col.id} className="flex items-center gap-2 rounded border border-neutral-200 bg-white px-3 py-2">
-                    <Icon d={ICONS.cols} size={3} />
-                    <span className="flex-1 text-xs text-neutral-700">Kolonne {ci + 1}</span>
-                    <label className="flex items-center gap-1 text-[11px] text-neutral-500">
-                      Bredde
-                      <input
-                        type="number"
-                        min={1}
-                        max={12}
-                        value={col.colSpan}
-                        onChange={(e) => updateColSpan(sel.section!.id, col.id, parseInt(e.target.value, 10))}
-                        className="w-12 rounded border border-neutral-200 px-1 py-0.5 text-xs text-center"
-                      />
-                      <span>/12</span>
-                    </label>
-                    {sel.section!.cols.length > 1 && (
-                      <button
-                        type="button"
-                        className="rounded p-0.5 text-red-400 hover:bg-red-50"
-                        onClick={() => removeColumn(sel.section!.id, col.id)}
-                        title="Fjern kolonne"
-                      >
-                        <Icon d={ICONS.trash} size={3} />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Kolonner
+                </p>
+                <select
+                  value={sel.section.preset ?? 'full'}
+                  onChange={(e) => updatePreset(sel.section!.id, e.target.value as ColumnPreset)}
+                  className={INPUT}
+                >
+                  {(Object.keys(COLUMN_PRESET_LABELS) as ColumnPreset[]).map((p) => (
+                    <option key={p} value={p}>{COLUMN_PRESET_LABELS[p]}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-neutral-400">
+                  Innholdet i eksisterende kolonner beholdes. Ekstra kolonner legges til tomme.
+                </p>
               </div>
             </div>
           )}
