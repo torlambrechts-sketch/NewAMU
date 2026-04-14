@@ -69,12 +69,8 @@ import {
 import { SAFETY_ROUND_TEMPLATE_ID, TRAINING_KIND_LABELS } from '../data/hseTemplates'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeSickLeaveWizard, makeSjaWizard, makeSafetyRoundWizard } from '../components/wizard/wizards'
-import { usePageLayout } from '../hooks/usePageLayout'
-import { PageLayoutRenderer } from '../components/layout/PageLayoutRenderer'
-import { InPageLayoutEditor } from '../components/layout/InPageLayoutEditor'
 import { renderLibraryBlock, UNHANDLED } from '../components/layout/LayoutBlockLibrary'
 import type { RenderBlockProps } from '../components/layout/PageLayoutRenderer'
-import type { PageLayoutBlockDef, PageLayoutSection } from '../types/pageLayout'
 import type {
   ChecklistTemplate,
   HseProtocolSignature,
@@ -164,147 +160,6 @@ const HSE_INSIGHT_CARD =
 const HSE_CARD_TOP_RULE = 'mb-4 h-0.5 w-full shrink-0 bg-[#1a3d32]'
 
 // ── New page-layout system ──────────────────────────────────────────────────
-
-const VERNERUNDER_BLOCK_DEFS: PageLayoutBlockDef[] = [
-  { id: 'hubMenu1Bar', label: 'Navigasjon — fanelinje (HSE-faner)', description: 'Viser alle HSE-modulens faner (Oversikt, Vernerunder, SJA …)', defaultColSpan: 12 },
-  { id: 'scoreStatRow', label: 'Nøkkeltall (KPI)', description: '3 statistikkbokser: totalt, planlagt, godkjent', defaultColSpan: 12 },
-  { id: 'workplaceTasksActions', label: 'Handlingsknapper', description: 'Registrer runde / Planlegg / Veiviser', defaultColSpan: 12 },
-  { id: 'table1', label: 'Rundeoversikt (tabell)', description: 'Alle vernerunder sortert etter dato', defaultColSpan: 8,
-    editableTextKeys: ['title', 'description'] },
-  { id: 'vernerunderScheduleCalendar', label: 'Kalender', description: 'Kommende og planlagte vernerunder', defaultColSpan: 4 },
-]
-
-const INSPECTIONS_BLOCK_DEFS: PageLayoutBlockDef[] = [
-  {
-    id: 'pageHeading1',
-    label: 'Overskrift 1 — tittel + beskrivelse',
-    description: 'Serif H1 og ingress (rediger tekst i blokkegenskaper)',
-    defaultColSpan: 12,
-    editableTextKeys: ['title', 'description', 'breadcrumb'],
-  },
-  {
-    id: 'kpiInfoBoxes',
-    label: 'Boks — informasjon (KPI, 1–6)',
-    description: 'Nøkkeltall i kremfargede bokser (antall bokser via blockProps.boxCount)',
-    defaultColSpan: 8,
-    editableTextKeys: ['box1_big', 'box1_title', 'box1_sub', 'box2_big', 'box2_title', 'box2_sub', 'box3_big', 'box3_title', 'box3_sub'],
-  },
-  {
-    id: 'workplaceTasksActions',
-    label: 'Knapper — handlinger',
-    description: '«Ny inspeksjonsrunde» med nedtrekk (registrer / planlegg)',
-    defaultColSpan: 4,
-  },
-  {
-    id: 'table1',
-    label: 'Tabell — inspeksjonsrunder',
-    description: 'Alle runder med søk og statusfilter',
-    defaultColSpan: 8,
-    editableTextKeys: ['title', 'description'],
-  },
-  {
-    id: 'vernerunderScheduleCalendar',
-    label: 'Kalender — kommende runder',
-    description: 'Kommende inspeksjonsrunder per dag',
-    defaultColSpan: 4,
-  },
-]
-
-function makeDefaultVernerunderSections(): PageLayoutSection[] {
-  return [
-    { id: 'vn-s0', preset: 'full',      label: 'Navigasjon', cols: [{ id: 'vn-c0', blocks: [{ id: 'vn-b0', blockId: 'hubMenu1Bar', visible: true }] }] },
-    { id: 'vn-s1', preset: 'full',      label: 'Nøkkeltall', cols: [{ id: 'vn-c1', blocks: [{ id: 'vn-b1', blockId: 'scoreStatRow', visible: true }] }] },
-    { id: 'vn-s2', preset: 'full',      label: 'Handlinger', cols: [{ id: 'vn-c2', blocks: [{ id: 'vn-b2', blockId: 'workplaceTasksActions', visible: true }] }] },
-    { id: 'vn-s3', preset: 'split-2-1', label: 'Innhold',    cols: [
-      { id: 'vn-c3', blocks: [{ id: 'vn-b3', blockId: 'table1', visible: true }] },
-      { id: 'vn-c4', blocks: [{ id: 'vn-b4', blockId: 'vernerunderScheduleCalendar', visible: true }] },
-    ]},
-  ]
-}
-
-function makeDefaultInspectionsSections(): PageLayoutSection[] {
-  return [
-    {
-      id: 'ins-s0',
-      preset: 'full',
-      label: 'Overskrift',
-      cols: [
-        {
-          id: 'ins-c0',
-          blocks: [
-            {
-              id: 'ins-b0',
-              blockId: 'pageHeading1',
-              visible: true,
-              textOverride: {
-                title: 'Inspeksjonsrunder',
-                description: '',
-                breadcrumb: '',
-              },
-            },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'ins-s1',
-      preset: 'split-2-1',
-      label: 'Nøkkeltall og handlinger',
-      cols: [
-        {
-          id: 'ins-c1',
-          blocks: [{ id: 'ins-b1', blockId: 'kpiInfoBoxes', visible: true, blockProps: { boxCount: 3 } }],
-        },
-        {
-          id: 'ins-c2',
-          blocks: [{ id: 'ins-b2', blockId: 'workplaceTasksActions', visible: true }],
-        },
-      ],
-    },
-    {
-      id: 'ins-s2',
-      preset: 'split-2-1',
-      label: 'Tabell og kalender',
-      cols: [
-        {
-          id: 'ins-c3',
-          blocks: [
-            {
-              id: 'ins-b3',
-              blockId: 'table1',
-              visible: true,
-              textOverride: {
-                title: 'Inspeksjonsrunder',
-                description: 'Gjennomførte og kommende runder — sortert etter tidspunkt. Bruk statusfilter og søk.',
-              },
-            },
-          ],
-        },
-        { id: 'ins-c4', blocks: [{ id: 'ins-b4', blockId: 'vernerunderScheduleCalendar', visible: true }] },
-      ],
-    },
-  ]
-}
-
-/**
- * Validates that saved sections contain at least one of the real page-specific
- * block IDs. Rejects layouts containing only generic demo blocks (e.g. those
- * created with the platform composer before the vernerunder blocks were wired in).
- */
-const VERNERUNDER_REAL_BLOCK_IDS = new Set([
-  'hubMenu1Bar', 'scoreStatRow', 'workplaceTasksActions', 'table1', 'vernerunderScheduleCalendar',
-])
-function isValidVernerunderLayout(sections: PageLayoutSection[]): boolean {
-  return sections.some((s) =>
-    s.cols.some((c) => c.blocks.some((b) => VERNERUNDER_REAL_BLOCK_IDS.has(b.blockId)))
-  )
-}
-
-function isValidInspectionsLayout(sections: PageLayoutSection[]): boolean {
-  return sections.some((s) =>
-    s.cols.some((c) => c.blocks.some((b) => b.blockId === 'pageHeading1' && b.visible !== false)),
-  )
-}
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -861,26 +716,12 @@ export function HseModule() {
     [publishedComposerTemplates],
   )
 
-  // ── New page-layout system (replaces stack/grid composer for rounds + inspections) ──
-  const vernerunderPageLayout = usePageLayout('hse.vernerunder')
-  const inspectionsPageLayout = usePageLayout('hse.inspections')
+  // ── Layout editor open/close state ──
   const [vnLayoutEditOpen, setVnLayoutEditOpen] = useState(false)
   const [insLayoutEditOpen, setInsLayoutEditOpen] = useState(false)
-  const [vnLayoutSaving, setVnLayoutSaving] = useState(false)
-  const [insLayoutSaving, setInsLayoutSaving] = useState(false)
-
-  const savedVn = vernerunderPageLayout.layout?.sections
-  const vnSections = (savedVn && isValidVernerunderLayout(savedVn))
-    ? savedVn
-    : makeDefaultVernerunderSections()
-  const savedIns = inspectionsPageLayout.layout?.sections
-  const insSections = (savedIns && isValidInspectionsLayout(savedIns))
-    ? savedIns
-    : makeDefaultInspectionsSections()
 
   // Ref so render callbacks (declared before hseHubItems useMemo) can read the latest hub items.
   const hseHubItemsRef = useRef<HubMenu1Item[]>([])
-
   const calendarSelectedDate = useMemo(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
@@ -2585,32 +2426,30 @@ export function HseModule() {
             </div>
           ) : null}
 
-          <PageLayoutRenderer
-            layout={{ id: vernerunderPageLayout.layout?.id ?? 'default', pageKey: 'hse.vernerunder', sections: vnSections }}
-            renderBlock={renderVernerunderBlock}
-            editMode={false}
-          />
+          <div className="grid grid-cols-3 gap-6 items-start">
+            <div className="col-span-2 min-w-0">
+              {renderVernerunderBlock({ blockId: 'hubMenu1Bar' })}
+              {renderVernerunderBlock({ blockId: 'scoreStatRow' })}
+              {renderVernerunderBlock({ blockId: 'workplaceTasksActions' })}
+              {renderVernerunderBlock({ blockId: 'table1' })}
+            </div>
+            <div className="col-span-1 min-w-0">
+              {renderVernerunderBlock({ blockId: 'vernerunderScheduleCalendar' })}
+            </div>
+          </div>
 
-          {/* Layout editor drawer */}
+          {/* Layout editor drawer — future: block visibility controls */}
           {vnLayoutEditOpen && (
             <div className="fixed inset-0 z-[200] flex">
               <div className="flex-1 bg-black/30 backdrop-blur-[1px]" onClick={() => setVnLayoutEditOpen(false)} />
-              <aside className="flex h-full w-[480px] shrink-0 flex-col bg-white shadow-[-12px_0_40px_rgba(0,0,0,0.18)]">
-                <InPageLayoutEditor
-                  sections={vnSections}
-                  blockDefs={VERNERUNDER_BLOCK_DEFS}
-                  hasDb={supabaseConfigured}
-                  isPublished={!!vernerunderPageLayout.layout?.publishedAt}
-                  saving={vnLayoutSaving}
-                  onSave={async (sections) => {
-                    setVnLayoutSaving(true)
-                    await vernerunderPageLayout.save(sections)
-                    setVnLayoutSaving(false)
-                  }}
-                  onPublish={vernerunderPageLayout.publish}
-                  onUnpublish={vernerunderPageLayout.unpublish}
-                  onClose={() => setVnLayoutEditOpen(false)}
-                />
+              <aside className="flex h-full w-80 shrink-0 flex-col bg-white shadow-[-12px_0_40px_rgba(0,0,0,0.18)]">
+                <header className="flex shrink-0 items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4 py-3">
+                  <p className="text-sm font-semibold text-neutral-900">Layout</p>
+                  <button type="button" onClick={() => setVnLayoutEditOpen(false)} className="rounded p-1 text-neutral-400 hover:bg-neutral-100">
+                    <X className="size-4" />
+                  </button>
+                </header>
+                <div className="p-4 text-sm text-neutral-500">Layouten er fast: fanelinje, KPI, knapper, tabell (2/3) + kalender (1/3).</div>
               </aside>
             </div>
           )}
@@ -3008,32 +2847,30 @@ export function HseModule() {
             </div>
           )}
 
-          {/* ── Inspeksjoner layout — rendered by PageLayoutRenderer ── */}
-          <PageLayoutRenderer
-            layout={{ id: inspectionsPageLayout.layout?.id ?? 'default', pageKey: 'hse.inspections', sections: insSections }}
-            renderBlock={renderInspectionsBlock}
-            editMode={false}
-          />
+          {/* ── Inspeksjoner — fast layout ── */}
+          <div className="grid grid-cols-3 gap-6 items-start">
+            <div className="col-span-2 min-w-0">
+              {renderInspectionsBlock({ blockId: 'hubMenu1Bar' })}
+              {renderInspectionsBlock({ blockId: 'scoreStatRow' })}
+              {renderInspectionsBlock({ blockId: 'workplaceTasksActions' })}
+              {renderInspectionsBlock({ blockId: 'table1' })}
+            </div>
+            <div className="col-span-1 min-w-0">
+              {renderInspectionsBlock({ blockId: 'vernerunderScheduleCalendar' })}
+            </div>
+          </div>
 
           {insLayoutEditOpen && (
             <div className="fixed inset-0 z-[200] flex">
               <div className="flex-1 bg-black/30 backdrop-blur-[1px]" onClick={() => setInsLayoutEditOpen(false)} />
-              <aside className="flex h-full w-[480px] shrink-0 flex-col bg-white shadow-[-12px_0_40px_rgba(0,0,0,0.18)]">
-                <InPageLayoutEditor
-                  sections={insSections}
-                  blockDefs={INSPECTIONS_BLOCK_DEFS}
-                  hasDb={supabaseConfigured}
-                  isPublished={!!inspectionsPageLayout.layout?.publishedAt}
-                  saving={insLayoutSaving}
-                  onSave={async (sections) => {
-                    setInsLayoutSaving(true)
-                    await inspectionsPageLayout.save(sections)
-                    setInsLayoutSaving(false)
-                  }}
-                  onPublish={inspectionsPageLayout.publish}
-                  onUnpublish={inspectionsPageLayout.unpublish}
-                  onClose={() => setInsLayoutEditOpen(false)}
-                />
+              <aside className="flex h-full w-80 shrink-0 flex-col bg-white shadow-[-12px_0_40px_rgba(0,0,0,0.18)]">
+                <header className="flex shrink-0 items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4 py-3">
+                  <p className="text-sm font-semibold text-neutral-900">Layout</p>
+                  <button type="button" onClick={() => setInsLayoutEditOpen(false)} className="rounded p-1 text-neutral-400 hover:bg-neutral-100">
+                    <X className="size-4" />
+                  </button>
+                </header>
+                <div className="p-4 text-sm text-neutral-500">Layouten er fast: fanelinje, KPI, knapper, tabell (2/3) + kalender (1/3).</div>
               </aside>
             </div>
           )}
