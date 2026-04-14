@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import type { PageLayout, PageLayoutBlock, PageLayoutColumn, PageLayoutSection } from '../../types/pageLayout'
 
 export type RenderBlockProps = {
@@ -41,38 +41,46 @@ function BlockShell({
 
 export function PageLayoutRenderer({ layout, renderBlock, editMode, onSectionClick, onBlockClick }: Props) {
   return (
-    <div className="min-w-0 space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
       {layout.sections.map((section: PageLayoutSection) => {
         const cols = section.cols
         if (!cols || cols.length === 0) return null
 
-        // Build fr track list from ALL columns (never filter — filtering causes track/child mismatch)
-        const tracks = cols
-          .map((c) => `${Math.max(1, Number(c.colSpan) || 1)}fr`)
-          .join(' ')
-
-        const sectionStyle: CSSProperties = {
-          display: 'grid',
-          gridTemplateColumns: tracks,
-          gap: '1.5rem',
-          alignItems: 'start',
-          width: '100%',
-        }
-
         return (
+          /*
+           * Flexbox row — each column gets flex: N (colSpan value).
+           * This is the direct flexbox equivalent of CSS Grid `Nfr`:
+           * available width is distributed proportionally to N values.
+           * flex-basis: 0 (included in shorthand `flex: N`) means the
+           * space is divided purely by ratio, ignoring content size.
+           * minWidth: 0 on each child allows shrinking below content width.
+           */
           <div
             key={section.id}
-            style={sectionStyle}
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              flexWrap: 'nowrap',
+              gap: '1.5rem',
+              alignItems: 'flex-start',
+              width: '100%',
+            }}
             onClick={editMode ? (e) => { if (e.target === e.currentTarget) onSectionClick?.(section.id) } : undefined}
           >
             {cols.map((col: PageLayoutColumn) => {
+              const span = Math.max(1, Number(col.colSpan) || 1)
               const blocks = col.blocks.filter((b: PageLayoutBlock) => b.visible !== false)
 
+              if (!editMode && blocks.length === 0) return null
+
               return (
-                <div key={col.id} style={{ minWidth: 0 }}>
+                <div
+                  key={col.id}
+                  style={{ flex: span, minWidth: 0 }}
+                >
                   {blocks.length > 0
                     ? (
-                      <div className="space-y-4">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         {blocks.map((block: PageLayoutBlock) => (
                           <BlockShell
                             key={block.id}
@@ -93,7 +101,7 @@ export function PageLayoutRenderer({ layout, renderBlock, editMode, onSectionCli
                     )
                     : editMode
                       ? (
-                        <div className="flex min-h-[60px] items-center justify-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50 text-xs text-neutral-400">
+                        <div style={{ display: 'flex', minHeight: 60, alignItems: 'center', justifyContent: 'center', border: '1px dashed #d4d4d4', borderRadius: 8, background: '#fafafa', fontSize: 12, color: '#a3a3a3' }}>
                           Tom kolonne
                         </div>
                       )
@@ -107,7 +115,7 @@ export function PageLayoutRenderer({ layout, renderBlock, editMode, onSectionCli
       })}
 
       {editMode && layout.sections.length === 0 && (
-        <div className="flex min-h-[120px] items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 bg-neutral-50 text-sm text-neutral-400">
+        <div style={{ display: 'flex', minHeight: 120, alignItems: 'center', justifyContent: 'center', border: '2px dashed #d4d4d4', borderRadius: 12, background: '#fafafa', fontSize: 14, color: '#a3a3a3' }}>
           Ingen seksjoner ennå — legg til en seksjon i editoren
         </div>
       )}
