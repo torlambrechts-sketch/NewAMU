@@ -69,7 +69,6 @@ import { SAFETY_ROUND_TEMPLATE_ID, TRAINING_KIND_LABELS } from '../data/hseTempl
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeSickLeaveWizard, makeSjaWizard, makeSafetyRoundWizard } from '../components/wizard/wizards'
 import { usePageLayout } from '../hooks/usePageLayout'
-import { PageLayoutRenderer } from '../components/layout/PageLayoutRenderer'
 import { InPageLayoutEditor } from '../components/layout/InPageLayoutEditor'
 import { renderLibraryBlock, UNHANDLED } from '../components/layout/LayoutBlockLibrary'
 import type { RenderBlockProps } from '../components/layout/PageLayoutRenderer'
@@ -2214,15 +2213,7 @@ export function HseModule() {
           ) : null}
 
           {tab === 'rounds' && isAdmin ? (
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-neutral-400">
-                {vernerunderPageLayout.layout
-                  ? (vernerunderPageLayout.layout.publishedAt ? '✓ Publisert layout' : 'Utkast-layout')
-                  : 'Standard-layout (ikke lagret ennå)'}
-                {vernerunderPageLayout.error && (
-                  <span className="ml-2 text-amber-600">{vernerunderPageLayout.error}</span>
-                )}
-              </p>
+            <div className="flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => setVnLayoutEditOpen(true)}
@@ -2234,13 +2225,20 @@ export function HseModule() {
             </div>
           ) : null}
 
-          <PageLayoutRenderer
-            layout={{ id: vernerunderPageLayout.layout?.id ?? 'default', pageKey: 'hse.vernerunder', sections: vnSections }}
-            renderBlock={renderVernerunderBlock}
-            editMode={false}
-          />
+          {/* ── Vernerunder layout — hardcoded structure, editor controls block visibility ── */}
+          {renderVernerunderBlock({ blockId: 'hubMenu1Bar' })}
+          {renderVernerunderBlock({ blockId: 'scoreStatRow' })}
+          {renderVernerunderBlock({ blockId: 'workplaceTasksActions' })}
+          <div className="grid grid-cols-3 gap-6 items-start">
+            <div className="col-span-2 min-w-0">
+              {renderVernerunderBlock({ blockId: 'table1' })}
+            </div>
+            <div className="col-span-1 min-w-0">
+              {renderVernerunderBlock({ blockId: 'vernerunderScheduleCalendar' })}
+            </div>
+          </div>
 
-          {/* Layout editor drawer */}
+          {/* Layout editor drawer — only controls block visibility, not structure */}
           {vnLayoutEditOpen && (
             <div className="fixed inset-0 z-[200] flex">
               <div className="flex-1 bg-black/30 backdrop-blur-[1px]" onClick={() => setVnLayoutEditOpen(false)} />
@@ -2645,15 +2643,7 @@ export function HseModule() {
       {tab === 'inspections' && (
         <div className="mt-2 min-w-0 space-y-6">
           {isAdmin && (
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-neutral-400">
-                {inspectionsPageLayout.layout
-                  ? (inspectionsPageLayout.layout.publishedAt ? '✓ Publisert layout' : 'Utkast-layout')
-                  : 'Standard-layout (ikke lagret ennå)'}
-                {inspectionsPageLayout.error && (
-                  <span className="ml-2 text-amber-600">{inspectionsPageLayout.error}</span>
-                )}
-              </p>
+            <div className="flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => setInsLayoutEditOpen(true)}
@@ -2665,13 +2655,19 @@ export function HseModule() {
             </div>
           )}
 
-          <PageLayoutRenderer
-            layout={{ id: inspectionsPageLayout.layout?.id ?? 'default', pageKey: 'hse.inspections', sections: insSections }}
-            renderBlock={renderInspectionsBlock}
-            editMode={false}
-          />
+          {/* ── Inspeksjoner layout — hardcoded structure ── */}
+          {renderInspectionsBlock({ blockId: 'hubMenu1Bar' })}
+          {renderInspectionsBlock({ blockId: 'scoreStatRow' })}
+          {renderInspectionsBlock({ blockId: 'workplaceTasksActions' })}
+          <div className="grid grid-cols-3 gap-6 items-start">
+            <div className="col-span-2 min-w-0">
+              {renderInspectionsBlock({ blockId: 'table1' })}
+            </div>
+            <div className="col-span-1 min-w-0">
+              {renderInspectionsBlock({ blockId: 'vernerunderScheduleCalendar' })}
+            </div>
+          </div>
 
-          {/* Layout editor drawer */}
           {insLayoutEditOpen && (
             <div className="fixed inset-0 z-[200] flex">
               <div className="flex-1 bg-black/30 backdrop-blur-[1px]" onClick={() => setInsLayoutEditOpen(false)} />
