@@ -33,7 +33,11 @@ import {
 } from 'lucide-react'
 import { ComplianceModuleChrome } from '../components/compliance/ComplianceModuleChrome'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
-import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
+import {
+  WORKPLACE_LIST_LAYOUT_CTA,
+  WorkplaceStandardListLayout,
+  type WorkplaceListViewMode,
+} from '../components/layout/WorkplaceStandardListLayout'
 import { mergeSickLeaveMilestonesOnDateChange, useHse } from '../hooks/useHse'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
@@ -123,20 +127,6 @@ const VERNERUNDER_PAGE_DESCRIPTION = (
   </div>
 )
 
-/** Inspeksjonsrunder — egen sidetopp (layout-blokk pageHeading1). */
-const INSPECTION_ROUNDS_PAGE_DESCRIPTION = (
-  <div className="max-w-3xl space-y-3 text-sm text-neutral-600">
-    <p>
-      Inspeksjonsrunder er planlagte eller gjennomførte kontroller — internt eller eksternt — med sporbar status, ansvarlig og
-      dokumenterte funn.
-    </p>
-    <p>
-      Bruk tabellen for å se både gjennomførte og kommende runder; filtrer på status. Kalenderen viser kommende runder slik at du
-      enkelt koordinerer plan og oppfølging.
-    </p>
-  </div>
-)
-
 const INSPECTIONS_PAGE_DESCRIPTION = (
   <div className="max-w-3xl space-y-3">
     <p>En inspeksjon er en målrettet og systematisk kontroll av utstyr, anlegg, prosesser eller tjenester.</p>
@@ -174,42 +164,6 @@ const VERNERUNDER_BLOCK_DEFS: PageLayoutBlockDef[] = [
   { id: 'vernerunderScheduleCalendar', label: 'Kalender', description: 'Kommende og planlagte vernerunder', defaultColSpan: 4 },
 ]
 
-const INSPECTIONS_BLOCK_DEFS: PageLayoutBlockDef[] = [
-  {
-    id: 'pageHeading1',
-    label: 'Overskrift 1 — tittel + beskrivelse',
-    description: 'Serif H1 og ingress (rediger tekst i blokkegenskaper)',
-    defaultColSpan: 12,
-    editableTextKeys: ['title', 'description', 'breadcrumb'],
-  },
-  {
-    id: 'kpiInfoBoxes',
-    label: 'Boks — informasjon (KPI, 1–6)',
-    description: 'Nøkkeltall i kremfargede bokser (antall bokser via blockProps.boxCount)',
-    defaultColSpan: 8,
-    editableTextKeys: ['box1_big', 'box1_title', 'box1_sub', 'box2_big', 'box2_title', 'box2_sub', 'box3_big', 'box3_title', 'box3_sub'],
-  },
-  {
-    id: 'workplaceTasksActions',
-    label: 'Knapper — handlinger',
-    description: '«Ny inspeksjonsrunde» med nedtrekk (registrer / planlegg)',
-    defaultColSpan: 4,
-  },
-  {
-    id: 'table1',
-    label: 'Tabell — inspeksjonsrunder',
-    description: 'Alle runder med søk og statusfilter',
-    defaultColSpan: 8,
-    editableTextKeys: ['title', 'description'],
-  },
-  {
-    id: 'vernerunderScheduleCalendar',
-    label: 'Kalender — kommende runder',
-    description: 'Kommende inspeksjonsrunder per dag',
-    defaultColSpan: 4,
-  },
-]
-
 function makeDefaultVernerunderSections(): PageLayoutSection[] {
   return [
     { id: 'vn-s0', preset: 'full',      label: 'Navigasjon', cols: [{ id: 'vn-c0', blocks: [{ id: 'vn-b0', blockId: 'hubMenu1Bar', visible: true }] }] },
@@ -219,70 +173,6 @@ function makeDefaultVernerunderSections(): PageLayoutSection[] {
       { id: 'vn-c3', blocks: [{ id: 'vn-b3', blockId: 'table1', visible: true }] },
       { id: 'vn-c4', blocks: [{ id: 'vn-b4', blockId: 'vernerunderScheduleCalendar', visible: true }] },
     ]},
-  ]
-}
-
-function makeDefaultInspectionsSections(): PageLayoutSection[] {
-  return [
-    {
-      id: 'ins-s0',
-      preset: 'full',
-      label: 'Overskrift',
-      cols: [
-        {
-          id: 'ins-c0',
-          blocks: [
-            {
-              id: 'ins-b0',
-              blockId: 'pageHeading1',
-              visible: true,
-              textOverride: {
-                title: 'Inspeksjonsrunder',
-                description: '',
-                breadcrumb: '',
-              },
-            },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'ins-s1',
-      preset: 'split-2-1',
-      label: 'Nøkkeltall og handlinger',
-      cols: [
-        {
-          id: 'ins-c1',
-          blocks: [{ id: 'ins-b1', blockId: 'kpiInfoBoxes', visible: true, blockProps: { boxCount: 3 } }],
-        },
-        {
-          id: 'ins-c2',
-          blocks: [{ id: 'ins-b2', blockId: 'workplaceTasksActions', visible: true }],
-        },
-      ],
-    },
-    {
-      id: 'ins-s2',
-      preset: 'split-2-1',
-      label: 'Tabell og kalender',
-      cols: [
-        {
-          id: 'ins-c3',
-          blocks: [
-            {
-              id: 'ins-b3',
-              blockId: 'table1',
-              visible: true,
-              textOverride: {
-                title: 'Inspeksjonsrunder',
-                description: 'Gjennomførte og kommende runder — sortert etter tidspunkt. Bruk statusfilter og søk.',
-              },
-            },
-          ],
-        },
-        { id: 'ins-c4', blocks: [{ id: 'ins-b4', blockId: 'vernerunderScheduleCalendar', visible: true }] },
-      ],
-    },
   ]
 }
 
@@ -297,12 +187,6 @@ const VERNERUNDER_REAL_BLOCK_IDS = new Set([
 function isValidVernerunderLayout(sections: PageLayoutSection[]): boolean {
   return sections.some((s) =>
     s.cols.some((c) => c.blocks.some((b) => VERNERUNDER_REAL_BLOCK_IDS.has(b.blockId)))
-  )
-}
-
-function isValidInspectionsLayout(sections: PageLayoutSection[]): boolean {
-  return sections.some((s) =>
-    s.cols.some((c) => c.blocks.some((b) => b.blockId === 'pageHeading1' && b.visible !== false)),
   )
 }
 
@@ -475,6 +359,9 @@ export function HseModule() {
   const [insFileQueue, setInsFileQueue] = useState<File[]>([])
   const [insSearch, setInsSearch] = useState('')
   const [insStatusFilter, setInsStatusFilter] = useState<'all' | 'open' | 'closed_unlocked' | 'locked'>('all')
+  const [insFiltersOpen, setInsFiltersOpen] = useState(false)
+  const [insViewMode, setInsViewMode] = useState<WorkplaceListViewMode>('table')
+  const [insSort, setInsSort] = useState<'conducted_desc' | 'conducted_asc' | 'title' | 'status'>('conducted_desc')
   const [insSchedulePanelOpen, setInsSchedulePanelOpen] = useState(false)
   const [insScheduleDraft, setInsScheduleDraft] = useState({
     mode: 'single' as 'single' | 'series',
@@ -863,20 +750,13 @@ export function HseModule() {
 
   // ── New page-layout system (replaces stack/grid composer for rounds + inspections) ──
   const vernerunderPageLayout = usePageLayout('hse.vernerunder')
-  const inspectionsPageLayout = usePageLayout('hse.inspections')
   const [vnLayoutEditOpen, setVnLayoutEditOpen] = useState(false)
-  const [insLayoutEditOpen, setInsLayoutEditOpen] = useState(false)
   const [vnLayoutSaving, setVnLayoutSaving] = useState(false)
-  const [insLayoutSaving, setInsLayoutSaving] = useState(false)
 
   const savedVn = vernerunderPageLayout.layout?.sections
   const vnSections = (savedVn && isValidVernerunderLayout(savedVn))
     ? savedVn
     : makeDefaultVernerunderSections()
-  const savedIns = inspectionsPageLayout.layout?.sections
-  const insSections = (savedIns && isValidInspectionsLayout(savedIns))
-    ? savedIns
-    : makeDefaultInspectionsSections()
 
   // Ref so render callbacks (declared before hseHubItems useMemo) can read the latest hub items.
   const hseHubItemsRef = useRef<HubMenu1Item[]>([])
@@ -1361,6 +1241,27 @@ export function HseModule() {
     })
   }, [inspectionsFiltered, insStatusFilter])
 
+  const sortedInspectionsForDisplay = useMemo(() => {
+    const list = [...inspectionsForTable]
+    const statusRank = (i: Inspection) => (i.locked ? 0 : i.status === 'closed' ? 1 : 2)
+    list.sort((a, b) => {
+      if (insSort === 'conducted_desc' || insSort === 'conducted_asc') {
+        const cmp = a.conductedAt.localeCompare(b.conductedAt)
+        return insSort === 'conducted_desc' ? -cmp : cmp
+      }
+      if (insSort === 'title') {
+        const t = a.title.localeCompare(b.title, 'nb')
+        if (t !== 0) return t
+        return b.conductedAt.localeCompare(a.conductedAt)
+      }
+      const ra = statusRank(a)
+      const rb = statusRank(b)
+      if (ra !== rb) return ra - rb
+      return b.conductedAt.localeCompare(a.conductedAt)
+    })
+    return list
+  }, [inspectionsForTable, insSort])
+
   const openSavedInspectionAttachment = useCallback(
     async (a: InspectionAttachment) => {
       if (!supabase || a.path.startsWith('local/')) {
@@ -1661,234 +1562,24 @@ export function HseModule() {
     }
   }, [hse.inspections])
 
-  /**
-   * Inspeksjoner: samme mønster som Vernerunder — publisert **Komponer** (grid) eller stack + 2/3|1/3 for tabell+kalender.
-   * Publiser grid med namn **Layout_inspeksjoner** (eller fuzzy «layout»+«inspeksjon»).
-   */
-  const renderInspectionsBlock = useCallback(({ blockId, textOverride, blockProps }: RenderBlockProps): ReactNode => {
-    if (blockId === 'pageHeading1') {
-      const title = textOverride?.title?.trim() || 'Inspeksjonsrunder'
-      const extra = textOverride?.description?.trim()
-      return (
-        <WorkplacePageHeading1
-          breadcrumb={[]}
-          title={title}
-          description={
-            <>
-              {INSPECTION_ROUNDS_PAGE_DESCRIPTION}
-              {extra ? (
-                <div className="mt-3 max-w-3xl space-y-2 text-sm text-neutral-600">
-                  {extra.split('\n').map((line) => line.trim()).filter(Boolean).map((line, i) => (
-                    <p key={i}>{line}</p>
-                  ))}
-                </div>
-              ) : null}
-            </>
-          }
-        />
-      )
-    }
+  const insToolbarFiltersActive = insSearch.trim().length > 0 || insStatusFilter !== 'all'
 
-    if (blockId === 'kpiInfoBoxes') {
-      return (
-        <LayoutScoreStatRow
-          items={[
-            { big: String(inspectionLayoutStats.total), title: 'Totalt', sub: 'Registrerte runder' },
-            { big: String(inspectionLayoutStats.open), title: 'Åpne', sub: 'Pågår' },
-            { big: String(upcomingInspectionsFiltered.length), title: 'Kommende', sub: 'Fra i dag' },
-          ]}
-        />
-      )
-    }
+  const openInspectionRow = useCallback(
+    (ins: Inspection) => {
+      openEditInspectionPanel(ins)
+    },
+    [openEditInspectionPanel],
+  )
 
-    const lib = renderLibraryBlock({ blockId, textOverride, blockProps })
-    if (lib !== UNHANDLED) return lib
-
-    const layoutTableCell = `${LAYOUT_TABLE1_POSTINGS_TD} text-neutral-800`
-    const id = blockId as LayoutComposerBlockId
-    switch (id) {
-      case 'heading1':
-        return null
-      case 'hubMenu1Bar':
-        return <HubMenu1Bar ariaLabel="HSE / HMS — faner" items={hseHubItemsRef.current} />
-      case 'scoreStatRow':
-        return (
-          <LayoutScoreStatRow
-            items={[
-              { big: String(inspectionLayoutStats.total), title: 'Totalt', sub: 'I registeret' },
-              { big: String(inspectionLayoutStats.open), title: 'Åpne', sub: 'Pågår' },
-              { big: String(inspectionLayoutStats.closedUnlocked), title: 'Lukket (utkast)', sub: 'Kan låses' },
-              { big: String(inspectionLayoutStats.locked), title: 'Låst', sub: 'Arkiv' },
-            ]}
-          />
-        )
-      case 'workplaceTasksActions':
-        return (
-          <WorkplaceTasksActionButtonsRow>
-            <WorkplaceTasksSplitButton
-              label="Ny inspeksjonsrunde"
-              onMainClick={openNewInspectionPanel}
-              options={[
-                { id: 'new', label: 'Ny runde (legg i tabell)', onSelect: openNewInspectionPanel },
-                { id: 'sched', label: 'Planlegg runde…', onSelect: openInsSchedulePanel },
-              ]}
-            />
-          </WorkplaceTasksActionButtonsRow>
-        )
-      case 'table1': {
-        const shellTitle = textOverride?.title?.trim() || 'Inspeksjonsrunder'
-        const shellDesc =
-          textOverride?.description?.trim() ||
-          'Gjennomførte og kommende runder — sortert etter tidspunkt. Filtrer på status og søk.'
-        return (
-          <LayoutTable1PostingsShell
-            wrap
-            title={shellTitle}
-            description={shellDesc}
-            toolbar={
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
-                <div className="relative min-w-[200px] flex-1">
-                  <label className="sr-only" htmlFor="ins-search-layout">
-                    Søk
-                  </label>
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-                  <input
-                    id="ins-search-layout"
-                    type="search"
-                    value={insSearch}
-                    onChange={(e) => setInsSearch(e.target.value)}
-                    placeholder="Søk i tittel, omfang, funn …"
-                    className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
-                  />
-                </div>
-                <label className="flex shrink-0 items-center gap-2 text-xs font-semibold text-neutral-700">
-                  <span className="whitespace-nowrap">Status</span>
-                  <select
-                    value={insStatusFilter}
-                    onChange={(e) =>
-                      setInsStatusFilter(e.target.value as 'all' | 'open' | 'closed_unlocked' | 'locked')
-                    }
-                    className="rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-xs text-neutral-900"
-                  >
-                    <option value="all">Alle</option>
-                    <option value="open">Åpne</option>
-                    <option value="closed_unlocked">Lukket (utkast)</option>
-                    <option value="locked">Låst</option>
-                  </select>
-                </label>
-              </div>
-            }
-            footer={
-              <span className="text-neutral-500">
-                {insSearch.trim() || insStatusFilter !== 'all'
-                  ? `${inspectionsForTable.length} treff`
-                  : `Viser ${inspectionsForTable.length} runder`}
-              </span>
-            }
-          >
-            <>
-              <table className="w-full min-w-[520px] border-collapse text-left text-sm">
-                <thead>
-                  <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
-                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type</th>
-                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Gjennomført</th>
-                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Ansvarlig</th>
-                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Avvik</th>
-                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
-                    <th className={`w-12 ${LAYOUT_TABLE1_POSTINGS_TH}`} aria-label="Handling" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {inspectionsForTable.map((ins) => (
-                    <InspectionTableRow
-                      key={ins.id}
-                      ins={ins}
-                      rowClass={LAYOUT_TABLE1_POSTINGS_BODY_ROW}
-                      cellClass={layoutTableCell}
-                      actionStyle="icon"
-                      onOpen={() => openEditInspectionPanel(ins)}
-                    />
-                  ))}
-                </tbody>
-              </table>
-              {inspectionsForTable.length === 0 ? (
-                <p className="px-5 py-10 text-center text-sm text-neutral-500">Ingen runder matcher filter og søk.</p>
-              ) : null}
-            </>
-          </LayoutTable1PostingsShell>
-        )
-      }
-      case 'vernerunderScheduleCalendar':
-        return (
-          <div className="min-w-0">
-            <WorkplaceEventsDayCard
-              surface="flat"
-              cardTitle="Kommende inspeksjonsrunder"
-              badge={inspectionCalendarAllItems.length}
-              dateLabel={inspectionsCalendarDayLabel}
-              onPrevDay={() => setInspectionsCalendarDayOffset((x) => x - 1)}
-              onNextDay={() => setInspectionsCalendarDayOffset((x) => x + 1)}
-              datePickerSlot={
-                <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-800">
-                  <Calendar className="size-3.5 shrink-0 text-neutral-500" aria-hidden />
-                  <input
-                    type="date"
-                    value={inspectionsCalendarDayIso}
-                    onChange={(e) => setInspectionsCalendarDayFromIso(e.target.value)}
-                    className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900"
-                  />
-                </label>
-              }
-              tabs={[
-                {
-                  id: 'all',
-                  label: 'Alle kommende',
-                  count: inspectionCalendarAllItems.length,
-                  items: inspectionCalendarAllItems,
-                  emptyHint: 'Ingen kommende runder. Bruk «Ny inspeksjonsrunde» for å legge til eller planlegge.',
-                },
-                {
-                  id: 'day',
-                  label: 'Valgt dag',
-                  count: inspectionCalendarDayItems.length,
-                  items: inspectionCalendarDayItems,
-                  emptyHint: 'Ingen runder på valgt dato.',
-                },
-              ]}
-              defaultTabId="all"
-              footer={{
-                label: 'Planlegg for valgt dag',
-                onMoreClick: openInsSchedulePanelForCalendarDay,
-              }}
-            />
-          </div>
-        )
-      default:
-        return (
-          <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50/80 px-3 py-2 text-xs text-neutral-600">
-            <strong className="font-mono">{blockId}</strong> — ikke koblet til inspeksjoner-data ennå.
-          </div>
-        )
+  function formatInspectionWhen(iso: string) {
+    try {
+      return new Date(iso).toLocaleString('no-NO', { dateStyle: 'short', timeStyle: 'short' })
+    } catch {
+      return iso
     }
-  }, [
-    inspectionLayoutStats,
-    upcomingInspectionsFiltered,
-    inspectionsForTable,
-    insSearch,
-    insStatusFilter,
-    inspectionsCalendarDayLabel,
-    inspectionsCalendarDayIso,
-    inspectionCalendarAllItems,
-    inspectionCalendarDayItems,
-    openNewInspectionPanel,
-    openInsSchedulePanel,
-    openInsSchedulePanelForCalendarDay,
-    openEditInspectionPanel,
-    setInspectionsCalendarDayFromIso,
-    setInsSearch,
-    setInsStatusFilter,
-  ])
+  }
+
+  const layoutTableCellForIns = `${LAYOUT_TABLE1_POSTINGS_TD} text-neutral-800`
 
   async function submitInspectionPanel(e: React.FormEvent) {
     e.preventDefault()
@@ -2371,6 +2062,106 @@ export function HseModule() {
   // Keep ref in sync so render callbacks declared earlier can read the latest items.
   hseHubItemsRef.current = hseHubItems
 
+  const inspectionsPrimaryAction = useMemo(
+    () => ({
+      label: 'Ny inspeksjonsrunde',
+      onClick: openNewInspectionPanel,
+      icon: Plus,
+    }),
+    [openNewInspectionPanel],
+  )
+
+  const inspectionsToolbar = useMemo(
+    () => ({
+      count:
+        hse.inspections.length > 0
+          ? { value: sortedInspectionsForDisplay.length, label: 'runder i visning' }
+          : undefined,
+      searchPlaceholder: 'Søk i tittel, omfang, funn …',
+      searchValue: insSearch,
+      onSearchChange: setInsSearch,
+      filtersOpen: insFiltersOpen,
+      onFiltersOpenChange: setInsFiltersOpen,
+      filterStatusText: insToolbarFiltersActive ? 'Filter aktive' : 'Ingen filter',
+      filterPanel: (
+        <div className="flex flex-col gap-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">Status</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(
+                [
+                  { id: 'all' as const, label: 'Alle' },
+                  { id: 'open' as const, label: 'Åpne' },
+                  { id: 'closed_unlocked' as const, label: 'Lukket (utkast)' },
+                  { id: 'locked' as const, label: 'Låst' },
+                ] as const
+              ).map((opt) => {
+                const selected = insStatusFilter === opt.id
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setInsStatusFilter(opt.id)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
+                      selected ? 'text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'
+                    }`}
+                    style={selected ? { backgroundColor: WORKPLACE_LIST_LAYOUT_CTA } : undefined}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <WorkplaceTasksSplitButton
+              label="Planlegg runde"
+              onMainClick={openInsSchedulePanel}
+              options={[
+                { id: 'sched', label: 'Planlegg runde…', onSelect: openInsSchedulePanel },
+                { id: 'sched-day', label: 'Planlegg for valgt dag i kalender', onSelect: openInsSchedulePanelForCalendarDay },
+              ]}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setInsSearch('')
+              setInsStatusFilter('all')
+            }}
+            className="self-start rounded-md border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+          >
+            Nullstill filter
+          </button>
+        </div>
+      ),
+      sortOptions: [
+        { value: 'conducted_desc', label: 'Tidspunkt (nyeste)' },
+        { value: 'conducted_asc', label: 'Tidspunkt (eldste)' },
+        { value: 'title', label: 'Tittel A–Å' },
+        { value: 'status', label: 'Status' },
+      ],
+      sortValue: insSort,
+      onSortChange: (v: string) => setInsSort(v as typeof insSort),
+      viewMode: insViewMode,
+      onViewModeChange: setInsViewMode,
+      primaryAction: inspectionsPrimaryAction,
+    }),
+    [
+      hse.inspections.length,
+      sortedInspectionsForDisplay.length,
+      insSearch,
+      insFiltersOpen,
+      insToolbarFiltersActive,
+      insStatusFilter,
+      insSort,
+      insViewMode,
+      inspectionsPrimaryAction,
+      openInsSchedulePanel,
+      openInsSchedulePanelForCalendarDay,
+    ],
+  )
+
   return (
     <>
     <ComplianceModuleChrome
@@ -2384,7 +2175,7 @@ export function HseModule() {
         tab === 'rounds' || tab === 'rounds2'
           ? VERNERUNDER_PAGE_DESCRIPTION
           : tab === 'inspections'
-            ? INSPECTIONS_PAGE_DESCRIPTION
+            ? undefined
             : (
               <p className="max-w-2xl">
                 Vernerunder, inspeksjoner, SJA, sykefraværsoppfølging og revisjonslogg. Hendelser finner du under{' '}
@@ -2992,51 +2783,202 @@ export function HseModule() {
         </div>
       )}
 
-      {/* ── Inspections — Layout_inspeksjoner (grid Komponer eller stack, fra DB) ── */}
+      {/* ── Inspections — standard list layout (WorkplaceStandardListLayout) ── */}
       {tab === 'inspections' && (
         <div className="mt-2 min-w-0 space-y-6">
-          {isAdmin && (
-            <div className="flex items-center justify-end">
-              <button
-                type="button"
-                onClick={() => setInsLayoutEditOpen(true)}
-                className="flex items-center gap-1.5 rounded border border-[#1a3d32]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#1a3d32] shadow-sm hover:bg-[#1a3d32]/5"
-              >
-                <svg className="size-3.5" viewBox="0 0 16 16" fill="currentColor"><path d="M11.7 1.3a1 1 0 0 1 1.4 1.4L4.4 11.4l-2.1.7.7-2.1 8.7-8.7Z"/></svg>
-                Rediger layout
-              </button>
-            </div>
-          )}
-
-          {/* ── Inspeksjoner layout — rendered by PageLayoutRenderer ── */}
-          <PageLayoutRenderer
-            layout={{ id: inspectionsPageLayout.layout?.id ?? 'default', pageKey: 'hse.inspections', sections: insSections }}
-            renderBlock={renderInspectionsBlock}
-            editMode={false}
+          <LayoutScoreStatRow
+            items={[
+              { big: String(inspectionLayoutStats.total), title: 'Totalt', sub: 'Registrerte runder' },
+              { big: String(inspectionLayoutStats.open), title: 'Åpne', sub: 'Pågår' },
+              { big: String(upcomingInspectionsFiltered.length), title: 'Kommende', sub: 'Fra i dag' },
+            ]}
           />
 
-          {insLayoutEditOpen && (
-            <div className="fixed inset-0 z-[200] flex">
-              <div className="flex-1 bg-black/30 backdrop-blur-[1px]" onClick={() => setInsLayoutEditOpen(false)} />
-              <aside className="flex h-full w-[480px] shrink-0 flex-col bg-white shadow-[-12px_0_40px_rgba(0,0,0,0.18)]">
-                <InPageLayoutEditor
-                  sections={insSections}
-                  blockDefs={INSPECTIONS_BLOCK_DEFS}
-                  hasDb={supabaseConfigured}
-                  isPublished={!!inspectionsPageLayout.layout?.publishedAt}
-                  saving={insLayoutSaving}
-                  onSave={async (sections) => {
-                    setInsLayoutSaving(true)
-                    await inspectionsPageLayout.save(sections)
-                    setInsLayoutSaving(false)
+          <WorkplaceStandardListLayout
+            breadcrumb={[
+              { label: 'Workspace', to: '/' },
+              { label: 'Samsvar', to: '/compliance' },
+              { label: 'HSE / HMS', to: '/hse?tab=overview' },
+              { label: 'Inspeksjoner' },
+            ]}
+            title="Inspeksjonsrunder"
+            description={
+              <>
+                <div className="max-w-3xl text-sm text-neutral-600">{INSPECTIONS_PAGE_DESCRIPTION}</div>
+                <p className="mt-3 text-sm text-neutral-600">
+                  {inspectionLayoutStats.total} totalt · {inspectionLayoutStats.open} åpne ·{' '}
+                  {upcomingInspectionsFiltered.length} kommende · Bruk filter, søk og kalenderen til høyre for plan og oppfølging.
+                </p>
+              </>
+            }
+            hubAriaLabel="HSE / HMS — faner"
+            hubItems={hseHubItems}
+            toolbar={inspectionsToolbar}
+            contentClassName="!p-0"
+          >
+            <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
+              <div className="min-w-0">
+                {hse.inspections.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center border border-dashed border-neutral-200 py-16 text-center">
+                    <p className="text-sm text-neutral-500">Ingen inspeksjonsrunder registrert ennå</p>
+                    <button
+                      type="button"
+                      onClick={openNewInspectionPanel}
+                      className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm"
+                      style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
+                    >
+                      <Plus className="size-4 shrink-0" strokeWidth={2.5} />
+                      Ny inspeksjonsrunde
+                    </button>
+                  </div>
+                ) : sortedInspectionsForDisplay.length === 0 ? (
+                  <div className="px-5 py-14 text-center md:px-6">
+                    <p className="text-sm font-medium text-neutral-700">Ingen treff</p>
+                    <p className="mt-1 text-xs text-neutral-500">Juster søk eller filter.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInsSearch('')
+                        setInsStatusFilter('all')
+                      }}
+                      className="mt-4 rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+                      style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
+                    >
+                      Nullstill
+                    </button>
+                  </div>
+                ) : insViewMode === 'table' ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+                      <thead>
+                        <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
+                          <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
+                          <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type</th>
+                          <th className={LAYOUT_TABLE1_POSTINGS_TH}>Gjennomført</th>
+                          <th className={LAYOUT_TABLE1_POSTINGS_TH}>Ansvarlig</th>
+                          <th className={LAYOUT_TABLE1_POSTINGS_TH}>Avvik</th>
+                          <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
+                          <th className={`w-12 ${LAYOUT_TABLE1_POSTINGS_TH}`} aria-label="Handling" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedInspectionsForDisplay.map((ins) => (
+                          <InspectionTableRow
+                            key={ins.id}
+                            ins={ins}
+                            rowClass={LAYOUT_TABLE1_POSTINGS_BODY_ROW}
+                            cellClass={layoutTableCellForIns}
+                            actionStyle="icon"
+                            onOpen={() => openInspectionRow(ins)}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : insViewMode === 'box' ? (
+                  <div className="grid gap-4 p-4 sm:grid-cols-2 md:p-6">
+                    {sortedInspectionsForDisplay.map((ins) => (
+                      <button
+                        key={ins.id}
+                        type="button"
+                        onClick={() => openInspectionRow(ins)}
+                        className="flex flex-col overflow-hidden rounded-lg border border-neutral-200/80 bg-white p-4 text-left shadow-sm transition hover:border-neutral-300"
+                        style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+                      >
+                        <span className={`${R_FLAT} inline-block w-fit border border-neutral-200 px-2 py-0.5 text-xs`}>
+                          {INSPECTION_KIND_LABEL[ins.kind]}
+                        </span>
+                        <p className="mt-2 line-clamp-2 text-sm font-medium text-neutral-900">{ins.title}</p>
+                        <p className="mt-1 text-xs text-neutral-500">{formatInspectionWhen(ins.conductedAt)}</p>
+                        <p className="mt-1 text-xs text-neutral-600">{ins.responsible || '—'}</p>
+                        <div className="mt-2">
+                          {ins.locked ? (
+                            <span className={`${R_FLAT} inline-flex items-center gap-1 border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-900`}>
+                              <Lock className="size-3" /> Låst
+                            </span>
+                          ) : ins.status === 'closed' ? (
+                            <span className={`${R_FLAT} inline-block border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-900`}>
+                              Lukket
+                            </span>
+                          ) : (
+                            <span className={`${R_FLAT} inline-block border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs text-sky-900`}>
+                              Åpen
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-neutral-100 px-4 py-2 md:px-6">
+                    {sortedInspectionsForDisplay.map((ins) => (
+                      <li key={ins.id}>
+                        <button
+                          type="button"
+                          onClick={() => openInspectionRow(ins)}
+                          className="flex w-full flex-wrap items-start justify-between gap-3 py-4 text-left first:pt-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-neutral-900">{ins.title}</p>
+                            <p className="mt-0.5 text-xs text-neutral-600">
+                              {INSPECTION_KIND_LABEL[ins.kind]} · {formatInspectionWhen(ins.conductedAt)} ·{' '}
+                              {ins.responsible || '—'}
+                            </p>
+                          </div>
+                          <span className={`${R_FLAT} shrink-0 border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium`}>
+                            {ins.locked ? 'Låst' : ins.status === 'closed' ? 'Lukket' : 'Åpen'}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="min-w-0 lg:border-l lg:border-neutral-100 lg:pl-6">
+                <WorkplaceEventsDayCard
+                  surface="flat"
+                  cardTitle="Kommende inspeksjonsrunder"
+                  badge={inspectionCalendarAllItems.length}
+                  dateLabel={inspectionsCalendarDayLabel}
+                  onPrevDay={() => setInspectionsCalendarDayOffset((x) => x - 1)}
+                  onNextDay={() => setInspectionsCalendarDayOffset((x) => x + 1)}
+                  datePickerSlot={
+                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-800">
+                      <Calendar className="size-3.5 shrink-0 text-neutral-500" aria-hidden />
+                      <input
+                        type="date"
+                        value={inspectionsCalendarDayIso}
+                        onChange={(e) => setInspectionsCalendarDayFromIso(e.target.value)}
+                        className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900"
+                      />
+                    </label>
+                  }
+                  tabs={[
+                    {
+                      id: 'all',
+                      label: 'Alle kommende',
+                      count: inspectionCalendarAllItems.length,
+                      items: inspectionCalendarAllItems,
+                      emptyHint:
+                        'Ingen kommende runder. Bruk «Ny inspeksjonsrunde» eller «Planlegg runde» for å legge til eller planlegge.',
+                    },
+                    {
+                      id: 'day',
+                      label: 'Valgt dag',
+                      count: inspectionCalendarDayItems.length,
+                      items: inspectionCalendarDayItems,
+                      emptyHint: 'Ingen runder på valgt dato.',
+                    },
+                  ]}
+                  defaultTabId="all"
+                  footer={{
+                    label: 'Planlegg for valgt dag',
+                    onMoreClick: openInsSchedulePanelForCalendarDay,
                   }}
-                  onPublish={inspectionsPageLayout.publish}
-                  onUnpublish={inspectionsPageLayout.unpublish}
-                  onClose={() => setInsLayoutEditOpen(false)}
                 />
-              </aside>
+              </div>
             </div>
-          )}
+          </WorkplaceStandardListLayout>
 
           {insSchedulePanelOpen ? (
             <div
