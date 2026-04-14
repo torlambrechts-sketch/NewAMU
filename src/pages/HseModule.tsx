@@ -75,6 +75,10 @@ import {
 import { SAFETY_ROUND_TEMPLATE_ID, TRAINING_KIND_LABELS } from '../data/hseTemplates'
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeSickLeaveWizard, makeSjaWizard, makeSafetyRoundWizard } from '../components/wizard/wizards'
+import { useModuleTemplate } from '../hooks/useModuleTemplate'
+import { ModulePageRenderer, StatusPill } from '../components/module/ModulePageRenderer'
+import { ModuleSettingsPanel } from '../components/module/ModuleSettingsPanel'
+import type { TableColumn } from '../types/moduleTemplate'
 import type {
   ChecklistTemplate,
   HseProtocolSignature,
@@ -335,6 +339,11 @@ export function HseModule() {
   const [newFindingText, setNewFindingText] = useState('')
   const [insFileQueue, setInsFileQueue] = useState<File[]>([])
   const [insSearch, setInsSearch] = useState('')
+
+  // ── Module template: DB-driven config for inspections ──────────────────
+  const inspModuleTemplate = useModuleTemplate('hse.inspections')
+  const [insSettingsOpen, setInsSettingsOpen] = useState(false)
+  const [insSettingsSaving, setInsSettingsSaving] = useState(false)
   const [inspectionsCalendarDayOffset, setInspectionsCalendarDayOffset] = useState(0)
   const [protoName, setProtoName] = useState('')
   const [protoRole, setProtoRole] = useState<HseProtocolSignature['role']>('inspector')
@@ -1507,10 +1516,11 @@ export function HseModule() {
   }, [hse.inspections])
 
   /**
-   * Inspeksjoner: samme mønster som Vernerunder — publisert **Komponer** (grid) eller stack + 2/3|1/3 for tabell+kalender.
-   * Publiser grid med navn **Layout_inspeksjoner** (eller fuzzy «layout»+«inspeksjon»).
+   * Inspeksjoner: kept for fallback/reference — tab now uses ModulePageRenderer.
+   * @deprecated replaced by ModulePageRenderer + useModuleTemplate
    */
-  const inspectionsLayoutNodes = useMemo(() => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _inspectionsLayoutNodes = useMemo(() => {
     const layoutTableCell = `${LAYOUT_TABLE1_POSTINGS_TD} text-neutral-800`
 
     const renderInspectionsComposerBlock = (blockId: string): ReactNode => {
@@ -1751,6 +1761,7 @@ export function HseModule() {
     setInspectionsCalendarDayFromIso,
     setInsSearch,
   ])
+  void _inspectionsLayoutNodes // kept for fallback; tab uses ModulePageRenderer
 
   async function submitInspectionPanel(e: React.FormEvent) {
     e.preventDefault()
@@ -2813,24 +2824,91 @@ export function HseModule() {
 
       {/* ── Inspections — Layout_inspeksjoner (grid Komponer eller stack, fra DB) ── */}
       {tab === 'inspections' && (
-        <div className="mt-2 min-w-0 space-y-6">
-          {inspectionsGridResolved ? (
-            <p className="text-xs text-neutral-500">
-              Oppsett fra plattform-admin (Komponer / rutenett):{' '}
-              <span className="font-medium text-neutral-700">«{inspectionsGridResolved.templateName}»</span>
-              {supabaseConfigured ? ' — samme rader og kolonnebredder (fr) som i layout-designer.' : '.'}
-            </p>
-          ) : inspectionsTabLayout.presetNameMatched ? (
-            <p className="text-xs text-neutral-500">
-              Oppsett fra plattform-admin (Layout-komponenter / stack):{' '}
-              <span className="font-medium text-neutral-700">«{inspectionsTabLayout.presetNameMatched}»</span>
-              {supabaseConfigured
-                ? ' (oppdateres når publiserte maler endres).'
-                : ' (lagret i denne nettleseren).'}
-            </p>
-          ) : null}
-
-          <div className="min-w-0 space-y-6">{inspectionsLayoutNodes}</div>
+        <div className="mt-2 min-w-0">
+          <ModulePageRenderer
+            template={inspModuleTemplate.template}
+            records={inspectionsFiltered as unknown as Record<string, unknown>[]}
+            totalCount={hse.inspections.length}
+            search={insSearch}
+            onSearchChange={setInsSearch}
+            sortField="conductedAt"
+            hubItems={hseHubItems}
+            primaryActionLabel="Ny inspeksjon"
+            onPrimaryAction={openNewInspectionPanel}
+            onSettingsClick={isAdmin ? () => setInsSettingsOpen(true) : undefined}
+            emptyMessage="Ingen inspeksjoner matcher søket."
+            renderCell={(col: TableColumn, record) => {
+              const ins = record as unknown as Inspection
+              switch (col.id) {
+                case 'title':
+                  return (
+                    <button type="button" onClick={() => openEditInspectionPanel(ins)} className="text-left font-medium text-neutral-900 hover:text-[#1a3d32] hover:underline">
+                      {ins.title}
+                    </button>
+                  )
+                case 'kind':
+                  return (
+                    <StatusPill
+                      statusKey={ins.kind}
+                      statuses={inspModuleTemplate.template.caseTypes.map(ct => ({ key: ct.id, label: ct.label, color: ct.color ?? 'neutral', sortOrder: 0 }))}
+                    />
+                  )
+                case 'conductedAt':
+                  return (
+                    <span className="tabular-nums text-neutral-600 text-xs">
+                      {new Date(ins.conductedAt).toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </span>
+                  )
+                case 'responsible':
+                  return <span className="text-neutral-700">{ins.responsible || '—'}</span>
+                case 'findings':
+                  return (
+                    (ins.concreteFindings?.filter(f => f.status === 'open').length ?? 0) > 0
+                      ? <span className="inline-flex size-6 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-800">
+                          {ins.concreteFindings!.filter(f => f.status === 'open').length}
+                        </span>
+                      : <span className="text-neutral-300">0</span>
+                  )
+                case 'status':
+                  return (
+                    <StatusPill
+                      statusKey={ins.status}
+                      statuses={inspModuleTemplate.template.statuses}
+                    />
+                  )
+                case '_actions':
+                  return (
+                    <button type="button" onClick={() => openEditInspectionPanel(ins)} className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-[#1a3d32]" title="Åpne">
+                      <svg className="size-4" viewBox="0 0 16 16" fill="currentColor"><path d="M11.7 1.3a1 1 0 0 1 1.4 1.4L4.4 11.4l-2.1.7.7-2.1 8.7-8.7Z"/></svg>
+                    </button>
+                  )
+                default:
+                  return <span className="text-neutral-500 text-xs">{String((record as Record<string, unknown>)[col.id] ?? '—')}</span>
+              }
+            }}
+            overlay={
+              insSettingsOpen ? (
+                <div className="fixed inset-0 z-[200] flex">
+                  <div className="flex-1 bg-black/30 backdrop-blur-[1px]" onClick={() => setInsSettingsOpen(false)} />
+                  <aside className="flex h-full w-[420px] shrink-0 flex-col bg-white shadow-[-12px_0_40px_rgba(0,0,0,0.18)]">
+                    <ModuleSettingsPanel
+                      template={inspModuleTemplate.template}
+                      saving={insSettingsSaving}
+                      hasDb={supabaseConfigured}
+                      onSave={async (partial) => {
+                        setInsSettingsSaving(true)
+                        await inspModuleTemplate.save(partial)
+                        setInsSettingsSaving(false)
+                      }}
+                      onPublish={inspModuleTemplate.publish}
+                      onUnpublish={inspModuleTemplate.unpublish}
+                      onClose={() => setInsSettingsOpen(false)}
+                    />
+                  </aside>
+                </div>
+              ) : null
+            }
+          />
         </div>
       )}
 
