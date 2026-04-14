@@ -35,6 +35,7 @@ import { ComplianceModuleChrome } from '../components/compliance/ComplianceModul
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { mergeSickLeaveMilestonesOnDateChange, useHse } from '../hooks/useHse'
+import { HseInspectionRunsPanel } from '../components/hse/HseInspectionRunsPanel'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
@@ -2823,7 +2824,8 @@ export function HseModule() {
 
       {/* ── Inspections — Layout_inspeksjoner (grid Komponer eller stack, fra DB) ── */}
       {tab === 'inspections' && (
-        <div className="mt-2 min-w-0">
+        <div className="mt-2 min-w-0 space-y-8">
+          <HseInspectionRunsPanel hse={hse} />
           <ModulePageRenderer
             template={inspModuleTemplate.template}
             records={inspectionsFiltered as unknown as Record<string, unknown>[]}

@@ -15,6 +15,20 @@ import {
 import { useOrgSetupContext } from './useOrgSetupContext'
 import { fetchClientIpBestEffort, hashDocumentPayload } from '../lib/level1Signature'
 import { insertSystemSignatureEvent } from '../lib/recordSystemSignature'
+import { buildDefaultInspectionConfig } from '../data/hseInspectionDefaults'
+import {
+  emptyAnswersForTemplate,
+  normalizeInspectionConfig,
+  normalizeRun,
+  validatePhotoDataUrl,
+} from '../lib/hseInspectionNormalize'
+import type {
+  HseInspectionConfig,
+  InspectionDeviation,
+  InspectionFieldAnswer,
+  InspectionRun,
+  InspectionScheduleRule,
+} from '../types/inspectionModule'
 import type {
   ChecklistItemDetail,
   ChecklistItemStatus,
@@ -79,6 +93,37 @@ type HseState = {
   checklistTemplates: ChecklistTemplate[]
   sickLeaveCases: SickLeaveCase[]
   auditTrail: HseAuditEntry[]
+  inspectionModuleConfig: HseInspectionConfig
+  inspectionRuns: InspectionRun[]
+}
+
+function initialInspectionConfig(): HseInspectionConfig {
+  return buildDefaultInspectionConfig(new Date().toISOString())
+}
+
+function addMs(iso: string, value: number, unit: InspectionScheduleRule['intervalUnit']): string {
+  const d = new Date(iso)
+  const v = value
+  switch (unit) {
+    case 'day':
+      d.setUTCDate(d.getUTCDate() + v)
+      break
+    case 'week':
+      d.setUTCDate(d.getUTCDate() + v * 7)
+      break
+    case 'month':
+      d.setUTCMonth(d.getUTCMonth() + v)
+      break
+    case 'quarter':
+      d.setUTCMonth(d.getUTCMonth() + v * 3)
+      break
+    case 'year':
+      d.setUTCFullYear(d.getUTCFullYear() + v)
+      break
+    default:
+      d.setUTCMonth(d.getUTCMonth() + v)
+  }
+  return d.toISOString()
 }
 
 function auditEntry(
@@ -234,6 +279,12 @@ function normalizeParsed(p: HseState): HseState {
         })
       : [],
     auditTrail: Array.isArray(p.auditTrail) ? p.auditTrail : [],
+    inspectionModuleConfig: normalizeInspectionConfig(
+      (p as Record<string, unknown>).inspectionModuleConfig,
+    ),
+    inspectionRuns: Array.isArray((p as Record<string, unknown>).inspectionRuns)
+      ? ((p as Record<string, unknown>).inspectionRuns as InspectionRun[]).map((r) => normalizeRun(r))
+      : [],
   }
 }
 
@@ -284,6 +335,8 @@ function seedDemoHse(): HseState {
     checklistTemplates: CHECKLIST_TEMPLATES,
     sickLeaveCases: [demoCase],
     auditTrail: initialAudit,
+    inspectionModuleConfig: initialInspectionConfig(),
+    inspectionRuns: [],
   }
 }
 
@@ -297,6 +350,8 @@ function emptyRemoteState(): HseState {
     checklistTemplates: CHECKLIST_TEMPLATES,
     sickLeaveCases: [],
     auditTrail: [],
+    inspectionModuleConfig: initialInspectionConfig(),
+    inspectionRuns: [],
   }
 }
 
@@ -316,6 +371,8 @@ function loadLocal(): HseState {
       checklistTemplates: CHECKLIST_TEMPLATES,
       sickLeaveCases: [],
       auditTrail: [],
+      inspectionModuleConfig: initialInspectionConfig(),
+      inspectionRuns: [],
     }
   }
 }
@@ -1119,6 +1176,215 @@ export function useHse() {
     [setState],
   )
 
+  const replaceInspectionConfig = useCallback((config: HseInspectionConfig) => {
+    const normalized = normalizeInspectionConfig(config)
+    setState((s) => ({
+      ...s,
+      inspectionModuleConfig: normalized,
+      auditTrail: [
+        ...s.auditTrail,
+        auditEntry(
+          'inspection_config_updated',
+          'inspection_config',
+          'config',
+          'Inspeksjonsmodul konfigurasjon oppdatert',
+          { version: normalized.version },
+        ),
+      ],
+    }))
+  }, [setState])
+
+  const createInspectionRun = useCallback(
+    (input: {
+      inspectionTypeId: string
+      title: string
+      conductedBy: string
+      conductedAt: string
+      locationId?: string
+      objectLabel?: string
+      statusId?: string
+    }) => {
+      let created: InspectionRun | null = null
+      setState((s) => {
+        const cfg = s.inspectionModuleConfig
+        const type = cfg.inspectionTypes.find((t) => t.id === input.inspectionTypeId && t.active)
+        if (!type) return s
+        const tpl = cfg.templates.find((t) => t.id === type.templateId)
+        if (!tpl) return s
+        const initialStatus =
+          input.statusId ??
+          cfg.statusFlow.find((st) => st.isInitial)?.id ??
+          cfg.statusFlow[0]?.id ??
+          'st-planned'
+        const now = new Date().toISOString()
+        const run: InspectionRun = {
+          id: crypto.randomUUID(),
+          inspectionTypeId: type.id,
+          templateId: tpl.id,
+          templateSnapshotVersion: cfg.version,
+          title: input.title.trim(),
+          statusId: initialStatus,
+          locationId: input.locationId,
+          objectLabel: input.objectLabel?.trim() || undefined,
+          conductedAt: input.conductedAt,
+          conductedBy: input.conductedBy.trim() || '—',
+          answers: emptyAnswersForTemplate(tpl),
+          deviations: [],
+          notes: '',
+          createdAt: now,
+          updatedAt: now,
+        }
+        created = run
+        return {
+          ...s,
+          inspectionRuns: [run, ...s.inspectionRuns],
+          auditTrail: [
+            ...s.auditTrail,
+            auditEntry('inspection_run_created', 'inspection_run', run.id, `Inspeksjon opprettet: «${run.title}»`, {
+              typeId: type.id,
+              templateId: tpl.id,
+            }),
+          ],
+        }
+      })
+      return created
+    },
+    [setState],
+  )
+
+  const updateInspectionRun = useCallback(
+    (id: string, patch: Partial<InspectionRun>) => {
+      setState((s) => {
+        const now = new Date().toISOString()
+        return {
+          ...s,
+          inspectionRuns: s.inspectionRuns.map((r) => (r.id === id ? { ...r, ...patch, updatedAt: now } : r)),
+          auditTrail: [
+            ...s.auditTrail,
+            auditEntry('inspection_run_updated', 'inspection_run', id, 'Inspeksjonskjøring oppdatert', {}),
+          ],
+        }
+      })
+    },
+    [setState],
+  )
+
+  const setInspectionRunAnswer = useCallback(
+    (runId: string, fieldId: string, answer: InspectionFieldAnswer) => {
+      setState((s) => {
+        const run = s.inspectionRuns.find((r) => r.id === runId)
+        if (!run) return s
+        if (answer.type === 'photo_required' || answer.type === 'photo_optional') {
+          if (answer.dataUrl) {
+            const v = validatePhotoDataUrl(answer.dataUrl)
+            if (!v.ok) return s
+          }
+        }
+        const now = new Date().toISOString()
+        const answers = { ...run.answers, [fieldId]: answer }
+        return {
+          ...s,
+          inspectionRuns: s.inspectionRuns.map((r) =>
+            r.id === runId ? { ...r, answers, updatedAt: now } : r,
+          ),
+          auditTrail: [
+            ...s.auditTrail,
+            auditEntry('inspection_run_updated', 'inspection_run', runId, 'Svar oppdatert', { fieldId }),
+          ],
+        }
+      })
+    },
+    [setState],
+  )
+
+  const addInspectionDeviation = useCallback(
+    (runId: string, partial: Omit<InspectionDeviation, 'id' | 'createdAt'>) => {
+      const dev: InspectionDeviation = {
+        ...partial,
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+      }
+      setState((s) => ({
+        ...s,
+        inspectionRuns: s.inspectionRuns.map((r) =>
+          r.id === runId
+            ? { ...r, deviations: [...r.deviations, dev], updatedAt: new Date().toISOString() }
+            : r,
+        ),
+        auditTrail: [
+          ...s.auditTrail,
+          auditEntry('inspection_run_updated', 'inspection_run', runId, `Avvik registrert: ${partial.fieldLabel}`, {
+            severityId: partial.severityId,
+          }),
+        ],
+      }))
+    },
+    [setState],
+  )
+
+  const generateScheduledInspectionRuns = useCallback(() => {
+    const now = new Date().toISOString()
+    setState((s) => {
+      const cfg = s.inspectionModuleConfig
+      let runs = [...s.inspectionRuns]
+      const newSchedules = cfg.schedules.map((sch) => ({ ...sch }))
+      let changed = false
+
+      for (let i = 0; i < newSchedules.length; i++) {
+        const sch = newSchedules[i]
+        if (!sch.active || !sch.nextDueAt) continue
+        if (new Date(sch.nextDueAt).getTime() > new Date().getTime()) continue
+
+        const type = cfg.inspectionTypes.find((t) => t.id === sch.inspectionTypeId)
+        const tpl = cfg.templates.find((t) => t.id === sch.templateId)
+        if (!type || !tpl) continue
+
+        const initialStatus = cfg.statusFlow.find((st) => st.isInitial)?.id ?? cfg.statusFlow[0]?.id ?? 'st-planned'
+        const run: InspectionRun = {
+          id: crypto.randomUUID(),
+          inspectionTypeId: type.id,
+          templateId: tpl.id,
+          title: `${sch.name} (${new Date(sch.nextDueAt).toLocaleDateString('nb-NO')})`,
+          statusId: initialStatus,
+          locationId: sch.defaultLocationId,
+          conductedAt: sch.nextDueAt,
+          conductedBy: 'Planlagt (system)',
+          answers: emptyAnswersForTemplate(tpl),
+          deviations: [],
+          notes: `Generert fra tidsplan «${sch.name}».`,
+          createdAt: now,
+          updatedAt: now,
+        }
+        runs = [run, ...runs]
+        newSchedules[i] = {
+          ...sch,
+          lastGeneratedAt: now,
+          nextDueAt: addMs(sch.nextDueAt, sch.intervalValue, sch.intervalUnit),
+        }
+        changed = true
+      }
+
+      if (!changed) return s
+
+      const nextCfg = { ...cfg, schedules: newSchedules }
+      return {
+        ...s,
+        inspectionRuns: runs,
+        inspectionModuleConfig: nextCfg,
+        auditTrail: [
+          ...s.auditTrail,
+          auditEntry(
+            'inspection_run_created',
+            'system',
+            'hse',
+            'Planlagte inspeksjoner generert fra tidsplaner',
+            { schedules: newSchedules.length },
+          ),
+        ],
+      }
+    })
+  }, [setState])
+
   const addCorrectiveAction = useCallback(
     (incidentId: string, action: Omit<CorrectiveAction, 'id'>) => {
       setState((s) => {
@@ -1510,6 +1776,8 @@ export function useHse() {
         accommodationNotes: '[redacted — GDPR]',
       })),
       auditTrail: state.auditTrail,
+      inspectionModuleConfig: state.inspectionModuleConfig,
+      inspectionRuns: state.inspectionRuns,
     }
     const entry = auditEntry('data_exported', 'system', 'hse-export', 'Fullstendig HSE-eksport gjennomført (JSON)')
     setState((s) => ({ ...s, auditTrail: [...s.auditTrail, entry] }))
@@ -1545,12 +1813,21 @@ export function useHse() {
       .filter((m) => !m.completedAt && m.dueAt < today).length
     const expiredTraining = state.trainingRecords.filter((r) => r.expiresAt && r.expiresAt < today).length
 
+    const cfg = state.inspectionModuleConfig
+    const terminalIds = new Set(cfg.statusFlow.filter((st) => st.isTerminal).map((st) => st.id))
+    const runsOpen = state.inspectionRuns.filter((r) => !terminalIds.has(r.statusId)).length
+
     return {
       rounds: state.safetyRounds.length,
       inspections: state.inspections.length,
       incidents: state.incidents.length,
       violence: state.incidents.filter((i) => i.kind === 'violence' || i.kind === 'threat').length,
       openInspections: state.inspections.filter((i) => i.status === 'open').length,
+      runsTotal: state.inspectionRuns.length,
+      runsOpen,
+      typesActive: cfg.inspectionTypes.filter((t) => t.active).length,
+      templates: cfg.templates.length,
+      schedulesActive: cfg.schedules.filter((sch) => sch.active).length,
       sjaCount: state.sjaAnalyses.length,
       openSja: state.sjaAnalyses.filter((s) => s.status === 'draft' || s.status === 'awaiting_participants').length,
       trainingRecords: state.trainingRecords.length,
@@ -1600,6 +1877,12 @@ export function useHse() {
     anonymiseIncident,
     anonymiseSickLeave,
     exportJson,
+    replaceInspectionConfig,
+    createInspectionRun,
+    updateInspectionRun,
+    setInspectionRunAnswer,
+    addInspectionDeviation,
+    generateScheduledInspectionRuns,
     createSickLeaveCase,
     updateSickLeaveCase,
     completeMilestone,

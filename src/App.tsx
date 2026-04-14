@@ -28,6 +28,7 @@ import { NotFound } from './pages/NotFound'
 import { CouncilModule } from './pages/CouncilModule'
 import { MembersModule } from './pages/MembersModule'
 import { HseModule } from './pages/HseModule'
+import { HseInspectionSettings } from './pages/HseInspectionSettings'
 import { OrgHealthModule } from './pages/OrgHealthModule'
 import { OrgHealthSettings } from './pages/OrgHealthSettings'
 import { InternalControlModule } from './pages/InternalControlModule'
@@ -148,6 +149,7 @@ function App() {
                       <Route path="internal-control" element={<InternalControlModule />} />
                       <Route path="modules/aarskontroll" element={<YearskontrollModule />} />
                       <Route path="hse" element={<HseModule />} />
+                      <Route path="hse/inspection-settings" element={<HseInspectionSettings />} />
                       <Route path="admin" element={<Navigate to="/organisation/admin" replace />} />
                       <Route path="profile" element={<ProfilePage />} />
                       <Route path="learning/play/:courseId" element={<LearningPlayer />} />
