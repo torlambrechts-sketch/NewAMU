@@ -32,7 +32,7 @@ import {
   X,
 } from 'lucide-react'
 import { ComplianceModuleChrome } from '../components/compliance/ComplianceModuleChrome'
-import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { mergeSickLeaveMilestonesOnDateChange, useHse } from '../hooks/useHse'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
@@ -2032,7 +2032,7 @@ export function HseModule() {
       }
       showTitleBlock={tab !== 'rounds' && tab !== 'rounds2' && tab !== 'inspections'}
       hubAriaLabel="HSE / HMS — faner"
-      hubItems={hseHubItems}
+      hubItems={tab === 'rounds' || tab === 'rounds2' || tab === 'inspections' ? [] : hseHubItems}
       contentCard={tab !== 'rounds' && tab !== 'rounds2' && tab !== 'inspections'}
     >
       {hse.error && (
@@ -2144,6 +2144,9 @@ export function HseModule() {
       {/* ── Vernerunder + Vernerunder2 (samme Layout_vernerunder-motor) ───────── */}
       {(tab === 'rounds' || tab === 'rounds2') && (
         <div className="mt-2 min-w-0 space-y-6">
+          {/* Hub navigation — rendered here because the chrome menu is suppressed for layout-controlled tabs */}
+          <HubMenu1Bar ariaLabel="HSE / HMS — faner" items={hseHubItems} />
+
           {tab === 'rounds2' ? (
             <div className="rounded-lg border border-sky-200/90 bg-sky-50/90 p-4 text-sm text-sky-950">
               <p className="font-semibold text-neutral-900">Vernerunder2 — diagnose for Layout_vernerunder</p>
@@ -2634,6 +2637,9 @@ export function HseModule() {
       {/* ── Inspections — Layout_inspeksjoner (grid Komponer eller stack, fra DB) ── */}
       {tab === 'inspections' && (
         <div className="mt-2 min-w-0 space-y-6">
+          {/* Hub navigation — rendered here because the chrome menu is suppressed for layout-controlled tabs */}
+          <HubMenu1Bar ariaLabel="HSE / HMS — faner" items={hseHubItems} />
+
           {isAdmin && (
             <div className="flex items-center justify-between">
               <p className="text-xs text-neutral-400">
