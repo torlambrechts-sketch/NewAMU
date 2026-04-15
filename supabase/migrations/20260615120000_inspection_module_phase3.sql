@@ -58,6 +58,40 @@ alter table public.modules add column if not exists config jsonb default '{}'::j
 alter table public.modules add column if not exists created_at timestamptz default now();
 alter table public.modules add column if not exists updated_at timestamptz default now();
 
+do $$
+declare
+  v_required_permissions_type text;
+begin
+  select a.udt_name
+  into v_required_permissions_type
+  from information_schema.columns a
+  where a.table_schema = 'public'
+    and a.table_name = 'modules'
+    and a.column_name = 'required_permissions';
+
+  if v_required_permissions_type = '_text' then
+    execute $sql$
+      alter table public.modules
+      alter column required_permissions
+      type jsonb
+      using to_jsonb(required_permissions)
+    $sql$;
+  elsif v_required_permissions_type = 'text' then
+    execute $sql$
+      alter table public.modules
+      alter column required_permissions
+      type jsonb
+      using (
+        case
+          when required_permissions is null or btrim(required_permissions) = '' then '[]'::jsonb
+          when left(btrim(required_permissions), 1) = '[' then required_permissions::jsonb
+          else to_jsonb(string_to_array(required_permissions, ','))
+        end
+      )
+    $sql$;
+  end if;
+end $$;
+
 update public.modules
 set
   display_name = coalesce(nullif(display_name, ''), initcap(replace(coalesce(slug, 'module'), '-', ' '))),
