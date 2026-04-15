@@ -249,10 +249,10 @@ set permission_id = p.id
 from public.role_definitions rd
 join public.permissions p
   on p.organization_id = rd.organization_id
- and p.resource = rp.resource
- and p.action = rp.action
- and p.scope = rp.scope
 where rd.id = rp.role_id
+  and p.resource = rp.resource
+  and p.action = rp.action
+  and p.scope = rp.scope
   and rp.permission_id is distinct from p.id;
 
 alter table public.role_permissions
