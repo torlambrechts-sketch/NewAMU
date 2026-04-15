@@ -4791,6 +4791,103 @@ export function HseModule() {
                 />
               </div>
 
+              {/* ── Konkrete avvik (én rad per funn, med status og Kanban-kobling) ── */}
+              <div className="space-y-2 border-t border-neutral-200/80 pt-4">
+                <p className={SETTINGS_FIELD_LABEL}>
+                  Avvik — konkrete funn
+                  <span className="ml-1.5 font-normal normal-case text-neutral-500">
+                    (hver rad kan låses til Kanban-oppgave)
+                  </span>
+                </p>
+
+                {/* Existing finding drafts */}
+                {findingDrafts.map((fd, fi) => (
+                  <div key={fd.id} className="rounded-none border border-neutral-200 bg-white px-3 py-2.5">
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <input
+                          value={fd.description}
+                          onChange={(e) => setFindingDrafts(prev => prev.map((x, i) => i === fi ? { ...x, description: e.target.value } : x))}
+                          disabled={insFormLocked}
+                          placeholder="Beskriv avviket"
+                          className="w-full rounded-none border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-500 focus:outline-none"
+                        />
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={fd.status ?? 'open'}
+                            onChange={(e) => setFindingDrafts(prev => prev.map((x, i) => i === fi ? { ...x, status: e.target.value as InspectionFinding['status'] } : x))}
+                            disabled={insFormLocked}
+                            className="rounded-none border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs text-neutral-700 focus:outline-none"
+                          >
+                            <option value="open">Åpen</option>
+                            <option value="resolved">Utbedret</option>
+                          </select>
+                          {fd.photoDataUrl && (
+                            <img src={fd.photoDataUrl} alt="Avvik foto" className="h-8 w-10 rounded object-cover ring-1 ring-neutral-200" />
+                          )}
+                        </div>
+                      </div>
+                      {!insFormLocked && (
+                        <button
+                          type="button"
+                          onClick={() => setFindingDrafts(prev => prev.filter((_, i) => i !== fi))}
+                          className="mt-0.5 shrink-0 rounded p-1 text-red-400 hover:bg-red-50"
+                          title="Fjern avvik"
+                        >
+                          <X className="size-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Add new finding */}
+                {!insFormLocked && (
+                  <button
+                    type="button"
+                    onClick={() => setFindingDrafts(prev => [...prev, { id: crypto.randomUUID(), description: '', status: 'open' }])}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-none border border-dashed border-neutral-300 py-2 text-xs font-medium text-neutral-500 hover:border-[#1a3d32]/40 hover:text-[#1a3d32]"
+                  >
+                    <Plus className="size-3.5" />
+                    Registrer avvik
+                  </button>
+                )}
+              </div>
+
+              {/* ── Vedlegg / Bilder ── */}
+              {!insFormLocked && (
+                <div className="space-y-2 border-t border-neutral-200/80 pt-4">
+                  <p className={SETTINGS_FIELD_LABEL}>Vedlegg</p>
+                  <label className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-none border border-dashed border-neutral-300 py-2 text-xs font-medium text-neutral-500 hover:border-[#1a3d32]/40 hover:text-[#1a3d32]">
+                    <ImagePlus className="size-3.5" />
+                    Legg til bilde / PDF
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,application/pdf"
+                      className="sr-only"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files ?? [])
+                        setInsFileQueue(prev => [...prev, ...files])
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                  {insFileQueue.length > 0 && (
+                    <ul className="space-y-1">
+                      {insFileQueue.map((f, i) => (
+                        <li key={i} className="flex items-center justify-between rounded-none border border-neutral-100 bg-white px-3 py-1.5 text-xs text-neutral-700">
+                          <span className="min-w-0 truncate">{f.name}</span>
+                          <button type="button" onClick={() => setInsFileQueue(prev => prev.filter((_, j) => j !== i))} className="ml-2 shrink-0 text-red-400 hover:text-red-600">
+                            <X className="size-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
               {panelInspection && (panelInspection.attachments ?? []).length > 0 && (
                     <ul className="mt-3 space-y-1 border-t border-neutral-200/80 pt-3 text-xs">
                       <li className={SETTINGS_FIELD_LABEL}>Lagrede vedlegg</li>

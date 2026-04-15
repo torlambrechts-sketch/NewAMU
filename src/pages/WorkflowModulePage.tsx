@@ -19,6 +19,7 @@ import {
 import { WF_FIELD_INPUT, WF_FIELD_LABEL, WF_LEAD, WF_PANEL_INSET } from '../components/workflow/workflowPanelStyles'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
+import { WorkflowPage as ModuleRulesView } from './WorkflowPage'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const CARD = 'rounded-none border border-neutral-200/90 bg-white p-6 shadow-sm'
@@ -54,7 +55,7 @@ function actionsToJsonString(actions: WorkflowAction[] | WorkflowXorActionsEnvel
 
 export function WorkflowModulePage() {
   const wf = useWorkflows()
-  const [tab, setTab] = useState<'design' | 'runs' | 'settings'>('design')
+  const [tab, setTab] = useState<'design' | 'runs' | 'settings' | 'module-rules'>('design')
   const [devJsonOpen, setDevJsonOpen] = useState(false)
 
   const [editorOpen, setEditorOpen] = useState(false)
@@ -98,12 +99,19 @@ export function WorkflowModulePage() {
         badgeCount: templatesCount,
         onClick: () => setTab('settings'),
       },
+      {
+        key: 'module-rules',
+        label: 'Modul-regler',
+        icon: Zap,
+        active: tab === 'module-rules',
+        onClick: () => setTab('module-rules'),
+      },
     ],
     [tab, templatesCount],
   )
 
   const workflowSectionLabel =
-    tab === 'design' ? 'Design & regler' : tab === 'runs' ? 'Kjøringer' : 'Innstillinger'
+    tab === 'design' ? 'Design & regler' : tab === 'runs' ? 'Kjøringer' : tab === 'module-rules' ? 'Modul-regler' : 'Innstillinger'
 
   const recompileFlow = useCallback((doc: WorkflowFlowDocument) => {
     const out = compileWorkflowFlow(doc)
@@ -659,6 +667,12 @@ export function WorkflowModulePage() {
             <code className="rounded bg-white px-1">20260511120000_workflow_extended_actions.sql</code> (logger i{' '}
             <code className="rounded bg-white px-1">workflow_runs</code>; faktisk SMTP/HTTP krever Edge Function).
           </div>
+        </div>
+      )}
+
+      {tab === 'module-rules' && (
+        <div className="mt-6">
+          <ModuleRulesView />
         </div>
       )}
     </div>
