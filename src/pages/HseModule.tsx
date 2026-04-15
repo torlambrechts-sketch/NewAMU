@@ -35,7 +35,6 @@ import { ComplianceModuleChrome } from '../components/compliance/ComplianceModul
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { mergeSickLeaveMilestonesOnDateChange, useHse } from '../hooks/useHse'
-import { HseInspectionRunsPanel } from '../components/hse/HseInspectionRunsPanel'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
@@ -77,9 +76,8 @@ import { SAFETY_ROUND_TEMPLATE_ID, TRAINING_KIND_LABELS } from '../data/hseTempl
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeSickLeaveWizard, makeSjaWizard, makeSafetyRoundWizard } from '../components/wizard/wizards'
 import { useModuleTemplate } from '../hooks/useModuleTemplate'
-import { ModulePageRenderer, StatusPill } from '../components/module/ModulePageRenderer'
+import { StatusPill } from '../components/module/ModulePageRenderer'
 import { ModuleSettingsPanel } from '../components/module/ModuleSettingsPanel'
-import type { TableColumn } from '../types/moduleTemplate'
 import type {
   ChecklistTemplate,
   HseProtocolSignature,
@@ -2830,92 +2828,195 @@ export function HseModule() {
 
       {/* ── Inspections — Layout_inspeksjoner (grid Komponer eller stack, fra DB) ── */}
       {tab === 'inspections' && (
-        <div className="mt-2 min-w-0 space-y-8">
-          <HseInspectionRunsPanel hse={hse} />
-          <ModulePageRenderer
-            template={inspModuleTemplate.template}
-            records={inspectionsFiltered as unknown as Record<string, unknown>[]}
-            totalCount={hse.inspections.length}
-            search={insSearch}
-            onSearchChange={setInsSearch}
-            sortField="conductedAt"
-            hubItems={hseHubItems}
-            primaryActionLabel="Ny inspeksjon"
-            onPrimaryAction={openNewInspectionPanel}
-            onSettingsClick={isAdmin ? () => setInsSettingsOpen(true) : undefined}
-            emptyMessage="Ingen inspeksjoner matcher søket."
-            renderCell={(col: TableColumn, record) => {
-              const ins = record as unknown as Inspection
-              switch (col.id) {
-                case 'title':
-                  return (
-                    <button type="button" onClick={() => openEditInspectionPanel(ins)} className="text-left font-medium text-neutral-900 hover:text-[#1a3d32] hover:underline">
-                      {ins.title}
-                    </button>
-                  )
-                case 'kind':
-                  return (
-                    <StatusPill
-                      statusKey={ins.kind}
-                      statuses={inspModuleTemplate.template.caseTypes.map(ct => ({ key: ct.id, label: ct.label, color: ct.color ?? 'neutral', sortOrder: 0 }))}
-                    />
-                  )
-                case 'conductedAt':
-                  return (
-                    <span className="tabular-nums text-neutral-600 text-xs">
-                      {new Date(ins.conductedAt).toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                    </span>
-                  )
-                case 'responsible':
-                  return <span className="text-neutral-700">{ins.responsible || '—'}</span>
-                case 'findings':
-                  return (
-                    (ins.concreteFindings?.filter(f => f.status === 'open').length ?? 0) > 0
-                      ? <span className="inline-flex size-6 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-800">
-                          {ins.concreteFindings!.filter(f => f.status === 'open').length}
-                        </span>
-                      : <span className="text-neutral-300">0</span>
-                  )
-                case 'status':
-                  return (
-                    <StatusPill
-                      statusKey={ins.status}
-                      statuses={inspModuleTemplate.template.statuses}
-                    />
-                  )
-                case '_actions':
-                  return (
-                    <button type="button" onClick={() => openEditInspectionPanel(ins)} className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-[#1a3d32]" title="Åpne">
-                      <svg className="size-4" viewBox="0 0 16 16" fill="currentColor"><path d="M11.7 1.3a1 1 0 0 1 1.4 1.4L4.4 11.4l-2.1.7.7-2.1 8.7-8.7Z"/></svg>
-                    </button>
-                  )
-                default:
-                  return <span className="text-neutral-500 text-xs">{String((record as Record<string, unknown>)[col.id] ?? '—')}</span>
-              }
-            }}
-            overlay={
-              insSettingsOpen ? (
-                <div className="fixed inset-0 z-[200] flex">
-                  <div className="flex-1 bg-black/30 backdrop-blur-[1px]" onClick={() => setInsSettingsOpen(false)} />
-                  <aside className="flex h-full w-[420px] shrink-0 flex-col bg-white shadow-[-12px_0_40px_rgba(0,0,0,0.18)]">
-                    <ModuleSettingsPanel
-                      template={inspModuleTemplate.template}
-                      saving={insSettingsSaving}
-                      hasDb={supabaseConfigured}
-                      onSave={async (partial) => {
-                        setInsSettingsSaving(true)
-                        await inspModuleTemplate.save(partial)
-                        setInsSettingsSaving(false)
-                      }}
-                      onPublish={inspModuleTemplate.publish}
-                      onUnpublish={inspModuleTemplate.unpublish}
-                      onClose={() => setInsSettingsOpen(false)}
-                    />
-                  </aside>
-                </div>
-              ) : null
-            }
-          />
+        <div className="mt-2 min-w-0 space-y-0">
+          {/* ── Compact create form — sits above the table, same card style ── */}
+          <div className="rounded-t-xl border border-neutral-200/80 bg-white px-5 py-4 shadow-sm" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+            <form
+              onSubmit={(e) => { e.preventDefault(); openNewInspectionPanel() }}
+              className="flex flex-wrap items-end gap-3"
+            >
+              <div className="flex flex-1 flex-col gap-1 min-w-[180px]">
+                <label className={SETTINGS_FIELD_LABEL}>Inspeksjonstype</label>
+                {inspModuleTemplate.template.caseTypes.filter(ct => ct.active).length > 0 ? (
+                  <select
+                    value={insCaseTypeId}
+                    onChange={(e) => setInsCaseTypeId(e.target.value)}
+                    className={`${SETTINGS_INPUT} bg-white`}
+                  >
+                    <option value="">Velg type …</option>
+                    {inspModuleTemplate.template.caseTypes.filter(ct => ct.active).map(ct => (
+                      <option key={ct.id} value={ct.id}>{ct.label}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <select value={insKind} onChange={(e) => setInsKind(e.target.value as Inspection['kind'])} className={`${SETTINGS_INPUT} bg-white`}>
+                    <option value="internal">Intern</option>
+                    <option value="external">Ekstern</option>
+                    <option value="audit">Revisjon</option>
+                  </select>
+                )}
+              </div>
+              <div className="flex flex-1 flex-col gap-1 min-w-[200px]">
+                <label className={SETTINGS_FIELD_LABEL}>Tittel</label>
+                <input
+                  value={insTitle}
+                  onChange={(e) => setInsTitle(e.target.value)}
+                  placeholder="Gi inspeksjonen et navn …"
+                  className={`${SETTINGS_INPUT} bg-white`}
+                />
+              </div>
+              <div className="flex flex-1 flex-col gap-1 min-w-[160px]">
+                <label className={SETTINGS_FIELD_LABEL}>Ansvarlig</label>
+                <select value={insResponsibleEmployeeId} onChange={(e) => setInsResponsibleEmployeeId(e.target.value)} className={`${SETTINGS_INPUT} bg-white`}>
+                  <option value="">Velg ansatt …</option>
+                  {employeePickList.map((emp) => (
+                    <option key={emp.id} value={emp.id}>{emp.name}{emp.unitName ? ` — ${emp.unitName}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={() => { openNewInspectionPanel() }}
+                className="flex items-center gap-2 rounded-lg bg-[#1a3d32] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#142e26] whitespace-nowrap"
+              >
+                <Plus className="size-4" />
+                Ny inspeksjonsrunde
+              </button>
+            </form>
+          </div>
+
+          {/* ── Table toolbar + table — joined below the create form ── */}
+          <div className="rounded-b-xl border border-t-0 border-neutral-200/80 bg-white shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+            {/* Toolbar row */}
+            <div className="flex flex-wrap items-center gap-3 border-b border-neutral-100 px-5 py-3">
+              <p className="shrink-0 text-sm text-neutral-900">
+                <span className="text-2xl font-bold tabular-nums text-neutral-900">{inspectionsFiltered.length}</span>{' '}
+                <span className="font-medium text-neutral-600">
+                  {insSearch.trim() ? 'treff' : `inspeksjonsrunder (${inspModuleTemplate.template.statuses.find(s => s.key === insStatus)?.label ?? 'alle'})`}
+                </span>
+              </p>
+              <div className="relative min-w-[200px] flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                <input
+                  type="search"
+                  value={insSearch}
+                  onChange={(e) => setInsSearch(e.target.value)}
+                  placeholder="Søk i tittel, omfang, funn …"
+                  className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
+                />
+              </div>
+              {/* Status filter pills */}
+              <div className="flex flex-wrap gap-1">
+                {inspModuleTemplate.template.statuses.sort((a,b) => a.sortOrder - b.sortOrder).slice(0, 4).map(s => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => setInsStatus(insStatus === s.key ? 'open' as Inspection['status'] : s.key as Inspection['status'])}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${insStatus === s.key ? 'bg-[#1a3d32] text-white' : 'border border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-700'}`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              {/* Gear = settings */}
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setInsSettingsOpen(true)}
+                  className="rounded-lg border border-neutral-200 p-2 text-neutral-500 hover:bg-neutral-50 hover:text-[#1a3d32]"
+                  title="Innstillinger"
+                >
+                  <svg className="size-4" viewBox="0 0 16 16" fill="currentColor">
+                    <path fillRule="evenodd" d="M7.429 1.525a6.593 6.593 0 0 1 1.142 0c.274.03.523.168.694.386l.558.714c.197.252.518.377.836.33l.9-.136a6.603 6.603 0 0 1 .808.496c.226.156.393.383.467.644l.261.886c.09.308.337.55.647.624l.886.212a6.584 6.584 0 0 1 .496.808l-.136.9a.832.832 0 0 0 .33.836l.714.558c.218.171.356.42.386.694a6.59 6.59 0 0 1 0 1.142.832.832 0 0 1-.386.694l-.714.558a.832.832 0 0 0-.33.836l.136.9a6.57 6.57 0 0 1-.496.808.832.832 0 0 1-.644.467l-.886.261a.832.832 0 0 0-.624.647l-.212.886a6.59 6.59 0 0 1-.808.496l-.9-.136a.832.832 0 0 0-.836.33l-.558.714a.832.832 0 0 1-.694.386 6.59 6.59 0 0 1-1.142 0 .832.832 0 0 1-.694-.386l-.558-.714a.832.832 0 0 0-.836-.33l-.9.136a6.57 6.57 0 0 1-.808-.496.832.832 0 0 1-.467-.644l-.261-.886a.832.832 0 0 0-.647-.624l-.886-.212a6.59 6.59 0 0 1-.496-.808l.136-.9a.832.832 0 0 0-.33-.836l-.714-.558a.832.832 0 0 1-.386-.694 6.59 6.59 0 0 1 0-1.142c.03-.274.168-.523.386-.694l.714-.558a.832.832 0 0 0 .33-.836l-.136-.9a6.6 6.6 0 0 1 .496-.808.832.832 0 0 1 .644-.467l.886-.261a.832.832 0 0 0 .624-.647l.212-.886a6.6 6.6 0 0 1 .808-.496l.9.136a.832.832 0 0 0 .836-.33l.558-.714a.832.832 0 0 1 .694-.386ZM8 5a3 3 0 1 0 0 6A3 3 0 0 0 8 5Zm-1.5 3a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clipRule="evenodd"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[540px] border-collapse text-left">
+                <thead>
+                  <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type</th>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Gjennomført</th>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Ansvarlig</th>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Avvik</th>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
+                    <th className={`w-10 ${LAYOUT_TABLE1_POSTINGS_TH}`} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {inspectionsFiltered.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-10 text-center text-sm text-neutral-400">
+                        {insSearch.trim() ? 'Ingen inspeksjoner matcher søket.' : 'Ingen inspeksjoner registrert ennå. Bruk skjemaet over for å starte.'}
+                      </td>
+                    </tr>
+                  ) : inspectionsFiltered.map((ins) => (
+                    <tr
+                      key={ins.id}
+                      className="cursor-pointer border-b border-neutral-100 hover:bg-neutral-50/70"
+                      onClick={() => openEditInspectionPanel(ins)}
+                    >
+                      <td className={`${LAYOUT_TABLE1_POSTINGS_TD} font-medium text-neutral-900`}>{ins.title}</td>
+                      <td className={LAYOUT_TABLE1_POSTINGS_TD}>
+                        <StatusPill
+                          statusKey={insCaseTypeId || ins.kind}
+                          statuses={inspModuleTemplate.template.caseTypes.map(ct => ({ key: ct.id, label: ct.label, color: ct.color ?? 'neutral', sortOrder: 0 }))}
+                        />
+                      </td>
+                      <td className={`${LAYOUT_TABLE1_POSTINGS_TD} tabular-nums text-xs text-neutral-600`}>
+                        {new Date(ins.conductedAt).toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </td>
+                      <td className={`${LAYOUT_TABLE1_POSTINGS_TD} text-neutral-700`}>{ins.responsible || '—'}</td>
+                      <td className={LAYOUT_TABLE1_POSTINGS_TD}>
+                        {(ins.concreteFindings?.filter(f => f.status === 'open').length ?? 0) > 0 ? (
+                          <span className="inline-flex size-6 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-800">
+                            {ins.concreteFindings!.filter(f => f.status === 'open').length}
+                          </span>
+                        ) : <span className="text-neutral-300">0</span>}
+                      </td>
+                      <td className={LAYOUT_TABLE1_POSTINGS_TD}>
+                        <StatusPill statusKey={ins.status} statuses={inspModuleTemplate.template.statuses} />
+                      </td>
+                      <td className={`${LAYOUT_TABLE1_POSTINGS_TD} text-right`}>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); openEditInspectionPanel(ins) }} className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-[#1a3d32]" title="Åpne">
+                          <svg className="size-4" viewBox="0 0 16 16" fill="currentColor"><path d="M11.7 1.3a1 1 0 0 1 1.4 1.4L4.4 11.4l-2.1.7.7-2.1 8.7-8.7Z"/></svg>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-5 py-2.5 text-right text-xs text-neutral-400">
+              {inspectionsFiltered.length} poster
+            </div>
+          </div>
+
+          {/* Settings drawer */}
+          {insSettingsOpen && (
+            <div className="fixed inset-0 z-[200] flex">
+              <div className="flex-1 bg-black/30 backdrop-blur-[1px]" onClick={() => setInsSettingsOpen(false)} />
+              <aside className="flex h-full w-[420px] shrink-0 flex-col bg-white shadow-[-12px_0_40px_rgba(0,0,0,0.18)]">
+                <ModuleSettingsPanel
+                  template={inspModuleTemplate.template}
+                  saving={insSettingsSaving}
+                  hasDb={supabaseConfigured}
+                  onSave={async (partial) => {
+                    setInsSettingsSaving(true)
+                    await inspModuleTemplate.save(partial)
+                    setInsSettingsSaving(false)
+                  }}
+                  onPublish={inspModuleTemplate.publish}
+                  onUnpublish={inspModuleTemplate.unpublish}
+                  onClose={() => setInsSettingsOpen(false)}
+                />
+              </aside>
+            </div>
+          )}
         </div>
       )}
 
@@ -4579,314 +4680,244 @@ export function HseModule() {
         </>
       ) : null}
 
-      {/* Ny inspeksjon — sidepanel (samme mønster som oppgaver) */}
+      {/* Ny inspeksjon — sidepanel (Tasks-stil: 920px, cream, serif tittel) */}
       {inspectionPanelOpen && (
-        <>
-          <button
-            type="button"
-            aria-label="Lukk"
-            className="fixed inset-0 z-[60] bg-black/40"
-            onClick={closeInspectionPanel}
-          />
-          <aside className="fixed inset-y-0 right-0 z-[70] flex h-full w-full max-w-[min(100vw,520px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]">
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 bg-[#f7f6f2] px-6 py-5">
-              <div>
-                <h2 className="text-xl font-semibold text-neutral-900">
-                  {isNewInspectionDraft
-                    ? 'Ny inspeksjon'
-                    : insFormLocked
-                      ? 'Inspeksjon (skrivebeskyttet)'
-                      : 'Rediger inspeksjon'}
-                </h2>
-                <p className="text-xs text-neutral-500">
-                  {isNewInspectionDraft ? 'Ny registrering' : `ID: ${insDraftId?.slice(0, 8)}`}
-                </p>
-              </div>
+        <div
+          className="fixed inset-0 z-[60] flex justify-end bg-black/45 backdrop-blur-[2px]"
+          role="presentation"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) closeInspectionPanel() }}
+        >
+          <div
+            className="flex h-full w-full max-w-[min(100vw,920px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
+            role="dialog"
+            aria-modal="true"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 bg-[#f7f6f2] px-6 py-5 sm:px-8 sm:py-6">
+              <h2
+                className="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl"
+                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+              >
+                {isNewInspectionDraft
+                  ? 'Ny inspeksjonsrunde'
+                  : insFormLocked
+                    ? 'Inspeksjonsrunde (skrivebeskyttet)'
+                    : 'Rediger inspeksjonsrunde'}
+              </h2>
               <button
                 type="button"
                 onClick={closeInspectionPanel}
-                className="rounded-none p-2 text-neutral-500 hover:bg-neutral-200/60 hover:text-neutral-800"
+                className="rounded-none p-2 text-neutral-500 transition hover:bg-neutral-200/60 hover:text-neutral-800"
+                aria-label="Lukk"
               >
                 <X className="size-6" />
               </button>
-            </div>
-            <form onSubmit={submitInspectionPanel} className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+            </header>
+            <form onSubmit={submitInspectionPanel} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 overflow-y-auto">
 
-              {/* ── Kategori / Inspeksjonstype (fra modul-innstillinger) ── */}
-              <div className="space-y-1">
-                <label className={SETTINGS_FIELD_LABEL}>
-                  Inspeksjonstype
-                </label>
-                {inspModuleTemplate.template.caseTypes.filter(ct => ct.active).length > 0 ? (
-                  <select
-                    value={insCaseTypeId}
-                    onChange={(e) => setInsCaseTypeId(e.target.value)}
-                    disabled={insFormLocked}
-                    className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                    required
-                  >
-                    <option value="">Velg type …</option>
-                    {inspModuleTemplate.template.caseTypes.filter(ct => ct.active).map(ct => (
-                      <option key={ct.id} value={ct.id}>{ct.label}</option>
-                    ))}
-                  </select>
-                ) : (
-                  /* Fallback to hardcoded kind if no template types configured */
-                  <select
-                    value={insKind}
-                    onChange={(e) => setInsKind(e.target.value as Inspection['kind'])}
-                    disabled={insFormLocked}
-                    className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                  >
-                    <option value="internal">Intern</option>
-                    <option value="external">Ekstern</option>
-                    <option value="audit">Revisjon</option>
-                  </select>
-                )}
+              {/* ── Row: Type + Tittel ── */}
+              <div className="grid grid-cols-1 gap-4 border-b border-neutral-200 px-5 py-5 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-6">
+                <div>
+                  <p className="text-sm leading-relaxed text-neutral-600">Inspeksjonstype og tittel for denne runden.</p>
+                </div>
+                <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5">
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-800">Inspeksjonstype</label>
+                      {inspModuleTemplate.template.caseTypes.filter(ct => ct.active).length > 0 ? (
+                        <select value={insCaseTypeId} onChange={(e) => setInsCaseTypeId(e.target.value)} disabled={insFormLocked}
+                          className="mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none disabled:opacity-60" required>
+                          <option value="">Velg type …</option>
+                          {inspModuleTemplate.template.caseTypes.filter(ct => ct.active).map(ct => (
+                            <option key={ct.id} value={ct.id}>{ct.label}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <select value={insKind} onChange={(e) => setInsKind(e.target.value as Inspection['kind'])} disabled={insFormLocked}
+                          className="mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 focus:outline-none disabled:opacity-60">
+                          <option value="internal">Intern</option>
+                          <option value="external">Ekstern</option>
+                          <option value="audit">Revisjon</option>
+                        </select>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-800">Tittel *</label>
+                      <input value={insTitle} onChange={(e) => setInsTitle(e.target.value)} disabled={insFormLocked}
+                        placeholder="F.eks. HMS-runde lager Q2"
+                        className="mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 focus:outline-none disabled:opacity-60" required />
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* ── Tittel ── */}
-              <div className="space-y-1">
-                <label className={SETTINGS_FIELD_LABEL}>Tittel *</label>
-                <input
-                  value={insTitle}
-                  onChange={(e) => setInsTitle(e.target.value)}
-                  disabled={insFormLocked}
-                  placeholder="F.eks. HMS-runde lager Q2"
-                  className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                  required
-                />
+              {/* ── Row: Dato + Status ── */}
+              <div className="grid grid-cols-1 gap-4 border-b border-neutral-200 px-5 py-5 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-6">
+                <div>
+                  <p className="text-sm leading-relaxed text-neutral-600">Tidspunkt for gjennomføring og nåværende status.</p>
+                </div>
+                <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5">
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-800">Dato / tid</label>
+                      <input type="datetime-local" value={insConductedAt} onChange={(e) => setInsConductedAt(e.target.value)} disabled={insFormLocked}
+                        className="mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 focus:outline-none disabled:opacity-60" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-800">Status</label>
+                      <select value={insStatus} onChange={(e) => setInsStatus(e.target.value as Inspection['status'])} disabled={insFormLocked}
+                        className="mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 focus:outline-none disabled:opacity-60">
+                        {inspModuleTemplate.template.statuses.length > 0
+                          ? inspModuleTemplate.template.statuses.sort((a,b) => a.sortOrder - b.sortOrder).map(s => (
+                              <option key={s.key} value={s.key}>{s.label}</option>
+                            ))
+                          : (<><option value="open">Åpen</option><option value="closed">Lukket</option></>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* ── Dato / tid ── */}
-              <div className="space-y-1">
-                <label className={SETTINGS_FIELD_LABEL}>Dato / tid</label>
-                <input
-                  type="datetime-local"
-                  value={insConductedAt}
-                  onChange={(e) => setInsConductedAt(e.target.value)}
-                  disabled={insFormLocked}
-                  className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                />
-              </div>
-
-              {/* ── Status ── */}
-              <div className="space-y-1">
-                <label className={SETTINGS_FIELD_LABEL}>Status</label>
-                {inspModuleTemplate.template.statuses.length > 0 ? (
-                  <select
-                    value={insStatus}
-                    onChange={(e) => setInsStatus(e.target.value as Inspection['status'])}
-                    disabled={insFormLocked}
-                    className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                  >
-                    {inspModuleTemplate.template.statuses
-                      .sort((a, b) => a.sortOrder - b.sortOrder)
-                      .map(s => (
-                        <option key={s.key} value={s.key}>{s.label}</option>
-                      ))}
-                  </select>
-                ) : (
-                  <select
-                    value={insStatus}
-                    onChange={(e) => setInsStatus(e.target.value as Inspection['status'])}
-                    disabled={insFormLocked}
-                    className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                  >
-                    <option value="open">Åpen</option>
-                    <option value="closed">Lukket</option>
-                  </select>
-                )}
-              </div>
-
-              {/* ── Ansvarlig ── */}
-              <div className="space-y-1">
-                <label className={SETTINGS_FIELD_LABEL}>Ansvarlig (ansatt)</label>
-                <select
-                  id="ins-responsible"
-                  value={insResponsibleEmployeeId}
-                  onChange={(e) => setInsResponsibleEmployeeId(e.target.value)}
-                  disabled={insFormLocked}
-                  className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                >
-                  <option value="">Velg ansatt …</option>
-                  {employeePickList.map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.name}{e.unitName ? ` — ${e.unitName}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* ── Inspeksjonsobjekt ── */}
-              <div className="space-y-1">
-                <label className={SETTINGS_FIELD_LABEL}>Inspeksjonsobjekt</label>
-                <select
-                  value={insSubjectKind}
-                  onChange={(e) => setInsSubjectKind(e.target.value as InspectionSubjectKind)}
-                  disabled={insFormLocked}
-                  className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                >
-                  <option value="free_text">Fritekst / omfang</option>
-                  <option value="org_unit">Organisasjonsenhet</option>
-                  <option value="equipment_or_area">Utstyr / lokasjon</option>
-                </select>
-                {insSubjectKind === 'org_unit' && (
-                  <select
-                    value={insSubjectUnitId}
-                    onChange={(e) => setInsSubjectUnitId(e.target.value)}
-                    disabled={insFormLocked}
-                    className={`${SETTINGS_INPUT} mt-2 bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                  >
-                    <option value="">Velg enhet …</option>
-                    {org.units.map((u) => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                  </select>
-                )}
-                {insSubjectKind === 'equipment_or_area' && (
-                  <input
-                    value={insSubjectLabel}
-                    onChange={(e) => setInsSubjectLabel(e.target.value)}
-                    disabled={insFormLocked}
-                    placeholder="F.eks. Truck 3, Fryserom B"
-                    className={`${SETTINGS_INPUT} mt-2 bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                  />
-                )}
-              </div>
-
-              {/* ── Omfang ── */}
-              <div className="space-y-1">
-                <label className={SETTINGS_FIELD_LABEL}>Omfang / notater</label>
-                <textarea
-                  value={insScope}
-                  onChange={(e) => setInsScope(e.target.value)}
-                  rows={3}
-                  disabled={insFormLocked}
-                  className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                />
-              </div>
-
-              {/* ── Funn (sammendrag) ── */}
-              <div className="space-y-1">
-                <label className={SETTINGS_FIELD_LABEL}>Funn — sammendrag</label>
-                <textarea
-                  value={insFindingsSummary}
-                  onChange={(e) => setInsFindingsSummary(e.target.value)}
-                  rows={2}
-                  disabled={insFormLocked}
-                  className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                />
-              </div>
-
-              {/* ── Oppfølging ── */}
-              <div className="space-y-1">
-                <label className={SETTINGS_FIELD_LABEL}>Oppfølging</label>
-                <textarea
-                  value={insFollowUp}
-                  onChange={(e) => setInsFollowUp(e.target.value)}
-                  rows={2}
-                  disabled={insFormLocked}
-                  className={`${SETTINGS_INPUT} bg-white disabled:cursor-not-allowed disabled:opacity-60`}
-                />
-              </div>
-
-              {/* ── Konkrete avvik (én rad per funn, med status og Kanban-kobling) ── */}
-              <div className="space-y-2 border-t border-neutral-200/80 pt-4">
-                <p className={SETTINGS_FIELD_LABEL}>
-                  Avvik — konkrete funn
-                  <span className="ml-1.5 font-normal normal-case text-neutral-500">
-                    (hver rad kan låses til Kanban-oppgave)
-                  </span>
-                </p>
-
-                {/* Existing finding drafts */}
-                {findingDrafts.map((fd, fi) => (
-                  <div key={fd.id} className="rounded-none border border-neutral-200 bg-white px-3 py-2.5">
-                    <div className="flex items-start gap-2">
-                      <div className="min-w-0 flex-1 space-y-1.5">
-                        <input
-                          value={fd.description}
-                          onChange={(e) => setFindingDrafts(prev => prev.map((x, i) => i === fi ? { ...x, description: e.target.value } : x))}
-                          disabled={insFormLocked}
-                          placeholder="Beskriv avviket"
-                          className="w-full rounded-none border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-500 focus:outline-none"
-                        />
-                        <div className="flex items-center gap-2">
-                          <select
-                            value={fd.status ?? 'open'}
-                            onChange={(e) => setFindingDrafts(prev => prev.map((x, i) => i === fi ? { ...x, status: e.target.value as InspectionFinding['status'] } : x))}
-                            disabled={insFormLocked}
-                            className="rounded-none border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs text-neutral-700 focus:outline-none"
-                          >
-                            <option value="open">Åpen</option>
-                            <option value="resolved">Utbedret</option>
-                          </select>
-                          {fd.photoDataUrl && (
-                            <img src={fd.photoDataUrl} alt="Avvik foto" className="h-8 w-10 rounded object-cover ring-1 ring-neutral-200" />
-                          )}
-                        </div>
-                      </div>
-                      {!insFormLocked && (
-                        <button
-                          type="button"
-                          onClick={() => setFindingDrafts(prev => prev.filter((_, i) => i !== fi))}
-                          className="mt-0.5 shrink-0 rounded p-1 text-red-400 hover:bg-red-50"
-                          title="Fjern avvik"
-                        >
-                          <X className="size-4" />
-                        </button>
+              {/* ── Row: Ansvarlig + Objekt ── */}
+              <div className="grid grid-cols-1 gap-4 border-b border-neutral-200 px-5 py-5 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-6">
+                <div>
+                  <p className="text-sm leading-relaxed text-neutral-600">Ansvarlig kobles til ansattlisten slik at oppfølgingsoppgaver kan tildeles riktig person på Kanban.</p>
+                </div>
+                <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5">
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-800">Ansvarlig (ansatt)</label>
+                      <select value={insResponsibleEmployeeId} onChange={(e) => setInsResponsibleEmployeeId(e.target.value)} disabled={insFormLocked}
+                        className="mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 focus:outline-none disabled:opacity-60">
+                        <option value="">Velg ansatt …</option>
+                        {employeePickList.map((emp) => (
+                          <option key={emp.id} value={emp.id}>{emp.name}{emp.unitName ? ` — ${emp.unitName}` : ''}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-800">Inspeksjonsobjekt</label>
+                      <select value={insSubjectKind} onChange={(e) => setInsSubjectKind(e.target.value as InspectionSubjectKind)} disabled={insFormLocked}
+                        className="mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 focus:outline-none disabled:opacity-60">
+                        <option value="free_text">Fritekst / omfang</option>
+                        <option value="org_unit">Organisasjonsenhet</option>
+                        <option value="equipment_or_area">Utstyr / lokasjon</option>
+                      </select>
+                      {insSubjectKind === 'org_unit' && (
+                        <select value={insSubjectUnitId} onChange={(e) => setInsSubjectUnitId(e.target.value)} disabled={insFormLocked}
+                          className="mt-2 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 focus:outline-none disabled:opacity-60">
+                          <option value="">Velg enhet …</option>
+                          {org.units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
+                      )}
+                      {insSubjectKind === 'equipment_or_area' && (
+                        <input value={insSubjectLabel} onChange={(e) => setInsSubjectLabel(e.target.value)} disabled={insFormLocked}
+                          placeholder="F.eks. Truck 3, Fryserom B"
+                          className="mt-2 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 focus:outline-none disabled:opacity-60" />
                       )}
                     </div>
                   </div>
-                ))}
-
-                {/* Add new finding */}
-                {!insFormLocked && (
-                  <button
-                    type="button"
-                    onClick={() => setFindingDrafts(prev => [...prev, { id: crypto.randomUUID(), description: '', status: 'open' }])}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-none border border-dashed border-neutral-300 py-2 text-xs font-medium text-neutral-500 hover:border-[#1a3d32]/40 hover:text-[#1a3d32]"
-                  >
-                    <Plus className="size-3.5" />
-                    Registrer avvik
-                  </button>
-                )}
+                </div>
               </div>
 
-              {/* ── Vedlegg / Bilder ── */}
-              {!insFormLocked && (
-                <div className="space-y-2 border-t border-neutral-200/80 pt-4">
-                  <p className={SETTINGS_FIELD_LABEL}>Vedlegg</p>
-                  <label className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-none border border-dashed border-neutral-300 py-2 text-xs font-medium text-neutral-500 hover:border-[#1a3d32]/40 hover:text-[#1a3d32]">
-                    <ImagePlus className="size-3.5" />
-                    Legg til bilde / PDF
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*,application/pdf"
-                      className="sr-only"
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files ?? [])
-                        setInsFileQueue(prev => [...prev, ...files])
-                        e.target.value = ''
-                      }}
-                    />
-                  </label>
-                  {insFileQueue.length > 0 && (
-                    <ul className="space-y-1">
-                      {insFileQueue.map((f, i) => (
-                        <li key={i} className="flex items-center justify-between rounded-none border border-neutral-100 bg-white px-3 py-1.5 text-xs text-neutral-700">
-                          <span className="min-w-0 truncate">{f.name}</span>
-                          <button type="button" onClick={() => setInsFileQueue(prev => prev.filter((_, j) => j !== i))} className="ml-2 shrink-0 text-red-400 hover:text-red-600">
-                            <X className="size-3.5" />
+              {/* ── Row: Omfang + Funn + Oppfølging ── */}
+              <div className="grid grid-cols-1 gap-4 border-b border-neutral-200 px-5 py-5 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-6">
+                <div>
+                  <p className="text-sm leading-relaxed text-neutral-600">Omfang og kort oppsummering av funn pluss oppfølging.</p>
+                </div>
+                <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5">
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-800">Omfang / notater</label>
+                      <textarea value={insScope} onChange={(e) => setInsScope(e.target.value)} rows={2} disabled={insFormLocked}
+                        className="mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 focus:outline-none disabled:opacity-60" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-800">Funn — sammendrag</label>
+                      <textarea value={insFindingsSummary} onChange={(e) => setInsFindingsSummary(e.target.value)} rows={2} disabled={insFormLocked}
+                        className="mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 focus:outline-none disabled:opacity-60" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-800">Oppfølging</label>
+                      <textarea value={insFollowUp} onChange={(e) => setInsFollowUp(e.target.value)} rows={2} disabled={insFormLocked}
+                        className="mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 focus:outline-none disabled:opacity-60" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Row: Avvik (konkrete funn med Kanban-kobling) ── */}
+              <div className="grid grid-cols-1 gap-4 border-b border-neutral-200 px-5 py-5 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-6">
+                <div>
+                  <p className="text-sm leading-relaxed text-neutral-600">
+                    Én rad per konkret avvik — hver rad kan få egen status og Kanban-oppgave ved låsing.
+                  </p>
+                </div>
+                <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5">
+                  <div className="flex flex-col gap-2">
+                    {findingDrafts.map((fd, fi) => (
+                      <div key={fd.id} className="flex items-start gap-2 rounded border border-neutral-200 bg-white px-3 py-2.5">
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <input value={fd.description} disabled={insFormLocked}
+                            onChange={(e) => setFindingDrafts(prev => prev.map((x,i) => i===fi ? {...x, description: e.target.value} : x))}
+                            placeholder="Beskriv avviket"
+                            className="w-full border-b border-neutral-200 bg-transparent pb-1 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-500" />
+                          <div className="flex items-center gap-2">
+                            <select value={fd.status ?? 'open'} disabled={insFormLocked}
+                              onChange={(e) => setFindingDrafts(prev => prev.map((x,i) => i===fi ? {...x, status: e.target.value as InspectionFinding['status']} : x))}
+                              className="rounded border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs text-neutral-700">
+                              <option value="open">Åpen</option>
+                              <option value="resolved">Utbedret</option>
+                            </select>
+                            {fd.photoDataUrl && <img src={fd.photoDataUrl} alt="foto" className="h-7 w-9 rounded object-cover ring-1 ring-neutral-200" />}
+                          </div>
+                        </div>
+                        {!insFormLocked && (
+                          <button type="button" onClick={() => setFindingDrafts(prev => prev.filter((_,i) => i!==fi))}
+                            className="mt-0.5 shrink-0 rounded p-1 text-red-400 hover:bg-red-50" title="Fjern">
+                            <X className="size-4" />
                           </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                        )}
+                      </div>
+                    ))}
+                    {!insFormLocked && (
+                      <button type="button"
+                        onClick={() => setFindingDrafts(prev => [...prev, {id: crypto.randomUUID(), description: '', status: 'open'}])}
+                        className="flex w-full items-center justify-center gap-1.5 border border-dashed border-neutral-300 py-2 text-xs font-medium text-neutral-500 hover:border-[#1a3d32]/50 hover:text-[#1a3d32]">
+                        <Plus className="size-3.5" />
+                        Registrer avvik
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Row: Vedlegg ── */}
+              {!insFormLocked && (
+                <div className="grid grid-cols-1 gap-4 border-b border-neutral-200 px-5 py-5 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-6">
+                  <div>
+                    <p className="text-sm leading-relaxed text-neutral-600">Bilder og PDF-rapport (kreves ved ekstern tilsyn).</p>
+                  </div>
+                  <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5">
+                    <label className="flex cursor-pointer items-center gap-2 rounded border border-dashed border-neutral-300 py-2.5 px-3 text-xs font-medium text-neutral-500 hover:border-[#1a3d32]/50 hover:text-[#1a3d32]">
+                      <ImagePlus className="size-3.5" />
+                      Legg til bilde / PDF
+                      <input type="file" multiple accept="image/*,application/pdf" className="sr-only"
+                        onChange={(e) => { const f = Array.from(e.target.files ?? []); setInsFileQueue(prev => [...prev, ...f]); e.target.value = '' }} />
+                    </label>
+                    {insFileQueue.map((f, i) => (
+                      <div key={i} className="mt-1.5 flex items-center justify-between rounded border border-neutral-100 bg-white px-3 py-1.5 text-xs text-neutral-700">
+                        <span className="min-w-0 truncate">{f.name}</span>
+                        <button type="button" onClick={() => setInsFileQueue(prev => prev.filter((_,j) => j!==i))} className="ml-2 shrink-0 text-red-400 hover:text-red-600">
+                          <X className="size-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
+
 
               {panelInspection && (panelInspection.attachments ?? []).length > 0 && (
                     <ul className="mt-3 space-y-1 border-t border-neutral-200/80 pt-3 text-xs">
@@ -5036,7 +5067,7 @@ export function HseModule() {
                 </div>
               )}
 
-              <div className="mt-auto flex flex-wrap justify-end gap-2 border-t border-neutral-200/90 px-6 py-4">
+              <div className="mt-auto flex flex-wrap justify-end gap-2 border-t border-neutral-200/90 px-6 py-4 sm:px-8">
                 <button
                   type="button"
                   onClick={closeInspectionPanel}
@@ -5049,13 +5080,14 @@ export function HseModule() {
                     type="submit"
                     className="rounded-none bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white hover:bg-[#142e26]"
                   >
-                    Lagre inspeksjon
+                    Lagre inspeksjonsrunde
                   </button>
                 )}
               </div>
+              </div>
             </form>
-          </aside>
-        </>
+          </div>
+        </div>
       )}
     </>
   )
