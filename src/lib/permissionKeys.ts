@@ -9,6 +9,7 @@ export const PERMISSION_KEYS = [
   'module.view.members',
   'module.view.org_health',
   'module.view.hse',
+  'module.view.inspection',
   'module.view.internal_control',
   /** Varslingsmottak — full innsyn i whistleblowing_cases (AML kap. 2A) */
   'whistleblowing.committee',
@@ -48,6 +49,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'module.view.members': 'Members',
   'module.view.org_health': 'Org health',
   'module.view.hse': 'HSE',
+  'module.view.inspection': 'Inspeksjonsmodul',
   'module.view.internal_control': 'Internkontroll',
   'whistleblowing.committee': 'Varslingsmottak',
   'module.view.tasks': 'Tasks',
@@ -73,6 +75,7 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/members', permission: 'module.view.members' },
   { pathPrefix: '/org-health', permission: 'module.view.org_health' },
   { pathPrefix: '/hse', permission: 'module.view.hse' },
+  { pathPrefix: '/inspection-module', permission: 'module.view.inspection' },
   { pathPrefix: '/internal-control', permission: 'module.view.internal_control' },
   { pathPrefix: '/modules/aarskontroll', permission: 'module.view.internal_control' },
   { pathPrefix: '/tasks', permission: 'module.view.tasks' },
