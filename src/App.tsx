@@ -79,6 +79,7 @@ import { PlatformLayoutHubPage } from './pages/platform/PlatformLayoutHubPage'
 import { PublicWhistlePage } from './pages/PublicWhistlePage'
 import { WhistleStatusPage } from './pages/WhistleStatusPage'
 import { LandingPage } from './pages/LandingPage'
+import { ModuleSlugPage } from './pages/ModuleSlugPage'
 
 function App() {
   return (
@@ -150,6 +151,8 @@ function App() {
                       <Route path="modules/aarskontroll" element={<YearskontrollModule />} />
                       <Route path="hse" element={<HseModule />} />
                       <Route path="hse/inspection-settings" element={<HseInspectionSettings />} />
+                      {/* Phase 2: dynamic module route — loaded from `modules` table via registry */}
+                      <Route path="modules/:module_slug" element={<ModuleSlugPage />} />
                       <Route path="admin" element={<Navigate to="/organisation/admin" replace />} />
                       <Route path="profile" element={<ProfilePage />} />
                       <Route path="learning/play/:courseId" element={<LearningPlayer />} />
