@@ -22,6 +22,7 @@ type LoadStatus = 'loading' | 'ready' | 'not_found' | 'forbidden' | 'error'
 
 type PageState = {
   status: LoadStatus
+  resolvedSlug: string
   message?: string
   module?: RegisteredModuleRow
   registryEntry?: ModuleRegistryEntry
@@ -50,20 +51,27 @@ function getRegistryConfigCandidate(module: RegisteredModuleRow): unknown {
 export default function ModuleSlugPage({ params }: ModulePageProps) {
   const moduleSlug = decodeURIComponent(params.module_slug ?? '').trim().toLowerCase()
   const supabase = useMemo(() => getSupabaseBrowserClient(), [])
-  const [state, setState] = useState<PageState>({ status: 'loading' })
+  const [state, setState] = useState<PageState>({ status: 'loading', resolvedSlug: moduleSlug })
 
   useEffect(() => {
     let cancelled = false
 
     async function loadModule() {
       if (!moduleSlug) {
-        if (!cancelled) setState({ status: 'not_found', message: 'Missing module slug.' })
+        if (!cancelled) {
+          setState({
+            status: 'not_found',
+            resolvedSlug: moduleSlug,
+            message: 'Missing module slug.',
+          })
+        }
         return
       }
       if (!supabase) {
         if (!cancelled) {
           setState({
             status: 'error',
+            resolvedSlug: moduleSlug,
             message: 'Supabase is not configured in this environment.',
           })
         }
@@ -81,6 +89,7 @@ export default function ModuleSlugPage({ params }: ModulePageProps) {
         if (!cancelled) {
           setState({
             status: 'error',
+            resolvedSlug: moduleSlug,
             message: `Failed loading module '${moduleSlug}': ${moduleResult.error.message}`,
           })
         }
@@ -92,6 +101,7 @@ export default function ModuleSlugPage({ params }: ModulePageProps) {
         if (!cancelled) {
           setState({
             status: 'not_found',
+            resolvedSlug: moduleSlug,
             message: `No active module registered for slug '${moduleSlug}'.`,
           })
         }
@@ -103,6 +113,7 @@ export default function ModuleSlugPage({ params }: ModulePageProps) {
         if (!cancelled) {
           setState({
             status: 'error',
+            resolvedSlug: moduleSlug,
             message: `No frontend registry entry was found for module '${moduleRow.slug}'.`,
           })
         }
@@ -116,6 +127,7 @@ export default function ModuleSlugPage({ params }: ModulePageProps) {
           if (!cancelled) {
             setState({
               status: 'forbidden',
+              resolvedSlug: moduleSlug,
               message: `Unable to validate permissions: ${permissionResult.error.message}`,
             })
           }
@@ -132,6 +144,7 @@ export default function ModuleSlugPage({ params }: ModulePageProps) {
           if (!cancelled) {
             setState({
               status: 'forbidden',
+              resolvedSlug: moduleSlug,
               message: `Missing required permissions: ${missing.join(', ')}`,
             })
           }
@@ -145,6 +158,7 @@ export default function ModuleSlugPage({ params }: ModulePageProps) {
       if (!cancelled) {
         setState({
           status: 'ready',
+          resolvedSlug: moduleSlug,
           module: moduleRow,
           registryEntry,
           parsedConfig,
@@ -152,7 +166,6 @@ export default function ModuleSlugPage({ params }: ModulePageProps) {
       }
     }
 
-    setState({ status: 'loading' })
     void loadModule()
 
     return () => {
@@ -160,7 +173,9 @@ export default function ModuleSlugPage({ params }: ModulePageProps) {
     }
   }, [moduleSlug, supabase])
 
-  if (state.status === 'loading') {
+  const isLoading = state.status === 'loading' || state.resolvedSlug !== moduleSlug
+
+  if (isLoading) {
     return (
       <PageShell
         title="Loading module"
