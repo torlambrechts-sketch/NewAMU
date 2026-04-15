@@ -47,6 +47,68 @@ create table if not exists public.modules (
   unique (organization_id, slug)
 );
 
+-- Compatibility: if a legacy `modules` table exists without tenant scoping,
+-- progressively add missing columns so this migration can still run.
+alter table public.modules add column if not exists organization_id uuid references public.organizations (id) on delete cascade;
+alter table public.modules add column if not exists slug text;
+alter table public.modules add column if not exists display_name text;
+alter table public.modules add column if not exists is_active boolean default true;
+alter table public.modules add column if not exists required_permissions jsonb default '[]'::jsonb;
+alter table public.modules add column if not exists config jsonb default '{}'::jsonb;
+alter table public.modules add column if not exists created_at timestamptz default now();
+alter table public.modules add column if not exists updated_at timestamptz default now();
+
+update public.modules
+set
+  display_name = coalesce(nullif(display_name, ''), initcap(replace(coalesce(slug, 'module'), '-', ' '))),
+  is_active = coalesce(is_active, true),
+  required_permissions = coalesce(required_permissions, '[]'::jsonb),
+  config = coalesce(config, '{}'::jsonb),
+  created_at = coalesce(created_at, now()),
+  updated_at = coalesce(updated_at, now())
+where
+  display_name is null
+  or is_active is null
+  or required_permissions is null
+  or config is null
+  or created_at is null
+  or updated_at is null;
+
+do $$
+declare
+  v_org_id uuid;
+begin
+  -- If modules are global/legacy and there is exactly one org, bind rows to it.
+  if exists (select 1 from public.modules where organization_id is null) then
+    if (select count(*) from public.organizations) = 1 then
+      select id into v_org_id from public.organizations limit 1;
+      update public.modules
+      set organization_id = v_org_id
+      where organization_id is null;
+    end if;
+  end if;
+end $$;
+
+-- Keep one row per (organization_id, slug) before enforcing uniqueness.
+delete from public.modules m
+using (
+  select ctid
+  from (
+    select
+      ctid,
+      row_number() over (
+        partition by organization_id, slug
+        order by updated_at desc nulls last, created_at desc nulls last
+      ) as rn
+    from public.modules
+    where organization_id is not null and slug is not null
+  ) ranked
+  where ranked.rn > 1
+) d
+where m.ctid = d.ctid;
+
+create unique index if not exists modules_org_slug_unique_idx on public.modules (organization_id, slug);
+
 create index if not exists modules_org_slug_idx on public.modules (organization_id, slug);
 create index if not exists modules_org_active_idx on public.modules (organization_id, is_active);
 
