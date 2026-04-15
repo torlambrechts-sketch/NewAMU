@@ -1,6 +1,8 @@
-import type { ReactElement } from 'react'
+import { createElement, type ReactElement } from 'react'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import { InspectionModuleView, TasksModuleView, WorkflowModuleView } from './views'
+import { InspectionModuleView as InspectionPhase3ModuleView } from './inspection'
 
 export type RegisteredModuleRow = {
   id: string
@@ -14,6 +16,7 @@ export type RegisteredModuleRow = {
 export type RegisteredModuleComponentProps = {
   module: RegisteredModuleRow
   config: unknown
+  supabase: SupabaseClient | null
 }
 
 export type RegisteredModuleComponent = (props: RegisteredModuleComponentProps) => ReactElement
@@ -133,6 +136,13 @@ const TasksConfigSchema = z
   })
   .default({})
 
+const InspectionModuleConfigSchema = z
+  .object({
+    enablePhotos: z.boolean().default(true),
+    defaultCronExpression: z.string().default('0 7 * * 1'),
+  })
+  .default({})
+
 export const moduleRegistry: Record<string, ModuleRegistryEntry> = {
   inspection: {
     moduleId: 'inspection',
@@ -155,6 +165,14 @@ export const moduleRegistry: Record<string, ModuleRegistryEntry> = {
     configSchema: TasksConfigSchema,
     Component: TasksModuleView,
   },
+  inspection_module: {
+    moduleId: 'inspection_module',
+    slug: 'inspection-module',
+    description:
+      'Structured inspection checklist module with scheduling, assignment, findings, and workflow hooks.',
+    configSchema: InspectionModuleConfigSchema,
+    Component: ({ supabase }) => createElement(InspectionPhase3ModuleView, { supabase }),
+  },
 }
 
 export const moduleSlugToRegistryId: Record<string, string> = {
@@ -162,6 +180,8 @@ export const moduleSlugToRegistryId: Record<string, string> = {
   workflow: 'workflow',
   tasks: 'tasks',
   hse: 'inspection',
+  'inspection-module': 'inspection_module',
+  inspection_module: 'inspection_module',
 }
 
 export function getModuleRegistryEntry(moduleId: string, moduleSlug: string): ModuleRegistryEntry | null {

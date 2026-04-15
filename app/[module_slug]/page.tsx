@@ -215,7 +215,7 @@ export default function ModuleSlugPage({ params }: ModulePageProps) {
   const Component = state.registryEntry.Component
   return (
     <PageShell title={state.module.display_name} description={state.registryEntry.description}>
-      <Component module={state.module} config={state.parsedConfig} />
+      <Component module={state.module} config={state.parsedConfig} supabase={supabase} />
     </PageShell>
   )
 }
