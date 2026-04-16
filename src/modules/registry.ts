@@ -182,6 +182,20 @@ const REGISTRY: Record<string, ModuleRegistryEntry> = {
     ),
     configSchema: baseConfig,
   },
+
+  'inspection-module': {
+    slug: 'inspection-module',
+    displayName: 'Inspeksjonsmodul',
+    component: lazy(() =>
+      import('../pages/InspectionModulePage').then((m) => ({
+        default: m.InspectionModulePage,
+      })),
+    ),
+    configSchema: baseConfig.extend({
+      enablePhotos: z.boolean().optional(),
+      defaultCronExpression: z.string().optional(),
+    }),
+  },
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────

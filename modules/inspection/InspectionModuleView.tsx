@@ -4,10 +4,9 @@ import {
   DataTable,
   FormModal,
   ModuleDetailView,
-  ModuleListView,
-} from '../../template'
+} from '../../src/template'
 import { parseChecklistItems } from './schema'
-import type { InspectionFindingRow } from './types'
+import type { InspectionFindingRow, InspectionRoundRow } from './types'
 import { useInspectionModule } from './useInspectionModule'
 
 type InspectionModuleViewProps = {
@@ -217,86 +216,102 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
 
   return (
     <>
+      {/* ── Main panel ─────────────────────────────────────────────────────── */}
       <ModuleDetailView
-        summary={
-          <div className="grid gap-2 sm:grid-cols-5">
-            <MetricCard label="Rounds" value={String(stats.total)} />
-            <MetricCard label="Draft" value={String(stats.draft)} />
-            <MetricCard label="Active" value={String(stats.active)} />
-            <MetricCard label="Signed" value={String(stats.signed)} />
-            <MetricCard label="Critical findings" value={String(stats.criticalFindings)} />
+        title="Inspeksjonsmodul"
+        headerActions={
+          <div className="flex flex-wrap gap-2">
+            {templateBuilderButton}
+            {locationButton}
+            {schedulingButton}
+            {newRoundButton}
           </div>
         }
-        content={
-          <ModuleListView
-            toolbar={
-              <div className="flex w-full flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-medium text-neutral-900">Inspection rounds</p>
-                  <p className="text-xs text-neutral-600">
-                    Critical findings are escalated by DB trigger into deviations + tasks.
-                  </p>
+      >
+        {/* KPI strip */}
+        <div className="mb-5 grid gap-2 sm:grid-cols-5">
+          <MetricCard label="Rounds" value={String(stats.total)} />
+          <MetricCard label="Draft" value={String(stats.draft)} />
+          <MetricCard label="Active" value={String(stats.active)} />
+          <MetricCard label="Signed" value={String(stats.signed)} />
+          <MetricCard label="Critical findings" value={String(stats.criticalFindings)} />
+        </div>
+
+        {/* Table + sidebar */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <div>
+            <DataTable<InspectionRoundRow>
+              toolbar={
+                <div className="flex items-start justify-between gap-2 border-b border-neutral-100 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-neutral-900">Inspection rounds</p>
+                    <p className="text-xs text-neutral-600">
+                      Critical findings are escalated by DB trigger into deviations + tasks.
+                    </p>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {templateBuilderButton}
-                  {locationButton}
-                  {schedulingButton}
-                  {newRoundButton}
-                </div>
-              </div>
-            }
-            list={
-              <DataTable
-                columns={[
-                  { key: 'title', header: 'Title' },
-                  {
-                    key: 'template',
-                    header: 'Template',
-                    render: (row) => templateById.get(row.template_id)?.name ?? row.template_id,
-                  },
-                  {
-                    key: 'location',
-                    header: 'Location',
-                    render: (row) => (row.location_id ? locationNameById.get(row.location_id) ?? row.location_id : '—'),
-                  },
-                  {
-                    key: 'assigned_to',
-                    header: 'Assigned',
-                    render: (row) =>
-                      row.assigned_to ? assignableUserNameById.get(row.assigned_to) ?? row.assigned_to : '—',
-                  },
-                  { key: 'status', header: 'Status' },
-                  { key: 'scheduled_for', header: 'Scheduled', render: (row) => formatDate(row.scheduled_for) },
-                  { key: 'completed_at', header: 'Completed', render: (row) => formatDate(row.completed_at) },
-                  {
-                    key: 'actions',
-                    header: 'Actions',
-                    render: (row) => (
-                      <div className="flex flex-wrap gap-2">
-                        {row.status !== 'signed' ? (
-                          <button
-                            type="button"
-                            className="rounded border border-neutral-300 px-2 py-1 text-xs"
-                            onClick={() => void inspection.signRound(row.id)}
-                          >
-                            Sign off
-                          </button>
-                        ) : (
-                          <span className="text-xs text-neutral-500">Signed</span>
-                        )}
-                      </div>
-                    ),
-                  },
-                ]}
-                rows={rounds}
-                getRowKey={(row) => row.id}
-                emptyLabel={inspection.loading ? 'Loading rounds...' : 'No inspection rounds available.'}
-              />
-            }
-          />
-        }
-        sidebar={
-          <div className="space-y-4">
+              }
+              columns={[
+                { id: 'title', header: 'Title', cell: (row) => row.title },
+                {
+                  id: 'template',
+                  header: 'Template',
+                  cell: (row) => templateById.get(row.template_id)?.name ?? row.template_id,
+                },
+                {
+                  id: 'location',
+                  header: 'Location',
+                  cell: (row) =>
+                    row.location_id ? locationNameById.get(row.location_id) ?? row.location_id : '—',
+                },
+                {
+                  id: 'assigned_to',
+                  header: 'Assigned',
+                  cell: (row) =>
+                    row.assigned_to
+                      ? assignableUserNameById.get(row.assigned_to) ?? row.assigned_to
+                      : '—',
+                },
+                { id: 'status', header: 'Status', cell: (row) => row.status },
+                {
+                  id: 'scheduled_for',
+                  header: 'Scheduled',
+                  cell: (row) => formatDate(row.scheduled_for),
+                },
+                {
+                  id: 'completed_at',
+                  header: 'Completed',
+                  cell: (row) => formatDate(row.completed_at),
+                },
+                {
+                  id: 'actions',
+                  header: 'Actions',
+                  cell: (row) => (
+                    <div className="flex flex-wrap gap-2">
+                      {row.status !== 'signed' ? (
+                        <button
+                          type="button"
+                          className="rounded border border-neutral-300 px-2 py-1 text-xs"
+                          onClick={() => void inspection.signRound(row.id)}
+                        >
+                          Sign off
+                        </button>
+                      ) : (
+                        <span className="text-xs text-neutral-500">Signed</span>
+                      )}
+                    </div>
+                  ),
+                },
+              ]}
+              rows={rounds}
+              getRowKey={(row) => row.id}
+              emptyMessage={
+                inspection.loading ? 'Loading rounds...' : 'No inspection rounds available.'
+              }
+            />
+          </div>
+
+          <aside className="space-y-4">
             <section>
               <h3 className="text-sm font-semibold text-neutral-900">Templates</h3>
               <ul className="mt-2 space-y-1 text-xs text-neutral-700">
@@ -309,9 +324,12 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
                     </li>
                   )
                 })}
-                {inspection.templates.length === 0 ? <li className="text-neutral-500">No templates configured.</li> : null}
+                {inspection.templates.length === 0 ? (
+                  <li className="text-neutral-500">No templates configured.</li>
+                ) : null}
               </ul>
             </section>
+
             <section>
               <h3 className="text-sm font-semibold text-neutral-900">Findings</h3>
               <div className="space-y-2">
@@ -380,24 +398,31 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
                     </div>
                   )
                 })}
-                {rounds.length === 0 ? <p className="text-xs text-neutral-500">Create a round to start registering findings.</p> : null}
+                {rounds.length === 0 ? (
+                  <p className="text-xs text-neutral-500">
+                    Create a round to start registering findings.
+                  </p>
+                ) : null}
               </div>
             </section>
+
             {inspection.error ? (
               <section className="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">
                 {inspection.error}
               </section>
             ) : null}
-          </div>
-        }
-      />
+          </aside>
+        </div>
+      </ModuleDetailView>
 
+      {/* ── Create round modal ──────────────────────────────────────────────── */}
       <FormModal
         open={createOpen}
+        onClose={closeRoundCreator}
+        titleId="form-create-round"
         title="Create inspection round"
-        description="Rounds support optional cron expression for recurring schedules."
-        actions={
-          <>
+        footer={
+          <div className="flex justify-end gap-2">
             <button
               type="button"
               className="rounded border border-neutral-300 px-3 py-1.5 text-sm"
@@ -409,7 +434,8 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
               type="button"
               className="rounded bg-[#1a3d32] px-3 py-1.5 text-sm font-medium text-white"
               onClick={async () => {
-                const selectedTemplateId = newRoundForm.templateId || inspection.templates[0]?.id || ''
+                const selectedTemplateId =
+                  newRoundForm.templateId || inspection.templates[0]?.id || ''
                 if (!selectedTemplateId || !newRoundForm.title.trim()) return
                 await inspection.createRound({
                   templateId: selectedTemplateId,
@@ -432,7 +458,7 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
             >
               Create
             </button>
-          </>
+          </div>
         }
       >
         <div className="grid gap-3 sm:grid-cols-2">
@@ -440,7 +466,9 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
             <span className="text-xs text-neutral-500">Title</span>
             <input
               value={newRoundForm.title}
-              onChange={(event) => setNewRoundForm((previous) => ({ ...previous, title: event.target.value }))}
+              onChange={(event) =>
+                setNewRoundForm((previous) => ({ ...previous, title: event.target.value }))
+              }
               className="w-full rounded border border-neutral-300 px-2 py-1.5"
             />
           </label>
@@ -448,7 +476,9 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
             <span className="text-xs text-neutral-500">Template</span>
             <select
               value={newRoundForm.templateId || inspection.templates[0]?.id || ''}
-              onChange={(event) => setNewRoundForm((previous) => ({ ...previous, templateId: event.target.value }))}
+              onChange={(event) =>
+                setNewRoundForm((previous) => ({ ...previous, templateId: event.target.value }))
+              }
               className="w-full rounded border border-neutral-300 px-2 py-1.5"
             >
               {inspection.templates.map((template) => (
@@ -462,7 +492,9 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
             <span className="text-xs text-neutral-500">Location</span>
             <select
               value={newRoundForm.locationId}
-              onChange={(event) => setNewRoundForm((previous) => ({ ...previous, locationId: event.target.value }))}
+              onChange={(event) =>
+                setNewRoundForm((previous) => ({ ...previous, locationId: event.target.value }))
+              }
               className="w-full rounded border border-neutral-300 px-2 py-1.5"
             >
               <option value="">(Optional)</option>
@@ -478,16 +510,23 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
             <input
               type="datetime-local"
               value={newRoundForm.scheduledFor}
-              onChange={(event) => setNewRoundForm((previous) => ({ ...previous, scheduledFor: event.target.value }))}
+              onChange={(event) =>
+                setNewRoundForm((previous) => ({ ...previous, scheduledFor: event.target.value }))
+              }
               className="w-full rounded border border-neutral-300 px-2 py-1.5"
             />
           </label>
           <label className="space-y-1 text-sm sm:col-span-2">
-            <span className="text-xs text-neutral-500">Cron expression</span>
+            <span className="text-xs text-neutral-500">
+              Cron expression (for recurring rounds)
+            </span>
             <input
               value={newRoundForm.cronExpression}
               onChange={(event) =>
-                setNewRoundForm((previous) => ({ ...previous, cronExpression: event.target.value }))
+                setNewRoundForm((previous) => ({
+                  ...previous,
+                  cronExpression: event.target.value,
+                }))
               }
               placeholder="0 7 * * 1"
               className="w-full rounded border border-neutral-300 px-2 py-1.5"
@@ -497,7 +536,9 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
             <span className="text-xs text-neutral-500">Assigned to</span>
             <select
               value={newRoundForm.assignedTo}
-              onChange={(event) => setNewRoundForm((previous) => ({ ...previous, assignedTo: event.target.value }))}
+              onChange={(event) =>
+                setNewRoundForm((previous) => ({ ...previous, assignedTo: event.target.value }))
+              }
               className="w-full rounded border border-neutral-300 px-2 py-1.5"
             >
               <option value="">(Optional)</option>
@@ -511,12 +552,14 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
         </div>
       </FormModal>
 
+      {/* ── Checklist builder modal ─────────────────────────────────────────── */}
       <FormModal
         open={templateOpen}
+        onClose={closeTemplateBuilder}
+        titleId="form-checklist-builder"
         title="Checklist builder"
-        description="Create reusable checklist templates for inspection rounds."
-        actions={
-          <>
+        footer={
+          <div className="flex justify-end gap-2">
             <button
               type="button"
               className="rounded border border-neutral-300 px-3 py-1.5 text-sm"
@@ -540,7 +583,7 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
             >
               Save template
             </button>
-          </>
+          </div>
         }
       >
         <div className="space-y-3">
@@ -555,11 +598,16 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
             />
           </label>
           <label className="space-y-1 text-sm">
-            <span className="text-xs text-neutral-500">Checklist items (one line per item)</span>
+            <span className="text-xs text-neutral-500">
+              Checklist items (one line per item)
+            </span>
             <textarea
               value={newTemplateForm.checklistText}
               onChange={(event) =>
-                setNewTemplateForm((previous) => ({ ...previous, checklistText: event.target.value }))
+                setNewTemplateForm((previous) => ({
+                  ...previous,
+                  checklistText: event.target.value,
+                }))
               }
               rows={6}
               className="w-full rounded border border-neutral-300 px-2 py-1.5"
@@ -578,12 +626,14 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
         </div>
       </FormModal>
 
+      {/* ── Add location modal ──────────────────────────────────────────────── */}
       <FormModal
         open={locationOpen}
+        onClose={closeLocationEditor}
+        titleId="form-add-location"
         title="Inspection location"
-        description="Add a location/object used in inspection rounds."
-        actions={
-          <>
+        footer={
+          <div className="flex justify-end gap-2">
             <button
               type="button"
               className="rounded border border-neutral-300 px-3 py-1.5 text-sm"
@@ -608,7 +658,7 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
             >
               Save location
             </button>
-          </>
+          </div>
         }
       >
         <div className="grid gap-3">
@@ -627,7 +677,10 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
             <input
               value={newLocationForm.locationCode}
               onChange={(event) =>
-                setNewLocationForm((previous) => ({ ...previous, locationCode: event.target.value }))
+                setNewLocationForm((previous) => ({
+                  ...previous,
+                  locationCode: event.target.value,
+                }))
               }
               className="w-full rounded border border-neutral-300 px-2 py-1.5"
             />
@@ -637,7 +690,10 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
             <textarea
               value={newLocationForm.description}
               onChange={(event) =>
-                setNewLocationForm((previous) => ({ ...previous, description: event.target.value }))
+                setNewLocationForm((previous) => ({
+                  ...previous,
+                  description: event.target.value,
+                }))
               }
               rows={3}
               className="w-full rounded border border-neutral-300 px-2 py-1.5"
@@ -646,18 +702,22 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
         </div>
       </FormModal>
 
+      {/* ── Scheduling modal ────────────────────────────────────────────────── */}
       <FormModal
         open={scheduleOpen}
+        onClose={closeRoundScheduler}
+        titleId="form-scheduling"
         title="Round scheduling"
-        description="Configure cron, assignment, and planned execution for recurring rounds."
-        actions={
-          <button
-            type="button"
-            className="rounded border border-neutral-300 px-3 py-1.5 text-sm"
-            onClick={closeRoundScheduler}
-          >
-            Close
-          </button>
+        footer={
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="rounded border border-neutral-300 px-3 py-1.5 text-sm"
+              onClick={closeRoundScheduler}
+            >
+              Close
+            </button>
+          </div>
         }
       >
         <div className="space-y-3">
@@ -721,7 +781,8 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
                         scheduledFor: currentDraft.scheduledFor || undefined,
                         cronExpression: currentDraft.cronExpression || undefined,
                         assignedTo: currentDraft.assignedTo || undefined,
-                        status: roundById.get(round.id)?.status === 'draft' ? 'active' : undefined,
+                        status:
+                          roundById.get(round.id)?.status === 'draft' ? 'active' : undefined,
                       })
                     }
                   >
@@ -732,7 +793,9 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
             )
           })}
           {roundsForSchedule.length === 0 ? (
-            <p className="text-sm text-neutral-500">No rounds available yet. Create one to configure scheduling.</p>
+            <p className="text-sm text-neutral-500">
+              No rounds available yet. Create one to configure scheduling.
+            </p>
           ) : null}
         </div>
       </FormModal>
