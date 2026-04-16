@@ -121,6 +121,8 @@ export function useReportSchedules() {
     [supabase, orgId],
   )
 
+  const clearError = useCallback(() => setError(null), [])
+
   const deleteSchedule = useCallback(
     async (id: string): Promise<boolean> => {
       if (!supabase || !orgId) return false
@@ -143,12 +145,13 @@ export function useReportSchedules() {
       schedules,
       loading,
       error,
+      clearError,
       enabled,
       refresh,
       createSchedule,
       updateSchedule,
       deleteSchedule,
     }),
-    [schedules, loading, error, enabled, refresh, createSchedule, updateSchedule, deleteSchedule],
+    [schedules, loading, error, clearError, enabled, refresh, createSchedule, updateSchedule, deleteSchedule],
   )
 }
