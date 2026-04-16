@@ -82,7 +82,6 @@ import { LandingPage } from './pages/LandingPage'
 import { ModuleSlugPage } from './pages/ModuleSlugPage'
 import { InspectionModulePage } from './pages/InspectionModulePage'
 import { InspectionModuleAdminPage } from './pages/InspectionModuleAdminPage'
-import { OrgModuleDesignerPage } from './pages/OrgModuleDesignerPage'
 import { ModuleAdminPage } from './pages/ModuleAdminPage'
 
 function App() {

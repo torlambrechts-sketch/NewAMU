@@ -277,6 +277,7 @@ export function ModuleAdminPage() {
           wrap
           title="Moduler"
           description="Slå moduler av og på for hele organisasjonen. Deaktiverte moduler forsvinner fra menyen."
+          toolbar={null}
           footer={
             <span className="text-neutral-500">
               {activeCount} aktive · {KNOWN_MODULES.length - activeCount} deaktiverte
