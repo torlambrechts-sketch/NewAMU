@@ -58,6 +58,12 @@ alter table public.modules add column if not exists config jsonb default '{}'::j
 alter table public.modules add column if not exists created_at timestamptz default now();
 alter table public.modules add column if not exists updated_at timestamptz default now();
 
+-- Legacy deployments may have old policies referencing `required_permissions`.
+-- Drop defensively before type coercion to avoid dependency errors.
+drop policy if exists "modules_select_active_permitted" on public.modules;
+drop policy if exists "modules_select_org" on public.modules;
+drop policy if exists "modules_write_org_admin" on public.modules;
+
 do $$
 declare
   v_required_permissions_type text;
