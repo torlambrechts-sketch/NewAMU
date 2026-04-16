@@ -81,6 +81,7 @@ import { WhistleStatusPage } from './pages/WhistleStatusPage'
 import { LandingPage } from './pages/LandingPage'
 import { ModuleSlugPage } from './pages/ModuleSlugPage'
 import { InspectionModulePage } from './pages/InspectionModulePage'
+import { OrgModuleDesignerPage } from './pages/OrgModuleDesignerPage'
 
 function App() {
   return (
@@ -154,6 +155,8 @@ function App() {
                       <Route path="hse/inspection-settings" element={<HseInspectionSettings />} />
                       {/* Phase 3: inspection module */}
                       <Route path="inspection-module" element={<InspectionModulePage />} />
+                      {/* Admin: module designer */}
+                      <Route path="admin/modules" element={<OrgModuleDesignerPage />} />
                       {/* Phase 2: dynamic module route — loaded from `modules` table via registry */}
                       <Route path="modules/:module_slug" element={<ModuleSlugPage />} />
                       <Route path="admin" element={<Navigate to="/organisation/admin" replace />} />
