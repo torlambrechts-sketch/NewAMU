@@ -188,6 +188,33 @@ create table if not exists public.deviations (
   updated_at timestamptz not null default now()
 );
 
+-- Compatibility for legacy deviations table variants.
+alter table public.deviations add column if not exists organization_id uuid references public.organizations (id) on delete cascade;
+alter table public.deviations add column if not exists source text default 'inspection';
+alter table public.deviations add column if not exists source_id uuid;
+alter table public.deviations add column if not exists title text;
+alter table public.deviations add column if not exists description text default '';
+alter table public.deviations add column if not exists severity public.inspection_finding_severity default 'medium';
+alter table public.deviations add column if not exists status text default 'open';
+alter table public.deviations add column if not exists due_at timestamptz;
+alter table public.deviations add column if not exists created_by uuid references auth.users (id) on delete set null;
+alter table public.deviations add column if not exists created_at timestamptz default now();
+alter table public.deviations add column if not exists updated_at timestamptz default now();
+
+update public.deviations
+set
+  source = coalesce(nullif(source, ''), 'inspection'),
+  description = coalesce(description, ''),
+  status = coalesce(nullif(status, ''), 'open'),
+  created_at = coalesce(created_at, now()),
+  updated_at = coalesce(updated_at, now())
+where
+  source is null
+  or description is null
+  or status is null
+  or created_at is null
+  or updated_at is null;
+
 create index if not exists deviations_org_status_idx on public.deviations (organization_id, status, created_at desc);
 create index if not exists deviations_org_source_idx on public.deviations (organization_id, source, source_id);
 
@@ -211,6 +238,36 @@ create table if not exists public.tasks (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Compatibility for legacy tasks table variants.
+alter table public.tasks add column if not exists organization_id uuid references public.organizations (id) on delete cascade;
+alter table public.tasks add column if not exists source text default 'inspection';
+alter table public.tasks add column if not exists source_id uuid;
+alter table public.tasks add column if not exists title text;
+alter table public.tasks add column if not exists description text default '';
+alter table public.tasks add column if not exists assigned_to uuid references auth.users (id) on delete set null;
+alter table public.tasks add column if not exists due_at timestamptz;
+alter table public.tasks add column if not exists status text default 'todo';
+alter table public.tasks add column if not exists priority text default 'normal';
+alter table public.tasks add column if not exists created_by uuid references auth.users (id) on delete set null;
+alter table public.tasks add column if not exists created_at timestamptz default now();
+alter table public.tasks add column if not exists updated_at timestamptz default now();
+
+update public.tasks
+set
+  source = coalesce(nullif(source, ''), 'inspection'),
+  description = coalesce(description, ''),
+  status = coalesce(nullif(status, ''), 'todo'),
+  priority = coalesce(nullif(priority, ''), 'normal'),
+  created_at = coalesce(created_at, now()),
+  updated_at = coalesce(updated_at, now())
+where
+  source is null
+  or description is null
+  or status is null
+  or priority is null
+  or created_at is null
+  or updated_at is null;
 
 create index if not exists tasks_org_status_idx on public.tasks (organization_id, status, due_at);
 create index if not exists tasks_org_source_idx on public.tasks (organization_id, source, source_id);
