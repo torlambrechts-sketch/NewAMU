@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { GripVertical, Search, Trash2 } from 'lucide-react'
 import type { ReportModule, ReportModuleKind } from '../../types/reportBuilder'
 import {
@@ -21,11 +21,29 @@ type Props = {
 
 export function ReportModuleDesigner({ modules, onModulesChange }: Props) {
   const [moduleSearch, setModuleSearch] = useState('')
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [overId, setOverId] = useState<string | null>(null)
+
+  const searchActive = moduleSearch.trim().length > 0
 
   const filtered = useMemo(() => {
     const q = moduleSearch.trim().toLowerCase()
     return modules.filter((m) => !q || m.title.toLowerCase().includes(q))
   }, [modules, moduleSearch])
+
+  const reorder = useCallback(
+    (fromId: string, toId: string) => {
+      if (fromId === toId) return
+      const from = modules.findIndex((m) => m.id === fromId)
+      const to = modules.findIndex((m) => m.id === toId)
+      if (from < 0 || to < 0) return
+      const next = [...modules]
+      const [row] = next.splice(from, 1)
+      next.splice(to, 0, row!)
+      onModulesChange(next)
+    },
+    [modules, onModulesChange],
+  )
 
   function updateModule(mid: string, patch: Partial<ReportModule>) {
     onModulesChange(modules.map((m) => (m.id === mid ? ({ ...m, ...patch } as ReportModule) : m)))
@@ -50,6 +68,8 @@ export function ReportModuleDesigner({ modules, onModulesChange }: Props) {
     onModulesChange([...modules, createDefaultModule(kind)])
   }
 
+  const list = searchActive ? filtered : modules
+
   return (
     <div className="flex min-h-0 flex-col rounded-none border border-neutral-200/90 bg-[#f4f1ea]">
       <div className="border-b border-neutral-200/80 p-4">
@@ -66,6 +86,11 @@ export function ReportModuleDesigner({ modules, onModulesChange }: Props) {
             className={`${SETTINGS_INPUT} bg-white pl-10`}
           />
         </div>
+        {searchActive ? (
+          <p className="mt-2 text-[11px] leading-snug text-neutral-500">
+            Dra-og-slipp er deaktivert under søk. Tøm feltet for å sortere hele listen.
+          </p>
+        ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           {(['kpi', 'table', 'bar', 'donut'] as const).map((k) => (
             <button
@@ -80,152 +105,202 @@ export function ReportModuleDesigner({ modules, onModulesChange }: Props) {
         </div>
       </div>
       <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-        {filtered.map((m) => (
-          <li key={m.id} className={`${R_FLAT} border border-neutral-200 bg-white p-3 shadow-sm`}>
-            <div className="flex items-start gap-2">
-              <div className="mt-0.5 text-neutral-400">
-                <GripVertical className="size-4" />
-              </div>
-              <div className="min-w-0 flex-1 space-y-2">
-                <input
-                  value={m.title}
-                  onChange={(e) => updateModule(m.id, { title: e.target.value })}
-                  className="w-full rounded-none border border-neutral-200 px-2 py-1 text-sm font-medium"
-                />
-                <div className="flex flex-wrap gap-1">
-                  <span className="text-[10px] font-bold uppercase text-neutral-500">{m.kind}</span>
-                </div>
-                <label className={SETTINGS_FIELD_LABEL}>Datasett</label>
-                <select
-                  value={m.datasetKey}
-                  onChange={(e) => {
-                    const dk = e.target.value as ReportModule['datasetKey']
-                    if (m.kind === 'kpi') {
-                      const opts = KPI_PATHS[dk]
-                      updateModule(m.id, {
-                        datasetKey: dk,
-                        valuePath: opts?.[0]?.path ?? m.valuePath,
-                        subtitle: opts?.[0]?.label ?? m.subtitle,
-                      })
-                    } else if (m.kind === 'table') {
-                      const cols = TABLE_COLUMNS[dk]
-                      updateModule(m.id, {
-                        datasetKey: dk,
-                        rowKeys: cols ? cols.slice(0, 4) : m.rowKeys,
-                      })
-                    } else if (m.kind === 'bar') {
-                      const s = BAR_SERIES_PRESETS[dk]
-                      updateModule(m.id, {
-                        datasetKey: dk,
-                        seriesKeys: s ? [...s] : m.seriesKeys,
-                      })
-                    } else {
-                      updateModule(m.id, { datasetKey: dk })
+        {list.map((m) => {
+          const isOver = !searchActive && overId === m.id && dragId && dragId !== m.id
+          return (
+            <li
+              key={m.id}
+              className={`${R_FLAT} border border-neutral-200 bg-white p-3 shadow-sm ${isOver ? 'ring-2 ring-neutral-800 ring-offset-2 ring-offset-[#f4f1ea]' : ''}`}
+              onDragOver={
+                searchActive
+                  ? undefined
+                  : (e) => {
+                      e.preventDefault()
+                      e.dataTransfer.dropEffect = 'move'
+                      setOverId(m.id)
                     }
+              }
+              onDragLeave={
+                searchActive
+                  ? undefined
+                  : () => {
+                      setOverId((cur) => (cur === m.id ? null : cur))
+                    }
+              }
+              onDrop={
+                searchActive
+                  ? undefined
+                  : (e) => {
+                      e.preventDefault()
+                      const fromId = e.dataTransfer.getData('text/plain') || dragId
+                      if (fromId) reorder(fromId, m.id)
+                      setDragId(null)
+                      setOverId(null)
+                    }
+              }
+            >
+              <div className="flex items-start gap-2">
+                <div
+                  className={`mt-0.5 shrink-0 text-neutral-400 ${searchActive ? 'cursor-default opacity-40' : 'cursor-grab active:cursor-grabbing'}`}
+                  draggable={!searchActive}
+                  title={searchActive ? undefined : 'Dra for å flytte'}
+                  onDragStart={
+                    searchActive
+                      ? undefined
+                      : (e) => {
+                          e.dataTransfer.setData('text/plain', m.id)
+                          e.dataTransfer.effectAllowed = 'move'
+                          setDragId(m.id)
+                        }
+                  }
+                  onDragEnd={() => {
+                    setDragId(null)
+                    setOverId(null)
                   }}
-                  className={`${SETTINGS_INPUT} bg-white text-xs`}
                 >
-                  {DATASET_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-                {m.kind === 'kpi' ? (
-                  <>
-                    <label className={SETTINGS_FIELD_LABEL}>Verdifelt</label>
-                    <select
-                      value={m.valuePath}
-                      onChange={(e) => updateModule(m.id, { valuePath: e.target.value })}
-                      className={`${SETTINGS_INPUT} bg-white text-xs`}
-                    >
-                      {(KPI_PATHS[m.datasetKey] ?? [{ path: m.valuePath, label: m.valuePath }]).map((o) => (
-                        <option key={o.path} value={o.path}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                    <label className={SETTINGS_FIELD_LABEL}>Undertittel</label>
-                    <input
-                      value={m.subtitle ?? ''}
-                      onChange={(e) => updateModule(m.id, { subtitle: e.target.value })}
-                      className={`${SETTINGS_INPUT} bg-white text-xs`}
-                    />
-                  </>
-                ) : null}
-                {m.kind === 'table' ? (
-                  <>
-                    <label className={SETTINGS_FIELD_LABEL}>Kolonner (kommaseparert)</label>
-                    <input
-                      value={m.rowKeys.join(', ')}
-                      onChange={(e) =>
+                  <GripVertical className="size-4" aria-hidden />
+                </div>
+                <div className="min-w-0 flex-1 space-y-2">
+                  <input
+                    value={m.title}
+                    onChange={(e) => updateModule(m.id, { title: e.target.value })}
+                    className="w-full rounded-none border border-neutral-200 px-2 py-1 text-sm font-medium"
+                  />
+                  <div className="flex flex-wrap gap-1">
+                    <span className="text-[10px] font-bold uppercase text-neutral-500">{m.kind}</span>
+                  </div>
+                  <label className={SETTINGS_FIELD_LABEL}>Datasett</label>
+                  <select
+                    value={m.datasetKey}
+                    onChange={(e) => {
+                      const dk = e.target.value as ReportModule['datasetKey']
+                      if (m.kind === 'kpi') {
+                        const opts = KPI_PATHS[dk]
                         updateModule(m.id, {
-                          rowKeys: e.target.value
-                            .split(',')
-                            .map((x) => x.trim())
-                            .filter(Boolean),
+                          datasetKey: dk,
+                          valuePath: opts?.[0]?.path ?? m.valuePath,
+                          subtitle: opts?.[0]?.label ?? m.subtitle,
                         })
-                      }
-                      className={`${SETTINGS_INPUT} bg-white font-mono text-xs`}
-                    />
-                  </>
-                ) : null}
-                {m.kind === 'bar' ? (
-                  <>
-                    <label className={SETTINGS_FIELD_LABEL}>Serienøkler (kommaseparert)</label>
-                    <input
-                      value={m.seriesKeys.join(', ')}
-                      onChange={(e) =>
+                      } else if (m.kind === 'table') {
+                        const cols = TABLE_COLUMNS[dk]
                         updateModule(m.id, {
-                          seriesKeys: e.target.value
-                            .split(',')
-                            .map((x) => x.trim())
-                            .filter(Boolean),
+                          datasetKey: dk,
+                          rowKeys: cols ? cols.slice(0, 4) : m.rowKeys,
                         })
+                      } else if (m.kind === 'bar') {
+                        const s = BAR_SERIES_PRESETS[dk]
+                        updateModule(m.id, {
+                          datasetKey: dk,
+                          seriesKeys: s ? [...s] : m.seriesKeys,
+                        })
+                      } else {
+                        updateModule(m.id, { datasetKey: dk })
                       }
-                      className={`${SETTINGS_INPUT} bg-white font-mono text-xs`}
-                    />
-                  </>
-                ) : null}
-                {m.kind === 'donut' ? (
-                  <>
-                    <label className={SETTINGS_FIELD_LABEL}>Sti til segmenter (valgfri)</label>
-                    <input
-                      value={m.segmentsPath}
-                      onChange={(e) => updateModule(m.id, { segmentsPath: e.target.value })}
-                      className={`${SETTINGS_INPUT} bg-white font-mono text-xs`}
-                      placeholder="f.eks. nested.path"
-                    />
-                  </>
-                ) : null}
+                    }}
+                    className={`${SETTINGS_INPUT} bg-white text-xs`}
+                  >
+                    {DATASET_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  {m.kind === 'kpi' ? (
+                    <>
+                      <label className={SETTINGS_FIELD_LABEL}>Verdifelt</label>
+                      <select
+                        value={m.valuePath}
+                        onChange={(e) => updateModule(m.id, { valuePath: e.target.value })}
+                        className={`${SETTINGS_INPUT} bg-white text-xs`}
+                      >
+                        {(KPI_PATHS[m.datasetKey] ?? [{ path: m.valuePath, label: m.valuePath }]).map((o) => (
+                          <option key={o.path} value={o.path}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                      <label className={SETTINGS_FIELD_LABEL}>Undertittel</label>
+                      <input
+                        value={m.subtitle ?? ''}
+                        onChange={(e) => updateModule(m.id, { subtitle: e.target.value })}
+                        className={`${SETTINGS_INPUT} bg-white text-xs`}
+                      />
+                    </>
+                  ) : null}
+                  {m.kind === 'table' ? (
+                    <>
+                      <label className={SETTINGS_FIELD_LABEL}>Kolonner (kommaseparert)</label>
+                      <input
+                        value={m.rowKeys.join(', ')}
+                        onChange={(e) =>
+                          updateModule(m.id, {
+                            rowKeys: e.target.value
+                              .split(',')
+                              .map((x) => x.trim())
+                              .filter(Boolean),
+                          })
+                        }
+                        className={`${SETTINGS_INPUT} bg-white font-mono text-xs`}
+                      />
+                    </>
+                  ) : null}
+                  {m.kind === 'bar' ? (
+                    <>
+                      <label className={SETTINGS_FIELD_LABEL}>Serienøkler (kommaseparert)</label>
+                      <input
+                        value={m.seriesKeys.join(', ')}
+                        onChange={(e) =>
+                          updateModule(m.id, {
+                            seriesKeys: e.target.value
+                              .split(',')
+                              .map((x) => x.trim())
+                              .filter(Boolean),
+                          })
+                        }
+                        className={`${SETTINGS_INPUT} bg-white font-mono text-xs`}
+                      />
+                    </>
+                  ) : null}
+                  {m.kind === 'donut' ? (
+                    <>
+                      <label className={SETTINGS_FIELD_LABEL}>Sti til segmenter (valgfri)</label>
+                      <input
+                        value={m.segmentsPath}
+                        onChange={(e) => updateModule(m.id, { segmentsPath: e.target.value })}
+                        className={`${SETTINGS_INPUT} bg-white font-mono text-xs`}
+                        placeholder="f.eks. nested.path"
+                      />
+                    </>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 flex-col gap-1">
+                  <button
+                    type="button"
+                    onClick={() => moveModule(m.id, -1)}
+                    className="rounded-none px-1 text-xs text-neutral-500 hover:bg-neutral-100"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveModule(m.id, 1)}
+                    className="rounded-none px-1 text-xs text-neutral-500 hover:bg-neutral-100"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeModule(m.id)}
+                    className="rounded-none p-1 text-red-600 hover:bg-red-50"
+                    aria-label="Fjern"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
               </div>
-              <div className="flex shrink-0 flex-col gap-1">
-                <button
-                  type="button"
-                  onClick={() => moveModule(m.id, -1)}
-                  className="rounded-none px-1 text-xs text-neutral-500 hover:bg-neutral-100"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveModule(m.id, 1)}
-                  className="rounded-none px-1 text-xs text-neutral-500 hover:bg-neutral-100"
-                >
-                  ↓
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeModule(m.id)}
-                  className="rounded-none p-1 text-red-600 hover:bg-red-50"
-                  aria-label="Fjern"
-                >
-                  <Trash2 className="size-4" />
-                </button>
-              </div>
-            </div>
-          </li>
-        ))}
+            </li>
+          )
+        })}
       </ul>
     </div>
   )

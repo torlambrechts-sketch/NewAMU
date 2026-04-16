@@ -17,6 +17,8 @@ export const PERMISSION_KEYS = [
   'module.view.learning',
   /** Cross-module reporting & compliance exports */
   'module.view.reports',
+  /** Edit ARP snapshots and other report-admin surfaces (matches DB `reports.manage`) */
+  'reports.manage',
   /** Arbeidsplassrapportering — hub for workplace / HSE reporting entry points */
   'module.view.workplace_reporting',
   /** Workflow automation — view rules & run log */
@@ -55,6 +57,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'module.view.tasks': 'Tasks',
   'module.view.learning': 'E-learning',
   'module.view.reports': 'Rapporter',
+  'reports.manage': 'Rapporter — administrasjon',
   'module.view.workplace_reporting': 'Arbeidsplassrapportering',
   'module.view.workflow': 'Arbeidsflyt',
   'workflows.manage': 'Arbeidsflyt — konfigurasjon',
@@ -81,7 +84,7 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/tasks', permission: 'module.view.tasks' },
   { pathPrefix: '/learning', permission: 'module.view.learning' },
   /** Same gate as workspace — report data is still scoped per org in RPCs */
-  { pathPrefix: '/reports', permission: 'module.view.dashboard' },
+  { pathPrefix: '/reports', permission: 'module.view.reports' },
   /** Hub gate: see ROUTE_PERMISSION_ANY (`workplace_reporting` ∪ `dashboard`) */
   { pathPrefix: '/workflow', permission: 'module.view.workflow' },
   { pathPrefix: '/hr', permission: 'module.view.hr_compliance' },

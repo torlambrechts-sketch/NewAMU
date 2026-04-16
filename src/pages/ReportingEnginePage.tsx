@@ -25,6 +25,7 @@ import { mergeLayoutPayload } from '../lib/layoutLabTokens'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useTasks } from '../hooks/useTasks'
 import { useReportBuilder } from '../hooks/useReportBuilder'
+import { useReportRuns } from '../hooks/useReportRuns'
 import { STANDARD_REPORT_CATEGORIES, type StandardReportId } from '../data/standardReports'
 import { buildReportDatasets } from '../lib/reportDatasets'
 import { createDefaultModule, newModuleId } from '../lib/reportModuleCatalog'
@@ -100,6 +101,14 @@ export function ReportingEnginePage() {
   const org = useOrganisation()
   const { tasks } = useTasks()
   const rb = useReportBuilder()
+  const {
+    logRun: logReportRun,
+    refresh: refreshReportRuns,
+    enabled: reportRunsEnabled,
+    runs: reportRunRows,
+    loading: reportRunsLoading,
+    error: reportRunsError,
+  } = useReportRuns()
 
   const [searchParams, setSearchParams] = useSearchParams()
   const mainTab: MainTab =
@@ -178,6 +187,11 @@ export function ReportingEnginePage() {
     queueMicrotask(() => void loadCompliance())
   }, [loadCompliance])
 
+  useEffect(() => {
+    if (mainTab !== 'history' || !reportRunsEnabled) return
+    void refreshReportRuns()
+  }, [mainTab, reportRunsEnabled, refreshReportRuns])
+
   const standardReportCount = useMemo(
     () => STANDARD_REPORT_CATEGORIES.reduce((a, c) => a + c.reports.length, 0),
     [],
@@ -223,11 +237,18 @@ export function ReportingEnginePage() {
         const entry: RunEntry = { id: crypto.randomUUID(), title, at: new Date().toISOString(), kind: 'standard' }
         pushHistory(entry)
         setHistory(readHistory())
+        const logged = await logReportRun({
+          kind: 'standard',
+          title,
+          reportYear: y,
+          standardReportId: id,
+        })
+        if (logged) void refreshReportRuns()
       } finally {
         setStandardLoading(false)
       }
     },
-    [rep, y],
+    [rep, y, logReportRun, refreshReportRuns],
   )
 
   const standardVisualModel = useMemo(() => {
@@ -412,7 +433,7 @@ export function ReportingEnginePage() {
 
   function runCustomReport() {
     if (!draft) return
-    void refreshPreview(draft.modules).then(() => {
+    void refreshPreview(draft.modules).then(async () => {
       const entry: RunEntry = {
         id: crypto.randomUUID(),
         title: draft.name,
@@ -421,6 +442,14 @@ export function ReportingEnginePage() {
       }
       pushHistory(entry)
       setHistory(readHistory())
+      const logged = await logReportRun({
+        kind: 'custom',
+        title: draft.name,
+        reportYear: y,
+        customTemplateId: draft.id,
+        meta: { moduleCount: draft.modules.length },
+      })
+      if (logged) void refreshReportRuns()
     })
   }
 
@@ -500,9 +529,9 @@ export function ReportingEnginePage() {
         menu={<HubMenu1Bar ariaLabel="Rapporter — faner" items={reportHubItems} />}
       />
 
-      {(rep.error || rb.error) && (
+      {(rep.error || rb.error || reportRunsError) && (
         <p className="mt-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {rep.error ?? rb.error}
+          {rep.error ?? rb.error ?? reportRunsError}
         </p>
       )}
 
@@ -655,10 +684,40 @@ export function ReportingEnginePage() {
       )}
 
       {mainTab === 'history' && (
-        <section className="mt-8">
-          <Mainbox1 title="Rapportlogg" subtitle="Siste kjøringer i denne nettleserøkten.">
+        <section className="mt-8 space-y-8">
+          <Mainbox1
+            title="Rapportlogg (organisasjon)"
+            subtitle={
+              reportRunsEnabled
+                ? 'Hvem som kjørte hvilken rapport, lagret i databasen.'
+                : 'Krever innlogget bruker og migrasjon `report_runs` i Supabase.'
+            }
+          >
+            {!reportRunsEnabled ? (
+              <p className="text-sm text-neutral-500">Organisasjonslogg er ikke tilgjengelig i denne økten.</p>
+            ) : reportRunsLoading && reportRunRows.length === 0 ? (
+              <p className="flex items-center gap-2 text-sm text-neutral-500">
+                <Loader2 className="size-4 animate-spin" aria-hidden /> Laster logg…
+              </p>
+            ) : reportRunRows.length === 0 ? (
+              <p className="text-sm text-neutral-500">Ingen kjøringer er lagret for organisasjonen ennå.</p>
+            ) : (
+              <ul className="divide-y divide-neutral-100 text-sm">
+                {reportRunRows.map((r) => (
+                  <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                    <span className="font-medium text-neutral-900">{r.title}</span>
+                    <span className="text-xs text-neutral-500">
+                      {new Date(r.run_at).toLocaleString('no-NO')} · {r.kind === 'custom' ? 'Tilpasset' : 'Standard'}
+                      {r.report_year != null ? ` · år ${r.report_year}` : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Mainbox1>
+          <Mainbox1 title="Denne nettleserøkten" subtitle="Lokalt minne — slettes om du tømmer nettleserdata.">
             {history.length === 0 ? (
-              <p className="text-sm text-neutral-500">Ingen kjøringer logget ennå.</p>
+              <p className="text-sm text-neutral-500">Ingen kjøringer i økten ennå.</p>
             ) : (
               <ul className="divide-y divide-neutral-100 text-sm">
                 {history.map((h) => (
