@@ -22,6 +22,7 @@ import {
   PanelLeft,
   PanelRight,
   Boxes,
+  Layers,
   Settings2,
   Shield,
   ShieldCheck,
@@ -389,6 +390,36 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    // ── Staging area: newly redesigned modules live here until moved ──────────
+    // To move a module to its final group: cut the object and paste it into the
+    // target group's `modules` array above.
+    id: 'nye-moduler',
+    label: 'Nye moduler',
+    icon: Layers,
+    modules: [
+      {
+        to: '/inspection-module',
+        label: 'Inspeksjonsrunder',
+        end: false,
+        icon: ClipboardList,
+        moduleSlug: 'inspection',
+        subs: [
+          {
+            label: 'Oversikt',
+            path: '/inspection-module',
+            match: ({ pathname }: { pathname: string }) => pathname === '/inspection-module',
+          },
+          {
+            label: 'Innstillinger',
+            path: '/inspection-module/admin',
+            match: ({ pathname }: { pathname: string }) =>
+              pathname.startsWith('/inspection-module/admin'),
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: 'konfigurasjon',
     label: 'Konfigurasjon',
     icon: Settings2,
@@ -401,15 +432,8 @@ const navGroups: NavGroup[] = [
         subs: [],
       },
       {
-        to: '/inspection-module/admin',
-        label: 'Inspeksjonsmaler',
-        end: false,
-        icon: ClipboardList,
-        subs: [],
-      },
-      {
         to: '/admin/modules',
-        label: 'Moduldesigner',
+        label: 'Moduloversikt',
         end: false,
         icon: Boxes,
         subs: [],
