@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Circle,
   ClipboardList,
+  GitBranch,
   Loader2,
   MapPin,
   Plus,
@@ -24,6 +25,7 @@ import {
 } from '../components/layout/layoutTable1PostingsKit'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useInspectionModule } from '../../modules/inspection/useInspectionModule'
+import { WorkflowRulesTab } from '../components/workflow/WorkflowRulesTab'
 import { parseChecklistItems } from '../../modules/inspection/schema'
 import type {
   HmsCategory,
@@ -84,7 +86,17 @@ function newItem(index: number): InspectionChecklistItem {
   return { key: `item_${Date.now()}_${index}`, label: '', fieldType: 'yes_no_na', required: true }
 }
 
-type Tab = 'templates' | 'locations' | 'signoff'
+type Tab = 'templates' | 'locations' | 'signoff' | 'workflow'
+
+const INSPECTION_TRIGGER_EVENTS = [
+  { value: 'round_created', label: 'Runde opprettet' },
+  { value: 'round_activated', label: 'Runde aktivert' },
+  { value: 'round_signed', label: 'Runde signert' },
+  { value: 'finding_critical', label: 'Kritisk funn registrert' },
+  { value: 'finding_high', label: 'Høy-alvorlighet funn' },
+  { value: 'finding_medium', label: 'Middels-alvorlighet funn' },
+  { value: 'finding_low', label: 'Lav-alvorlighet funn' },
+]
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -99,6 +111,7 @@ export function InspectionModuleAdminPage() {
     { key: 'templates', label: 'Maler', icon: ClipboardList, active: tab === 'templates', onClick: () => setTab('templates') },
     { key: 'locations', label: 'Lokasjoner', icon: MapPin, active: tab === 'locations', onClick: () => setTab('locations') },
     { key: 'signoff', label: 'Signaturer', icon: UserCheck, active: tab === 'signoff', onClick: () => setTab('signoff') },
+    { key: 'workflow', label: 'Arbeidsflyt', icon: GitBranch, active: tab === 'workflow', onClick: () => setTab('workflow') },
   ], [tab])
 
   return (
@@ -129,6 +142,13 @@ export function InspectionModuleAdminPage() {
       {tab === 'templates' && <TemplatesTab inspection={inspection} />}
       {tab === 'locations' && <LocationsTab inspection={inspection} supabase={supabase} />}
       {tab === 'signoff' && <SignoffTab inspection={inspection} supabase={supabase} />}
+      {tab === 'workflow' && (
+        <WorkflowRulesTab
+          supabase={supabase}
+          triggerModule="inspection"
+          triggerEvents={INSPECTION_TRIGGER_EVENTS}
+        />
+      )}
     </div>
   )
 }
