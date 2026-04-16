@@ -50,6 +50,8 @@ export type CustomReportTemplate = {
   createdAt: string
   updatedAt: string
   modules: ReportModule[]
+  /** DB `report_definitions.version` for optimistic locking (remote only). */
+  rowVersion?: number
 }
 
 export type ReportBuilderPayload = {
