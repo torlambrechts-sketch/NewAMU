@@ -68,6 +68,12 @@ do $$
 declare
   v_required_permissions_type text;
 begin
+  -- Legacy schema may enforce global uniqueness on slug only.
+  -- We migrate to tenant-scoped uniqueness (organization_id, slug).
+  execute 'alter table public.modules drop constraint if exists modules_slug_key';
+  execute 'drop index if exists public.modules_slug_key';
+  execute 'drop index if exists public.modules_slug_idx';
+
   select a.udt_name
   into v_required_permissions_type
   from information_schema.columns a
