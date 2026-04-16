@@ -83,6 +83,7 @@ import { ModuleSlugPage } from './pages/ModuleSlugPage'
 import { InspectionModulePage } from './pages/InspectionModulePage'
 import { InspectionModuleAdminPage } from './pages/InspectionModuleAdminPage'
 import { OrgModuleDesignerPage } from './pages/OrgModuleDesignerPage'
+import { ModuleAdminPage } from './pages/ModuleAdminPage'
 
 function App() {
   return (
@@ -157,8 +158,8 @@ function App() {
                       {/* Phase 3: inspection module */}
                       <Route path="inspection-module" element={<InspectionModulePage />} />
                       <Route path="inspection-module/admin" element={<InspectionModuleAdminPage />} />
-                      {/* Admin: module designer */}
-                      <Route path="admin/modules" element={<OrgModuleDesignerPage />} />
+                      {/* Admin: module overview + RBAC */}
+                      <Route path="admin/modules" element={<ModuleAdminPage />} />
                       {/* Phase 2: dynamic module route — loaded from `modules` table via registry */}
                       <Route path="modules/:module_slug" element={<ModuleSlugPage />} />
                       <Route path="admin" element={<Navigate to="/organisation/admin" replace />} />

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ComponentType } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   BarChart3,
@@ -258,6 +258,8 @@ type NavModule = {
   subs: SubItem[]
   /** When set and RBAC is active, module is hidden if user lacks this permission. */
   perm?: PermissionKey
+  /** Maps to the slug in the modules table; item is hidden when the module is disabled. */
+  moduleSlug?: string
 }
 
 const navGroups: NavGroup[] = [
@@ -275,7 +277,7 @@ const navGroups: NavGroup[] = [
         subs: [],
         perm: 'module.view.dashboard',
       },
-      { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, subs: tasksSubs, perm: 'module.view.tasks' },
+      { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, subs: tasksSubs, perm: 'module.view.tasks', moduleSlug: 'tasks' },
       { to: '/action-board', label: 'Action Board', end: false, icon: Kanban, subs: [], perm: 'module.view.dashboard' },
       { to: '/aarshjul', label: 'Årshjul', end: false, icon: CalendarRange, subs: [], perm: 'module.view.dashboard' },
       { to: '/reports', label: 'Rapporter', end: false, icon: BarChart3, subs: [], perm: 'module.view.dashboard' },
@@ -293,6 +295,7 @@ const navGroups: NavGroup[] = [
         icon: Megaphone,
         subs: workplaceReportingSubs,
         perm: 'module.view.workplace_reporting',
+        moduleSlug: 'workplace_reporting',
       },
     ],
   },
@@ -315,6 +318,7 @@ const navGroups: NavGroup[] = [
         icon: ClipboardList,
         subs: internalControlSubs,
         perm: 'module.view.internal_control',
+        moduleSlug: 'internal-control',
       },
       {
         to: '/modules/aarskontroll',
@@ -324,8 +328,8 @@ const navGroups: NavGroup[] = [
         subs: [],
         perm: 'module.view.internal_control',
       },
-      { to: '/hse', label: 'HSE / HMS', end: false, icon: HardHat, subs: hseSubs, perm: 'module.view.hse' },
-      { to: '/org-health', label: 'Org Health', end: false, icon: HeartPulse, subs: orgHealthSubs, perm: 'module.view.org_health' },
+      { to: '/hse', label: 'HSE / HMS', end: false, icon: HardHat, subs: hseSubs, perm: 'module.view.hse', moduleSlug: 'hse' },
+      { to: '/org-health', label: 'Org Health', end: false, icon: HeartPulse, subs: orgHealthSubs, perm: 'module.view.org_health', moduleSlug: 'org-health' },
       {
         to: '/hr',
         label: 'HR & rettssikkerhet',
@@ -339,6 +343,7 @@ const navGroups: NavGroup[] = [
           },
         ],
         perm: 'module.view.hr_compliance',
+        moduleSlug: 'hr',
       },
     ],
   },
@@ -347,8 +352,8 @@ const navGroups: NavGroup[] = [
     label: 'Worker Council',
     icon: UsersRound,
     modules: [
-      { to: '/council', label: 'Council Room', end: false, icon: UsersRound, subs: councilSubs, perm: 'module.view.council' },
-      { to: '/council?tab=board', label: 'Members', end: false, icon: Users, subs: [], perm: 'module.view.members' },
+      { to: '/council', label: 'Council Room', end: false, icon: UsersRound, subs: councilSubs, perm: 'module.view.council', moduleSlug: 'council' },
+      { to: '/council?tab=board', label: 'Members', end: false, icon: Users, subs: [], perm: 'module.view.members', moduleSlug: 'members' },
     ],
   },
   {
@@ -356,8 +361,8 @@ const navGroups: NavGroup[] = [
     label: 'Library',
     icon: Library,
     modules: [
-      { to: '/documents', label: 'Documents', end: false, icon: FileText, subs: documentsSubs, perm: 'module.view.dashboard' },
-      { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap, subs: learningSubs, perm: 'module.view.learning' },
+      { to: '/documents', label: 'Documents', end: false, icon: FileText, subs: documentsSubs, perm: 'module.view.dashboard', moduleSlug: 'documents' },
+      { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap, subs: learningSubs, perm: 'module.view.learning', moduleSlug: 'learning' },
     ],
   },
   {
@@ -417,12 +422,18 @@ function filterNavGroups(
   groups: NavGroup[],
   gateNav: boolean,
   can: (k: PermissionKey) => boolean,
+  disabledModules: Set<string>,
+  hiddenForUser: Set<string>,
 ): NavGroup[] {
-  if (!gateNav) return groups
   return groups
     .map((g) => ({
       ...g,
-      modules: g.modules.filter((m) => !m.perm || can(m.perm)),
+      modules: g.modules.filter((m) => {
+        if (m.moduleSlug && disabledModules.has(m.moduleSlug)) return false
+        if (m.moduleSlug && hiddenForUser.has(m.moduleSlug)) return false
+        if (gateNav && m.perm && !can(m.perm)) return false
+        return true
+      }),
     }))
     .filter((g) => g.modules.length > 0)
 }
@@ -569,12 +580,46 @@ function saveSubNavCollapsed(collapsed: boolean) {
 
 export function AticsShell() {
   const location = useLocation()
-  const { supabaseConfigured, can, permissionKeys, user, profile, signOut, organization } = useOrgSetupContext()
+  const { supabase, supabaseConfigured, can, permissionKeys, user, profile, signOut, organization } = useOrgSetupContext()
   const { t } = useI18n()
   const gateNav = supabaseConfigured && permissionKeys.size > 0
+
+  // Disabled at org level (modules.is_active = false)
+  const [disabledModules, setDisabledModules] = useState<Set<string>>(new Set())
+  // Hidden for this user (module_user_access.access_level = 'none')
+  const [hiddenForUser, setHiddenForUser] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (!supabase || !user) return
+    void (async () => {
+      const [modsRes, accessRes] = await Promise.all([
+        supabase.from('modules').select('slug, is_active'),
+        supabase.from('module_user_access').select('module_slug, access_level').eq('user_id', user.id),
+      ])
+      if (!modsRes.error && modsRes.data) {
+        setDisabledModules(
+          new Set(
+            (modsRes.data as { slug: string; is_active: boolean }[])
+              .filter((r) => !r.is_active)
+              .map((r) => r.slug),
+          ),
+        )
+      }
+      if (!accessRes.error && accessRes.data) {
+        setHiddenForUser(
+          new Set(
+            (accessRes.data as { module_slug: string; access_level: string }[])
+              .filter((r) => r.access_level === 'none')
+              .map((r) => r.module_slug),
+          ),
+        )
+      }
+    })()
+  }, [supabase, user])
+
   const visibleGroups = useMemo(
-    () => filterNavGroups(navGroups, gateNav, can),
-    [gateNav, can],
+    () => filterNavGroups(navGroups, gateNav, can, disabledModules, hiddenForUser),
+    [gateNav, can, disabledModules, hiddenForUser],
   )
   const visibleModules = useMemo(() => allModulesFrom(visibleGroups), [visibleGroups])
 
