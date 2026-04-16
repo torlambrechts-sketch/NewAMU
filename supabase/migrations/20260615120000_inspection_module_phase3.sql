@@ -72,11 +72,23 @@ begin
   if v_required_permissions_type = '_text' then
     execute $sql$
       alter table public.modules
+      alter column required_permissions drop default
+    $sql$;
+    execute $sql$
+      alter table public.modules
       alter column required_permissions
       type jsonb
       using to_jsonb(required_permissions)
     $sql$;
+    execute $sql$
+      alter table public.modules
+      alter column required_permissions set default '[]'::jsonb
+    $sql$;
   elsif v_required_permissions_type = 'text' then
+    execute $sql$
+      alter table public.modules
+      alter column required_permissions drop default
+    $sql$;
     execute $sql$
       alter table public.modules
       alter column required_permissions
@@ -88,6 +100,10 @@ begin
           else to_jsonb(string_to_array(required_permissions, ','))
         end
       )
+    $sql$;
+    execute $sql$
+      alter table public.modules
+      alter column required_permissions set default '[]'::jsonb
     $sql$;
   end if;
 end $$;
