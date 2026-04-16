@@ -16,6 +16,136 @@ import { useInspectionModule } from './useInspectionModule'
 
 type Props = { supabase: SupabaseClient | null }
 
+// ── Recurrence picker ────────────────────────────────────────────────────────
+
+type RecurrenceFreq = 'none' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
+
+const FREQ_LABELS: Record<RecurrenceFreq, string> = {
+  none: 'Ingen repetisjon',
+  weekly: 'Ukentlig',
+  biweekly: 'Annenhver uke',
+  monthly: 'Månedlig (1. hver måned)',
+  quarterly: 'Kvartalsvis (hvert kvartal)',
+}
+
+const WEEKDAYS = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag']
+
+type RecurrenceState = { freq: RecurrenceFreq; weekday: number; hour: number; minute: number }
+
+function toCron(r: RecurrenceState): string {
+  const mm = String(r.minute).padStart(2, '0')
+  const hh = String(r.hour).padStart(2, '0')
+  // cron weekday: 1=Mon … 7=Sun
+  const wd = r.weekday + 1
+  if (r.freq === 'weekly') return `${mm} ${hh} * * ${wd}`
+  if (r.freq === 'biweekly') return `${mm} ${hh} 1,15 * ${wd}`
+  if (r.freq === 'monthly') return `${mm} ${hh} 1 * *`
+  if (r.freq === 'quarterly') return `${mm} ${hh} 1 */3 *`
+  return ''
+}
+
+function parseCron(cron: string): RecurrenceState {
+  const defaultState: RecurrenceState = { freq: 'none', weekday: 0, hour: 7, minute: 0 }
+  if (!cron || !cron.trim()) return defaultState
+  const parts = cron.trim().split(/\s+/)
+  if (parts.length !== 5) return { ...defaultState, freq: 'none' }
+  const [mm, hh, dom, mon, wd] = parts
+  const hour = parseInt(hh, 10)
+  const minute = parseInt(mm, 10)
+  const weekday = Math.max(0, (parseInt(wd, 10) || 1) - 1)
+  if (!Number.isNaN(hour) && !Number.isNaN(minute)) {
+    if (dom === '1' && mon === '*/3') return { freq: 'quarterly', weekday, hour, minute }
+    if (dom === '1' && mon === '*') return { freq: 'monthly', weekday, hour, minute }
+    if (dom === '1,15') return { freq: 'biweekly', weekday, hour, minute }
+    if (dom === '*') return { freq: 'weekly', weekday, hour, minute }
+  }
+  return defaultState
+}
+
+function recurrenceLabel(cron: string): string {
+  const r = parseCron(cron)
+  if (r.freq === 'none') return 'Ingen repetisjon'
+  const time = `${String(r.hour).padStart(2, '0')}:${String(r.minute).padStart(2, '0')}`
+  const day = WEEKDAYS[r.weekday] ?? ''
+  if (r.freq === 'weekly') return `Ukentlig — ${day} kl. ${time}`
+  if (r.freq === 'biweekly') return `Annenhver uke — ${day} kl. ${time}`
+  if (r.freq === 'monthly') return `Månedlig — 1. i måneden kl. ${time}`
+  if (r.freq === 'quarterly') return `Kvartalsvis — 1. i kvartalet kl. ${time}`
+  return cron
+}
+
+function RecurrencePicker({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (cron: string) => void
+}) {
+  const [state, setState] = useState<RecurrenceState>(() => parseCron(value))
+
+  function update(next: RecurrenceState) {
+    setState(next)
+    onChange(next.freq === 'none' ? '' : toCron(next))
+  }
+
+  const needsDay = state.freq === 'weekly' || state.freq === 'biweekly'
+  const preview = state.freq === 'none' ? '' : recurrenceLabel(toCron(state))
+
+  return (
+    <div className="space-y-2">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-xs text-neutral-500">Frekvens</span>
+          <select
+            value={state.freq}
+            onChange={(e) => update({ ...state, freq: e.target.value as RecurrenceFreq })}
+            className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+          >
+            {(Object.keys(FREQ_LABELS) as RecurrenceFreq[]).map((f) => (
+              <option key={f} value={f}>{FREQ_LABELS[f]}</option>
+            ))}
+          </select>
+        </label>
+
+        {needsDay && (
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-xs text-neutral-500">Ukedag</span>
+            <select
+              value={state.weekday}
+              onChange={(e) => update({ ...state, weekday: Number(e.target.value) })}
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            >
+              {WEEKDAYS.map((d, i) => (
+                <option key={d} value={i}>{d}</option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {state.freq !== 'none' && (
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-xs text-neutral-500">Klokkeslett</span>
+            <input
+              type="time"
+              value={`${String(state.hour).padStart(2, '0')}:${String(state.minute).padStart(2, '0')}`}
+              onChange={(e) => {
+                const [h, m] = e.target.value.split(':').map(Number)
+                update({ ...state, hour: h ?? 7, minute: m ?? 0 })
+              }}
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            />
+          </label>
+        )}
+      </div>
+      {preview && (
+        <p className="rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
+          {preview}
+        </p>
+      )}
+    </div>
+  )
+}
+
 const STATUS_LABEL: Record<InspectionRoundRow['status'], string> = {
   draft: 'Kladd',
   active: 'Aktiv',
@@ -391,15 +521,13 @@ export function InspectionModuleView({ supabase }: Props) {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="text-xs text-neutral-500">Gjentakelse (cron, valgfri)</span>
-            <input
+          <div className="flex flex-col gap-1 sm:col-span-2">
+            <span className="text-xs text-neutral-500">Gjentakelse (valgfri)</span>
+            <RecurrencePicker
               value={newRoundForm.cronExpression}
-              onChange={(e) => setNewRoundForm((p) => ({ ...p, cronExpression: e.target.value }))}
-              placeholder="0 7 * * 1  — hver mandag kl. 07"
-              className="rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs"
+              onChange={(cron) => setNewRoundForm((p) => ({ ...p, cronExpression: cron }))}
             />
-          </label>
+          </div>
         </div>
       </FormModal>
 
@@ -431,35 +559,44 @@ export function InspectionModuleView({ supabase }: Props) {
             return (
               <div key={round.id} className="rounded-lg border border-neutral-200 p-3">
                 <p className="text-sm font-medium text-neutral-900">{round.title}</p>
-                <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                  <input
-                    type="datetime-local"
-                    value={toDateTimeLocalValue(draft.scheduledFor || null)}
-                    onChange={(e) =>
-                      setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, scheduledFor: e.target.value } }))
-                    }
-                    className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs"
-                  />
-                  <input
-                    value={draft.cronExpression}
-                    onChange={(e) =>
-                      setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, cronExpression: e.target.value } }))
-                    }
-                    placeholder="0 7 * * 1"
-                    className="rounded-lg border border-neutral-300 px-2 py-1.5 font-mono text-xs"
-                  />
-                  <select
-                    value={draft.assignedTo}
-                    onChange={(e) =>
-                      setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, assignedTo: e.target.value } }))
-                    }
-                    className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs"
-                  >
-                    <option value="">(Ingen)</option>
-                    {inspection.assignableUsers.map((u) => (
-                      <option key={u.id} value={u.id}>{u.displayName}</option>
-                    ))}
-                  </select>
+                <div className="mt-2 space-y-2">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="flex flex-col gap-1 text-xs">
+                      <span className="text-neutral-500">Planlagt dato</span>
+                      <input
+                        type="datetime-local"
+                        value={toDateTimeLocalValue(draft.scheduledFor || null)}
+                        onChange={(e) =>
+                          setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, scheduledFor: e.target.value } }))
+                        }
+                        className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-xs">
+                      <span className="text-neutral-500">Ansvarlig</span>
+                      <select
+                        value={draft.assignedTo}
+                        onChange={(e) =>
+                          setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, assignedTo: e.target.value } }))
+                        }
+                        className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs"
+                      >
+                        <option value="">(Ingen)</option>
+                        {inspection.assignableUsers.map((u) => (
+                          <option key={u.id} value={u.id}>{u.displayName}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-neutral-500">Gjentakelse</span>
+                    <RecurrencePicker
+                      value={draft.cronExpression}
+                      onChange={(cron) =>
+                        setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, cronExpression: cron } }))
+                      }
+                    />
+                  </div>
                 </div>
                 <button
                   type="button"
