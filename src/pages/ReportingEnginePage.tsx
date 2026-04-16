@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
+  CalendarClock,
   ChevronDown,
   Download,
   FileDown,
@@ -25,6 +26,8 @@ import { mergeLayoutPayload } from '../lib/layoutLabTokens'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useTasks } from '../hooks/useTasks'
 import { useReportBuilder } from '../hooks/useReportBuilder'
+import { useReportRuns } from '../hooks/useReportRuns'
+import { useReportSchedules } from '../hooks/useReportSchedules'
 import { STANDARD_REPORT_CATEGORIES, type StandardReportId } from '../data/standardReports'
 import { buildReportDatasets } from '../lib/reportDatasets'
 import { createDefaultModule, newModuleId } from '../lib/reportModuleCatalog'
@@ -79,7 +82,7 @@ function JsonBlock({ data }: { data: unknown }) {
   )
 }
 
-type MainTab = 'reports' | 'history' | 'tools'
+type MainTab = 'reports' | 'history' | 'schedules' | 'tools'
 type ToolsTab =
   | 'amu'
   | 'ik'
@@ -100,14 +103,25 @@ export function ReportingEnginePage() {
   const org = useOrganisation()
   const { tasks } = useTasks()
   const rb = useReportBuilder()
+  const schedules = useReportSchedules()
+  const {
+    logRun: logReportRun,
+    refresh: refreshReportRuns,
+    enabled: reportRunsEnabled,
+    runs: reportRunRows,
+    loading: reportRunsLoading,
+    error: reportRunsError,
+  } = useReportRuns()
 
   const [searchParams, setSearchParams] = useSearchParams()
   const mainTab: MainTab =
     searchParams.get('tab') === 'history'
       ? 'history'
-      : searchParams.get('tab') === 'tools'
-        ? 'tools'
-        : 'reports'
+      : searchParams.get('tab') === 'schedules'
+        ? 'schedules'
+        : searchParams.get('tab') === 'tools'
+          ? 'tools'
+          : 'reports'
 
   const setMainTab = useCallback(
     (t: MainTab) => {
@@ -129,6 +143,7 @@ export function ReportingEnginePage() {
       [
         { id: 'reports' as const, label: 'Rapporter', Icon: LayoutGrid },
         { id: 'history' as const, label: 'Rapportlogg', Icon: History },
+        { id: 'schedules' as const, label: 'Planlegging', Icon: CalendarClock },
         { id: 'tools' as const, label: 'Verktøy (JSON)', Icon: Wrench },
       ] as const
     ).map(({ id, label, Icon }) => ({
@@ -178,6 +193,26 @@ export function ReportingEnginePage() {
     queueMicrotask(() => void loadCompliance())
   }, [loadCompliance])
 
+  useEffect(() => {
+    if (mainTab !== 'history' || !reportRunsEnabled) return
+    void refreshReportRuns()
+  }, [mainTab, reportRunsEnabled, refreshReportRuns])
+
+  useEffect(() => {
+    if (mainTab !== 'schedules' || !schedules.enabled) return
+    void schedules.refresh()
+  }, [mainTab, schedules.enabled, schedules.refresh])
+
+  const templateNameById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const t of rb.templates) m.set(t.id, t.name)
+    return m
+  }, [rb.templates])
+
+  const [newScheduleDefId, setNewScheduleDefId] = useState('')
+  const [newScheduleTitle, setNewScheduleTitle] = useState('')
+  const [newScheduleCron, setNewScheduleCron] = useState('0 8 1 * *')
+
   const standardReportCount = useMemo(
     () => STANDARD_REPORT_CATEGORIES.reduce((a, c) => a + c.reports.length, 0),
     [],
@@ -223,11 +258,18 @@ export function ReportingEnginePage() {
         const entry: RunEntry = { id: crypto.randomUUID(), title, at: new Date().toISOString(), kind: 'standard' }
         pushHistory(entry)
         setHistory(readHistory())
+        const logged = await logReportRun({
+          kind: 'standard',
+          title,
+          reportYear: y,
+          standardReportId: id,
+        })
+        if (logged) void refreshReportRuns()
       } finally {
         setStandardLoading(false)
       }
     },
-    [rep, y],
+    [rep, y, logReportRun, refreshReportRuns],
   )
 
   const standardVisualModel = useMemo(() => {
@@ -404,15 +446,18 @@ export function ReportingEnginePage() {
     setDraft(null)
   }
 
-  function saveDraft() {
+  async function saveDraft() {
     if (!draft?.name.trim()) return
     const now = new Date().toISOString()
-    rb.saveTemplate({ ...draft, updatedAt: now })
+    const saved = await rb.saveTemplate({ ...draft, updatedAt: now })
+    if (saved) {
+      setDraft({ ...saved, modules: saved.modules.map((m) => ({ ...m })) })
+    }
   }
 
   function runCustomReport() {
     if (!draft) return
-    void refreshPreview(draft.modules).then(() => {
+    void refreshPreview(draft.modules).then(async () => {
       const entry: RunEntry = {
         id: crypto.randomUUID(),
         title: draft.name,
@@ -421,6 +466,14 @@ export function ReportingEnginePage() {
       }
       pushHistory(entry)
       setHistory(readHistory())
+      const logged = await logReportRun({
+        kind: 'custom',
+        title: draft.name,
+        reportYear: y,
+        customTemplateId: draft.id,
+        meta: { moduleCount: draft.modules.length },
+      })
+      if (logged) void refreshReportRuns()
     })
   }
 
@@ -455,7 +508,13 @@ export function ReportingEnginePage() {
           { label: 'Rapporter' },
           {
             label:
-              mainTab === 'history' ? 'Historikk' : mainTab === 'tools' ? 'Verktøy' : 'Rapportmotor',
+              mainTab === 'history'
+                ? 'Historikk'
+                : mainTab === 'schedules'
+                  ? 'Planlegging'
+                  : mainTab === 'tools'
+                    ? 'Verktøy'
+                    : 'Rapportmotor',
           },
         ]}
         title="Rapporter"
@@ -500,9 +559,9 @@ export function ReportingEnginePage() {
         menu={<HubMenu1Bar ariaLabel="Rapporter — faner" items={reportHubItems} />}
       />
 
-      {(rep.error || rb.error) && (
+      {(rep.error || rb.error || reportRunsError || schedules.error) && (
         <p className="mt-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {rep.error ?? rb.error}
+          {rep.error ?? rb.error ?? reportRunsError ?? schedules.error}
         </p>
       )}
 
@@ -610,7 +669,9 @@ export function ReportingEnginePage() {
               <div>
                 <h2 className="text-lg font-semibold text-neutral-900">Lagrede rapportmaler</h2>
                 <p className="mt-1 text-sm text-neutral-500">
-                  Åpne en mal for å redigere moduler, eller kjør forhåndsvisning med ferske data.
+                  Åpne en mal for å redigere moduler, eller kjør forhåndsvisning med ferske data. Maler lagres i{' '}
+                  <code className="rounded bg-neutral-100 px-1 text-xs">report_definitions</code> (optimistisk versjon
+                  ved lagring).
                 </p>
               </div>
             </div>
@@ -640,7 +701,11 @@ export function ReportingEnginePage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => rb.deleteTemplate(t.id)}
+                        onClick={() =>
+                          void rb.deleteTemplate(t.id).then((ok) => {
+                            if (ok) void schedules.refresh()
+                          })
+                        }
                         className={`${R_FLAT} border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50`}
                       >
                         Slett
@@ -655,10 +720,40 @@ export function ReportingEnginePage() {
       )}
 
       {mainTab === 'history' && (
-        <section className="mt-8">
-          <Mainbox1 title="Rapportlogg" subtitle="Siste kjøringer i denne nettleserøkten.">
+        <section className="mt-8 space-y-8">
+          <Mainbox1
+            title="Rapportlogg (organisasjon)"
+            subtitle={
+              reportRunsEnabled
+                ? 'Hvem som kjørte hvilken rapport, lagret i databasen.'
+                : 'Krever innlogget bruker og migrasjon `report_runs` i Supabase.'
+            }
+          >
+            {!reportRunsEnabled ? (
+              <p className="text-sm text-neutral-500">Organisasjonslogg er ikke tilgjengelig i denne økten.</p>
+            ) : reportRunsLoading && reportRunRows.length === 0 ? (
+              <p className="flex items-center gap-2 text-sm text-neutral-500">
+                <Loader2 className="size-4 animate-spin" aria-hidden /> Laster logg…
+              </p>
+            ) : reportRunRows.length === 0 ? (
+              <p className="text-sm text-neutral-500">Ingen kjøringer er lagret for organisasjonen ennå.</p>
+            ) : (
+              <ul className="divide-y divide-neutral-100 text-sm">
+                {reportRunRows.map((r) => (
+                  <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                    <span className="font-medium text-neutral-900">{r.title}</span>
+                    <span className="text-xs text-neutral-500">
+                      {new Date(r.run_at).toLocaleString('no-NO')} · {r.kind === 'custom' ? 'Tilpasset' : 'Standard'}
+                      {r.report_year != null ? ` · år ${r.report_year}` : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Mainbox1>
+          <Mainbox1 title="Denne nettleserøkten" subtitle="Lokalt minne — slettes om du tømmer nettleserdata.">
             {history.length === 0 ? (
-              <p className="text-sm text-neutral-500">Ingen kjøringer logget ennå.</p>
+              <p className="text-sm text-neutral-500">Ingen kjøringer i økten ennå.</p>
             ) : (
               <ul className="divide-y divide-neutral-100 text-sm">
                 {history.map((h) => (
@@ -670,6 +765,136 @@ export function ReportingEnginePage() {
                   </li>
                 ))}
               </ul>
+            )}
+          </Mainbox1>
+        </section>
+      )}
+
+      {mainTab === 'schedules' && (
+        <section className="mt-8 space-y-6">
+          <Mainbox1
+            title="Planlagte rapporter (utkast)"
+            subtitle={
+              schedules.enabled
+                ? 'Lagre planer knyttet til en rapportmal. Utsending kjører ikke automatisk ennå — dette er datamodell og CRUD.'
+                : 'Krever innlogget bruker og migrasjon `report_schedules`.'
+            }
+          >
+            {!schedules.enabled ? (
+              <p className="text-sm text-neutral-500">Planlegging er ikke tilgjengelig i denne økten.</p>
+            ) : (
+              <>
+                <div className={`${R_FLAT} border border-neutral-200/90 bg-[#f4f1ea] p-4 sm:p-5`}>
+                  <p className={`${SETTINGS_FIELD_LABEL}`}>Ny plan</p>
+                  <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+                    <div className="md:col-span-2">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-def">
+                        Rapportmal
+                      </label>
+                      <select
+                        id="sched-def"
+                        value={newScheduleDefId}
+                        onChange={(e) => setNewScheduleDefId(e.target.value)}
+                        className={`${SETTINGS_INPUT} bg-white`}
+                      >
+                        <option value="">Velg mal…</option>
+                        {rb.templates.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-title">
+                        Tittel (valgfri)
+                      </label>
+                      <input
+                        id="sched-title"
+                        value={newScheduleTitle}
+                        onChange={(e) => setNewScheduleTitle(e.target.value)}
+                        placeholder="f.eks. Månedlig til ledergruppe"
+                        className={`${SETTINGS_INPUT} bg-white`}
+                      />
+                    </div>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-cron">
+                        Cron (UTC)
+                      </label>
+                      <input
+                        id="sched-cron"
+                        value={newScheduleCron}
+                        onChange={(e) => setNewScheduleCron(e.target.value)}
+                        className={`${SETTINGS_INPUT} bg-white font-mono text-xs`}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!newScheduleDefId || schedules.loading}
+                    onClick={async () => {
+                      if (!newScheduleDefId) return
+                      const created = await schedules.createSchedule({
+                        report_definition_id: newScheduleDefId,
+                        title: newScheduleTitle.trim() || templateNameById.get(newScheduleDefId) || 'Plan',
+                        cron_expr: newScheduleCron.trim() || '0 8 1 * *',
+                        enabled: false,
+                      })
+                      if (created) {
+                        setNewScheduleTitle('')
+                        setNewScheduleCron('0 8 1 * *')
+                      }
+                    }}
+                    className={`${R_FLAT} mt-4 inline-flex items-center gap-2 border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50`}
+                  >
+                    {schedules.loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+                    Legg til plan
+                  </button>
+                </div>
+
+                {schedules.loading && schedules.schedules.length === 0 ? (
+                  <p className="mt-4 flex items-center gap-2 text-sm text-neutral-500">
+                    <Loader2 className="size-4 animate-spin" aria-hidden /> Laster planer…
+                  </p>
+                ) : schedules.schedules.length === 0 ? (
+                  <p className="mt-4 text-sm text-neutral-500">Ingen planer lagret ennå.</p>
+                ) : (
+                  <ul className="mt-6 divide-y divide-neutral-100 rounded-none border border-neutral-200 bg-white">
+                    {schedules.schedules.map((s) => (
+                      <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-medium text-neutral-900">{s.title}</p>
+                          <p className="mt-0.5 text-xs text-neutral-500">
+                            Mal: {templateNameById.get(s.report_definition_id) ?? s.report_definition_id.slice(0, 8)}
+                            {' · '}
+                            <span className="font-mono">{s.cron_expr}</span>
+                            {' · '}
+                            {s.timezone}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <label className="flex cursor-pointer items-center gap-2 text-xs text-neutral-600">
+                            <input
+                              type="checkbox"
+                              checked={s.enabled}
+                              onChange={(e) => void schedules.updateSchedule(s.id, { enabled: e.target.checked })}
+                              className="size-4 rounded-none border-neutral-300"
+                            />
+                            Aktiv (når motor er på plass)
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => void schedules.deleteSchedule(s.id)}
+                            className={`${R_FLAT} border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50`}
+                          >
+                            Slett
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </Mainbox1>
         </section>
