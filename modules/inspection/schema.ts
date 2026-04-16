@@ -75,10 +75,12 @@ export const InspectionRoundRowSchema: z.ZodType<InspectionRoundRow> = z.object(
   status: z.enum(['draft', 'active', 'signed']),
   completed_at: z.string().nullable(),
   signed_off_by: z.string().uuid().nullable(),
-  manager_signed_at: z.string().nullable(),
-  manager_signed_by: z.string().uuid().nullable(),
-  deputy_signed_at: z.string().nullable(),
-  deputy_signed_by: z.string().uuid().nullable(),
+  // Added by migration 20260617140000 — use .default(null) so older DB instances
+  // (where the migration hasn't been applied yet) don't cause parse failures.
+  manager_signed_at: z.string().nullable().default(null),
+  manager_signed_by: z.string().uuid().nullable().default(null),
+  deputy_signed_at: z.string().nullable().default(null),
+  deputy_signed_by: z.string().uuid().nullable().default(null),
   created_by: z.string().uuid().nullable(),
   created_at: TimestampSchema,
   updated_at: TimestampSchema,

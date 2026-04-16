@@ -354,7 +354,8 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       }
       const parsedRound = InspectionRoundRowSchema.safeParse(data)
       if (!parsedRound.success) {
-        setError('Failed to parse created inspection round.')
+        const fields = parsedRound.error.issues.map((i) => i.path.join('.')).join(', ')
+        setError(`Failed to parse created inspection round (fields: ${fields}). Run migration 20260617140000 if missing.`)
         return
       }
       setRounds((previous) => [parsedRound.data, ...previous])
