@@ -1,28 +1,46 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { CheckCircle2, Circle, Search, Settings } from 'lucide-react'
+import { FormModal } from '../../src/template'
+import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
+import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
+import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import {
-  DataTable,
-  FormModal,
-  ModuleDetailView,
-} from '../../src/template'
+  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
+  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
+  LAYOUT_TABLE1_POSTINGS_TH,
+} from '../../src/components/layout/layoutTable1PostingsKit'
 import { parseChecklistItems } from './schema'
 import type { InspectionFindingRow, InspectionRoundRow } from './types'
 import { useInspectionModule } from './useInspectionModule'
 
-type InspectionModuleViewProps = {
-  supabase: SupabaseClient | null
+type Props = { supabase: SupabaseClient | null }
+
+const SEVERITY_LABEL: Record<InspectionFindingRow['severity'], string> = {
+  low: 'Lav',
+  medium: 'Medium',
+  high: 'Høy',
+  critical: 'Kritisk',
 }
 
-const severityOptions: InspectionFindingRow['severity'][] = ['low', 'medium', 'high', 'critical']
+const SEVERITY_CLASS: Record<InspectionFindingRow['severity'], string> = {
+  low: 'bg-neutral-100 text-neutral-700',
+  medium: 'bg-amber-100 text-amber-800',
+  high: 'bg-orange-100 text-orange-800',
+  critical: 'bg-red-100 text-red-800',
+}
+
+const STATUS_LABEL: Record<InspectionRoundRow['status'], string> = {
+  draft: 'Kladd',
+  active: 'Aktiv',
+  signed: 'Signert',
+}
 
 function formatDate(input: string | null) {
   if (!input) return '—'
   try {
-    return new Date(input).toLocaleString('nb-NO', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    })
+    return new Date(input).toLocaleDateString('nb-NO', { dateStyle: 'short' })
   } catch {
     return input
   }
@@ -40,12 +58,11 @@ function toDateTimeLocalValue(input: string | null): string {
   return `${year}-${month}-${day}T${hours}:${minutes}`
 }
 
-export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
+export function InspectionModuleView({ supabase }: Props) {
   const inspection = useInspectionModule({ supabase })
   const { load } = inspection
+  const [search, setSearch] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
-  const [templateOpen, setTemplateOpen] = useState(false)
-  const [locationOpen, setLocationOpen] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [newRoundForm, setNewRoundForm] = useState({
     title: '',
@@ -55,134 +72,57 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
     scheduledFor: '',
     assignedTo: '',
   })
-  const [newTemplateForm, setNewTemplateForm] = useState({
-    name: '',
-    checklistText: '',
-  })
-  const [newLocationForm, setNewLocationForm] = useState({
-    name: '',
-    locationCode: '',
-    description: '',
-  })
   const [scheduleDraft, setScheduleDraft] = useState<
-    Record<
-      string,
-      {
-        scheduledFor: string
-        cronExpression: string
-        assignedTo: string
-      }
-    >
+    Record<string, { scheduledFor: string; cronExpression: string; assignedTo: string }>
   >({})
-  const [findingDraft, setFindingDraft] = useState<Record<string, { description: string; severity: InspectionFindingRow['severity'] }>>(
-    {},
-  )
 
-  const openTemplateBuilder = () => setTemplateOpen(true)
-  const openLocationEditor = () => setLocationOpen(true)
-  const openRoundScheduler = () => setScheduleOpen(true)
-  const openRoundCreator = () => setCreateOpen(true)
-  const closeRoundCreator = () => setCreateOpen(false)
-  const closeTemplateBuilder = () => setTemplateOpen(false)
-  const closeLocationEditor = () => setLocationOpen(false)
-  const closeRoundScheduler = () => setScheduleOpen(false)
+  useEffect(() => { void load() }, [load])
 
-  const templateBuilderButton = (
-    <button
-      type="button"
-      className="rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800"
-      onClick={openTemplateBuilder}
-    >
-      Checklist builder
-    </button>
-  )
-
-  const locationButton = (
-    <button
-      type="button"
-      className="rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800"
-      onClick={openLocationEditor}
-    >
-      Add location
-    </button>
-  )
-
-  const schedulingButton = (
-    <button
-      type="button"
-      className="rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800"
-      onClick={openRoundScheduler}
-    >
-      Scheduling
-    </button>
-  )
-
-  const newRoundButton = (
-    <button
-      type="button"
-      className="rounded-full bg-[#1a3d32] px-3 py-1.5 text-sm font-medium text-white"
-      onClick={openRoundCreator}
-    >
-      New round
-    </button>
-  )
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  const rounds = inspection.rounds
-  const roundById = useMemo(() => {
-    const map = new Map<string, typeof rounds[number]>()
-    for (const round of rounds) map.set(round.id, round)
-    return map
-  }, [rounds])
+  // ── Stats ────────────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
-    const totals = {
-      total: rounds.length,
-      draft: 0,
-      active: 0,
-      signed: 0,
-      criticalFindings: 0,
-    }
-    for (const round of rounds) {
-      if (round.status === 'draft') totals.draft += 1
-      if (round.status === 'active') totals.active += 1
-      if (round.status === 'signed') totals.signed += 1
+    let active = 0, signed = 0, criticalFindings = 0
+    for (const round of inspection.rounds) {
+      if (round.status === 'active') active++
+      if (round.status === 'signed') signed++
       const findings = inspection.findingsByRoundId[round.id] ?? []
-      totals.criticalFindings += findings.filter((finding) => finding.severity === 'critical').length
+      criticalFindings += findings.filter((f) => f.severity === 'critical').length
     }
-    return totals
-  }, [rounds, inspection.findingsByRoundId])
+    return { active, signed, criticalFindings }
+  }, [inspection.rounds, inspection.findingsByRoundId])
 
+  // ── Derived data ──────────────────────────────────────────────────────────────
   const locationNameById = useMemo(() => {
     const map = new Map<string, string>()
-    for (const location of inspection.locations) {
-      map.set(location.id, location.name)
-    }
+    for (const loc of inspection.locations) map.set(loc.id, loc.name)
     return map
   }, [inspection.locations])
 
   const templateById = useMemo(() => {
-    const map = new Map<string, { name: string; checklistLength: number }>()
-    for (const template of inspection.templates) {
-      map.set(template.id, {
-        name: template.name,
-        checklistLength: parseChecklistItems(template.checklist_definition).length,
-      })
-    }
+    const map = new Map<string, string>()
+    for (const t of inspection.templates) map.set(t.id, t.name)
     return map
   }, [inspection.templates])
 
-  const assignableUserNameById = useMemo(() => {
+  const userNameById = useMemo(() => {
     const map = new Map<string, string>()
-    for (const user of inspection.assignableUsers) map.set(user.id, user.displayName)
+    for (const u of inspection.assignableUsers) map.set(u.id, u.displayName)
     return map
   }, [inspection.assignableUsers])
 
+  const roundsFiltered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return inspection.rounds
+    return inspection.rounds.filter(
+      (r) =>
+        r.title.toLowerCase().includes(q) ||
+        (r.location_id && locationNameById.get(r.location_id)?.toLowerCase().includes(q)) ||
+        (r.assigned_to && userNameById.get(r.assigned_to)?.toLowerCase().includes(q)),
+    )
+  }, [inspection.rounds, search, locationNameById, userNameById])
+
   const roundsForSchedule = useMemo(
     () =>
-      rounds
+      inspection.rounds
         .slice()
         .sort((a, b) => {
           if (a.scheduled_for && b.scheduled_for) return a.scheduled_for.localeCompare(b.scheduled_for)
@@ -191,630 +131,374 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
           return a.created_at.localeCompare(b.created_at)
         })
         .slice(0, 12),
-    [rounds],
+    [inspection.rounds],
   )
-
-  const templateOptions = useMemo(
-    () =>
-      inspection.templates.map((template) => ({
-        id: template.id,
-        name: template.name,
-      })),
-    [inspection.templates],
-  )
-
-  const parseChecklistText = (text: string) => {
-    const lines = text
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0)
-    return lines.map((line, index) => ({
-      key: `item_${index + 1}`,
-      label: line,
-      required: true,
-    }))
-  }
 
   return (
-    <>
-      {/* ── Main panel ─────────────────────────────────────────────────────── */}
-      <ModuleDetailView
-        title="Inspeksjonsmodul"
+    <div className="space-y-6">
+      {/* ── Head ─────────────────────────────────────────────────────────────── */}
+      <WorkplacePageHeading1
+        breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder' }]}
+        title="Inspeksjonsrunder"
+        description="Planlegg, gjennomfør og signer vernerunder i henhold til Internkontrollforskriften § 5."
         headerActions={
           <div className="flex flex-wrap gap-2">
-            {templateBuilderButton}
-            {locationButton}
-            {schedulingButton}
-            {newRoundButton}
+            <button
+              type="button"
+              onClick={() => setScheduleOpen(true)}
+              className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            >
+              Planlegging
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="rounded-lg px-4 py-2 text-sm font-bold uppercase tracking-wide text-white"
+              style={{ backgroundColor: '#2D403A' }}
+            >
+              Ny runde
+            </button>
             <Link
               to="/inspection-module/admin"
-              className="rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
             >
-              Innstillinger
+              <Settings className="h-4 w-4" />
             </Link>
           </div>
         }
-      >
-        {/* KPI strip */}
-        <div className="mb-5 grid gap-2 sm:grid-cols-5">
-          <MetricCard label="Rounds" value={String(stats.total)} />
-          <MetricCard label="Draft" value={String(stats.draft)} />
-          <MetricCard label="Active" value={String(stats.active)} />
-          <MetricCard label="Signed" value={String(stats.signed)} />
-          <MetricCard label="Critical findings" value={String(stats.criticalFindings)} />
-        </div>
+      />
 
-        {/* Table + sidebar */}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <div>
-            <DataTable<InspectionRoundRow>
-              toolbar={
-                <div className="flex items-start justify-between gap-2 border-b border-neutral-100 px-4 py-3">
-                  <div>
-                    <p className="text-sm font-medium text-neutral-900">Inspection rounds</p>
-                    <p className="text-xs text-neutral-600">
-                      Critical findings are escalated by DB trigger into deviations + tasks.
-                    </p>
-                  </div>
-                </div>
-              }
-              columns={[
-                { id: 'title', header: 'Title', cell: (row) => row.title },
-                {
-                  id: 'template',
-                  header: 'Template',
-                  cell: (row) => templateById.get(row.template_id)?.name ?? row.template_id,
-                },
-                {
-                  id: 'location',
-                  header: 'Location',
-                  cell: (row) =>
-                    row.location_id ? locationNameById.get(row.location_id) ?? row.location_id : '—',
-                },
-                {
-                  id: 'assigned_to',
-                  header: 'Assigned',
-                  cell: (row) =>
-                    row.assigned_to
-                      ? assignableUserNameById.get(row.assigned_to) ?? row.assigned_to
-                      : '—',
-                },
-                { id: 'status', header: 'Status', cell: (row) => row.status },
-                {
-                  id: 'scheduled_for',
-                  header: 'Scheduled',
-                  cell: (row) => formatDate(row.scheduled_for),
-                },
-                {
-                  id: 'completed_at',
-                  header: 'Completed',
-                  cell: (row) => formatDate(row.completed_at),
-                },
-                {
-                  id: 'actions',
-                  header: 'Actions',
-                  cell: (row) => (
-                    <div className="flex flex-wrap gap-2">
-                      {row.status !== 'signed' ? (
-                        <button
-                          type="button"
-                          className="rounded border border-neutral-300 px-2 py-1 text-xs"
-                          onClick={() => void inspection.signRound(row.id)}
-                        >
-                          Sign off
-                        </button>
-                      ) : (
-                        <span className="text-xs text-neutral-500">Signed</span>
-                      )}
-                    </div>
-                  ),
-                },
-              ]}
-              rows={rounds}
-              getRowKey={(row) => row.id}
-              emptyMessage={
-                inspection.loading ? 'Loading rounds...' : 'No inspection rounds available.'
-              }
+      {/* ── Box 3 (KPI) ──────────────────────────────────────────────────────── */}
+      <LayoutScoreStatRow
+        items={[
+          {
+            big: String(stats.active),
+            title: 'Aktive runder',
+            sub: 'Under gjennomføring',
+          },
+          {
+            big: String(stats.criticalFindings),
+            title: 'Kritiske funn',
+            sub: 'Krever oppfølging',
+          },
+          {
+            big: String(stats.signed),
+            title: 'Signert',
+            sub: 'Dobbelt-signert og arkivert',
+          },
+        ]}
+      />
+
+      {/* ── Table 1 ──────────────────────────────────────────────────────────── */}
+      <LayoutTable1PostingsShell
+        wrap
+        title="Runder"
+        description="Alle inspeksjonsrunder — sortert etter siste aktivitet."
+        headerActions={
+          inspection.error ? (
+            <span className="text-xs text-red-600">{inspection.error}</span>
+          ) : undefined
+        }
+        toolbar={
+          <div className="relative min-w-[200px] flex-1">
+            <label className="sr-only" htmlFor="inspection-search">Søk</label>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+            <input
+              id="inspection-search"
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Søk i tittel, lokasjon, ansvarlig …"
+              className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/25"
             />
           </div>
-
-          <aside className="space-y-4">
-            <section>
-              <h3 className="text-sm font-semibold text-neutral-900">Templates</h3>
-              <ul className="mt-2 space-y-1 text-xs text-neutral-700">
-                {inspection.templates.map((template) => {
-                  const info = templateById.get(template.id)
-                  return (
-                    <li key={template.id} className="rounded border border-neutral-200 p-2">
-                      <p className="font-medium">{template.name}</p>
-                      <p className="text-neutral-500">{info?.checklistLength ?? 0} checklist items</p>
-                    </li>
-                  )
-                })}
-                {inspection.templates.length === 0 ? (
-                  <li className="text-neutral-500">No templates configured.</li>
-                ) : null}
-              </ul>
-            </section>
-
-            <section>
-              <h3 className="text-sm font-semibold text-neutral-900">Findings</h3>
-              <div className="space-y-2">
-                {rounds.slice(0, 4).map((round) => {
-                  const existing = inspection.findingsByRoundId[round.id] ?? []
-                  const draft = findingDraft[round.id] ?? {
-                    description: '',
-                    severity: 'medium' as InspectionFindingRow['severity'],
-                  }
-                  return (
-                    <div key={round.id} className="rounded border border-neutral-200 p-2">
-                      <p className="text-xs font-medium text-neutral-900">{round.title}</p>
-                      <p className="mb-2 text-[11px] text-neutral-500">{existing.length} findings</p>
-                      <textarea
-                        value={draft.description}
-                        onChange={(event) =>
-                          setFindingDraft((previous) => ({
-                            ...previous,
-                            [round.id]: { ...draft, description: event.target.value },
-                          }))
-                        }
-                        rows={2}
-                        className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
-                        placeholder="Add finding description"
-                      />
-                      <div className="mt-1 flex items-center gap-2">
-                        <select
-                          value={draft.severity}
-                          onChange={(event) =>
-                            setFindingDraft((previous) => ({
-                              ...previous,
-                              [round.id]: {
-                                ...draft,
-                                severity: event.target.value as InspectionFindingRow['severity'],
-                              },
-                            }))
-                          }
-                          className="rounded border border-neutral-300 px-2 py-1 text-xs"
-                        >
-                          {severityOptions.map((severity) => (
-                            <option key={severity} value={severity}>
-                              {severity}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          className="rounded border border-neutral-300 px-2 py-1 text-xs"
-                          onClick={async () => {
-                            const description = draft.description.trim()
-                            if (!description) return
-                            await inspection.addFinding({
-                              roundId: round.id,
-                              description,
-                              severity: draft.severity,
-                            })
-                            setFindingDraft((previous) => ({
-                              ...previous,
-                              [round.id]: { ...draft, description: '' },
-                            }))
-                          }}
-                        >
-                          Add
-                        </button>
-                      </div>
+        }
+        footer={
+          <span className="text-neutral-500">
+            {search.trim() ? `${roundsFiltered.length} treff` : `Viser ${roundsFiltered.length} runder`}
+          </span>
+        }
+      >
+        <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+          <thead>
+            <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
+              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
+              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Mal</th>
+              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Lokasjon</th>
+              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Ansvarlig</th>
+              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
+              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Planlagt</th>
+              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Signaturer</th>
+              <th className={`w-24 ${LAYOUT_TABLE1_POSTINGS_TH}`}>Handling</th>
+            </tr>
+          </thead>
+          <tbody>
+            {roundsFiltered.map((round) => {
+              const findings = inspection.findingsByRoundId[round.id] ?? []
+              const critCount = findings.filter((f) => f.severity === 'critical').length
+              return (
+                <tr key={round.id} className={LAYOUT_TABLE1_POSTINGS_BODY_ROW}>
+                  <td className="px-5 py-3 font-medium text-neutral-900">
+                    {round.title}
+                    {critCount > 0 && (
+                      <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                        {critCount} kritisk
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3 text-neutral-600">
+                    {templateById.get(round.template_id) ?? '—'}
+                  </td>
+                  <td className="px-5 py-3 text-neutral-600">
+                    {round.location_id ? locationNameById.get(round.location_id) ?? '—' : '—'}
+                  </td>
+                  <td className="px-5 py-3 text-neutral-600">
+                    {round.assigned_to ? userNameById.get(round.assigned_to) ?? '—' : '—'}
+                  </td>
+                  <td className="px-5 py-3">
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        round.status === 'signed'
+                          ? 'bg-green-100 text-green-800'
+                          : round.status === 'active'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-neutral-100 text-neutral-700'
+                      }`}
+                    >
+                      {STATUS_LABEL[round.status]}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-neutral-600">{formatDate(round.scheduled_for)}</td>
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-2">
+                      <span title="Leder">
+                        {round.manager_signed_at ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Circle className="h-4 w-4 text-neutral-300" />
+                        )}
+                      </span>
+                      <span title="Verneombud">
+                        {round.deputy_signed_at ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Circle className="h-4 w-4 text-neutral-300" />
+                        )}
+                      </span>
                     </div>
-                  )
-                })}
-                {rounds.length === 0 ? (
-                  <p className="text-xs text-neutral-500">
-                    Create a round to start registering findings.
-                  </p>
-                ) : null}
-              </div>
-            </section>
-
-            {inspection.error ? (
-              <section className="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">
-                {inspection.error}
-              </section>
-            ) : null}
-          </aside>
-        </div>
-      </ModuleDetailView>
+                  </td>
+                  <td className="px-5 py-3">
+                    {round.status !== 'signed' && (
+                      <Link
+                        to="/inspection-module/admin"
+                        className="text-xs font-medium text-[#1a3d32] hover:underline"
+                      >
+                        Signer
+                      </Link>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+            {roundsFiltered.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-5 py-10 text-center text-sm text-neutral-500">
+                  {inspection.loading ? 'Laster runder…' : 'Ingen runder matcher søket.'}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </LayoutTable1PostingsShell>
 
       {/* ── Create round modal ──────────────────────────────────────────────── */}
       <FormModal
         open={createOpen}
-        onClose={closeRoundCreator}
+        onClose={() => setCreateOpen(false)}
         titleId="form-create-round"
-        title="Create inspection round"
+        title="Ny inspeksjonsrunde"
         footer={
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              className="rounded border border-neutral-300 px-3 py-1.5 text-sm"
-              onClick={closeRoundCreator}
+              className="rounded-lg border border-neutral-300 px-4 py-2 text-sm"
+              onClick={() => setCreateOpen(false)}
             >
-              Cancel
+              Avbryt
             </button>
             <button
               type="button"
-              className="rounded bg-[#1a3d32] px-3 py-1.5 text-sm font-medium text-white"
+              className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
+              style={{ backgroundColor: '#1a3d32' }}
               onClick={async () => {
-                const selectedTemplateId =
-                  newRoundForm.templateId || inspection.templates[0]?.id || ''
-                if (!selectedTemplateId || !newRoundForm.title.trim()) return
+                const templateId = newRoundForm.templateId || inspection.templates[0]?.id || ''
+                if (!templateId || !newRoundForm.title.trim()) return
                 await inspection.createRound({
-                  templateId: selectedTemplateId,
+                  templateId,
                   locationId: newRoundForm.locationId || undefined,
                   title: newRoundForm.title,
                   cronExpression: newRoundForm.cronExpression || undefined,
                   scheduledFor: newRoundForm.scheduledFor || undefined,
                   assignedTo: newRoundForm.assignedTo || undefined,
                 })
-                closeRoundCreator()
-                setNewRoundForm((previous) => ({
-                  ...previous,
-                  title: '',
-                  templateId: selectedTemplateId,
-                  cronExpression: '',
-                  scheduledFor: '',
-                  assignedTo: '',
-                }))
+                setCreateOpen(false)
+                setNewRoundForm({ title: '', templateId: '', locationId: '', cronExpression: '', scheduledFor: '', assignedTo: '' })
               }}
             >
-              Create
+              Opprett
             </button>
           </div>
         }
       >
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="space-y-1 text-sm">
-            <span className="text-xs text-neutral-500">Title</span>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-xs text-neutral-500">Tittel</span>
             <input
               value={newRoundForm.title}
-              onChange={(event) =>
-                setNewRoundForm((previous) => ({ ...previous, title: event.target.value }))
-              }
-              className="w-full rounded border border-neutral-300 px-2 py-1.5"
+              onChange={(e) => setNewRoundForm((p) => ({ ...p, title: e.target.value }))}
+              className="rounded-lg border border-neutral-300 px-3 py-2"
             />
           </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-xs text-neutral-500">Template</span>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-xs text-neutral-500">Mal</span>
             <select
               value={newRoundForm.templateId || inspection.templates[0]?.id || ''}
-              onChange={(event) =>
-                setNewRoundForm((previous) => ({ ...previous, templateId: event.target.value }))
-              }
-              className="w-full rounded border border-neutral-300 px-2 py-1.5"
+              onChange={(e) => setNewRoundForm((p) => ({ ...p, templateId: e.target.value }))}
+              className="rounded-lg border border-neutral-300 px-3 py-2"
             >
-              {inspection.templates.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.name}
-                </option>
+              {inspection.templates.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>
           </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-xs text-neutral-500">Location</span>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-xs text-neutral-500">Lokasjon</span>
             <select
               value={newRoundForm.locationId}
-              onChange={(event) =>
-                setNewRoundForm((previous) => ({ ...previous, locationId: event.target.value }))
-              }
-              className="w-full rounded border border-neutral-300 px-2 py-1.5"
+              onChange={(e) => setNewRoundForm((p) => ({ ...p, locationId: e.target.value }))}
+              className="rounded-lg border border-neutral-300 px-3 py-2"
             >
-              <option value="">(Optional)</option>
-              {inspection.locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.name}
-                </option>
+              <option value="">(Valgfri)</option>
+              {inspection.locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>{loc.name}</option>
               ))}
             </select>
           </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-xs text-neutral-500">Scheduled for</span>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-xs text-neutral-500">Planlagt dato</span>
             <input
               type="datetime-local"
               value={newRoundForm.scheduledFor}
-              onChange={(event) =>
-                setNewRoundForm((previous) => ({ ...previous, scheduledFor: event.target.value }))
-              }
-              className="w-full rounded border border-neutral-300 px-2 py-1.5"
+              onChange={(e) => setNewRoundForm((p) => ({ ...p, scheduledFor: e.target.value }))}
+              className="rounded-lg border border-neutral-300 px-3 py-2"
             />
           </label>
-          <label className="space-y-1 text-sm sm:col-span-2">
-            <span className="text-xs text-neutral-500">
-              Cron expression (for recurring rounds)
-            </span>
-            <input
-              value={newRoundForm.cronExpression}
-              onChange={(event) =>
-                setNewRoundForm((previous) => ({
-                  ...previous,
-                  cronExpression: event.target.value,
-                }))
-              }
-              placeholder="0 7 * * 1"
-              className="w-full rounded border border-neutral-300 px-2 py-1.5"
-            />
-          </label>
-          <label className="space-y-1 text-sm sm:col-span-2">
-            <span className="text-xs text-neutral-500">Assigned to</span>
+          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+            <span className="text-xs text-neutral-500">Ansvarlig</span>
             <select
               value={newRoundForm.assignedTo}
-              onChange={(event) =>
-                setNewRoundForm((previous) => ({ ...previous, assignedTo: event.target.value }))
-              }
-              className="w-full rounded border border-neutral-300 px-2 py-1.5"
+              onChange={(e) => setNewRoundForm((p) => ({ ...p, assignedTo: e.target.value }))}
+              className="rounded-lg border border-neutral-300 px-3 py-2"
             >
-              <option value="">(Optional)</option>
-              {inspection.assignableUsers.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.displayName}
-                </option>
+              <option value="">(Valgfri)</option>
+              {inspection.assignableUsers.map((u) => (
+                <option key={u.id} value={u.id}>{u.displayName}</option>
               ))}
             </select>
           </label>
-        </div>
-      </FormModal>
-
-      {/* ── Checklist builder modal ─────────────────────────────────────────── */}
-      <FormModal
-        open={templateOpen}
-        onClose={closeTemplateBuilder}
-        titleId="form-checklist-builder"
-        title="Checklist builder"
-        footer={
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="rounded border border-neutral-300 px-3 py-1.5 text-sm"
-              onClick={closeTemplateBuilder}
-            >
-              Close
-            </button>
-            <button
-              type="button"
-              className="rounded bg-[#1a3d32] px-3 py-1.5 text-sm font-medium text-white"
-              onClick={async () => {
-                const name = newTemplateForm.name.trim()
-                if (!name) return
-                await inspection.createTemplate({
-                  name,
-                  checklistItems: parseChecklistText(newTemplateForm.checklistText),
-                })
-                setNewTemplateForm({ name: '', checklistText: '' })
-                closeTemplateBuilder()
-              }}
-            >
-              Save template
-            </button>
-          </div>
-        }
-      >
-        <div className="space-y-3">
-          <label className="space-y-1 text-sm">
-            <span className="text-xs text-neutral-500">Template name</span>
+          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+            <span className="text-xs text-neutral-500">Gjentakelse (cron, valgfri)</span>
             <input
-              value={newTemplateForm.name}
-              onChange={(event) =>
-                setNewTemplateForm((previous) => ({ ...previous, name: event.target.value }))
-              }
-              className="w-full rounded border border-neutral-300 px-2 py-1.5"
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-xs text-neutral-500">
-              Checklist items (one line per item)
-            </span>
-            <textarea
-              value={newTemplateForm.checklistText}
-              onChange={(event) =>
-                setNewTemplateForm((previous) => ({
-                  ...previous,
-                  checklistText: event.target.value,
-                }))
-              }
-              rows={6}
-              className="w-full rounded border border-neutral-300 px-2 py-1.5"
-              placeholder={'Emergency exits clear\nFire extinguishers accessible\nPPE available'}
-            />
-          </label>
-          <div className="rounded border border-neutral-200 bg-neutral-50 p-2">
-            <p className="mb-1 text-xs font-medium text-neutral-700">Existing templates</p>
-            <ul className="space-y-1 text-xs text-neutral-600">
-              {templateOptions.map((template) => (
-                <li key={template.id}>{template.name}</li>
-              ))}
-              {templateOptions.length === 0 ? <li>No templates available.</li> : null}
-            </ul>
-          </div>
-        </div>
-      </FormModal>
-
-      {/* ── Add location modal ──────────────────────────────────────────────── */}
-      <FormModal
-        open={locationOpen}
-        onClose={closeLocationEditor}
-        titleId="form-add-location"
-        title="Inspection location"
-        footer={
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="rounded border border-neutral-300 px-3 py-1.5 text-sm"
-              onClick={closeLocationEditor}
-            >
-              Close
-            </button>
-            <button
-              type="button"
-              className="rounded bg-[#1a3d32] px-3 py-1.5 text-sm font-medium text-white"
-              onClick={async () => {
-                const name = newLocationForm.name.trim()
-                if (!name) return
-                await inspection.createLocation({
-                  name,
-                  locationCode: newLocationForm.locationCode,
-                  description: newLocationForm.description,
-                })
-                setNewLocationForm({ name: '', locationCode: '', description: '' })
-                closeLocationEditor()
-              }}
-            >
-              Save location
-            </button>
-          </div>
-        }
-      >
-        <div className="grid gap-3">
-          <label className="space-y-1 text-sm">
-            <span className="text-xs text-neutral-500">Name</span>
-            <input
-              value={newLocationForm.name}
-              onChange={(event) =>
-                setNewLocationForm((previous) => ({ ...previous, name: event.target.value }))
-              }
-              className="w-full rounded border border-neutral-300 px-2 py-1.5"
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-xs text-neutral-500">Code</span>
-            <input
-              value={newLocationForm.locationCode}
-              onChange={(event) =>
-                setNewLocationForm((previous) => ({
-                  ...previous,
-                  locationCode: event.target.value,
-                }))
-              }
-              className="w-full rounded border border-neutral-300 px-2 py-1.5"
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-xs text-neutral-500">Description</span>
-            <textarea
-              value={newLocationForm.description}
-              onChange={(event) =>
-                setNewLocationForm((previous) => ({
-                  ...previous,
-                  description: event.target.value,
-                }))
-              }
-              rows={3}
-              className="w-full rounded border border-neutral-300 px-2 py-1.5"
+              value={newRoundForm.cronExpression}
+              onChange={(e) => setNewRoundForm((p) => ({ ...p, cronExpression: e.target.value }))}
+              placeholder="0 7 * * 1  — hver mandag kl. 07"
+              className="rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs"
             />
           </label>
         </div>
       </FormModal>
 
-      {/* ── Scheduling modal ────────────────────────────────────────────────── */}
+      {/* ── Scheduling modal ─────────────────────────────────────────────────── */}
       <FormModal
         open={scheduleOpen}
-        onClose={closeRoundScheduler}
+        onClose={() => setScheduleOpen(false)}
         titleId="form-scheduling"
-        title="Round scheduling"
+        title="Planlegging av runder"
         footer={
           <div className="flex justify-end">
             <button
               type="button"
-              className="rounded border border-neutral-300 px-3 py-1.5 text-sm"
-              onClick={closeRoundScheduler}
+              className="rounded-lg border border-neutral-300 px-4 py-2 text-sm"
+              onClick={() => setScheduleOpen(false)}
             >
-              Close
+              Lukk
             </button>
           </div>
         }
       >
         <div className="space-y-3">
           {roundsForSchedule.map((round) => {
-            const currentDraft = scheduleDraft[round.id] ?? {
+            const draft = scheduleDraft[round.id] ?? {
               scheduledFor: round.scheduled_for ?? '',
               cronExpression: round.cron_expression ?? '',
               assignedTo: round.assigned_to ?? '',
             }
             return (
-              <div key={round.id} className="rounded border border-neutral-200 p-3">
+              <div key={round.id} className="rounded-lg border border-neutral-200 p-3">
                 <p className="text-sm font-medium text-neutral-900">{round.title}</p>
                 <div className="mt-2 grid gap-2 sm:grid-cols-3">
                   <input
                     type="datetime-local"
-                    value={toDateTimeLocalValue(currentDraft.scheduledFor || null)}
-                    onChange={(event) =>
-                      setScheduleDraft((previous) => ({
-                        ...previous,
-                        [round.id]: { ...currentDraft, scheduledFor: event.target.value },
-                      }))
+                    value={toDateTimeLocalValue(draft.scheduledFor || null)}
+                    onChange={(e) =>
+                      setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, scheduledFor: e.target.value } }))
                     }
-                    className="rounded border border-neutral-300 px-2 py-1.5 text-xs"
+                    className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs"
                   />
                   <input
-                    value={currentDraft.cronExpression}
-                    onChange={(event) =>
-                      setScheduleDraft((previous) => ({
-                        ...previous,
-                        [round.id]: { ...currentDraft, cronExpression: event.target.value },
-                      }))
+                    value={draft.cronExpression}
+                    onChange={(e) =>
+                      setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, cronExpression: e.target.value } }))
                     }
-                    className="rounded border border-neutral-300 px-2 py-1.5 text-xs"
                     placeholder="0 7 * * 1"
+                    className="rounded-lg border border-neutral-300 px-2 py-1.5 font-mono text-xs"
                   />
                   <select
-                    value={currentDraft.assignedTo}
-                    onChange={(event) =>
-                      setScheduleDraft((previous) => ({
-                        ...previous,
-                        [round.id]: { ...currentDraft, assignedTo: event.target.value },
-                      }))
+                    value={draft.assignedTo}
+                    onChange={(e) =>
+                      setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, assignedTo: e.target.value } }))
                     }
-                    className="rounded border border-neutral-300 px-2 py-1.5 text-xs"
+                    className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs"
                   >
-                    <option value="">(Unassigned)</option>
-                    {inspection.assignableUsers.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.displayName}
-                      </option>
+                    <option value="">(Ingen)</option>
+                    {inspection.assignableUsers.map((u) => (
+                      <option key={u.id} value={u.id}>{u.displayName}</option>
                     ))}
                   </select>
                 </div>
-                <div className="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    className="rounded border border-neutral-300 px-2 py-1 text-xs"
-                    onClick={() =>
-                      void inspection.updateRoundSchedule({
-                        roundId: round.id,
-                        scheduledFor: currentDraft.scheduledFor || undefined,
-                        cronExpression: currentDraft.cronExpression || undefined,
-                        assignedTo: currentDraft.assignedTo || undefined,
-                        status:
-                          roundById.get(round.id)?.status === 'draft' ? 'active' : undefined,
-                      })
-                    }
-                  >
-                    Save schedule
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="mt-2 rounded-lg border border-neutral-300 px-3 py-1 text-xs font-medium"
+                  onClick={() =>
+                    void inspection.updateRoundSchedule({
+                      roundId: round.id,
+                      scheduledFor: draft.scheduledFor || undefined,
+                      cronExpression: draft.cronExpression || undefined,
+                      assignedTo: draft.assignedTo || undefined,
+                      status: round.status === 'draft' ? 'active' : undefined,
+                    })
+                  }
+                >
+                  Lagre
+                </button>
               </div>
             )
           })}
-          {roundsForSchedule.length === 0 ? (
-            <p className="text-sm text-neutral-500">
-              No rounds available yet. Create one to configure scheduling.
-            </p>
-          ) : null}
+          {roundsForSchedule.length === 0 && (
+            <p className="text-sm text-neutral-500">Ingen runder. Opprett en runde først.</p>
+          )}
         </div>
       </FormModal>
-    </>
-  )
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-neutral-200 p-3">
-      <p className="text-xs uppercase tracking-wide text-neutral-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-neutral-900">{value}</p>
     </div>
   )
 }

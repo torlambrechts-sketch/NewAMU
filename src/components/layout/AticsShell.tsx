@@ -396,6 +396,13 @@ const navGroups: NavGroup[] = [
         subs: [],
       },
       {
+        to: '/inspection-module/admin',
+        label: 'Inspeksjonsmaler',
+        end: false,
+        icon: ClipboardList,
+        subs: [],
+      },
+      {
         to: '/admin/modules',
         label: 'Moduldesigner',
         end: false,
