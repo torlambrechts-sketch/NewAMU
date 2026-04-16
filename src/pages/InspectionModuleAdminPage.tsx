@@ -90,8 +90,8 @@ export function InspectionModuleAdminPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-neutral-50">
-      <header className="border-b border-neutral-200 bg-white px-6 py-4">
-        <div className="mx-auto max-w-7xl">
+      <header className="border-b border-neutral-200 bg-white px-4 py-4 md:px-8">
+        <div className="mx-auto max-w-[1400px]">
           <div className="flex items-center gap-3">
             <Link
               to="/inspection-module"
@@ -131,7 +131,7 @@ export function InspectionModuleAdminPage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-6">
+      <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 md:px-8">
         {inspection.loading && (
           <div className="flex items-center gap-2 text-sm text-neutral-500">
             <Loader2 className="h-4 w-4 animate-spin" /> Laster...

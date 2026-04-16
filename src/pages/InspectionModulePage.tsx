@@ -10,5 +10,9 @@ import { InspectionModuleView } from '../../modules/inspection/InspectionModuleV
  */
 export function InspectionModulePage() {
   const { supabase } = useOrgSetupContext()
-  return <InspectionModuleView supabase={supabase} />
+  return (
+    <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
+      <InspectionModuleView supabase={supabase} />
+    </div>
+  )
 }
