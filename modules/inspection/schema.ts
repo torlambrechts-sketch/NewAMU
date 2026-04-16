@@ -38,7 +38,7 @@ const TimestampSchema = z.string()
 
 export const InspectionTemplateRowSchema: z.ZodType<InspectionTemplateRow> = z.object({
   id: UuidSchema,
-  organization_id: UuidSchema,
+  organization_id: UuidSchema.nullable(),
   name: z.string(),
   checklist_definition: z.unknown(),
   is_active: z.boolean(),

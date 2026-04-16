@@ -36,7 +36,7 @@ export type InspectionChecklistItem = {
 
 export type InspectionTemplateRow = {
   id: string
-  organization_id: string
+  organization_id: string | null
   name: string
   checklist_definition: unknown
   is_active: boolean
