@@ -111,23 +111,25 @@ export function ModuleAdminPage() {
     if (!supabase) return
     setLoading(true)
     setError(null)
-    try {
-      const [modsRes, usersRes, accessRes] = await Promise.all([
-        supabase.from('modules').select('id, slug, display_name, is_active').order('display_name'),
-        supabase.from('profiles').select('id, display_name, email').order('display_name'),
-        supabase.from('module_user_access').select('id, user_id, module_slug, access_level'),
-      ])
-      if (modsRes.error) throw modsRes.error
-      if (usersRes.error) throw usersRes.error
-      if (accessRes.error) throw accessRes.error
-      setModuleRows((modsRes.data ?? []) as ModuleRow[])
-      setUsers((usersRes.data ?? []) as UserProfile[])
-      setUserAccess((accessRes.data ?? []) as UserAccessRow[])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kunne ikke laste moduldata.')
-    } finally {
-      setLoading(false)
-    }
+    const errors: string[] = []
+
+    const [modsRes, usersRes, accessRes] = await Promise.all([
+      supabase.from('modules').select('id, slug, display_name, is_active').order('display_name'),
+      supabase.from('profiles').select('id, display_name, email').order('display_name'),
+      supabase.from('module_user_access').select('id, user_id, module_slug, access_level'),
+    ])
+
+    if (modsRes.error) errors.push(`Moduler: ${modsRes.error.message}`)
+    else setModuleRows((modsRes.data ?? []) as ModuleRow[])
+
+    if (usersRes.error) errors.push(`Brukere: ${usersRes.error.message}`)
+    else setUsers((usersRes.data ?? []) as UserProfile[])
+
+    // module_user_access may not exist yet if migration hasn't run — silently ignore
+    if (!accessRes.error) setUserAccess((accessRes.data ?? []) as UserAccessRow[])
+
+    if (errors.length > 0) setError(errors.join(' · '))
+    setLoading(false)
   }, [supabase])
 
   useEffect(() => { void load() }, [load])
