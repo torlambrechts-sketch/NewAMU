@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Mail, Plus, Radio, Trash2, Webhook } from 'lucide-react'
-import type { WorkflowAction } from '../../types/workflow'
+import { AlertTriangle, Mail, Plus, Radio, Trash2, Webhook } from 'lucide-react'
+import type { WorkflowAction, WorkflowActionCreateDeviation } from '../../types/workflow'
 import {
+  defaultCreateDeviationAction,
   defaultWebhookAction,
   defaultLogOnlyAction,
   defaultNotificationAction,
@@ -21,6 +22,51 @@ type WorkflowActionCreateTask = Extract<WorkflowAction, { type: 'create_task' }>
 type WorkflowSendEmail = Extract<WorkflowAction, { type: 'send_email' }>
 type WorkflowSendNotification = Extract<WorkflowAction, { type: 'send_notification' }>
 type WorkflowCallWebhook = Extract<WorkflowAction, { type: 'call_webhook' }>
+
+function DeviationFields({
+  a,
+  onPatch,
+}: {
+  a: WorkflowActionCreateDeviation
+  onPatch: (p: Partial<WorkflowActionCreateDeviation>) => void
+}) {
+  return (
+    <div className="space-y-3 text-sm">
+      <p className={WF_LEAD}>
+        Oppretter en rad i <code className="text-xs">deviations</code> med funn-alvoret. Kun aktivt for kilde
+        «Inspeksjonsmodul».
+      </p>
+      <div>
+        <label className={WF_FIELD_LABEL}>Tittel-prefiks (valgfritt)</label>
+        <input
+          value={a.titlePrefix ?? ''}
+          onChange={(e) => onPatch({ titlePrefix: e.target.value || undefined })}
+          placeholder="Standardtittel fra rundetittel"
+          className={WF_FIELD_INPUT}
+        />
+      </div>
+      <div>
+        <label className={WF_FIELD_LABEL}>Frist (dager)</label>
+        <input
+          type="number"
+          min={0}
+          value={a.dueInDays ?? 1}
+          onChange={(e) => onPatch({ dueInDays: Number(e.target.value) || 1 })}
+          className={WF_FIELD_INPUT}
+        />
+      </div>
+      <label className={`flex items-center gap-2 ${WF_LEAD}`}>
+        <input
+          type="checkbox"
+          checked={a.assignFromRound !== false}
+          onChange={(e) => onPatch({ assignFromRound: e.target.checked })}
+          className="size-4"
+        />
+        Arv tildelt fra inspeksjonsrunde
+      </label>
+    </div>
+  )
+}
 
 function TaskFields({
   t,
@@ -185,6 +231,14 @@ export function WorkflowActionsEditor({
     onChange(actions.filter((_, j) => j !== i))
   }
 
+  const patchDeviation = (idx: number, p: Partial<WorkflowActionCreateDeviation>) => {
+    const a = actions[idx]
+    if (a.type !== 'create_deviation') return
+    const copy = [...actions]
+    copy[idx] = { ...a, ...p }
+    onChange(copy)
+  }
+
   const patchTask = (idx: number, p: Partial<WorkflowActionCreateTask>) => {
     const t = actions[idx]
     if (t.type !== 'create_task') return
@@ -206,6 +260,9 @@ export function WorkflowActionsEditor({
       <div className="flex flex-wrap gap-1.5">
         <button type="button" className={BTN} onClick={() => onChange([...actions, defaultTaskAction()])}>
           <Plus className="size-3.5" /> Oppgave
+        </button>
+        <button type="button" className={BTN} onClick={() => onChange([...actions, defaultCreateDeviationAction()])}>
+          <AlertTriangle className="size-3.5" /> Avvik…
         </button>
         <button type="button" className={BTN} onClick={() => openNewDialog('email')}>
           <Mail className="size-3.5" /> E-post…
@@ -238,6 +295,11 @@ export function WorkflowActionsEditor({
                 <Trash2 className="size-3.5" />
               </button>
             </div>
+            {a.type === 'create_deviation' ? (
+              <div className="w-full border-t border-neutral-200 pt-2">
+                <DeviationFields a={a} onPatch={(p) => patchDeviation(i, p)} />
+              </div>
+            ) : null}
             {a.type === 'create_task' ? (
               <div className="w-full border-t border-neutral-200 pt-2">
                 <TaskFields t={a} onPatch={(p) => patchTask(i, p)} />

@@ -9,6 +9,7 @@ import {
   GitBranch,
   LayoutList,
   Megaphone,
+  Search,
   ShieldAlert,
   Stethoscope,
   UserCheck,
@@ -91,6 +92,39 @@ export const WORKFLOW_INPUT_PRESETS: WorkflowInputPreset[] = [
     icon: ClipboardList,
     modules: ['hse'],
     condition: { match: 'array_any', path: 'inspections', where: { status: 'open' } },
+  },
+  // ─── Inspeksjonsmodul — funn (inspection_findings) ─────────────────────
+  {
+    id: 'inspection_finding_any',
+    label: 'Inspeksjon: alle funn',
+    description: 'Utløses for hvert funn som registreres, uavhengig av alvor.',
+    icon: Search,
+    modules: ['inspection'],
+    condition: { match: 'always' },
+  },
+  {
+    id: 'inspection_finding_critical',
+    label: 'Inspeksjon: kritisk funn',
+    description: 'Funn med alvorlighetsgrad «kritisk» — eskaleres automatisk til avvik.',
+    icon: AlertTriangle,
+    modules: ['inspection'],
+    condition: { match: 'field_equals', path: 'severity', value: 'critical' },
+  },
+  {
+    id: 'inspection_finding_high',
+    label: 'Inspeksjon: høy alvor',
+    description: 'Funn med alvorlighetsgrad «høy».',
+    icon: FileWarning,
+    modules: ['inspection'],
+    condition: { match: 'field_equals', path: 'severity', value: 'high' },
+  },
+  {
+    id: 'inspection_finding_medium',
+    label: 'Inspeksjon: middels alvor',
+    description: 'Funn med alvorlighetsgrad «middels».',
+    icon: ShieldAlert,
+    modules: ['inspection'],
+    condition: { match: 'field_equals', path: 'severity', value: 'medium' },
   },
   // ─── Internkontroll (ROS / årsgjennomgang) ──────────────────────────────
   {

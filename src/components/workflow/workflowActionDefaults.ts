@@ -1,4 +1,4 @@
-import type { WorkflowAction } from '../../types/workflow'
+import type { WorkflowAction, WorkflowActionCreateDeviation } from '../../types/workflow'
 
 export function defaultTaskAction(): Extract<WorkflowAction, { type: 'create_task' }> {
   return {
@@ -44,6 +44,14 @@ export function defaultWebhookAction(): Extract<WorkflowAction, { type: 'call_we
   }
 }
 
+export function defaultCreateDeviationAction(): WorkflowActionCreateDeviation {
+  return {
+    type: 'create_deviation',
+    dueInDays: 1,
+    assignFromRound: true,
+  }
+}
+
 export function defaultLogOnlyAction(): Extract<WorkflowAction, { type: 'log_only' }> {
   return { type: 'log_only', note: 'Kun logging' }
 }
@@ -60,6 +68,8 @@ export function summarizeAction(a: WorkflowAction): string {
       const u = a.url ?? ''
       return `Webhook ${a.method ?? 'POST'} ${u.slice(0, 40)}${u.length > 40 ? '…' : ''}`
     }
+    case 'create_deviation':
+      return `Avvik (frist ${a.dueInDays ?? 1}d${a.assignFromRound !== false ? ', arv tildelt' : ''})`
     case 'log_only':
       return a.note ? `Logg: ${a.note}` : 'Kun logg'
     default:

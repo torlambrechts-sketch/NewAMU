@@ -50,8 +50,20 @@ export type WorkflowActionCallWebhook = {
   body?: string
 }
 
+/** Creates a deviation row in `public.deviations`. Only evaluated for source_module = 'inspection'. */
+export type WorkflowActionCreateDeviation = {
+  type: 'create_deviation'
+  /** Optional title prefix — appended with " — inspeksjonsfunn". Defaults to round title. */
+  titlePrefix?: string
+  /** Days until due from trigger time. Default: 1. */
+  dueInDays?: number
+  /** Inherit assigned_to from the inspection round. Default: true. */
+  assignFromRound?: boolean
+}
+
 export type WorkflowAction =
   | WorkflowActionCreateTask
+  | WorkflowActionCreateDeviation
   | WorkflowActionSendEmail
   | WorkflowActionSendNotification
   | WorkflowActionCallWebhook
@@ -94,6 +106,7 @@ export type WorkflowRunRow = {
 
 export const WORKFLOW_SOURCE_MODULES = [
   { value: 'hse', label: 'HSE (hendelser, SJA, vernerunder, inspeksjoner, …)' },
+  { value: 'inspection', label: 'Inspeksjonsmodul — funn (inspection_findings)' },
   { value: 'internal_control', label: 'Internkontroll (ROS, årsgjennomgang)' },
   { value: 'org_health', label: 'Organisasjonshelse (undersøkelser, sykefravær, …)' },
   { value: 'tasks', label: 'Oppgaver' },
