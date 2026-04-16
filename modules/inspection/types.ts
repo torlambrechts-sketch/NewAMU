@@ -2,10 +2,36 @@ export type InspectionRoundStatus = 'draft' | 'active' | 'signed'
 
 export type InspectionFindingSeverity = 'low' | 'medium' | 'high' | 'critical'
 
+export type InspectionFieldType =
+  | 'yes_no_na'
+  | 'text'
+  | 'number'
+  | 'photo'
+  | 'photo_required'
+  | 'signature'
+
+/** Norwegian HMS category tags (Internkontrollforskriften / AML references) */
+export type HmsCategory =
+  | 'fysisk'       // Fysisk arbeidsmiljø — AML § 4-4
+  | 'ergonomi'     // Ergonomi og tilrettelegging — AML § 4-4
+  | 'kjemikalier'  // Kjemikalier og farlige stoffer — Stoffkartotekforskriften
+  | 'psykososialt' // Psykososialt arbeidsmiljø — AML § 4-3
+  | 'brann'        // Brann og rømning — IK-forskriften
+  | 'maskiner'     // Maskiner og teknisk utstyr — Arbeidsutstyrsforskriften
+  | 'annet'
+
 export type InspectionChecklistItem = {
   key: string
   label: string
   required?: boolean
+  /** Response type for this item */
+  fieldType?: InspectionFieldType
+  /** Norwegian HMS category for reporting / filtering */
+  hmsCategory?: HmsCategory
+  /** Explanatory text shown to inspector during execution */
+  helpText?: string
+  /** Legal reference, e.g. "AML § 4-4" */
+  lawRef?: string
 }
 
 export type InspectionTemplateRow = {
@@ -27,6 +53,14 @@ export type InspectionLocationRow = {
   description: string | null
   metadata: Record<string, unknown>
   is_active: boolean
+  /** Hierarchical parent (e.g. Building → Floor → Room) */
+  parent_id: string | null
+  /** Location kind: building | floor | room | department | equipment | site | other */
+  kind: string
+  /** Responsible manager (Arbeidsgiver/Leder) for this location */
+  manager_id: string | null
+  /** Safety deputy (Verneombud) for this location */
+  safety_deputy_id: string | null
   created_at: string
   updated_at: string
 }
@@ -43,6 +77,11 @@ export type InspectionRoundRow = {
   status: InspectionRoundStatus
   completed_at: string | null
   signed_off_by: string | null
+  /** Dual sign-off — Internkontrollforskriften § 5 */
+  manager_signed_at: string | null
+  manager_signed_by: string | null
+  deputy_signed_at: string | null
+  deputy_signed_by: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -77,3 +116,4 @@ export type InspectionFindingRow = {
   created_at: string
   updated_at: string
 }
+

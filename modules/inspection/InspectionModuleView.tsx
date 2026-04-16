@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   DataTable,
@@ -225,6 +226,12 @@ export function InspectionModuleView({ supabase }: InspectionModuleViewProps) {
             {locationButton}
             {schedulingButton}
             {newRoundButton}
+            <Link
+              to="/inspection-module/admin"
+              className="rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+            >
+              Innstillinger
+            </Link>
           </div>
         }
       >

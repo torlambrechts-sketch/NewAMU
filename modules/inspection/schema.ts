@@ -12,6 +12,14 @@ const ChecklistItemSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   required: z.boolean().optional(),
+  fieldType: z
+    .enum(['yes_no_na', 'text', 'number', 'photo', 'photo_required', 'signature'])
+    .optional(),
+  hmsCategory: z
+    .enum(['fysisk', 'ergonomi', 'kjemikalier', 'psykososialt', 'brann', 'maskiner', 'annet'])
+    .optional(),
+  helpText: z.string().optional(),
+  lawRef: z.string().optional(),
 })
 
 const ChecklistDefinitionSchema = z.object({
@@ -47,6 +55,10 @@ export const InspectionLocationRowSchema: z.ZodType<InspectionLocationRow> = z.o
   description: z.string().nullable(),
   metadata: z.record(z.string(), z.unknown()).default({}),
   is_active: z.boolean(),
+  parent_id: z.string().uuid().nullable(),
+  kind: z.string(),
+  manager_id: z.string().uuid().nullable(),
+  safety_deputy_id: z.string().uuid().nullable(),
   created_at: TimestampSchema,
   updated_at: TimestampSchema,
 })
@@ -63,6 +75,10 @@ export const InspectionRoundRowSchema: z.ZodType<InspectionRoundRow> = z.object(
   status: z.enum(['draft', 'active', 'signed']),
   completed_at: z.string().nullable(),
   signed_off_by: z.string().uuid().nullable(),
+  manager_signed_at: z.string().nullable(),
+  manager_signed_by: z.string().uuid().nullable(),
+  deputy_signed_at: z.string().nullable(),
+  deputy_signed_by: z.string().uuid().nullable(),
   created_by: z.string().uuid().nullable(),
   created_at: TimestampSchema,
   updated_at: TimestampSchema,
