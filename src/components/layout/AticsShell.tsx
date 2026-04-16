@@ -394,7 +394,6 @@ const navGroups: NavGroup[] = [
         end: false,
         icon: Workflow,
         subs: [],
-        perm: 'module.view.workflow',
       },
       {
         to: '/admin/modules',
@@ -402,7 +401,6 @@ const navGroups: NavGroup[] = [
         end: false,
         icon: Boxes,
         subs: [],
-        perm: 'module.view.admin',
       },
     ],
   },
