@@ -11,25 +11,10 @@ import {
   LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
   LAYOUT_TABLE1_POSTINGS_TH,
 } from '../../src/components/layout/layoutTable1PostingsKit'
-import { parseChecklistItems } from './schema'
-import type { InspectionFindingRow, InspectionRoundRow } from './types'
+import type { InspectionRoundRow } from './types'
 import { useInspectionModule } from './useInspectionModule'
 
 type Props = { supabase: SupabaseClient | null }
-
-const SEVERITY_LABEL: Record<InspectionFindingRow['severity'], string> = {
-  low: 'Lav',
-  medium: 'Medium',
-  high: 'Høy',
-  critical: 'Kritisk',
-}
-
-const SEVERITY_CLASS: Record<InspectionFindingRow['severity'], string> = {
-  low: 'bg-neutral-100 text-neutral-700',
-  medium: 'bg-amber-100 text-amber-800',
-  high: 'bg-orange-100 text-orange-800',
-  critical: 'bg-red-100 text-red-800',
-}
 
 const STATUS_LABEL: Record<InspectionRoundRow['status'], string> = {
   draft: 'Kladd',
