@@ -91,7 +91,7 @@ const ACCESS_COLOR: Record<AccessLevel, string> = {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export function ModuleAdminPage() {
-  const { supabase } = useOrgSetupContext()
+  const { supabase, organization } = useOrgSetupContext()
   const [tab, setTab] = useState<'modules' | 'access'>('modules')
 
   const [moduleRows, setModuleRows] = useState<ModuleRow[]>([])
@@ -180,6 +180,7 @@ export function ModuleAdminPage() {
         await supabase
           .from('module_user_access')
           .delete()
+          .eq('organization_id', organization?.id)
           .eq('user_id', userId)
           .eq('module_slug', moduleSlug)
         setUserAccess((prev) =>
@@ -189,7 +190,7 @@ export function ModuleAdminPage() {
         const { data, error: err } = await supabase
           .from('module_user_access')
           .upsert(
-            { user_id: userId, module_slug: moduleSlug, access_level: level },
+            { organization_id: organization?.id, user_id: userId, module_slug: moduleSlug, access_level: level },
             { onConflict: 'organization_id,user_id,module_slug' },
           )
           .select('id, user_id, module_slug, access_level')
