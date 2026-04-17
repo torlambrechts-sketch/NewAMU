@@ -82,12 +82,21 @@ function ChecklistItemRow({
 }) {
   const fieldType = item.fieldType ?? 'yes_no_na'
   const currentValue = typeof existing?.response?.value === 'string' ? existing.response.value : ''
+  const [optimisticValue, setOptimisticValue] = useState<string | null>(null)
   const [notes, setNotes] = useState(existing?.notes ?? '')
   const [saving, setSaving] = useState(false)
+  const [justSaved, setJustSaved] = useState(false)
+  const displayedValue = optimisticValue ?? currentValue
 
   useEffect(() => {
     setNotes(existing?.notes ?? '')
   }, [existing?.notes])
+
+  useEffect(() => {
+    if (!justSaved) return
+    const timeoutId = window.setTimeout(() => setJustSaved(false), 1200)
+    return () => window.clearTimeout(timeoutId)
+  }, [justSaved])
 
   const saveResponse = useCallback(
     async (value: string, noteOverride?: string) => {
@@ -101,9 +110,11 @@ function ChecklistItemRow({
         status: value ? 'completed' : 'pending',
         notes: noteOverride !== undefined ? noteOverride : notes,
       })
+      setOptimisticValue(null)
+      if (!inspection.error) setJustSaved(true)
       setSaving(false)
     },
-    [inspection, roundId, item.key, item.label, position, notes],
+    [inspection, roundId, item.key, item.label, position, notes, inspection.error],
   )
 
   const saveNotes = useCallback(async () => {
@@ -118,11 +129,16 @@ function ChecklistItemRow({
       status: existing?.status ?? 'pending',
       notes,
     })
+    if (!inspection.error) setJustSaved(true)
     setSaving(false)
-  }, [inspection, roundId, item.key, item.label, position, notes, existing])
+  }, [inspection, roundId, item.key, item.label, position, notes, existing, inspection.error])
 
   return (
-    <div className="border-b border-neutral-100 px-5 py-4 last:border-b-0">
+    <div
+      className={`border-b border-neutral-100 px-5 py-4 transition-shadow last:border-b-0 ${
+        justSaved ? 'ring-1 ring-green-400' : ''
+      }`}
+    >
       <div className="flex items-start gap-3">
         <span className="mt-0.5 shrink-0 text-xs text-neutral-400">{position + 1}.</span>
         <div className="min-w-0 flex-1 space-y-2">
@@ -153,9 +169,13 @@ function ChecklistItemRow({
                   <button
                     key={v}
                     type="button"
-                    onClick={() => void saveResponse(currentValue === v ? '' : v)}
+                    onClick={() => {
+                      const nextValue = displayedValue === v ? '' : v
+                      setOptimisticValue(nextValue)
+                      void saveResponse(nextValue)
+                    }}
                     className={`rounded border px-3 py-1 text-xs font-semibold transition-colors ${
-                      currentValue === v ? activeClass : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
+                      displayedValue === v ? activeClass : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
                     }`}
                   >
                     {labels[v]}
@@ -164,9 +184,9 @@ function ChecklistItemRow({
               })}
             </div>
           )}
-          {readOnly && fieldType === 'yes_no_na' && currentValue && (
+          {readOnly && fieldType === 'yes_no_na' && displayedValue && (
             <span className="inline-block rounded border border-neutral-200 px-2 py-0.5 text-xs text-neutral-600">
-              {currentValue === 'yes' ? 'Ja' : currentValue === 'no' ? 'Nei' : 'N/A'}
+              {displayedValue === 'yes' ? 'Ja' : displayedValue === 'no' ? 'Nei' : 'N/A'}
             </span>
           )}
           {fieldType === 'text' && (
@@ -210,7 +230,7 @@ function ChecklistItemRow({
           )}
 
           {/* Inline finding prompt when NEI */}
-          {!readOnly && currentValue === 'no' && (
+          {!readOnly && displayedValue === 'no' && (
             <button
               type="button"
               onClick={() => onAddFinding(item.key, item.label)}
