@@ -673,7 +673,7 @@ export function AticsShell() {
     const activeGroup = visibleGroups.find((g) => g.modules.some((m) => m.to === activeModule.to))
 
     return (
-      <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden">
+      <div className="atics-shell-root flex h-[100dvh] max-h-[100dvh] overflow-hidden">
 
         {/* ── Rail 1: Group icons ──────────────────────────────────────────── */}
         <aside className="flex w-[3.75rem] shrink-0 flex-col bg-[var(--ui-nav-rail)]">
@@ -924,7 +924,7 @@ export function AticsShell() {
   )
 
   return (
-    <div className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-[var(--ui-surface)]">
+    <div className="atics-shell-root flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-[var(--ui-surface)]">
       <header className="shrink-0 bg-[var(--ui-nav-rail)] text-white">
         {/* Row 1: mobile — logo + section toggle | utilities (profile/menu always visible without scrolling) */}
         <div className="mx-auto max-w-[1400px] px-4 py-2 md:px-8 md:py-3">

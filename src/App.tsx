@@ -62,6 +62,7 @@ import { WikiPageView } from './pages/documents/WikiPageView'
 import { WikiPageEditor } from './pages/documents/WikiPageEditor'
 import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
+import { WikiTemplateCustomizePage } from './pages/documents/WikiTemplateCustomizePage'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import { DocumentsLayout } from './hooks/useDocuments'
 import { PlatformAdminLoginPage } from './pages/platform/PlatformAdminLoginPage'
@@ -203,6 +204,7 @@ function App() {
                       />
                       <Route path="documents/compliance" element={<ComplianceDashboard />} />
                       <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
+                      <Route path="documents/templates/:templateId/customize" element={<WikiTemplateCustomizePage />} />
                     </Route>
                   </Route>
                 </Route>
