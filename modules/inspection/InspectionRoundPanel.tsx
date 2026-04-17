@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { CheckCircle2, Circle, X } from 'lucide-react'
 import type { HmsCategory, InspectionChecklistItem, InspectionItemRow, InspectionRoundRow } from './types'
 import { parseChecklistItems } from './schema'
@@ -8,7 +7,6 @@ import type { InspectionModuleState } from './useInspectionModule'
 type Props = {
   round: InspectionRoundRow
   inspection: InspectionModuleState
-  supabase: SupabaseClient | null
   onClose: () => void
 }
 
@@ -321,7 +319,7 @@ function ChecklistTab({
                 )}
               </div>
             </div>
-            {catItems.map((item, idx) => (
+            {catItems.map((item) => (
               <ChecklistItemRow
                 key={item.key}
                 item={item}
@@ -584,12 +582,10 @@ function SummaryTab({
 function SignaturesTab({
   round,
   inspection,
-  currentUserId,
   checklistItems,
 }: {
   round: InspectionRoundRow
   inspection: InspectionModuleState
-  currentUserId: string | null
   checklistItems: InspectionChecklistItem[]
 }) {
   const [signing, setSigning] = useState<'manager' | 'deputy' | null>(null)
@@ -746,17 +742,9 @@ function SignaturesTab({
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
-export function InspectionRoundPanel({ round, inspection, supabase, onClose }: Props) {
+export function InspectionRoundPanel({ round, inspection, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<PanelTab>('checklist')
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [findingPrefillKey, setFindingPrefillKey] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!supabase) return
-    void supabase.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data?.user?.id ?? null)
-    })
-  }, [supabase])
 
   const template = inspection.templates.find((t) => t.id === round.template_id)
   const checklistItems = useMemo(
@@ -858,12 +846,7 @@ export function InspectionRoundPanel({ round, inspection, supabase, onClose }: P
             <SummaryTab round={round} inspection={inspection} />
           )}
           {activeTab === 'signatures' && (
-            <SignaturesTab
-              round={round}
-              inspection={inspection}
-              currentUserId={currentUserId}
-              checklistItems={checklistItems}
-            />
+            <SignaturesTab round={round} inspection={inspection} checklistItems={checklistItems} />
           )}
         </div>
 

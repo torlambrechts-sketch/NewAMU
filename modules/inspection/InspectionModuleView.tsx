@@ -545,7 +545,6 @@ export function InspectionModuleView({ supabase }: Props) {
         <InspectionRoundPanel
           round={selectedRound}
           inspection={inspection}
-          supabase={supabase}
           onClose={() => setSelectedRoundId(null)}
         />
       )}
