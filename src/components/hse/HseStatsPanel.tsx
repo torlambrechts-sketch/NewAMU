@@ -102,7 +102,7 @@ export function HseStatsPanel({ supabase, year: yearProp }: HseStatsPanelProps) 
           .not('deputy_signed_at', 'is', null)
           .gte('completed_at', yearStart)
           .lte('completed_at', yearEnd),
-        supabase.from('inspection_findings').select('id, deviation_id').is('deleted_at', null),
+        supabase.from('inspection_findings').select('id, deviation_id, deleted_at'),
         supabase
           .from('deviations')
           .select('id', { count: 'exact', head: true })
@@ -132,7 +132,6 @@ export function HseStatsPanel({ supabase, year: yearProp }: HseStatsPanelProps) 
         supabase
           .from('inspection_findings')
           .select('id', { count: 'exact', head: true })
-          .is('deleted_at', null)
           .gte('risk_score', 10)
           .gte('created_at', yearStart)
           .lte('created_at', yearEnd),
@@ -153,7 +152,9 @@ export function HseStatsPanel({ supabase, year: yearProp }: HseStatsPanelProps) 
         throw new Error(errs.map((e) => e!.message).join(' · '))
       }
 
-      const findingRows = (findingsRes.data ?? []) as { id: string; deviation_id: string | null }[]
+      const findingRows = ((findingsRes.data ?? []) as { id: string; deviation_id: string | null; deleted_at?: string | null }[]).filter(
+        (f) => f.deleted_at == null || String(f.deleted_at).trim() === '',
+      )
       const devIds = [...new Set(findingRows.map((f) => f.deviation_id).filter(Boolean))] as string[]
       let openFindingsCount = findingRows.filter((f) => f.deviation_id == null).length
       if (devIds.length > 0) {

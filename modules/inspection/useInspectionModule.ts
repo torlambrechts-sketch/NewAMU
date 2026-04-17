@@ -233,35 +233,39 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
           return next
         })
 
-        const [itemsRes, findingsRes] = await Promise.all([
-          supabase
-            .from('inspection_items')
-            .select('*')
-            .eq('round_id', roundId)
-            .order('position', { ascending: true }),
-          supabase
-            .from('inspection_findings')
-            .select('*')
-            .eq('round_id', roundId)
-            .is('deleted_at', null)
-            .order('created_at', { ascending: false }),
-        ])
+        const itemsRes = await supabase
+          .from('inspection_items')
+          .select('*')
+          .eq('round_id', roundId)
+          .order('position', { ascending: true })
         if (itemsRes.error) throw itemsRes.error
-        if (findingsRes.error) throw findingsRes.error
-
         const nextItems = parseRows<InspectionItemRow>(itemsRes.data ?? [], (row) => {
           const parsed = InspectionItemRowSchema.safeParse(row)
           return parsed.success ? parsed.data : null
         })
-        const nextFindings = parseRows<InspectionFindingRow>(findingsRes.data ?? [], (row) => {
-          const parsed = InspectionFindingRowSchema.safeParse(row)
-          return parsed.success ? parsed.data : null
-        })
-
         setItems((previous) => {
           const rest = previous.filter((item) => item.round_id !== roundId)
           return [...nextItems, ...rest]
         })
+
+        // Load findings separately so a failures here never blocks checklist items above.
+        const findingsRes = await supabase
+          .from('inspection_findings')
+          .select('*')
+          .eq('round_id', roundId)
+          .order('created_at', { ascending: false })
+        let nextFindings: InspectionFindingRow[] = []
+        if (findingsRes.error) {
+          setError(findingsRes.error.message)
+        } else {
+          nextFindings = parseRows<InspectionFindingRow>(findingsRes.data ?? [], (row) => {
+            const parsed = InspectionFindingRowSchema.safeParse(row)
+            if (!parsed.success) return null
+            const del = parsed.data.deleted_at
+            if (del != null && String(del).trim() !== '') return null
+            return parsed.data
+          })
+        }
         setFindings((previous) => {
           const rest = previous.filter((f) => f.round_id !== roundId)
           return [...nextFindings, ...rest]
@@ -637,41 +641,51 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .insert(deviationInsert)
         .select('id')
         .single()
-      if (devErr || !devRow?.id) {
-        setError(devErr?.message ?? 'Kunne ikke opprette avvik.')
-        return
-      }
-      const deviationId = String((devRow as { id: string }).id)
 
-      const findingInsert: Record<string, unknown> = {
+      const findingBase: Record<string, unknown> = {
         round_id: payload.roundId,
         item_id: payload.itemId ?? null,
         description: desc,
         severity: payload.severity,
         photo_path: payload.photoPath ?? null,
-        deviation_id: deviationId,
-        workflow_processed_at: new Date().toISOString(),
       }
-      if (payload.riskProbability != null) findingInsert.risk_probability = payload.riskProbability
-      if (payload.riskConsequence != null) findingInsert.risk_consequence = payload.riskConsequence
+      if (payload.riskProbability != null) findingBase.risk_probability = payload.riskProbability
+      if (payload.riskConsequence != null) findingBase.risk_consequence = payload.riskConsequence
 
-      const { data, error: insertError } = await supabase
-        .from('inspection_findings')
-        .insert(findingInsert)
-        .select('*')
-        .single()
+      let data: unknown
+      let insertError: { message: string } | null = null
+
+      if (!devErr && devRow?.id) {
+        const deviationId = String((devRow as { id: string }).id)
+        const findingInsert = {
+          ...findingBase,
+          deviation_id: deviationId,
+          workflow_processed_at: new Date().toISOString(),
+        }
+        const ins = await supabase.from('inspection_findings').insert(findingInsert).select('*').single()
+        data = ins.data
+        insertError = ins.error
+        if (!insertError && ins.data) {
+          const fid = String((ins.data as { id: string }).id)
+          const { error: linkErr } = await supabase.from('deviations').update({ source_id: fid }).eq('id', deviationId)
+          if (linkErr) setError(linkErr.message)
+        } else if (insertError) {
+          await supabase.from('deviations').delete().eq('id', deviationId)
+        }
+      } else {
+        const ins = await supabase.from('inspection_findings').insert(findingBase).select('*').single()
+        data = ins.data
+        insertError = ins.error
+        if (devErr && !insertError) {
+          setError(
+            `Kunne ikke opprette koblet avvik (${devErr.message}). Observasjonen er lagret; prøv «Opprett avvik» på raden eller kontakt administrator.`,
+          )
+        }
+      }
+
       if (insertError) {
         setError(insertError.message)
-        await supabase.from('deviations').delete().eq('id', deviationId)
         return
-      }
-
-      const { error: linkErr } = await supabase
-        .from('deviations')
-        .update({ source_id: String((data as { id: string }).id) })
-        .eq('id', deviationId)
-      if (linkErr) {
-        setError(linkErr.message)
       }
 
       const parsed = InspectionFindingRowSchema.safeParse(data)
@@ -761,11 +775,26 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .update({ deleted_at: now })
         .eq('id', findingId)
       if (softErr) {
-        setError(softErr.message)
-        return
-      }
-      if (deviationId) {
-        await supabase.from('deviations').update({ deleted_at: now }).eq('id', deviationId)
+        const msg = softErr.message ?? ''
+        const missingCol = /deleted_at|schema cache|column/i.test(msg)
+        if (missingCol) {
+          const { error: delErr } = await supabase.from('inspection_findings').delete().eq('id', findingId)
+          if (delErr) {
+            setError(delErr.message)
+            return
+          }
+          if (deviationId) {
+            await supabase.from('deviations').delete().eq('id', deviationId)
+          }
+        } else {
+          setError(softErr.message)
+          return
+        }
+      } else if (deviationId) {
+        const { error: devSoft } = await supabase.from('deviations').update({ deleted_at: now }).eq('id', deviationId)
+        if (devSoft && /deleted_at|schema cache|column/i.test(devSoft.message ?? '')) {
+          await supabase.from('deviations').delete().eq('id', deviationId)
+        }
       }
       setFindings((previous) => previous.filter((f) => f.id !== findingId))
     },
