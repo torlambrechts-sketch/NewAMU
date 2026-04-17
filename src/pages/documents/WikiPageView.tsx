@@ -2,6 +2,8 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CheckCircle2, Clock, History, Loader2, Pencil, Shield } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { RetentionBadge } from './RetentionBadge'
 import { WikiBlockRenderer } from './WikiBlockRenderer'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
@@ -24,6 +26,7 @@ export function WikiPageView() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
   const docs = useDocuments()
+  const { isAdmin } = useOrgSetupContext()
   const { ensurePageLoaded, pageHydrateLoading, pageHydrateError } = docs
   const timeNow = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
 
@@ -140,6 +143,15 @@ export function WikiPageView() {
                 Sist oppdatert {new Date(page.updatedAt).toLocaleDateString('no-NO')}
               </span>
               <span>v{page.version}</span>
+              <RetentionBadge
+                retentionCategory={page.retentionCategory}
+                retainMinimumYears={page.retainMinimumYears}
+                retainMaximumYears={page.retainMaximumYears}
+                archivedAt={page.archivedAt}
+                scheduledDeletionAt={page.scheduledDeletionAt}
+                isAdmin={isAdmin}
+                pageId={page.id}
+              />
               {page.nextRevisionDueAt && (
                 <span
                   className={`rounded-none border px-2 py-0.5 font-medium ${

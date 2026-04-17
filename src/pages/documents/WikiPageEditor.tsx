@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle, CheckCircle2, ChevronDown, ChevronUp,
@@ -79,6 +79,13 @@ export function WikiPageEditor() {
   )
   const [piiLegalBasis, setPiiLegalBasis] = useState(() => original?.piiLegalBasis ?? '')
   const [piiRetentionNote, setPiiRetentionNote] = useState(() => original?.piiRetentionNote ?? '')
+  const [retentionSlug, setRetentionSlug] = useState(() => original?.retentionCategory ?? '')
+  const [retainMinYearsStr, setRetainMinYearsStr] = useState(() =>
+    original?.retainMinimumYears != null ? String(original.retainMinimumYears) : '',
+  )
+  const [retainMaxYearsStr, setRetainMaxYearsStr] = useState(() =>
+    original?.retainMaximumYears != null ? String(original.retainMaximumYears) : '',
+  )
   const [dirty, setDirty] = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
@@ -110,6 +117,9 @@ export function WikiPageEditor() {
       setPiiCategories(Array.isArray(o.piiCategories) ? [...o.piiCategories] : [])
       setPiiLegalBasis(o.piiLegalBasis ?? '')
       setPiiRetentionNote(o.piiRetentionNote ?? '')
+      setRetentionSlug(o.retentionCategory ?? '')
+      setRetainMinYearsStr(o.retainMinimumYears != null ? String(o.retainMinimumYears) : '')
+      setRetainMaxYearsStr(o.retainMaximumYears != null ? String(o.retainMaximumYears) : '')
       setDirty(false)
       setSavedMsg(false)
       setSelectedIdx(null)
@@ -119,6 +129,11 @@ export function WikiPageEditor() {
   useEffect(() => {
     void ensurePageLoaded(pageId)
   }, [ensurePageLoaded, pageId])
+
+  const selectedRetention = useMemo(
+    () => docs.wikiRetentionCategories.find((c) => c.slug === retentionSlug) ?? null,
+    [docs.wikiRetentionCategories, retentionSlug],
+  )
 
   if (pageHydrateError && !original) {
     return (
@@ -207,6 +222,13 @@ export function WikiPageEditor() {
       piiCategories: containsPii ? piiCategories : [],
       piiLegalBasis: containsPii ? (piiLegalBasis.trim() || null) : null,
       piiRetentionNote: containsPii ? (piiRetentionNote.trim() || null) : null,
+      retentionCategory: retentionSlug.trim() || null,
+      retainMinimumYears: retainMinYearsStr.trim()
+        ? Math.max(0, parseInt(retainMinYearsStr, 10) || 0) || null
+        : null,
+      retainMaximumYears: retainMaxYearsStr.trim()
+        ? Math.max(0, parseInt(retainMaxYearsStr, 10) || 0) || null
+        : null,
     })
     setDirty(false)
     setSavedMsg(true)
@@ -388,6 +410,99 @@ export function WikiPageEditor() {
                   Ved publisering settes neste frist automatisk ut fra intervall (IK-f §5 — systematisk gjennomgang).
                 </p>
               </div>
+            </div>
+          </div>
+
+          <div className="rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
+            <h3 className="mb-3 text-sm font-semibold text-neutral-700">Dokumentklassifisering</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-retention-cat">
+                  Oppbevaringskategori
+                </label>
+                <select
+                  id="wiki-retention-cat"
+                  value={retentionSlug}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setRetentionSlug(v)
+                    const row = docs.wikiRetentionCategories.find((c) => c.slug === v)
+                    if (row) {
+                      setRetainMinYearsStr(String(row.minYears))
+                      setRetainMaxYearsStr(row.maxYears != null ? String(row.maxYears) : '')
+                    } else {
+                      setRetainMinYearsStr('')
+                      setRetainMaxYearsStr('')
+                    }
+                    markDirty()
+                  }}
+                  className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
+                >
+                  <option value="">— Velg —</option>
+                  {docs.wikiRetentionCategories.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {selectedRetention ? (
+                <p className="text-xs leading-relaxed text-neutral-600">
+                  Basert på{' '}
+                  <span className="font-mono text-[11px] text-neutral-800">
+                    {selectedRetention.legalRefs.length ? selectedRetention.legalRefs.join(', ') : 'ingen spesifikk hjemmel'}
+                  </span>
+                  , skal dette dokumentet oppbevares minimum <strong>{selectedRetention.minYears}</strong> år
+                  {selectedRetention.maxYears != null ? (
+                    <>
+                      {' '}
+                      (maks. <strong>{selectedRetention.maxYears}</strong> år der satt)
+                    </>
+                  ) : null}
+                  .
+                </p>
+              ) : null}
+              {selectedRetention?.description ? (
+                <p className="text-[11px] text-neutral-500">{selectedRetention.description}</p>
+              ) : null}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-retain-min">
+                    Minimum (år)
+                  </label>
+                  <input
+                    id="wiki-retain-min"
+                    type="number"
+                    min={0}
+                    value={retainMinYearsStr}
+                    onChange={(e) => {
+                      setRetainMinYearsStr(e.target.value)
+                      markDirty()
+                    }}
+                    className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-retain-max">
+                    Maksimum (år)
+                  </label>
+                  <input
+                    id="wiki-retain-max"
+                    type="number"
+                    min={0}
+                    placeholder="Tom = ingen planlagt sletting"
+                    value={retainMaxYearsStr}
+                    onChange={(e) => {
+                      setRetainMaxYearsStr(e.target.value)
+                      markDirty()
+                    }}
+                    className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-neutral-500">
+                Planlagt slettedato beregnes når dokumentet er <strong>arkivert</strong> og maks. år er satt.
+              </p>
             </div>
           </div>
 

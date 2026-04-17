@@ -1,0 +1,77 @@
+import type { WikiRetentionCategoryRow } from '../types/documents'
+
+/** Mirrors `wiki_retention_categories` seed — used when API/catalog is unavailable (local demo). */
+export const WIKI_RETENTION_CATEGORIES_STATIC: WikiRetentionCategoryRow[] = [
+  {
+    slug: 'hms_dokument',
+    label: 'HMS-dokumentasjon',
+    minYears: 5,
+    maxYears: null,
+    legalRefs: ['IK-f §5', 'AML §18-8'],
+    description: 'Risikovurderinger, avvikslogger, HMS-planer — oppbevares minimum 5 år',
+  },
+  {
+    slug: 'personaldokument',
+    label: 'Personaldokumenter',
+    minYears: 5,
+    maxYears: null,
+    legalRefs: ['AML §14-5', 'Regnskapsloven §2-7'],
+    description: 'Arbeidsavtaler og lønnsdokumenter oppbevares minimum 5 år etter avsluttet arbeidsforhold',
+  },
+  {
+    slug: 'opplaeringslogg',
+    label: 'Opplæringslogg og HMS-kurs',
+    minYears: 5,
+    maxYears: null,
+    legalRefs: ['AML §3-2', 'Forskrift om organisering §3-18'],
+    description: 'Dokumentasjon av HMS-opplæring for ledere og ansatte',
+  },
+  {
+    slug: 'amu_protokoll',
+    label: 'AMU-protokoller',
+    minYears: 3,
+    maxYears: null,
+    legalRefs: ['AML §7-4'],
+    description: 'Referat fra AMU-møter oppbevares minimum 3 år (AML §7-4)',
+  },
+  {
+    slug: 'varslingssak',
+    label: 'Varslingssaker',
+    minYears: 3,
+    maxYears: 5,
+    legalRefs: ['AML §2A-6', 'GDPR Art. 5(1)(e)'],
+    description: 'Minimum 3 år (Arbeidstilsynet-inspeksjon), maksimum 5 år (GDPR)',
+  },
+  {
+    slug: 'personvern',
+    label: 'GDPR-dokumentasjon',
+    minYears: 3,
+    maxYears: null,
+    legalRefs: ['GDPR Art. 30', 'Personopplysningsloven §2'],
+    description: 'Behandlingsprotokoll og personvernerklæringer',
+  },
+  {
+    slug: 'intern_prosedyre',
+    label: 'Interne rutiner og prosedyrer',
+    minYears: 1,
+    maxYears: null,
+    legalRefs: ['IK-f §5'],
+    description: 'Interne rutiner trenger ikke lang oppbevaring etter utfasing',
+  },
+  {
+    slug: 'okonomidokument',
+    label: 'Økonomidokumenter',
+    minYears: 5,
+    maxYears: null,
+    legalRefs: ['Regnskapsloven §2-7'],
+    description: 'Regnskaps- og bilagskrav — typisk minimum 5 år',
+  },
+  {
+    slug: 'ad_hoc',
+    label: 'Uklassifisert',
+    minYears: 1,
+    maxYears: null,
+    legalRefs: [],
+    description: 'Vurder klassifisering',
+  },
+]

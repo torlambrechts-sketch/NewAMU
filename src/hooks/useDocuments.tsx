@@ -11,6 +11,7 @@ import type {
   SpaceCategory,
   WikiPage,
   WikiPageVersionSnapshot,
+  WikiRetentionCategoryRow,
   WikiSpace,
   WikiSpaceItem,
 } from '../types/documents'
@@ -20,6 +21,7 @@ import {
   LEGAL_COVERAGE as STATIC_LEGAL_COVERAGE,
   PAGE_TEMPLATES as STATIC_PAGE_TEMPLATES,
 } from '../data/documentTemplates'
+import { WIKI_RETENTION_CATEGORIES_STATIC } from '../data/wikiRetentionCategories'
 
 const STORAGE_KEY = 'atics-documents-v2'
 
@@ -153,6 +155,11 @@ function mapPage(
     pii_categories?: string[] | null
     pii_legal_basis?: string | null
     pii_retention_note?: string | null
+    retention_category?: string | null
+    retain_minimum_years?: number | null
+    retain_maximum_years?: number | null
+    archived_at?: string | null
+    scheduled_deletion_at?: string | null
   },
   authorFallback: string,
 ): WikiPage {
@@ -174,6 +181,11 @@ function mapPage(
     piiCategories: Array.isArray(row.pii_categories) ? row.pii_categories : [],
     piiLegalBasis: row.pii_legal_basis ?? null,
     piiRetentionNote: row.pii_retention_note ?? null,
+    retentionCategory: row.retention_category ?? null,
+    retainMinimumYears: row.retain_minimum_years ?? null,
+    retainMaximumYears: row.retain_maximum_years ?? null,
+    archivedAt: row.archived_at ?? null,
+    scheduledDeletionAt: row.scheduled_deletion_at ?? null,
     blocks: (Array.isArray(row.blocks) ? row.blocks : []) as ContentBlock[],
     version: row.version,
     authorId: row.author_id ?? authorFallback,
@@ -268,6 +280,24 @@ function mapLedger(
   }
 }
 
+function mapWikiRetentionCategory(row: {
+  slug: string
+  label: string
+  min_years: number
+  max_years: number | null
+  legal_refs: string[] | null
+  description: string | null
+}): WikiRetentionCategoryRow {
+  return {
+    slug: row.slug,
+    label: row.label,
+    minYears: row.min_years,
+    maxYears: row.max_years,
+    legalRefs: row.legal_refs ?? [],
+    description: row.description,
+  }
+}
+
 function mapReceipt(row: {
   id: string
   page_id: string
@@ -359,6 +389,7 @@ function useDocumentsStore() {
   >([])
   const [orgTemplateSettings, setOrgTemplateSettings] = useState<OrgTemplateSetting[]>([])
   const [orgCustomTemplates, setOrgCustomTemplates] = useState<OrgCustomTemplate[]>([])
+  const [retentionCategories, setRetentionCategories] = useState<WikiRetentionCategoryRow[]>([])
   const [loading, setLoading] = useState(useRemote)
   const [error, setError] = useState<string | null>(null)
   /** Deep-link / stale cache: fetch one page by id when missing from state */
@@ -414,6 +445,7 @@ function useDocumentsStore() {
         tplRes,
         setRes,
         customRes,
+        retRes,
         data,
       ] = await Promise.all([
         supabase.from('wiki_legal_coverage_items').select('ref, label, template_ids').order('ref'),
@@ -423,12 +455,22 @@ function useDocumentsStore() {
           .order('sort_order', { ascending: true }),
         supabase.from('document_org_template_settings').select('template_id, enabled').eq('organization_id', orgId),
         supabase.from('document_org_templates').select('*').eq('organization_id', orgId).order('created_at'),
+        supabase
+          .from('wiki_retention_categories')
+          .select('slug, label, min_years, max_years, legal_refs, description')
+          .order('slug'),
         fetchAllForOrg(supabase, orgId, authorFallback),
       ])
       if (covRes.error) throw covRes.error
       if (tplRes.error) throw tplRes.error
       if (setRes.error) throw setRes.error
       if (customRes.error) throw customRes.error
+      if (retRes.error) {
+        console.warn('wiki_retention_categories:', retRes.error.message)
+        setRetentionCategories(WIKI_RETENTION_CATEGORIES_STATIC)
+      } else {
+        setRetentionCategories((retRes.data ?? []).map((r) => mapWikiRetentionCategory(r as Parameters<typeof mapWikiRetentionCategory>[0])))
+      }
 
       setLegalCoverage(
         (covRes.data ?? []).map((r) => ({
@@ -465,6 +507,7 @@ function useDocumentsStore() {
     } catch (e) {
       setError(getSupabaseErrorMessage(e))
       if (orgId && userId) clearSnap(orgId, userId)
+      setRetentionCategories(WIKI_RETENTION_CATEGORIES_STATIC)
       setRemoteState(emptyLocalState())
     } finally {
       setLoading(false)
@@ -484,6 +527,11 @@ function useDocumentsStore() {
       saveLocal(localState)
     }
   }, [useRemote, localState])
+
+  const wikiRetentionCategories = useMemo(
+    () => (retentionCategories.length > 0 ? retentionCategories : WIKI_RETENTION_CATEGORIES_STATIC),
+    [retentionCategories],
+  )
 
   const pageTemplates: PageTemplate[] = useMemo(() => {
     if (!useRemote) return STATIC_PAGE_TEMPLATES
@@ -787,6 +835,10 @@ function useDocumentsStore() {
           | 'piiCategories'
           | 'piiLegalBasis'
           | 'piiRetentionNote'
+          | 'retentionCategory'
+          | 'retainMinimumYears'
+          | 'retainMaximumYears'
+          | 'archivedAt'
         >
       >,
     ) => {
@@ -818,6 +870,10 @@ function useDocumentsStore() {
         if (patch.piiCategories !== undefined) dbPatch.pii_categories = patch.piiCategories
         if (patch.piiLegalBasis !== undefined) dbPatch.pii_legal_basis = patch.piiLegalBasis
         if (patch.piiRetentionNote !== undefined) dbPatch.pii_retention_note = patch.piiRetentionNote
+        if (patch.retentionCategory !== undefined) dbPatch.retention_category = patch.retentionCategory
+        if (patch.retainMinimumYears !== undefined) dbPatch.retain_minimum_years = patch.retainMinimumYears
+        if (patch.retainMaximumYears !== undefined) dbPatch.retain_maximum_years = patch.retainMaximumYears
+        if (patch.archivedAt !== undefined) dbPatch.archived_at = patch.archivedAt
         const { error: e } = await supabase.from('wiki_pages').update(dbPatch).eq('id', id).eq('organization_id', orgId)
         if (e) throw e
         await refreshDocuments()
@@ -877,6 +933,7 @@ function useDocumentsStore() {
             status: 'published',
             version: nextVersion,
             next_revision_due_at: nextDue.toISOString(),
+            archived_at: null,
           })
           .eq('id', id)
           .eq('organization_id', orgId)
@@ -917,6 +974,8 @@ function useDocumentsStore() {
           status: 'published',
           version: old.version + 1,
           nextRevisionDueAt: nextDue.toISOString(),
+          archivedAt: null,
+          scheduledDeletionAt: undefined,
           updatedAt: new Date().toISOString(),
         }
         const entry = ledgerEntryLocal(next, 'published', fromVersion)
@@ -940,7 +999,11 @@ function useDocumentsStore() {
         const nextVersion = old.version + 1
         const { data, error: e } = await supabase
           .from('wiki_pages')
-          .update({ status: 'archived', version: nextVersion })
+          .update({
+            status: 'archived',
+            version: nextVersion,
+            archived_at: old.archivedAt ?? new Date().toISOString(),
+          })
           .eq('id', id)
           .eq('organization_id', orgId)
           .select('*')
@@ -959,6 +1022,7 @@ function useDocumentsStore() {
           ...old,
           status: 'archived',
           version: old.version + 1,
+          archivedAt: old.archivedAt ?? new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }
         const entry = ledgerEntryLocal(next, 'archived', fromVersion)
@@ -1186,6 +1250,7 @@ function useDocumentsStore() {
     deleteSpaceItem,
     getSpaceFileUrl,
     legalCoverage: useRemote ? legalCoverage : STATIC_LEGAL_COVERAGE,
+    wikiRetentionCategories,
     pageTemplates,
     systemTemplatesCatalog: systemTemplates,
     orgTemplateSettings,

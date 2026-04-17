@@ -62,6 +62,27 @@ export type PageStatus = 'draft' | 'published' | 'archived'
 /** Who must acknowledge when requiresAcknowledgement is true */
 export type AcknowledgementAudience = 'all_employees' | 'leaders_only' | 'safety_reps_only' | 'department'
 
+/** Wiki retention classification — matches `wiki_retention_categories.slug` */
+export type WikiRetentionCategorySlug =
+  | 'hms_dokument'
+  | 'personaldokument'
+  | 'opplaeringslogg'
+  | 'amu_protokoll'
+  | 'varslingssak'
+  | 'personvern'
+  | 'intern_prosedyre'
+  | 'okonomidokument'
+  | 'ad_hoc'
+
+export type WikiRetentionCategoryRow = {
+  slug: WikiRetentionCategorySlug | string
+  label: string
+  minYears: number
+  maxYears: number | null
+  legalRefs: string[]
+  description: string | null
+}
+
 export type WikiPage = {
   id: string
   spaceId: string
@@ -88,6 +109,14 @@ export type WikiPage = {
   piiCategories?: string[]
   piiLegalBasis?: string | null
   piiRetentionNote?: string | null
+  /** References `wiki_retention_categories.slug` */
+  retentionCategory?: WikiRetentionCategorySlug | string | null
+  retainMinimumYears?: number | null
+  retainMaximumYears?: number | null
+  /** Set when page is archived — drives `scheduledDeletionAt` when max years set */
+  archivedAt?: string | null
+  /** Generated in DB when archived_at + retain_maximum_years */
+  scheduledDeletionAt?: string | null
   blocks: ContentBlock[]
   version: number
   createdAt: string
