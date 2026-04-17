@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Archive,
@@ -22,6 +22,7 @@ import {
   Upload,
   X,
 } from 'lucide-react'
+import * as docsApi from '../../api/documents.api'
 import { useDocumentTemplates, useWikiPages, useWikiSpaces } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
@@ -91,7 +92,9 @@ export function WikiSpaceView() {
   const wiki = useWikiSpaces()
   const spacePages = useWikiPages(spaceId)
   const tmpl = useDocumentTemplates()
-  const { can } = useOrgSetupContext()
+  const { can, supabase, organization, user } = useOrgSetupContext()
+  const orgId = organization?.id
+  const userId = user?.id ?? ''
   const canManage = can('documents.manage')
   const timeNow = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
 
@@ -110,6 +113,12 @@ export function WikiSpaceView() {
   const [dragId, setDragId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
 
+  /** Server-paginated rows for this space (avoids rendering entire org page list). */
+  const [spaceListPages, setSpaceListPages] = useState<WikiPage[]>([])
+  const listCursorRef = useRef<docsApi.SpacePageCursor>(null)
+  const [listHasMore, setListHasMore] = useState(false)
+  const [listLoading, setListLoading] = useState(false)
+
   const panelRef = useRef<HTMLDivElement>(null)
 
   const space = wiki.spaces.find((s) => s.id === spaceId)
@@ -120,14 +129,63 @@ export function WikiSpaceView() {
   const fileItems = useMemo(() => itemsInSpace.filter((i) => i.kind === 'file'), [itemsInSpace])
   const urlItems = useMemo(() => itemsInSpace.filter((i) => i.kind === 'url'), [itemsInSpace])
 
-  const allOrderedPages = useMemo(() => {
-    const list = spacePages.pages.filter((p) => p.spaceId === spaceId)
-    return [...list].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, 'nb'))
-  }, [spacePages.pages, spaceId])
+  const pagesInSpaceForPanel = useMemo(() => {
+    const byId = new Map<string, WikiPage>()
+    for (const p of spaceListPages) byId.set(p.id, p)
+    for (const p of spacePages.pages) {
+      if (p.spaceId === spaceId) byId.set(p.id, p)
+    }
+    return [...byId.values()]
+  }, [spaceListPages, spacePages.pages, spaceId])
 
-  const pages = allOrderedPages.filter((p) => filter === 'all' || p.status === filter)
+  const pages = useMemo(() => {
+    return [...spaceListPages].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, 'nb'))
+  }, [spaceListPages])
 
-  const panelPage = panelPageId ? spacePages.pages.find((p) => p.id === panelPageId) ?? null : null
+  const panelPage = panelPageId ? pagesInSpaceForPanel.find((p) => p.id === panelPageId) ?? null : null
+
+  const loadSpacePageBatch = useCallback(
+    async (reset: boolean) => {
+      if (!supabase || !orgId || !spaceId) return
+      setListLoading(true)
+      try {
+        const status = filter === 'all' ? undefined : filter
+        const after = reset ? undefined : listCursorRef.current ?? undefined
+        const { pages: batch, nextCursor } = await docsApi.apiFetchWikiPagesInSpacePage(
+          supabase,
+          orgId,
+          spaceId,
+          userId,
+          { after, status, limit: 20 },
+        )
+        if (reset) {
+          setSpaceListPages(batch)
+          listCursorRef.current = nextCursor
+          setListHasMore(nextCursor != null)
+        } else {
+          setSpaceListPages((prev) => {
+            const seen = new Set(prev.map((p) => p.id))
+            const add = batch.filter((p) => !seen.has(p.id))
+            return [...prev, ...add]
+          })
+          listCursorRef.current = nextCursor
+          setListHasMore(nextCursor != null)
+        }
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setListLoading(false)
+      }
+    },
+    [supabase, orgId, spaceId, userId, filter],
+  )
+
+  useEffect(() => {
+    if (!wiki.ready || !spaceId || !orgId) return
+    void loadSpacePageBatch(true)
+  }, [wiki.ready, spaceId, orgId, filter, loadSpacePageBatch])
+
+  const dragReorderEnabled = filter === 'all' && !listHasMore
 
   const anyOverlayOpen = newPageOpen || filesPanelOpen || Boolean(panelPageId) || moveModalOpen
   useBodyScrollLock(anyOverlayOpen)
@@ -202,17 +260,6 @@ export function WikiSpaceView() {
     navigate(`/documents/page/${page.id}/edit`)
   }
 
-  if (!space) {
-    return (
-      <div className="mx-auto max-w-[1400px] px-4 py-12 text-center text-neutral-500">
-        Mappe ikke funnet.{' '}
-        <Link to="/documents" className="text-[#1a3d32] underline">
-          ← Tilbake
-        </Link>
-      </div>
-    )
-  }
-
   async function handleAddUrl(e: React.FormEvent) {
     e.preventDefault()
     if (!spaceId || !urlTitle.trim() || !urlHref.trim()) return
@@ -250,7 +297,7 @@ export function WikiSpaceView() {
   }
 
   async function onDropReorder(targetId: string, droppedId: string) {
-    if (!spaceId || filter !== 'all') return
+    if (!spaceId || filter !== 'all' || listHasMore) return
     const ordered = pages.map((p) => p.id)
     const fromIdx = ordered.indexOf(droppedId)
     const toIdx = ordered.indexOf(targetId)
@@ -260,12 +307,24 @@ export function WikiSpaceView() {
     next.splice(toIdx, 0, droppedId)
     try {
       await spacePages.reorderPagesInSpace(spaceId, next)
+      await loadSpacePageBatch(true)
     } catch (err) {
       console.error(err)
     }
   }
 
   const otherSpaces = wiki.spaces.filter((s) => s.id !== spaceId && s.status === 'active')
+
+  if (!space) {
+    return (
+      <div className="mx-auto max-w-[1400px] px-4 py-12 text-center text-neutral-500">
+        Mappe ikke funnet.{' '}
+        <Link to="/documents" className="text-[#1a3d32] underline">
+          ← Tilbake
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <DocumentsModuleLayout
@@ -321,6 +380,11 @@ export function WikiSpaceView() {
         {filter !== 'all' && (
           <span className="self-center text-xs text-neutral-500">Sortering (dra) er tilgjengelig i «Alle».</span>
         )}
+        {filter === 'all' && listHasMore && (
+          <span className="self-center text-xs text-amber-800">
+            Last inn alle sider for å bruke dra-og-slipp sortering.
+          </span>
+        )}
       </div>
 
       <section className="mb-10">
@@ -332,7 +396,11 @@ export function WikiSpaceView() {
         ) : (
           <div className="overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
             <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">
-              <p className="text-xs text-neutral-500">Dra håndtaket for å endre rekkefølge (kun visning «Alle»).</p>
+              <p className="text-xs text-neutral-500">
+                {dragReorderEnabled
+                  ? 'Dra håndtaket for å endre rekkefølge (alle sider i mappen er lastet).'
+                  : 'Dra-og-slipp sortering er deaktivert til alle sider er lastet inn («Vis mer»).'}
+              </p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left text-sm">
@@ -354,9 +422,9 @@ export function WikiSpaceView() {
                     return (
                       <tr
                         key={p.id}
-                        draggable={filter === 'all'}
+                        draggable={dragReorderEnabled}
                         onDragStart={(e) => {
-                          if (filter !== 'all') return
+                          if (!dragReorderEnabled) return
                           setDragId(p.id)
                           e.dataTransfer.setData('text/plain', p.id)
                           e.dataTransfer.effectAllowed = 'move'
@@ -366,7 +434,7 @@ export function WikiSpaceView() {
                           setOverId(null)
                         }}
                         onDragOver={(e) => {
-                          if (filter !== 'all' || !dragId) return
+                          if (!dragReorderEnabled || !dragId) return
                           e.preventDefault()
                           setOverId(p.id)
                         }}
@@ -384,7 +452,7 @@ export function WikiSpaceView() {
                         onClick={() => setPanelPageId(p.id)}
                       >
                         <td className="px-2 py-3" onClick={(e) => e.stopPropagation()}>
-                          {filter === 'all' ? (
+                          {dragReorderEnabled ? (
                             <span className="inline-flex cursor-grab text-neutral-300 active:cursor-grabbing" title="Dra for å sortere">
                               <GripVertical className="size-4" aria-hidden />
                             </span>
@@ -428,6 +496,18 @@ export function WikiSpaceView() {
                 </tbody>
               </table>
             </div>
+            {listHasMore ? (
+              <div className="border-t border-neutral-100 bg-neutral-50 px-4 py-3 text-center">
+                <button
+                  type="button"
+                  disabled={listLoading}
+                  onClick={() => void loadSpacePageBatch(false)}
+                  className="rounded-none border border-[#1a3d32] bg-white px-4 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-100 disabled:opacity-50"
+                >
+                  {listLoading ? 'Laster…' : 'Vis mer'}
+                </button>
+              </div>
+            ) : null}
           </div>
         )}
       </section>

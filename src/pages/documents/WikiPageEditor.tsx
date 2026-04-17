@@ -19,6 +19,7 @@ import {
   Undo2,
   X,
 } from 'lucide-react'
+import * as docsApi from '../../api/documents.api'
 import { useDocumentTemplates, useWikiPage, useWikiSpaces } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { MarkdownShortcutKind } from '../../components/learning/RichTextEditor'
@@ -82,7 +83,56 @@ export function WikiPageEditor() {
   const wikiSpaces = useWikiSpaces()
   const documentTemplates = useDocumentTemplates()
   const { ensurePageLoaded, pageHydrateLoading, pageHydrateError, page: original, versions } = wikiPage
-  const { departments, organization } = useOrgSetupContext()
+  const { departments, organization, supabase, user } = useOrgSetupContext()
+  const orgId = organization?.id
+  const userId = user?.id
+
+  const [othersEditing, setOthersEditing] = useState(false)
+  const presencePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const refreshOthersEditing = useCallback(async () => {
+    if (!supabase || !orgId || !pageId || !userId) return
+    const since = new Date(Date.now() - 120_000).toISOString()
+    try {
+      const rows = await docsApi.apiFetchWikiPagePresenceForPage(supabase, orgId, pageId, since)
+      setOthersEditing(rows.some((r) => r.user_id !== userId))
+    } catch {
+      /* ignore */
+    }
+  }, [supabase, orgId, pageId, userId])
+
+  useEffect(() => {
+    if (!supabase || !orgId || !pageId || !userId) return
+    const heartbeat = () => {
+      void docsApi.apiUpsertWikiPagePresence(supabase, orgId, pageId, userId)
+    }
+    heartbeat()
+    void refreshOthersEditing()
+    presencePollRef.current = window.setInterval(() => {
+      heartbeat()
+      void refreshOthersEditing()
+    }, 30_000)
+
+    const channel = supabase
+      .channel(`wiki-page-presence:${pageId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'wiki_page_presence', filter: `page_id=eq.${pageId}` },
+        () => {
+          void refreshOthersEditing()
+        },
+      )
+      .subscribe()
+
+    return () => {
+      if (presencePollRef.current) {
+        window.clearInterval(presencePollRef.current)
+        presencePollRef.current = null
+      }
+      void docsApi.apiDeleteWikiPagePresence(supabase, pageId, userId)
+      void supabase.removeChannel(channel)
+    }
+  }, [supabase, orgId, pageId, userId, refreshOthersEditing])
 
   const space = original ? wikiSpaces.spaces.find((s) => s.id === original.spaceId) : null
 
@@ -495,6 +545,11 @@ export function WikiPageEditor() {
       headerActions={<DocumentsSearchBar />}
       subHeader={
         <div className="mt-6 space-y-3 border-b border-neutral-200/80 pb-6">
+          {othersEditing ? (
+            <div className="rounded-none border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-950">
+              Noen redigerer denne siden nå — lagre ofte og vær oppmerksom på samtidige endringer.
+            </div>
+          ) : null}
           <nav className="flex flex-wrap items-center gap-2 text-sm text-neutral-600">
             <Link to="/documents" className="text-neutral-500 hover:text-[#1a3d32]">
               Bibliotek
