@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Circle, X } from 'lucide-react'
-import type { HmsCategory, InspectionChecklistItem, InspectionItemRow, InspectionRoundRow } from './types'
+import type { HmsCategory, InspectionChecklistItem, InspectionRoundRow } from './types'
 import { parseChecklistItems } from './schema'
 import type { InspectionModuleState } from './useInspectionModule'
+import { ChecklistExecutionTab } from '../../src/components/checklist/ChecklistExecutionTab'
+import type { ChecklistItem, ChecklistResponse } from '../../src/components/checklist/types'
 
 type Props = {
   round: InspectionRoundRow
@@ -47,8 +49,6 @@ const HMS_LAW: Partial<Record<HmsCategory, string>> = {
   brann: 'IK-forskriften',
   maskiner: 'Arbeidsutstyrsforskriften',
 }
-const HMS_ORDER: HmsCategory[] = ['fysisk', 'ergonomi', 'kjemikalier', 'psykososialt', 'brann', 'maskiner', 'annet']
-
 const SEVERITY_LABELS = { low: 'Lav', medium: 'Middels', high: 'Høy', critical: 'Kritisk' }
 const SEVERITY_COLORS = {
   low: 'bg-blue-100 text-blue-700',
@@ -61,296 +61,78 @@ const PANEL_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-n
 const PANEL_INPUT =
   'mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900'
 
-// ── Single checklist item row ─────────────────────────────────────────────────
-
-function ChecklistItemRow({
-  item,
-  position,
-  existing,
-  roundId,
-  readOnly,
-  inspection,
-  onAddFinding,
-}: {
-  item: InspectionChecklistItem
-  position: number
-  existing: InspectionItemRow | undefined
-  roundId: string
-  readOnly: boolean
-  inspection: InspectionModuleState
-  onAddFinding: (itemKey: string, itemLabel: string) => void
-}) {
-  const fieldType = item.fieldType ?? 'yes_no_na'
-  const currentValue = typeof existing?.response?.value === 'string' ? existing.response.value : ''
-  const hasExistingNotes = (existing?.notes ?? '').trim().length > 0
-  const [optimisticValue, setOptimisticValue] = useState<string | null>(null)
-  const [notes, setNotes] = useState(existing?.notes ?? '')
-  const [showNotes, setShowNotes] = useState(hasExistingNotes)
-  const [saving, setSaving] = useState(false)
-  const [justSaved, setJustSaved] = useState(false)
-  const displayedValue = optimisticValue ?? currentValue
-
-  useEffect(() => {
-    setNotes(existing?.notes ?? '')
-  }, [existing?.notes])
-
-  useEffect(() => {
-    if (hasExistingNotes) setShowNotes(true)
-  }, [hasExistingNotes])
-
-  useEffect(() => {
-    if (!justSaved) return
-    const timeoutId = window.setTimeout(() => setJustSaved(false), 1200)
-    return () => window.clearTimeout(timeoutId)
-  }, [justSaved])
-
-  const saveResponse = useCallback(
-    async (value: string, noteOverride?: string) => {
-      setSaving(true)
-      await inspection.upsertItemResponse({
-        roundId,
-        checklistItemKey: item.key,
-        checklistItemLabel: item.label,
-        position,
-        response: { value },
-        status: value ? 'completed' : 'pending',
-        notes: noteOverride !== undefined ? noteOverride : notes,
-      })
-      setOptimisticValue(null)
-      if (!inspection.error) setJustSaved(true)
-      setSaving(false)
-    },
-    [inspection, roundId, item.key, item.label, position, notes, inspection.error],
-  )
-
-  const saveNotes = useCallback(async () => {
-    if (notes === (existing?.notes ?? '')) return
-    setSaving(true)
-    await inspection.upsertItemResponse({
-      roundId,
-      checklistItemKey: item.key,
-      checklistItemLabel: item.label,
-      position,
-      response: existing?.response ?? {},
-      status: existing?.status ?? 'pending',
-      notes,
-    })
-    if (!inspection.error) setJustSaved(true)
-    setSaving(false)
-  }, [inspection, roundId, item.key, item.label, position, notes, existing, inspection.error])
-
-  return (
-    <div
-      className={`border-b border-neutral-100 px-5 py-4 transition-shadow last:border-b-0 ${
-        justSaved ? 'ring-1 ring-green-400' : ''
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 shrink-0 text-xs text-neutral-400">{position + 1}.</span>
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-neutral-900">{item.label}</span>
-            {item.required && (
-              <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">Påkrevd</span>
-            )}
-            {item.lawRef && (
-              <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-500">{item.lawRef}</span>
-            )}
-            {saving && <span className="text-[10px] text-neutral-400">Lagrer…</span>}
-          </div>
-          {item.helpText && <p className="text-xs text-neutral-500">{item.helpText}</p>}
-
-          {/* Response control */}
-          {!readOnly && fieldType === 'yes_no_na' && (
-            <div className="flex gap-1.5">
-              {(['yes', 'no', 'na'] as const).map((v) => {
-                const labels = { yes: 'Ja', no: 'Nei', na: 'N/A' }
-                const activeClass =
-                  v === 'yes'
-                    ? 'bg-green-600 text-white border-green-600'
-                    : v === 'no'
-                      ? 'bg-red-600 text-white border-red-600'
-                      : 'bg-neutral-500 text-white border-neutral-500'
-                return (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => {
-                      const nextValue = displayedValue === v ? '' : v
-                      setOptimisticValue(nextValue)
-                      void saveResponse(nextValue)
-                    }}
-                    className={`rounded border px-3 py-1 text-xs font-semibold transition-colors ${
-                      displayedValue === v ? activeClass : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
-                    }`}
-                  >
-                    {labels[v]}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-          {readOnly && fieldType === 'yes_no_na' && displayedValue && (
-            <span className="inline-block rounded border border-neutral-200 px-2 py-0.5 text-xs text-neutral-600">
-              {displayedValue === 'yes' ? 'Ja' : displayedValue === 'no' ? 'Nei' : 'N/A'}
-            </span>
-          )}
-          {fieldType === 'text' && (
-            <textarea
-              rows={2}
-              value={currentValue}
-              readOnly={readOnly}
-              onChange={(e) => !readOnly && void saveResponse(e.target.value)}
-              placeholder="Skriv svar…"
-              className={`${PANEL_INPUT} resize-none`}
-            />
-          )}
-          {fieldType === 'number' && (
-            <input
-              type="number"
-              value={currentValue}
-              readOnly={readOnly}
-              onChange={(e) => !readOnly && void saveResponse(e.target.value)}
-              className={PANEL_INPUT}
-            />
-          )}
-          {(fieldType === 'photo' || fieldType === 'photo_required' || fieldType === 'signature') && (
-            <p className="text-xs text-neutral-400 italic">
-              {fieldType === 'signature' ? 'Signatur' : 'Foto'} — ikke implementert i nettleseren.
-            </p>
-          )}
-
-          {/* Notes */}
-          {!readOnly && !showNotes && !hasExistingNotes && (
-            <button
-              type="button"
-              onClick={() => setShowNotes(true)}
-              className="text-xs font-medium text-neutral-500 hover:text-neutral-700 hover:underline"
-            >
-              + Legg til notat
-            </button>
-          )}
-          {!readOnly && (showNotes || hasExistingNotes) && (
-            <textarea
-              rows={1}
-              value={notes}
-              autoFocus={!hasExistingNotes}
-              onChange={(e) => setNotes(e.target.value)}
-              onBlur={() => void saveNotes()}
-              placeholder="Notat (valgfritt)…"
-              className={`${PANEL_INPUT} resize-none text-xs`}
-            />
-          )}
-          {readOnly && existing?.notes && (
-            <p className="text-xs text-neutral-500 italic">{existing.notes}</p>
-          )}
-
-          {/* Inline finding prompt when NEI */}
-          {!readOnly && displayedValue === 'no' && (
-            <button
-              type="button"
-              onClick={() => onAddFinding(item.key, item.label)}
-              className="text-xs font-medium text-red-600 hover:underline"
-            >
-              + Legg til funn for dette punktet
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Checklist tab ─────────────────────────────────────────────────────────────
 
 function ChecklistTab({
   round,
   checklistItems,
   inspection,
-  onAddFinding,
 }: {
   round: InspectionRoundRow
   checklistItems: InspectionChecklistItem[]
   inspection: InspectionModuleState
-  onAddFinding: (itemKey: string, itemLabel: string) => void
 }) {
   const roundItems = inspection.itemsByRoundId[round.id]
   const isRoundDetailLoading = roundItems === undefined
 
-  const itemResponseByKey = useMemo(() => {
-    const map = new Map<string, InspectionItemRow>()
-    for (const item of roundItems ?? []) {
-      map.set(item.checklist_item_key, item)
-    }
-    return map
-  }, [roundItems])
-
-  const grouped = useMemo(() => {
-    const groups = new Map<HmsCategory | '__none__', InspectionChecklistItem[]>()
-    for (const item of checklistItems) {
-      const key = item.hmsCategory ?? '__none__'
-      if (!groups.has(key)) groups.set(key, [])
-      groups.get(key)!.push(item)
-    }
-    return groups
-  }, [checklistItems])
-
-  const orderedKeys = useMemo(() => {
-    const keys: (HmsCategory | '__none__')[] = [...HMS_ORDER.filter((k) => grouped.has(k))]
-    if (grouped.has('__none__')) keys.push('__none__')
-    return keys
-  }, [grouped])
-
-  const answered = useMemo(
-    () => checklistItems.filter((i) => {
-      const row = itemResponseByKey.get(i.key)
-      return row?.status === 'completed' || (typeof row?.response?.value === 'string' && row.response.value !== '')
-    }).length,
-    [checklistItems, itemResponseByKey],
-  )
-
   const readOnly = round.status === 'signed'
   const isDraft = round.status === 'draft'
-  const total = checklistItems.length
+  const checklistTabItems = useMemo<ChecklistItem[]>(
+    () =>
+      checklistItems.map((item) => ({
+        key: item.key,
+        label: item.label,
+        required: item.required,
+        fieldType: (item.fieldType === 'photo_required' ? 'photo' : item.fieldType) as
+          | ChecklistItem['fieldType']
+          | undefined,
+        category: item.hmsCategory ?? '__none__',
+        categoryLabel: item.hmsCategory ? HMS_LABELS[item.hmsCategory] : 'Generelt',
+        categoryLawRef: item.hmsCategory ? HMS_LAW[item.hmsCategory] : undefined,
+        helpText: item.helpText,
+        lawRef: item.lawRef,
+      })),
+    [checklistItems],
+  )
+  const checklistTabResponses = useMemo<ChecklistResponse[]>(
+    () => (roundItems ?? []).map((item) => ({
+      key: item.checklist_item_key,
+      value: typeof item.response?.value === 'string' ? item.response.value : '',
+      notes: item.notes,
+      status:
+        item.status === 'completed' || (typeof item.response?.value === 'string' && item.response.value !== '')
+          ? 'completed'
+          : 'pending',
+    })),
+    [roundItems],
+  )
+
+  const positionByKey = useMemo(() => {
+    return checklistItems.reduce<Record<string, number>>((acc, item, index) => {
+      acc[item.key] = index
+      return acc
+    }, {})
+  }, [checklistItems])
+
+  const handleSaveResponse = useCallback(
+    async (key: string, value: string, notes: string | null) => {
+      const checklistItem = checklistItems.find((item) => item.key === key)
+      if (!checklistItem) return
+      await inspection.upsertItemResponse({
+        roundId: round.id,
+        checklistItemKey: checklistItem.key,
+        checklistItemLabel: checklistItem.label,
+        position: positionByKey[checklistItem.key] ?? 0,
+        response: { value },
+        status: value ? 'completed' : 'pending',
+        notes: notes ?? undefined,
+      })
+    },
+    [checklistItems, inspection, positionByKey, round.id],
+  )
 
   return (
     <div>
-      {isDraft && (
-        <div className="flex items-center justify-between gap-4 border-b border-amber-200 bg-amber-50 px-5 py-3">
-          <div>
-            <p className="text-sm font-medium text-amber-800">Runden er i kladd-modus</p>
-            <p className="mt-0.5 text-xs text-amber-600">Aktiver runden for å begynne gjennomføringen.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() =>
-              void inspection.updateRoundSchedule({ roundId: round.id, status: 'active' })
-            }
-            className="shrink-0 rounded px-3 py-1.5 text-xs font-semibold text-white"
-            style={{ backgroundColor: '#1a3d32' }}
-          >
-            Aktiver runden
-          </button>
-        </div>
-      )}
-
-      <div className="sticky top-0 z-10 border-b border-neutral-200 bg-white px-5 py-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-neutral-700">
-            {answered} / {total} punkter besvart
-          </span>
-          <span className="text-sm font-semibold text-[#1a3d32]">
-            {total > 0 ? Math.round((answered / total) * 100) : 0}%
-          </span>
-        </div>
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
-          <div
-            className="h-full rounded-full bg-[#1a3d32] transition-all duration-300"
-            style={{ width: `${total > 0 ? (answered / total) * 100 : 0}%` }}
-          />
-        </div>
-      </div>
-
       {isRoundDetailLoading && (
         <div className="flex items-center justify-center gap-2 px-5 py-8 text-sm text-neutral-500">
           <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-700" />
@@ -358,35 +140,34 @@ function ChecklistTab({
         </div>
       )}
 
-      {!isRoundDetailLoading && orderedKeys.map((cat) => {
-        const catItems = grouped.get(cat) ?? []
-        const catLabel = cat === '__none__' ? 'Generelt' : HMS_LABELS[cat]
-        const catLaw = cat !== '__none__' ? HMS_LAW[cat] : undefined
-        return (
-          <div key={cat}>
-            <div className="sticky top-14 z-10 border-b border-neutral-200 bg-neutral-50 px-5 py-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-neutral-700">{catLabel}</span>
-                {catLaw && (
-                  <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] text-neutral-600">{catLaw}</span>
-                )}
+      {!isRoundDetailLoading && checklistItems.length > 0 && (
+        <ChecklistExecutionTab
+          items={checklistTabItems}
+          responses={checklistTabResponses}
+          readOnly={readOnly}
+          onSaveResponse={handleSaveResponse}
+          activationBanner={
+            isDraft ? (
+              <div className="flex items-center justify-between gap-4 border-b border-amber-200 bg-amber-50 px-5 py-3">
+                <div>
+                  <p className="text-sm font-medium text-amber-800">Runden er i kladd-modus</p>
+                  <p className="mt-0.5 text-xs text-amber-600">Aktiver runden for å begynne gjennomføringen.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void inspection.updateRoundSchedule({ roundId: round.id, status: 'active' })
+                  }
+                  className="shrink-0 rounded px-3 py-1.5 text-xs font-semibold text-white"
+                  style={{ backgroundColor: '#1a3d32' }}
+                >
+                  Aktiver runden
+                </button>
               </div>
-            </div>
-            {catItems.map((item, idx) => (
-              <ChecklistItemRow
-                key={item.key}
-                item={item}
-                position={idx}
-                existing={itemResponseByKey.get(item.key)}
-                roundId={round.id}
-                readOnly={readOnly}
-                inspection={inspection}
-                onAddFinding={onAddFinding}
-              />
-            ))}
-          </div>
-        )
-      })}
+            ) : null
+          }
+        />
+      )}
 
       {checklistItems.length === 0 && (
         <p className="px-5 py-10 text-center text-sm text-neutral-400">
@@ -835,7 +616,7 @@ function SignaturesTab({
 
 export function InspectionRoundPanel({ round, inspection, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<PanelTab>('checklist')
-  const [findingPrefillKey, setFindingPrefillKey] = useState<string | null>(null)
+  const [findingPrefillKey] = useState<string | null>(null)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -854,11 +635,6 @@ export function InspectionRoundPanel({ round, inspection, onClose }: Props) {
     () => (template ? parseChecklistItems(template.checklist_definition) : []),
     [template],
   )
-
-  function handleAddFinding(itemKey: string, _itemLabel: string) {
-    setFindingPrefillKey(itemKey)
-    setActiveTab('findings')
-  }
 
   function handleOverlayClick(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose()
@@ -934,7 +710,6 @@ export function InspectionRoundPanel({ round, inspection, onClose }: Props) {
               round={round}
               checklistItems={checklistItems}
               inspection={inspection}
-              onAddFinding={handleAddFinding}
             />
           )}
           {activeTab === 'findings' && (
