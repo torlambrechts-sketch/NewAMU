@@ -323,6 +323,75 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       ],
     },
   },
+
+  {
+    id: 'tpl-varsling',
+    label: 'Varslingsrutine (AML §2A)',
+    description: 'Skriftlig intern varslingsrutine som oppfyller kravene i AML §2A-6 og §2A-7',
+    legalBasis: ['AML §2A-1', 'AML §2A-2', 'AML §2A-3', 'AML §2A-6', 'AML §2A-7'],
+    category: 'policy',
+    page: {
+      title: 'Varslingsrutine',
+      summary: 'Intern varslingsrutine etter arbeidsmiljøloven kap. 2A.',
+      status: 'draft',
+      template: 'policy',
+      legalRefs: ['AML §2A-1', 'AML §2A-2', 'AML §2A-3', 'AML §2A-6', 'AML §2A-7'],
+      requiresAcknowledgement: true,
+      acknowledgementAudience: 'all_employees',
+      revisionIntervalMonths: 12,
+      blocks: [
+        { kind: 'heading', level: 1, text: 'Varslingsrutine — {orgName}' },
+        {
+          kind: 'alert',
+          variant: 'info',
+          text:
+            'Alle ansatte har rett til å varsle om kritikkverdige forhold uten å frykte gjengjeldelse, jf. AML §2A-1.',
+        },
+        { kind: 'heading', level: 2, text: '1. Hva er varsling?' },
+        {
+          kind: 'text',
+          body:
+            '<p>Kritikkverdige forhold etter AML §2A-1 omfatter blant annet lovbrudd, fare for liv eller helse, korrupsjon, misligheter og brudd på arbeidsmiljøloven.</p>',
+        },
+        { kind: 'heading', level: 2, text: '2. Hvem kan varsles til?' },
+        {
+          kind: 'text',
+          body:
+            '<p><strong>Varslingsmottaker:</strong> {varslingContactBlock}</p><p><strong>Kanal:</strong> {varslingChannelDescription}</p>',
+        },
+        { kind: 'heading', level: 2, text: '3. Slik varsler du' },
+        {
+          kind: 'text',
+          body:
+            '<p>Varsling kan skje skriftlig eller muntlig, anonymt eller åpent. Bruk intern kanal først. Dersom det ikke er forsvarlig, kan du varsle Arbeidstilsynet eller Statsforvalteren.</p>',
+        },
+        { kind: 'heading', level: 2, text: '4. Hva skjer etter varsling?' },
+        {
+          kind: 'text',
+          body:
+            '<ul><li>Bekreftelse av mottak innen 7 dager (AML §2A-3)</li><li>Tilbakemelding om oppfølging innen rimelig tid (inntil 3 måneder)</li><li>Konfidensialitet — kun personer som må kjenne saken får innsyn</li><li>Forbud mot gjengjeldelse (AML §2A-2) med konsekvenser ved brudd</li></ul>',
+        },
+        { kind: 'heading', level: 2, text: '5. Eksternt varsling' },
+        {
+          kind: 'text',
+          body:
+            '<p>Ansatte har rett til å varsle eksternt til Arbeidstilsynet, Datatilsynet, Finanstilsynet (sektoravhengig) eller Statsforvalteren når vilkårene i loven er oppfylt.</p>',
+        },
+        {
+          kind: 'law_ref',
+          ref: 'AML kap. 2A (§§2A-1–2A-7)',
+          description: 'Regler om varsling og vern mot gjengjeldelse',
+          url: 'https://lovdata.no/lov/2005-06-17-62/KAPITTEL_2a',
+        },
+        {
+          kind: 'module',
+          moduleName: 'action_button',
+          params: { label: 'Meld varslingssak (internt)', route: '/varsling/ny', variant: 'primary' },
+        },
+        { kind: 'module', moduleName: 'acknowledgement_footer', params: {} },
+      ],
+    },
+  },
 ]
 
 /** Seed spaces for the HMS Handbook */
@@ -375,4 +444,6 @@ export const LEGAL_COVERAGE: { ref: string; label: string; templateIds: string[]
   { ref: 'AML kap. 4 / §4-6', label: 'Individuell tilrettelegging', templateIds: ['tpl-tilrettelegging'] },
   { ref: 'Inkluderingsloven', label: 'Likestilling og ikke-diskriminering', templateIds: ['tpl-likestilling-mangfold'] },
   { ref: 'Livsfase / seniorpolitikk', label: 'Seniorpolitikk og livsfaser', templateIds: ['tpl-seniorpolitikk'] },
+  { ref: 'AML §2A-6', label: 'Skriftlig varslingsrutine', templateIds: ['tpl-varsling'] },
+  { ref: 'AML §2A-7', label: 'Varslingskanal', templateIds: ['tpl-varsling'] },
 ]

@@ -20,6 +20,7 @@ import {
   LEGAL_COVERAGE as STATIC_LEGAL_COVERAGE,
   PAGE_TEMPLATES as STATIC_PAGE_TEMPLATES,
 } from '../data/documentTemplates'
+import { applyVarslingPlaceholdersToText, applyVarslingTemplatePlaceholders } from '../lib/wikiTemplatePlaceholders'
 
 const STORAGE_KEY = 'atics-documents-v2'
 
@@ -117,6 +118,7 @@ function mapSpace(row: {
   status: string
   created_at: string
   updated_at: string
+  restricted_permission?: string | null
 }): WikiSpace {
   return {
     id: row.id,
@@ -125,6 +127,7 @@ function mapSpace(row: {
     category: row.category as WikiSpace['category'],
     icon: row.icon ?? '📁',
     status: row.status as WikiSpace['status'],
+    restrictedPermission: row.restricted_permission ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -574,11 +577,17 @@ function useDocumentsStore() {
   )
 
   const createSpace = useCallback(
-    async (title: string, description: string, category: WikiSpace['category'], icon: string) => {
+    async (
+      title: string,
+      description: string,
+      category: WikiSpace['category'],
+      icon: string,
+      opts?: { restrictedPermission?: string | null },
+    ) => {
       const now = new Date().toISOString()
       if (useRemote && supabase && orgId && userId) {
         const id = crypto.randomUUID()
-        const row = {
+        const row: Record<string, unknown> = {
           id,
           organization_id: orgId,
           title: title.trim(),
@@ -587,6 +596,7 @@ function useDocumentsStore() {
           icon,
           status: 'active' as const,
         }
+        if (opts?.restrictedPermission != null) row.restricted_permission = opts.restrictedPermission
         const { data, error: e } = await supabase.from('wiki_spaces').insert(row).select('*').single()
         if (e) throw e
         const space = mapSpace(data as Parameters<typeof mapSpace>[0])
@@ -604,6 +614,7 @@ function useDocumentsStore() {
         category,
         icon,
         status: 'active',
+        restrictedPermission: opts?.restrictedPermission ?? undefined,
         createdAt: now,
         updatedAt: now,
       }
@@ -622,6 +633,7 @@ function useDocumentsStore() {
         if (patch.category !== undefined) dbPatch.category = patch.category
         if (patch.icon !== undefined) dbPatch.icon = patch.icon
         if (patch.status !== undefined) dbPatch.status = patch.status
+        if (patch.restrictedPermission !== undefined) dbPatch.restricted_permission = patch.restrictedPermission
         const { error: e } = await supabase.from('wiki_spaces').update(dbPatch).eq('id', id).eq('organization_id', orgId)
         if (e) throw e
         await refreshDocuments()
@@ -671,17 +683,42 @@ function useDocumentsStore() {
           | 'revisionIntervalMonths'
           | 'nextRevisionDueAt'
         >
-      >,
+      > & { templateId?: string },
     ) => {
       const now = new Date().toISOString()
       if (useRemote && supabase && orgId && userId) {
         const id = crypto.randomUUID()
-        const pageRow = {
+        let titleOut = title.trim()
+        let summaryOut = opts?.summary ?? ''
+        let blocksOut = blocks
+        if (opts?.templateId === 'tpl-varsling' && organization) {
+          let contactName: string | null = null
+          const contactId = organization.varsling_contact_id ?? null
+          if (contactId) {
+            const { data: profRow } = await supabase
+              .from('profiles')
+              .select('display_name')
+              .eq('id', contactId)
+              .maybeSingle()
+            contactName = (profRow as { display_name?: string } | null)?.display_name?.trim() ?? null
+          }
+          const ctx = {
+            orgName: organization.name?.trim() || 'Organisasjonen',
+            varslingContactEmail: organization.varsling_contact_email ?? null,
+            varslingChannelDescription: organization.varsling_channel_description ?? null,
+            varslingContactDisplayName: contactName,
+          }
+          const t = applyVarslingPlaceholdersToText(titleOut, summaryOut, ctx)
+          titleOut = t.title
+          summaryOut = t.summary
+          blocksOut = applyVarslingTemplatePlaceholders(blocksOut, ctx)
+        }
+        const pageRow: Record<string, unknown> = {
           id,
           organization_id: orgId,
           space_id: spaceId,
-          title: title.trim(),
-          summary: opts?.summary ?? '',
+          title: titleOut,
+          summary: summaryOut,
           status: 'draft' as const,
           template,
           legal_refs: opts?.legalRefs ?? [],
@@ -689,7 +726,7 @@ function useDocumentsStore() {
           acknowledgement_audience: opts?.acknowledgementAudience ?? 'all_employees',
           acknowledgement_department_id: opts?.acknowledgementDepartmentId ?? null,
           revision_interval_months: opts?.revisionIntervalMonths ?? 12,
-          blocks: blocks as unknown as Record<string, unknown>[],
+          blocks: blocksOut as unknown as Record<string, unknown>[],
           version: 1,
           author_id: userId,
         }
@@ -700,11 +737,26 @@ function useDocumentsStore() {
         await refreshDocuments()
         return page
       }
+      let locTitle = title.trim()
+      let locSummary = opts?.summary ?? ''
+      let locBlocks = blocks
+      if (opts?.templateId === 'tpl-varsling' && organization) {
+        const ctx = {
+          orgName: organization.name?.trim() || 'Organisasjonen',
+          varslingContactEmail: organization.varsling_contact_email ?? null,
+          varslingChannelDescription: organization.varsling_channel_description ?? null,
+          varslingContactDisplayName: null as string | null,
+        }
+        const t = applyVarslingPlaceholdersToText(locTitle, locSummary, ctx)
+        locTitle = t.title
+        locSummary = t.summary
+        locBlocks = applyVarslingTemplatePlaceholders(locBlocks, ctx)
+      }
       const page: WikiPage = {
         id: crypto.randomUUID(),
         spaceId,
-        title: title.trim(),
-        summary: opts?.summary ?? '',
+        title: locTitle,
+        summary: locSummary,
         status: 'draft',
         template,
         legalRefs: opts?.legalRefs ?? [],
@@ -713,7 +765,7 @@ function useDocumentsStore() {
         acknowledgementDepartmentId: opts?.acknowledgementDepartmentId ?? null,
         revisionIntervalMonths: opts?.revisionIntervalMonths ?? 12,
         nextRevisionDueAt: opts?.nextRevisionDueAt ?? null,
-        blocks,
+        blocks: locBlocks,
         version: 1,
         createdAt: now,
         updatedAt: now,
@@ -727,7 +779,7 @@ function useDocumentsStore() {
       }))
       return page
     },
-    [useRemote, supabase, orgId, userId, authorFallback, insertLedgerRemote, refreshDocuments, ledgerEntryLocal],
+    [useRemote, supabase, orgId, userId, authorFallback, insertLedgerRemote, refreshDocuments, ledgerEntryLocal, organization],
   )
 
   const updatePage = useCallback(

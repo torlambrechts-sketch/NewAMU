@@ -12,6 +12,7 @@ const CATEGORY_LABELS: Record<WikiSpace['category'], string> = {
   procedure: 'Prosedyre',
   guide: 'Veiledning',
   template_library: 'Malbibliotek',
+  varsling: 'Varsling',
 }
 
 const CATEGORY_ICONS: Record<WikiSpace['category'], string> = {
@@ -20,6 +21,7 @@ const CATEGORY_ICONS: Record<WikiSpace['category'], string> = {
   procedure: '🔄',
   guide: '📖',
   template_library: '🗂️',
+  varsling: '🔒',
 }
 
 const CARD =
@@ -30,6 +32,14 @@ const BTN_OUTLINE =
   'inline-flex h-10 items-center justify-center gap-2 rounded-none border border-neutral-300 bg-white px-4 text-sm font-medium text-neutral-800 hover:bg-neutral-50'
 const INPUT =
   'rounded-none border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]'
+
+function spacesForTemplatePick(tpl: PageTemplate, spaces: WikiSpace[]) {
+  if (tpl.id === 'tpl-varsling') {
+    const policy = spaces.filter((s) => s.category === 'policy')
+    return policy.length > 0 ? policy : spaces
+  }
+  return spaces
+}
 
 export function DocumentsHome() {
   const docs = useDocuments()
@@ -170,7 +180,7 @@ export function DocumentsHome() {
             <TemplateCard
               key={tpl.id}
               tpl={tpl}
-              spaces={activeSpaces}
+              spaces={spacesForTemplatePick(tpl, activeSpaces)}
               onUse={async (spaceId) => {
                 const page = await docs.createPage(
                   spaceId,
@@ -181,6 +191,9 @@ export function DocumentsHome() {
                     legalRefs: tpl.page.legalRefs,
                     requiresAcknowledgement: tpl.page.requiresAcknowledgement,
                     summary: tpl.page.summary,
+                    acknowledgementAudience: tpl.page.acknowledgementAudience,
+                    revisionIntervalMonths: tpl.page.revisionIntervalMonths,
+                    templateId: tpl.id,
                   },
                 )
                 navigate(`/documents/page/${page.id}/edit`)

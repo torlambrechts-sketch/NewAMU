@@ -525,6 +525,16 @@ export function useOrgSetup() {
     await refreshPermissions()
   }, [supabase, organization, refreshPermissions])
 
+  const updateOrganization = useCallback(
+    async (patch: Partial<OrganizationRow>) => {
+      if (!supabase || !organization?.id) throw new Error('Mangler organisasjon.')
+      const { data, error: e } = await supabase.from('organizations').update(patch).eq('id', organization.id).select('*').single()
+      if (e) throw e
+      setOrganization(data as OrganizationRow)
+    },
+    [supabase, organization],
+  )
+
   const isPlatformAdminRoute =
     location.pathname.startsWith('/platform-admin') && location.pathname !== '/platform-admin/login'
 
@@ -585,6 +595,7 @@ export function useOrgSetup() {
     addLocation,
     addOrgMember,
     completeOnboarding,
+    updateOrganization,
     signOut,
     fetchEnhetByOrgnr,
     normalizeOrgNumber,

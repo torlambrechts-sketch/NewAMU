@@ -172,7 +172,7 @@ export function OrganisationPage() {
   const theadRow = table1HeaderRowClass(layout)
   const rSeg = R_ORG_FLAT
   const org = useOrganisation()
-  const { supabaseConfigured, organization: orgRow, members: orgMembers, profile, user, isDemoMode } =
+  const { supabaseConfigured, organization: orgRow, members: orgMembers, profile, user, isDemoMode, updateOrganization } =
     useOrgSetupContext()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -233,6 +233,23 @@ export function OrganisationPage() {
   const [groupStdSearch, setGroupStdSearch] = useState('')
   const [groupStdSort, setGroupStdSort] = useState<'name' | 'scope'>('name')
   const [groupStdViewMode, setGroupStdViewMode] = useState<WorkplaceListViewMode>('table')
+
+  const [varslingContactId, setVarslingContactId] = useState('')
+  const [varslingEmail, setVarslingEmail] = useState('')
+  const [varslingChannelDesc, setVarslingChannelDesc] = useState('')
+  const [varslingSaving, setVarslingSaving] = useState(false)
+
+  useEffect(() => {
+    if (!orgRow) return
+    const id = orgRow.varsling_contact_id ?? ''
+    const em = orgRow.varsling_contact_email ?? ''
+    const ch = orgRow.varsling_channel_description ?? ''
+    queueMicrotask(() => {
+      setVarslingContactId(id)
+      setVarslingEmail(em)
+      setVarslingChannelDesc(ch)
+    })
+  }, [orgRow])
 
   const [unitSearch, setUnitSearch] = useState('')
   const [unitKindSeg, setUnitKindSeg] = useState<'all' | OrgUnitKind>('all')
@@ -2655,6 +2672,71 @@ export function OrganisationPage() {
                     className={ORG_SETTINGS_INPUT}
                     inputMode="numeric"
                   />
+                </div>
+              </div>
+
+              <div className={SETTINGS_ROW_GRID}>
+                <p className={SETTINGS_LEAD}>
+                  Brukes i malen «Varslingsrutine» og i varslingsmappen. Velg varslingsansvarlig (profil) og fyll inn kanal — verdiene settes inn i nye sider opprettet fra malen.
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="varsling-contact-user">
+                      Varslingsansvarlig (bruker-ID)
+                    </label>
+                    <input
+                      id="varsling-contact-user"
+                      value={varslingContactId}
+                      onChange={(e) => setVarslingContactId(e.target.value)}
+                      placeholder="uuid fra profiles / auth.users"
+                      className={ORG_SETTINGS_INPUT}
+                    />
+                    <p className="mt-1 text-xs text-neutral-500">Lim inn brukerens UUID (samme som i profiles.id).</p>
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="varsling-email">
+                      Varslings-e-post (synlig i mal)
+                    </label>
+                    <input
+                      id="varsling-email"
+                      type="email"
+                      value={varslingEmail}
+                      onChange={(e) => setVarslingEmail(e.target.value)}
+                      placeholder="varsling@virksomhet.no"
+                      className={ORG_SETTINGS_INPUT}
+                    />
+                  </div>
+                  <div>
+                    <label className={SETTINGS_FIELD_LABEL} htmlFor="varsling-channel">
+                      Beskrivelse av varslingskanal
+                    </label>
+                    <textarea
+                      id="varsling-channel"
+                      rows={3}
+                      value={varslingChannelDesc}
+                      onChange={(e) => setVarslingChannelDesc(e.target.value)}
+                      placeholder="Hvordan varsles internt, anonym mulighet, SLA …"
+                      className={ORG_SETTINGS_INPUT}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={varslingSaving || !orgRow?.id}
+                    onClick={() => {
+                      if (!orgRow?.id) return
+                      setVarslingSaving(true)
+                      void updateOrganization({
+                        varsling_contact_id: varslingContactId.trim() || null,
+                        varsling_contact_email: varslingEmail.trim() || null,
+                        varsling_channel_description: varslingChannelDesc.trim() || null,
+                      })
+                        .catch((err) => console.error(err))
+                        .finally(() => setVarslingSaving(false))
+                    }}
+                    className="inline-flex items-center justify-center rounded-md border border-[#1a3d32] bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] disabled:opacity-50"
+                  >
+                    {varslingSaving ? 'Lagrer…' : 'Lagre varslingsinnstillinger'}
+                  </button>
                 </div>
               </div>
 

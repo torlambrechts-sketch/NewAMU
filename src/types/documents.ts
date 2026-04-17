@@ -110,7 +110,7 @@ export type WikiPageVersionSnapshot = {
 
 // ─── Space ────────────────────────────────────────────────────────────────────
 
-export type SpaceCategory = 'hms_handbook' | 'policy' | 'procedure' | 'guide' | 'template_library'
+export type SpaceCategory = 'hms_handbook' | 'policy' | 'procedure' | 'guide' | 'template_library' | 'varsling'
 
 export type WikiSpace = {
   id: string
@@ -120,6 +120,8 @@ export type WikiSpace = {
   /** Emoji or icon identifier */
   icon: string
   status: 'active' | 'archived'
+  /** When set, only users with this permission (or admin / documents.manage) can see the space and its pages. */
+  restrictedPermission?: string | null
   createdAt: string
   updatedAt: string
 }
