@@ -3,7 +3,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { Outlet } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
-  AcknowledgementAudience,
   AuditLedgerEntry,
   Block,
   ComplianceReceipt,
@@ -25,6 +24,7 @@ import {
   mapWikiSpace,
   mapWikiSpaceItem,
 } from '../lib/wikiDocumentsMappers'
+import { userMustAcknowledgePage } from '../lib/wikiCompliance'
 
 export const DEMO_USER_NAME = 'Demo User'
 
@@ -37,7 +37,26 @@ type DocumentsState = {
   pageVersions: WikiPageVersionSnapshot[]
 }
 
-type LegalCoverageRow = { ref: string; label: string; templateIds: string[] }
+type LegalCoverageRow = { id: string; ref: string; label: string; templateIds: string[] }
+
+export type WikiComplianceSummaryRow = {
+  id: string
+  ref: string
+  requirement: string
+  category: string
+  organization_id: string
+  covered_count: number
+  earliest_revision_due: string | null
+  has_overdue: boolean
+}
+
+export type OrgPeerProfile = {
+  id: string
+  display_name: string
+  department_id?: string | null
+  learning_metadata?: Record<string, unknown> | null
+  is_org_admin?: boolean | null
+}
 
 type OrgTemplateSetting = { templateId: string; enabled: boolean }
 
@@ -120,28 +139,6 @@ async function fetchAllForOrg(
   }
 }
 
-function userMustAcknowledgePage(
-  page: WikiPage,
-  ctx: {
-    isOrgAdmin: boolean
-    departmentId: string | null | undefined
-    learningMetadata: Record<string, unknown> | null | undefined
-  },
-): boolean {
-  if (!page.requiresAcknowledgement) return false
-  const aud: AcknowledgementAudience = page.acknowledgementAudience ?? 'all_employees'
-  if (aud === 'all_employees') return true
-  if (aud === 'leaders_only') return ctx.isOrgAdmin === true
-  if (aud === 'safety_reps_only') {
-    return ctx.learningMetadata?.is_safety_rep === true
-  }
-  if (aud === 'department') {
-    if (!page.acknowledgementDepartmentId) return true
-    return ctx.departmentId === page.acknowledgementDepartmentId
-  }
-  return true
-}
-
 function useDocumentsStore() {
   const { supabase, organization, user, profile, isAdmin: isOrgAdminFromPerms } = useOrgSetupContext()
   const orgId = organization?.id
@@ -153,6 +150,9 @@ function useDocumentsStore() {
 
   const [remoteState, setRemoteState] = useState<DocumentsState>(() => initialSnap ?? emptyState())
   const [legalCoverage, setLegalCoverage] = useState<LegalCoverageRow[]>([])
+  const [complianceSummary, setComplianceSummary] = useState<WikiComplianceSummaryRow[]>([])
+  const [coverageOwnerByItemId, setCoverageOwnerByItemId] = useState<Record<string, string | null>>({})
+  const [orgPeerProfiles, setOrgPeerProfiles] = useState<OrgPeerProfile[]>([])
   const [systemTemplates, setSystemTemplates] = useState<
     { id: string; label: string; description: string; category: SpaceCategory; legalBasis: string[]; pagePayload: PageTemplate['page'] }[]
   >([])
@@ -185,8 +185,15 @@ function useDocumentsStore() {
     setError(null)
     try {
       await supabase.rpc('wiki_ensure_org_defaults')
-      const [covRes, tplRes, setRes, customRes, data] = await Promise.all([
-        supabase.from('wiki_legal_coverage_items').select('ref, label, template_ids').order('ref'),
+      const [covRes, sumRes, assignRes, peersRes, tplRes, setRes, customRes, data] = await Promise.all([
+        supabase.from('wiki_legal_coverage_items').select('id, ref, label, template_ids').order('ref'),
+        supabase.from('wiki_compliance_summary').select('*').eq('organization_id', orgId),
+        supabase.from('wiki_legal_coverage_item_assignments').select('coverage_item_id, owner_id').eq('organization_id', orgId),
+        supabase
+          .from('profiles')
+          .select('id, display_name, department_id, learning_metadata, is_org_admin')
+          .eq('organization_id', orgId)
+          .order('display_name'),
         supabase
           .from('document_system_templates')
           .select('id, label, description, category, legal_basis, page_payload, sort_order')
@@ -196,15 +203,34 @@ function useDocumentsStore() {
         fetchAllForOrg(supabase, orgId, authorFallback),
       ])
       if (covRes.error) throw covRes.error
+      if (sumRes.error) throw sumRes.error
+      if (assignRes.error) throw assignRes.error
+      if (peersRes.error) throw peersRes.error
       if (tplRes.error) throw tplRes.error
       if (setRes.error) throw setRes.error
       if (customRes.error) throw customRes.error
 
       setLegalCoverage(
         (covRes.data ?? []).map((r) => ({
+          id: r.id as string,
           ref: r.ref,
           label: r.label,
           templateIds: (r.template_ids as string[]) ?? [],
+        })),
+      )
+      setComplianceSummary((sumRes.data ?? []) as WikiComplianceSummaryRow[])
+      const ownMap: Record<string, string | null> = {}
+      for (const row of assignRes.data ?? []) {
+        ownMap[(row as { coverage_item_id: string }).coverage_item_id] = (row as { owner_id: string | null }).owner_id
+      }
+      setCoverageOwnerByItemId(ownMap)
+      setOrgPeerProfiles(
+        (peersRes.data ?? []).map((p) => ({
+          id: p.id as string,
+          display_name: (p.display_name as string) ?? 'Bruker',
+          department_id: (p as { department_id?: string | null }).department_id ?? null,
+          learning_metadata: (p as { learning_metadata?: Record<string, unknown> | null }).learning_metadata ?? null,
+          is_org_admin: (p as { is_org_admin?: boolean | null }).is_org_admin ?? null,
         })),
       )
       setSystemTemplates(
@@ -846,6 +872,34 @@ function useDocumentsStore() {
     return { published, drafts, requireAck, acknowledged, total: remoteState.pages.length }
   }, [remoteState.pages, remoteState.receipts])
 
+  const legalCoverageDisplay = useMemo((): LegalCoverageRow[] => {
+    if (legalCoverage.length > 0) return legalCoverage
+    return STATIC_LEGAL_COVERAGE.map((r) => ({
+      id: `static-${r.ref}`,
+      ref: r.ref,
+      label: r.label,
+      templateIds: r.templateIds,
+    }))
+  }, [legalCoverage])
+
+  const setCoverageItemOwner = useCallback(
+    async (coverageItemId: string, ownerId: string | null) => {
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const row = {
+        organization_id: orgId,
+        coverage_item_id: coverageItemId,
+        owner_id: ownerId,
+        updated_at: new Date().toISOString(),
+      }
+      const { error: e } = await supabase.from('wiki_legal_coverage_item_assignments').upsert(row, {
+        onConflict: 'organization_id,coverage_item_id',
+      })
+      if (e) throw e
+      setCoverageOwnerByItemId((prev) => ({ ...prev, [coverageItemId]: ownerId }))
+    },
+    [supabase, orgId, userId],
+  )
+
   const versionsForPage = useCallback(
     (pageId: string) => remoteState.pageVersions.filter((v) => v.pageId === pageId).sort((a, b) => b.version - a.version),
     [remoteState.pageVersions],
@@ -888,7 +942,11 @@ function useDocumentsStore() {
       uploadSpaceFile,
       deleteSpaceItem,
       getSpaceFileUrl,
-      legalCoverage: ready ? legalCoverage : STATIC_LEGAL_COVERAGE,
+      legalCoverage: legalCoverageDisplay,
+      complianceSummary,
+      coverageOwnerByItemId,
+      orgPeerProfiles,
+      setCoverageItemOwner,
       pageTemplates,
       systemTemplatesCatalog: systemTemplates,
       orgTemplateSettings,
@@ -930,7 +988,11 @@ function useDocumentsStore() {
       uploadSpaceFile,
       deleteSpaceItem,
       getSpaceFileUrl,
-      legalCoverage,
+      legalCoverageDisplay,
+      complianceSummary,
+      coverageOwnerByItemId,
+      orgPeerProfiles,
+      setCoverageItemOwner,
       pageTemplates,
       systemTemplates,
       orgTemplateSettings,
@@ -1110,6 +1172,10 @@ export function useComplianceDocs() {
       loading: v.loading,
       error: v.error,
       legalCoverage: v.legalCoverage,
+      complianceSummary: v.complianceSummary,
+      coverageOwnerByItemId: v.coverageOwnerByItemId,
+      orgPeerProfiles: v.orgPeerProfiles,
+      setCoverageItemOwner: v.setCoverageItemOwner,
       pages: v.pages,
       pageTemplates: v.pageTemplates,
       receipts: v.receipts,

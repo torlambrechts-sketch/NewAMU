@@ -96,4 +96,11 @@
     color: #666;
     word-break: break-all;
   }
+
+  .compliance-dashboard-root .compliance-no-print {
+    display: none !important;
+  }
+  .compliance-dashboard-root .compliance-print-report {
+    display: block !important;
+  }
 }
