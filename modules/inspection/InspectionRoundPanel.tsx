@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Circle, X } from 'lucide-react'
+import { CheckCircle2, Circle, Trash2, X } from 'lucide-react'
 import type { HmsCategory, InspectionChecklistItem, InspectionRoundRow } from './types'
 import { parseChecklistItems } from './schema'
 import type { InspectionModuleState } from './useInspectionModule'
@@ -194,7 +194,7 @@ function FindingsTab({
   const findings = inspection.findingsByRoundId[round.id] ?? []
   const items = inspection.itemsByRoundId[round.id] ?? []
   const [description, setDescription] = useState('')
-  const [severity, setSeverity] = useState<'low' | 'medium' | 'high' | 'critical'>('medium')
+  const [severity, setSeverity] = useState<'low' | 'medium' | 'high' | 'critical'>('high')
   const [linkedItemKey, setLinkedItemKey] = useState(prefillItemKey ?? '')
   const [saving, setSaving] = useState(false)
 
@@ -217,7 +217,7 @@ function FindingsTab({
       itemId: linkedItemId,
     })
     setDescription('')
-    setSeverity('medium')
+    setSeverity('high')
     setLinkedItemKey('')
     setSaving(false)
   }
@@ -293,11 +293,27 @@ function FindingsTab({
               <div key={f.id} className="border-b border-neutral-100 px-5 py-4 last:border-b-0">
                 <div className="flex items-start justify-between gap-3">
                   <p className="text-sm text-neutral-900">{f.description}</p>
-                  <span
-                    className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_COLORS[f.severity]}`}
-                  >
-                    {SEVERITY_LABELS[f.severity]}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span
+                      className={`rounded px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_COLORS[f.severity]}`}
+                    >
+                      {SEVERITY_LABELS[f.severity]}
+                    </span>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!window.confirm('Slett dette funnet?')) return
+                          void inspection.deleteFinding(f.id)
+                        }}
+                        className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-red-600"
+                        aria-label="Slett funn"
+                        title="Slett"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {linkedLabel && (
                   <p className="mt-1 text-xs text-neutral-500">Punkt: {linkedLabel}</p>

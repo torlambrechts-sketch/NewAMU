@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { CheckCircle2, Circle, Search, Settings } from 'lucide-react'
+import { CheckCircle2, ChevronRight, Circle, Search, Settings } from 'lucide-react'
 import { FormModal } from '../../src/template'
 import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
 import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
@@ -350,7 +350,7 @@ export function InspectionModuleView({ supabase }: Props) {
               <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
               <th className={LAYOUT_TABLE1_POSTINGS_TH}>Planlagt</th>
               <th className={LAYOUT_TABLE1_POSTINGS_TH}>Signaturer</th>
-              <th className={`w-24 ${LAYOUT_TABLE1_POSTINGS_TH}`}>Handling</th>
+              <th className={`w-8 ${LAYOUT_TABLE1_POSTINGS_TH}`}></th>
             </tr>
           </thead>
           <tbody>
@@ -412,14 +412,8 @@ export function InspectionModuleView({ supabase }: Props) {
                       </span>
                     </div>
                   </td>
-                  <td className="px-5 py-3">
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); setSelectedRoundId(round.id) }}
-                      className="text-xs font-medium text-[#1a3d32] hover:underline"
-                    >
-                      Åpne
-                    </button>
+                  <td className="w-8 px-3 py-3 text-neutral-300">
+                    <ChevronRight className="h-4 w-4" />
                   </td>
                 </tr>
               )

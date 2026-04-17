@@ -86,6 +86,7 @@ export type InspectionModuleState = {
     severity: InspectionFindingRow['severity']
     photoPath?: string
   }) => Promise<void>
+  deleteFinding: (findingId: string) => Promise<void>
 }
 
 function groupByRound<T extends { round_id: string }>(rows: T[]): Record<string, T[]> {
@@ -586,6 +587,26 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     [supabase],
   )
 
+  const deleteFinding = useCallback(
+    async (findingId: string) => {
+      if (!supabase) {
+        setError('Supabase is not configured.')
+        return
+      }
+      setError(null)
+      const { error: deleteError } = await supabase
+        .from('inspection_findings')
+        .delete()
+        .eq('id', findingId)
+      if (deleteError) {
+        setError(deleteError.message)
+        return
+      }
+      setFindings((previous) => previous.filter((finding) => finding.id !== findingId))
+    },
+    [supabase],
+  )
+
   const signRoundWithRole = useCallback(
     async (roundId: string, role: 'manager' | 'deputy') => {
       if (!supabase) {
@@ -695,5 +716,6 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     saveRoundSummary,
     upsertItemResponse,
     addFinding,
+    deleteFinding,
   }
 }
