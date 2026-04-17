@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { CheckCircle2, ChevronRight, Circle, Search, Settings } from 'lucide-react'
 import { FormModal } from '../../src/template'
@@ -13,8 +13,6 @@ import {
 } from '../../src/components/layout/layoutTable1PostingsKit'
 import type { InspectionRoundRow } from './types'
 import { useInspectionModule } from './useInspectionModule'
-import { InspectionRoundPanel } from './InspectionRoundPanel'
-
 type Props = { supabase: SupabaseClient | null }
 
 // ── Recurrence picker ────────────────────────────────────────────────────────
@@ -175,13 +173,9 @@ function toDateTimeLocalValue(input: string | null): string {
 }
 
 export function InspectionModuleView({ supabase }: Props) {
+  const navigate = useNavigate()
   const inspection = useInspectionModule({ supabase })
   const { load } = inspection
-  const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null)
-  const selectedRound = useMemo(
-    () => inspection.rounds.find((r) => r.id === selectedRoundId) ?? null,
-    [inspection.rounds, selectedRoundId],
-  )
   const [search, setSearch] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
@@ -361,7 +355,7 @@ export function InspectionModuleView({ supabase }: Props) {
                 <tr
                   key={round.id}
                   className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer hover:bg-neutral-50`}
-                  onClick={() => setSelectedRoundId(round.id)}
+                  onClick={() => navigate(`/inspection-module/${round.id}`)}
                 >
                   <td className="px-5 py-3 font-medium text-neutral-900">
                     {round.title}
@@ -413,7 +407,7 @@ export function InspectionModuleView({ supabase }: Props) {
                     </div>
                   </td>
                   <td className="w-8 px-3 py-3 text-neutral-300">
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4" aria-hidden />
                   </td>
                 </tr>
               )
@@ -533,16 +527,6 @@ export function InspectionModuleView({ supabase }: Props) {
           </div>
         </div>
       </FormModal>
-
-      {/* ── Inspection round panel ───────────────────────────────────────────── */}
-      {selectedRound && (
-        <InspectionRoundPanel
-          round={selectedRound}
-          inspection={inspection}
-          supabase={supabase}
-          onClose={() => setSelectedRoundId(null)}
-        />
-      )}
 
       {/* ── Scheduling modal ─────────────────────────────────────────────────── */}
       <FormModal

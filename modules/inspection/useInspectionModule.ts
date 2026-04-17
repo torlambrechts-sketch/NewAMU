@@ -204,41 +204,64 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         setError('Supabase is not configured.')
         return
       }
-
-      const [itemsRes, findingsRes] = await Promise.all([
-        supabase
-          .from('inspection_items')
+      setError(null)
+      try {
+        const { data: roundRow, error: roundError } = await supabase
+          .from('inspection_rounds')
           .select('*')
-          .eq('round_id', roundId)
-          .order('position', { ascending: true }),
-        supabase
-          .from('inspection_findings')
-          .select('*')
-          .eq('round_id', roundId)
-          .order('created_at', { ascending: false }),
-      ])
+          .eq('id', roundId)
+          .maybeSingle()
+        if (roundError) throw roundError
+        const parsedRound = InspectionRoundRowSchema.safeParse(roundRow)
+        if (!parsedRound.success || !roundRow) {
+          return
+        }
 
-      if (itemsRes.error) {
-        setError(itemsRes.error.message)
-        return
+        setRounds((previous) => {
+          const idx = previous.findIndex((r) => r.id === roundId)
+          if (idx === -1) return [parsedRound.data, ...previous]
+          const next = [...previous]
+          next[idx] = parsedRound.data
+          return next
+        })
+
+        const [itemsRes, findingsRes] = await Promise.all([
+          supabase
+            .from('inspection_items')
+            .select('*')
+            .eq('round_id', roundId)
+            .order('position', { ascending: true }),
+          supabase
+            .from('inspection_findings')
+            .select('*')
+            .eq('round_id', roundId)
+            .order('created_at', { ascending: false }),
+        ])
+        if (itemsRes.error) throw itemsRes.error
+        if (findingsRes.error) throw findingsRes.error
+
+        const nextItems = parseRows<InspectionItemRow>(itemsRes.data ?? [], (row) => {
+          const parsed = InspectionItemRowSchema.safeParse(row)
+          return parsed.success ? parsed.data : null
+        })
+        const nextFindings = parseRows<InspectionFindingRow>(findingsRes.data ?? [], (row) => {
+          const parsed = InspectionFindingRowSchema.safeParse(row)
+          return parsed.success ? parsed.data : null
+        })
+
+        setItems((previous) => {
+          const rest = previous.filter((item) => item.round_id !== roundId)
+          return [...nextItems, ...rest]
+        })
+        setFindings((previous) => {
+          const rest = previous.filter((f) => f.round_id !== roundId)
+          return [...nextFindings, ...rest]
+        })
+        setLoadedRoundIds((previous) => (previous.includes(roundId) ? previous : [...previous, roundId]))
+      } catch (unknownError) {
+        const message = unknownError instanceof Error ? unknownError.message : 'Failed loading round detail.'
+        setError(message)
       }
-      if (findingsRes.error) {
-        setError(findingsRes.error.message)
-        return
-      }
-
-      const nextItems = parseRows<InspectionItemRow>(itemsRes.data ?? [], (row) => {
-        const parsed = InspectionItemRowSchema.safeParse(row)
-        return parsed.success ? parsed.data : null
-      })
-      const nextFindings = parseRows<InspectionFindingRow>(findingsRes.data ?? [], (row) => {
-        const parsed = InspectionFindingRowSchema.safeParse(row)
-        return parsed.success ? parsed.data : null
-      })
-
-      setItems((previous) => [...previous.filter((item) => item.round_id !== roundId), ...nextItems])
-      setFindings((previous) => [...previous.filter((finding) => finding.round_id !== roundId), ...nextFindings])
-      setLoadedRoundIds((previous) => (previous.includes(roundId) ? previous : [...previous, roundId]))
     },
     [supabase],
   )
