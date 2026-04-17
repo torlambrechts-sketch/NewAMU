@@ -89,6 +89,14 @@ export type InspectionModuleState = {
     riskProbability?: number
     riskConsequence?: number
   }) => Promise<void>
+  updateFinding: (payload: {
+    findingId: string
+    description: string
+    severity: InspectionFindingRow['severity']
+    itemId?: string | null
+    riskProbability?: number | null
+    riskConsequence?: number | null
+  }) => Promise<void>
   deleteFinding: (findingId: string) => Promise<void>
   createDeviationFromFinding: (findingId: string) => Promise<string | null>
 }
@@ -235,6 +243,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
             .from('inspection_findings')
             .select('*')
             .eq('round_id', roundId)
+            .is('deleted_at', null)
             .order('created_at', { ascending: false }),
         ])
         if (itemsRes.error) throw itemsRes.error
@@ -590,15 +599,62 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         return
       }
       setError(null)
+      const desc = payload.description.trim()
+      let organizationId: string | null = null
+      const fromState = rounds.find((r) => r.id === payload.roundId)
+      if (fromState) {
+        organizationId = fromState.organization_id
+      } else {
+        const { data: rRow, error: rErr } = await supabase
+          .from('inspection_rounds')
+          .select('organization_id')
+          .eq('id', payload.roundId)
+          .maybeSingle()
+        if (rErr || !rRow) {
+          setError(rErr?.message ?? 'Fant ikke runden.')
+          return
+        }
+        organizationId = String((rRow as { organization_id: string }).organization_id)
+      }
+      if (!organizationId) {
+        setError('Mangler organisasjon for runden.')
+        return
+      }
+
+      const titleBase = desc.slice(0, 80)
+      const deviationInsert: Record<string, unknown> = {
+        organization_id: organizationId,
+        source: 'inspection_finding',
+        title: `Avvik: ${titleBase}`,
+        description: desc,
+        severity: payload.severity,
+        status: 'rapportert',
+        risk_probability: payload.riskProbability ?? null,
+        risk_consequence: payload.riskConsequence ?? null,
+      }
+      const { data: devRow, error: devErr } = await supabase
+        .from('deviations')
+        .insert(deviationInsert)
+        .select('id')
+        .single()
+      if (devErr || !devRow?.id) {
+        setError(devErr?.message ?? 'Kunne ikke opprette avvik.')
+        return
+      }
+      const deviationId = String((devRow as { id: string }).id)
+
       const findingInsert: Record<string, unknown> = {
         round_id: payload.roundId,
         item_id: payload.itemId ?? null,
-        description: payload.description.trim(),
+        description: desc,
         severity: payload.severity,
         photo_path: payload.photoPath ?? null,
+        deviation_id: deviationId,
+        workflow_processed_at: new Date().toISOString(),
       }
       if (payload.riskProbability != null) findingInsert.risk_probability = payload.riskProbability
       if (payload.riskConsequence != null) findingInsert.risk_consequence = payload.riskConsequence
+
       const { data, error: insertError } = await supabase
         .from('inspection_findings')
         .insert(findingInsert)
@@ -606,16 +662,89 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .single()
       if (insertError) {
         setError(insertError.message)
+        await supabase.from('deviations').delete().eq('id', deviationId)
         return
       }
+
+      const { error: linkErr } = await supabase
+        .from('deviations')
+        .update({ source_id: String((data as { id: string }).id) })
+        .eq('id', deviationId)
+      if (linkErr) {
+        setError(linkErr.message)
+      }
+
       const parsed = InspectionFindingRowSchema.safeParse(data)
       if (!parsed.success) {
-        setError('Failed to parse inspection finding.')
+        setError('Kunne ikke lese opprettet avvik/funn.')
         return
       }
       setFindings((previous) => [parsed.data, ...previous])
     },
-    [supabase],
+    [supabase, rounds],
+  )
+
+  const updateFinding = useCallback(
+    async (payload: {
+      findingId: string
+      description: string
+      severity: InspectionFindingRow['severity']
+      itemId?: string | null
+      riskProbability?: number | null
+      riskConsequence?: number | null
+    }) => {
+      if (!supabase) {
+        setError('Supabase is not configured.')
+        return
+      }
+      const finding = findings.find((f) => f.id === payload.findingId)
+      if (!finding) {
+        setError('Fant ikke avviket.')
+        return
+      }
+      setError(null)
+      const desc = payload.description.trim()
+      const row: Record<string, unknown> = {
+        description: desc,
+        severity: payload.severity,
+        item_id: payload.itemId === undefined ? finding.item_id : payload.itemId,
+        risk_probability: payload.riskProbability ?? null,
+        risk_consequence: payload.riskConsequence ?? null,
+      }
+      const { data, error: upErr } = await supabase
+        .from('inspection_findings')
+        .update(row)
+        .eq('id', payload.findingId)
+        .select('*')
+        .single()
+      if (upErr) {
+        setError(upErr.message)
+        return
+      }
+      const parsed = InspectionFindingRowSchema.safeParse(data)
+      if (!parsed.success) {
+        setError('Kunne ikke lese oppdatert avvik.')
+        return
+      }
+
+      if (finding.deviation_id) {
+        const titleBase = desc.slice(0, 80)
+        const { error: devUpErr } = await supabase
+          .from('deviations')
+          .update({
+            title: `Avvik: ${titleBase}`,
+            description: desc,
+            severity: payload.severity,
+            risk_probability: payload.riskProbability ?? null,
+            risk_consequence: payload.riskConsequence ?? null,
+          })
+          .eq('id', finding.deviation_id)
+        if (devUpErr) setError(devUpErr.message)
+      }
+
+      setFindings((previous) => previous.map((f) => (f.id === payload.findingId ? parsed.data : f)))
+    },
+    [supabase, findings],
   )
 
   const deleteFinding = useCallback(
@@ -624,18 +753,23 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         setError('Supabase is not configured.')
         return
       }
+      const deviationId = findings.find((f) => f.id === findingId)?.deviation_id ?? null
       setError(null)
-      const { error: deleteError } = await supabase
+      const now = new Date().toISOString()
+      const { error: softErr } = await supabase
         .from('inspection_findings')
-        .delete()
+        .update({ deleted_at: now })
         .eq('id', findingId)
-      if (deleteError) {
-        setError(deleteError.message)
+      if (softErr) {
+        setError(softErr.message)
         return
       }
-      setFindings((previous) => previous.filter((finding) => finding.id !== findingId))
+      if (deviationId) {
+        await supabase.from('deviations').update({ deleted_at: now }).eq('id', deviationId)
+      }
+      setFindings((previous) => previous.filter((f) => f.id !== findingId))
     },
-    [supabase],
+    [supabase, findings],
   )
 
   const createDeviationFromFinding = useCallback(
@@ -652,13 +786,17 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       if (finding.deviation_id) {
         return finding.deviation_id
       }
+      if (!finding.description?.trim()) {
+        setError('Funn mangler beskrivelse — kan ikke opprette avvik.')
+        return null
+      }
       setError(null)
       const titleBase = finding.description.trim().slice(0, 80)
       const deviationInsert = {
         organization_id: finding.organization_id,
         source: 'inspection_finding',
         source_id: findingId,
-        title: `Funn: ${titleBase}`,
+        title: `Avvik: ${titleBase}`,
         description: finding.description,
         severity: finding.severity,
         status: 'rapportert' as const,
@@ -849,6 +987,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     saveRoundSummary,
     upsertItemResponse,
     addFinding,
+    updateFinding,
     deleteFinding,
     createDeviationFromFinding,
   }

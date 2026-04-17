@@ -9,6 +9,7 @@ import {
   FileText,
   History,
   Loader2,
+  Pencil,
   PenLine,
   Settings,
   Trash2,
@@ -30,7 +31,7 @@ type PanelTab = 'checklist' | 'findings' | 'summary' | 'signatures' | 'history'
 
 const TAB_LABELS: Record<PanelTab, string> = {
   checklist: 'Sjekkliste',
-  findings: 'Funn',
+  findings: 'Avvik',
   summary: 'Sammendrag',
   signatures: 'Signaturer',
   history: 'Historikk',
@@ -234,7 +235,7 @@ function ChecklistTab({
   )
 }
 
-// ── Findings tab ──────────────────────────────────────────────────────────────
+// ── Avvik (inspection findings) tab ───────────────────────────────────────────
 
 function FindingsTab({
   round,
@@ -251,38 +252,68 @@ function FindingsTab({
 }) {
   const findings = inspection.findingsByRoundId[round.id] ?? []
   const items = useMemo(() => inspection.itemsByRoundId[round.id] ?? [], [inspection.itemsByRoundId, round.id])
+  const [editingFindingId, setEditingFindingId] = useState<string | null>(null)
   const [description, setDescription] = useState('')
   const [severity, setSeverity] = useState<'low' | 'medium' | 'high' | 'critical'>('high')
   const [findingProb, setFindingProb] = useState<number | null>(null)
   const [findingCons, setFindingCons] = useState<number | null>(null)
   const [linkedItemKey, setLinkedItemKey] = useState(prefillItemKey ?? '')
   const [saving, setSaving] = useState(false)
-  const [creatingForFindingId, setCreatingForFindingId] = useState<string | null>(null)
-  const [deviationSuccess, setDeviationSuccess] = useState<{ findingId: string; deviationId: string } | null>(
-    null,
-  )
+  const [linkingDeviationId, setLinkingDeviationId] = useState<string | null>(null)
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      if (prefillItemKey) setLinkedItemKey(prefillItemKey)
+    })
+  }, [prefillItemKey])
 
   const linkedItemId = useMemo(() => {
     if (!linkedItemKey) return undefined
     return items.find((i) => i.checklist_item_key === linkedItemKey)?.id
   }, [linkedItemKey, items])
 
-  async function handleAdd() {
-    if (!description.trim()) return
-    setSaving(true)
-    await inspection.addFinding({
-      roundId: round.id,
-      description,
-      severity,
-      itemId: linkedItemId,
-      riskProbability: findingProb ?? undefined,
-      riskConsequence: findingCons ?? undefined,
-    })
+  function resetForm() {
+    setEditingFindingId(null)
     setDescription('')
     setSeverity('high')
     setFindingProb(null)
     setFindingCons(null)
     setLinkedItemKey('')
+  }
+
+  function startEdit(f: (typeof findings)[0]) {
+    setEditingFindingId(f.id)
+    setDescription(f.description)
+    setSeverity(f.severity)
+    setFindingProb(f.risk_probability)
+    setFindingCons(f.risk_consequence)
+    const key = f.item_id ? items.find((i) => i.id === f.item_id)?.checklist_item_key ?? '' : ''
+    setLinkedItemKey(key)
+  }
+
+  async function handleSave() {
+    if (!description.trim()) return
+    setSaving(true)
+    if (editingFindingId) {
+      await inspection.updateFinding({
+        findingId: editingFindingId,
+        description,
+        severity,
+        itemId: linkedItemId ?? null,
+        riskProbability: findingProb,
+        riskConsequence: findingCons,
+      })
+    } else {
+      await inspection.addFinding({
+        roundId: round.id,
+        description,
+        severity,
+        itemId: linkedItemId,
+        riskProbability: findingProb ?? undefined,
+        riskConsequence: findingCons ?? undefined,
+      })
+    }
+    resetForm()
     setSaving(false)
   }
 
@@ -292,21 +323,30 @@ function FindingsTab({
     <div className="divide-y divide-neutral-100">
       {!readOnly && (
         <div className="space-y-3 px-5 py-5">
-          <p className={PANEL_FIELD_LABEL}>Nytt funn</p>
+          <p className={PANEL_FIELD_LABEL}>
+            {editingFindingId ? 'Rediger avvik' : 'Registrer nytt avvik'}
+          </p>
+          <p className="text-xs text-neutral-500">
+            Hvert avvik lagres i avviksmodulen og kan åpnes for full behandling, handlingsplan og historikk.
+          </p>
           <div>
-            <label className={PANEL_FIELD_LABEL} htmlFor="finding-desc">Beskrivelse</label>
+            <label className={PANEL_FIELD_LABEL} htmlFor="finding-desc">
+              Beskrivelse
+            </label>
             <textarea
               id="finding-desc"
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Beskriv funnet…"
+              placeholder="Beskriv avviket…"
               className={`${PANEL_INPUT} resize-none`}
             />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className={PANEL_FIELD_LABEL} htmlFor="finding-severity">Alvorlighetsgrad</label>
+              <label className={PANEL_FIELD_LABEL} htmlFor="finding-severity">
+                Alvorlighetsgrad
+              </label>
               <select
                 id="finding-severity"
                 value={severity}
@@ -314,12 +354,16 @@ function FindingsTab({
                 className={PANEL_INPUT}
               >
                 {(Object.keys(SEVERITY_LABELS) as (keyof typeof SEVERITY_LABELS)[]).map((s) => (
-                  <option key={s} value={s}>{SEVERITY_LABELS[s]}</option>
+                  <option key={s} value={s}>
+                    {SEVERITY_LABELS[s]}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className={PANEL_FIELD_LABEL} htmlFor="finding-item">Tilknyttet punkt (valgfri)</label>
+              <label className={PANEL_FIELD_LABEL} htmlFor="finding-item">
+                Tilknyttet sjekklistepunkt (valgfri)
+              </label>
               <select
                 id="finding-item"
                 value={linkedItemKey}
@@ -328,7 +372,9 @@ function FindingsTab({
               >
                 <option value="">(Ingen)</option>
                 {checklistItems.map((ci) => (
-                  <option key={ci.key} value={ci.key}>{ci.label}</option>
+                  <option key={ci.key} value={ci.key}>
+                    {ci.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -347,70 +393,63 @@ function FindingsTab({
               />
             </div>
           </div>
-          <button
-            type="button"
-            disabled={!description.trim() || saving}
-            onClick={() => void handleAdd()}
-            className="rounded px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            style={{ backgroundColor: '#1a3d32' }}
-          >
-            {saving ? 'Lagrer…' : 'Legg til funn'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={!description.trim() || saving}
+              onClick={() => void handleSave()}
+              className="rounded px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              style={{ backgroundColor: '#1a3d32' }}
+            >
+              {saving ? 'Lagrer…' : editingFindingId ? 'Lagre endringer' : 'Registrer avvik'}
+            </button>
+            {(editingFindingId || description.trim()) && (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => resetForm()}
+                className="rounded border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              >
+                Avbryt
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       {findings.length === 0 ? (
-        <p className="px-5 py-8 text-center text-sm text-neutral-400">Ingen funn registrert.</p>
+        <p className="px-5 py-8 text-center text-sm text-neutral-400">Ingen avvik registrert ennå.</p>
       ) : (
         <div>
           {findings.map((f) => {
             const linkedLabel = f.item_id
-              ? (items.find((i) => i.id === f.item_id)?.checklist_item_label ?? null)
+              ? items.find((i) => i.id === f.item_id)?.checklist_item_label ?? null
               : null
-            const riskScore =
-              f.risk_score ?? riskScoreFromProbCons(f.risk_probability, f.risk_consequence)
-            const showDeviationBanner =
-              !f.deviation_id && riskScore != null && riskScore >= 10
+            const riskScore = f.risk_score ?? riskScoreFromProbCons(f.risk_probability, f.risk_consequence)
+            const showLegacyLinkBanner = !f.deviation_id && riskScore != null && riskScore >= 10
 
             return (
               <div key={f.id} className="border-b border-neutral-100 px-5 py-4 last:border-b-0">
-                {deviationSuccess?.findingId === f.id && (
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900">
-                    <span>Avvik er opprettet.</span>
-                    <button
-                      type="button"
-                      className="font-semibold underline decoration-green-800 hover:text-green-950"
-                      onClick={() => {
-                        onOpenDeviation(deviationSuccess.deviationId)
-                        setDeviationSuccess(null)
-                      }}
-                    >
-                      Åpne avvik →
-                    </button>
-                  </div>
-                )}
-                {showDeviationBanner && (
+                {showLegacyLinkBanner && (
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                    <span>
-                      Risikoskår {riskScore} — opprett avvik (IK-f §5 krav)
-                    </span>
+                    <span>Risikoskår {riskScore} — koble til avvik i systemet</span>
                     <button
                       type="button"
-                      disabled={creatingForFindingId === f.id}
+                      disabled={linkingDeviationId === f.id}
                       className="shrink-0 rounded bg-[#1a3d32] px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
                       onClick={async () => {
-                        setCreatingForFindingId(f.id)
+                        setLinkingDeviationId(f.id)
                         const id = await inspection.createDeviationFromFinding(f.id)
-                        setCreatingForFindingId(null)
-                        if (id) setDeviationSuccess({ findingId: f.id, deviationId: id })
+                        setLinkingDeviationId(null)
+                        if (id) onOpenDeviation(id)
                       }}
                     >
-                      {creatingForFindingId === f.id ? 'Oppretter…' : 'Opprett avvik'}
+                      {linkingDeviationId === f.id ? 'Oppretter…' : 'Opprett avvik'}
                     </button>
                   </div>
                 )}
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm text-neutral-900">{f.description}</p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <p className="min-w-0 flex-1 text-sm text-neutral-900">{f.description}</p>
                   <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                     <span
                       className={`rounded px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_COLORS[f.severity]}`}
@@ -425,24 +464,43 @@ function FindingsTab({
                       </span>
                     )}
                     {!readOnly && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!window.confirm('Slett dette funnet?')) return
-                          void inspection.deleteFinding(f.id)
-                        }}
-                        className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-red-600"
-                        aria-label="Slett funn"
-                        title="Slett"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <>
+                        {f.deviation_id && (
+                          <button
+                            type="button"
+                            onClick={() => onOpenDeviation(f.deviation_id!)}
+                            className="rounded border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
+                          >
+                            Åpne avvik
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => startEdit(f)}
+                          className="rounded p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+                          aria-label="Rediger avvik"
+                          title="Rediger"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!window.confirm('Slette dette avviket?')) return
+                            void inspection.deleteFinding(f.id)
+                            if (editingFindingId === f.id) resetForm()
+                          }}
+                          className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-red-600"
+                          aria-label="Slett avvik"
+                          title="Slett"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
-                {linkedLabel && (
-                  <p className="mt-1 text-xs text-neutral-500">Punkt: {linkedLabel}</p>
-                )}
+                {linkedLabel && <p className="mt-1 text-xs text-neutral-500">Punkt: {linkedLabel}</p>}
               </div>
             )
           })}
@@ -908,7 +966,7 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
             { label: round.title },
           ]}
           title={round.title}
-          description="Gjennomfør sjekkliste, dokumenter funn og signer vernerunden i henhold til Internkontrollforskriften § 5."
+          description="Gjennomfør sjekkliste, registrer avvik og signer vernerunden i henhold til Internkontrollforskriften § 5."
           headerActions={
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -942,7 +1000,7 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
             {
               big: STATUS_LABEL[round.status],
               title: 'Status',
-              sub: critCount > 0 ? `${critCount} kritiske funn` : 'Ingen kritiske funn',
+              sub: critCount > 0 ? `${critCount} kritiske avvik` : 'Ingen kritiske avvik',
             },
             {
               big: template?.name ?? '—',
@@ -966,7 +1024,7 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
           <LayoutTable1PostingsShell
             wrap
             title="Sjekkliste"
-            description="Svar på punktene under — «Nei» gir mulighet til å registrere avvik og hoppe til Funn."
+            description="Svar på punktene under — «Nei» gir mulighet til å registrere avvik og hoppe til fanen Avvik."
             headerActions={
               critCount > 0 ? (
                 <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
@@ -999,7 +1057,7 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
             title={TAB_LABELS.findings}
             description="Registrer observasjoner og opprett avvik der risikoen krever det."
             toolbar={<span className="text-sm text-neutral-600">Tilknytt sjekklistepunkt ved behov</span>}
-            footer={findings.length > 0 ? <span>{findings.length} funn</span> : null}
+            footer={findings.length > 0 ? <span>{findings.length} avvik</span> : null}
           >
             <FindingsTab
               key={`${round.id}-${findingPrefillKey ?? ''}`}

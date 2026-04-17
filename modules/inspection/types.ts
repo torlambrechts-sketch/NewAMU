@@ -126,6 +126,8 @@ export type InspectionFindingRow = {
   created_by: string | null
   deviation_id: string | null
   workflow_processed_at: string | null
+  /** Soft-delete — null means active */
+  deleted_at?: string | null
   created_at: string
   updated_at: string
 }
