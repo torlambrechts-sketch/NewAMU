@@ -1,7 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ArrowLeft, CheckCircle2, Circle, Loader2, Trash2 } from 'lucide-react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Circle,
+  ClipboardList,
+  FileText,
+  History,
+  Loader2,
+  PenLine,
+  Settings,
+  Trash2,
+} from 'lucide-react'
+import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
+import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
+import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
+import { HubMenu1Bar, type HubMenu1Item } from '../../src/components/layout/HubMenu1Bar'
 import type { HmsCategory, InspectionChecklistItem, InspectionRoundRow } from './types'
 import { parseChecklistItems } from './schema'
 import { useInspectionModule, type InspectionModuleState } from './useInspectionModule'
@@ -25,11 +40,6 @@ const STATUS_LABEL: Record<InspectionRoundRow['status'], string> = {
   draft: 'Kladd',
   active: 'Aktiv',
   signed: 'Signert',
-}
-const STATUS_COLOR: Record<InspectionRoundRow['status'], string> = {
-  draft: 'bg-neutral-100 text-neutral-700',
-  active: 'bg-blue-100 text-blue-800',
-  signed: 'bg-green-100 text-green-800',
 }
 
 const HMS_LABELS: Record<HmsCategory, string> = {
@@ -794,6 +804,56 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
     ? new Date(round.scheduled_for).toLocaleDateString('nb-NO', { dateStyle: 'medium' })
     : '—'
 
+  const assignedName = round?.assigned_to
+    ? inspection.assignableUsers.find((u) => u.id === round.assigned_to)?.displayName ?? null
+    : null
+
+  const hubMenuItems: HubMenu1Item[] = useMemo(() => {
+    if (!round) return []
+    const f = inspection.findingsByRoundId[round.id] ?? []
+    const answered = (inspection.itemsByRoundId[round.id] ?? []).filter((i) => i.status === 'completed').length
+    const tmpl = inspection.templates.find((t) => t.id === round.template_id)
+    const nItems = tmpl ? parseChecklistItems(tmpl.checklist_definition).length : 0
+    return [
+      {
+        key: 'checklist',
+        label: nItems > 0 ? `${TAB_LABELS.checklist} (${answered}/${nItems})` : TAB_LABELS.checklist,
+        icon: ClipboardList,
+        active: activeTab === 'checklist',
+        onClick: () => setActiveTab('checklist'),
+      },
+      {
+        key: 'findings',
+        label: TAB_LABELS.findings,
+        icon: AlertTriangle,
+        active: activeTab === 'findings',
+        badgeCount: f.length > 0 ? f.length : undefined,
+        onClick: () => setActiveTab('findings'),
+      },
+      {
+        key: 'summary',
+        label: TAB_LABELS.summary,
+        icon: FileText,
+        active: activeTab === 'summary',
+        onClick: () => setActiveTab('summary'),
+      },
+      {
+        key: 'signatures',
+        label: TAB_LABELS.signatures,
+        icon: PenLine,
+        active: activeTab === 'signatures',
+        onClick: () => setActiveTab('signatures'),
+      },
+      {
+        key: 'history',
+        label: TAB_LABELS.history,
+        icon: History,
+        active: activeTab === 'history',
+        onClick: () => setActiveTab('history'),
+      },
+    ]
+  }, [round, inspection.findingsByRoundId, inspection.itemsByRoundId, inspection.templates, activeTab])
+
   const showSpinner = !round && (!detailStarted || inspection.loading)
   const showNotFound = detailStarted && !inspection.loading && roundId && !round
 
@@ -840,64 +900,86 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
 
   return (
     <div className="min-h-screen bg-[#f5f4f0]">
-      <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white px-4 sm:px-8">
-        <div className="mx-auto max-w-[1200px] py-4">
-          <button
-            type="button"
-            onClick={() => navigate('/inspection-module')}
-            className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-[#1a3d32] hover:underline"
-          >
-            <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
-            Inspeksjonsrunder
-          </button>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-lg font-semibold text-neutral-900 sm:text-xl">{round.title}</h1>
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLOR[round.status]}`}>
-              {STATUS_LABEL[round.status]}
-            </span>
-            {critCount > 0 && (
-              <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
-                {critCount} kritisk
-              </span>
-            )}
-          </div>
-          <p className="mt-2 text-xs text-neutral-500 sm:text-sm">
-            <span>Mal: {template?.name ?? '—'}</span>
-            <span className="mx-2 text-neutral-300">·</span>
-            <span>Lokasjon: {locationName ?? '—'}</span>
-            <span className="mx-2 text-neutral-300">·</span>
-            <span>Planlagt: {scheduledLabel}</span>
-          </p>
-
-          <nav className="mt-4 flex flex-wrap gap-0.5 border-t border-neutral-100 pt-2" aria-label="Runde-faner">
-            {(Object.keys(TAB_LABELS) as PanelTab[]).map((tab) => (
+      <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
+        <WorkplacePageHeading1
+          breadcrumb={[
+            { label: 'HMS' },
+            { label: 'Inspeksjonsrunder', to: '/inspection-module' },
+            { label: round.title },
+          ]}
+          title={round.title}
+          description="Gjennomfør sjekkliste, dokumenter funn og signer vernerunden i henhold til Internkontrollforskriften § 5."
+          headerActions={
+            <div className="flex flex-wrap items-center gap-2">
               <button
-                key={tab}
                 type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2.5 text-sm font-medium transition-colors ${
-                  activeTab === tab
-                    ? 'border-b-2 border-[#1a3d32] text-[#1a3d32]'
-                    : 'text-neutral-500 hover:text-neutral-800'
-                }`}
+                onClick={() => navigate('/inspection-module')}
+                className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
               >
-                {tab === 'checklist'
-                  ? `${TAB_LABELS.checklist} (${itemsAnswered}/${checklistItems.length})`
-                  : TAB_LABELS[tab]}
-                {tab === 'findings' && findings.length > 0 && (
-                  <span className="ml-1.5 rounded-full bg-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-700">
-                    {findings.length}
-                  </span>
-                )}
+                Tilbake til liste
               </button>
-            ))}
-          </nav>
-        </div>
-      </header>
+              <Link
+                to="/inspection-module/admin"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
+              >
+                <Settings className="h-4 w-4" aria-hidden />
+                <span className="hidden sm:inline">Admin</span>
+              </Link>
+              <Link
+                to="/platform-admin/layout"
+                className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
+              >
+                Layout
+              </Link>
+            </div>
+          }
+          menu={<HubMenu1Bar ariaLabel="Runde-seksjoner" items={hubMenuItems} />}
+        />
 
-      <main className="mx-auto max-w-[1200px] px-4 py-6 sm:px-8">
-        <div className="bg-white border border-neutral-200">
-          {activeTab === 'checklist' && (
+        <LayoutScoreStatRow
+          items={[
+            {
+              big: STATUS_LABEL[round.status],
+              title: 'Status',
+              sub: critCount > 0 ? `${critCount} kritiske funn` : 'Ingen kritiske funn',
+            },
+            {
+              big: template?.name ?? '—',
+              title: 'Mal',
+              sub: 'Sjekklistemal for runden',
+            },
+            {
+              big: locationName ?? '—',
+              title: 'Lokasjon',
+              sub: assignedName ? `Ansvarlig: ${assignedName}` : 'Ingen lokasjon valgt',
+            },
+            {
+              big: scheduledLabel,
+              title: 'Planlagt',
+              sub: `Besvart ${itemsAnswered} / ${checklistItems.length} punkter`,
+            },
+          ]}
+        />
+
+        {activeTab === 'checklist' && (
+          <LayoutTable1PostingsShell
+            wrap
+            title="Sjekkliste"
+            description="Svar på punktene under — «Nei» gir mulighet til å registrere avvik og hoppe til Funn."
+            headerActions={
+              critCount > 0 ? (
+                <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+                  {critCount} kritisk
+                </span>
+              ) : undefined
+            }
+            toolbar={<span className="text-sm text-neutral-600">Punkter fra malen · lagring skjer ved svar</span>}
+            footer={
+              <span className="text-neutral-500">
+                {itemsAnswered} av {checklistItems.length} punkter besvart
+              </span>
+            }
+          >
             <ChecklistTab
               round={round}
               checklistItems={checklistItems}
@@ -907,8 +989,17 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
                 setActiveTab('findings')
               }}
             />
-          )}
-          {activeTab === 'findings' && (
+          </LayoutTable1PostingsShell>
+        )}
+
+        {activeTab === 'findings' && (
+          <LayoutTable1PostingsShell
+            wrap
+            title={TAB_LABELS.findings}
+            description="Registrer observasjoner og opprett avvik der risikoen krever det."
+            toolbar={<span className="text-sm text-neutral-600">Tilknytt sjekklistepunkt ved behov</span>}
+            footer={findings.length > 0 ? <span>{findings.length} funn</span> : null}
+          >
             <FindingsTab
               key={`${round.id}-${findingPrefillKey ?? ''}`}
               round={round}
@@ -917,16 +1008,42 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
               checklistItems={checklistItems}
               onOpenDeviation={(id) => setSelectedDeviationId(id)}
             />
-          )}
-          {activeTab === 'summary' && <SummaryTab key={`${round.id}-${round.updated_at}`} round={round} inspection={inspection} />}
-          {activeTab === 'signatures' && (
+          </LayoutTable1PostingsShell>
+        )}
+
+        {activeTab === 'summary' && (
+          <LayoutTable1PostingsShell
+            wrap
+            title={TAB_LABELS.summary}
+            description="Skriftlig protokoll for runden."
+            toolbar={<span className="text-sm text-neutral-600">Påkrevd før signering</span>}
+          >
+            <SummaryTab key={`${round.id}-${round.updated_at}`} round={round} inspection={inspection} />
+          </LayoutTable1PostingsShell>
+        )}
+
+        {activeTab === 'signatures' && (
+          <LayoutTable1PostingsShell
+            wrap
+            title={TAB_LABELS.signatures}
+            description="Dobbel signering — leder og verneombud."
+            toolbar={<span className="text-sm text-neutral-600">IK-forskriften § 5</span>}
+          >
             <SignaturesTab round={round} inspection={inspection} checklistItems={checklistItems} />
-          )}
-          {activeTab === 'history' && supabase && (
+          </LayoutTable1PostingsShell>
+        )}
+
+        {activeTab === 'history' && supabase && (
+          <LayoutTable1PostingsShell
+            wrap
+            title={TAB_LABELS.history}
+            description="Endringer loggført for denne runden."
+            toolbar={<span className="text-sm text-neutral-600">Revisjonsspor</span>}
+          >
             <HseAuditLogViewer supabase={supabase} recordId={round.id} tableName="inspection_rounds" />
-          )}
-        </div>
-      </main>
+          </LayoutTable1PostingsShell>
+        )}
+      </div>
 
       {selectedDeviationId && supabase ? (
         <DeviationPanel
