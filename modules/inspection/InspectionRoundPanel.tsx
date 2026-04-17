@@ -644,6 +644,16 @@ function SignaturesTab({
   const [signing, setSigning] = useState<'manager' | 'deputy' | null>(null)
 
   const items = inspection.itemsByRoundId[round.id] ?? []
+  const location = round.location_id
+    ? inspection.locations.find((l) => l.id === round.location_id)
+    : undefined
+  const currentUserId = inspection.currentUserId
+  const isManager = !!currentUserId && currentUserId === location?.manager_id
+  const isDeputy = !!currentUserId && currentUserId === location?.safety_deputy_id
+  const hasRoleRestriction = Boolean(location)
+  const isAuthorizedSigner = isManager || isDeputy
+  const unauthorizedTooltip = hasRoleRestriction && !isAuthorizedSigner ? 'Ikke autorisert' : undefined
+
   const requiredItems = checklistItems.filter((i) => i.required)
   const answeredRequiredCount = requiredItems.filter((i) => {
     const row = items.find((r) => r.checklist_item_key === i.key)
@@ -667,9 +677,31 @@ function SignaturesTab({
   }
 
   const canSign = isActive && allRequiredAnswered && hasSummary
+  const managerButtonDisabled = !canSign || signing !== null || (hasRoleRestriction && !isManager)
+  const deputyButtonDisabled = !canSign || signing !== null || (hasRoleRestriction && !isDeputy)
+  const managerButtonSolid = !hasRoleRestriction || isManager
+  const deputyButtonSolid = !hasRoleRestriction || isDeputy
 
   return (
     <div className="space-y-5 px-5 py-5">
+      {location && (
+        <div
+          className={`rounded-none border px-4 py-3 text-xs font-medium ${
+            isManager
+              ? 'border-green-200 bg-green-50 text-green-800'
+              : isDeputy
+                ? 'border-blue-200 bg-blue-50 text-blue-800'
+                : 'border-amber-200 bg-amber-50 text-amber-800'
+          }`}
+        >
+          {isManager
+            ? 'Du er registrert som leder for denne lokasjonen'
+            : isDeputy
+              ? 'Du er registrert som verneombud for denne lokasjonen'
+              : 'Du er ikke tilordnet en signaturrolle for denne lokasjonen. Kontakt administrator.'}
+        </div>
+      )}
+
       <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-4">
         <p className="text-xs font-semibold text-neutral-700">IK-forskriften § 5 — dobbel signering</p>
         <p className="mt-1 text-xs text-neutral-500">
@@ -729,10 +761,13 @@ function SignaturesTab({
             {!round.manager_signed_at && !isSigned && (
               <button
                 type="button"
-                disabled={!canSign || signing !== null}
+                disabled={managerButtonDisabled}
+                title={unauthorizedTooltip}
                 onClick={() => void handleSign('manager')}
-                className="rounded px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
-                style={{ backgroundColor: '#1a3d32' }}
+                className={`rounded px-3 py-1.5 text-xs font-semibold disabled:opacity-40 ${
+                  managerButtonSolid ? 'text-white' : 'border border-neutral-300 bg-white text-neutral-700'
+                }`}
+                style={managerButtonSolid ? { backgroundColor: '#1a3d32' } : undefined}
               >
                 {signing === 'manager' ? 'Signerer…' : 'Signer som leder'}
               </button>
@@ -768,10 +803,13 @@ function SignaturesTab({
             {!round.deputy_signed_at && !isSigned && (
               <button
                 type="button"
-                disabled={!canSign || signing !== null}
+                disabled={deputyButtonDisabled}
+                title={unauthorizedTooltip}
                 onClick={() => void handleSign('deputy')}
-                className="rounded px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
-                style={{ backgroundColor: '#1a3d32' }}
+                className={`rounded px-3 py-1.5 text-xs font-semibold disabled:opacity-40 ${
+                  deputyButtonSolid ? 'text-white' : 'border border-neutral-300 bg-white text-neutral-700'
+                }`}
+                style={deputyButtonSolid ? { backgroundColor: '#1a3d32' } : undefined}
               >
                 {signing === 'deputy' ? 'Signerer…' : 'Signer som verneombud'}
               </button>

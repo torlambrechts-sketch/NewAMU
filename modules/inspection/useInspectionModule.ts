@@ -29,6 +29,7 @@ export type InspectionAssignableUser = {
 export type InspectionModuleState = {
   loading: boolean
   error: string | null
+  currentUserId: string | null
   templates: InspectionTemplateRow[]
   locations: InspectionLocationRow[]
   rounds: InspectionRoundRow[]
@@ -111,6 +112,7 @@ function normalizeTimestamptzInput(input: string | undefined): string | null {
 export function useInspectionModule({ supabase }: UseInspectionModuleInput): InspectionModuleState {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [templates, setTemplates] = useState<InspectionTemplateRow[]>([])
   const [locations, setLocations] = useState<InspectionLocationRow[]>([])
   const [rounds, setRounds] = useState<InspectionRoundRow[]>([])
@@ -127,7 +129,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     setLoading(true)
     setError(null)
     try {
-      const [templatesRes, locationsRes, roundsRes, usersRes] = await Promise.all([
+      const [templatesRes, locationsRes, roundsRes, usersRes, authUserRes] = await Promise.all([
         supabase
           .from('inspection_templates')
           .select('*')
@@ -143,11 +145,13 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
           .from('profiles')
           .select('id, display_name')
           .order('display_name', { ascending: true }),
+        supabase.auth.getUser(),
       ])
       if (templatesRes.error) throw templatesRes.error
       if (locationsRes.error) throw locationsRes.error
       if (roundsRes.error) throw roundsRes.error
       if (usersRes.error) throw usersRes.error
+      setCurrentUserId(authUserRes.data.user?.id ?? null)
 
       const nextTemplates = parseRows<InspectionTemplateRow>(templatesRes.data ?? [], (row) => {
         const parsed = InspectionTemplateRowSchema.safeParse(row)
@@ -672,6 +676,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
   return {
     loading,
     error,
+    currentUserId,
     templates,
     locations,
     rounds,
