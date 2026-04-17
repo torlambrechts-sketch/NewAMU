@@ -87,6 +87,11 @@
           },
           {
             "kind": "module",
+            "moduleName": "emergency_stop_procedure",
+            "params": {}
+          },
+          {
+            "kind": "module",
             "moduleName": "live_org_chart",
             "params": {
               "showVerneombud": true
@@ -427,6 +432,11 @@
           },
           {
             "kind": "module",
+            "moduleName": "emergency_stop_procedure",
+            "params": {}
+          },
+          {
+            "kind": "module",
             "moduleName": "action_button",
             "params": {
               "label": "Registrer hendelse",
@@ -724,6 +734,142 @@
       }
     },
     {
+      "id": "tpl-verneombud-mandat",
+      "label": "Verneombudets mandat og valgdokumentasjon",
+      "description": "Dokumentasjon av valg, valgperiode, opplæring og ansvarsområde for verneombud — AML §6-1–§6-5.",
+      "legalBasis": [
+        "AML §6-1",
+        "AML §6-2",
+        "AML §6-3",
+        "AML §6-5"
+      ],
+      "category": "guide",
+      "page": {
+        "title": "Verneombudets mandat og valgdokumentasjon",
+        "summary": "Valg, valgperiode (2 år), opplæring (40 t), ansvarsområde og arbeidsgivers plikter.",
+        "status": "draft",
+        "template": "standard",
+        "legalRefs": [
+          "AML §6-1",
+          "AML §6-2",
+          "AML §6-3",
+          "AML §6-4",
+          "AML §6-5"
+        ],
+        "requiresAcknowledgement": false,
+        "revisionIntervalMonths": 24,
+        "blocks": [
+          {
+            "kind": "alert",
+            "variant": "info",
+            "text": "Verneombud velges for to år om gangen (AML §6-1 (4)). Bruk neste revisjonsdato som påminnelse om nyvalg."
+          },
+          {
+            "kind": "heading",
+            "level": 1,
+            "text": "Verneombudets mandat og valgdokumentasjon"
+          },
+          {
+            "kind": "heading",
+            "level": 2,
+            "text": "Dato for valg av verneombud"
+          },
+          {
+            "kind": "text",
+            "body": "<p>[FYLL INN: valgdato]</p>"
+          },
+          {
+            "kind": "heading",
+            "level": 2,
+            "text": "Navn på valgt verneombud og stedfortreder"
+          },
+          {
+            "kind": "text",
+            "body": "<p>[FYLL INN: verneombud — navn]<br/>[FYLL INN: stedfortreder — navn]</p>"
+          },
+          {
+            "kind": "module",
+            "moduleName": "live_org_chart",
+            "params": {
+              "showVerneombud": true,
+              "showAMU": false
+            }
+          },
+          {
+            "kind": "heading",
+            "level": 2,
+            "text": "Valgperiode"
+          },
+          {
+            "kind": "text",
+            "body": "<p>Valgperiode: <strong>2 år</strong> (AML §6-1 (4)). Fra: [dato] — til: [dato]</p>"
+          },
+          {
+            "kind": "heading",
+            "level": 2,
+            "text": "Opplæring (40 timer)"
+          },
+          {
+            "kind": "text",
+            "body": "<p>[FYLL INN: Bekreft at obligatorisk verneombudsopplæring (minst 40 timer, AML §6-5) er gjennomført eller planlagt med dato.]</p>"
+          },
+          {
+            "kind": "heading",
+            "level": 2,
+            "text": "Verneombudets ansvarsområde"
+          },
+          {
+            "kind": "text",
+            "body": "<p>[FYLL INN: avdeling(er), lokasjon(er) eller verneområde som verneombudet dekker.]</p>"
+          },
+          {
+            "kind": "heading",
+            "level": 2,
+            "text": "Arbeidsgivers plikter overfor verneombudet (AML §6-4)"
+          },
+          {
+            "kind": "text",
+            "body": "<p>Arbeidsgiver skal legge til rette for at verneombudet kan utføre vervet, blant annet ved tilstrekkelig tid og informasjon. [FYLL INN: praktiske tiltak hos oss.]</p>"
+          },
+          {
+            "kind": "module",
+            "moduleName": "emergency_stop_procedure",
+            "params": {}
+          },
+          {
+            "kind": "law_ref",
+            "ref": "AML §6-1",
+            "description": "Verneombud — valg og verneområde",
+            "url": "https://lovdata.no/lov/2005-06-17-62/§6-1"
+          },
+          {
+            "kind": "law_ref",
+            "ref": "AML §6-2",
+            "description": "Verneombudets oppgaver",
+            "url": "https://lovdata.no/lov/2005-06-17-62/§6-2"
+          },
+          {
+            "kind": "law_ref",
+            "ref": "AML §6-3",
+            "description": "Rett til å stanse farlig arbeid",
+            "url": "https://lovdata.no/lov/2005-06-17-62/§6-3"
+          },
+          {
+            "kind": "law_ref",
+            "ref": "AML §6-4",
+            "description": "Arbeidsgivers plikter overfor verneombudet",
+            "url": "https://lovdata.no/lov/2005-06-17-62/§6-4"
+          },
+          {
+            "kind": "law_ref",
+            "ref": "AML §6-5",
+            "description": "Opplæring og ressurser",
+            "url": "https://lovdata.no/lov/2005-06-17-62/§6-5"
+          }
+        ]
+      }
+    },
+    {
       "id": "tpl-rusmiddel",
       "label": "Rusmidler på arbeidsplassen",
       "description": "Policy for alkohol og rusmidler. Hjemlet i AML §8 og arbeidsreglementets krav.",
@@ -942,6 +1088,14 @@
       "templateIds": [
         "tpl-opplaering"
       ]
+    },
+    {
+      "ref": "AML §6-1",
+      "label": "Verneombud valgt og dokumentert",
+      "templateIds": [
+        "tpl-verneombud-mandat"
+      ],
+      "maxRevisionMonths": 24
     },
     {
       "ref": "AML §6-2/§6-5",

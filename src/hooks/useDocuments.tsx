@@ -40,7 +40,7 @@ type DocumentsState = {
   pageVersions: WikiPageVersionSnapshot[]
 }
 
-type LegalCoverageRow = { ref: string; label: string; templateIds: string[] }
+type LegalCoverageRow = { ref: string; label: string; templateIds: string[]; maxRevisionMonths: number | null }
 
 type OrgTemplateSetting = { templateId: string; enabled: boolean }
 
@@ -451,7 +451,7 @@ function useDocumentsStore() {
         retRes,
         data,
       ] = await Promise.all([
-        supabase.from('wiki_legal_coverage_items').select('ref, label, template_ids').order('ref'),
+        supabase.from('wiki_legal_coverage_items').select('ref, label, template_ids, max_revision_months').order('ref'),
         supabase
           .from('document_system_templates')
           .select('id, label, description, category, legal_basis, page_payload, sort_order')
@@ -480,6 +480,10 @@ function useDocumentsStore() {
           ref: r.ref,
           label: r.label,
           templateIds: (r.template_ids as string[]) ?? [],
+          maxRevisionMonths:
+            r.max_revision_months !== undefined && r.max_revision_months !== null
+              ? Number(r.max_revision_months)
+              : null,
         })),
       )
       setSystemTemplates(
@@ -1367,7 +1371,14 @@ function useDocumentsStore() {
     uploadSpaceFile,
     deleteSpaceItem,
     getSpaceFileUrl,
-    legalCoverage: useRemote ? legalCoverage : STATIC_LEGAL_COVERAGE,
+    legalCoverage: useRemote
+      ? legalCoverage
+      : STATIC_LEGAL_COVERAGE.map((r) => ({
+          ref: r.ref,
+          label: r.label,
+          templateIds: r.templateIds,
+          maxRevisionMonths: r.maxRevisionMonths ?? null,
+        })),
     wikiRetentionCategories,
     pageTemplates,
     systemTemplatesCatalog: systemTemplates,

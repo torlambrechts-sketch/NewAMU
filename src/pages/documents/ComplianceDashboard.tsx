@@ -90,19 +90,45 @@ export function ComplianceDashboard() {
     amuCompliance.protocolRecentOk
 
   const coverage = docs.legalCoverage.map((item) => {
-    const coveredBy = docs.pages.filter(
-      (p) =>
-        p.status === 'published' &&
-        item.templateIds.some((tid) =>
-          docs.pageTemplates.find((t) => t.id === tid)?.page.legalRefs.some((r) => p.legalRefs.includes(r)),
-        ),
-    )
+    const coveredBy = docs.pages.filter((p) => {
+      if (p.status !== 'published') return false
+      return item.templateIds.some((tid) => {
+        const tpl = docs.pageTemplates.find((t) => t.id === tid)
+        if (!tpl) return false
+        if (tid === 'tpl-verneombud-mandat') {
+          return p.legalRefs.some((r) => r === 'AML §6-1' || r.startsWith('AML §6-1'))
+        }
+        return tpl.page.legalRefs.some((r) => p.legalRefs.includes(r))
+      })
+    })
     const stale = coveredBy.some((p) => {
       if (!p.nextRevisionDueAt) return false
-      return new Date(p.nextRevisionDueAt).getTime() < Date.now()
+      return new Date(p.nextRevisionDueAt).getTime() < nowMs
     })
     return { ...item, coveredBy, covered: coveredBy.length > 0, stale }
   })
+
+  const verneombudMandate = useMemo(() => {
+    const candidates = docs.pages.filter(
+      (p) => p.status === 'published' && p.legalRefs.some((r) => r === 'AML §6-1' || r.startsWith('AML §6-1')),
+    )
+    const pick =
+      candidates.length === 0
+        ? null
+        : [...candidates].sort((a, b) => {
+            const at = new Date(a.updatedAt).getTime()
+            const bt = new Date(b.updatedAt).getTime()
+            return bt - at
+          })[0] ?? null
+    let status: 'missing' | 'stale' | 'covered' = 'missing'
+    let mandateExpires: string | null = null
+    if (pick) {
+      mandateExpires = pick.nextRevisionDueAt ?? null
+      const overdue = pick.nextRevisionDueAt && new Date(pick.nextRevisionDueAt).getTime() < nowMs
+      status = overdue ? 'stale' : 'covered'
+    }
+    return { status, mandateExpires, page: pick }
+  }, [docs.pages, nowMs])
 
   const panelRow = useMemo(
     () => (panelRef ? coverage.find((c) => c.ref === panelRef) ?? null : null),
@@ -234,6 +260,59 @@ export function ComplianceDashboard() {
           medlemmer — typisk AMU-plikt.
         </p>
       )}
+
+      <div className="mt-8 overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
+        <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">
+          <h2 className="font-semibold text-neutral-900">Verneombud (AML §6-1)</h2>
+          <p className="text-xs text-neutral-500">Mandat og valgperiode — revisjonsfrist følger 2-årsvalg.</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                <th className="px-4 py-3">Hjemmel</th>
+                <th className="px-4 py-3">Krav</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Mandat utløper</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs text-[#1a3d32]">AML §6-1</td>
+                <td className="px-4 py-3 text-neutral-700">Verneombud valgt og dokumentert</td>
+                <td className="px-4 py-3">
+                  {verneombudMandate.status === 'covered' ? (
+                    <CheckCircle2 className="size-5 text-emerald-600" aria-label="OK" />
+                  ) : verneombudMandate.status === 'stale' ? (
+                    <span className="text-xs font-medium text-amber-800" title="Valgperiode eller revisjon forfalt">
+                      ⚠
+                    </span>
+                  ) : (
+                    <Circle className="size-5 text-amber-400" aria-label="Mangler" />
+                  )}
+                </td>
+                <td className="px-4 py-3 text-xs text-neutral-600">
+                  {verneombudMandate.mandateExpires ? (
+                    <>
+                      {new Date(verneombudMandate.mandateExpires).toLocaleDateString('no-NO')}
+                      {verneombudMandate.page ? (
+                        <Link
+                          to={`/documents/page/${verneombudMandate.page.id}`}
+                          className="mt-1 block font-medium text-[#1a3d32] hover:underline"
+                        >
+                          {verneombudMandate.page.title}
+                        </Link>
+                      ) : null}
+                    </>
+                  ) : (
+                    <span className="text-amber-800">Ingen publisert mandat-side (AML §6-1)</span>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div className="mb-8 mt-8 overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
         <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">

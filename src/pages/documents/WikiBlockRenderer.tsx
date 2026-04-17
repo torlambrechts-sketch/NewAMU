@@ -5,6 +5,7 @@ import { LiveOrgChart } from './modules/LiveOrgChart'
 import { LiveRiskFeed } from './modules/LiveRiskFeed'
 import { ActionButton } from './modules/ActionButton'
 import { AcknowledgementFooter } from './modules/AcknowledgementFooter'
+import { EmergencyStopProcedure } from './modules/EmergencyStopProcedure'
 
 type Props = {
   blocks: ContentBlock[]
@@ -131,6 +132,8 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion }: Props) {
                     pageVersion={pageVersion}
                   />
                 )
+              case 'emergency_stop_procedure':
+                return <EmergencyStopProcedure key={i} />
               default:
                 return (
                   <div

@@ -31,6 +31,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
         { kind: 'text', body: '<ul><li>Null ulykker og skader på arbeidsplassen</li><li>Sykefraværet skal ikke overstige 4 %</li><li>Alle ansatte skal ha gjennomført obligatorisk HMS-opplæring</li><li>Alle avvik skal behandles innen 14 dager</li></ul>' },
         { kind: 'heading', level: 2, text: 'Ansvar' },
         { kind: 'text', body: '<p>Daglig leder har det overordnede ansvaret. Alle ledere har HMS-ansvar i sin avdeling. Verneombudet bistår i kartlegging og oppfølging.</p>' },
+        { kind: 'module', moduleName: 'emergency_stop_procedure', params: {} },
         { kind: 'module', moduleName: 'live_org_chart', params: { showVerneombud: true } },
         { kind: 'law_ref', ref: 'AML §3-1', description: 'Krav til systematisk helse-, miljø- og sikkerhetsarbeid', url: 'https://lovdata.no/lov/2005-06-17-62/§3-1' },
         { kind: 'law_ref', ref: 'IK-f §5 nr. 1a', description: 'HMS-mål skal fastsettes skriftlig', url: 'https://lovdata.no/forskrift/1996-12-06-1127/§5' },
@@ -157,6 +158,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
         { kind: 'text', body: '<ol><li>Varsle umiddelbart — aktiver brannalarm</li><li>Ring 110</li><li>Evakuer alle via rømningsveier</li><li>Møt på samlingsplass: [Beskriv samlingsplass]</li><li>Avklar at alle er evakuert</li><li>Ikke gå inn igjen før brannvesen gir klarsignal</li></ol>' },
         { kind: 'heading', level: 2, text: 'Ved personulykke' },
         { kind: 'text', body: '<ol><li>Ring 113 ved alvorlig skade</li><li>Gi førstehjelp inntil hjelp ankommer</li><li>Varsle nærmeste leder og HMS-ansvarlig</li><li>Sikre ulykkesstedet</li><li>Fyll ut skaderapport i avvikssystemet</li></ol>' },
+        { kind: 'module', moduleName: 'emergency_stop_procedure', params: {} },
         { kind: 'module', moduleName: 'action_button', params: { label: 'Registrer hendelse', route: '/workplace-reporting/incidents', variant: 'danger' } },
         { kind: 'law_ref', ref: 'AML §4-1', description: 'Krav til fullt forsvarlig arbeidsmiljø', url: 'https://lovdata.no/lov/2005-06-17-62/§4-1' },
         { kind: 'module', moduleName: 'acknowledgement_footer' },
@@ -359,6 +361,92 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
   },
 
   {
+    id: 'tpl-verneombud-mandat',
+    label: 'Verneombudets mandat og valgdokumentasjon',
+    description:
+      'Dokumentasjon av valg, valgperiode, opplæring og ansvarsområde for verneombud — AML §6-1–§6-5.',
+    legalBasis: ['AML §6-1', 'AML §6-2', 'AML §6-3', 'AML §6-5'],
+    category: 'guide',
+    page: {
+      title: 'Verneombudets mandat og valgdokumentasjon',
+      summary: 'Valg, valgperiode (2 år), opplæring (40 t), ansvarsområde og arbeidsgivers plikter.',
+      status: 'draft',
+      template: 'standard',
+      legalRefs: ['AML §6-1', 'AML §6-2', 'AML §6-3', 'AML §6-4', 'AML §6-5'],
+      requiresAcknowledgement: false,
+      revisionIntervalMonths: 24,
+      blocks: [
+        {
+          kind: 'alert',
+          variant: 'info',
+          text: 'Verneombud velges for to år om gangen (AML §6-1 (4)). Bruk neste revisjonsdato som påminnelse om nyvalg.',
+        },
+        { kind: 'heading', level: 1, text: 'Verneombudets mandat og valgdokumentasjon' },
+        { kind: 'heading', level: 2, text: 'Dato for valg av verneombud' },
+        { kind: 'text', body: '<p>[FYLL INN: valgdato]</p>' },
+        { kind: 'heading', level: 2, text: 'Navn på valgt verneombud og stedfortreder' },
+        { kind: 'text', body: '<p>[FYLL INN: verneombud — navn]<br/>[FYLL INN: stedfortreder — navn]</p>' },
+        { kind: 'module', moduleName: 'live_org_chart', params: { showVerneombud: true, showAMU: false } },
+        { kind: 'heading', level: 2, text: 'Valgperiode' },
+        {
+          kind: 'text',
+          body:
+            '<p>Valgperiode: <strong>2 år</strong> (AML §6-1 (4)). Fra: [dato] — til: [dato]</p>',
+        },
+        { kind: 'heading', level: 2, text: 'Opplæring (40 timer)' },
+        {
+          kind: 'text',
+          body:
+            '<p>[FYLL INN: Bekreft at obligatorisk verneombudsopplæring (minst 40 timer, AML §6-5) er gjennomført eller planlagt med dato.]</p>',
+        },
+        { kind: 'heading', level: 2, text: 'Verneombudets ansvarsområde' },
+        {
+          kind: 'text',
+          body:
+            '<p>[FYLL INN: avdeling(er), lokasjon(er) eller verneområde som verneombudet dekker.]</p>',
+        },
+        { kind: 'heading', level: 2, text: 'Arbeidsgivers plikter overfor verneombudet (AML §6-4)' },
+        {
+          kind: 'text',
+          body:
+            '<p>Arbeidsgiver skal legge til rette for at verneombudet kan utføre vervet, blant annet ved tilstrekkelig tid og informasjon. [FYLL INN: praktiske tiltak hos oss.]</p>',
+        },
+        { kind: 'module', moduleName: 'emergency_stop_procedure', params: {} },
+        {
+          kind: 'law_ref',
+          ref: 'AML §6-1',
+          description: 'Verneombud — valg og verneområde',
+          url: 'https://lovdata.no/lov/2005-06-17-62/§6-1',
+        },
+        {
+          kind: 'law_ref',
+          ref: 'AML §6-2',
+          description: 'Verneombudets oppgaver',
+          url: 'https://lovdata.no/lov/2005-06-17-62/§6-2',
+        },
+        {
+          kind: 'law_ref',
+          ref: 'AML §6-3',
+          description: 'Rett til å stanse farlig arbeid',
+          url: 'https://lovdata.no/lov/2005-06-17-62/§6-3',
+        },
+        {
+          kind: 'law_ref',
+          ref: 'AML §6-4',
+          description: 'Arbeidsgivers plikter overfor verneombudet',
+          url: 'https://lovdata.no/lov/2005-06-17-62/§6-4',
+        },
+        {
+          kind: 'law_ref',
+          ref: 'AML §6-5',
+          description: 'Opplæring og ressurser',
+          url: 'https://lovdata.no/lov/2005-06-17-62/§6-5',
+        },
+      ],
+    },
+  },
+
+  {
     id: 'tpl-personvern-ansatt',
     label: 'Personvernerklæring for ansatte',
     description:
@@ -551,7 +639,13 @@ export const SEED_SPACES = [
 ]
 
 /** Compliance coverage map — which IK-f / AML requirements each template covers */
-export const LEGAL_COVERAGE: { ref: string; label: string; templateIds: string[] }[] = [
+export const LEGAL_COVERAGE: {
+  ref: string
+  label: string
+  templateIds: string[]
+  /** When set, revision reminders use this cap (e.g. verneombud valgperiode 24 mnd) */
+  maxRevisionMonths?: number | null
+}[] = [
   { ref: 'IK-f §5 nr. 1a', label: 'HMS-mål fastsatt skriftlig', templateIds: ['tpl-hms-policy'] },
   { ref: 'IK-f §5 nr. 1b', label: 'Organisasjon og ansvarsfordeling', templateIds: ['tpl-org-ansvar'] },
   { ref: 'IK-f §5 nr. 1c', label: 'Kunnskap om lover og regler', templateIds: ['tpl-opplaering'] },
@@ -561,6 +655,12 @@ export const LEGAL_COVERAGE: { ref: string; label: string; templateIds: string[]
   { ref: 'IK-f §5 nr. 5', label: 'Systematisk gjennomgang (skriftlig)', templateIds: ['tpl-aarsgjennomgang'] },
   { ref: 'IK-f §5 nr. 8', label: 'Årlig gjennomgang av HMS-systemet', templateIds: ['tpl-aarsgjennomgang'] },
   { ref: 'AML §3-2', label: 'HMS-opplæring', templateIds: ['tpl-opplaering'] },
+  {
+    ref: 'AML §6-1',
+    label: 'Verneombud valgt og dokumentert',
+    templateIds: ['tpl-verneombud-mandat'],
+    maxRevisionMonths: 24,
+  },
   { ref: 'AML §6-2/§6-5', label: 'Verneombud oppgaver og opplæring', templateIds: ['tpl-verneombud', 'tpl-opplaering'] },
   { ref: 'AML §7-2/§7-4', label: 'AMU årsrapport', templateIds: ['tpl-amu-rapport'] },
   { ref: 'AML §7-4', label: 'AMU-protokoller tilgjengelig for ansatte', templateIds: ['tpl-amu-protokoll', 'tpl-amu-rapport'] },

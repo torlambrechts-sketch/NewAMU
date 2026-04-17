@@ -48,8 +48,14 @@ export type ModuleBlock = {
    *   live_risk_feed        — Top 3 ROS risks from internalControl hook
    *   action_button         — Navigates user to a route (e.g. report deviation)
    *   acknowledgement_footer— Read & Understood sign-off (only if page flagged)
+   *   emergency_stop_procedure — AML §6-3 stansingsrett; contact from representatives + org members
    */
-  moduleName: 'live_org_chart' | 'live_risk_feed' | 'action_button' | 'acknowledgement_footer'
+  moduleName:
+    | 'live_org_chart'
+    | 'live_risk_feed'
+    | 'action_button'
+    | 'acknowledgement_footer'
+    | 'emergency_stop_procedure'
   params?: Record<string, string | number | boolean>
 }
 

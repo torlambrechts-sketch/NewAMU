@@ -31,6 +31,7 @@ const MODULE_OPTIONS: { name: ModuleBlock['moduleName']; label: string }[] = [
   { name: 'live_risk_feed', label: 'Live risikooversikt (ROS)' },
   { name: 'action_button', label: 'Handlingsknapp' },
   { name: 'acknowledgement_footer', label: 'Lest og forstått (signatur)' },
+  { name: 'emergency_stop_procedure', label: 'Stansingsrett — verneombud (AML §6-3)' },
 ]
 
 function emptyBlock(kind: AddKind): ContentBlock {
@@ -785,6 +786,11 @@ function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: P
             className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
           />
         </div>
+      )}
+      {block.moduleName === 'emergency_stop_procedure' && (
+        <p className="text-xs text-neutral-600">
+          Viser stansingsrett og kontakt til verneombud fra representantregisteret og medlemslisten (e-post).
+        </p>
       )}
       <div className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
         <AlertTriangle className="size-3.5 shrink-0" />
