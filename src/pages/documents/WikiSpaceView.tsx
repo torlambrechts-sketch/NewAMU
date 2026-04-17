@@ -15,7 +15,7 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import { useDocuments } from '../../hooks/useDocuments'
+import { useWikiPages, useWikiSpaces } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
@@ -52,7 +52,8 @@ function useBodyScrollLock(active: boolean) {
 export function WikiSpaceView() {
   const { spaceId } = useParams<{ spaceId: string }>()
   const navigate = useNavigate()
-  const docs = useDocuments()
+  const wiki = useWikiSpaces()
+  const spacePages = useWikiPages(spaceId)
   const { can } = useOrgSetupContext()
   const canManage = can('documents.manage')
   const timeNow = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
@@ -68,18 +69,17 @@ export function WikiSpaceView() {
 
   const panelRef = useRef<HTMLDivElement>(null)
 
-  const space = docs.spaces.find((s) => s.id === spaceId)
+  const space = wiki.spaces.find((s) => s.id === spaceId)
   const itemsInSpace = useMemo(
-    () => docs.spaceItems.filter((i) => i.spaceId === spaceId),
-    [docs.spaceItems, spaceId],
+    () => wiki.spaceItems.filter((i) => i.spaceId === spaceId),
+    [wiki.spaceItems, spaceId],
   )
 
-  const pages = docs.pages
-    .filter((p) => p.spaceId === spaceId)
+  const pages = spacePages.pages
     .filter((p) => filter === 'all' || p.status === filter)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 
-  const panelPage = panelPageId ? docs.pages.find((p) => p.id === panelPageId) ?? null : null
+  const panelPage = panelPageId ? spacePages.pages.find((p) => p.id === panelPageId) ?? null : null
 
   const anyOverlayOpen = newPageOpen || filesPanelOpen || Boolean(panelPageId)
   useBodyScrollLock(anyOverlayOpen)
@@ -111,7 +111,7 @@ export function WikiSpaceView() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     if (!newTitle.trim() || !spaceId) return
-    const page = await docs.createPage(spaceId, newTitle)
+    const page = await spacePages.createPage(newTitle)
     setNewTitle('')
     setNewPageOpen(false)
     navigate(`/documents/page/${page.id}/edit`)
@@ -122,7 +122,7 @@ export function WikiSpaceView() {
     if (!spaceId || !urlTitle.trim() || !urlHref.trim()) return
     setBusy(true)
     try {
-      await docs.addSpaceUrl(spaceId, urlTitle, urlHref)
+      await wiki.addSpaceUrl(spaceId, urlTitle, urlHref)
       setUrlTitle('')
       setUrlHref('')
     } catch (err) {
@@ -137,7 +137,7 @@ export function WikiSpaceView() {
     if (!f || !spaceId) return
     setBusy(true)
     try {
-      await docs.uploadSpaceFile(spaceId, f)
+      await wiki.uploadSpaceFile(spaceId, f)
     } catch (err) {
       console.error(err)
     } finally {
@@ -166,7 +166,7 @@ export function WikiSpaceView() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {docs.backend === 'supabase' && (
+            {wiki.ready && (
               <button type="button" onClick={() => setFilesPanelOpen(true)} className={BTN_OUTLINE}>
                 <Upload className="size-4 shrink-0" aria-hidden />
                 Filer og lenker
@@ -326,7 +326,7 @@ export function WikiSpaceView() {
                 </form>
               )}
 
-              {filesPanelOpen && docs.backend === 'supabase' && (
+              {filesPanelOpen && wiki.ready && (
                 <div className="space-y-4">
                   <p className="text-sm text-neutral-600">
                     Last opp filer eller legg til eksterne referanser i denne mappen.
@@ -375,7 +375,7 @@ export function WikiSpaceView() {
                                 title="Åpne / last ned"
                                 onClick={() => {
                                   void (async () => {
-                                    const u = await docs.getSpaceFileUrl(it)
+                                    const u = await wiki.getSpaceFileUrl(it)
                                     if (u) window.open(u, '_blank', 'noopener,noreferrer')
                                   })()
                                 }}
@@ -387,7 +387,7 @@ export function WikiSpaceView() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  if (confirm('Fjerne elementet?')) void docs.deleteSpaceItem(it)
+                                  if (confirm('Fjerne elementet?')) void wiki.deleteSpaceItem(it)
                                 }}
                                 className="rounded-none p-1.5 text-red-400 hover:bg-red-50"
                                 title="Slett"
@@ -445,7 +445,7 @@ export function WikiSpaceView() {
                     {panelPage.status === 'draft' && (
                       <button
                         type="button"
-                        onClick={() => void docs.publishPage(panelPage.id)}
+                        onClick={() => void spacePages.publishPage(panelPage.id)}
                         className={`${BTN_OUTLINE} w-full justify-center text-emerald-800`}
                       >
                         <CheckCircle2 className="size-4 shrink-0" aria-hidden />
@@ -455,7 +455,7 @@ export function WikiSpaceView() {
                     {panelPage.status !== 'archived' && (
                       <button
                         type="button"
-                        onClick={() => void docs.archivePage(panelPage.id)}
+                        onClick={() => void spacePages.archivePage(panelPage.id)}
                         className={`${BTN_OUTLINE} w-full justify-center`}
                       >
                         <Archive className="size-4 shrink-0" aria-hidden />
@@ -465,7 +465,7 @@ export function WikiSpaceView() {
                     <button
                       type="button"
                       onClick={() => {
-                        if (confirm('Slett siden?')) void docs.deletePage(panelPage.id)
+                        if (confirm('Slett siden?')) void spacePages.deletePage(panelPage.id)
                         setPanelPageId(null)
                       }}
                       className="rounded-none border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-800 hover:bg-red-100"

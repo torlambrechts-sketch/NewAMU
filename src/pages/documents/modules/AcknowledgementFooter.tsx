@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CheckCircle2, ShieldCheck } from 'lucide-react'
-import { useDocuments, DEMO_USER_NAME } from '../../../hooks/useDocuments'
+import { DEMO_USER_NAME, useWikiPage } from '../../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 
 type Props = {
@@ -9,7 +9,7 @@ type Props = {
 }
 
 export function AcknowledgementFooter({ pageId, pageVersion }: Props) {
-  const { acknowledge, hasAcknowledged, receipts, backend } = useDocuments()
+  const { acknowledge, hasAcknowledged, receipts } = useWikiPage(pageId)
   const { profile } = useOrgSetupContext()
   const [name, setName] = useState('')
 
@@ -59,7 +59,7 @@ export function AcknowledgementFooter({ pageId, pageVersion }: Props) {
           )}
           <p className="mt-2 text-xs text-neutral-400">
             Versjon {pageVersion}
-            {backend === 'local' ? ' · Lagret lokalt (demo uten organisasjon).' : ' · Registrert i organisasjonens database.'}
+            {' · Registrert i organisasjonens database.'}
           </p>
         </div>
       </div>

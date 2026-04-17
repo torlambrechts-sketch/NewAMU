@@ -22,7 +22,7 @@ import { Table1Toolbar } from '../components/layout/Table1Toolbar'
 import { AML_REPORT_KINDS, labelForAmlReportKind } from '../data/amlAnonymousReporting'
 import { definitionForKey } from '../data/orgHealthMetrics'
 import { ALL_SURVEY_TEMPLATES, TEMPLATE_CATEGORIES } from '../data/surveyTemplates'
-import { useDocuments } from '../hooks/useDocuments'
+import { useWikiSpaces } from '../hooks/useDocuments'
 import { useOrgHealth, type SurveyCloseSideEffect } from '../hooks/useOrgHealth'
 import { useWorkplaceReportingCases } from '../hooks/useWorkplaceReportingCases'
 import { useOrganisation } from '../hooks/useOrganisation'
@@ -50,7 +50,7 @@ import {
 } from '../components/insights/ModuleInsightCharts'
 import { ComplianceModuleChrome } from '../components/compliance/ComplianceModuleChrome'
 import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
-import type { ContentBlock } from '../types/documents'
+import type { Block } from '../types/documents'
 import type { LaborMetricKey, Survey, SurveyQuestion, SurveySchedule, SurveyScheduleKind } from '../types/orgHealth'
 
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
@@ -92,7 +92,7 @@ export function OrgHealthModule() {
   const wr = useWorkplaceReportingCases()
   const org = useOrganisation()
   const { addTask } = useTasks()
-  const docs = useDocuments()
+  const wiki = useWikiSpaces()
   const { barStyle: kpiStripStyle } = useWorkplaceKpiStripStyle()
   const { payload: layoutPayload } = useUiTheme()
   const layout = mergeLayoutPayload(layoutPayload)
@@ -355,7 +355,7 @@ export function OrgHealthModule() {
       lines.push('Forslag til AMU-sak: Gjennomgå tallene og beslutte eventuelle tiltak jf. AML § 7-2 og § 4-3.')
 
       const htmlBody = lines.map((l) => escapeWikiHtml(l)).join('<br/>')
-      const blocks: ContentBlock[] = [
+      const blocks: Block[] = [
         {
           kind: 'alert',
           variant: 'info',
@@ -370,13 +370,13 @@ export function OrgHealthModule() {
         },
       ]
 
-      const spaceId = docs.spaces[0]?.id
+      const spaceId = wiki.spaces[0]?.id
       if (!spaceId) {
         window.alert('Opprett minst ett dokumentområde under Dokumenter før du deler til AMU.')
         return
       }
       try {
-        const page = await docs.createPage(
+        const page = await wiki.createPage(
           spaceId,
           `AMU — ${survey.title.slice(0, 72)}`,
           'standard',
@@ -386,7 +386,7 @@ export function OrgHealthModule() {
             legalRefs: ['AML § 7-2', 'AML § 4-3'],
           },
         )
-        await docs.publishPage(page.id)
+        await wiki.publishPage(page.id)
         oh.markSurveyAmuShared(survey.id)
         navigate(`/documents/page/${page.id}`)
       } catch (e) {
@@ -394,7 +394,7 @@ export function OrgHealthModule() {
         window.alert('Kunne ikke opprette wiki-side. Prøv igjen eller sjekk tilkobling.')
       }
     },
-    [docs, navigate, oh, org.displayEmployees, org.groups, org.totalEmployeeCount, org.units],
+    [wiki, navigate, oh, org.displayEmployees, org.groups, org.totalEmployeeCount, org.units],
   )
 
   useEffect(() => {

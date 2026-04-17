@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Loader2, Plus, Trash2, X } from 'lucide-react'
-import { useDocuments } from '../../hooks/useDocuments'
+import { useDocumentTemplates } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PageTemplate, SpaceCategory } from '../../types/documents'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
@@ -30,7 +30,7 @@ const BTN_PRIMARY =
   'inline-flex items-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] disabled:opacity-50'
 
 export function DocumentTemplatesSettings() {
-  const docs = useDocuments()
+  const docs = useDocumentTemplates()
   const { can } = useOrgSetupContext()
   const canManage = can('documents.manage')
 

@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react'
-import type { ContentBlock } from '../../types/documents'
+import type { Block } from '../../types/documents'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
 import { LiveOrgChart } from './modules/LiveOrgChart'
 import { LiveRiskFeed } from './modules/LiveRiskFeed'
@@ -7,7 +7,7 @@ import { ActionButton } from './modules/ActionButton'
 import { AcknowledgementFooter } from './modules/AcknowledgementFooter'
 
 type Props = {
-  blocks: ContentBlock[]
+  blocks: Block[]
   pageId: string
   pageVersion: number
 }
