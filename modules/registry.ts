@@ -1,7 +1,7 @@
 import { createElement, type ReactElement } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
-import { InspectionModuleView, TasksModuleView, WorkflowModuleView } from './views'
+import { TasksModuleView, WorkflowModuleView } from './views'
 import { InspectionModuleView as InspectionPhase3ModuleView } from './inspection'
 
 export type RegisteredModuleRow = {
@@ -28,50 +28,6 @@ export type ModuleRegistryEntry = {
   configSchema: z.ZodType<unknown>
   Component: RegisteredModuleComponent
 }
-
-const InspectionConfigSchema = z
-  .object({
-    summary: z
-      .array(
-        z.object({
-          label: z.string(),
-          value: z.string(),
-          count: z.number().int().nonnegative().default(0),
-        }),
-      )
-      .default([
-        { label: 'Open rounds', value: 'open_rounds', count: 6 },
-        { label: 'Critical findings', value: 'critical_findings', count: 2 },
-        { label: 'Pending sign-off', value: 'pending_signoff', count: 3 },
-      ]),
-    rounds: z
-      .array(
-        z.object({
-          id: z.string(),
-          location: z.string(),
-          frequency: z.string(),
-          owner: z.string(),
-          status: z.string(),
-        }),
-      )
-      .default([
-        {
-          id: 'round-2026-04-001',
-          location: 'Warehouse A',
-          frequency: 'Weekly',
-          owner: 'HSE Lead',
-          status: 'active',
-        },
-        {
-          id: 'round-2026-04-002',
-          location: 'Production Line 2',
-          frequency: 'Daily',
-          owner: 'Shift Manager',
-          status: 'scheduled',
-        },
-      ]),
-  })
-  .default({})
 
 const WorkflowConfigSchema = z
   .object({
@@ -144,13 +100,6 @@ const InspectionModuleConfigSchema = z
   .default({})
 
 export const moduleRegistry: Record<string, ModuleRegistryEntry> = {
-  inspection: {
-    moduleId: 'inspection',
-    slug: 'inspection',
-    description: 'Inspection rounds, findings, and workflow-triggered actions.',
-    configSchema: InspectionConfigSchema,
-    Component: InspectionModuleView,
-  },
   workflow: {
     moduleId: 'workflow',
     slug: 'workflow',
@@ -176,10 +125,9 @@ export const moduleRegistry: Record<string, ModuleRegistryEntry> = {
 }
 
 export const moduleSlugToRegistryId: Record<string, string> = {
-  inspection: 'inspection',
   workflow: 'workflow',
   tasks: 'tasks',
-  hse: 'inspection',
+  hse: 'inspection_module',
   'inspection-module': 'inspection_module',
   inspection_module: 'inspection_module',
 }

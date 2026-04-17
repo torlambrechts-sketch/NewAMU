@@ -16,7 +16,7 @@ import {
   UserCheck,
 } from 'lucide-react'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
-import { HubMenu1Bar } from '../components/layout/HubMenu1Bar'
+import { ModuleAdminShell } from '../components/layout/ModuleAdminShell'
 import { LayoutTable1PostingsShell } from '../components/layout/LayoutTable1PostingsShell'
 import {
   LAYOUT_TABLE1_POSTINGS_BODY_ROW,
@@ -107,12 +107,15 @@ export function InspectionModuleAdminPage() {
 
   useEffect(() => { void inspection.load() }, [inspection.load])
 
-  const hubItems = useMemo(() => [
-    { key: 'templates', label: 'Maler', icon: ClipboardList, active: tab === 'templates', onClick: () => setTab('templates') },
-    { key: 'locations', label: 'Lokasjoner', icon: MapPin, active: tab === 'locations', onClick: () => setTab('locations') },
-    { key: 'signoff', label: 'Signaturer', icon: UserCheck, active: tab === 'signoff', onClick: () => setTab('signoff') },
-    { key: 'workflow', label: 'Arbeidsflyt', icon: GitBranch, active: tab === 'workflow', onClick: () => setTab('workflow') },
-  ], [tab])
+  const tabs = useMemo(
+    () => [
+      { key: 'templates', label: 'Maler', icon: <ClipboardList className="h-4 w-4" /> },
+      { key: 'locations', label: 'Lokasjoner', icon: <MapPin className="h-4 w-4" /> },
+      { key: 'signoff', label: 'Signaturer', icon: <UserCheck className="h-4 w-4" /> },
+      { key: 'workflow', label: 'Arbeidsflyt', icon: <GitBranch className="h-4 w-4" /> },
+    ],
+    [],
+  )
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8 space-y-6">
@@ -131,24 +134,30 @@ export function InspectionModuleAdminPage() {
         }
       />
 
-      <HubMenu1Bar ariaLabel="Inspeksjonsinnstillinger" items={hubItems} />
-
       {inspection.error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {inspection.error}
         </div>
       )}
 
-      {tab === 'templates' && <TemplatesTab inspection={inspection} />}
-      {tab === 'locations' && <LocationsTab inspection={inspection} supabase={supabase} />}
-      {tab === 'signoff' && <SignoffTab inspection={inspection} supabase={supabase} />}
-      {tab === 'workflow' && (
-        <WorkflowRulesTab
-          supabase={supabase}
-          triggerModule="inspection"
-          triggerEvents={INSPECTION_TRIGGER_EVENTS}
-        />
-      )}
+      <ModuleAdminShell
+        title="Inspeksjonsinnstillinger"
+        description="Administrer sjekkliste-maler, lokasjoner og signeringsregler for vernerunder."
+        tabs={tabs}
+        activeTab={tab}
+        onTabChange={(key) => setTab(key as Tab)}
+      >
+        {tab === 'templates' && <TemplatesTab inspection={inspection} />}
+        {tab === 'locations' && <LocationsTab inspection={inspection} supabase={supabase} />}
+        {tab === 'signoff' && <SignoffTab inspection={inspection} supabase={supabase} />}
+        {tab === 'workflow' && (
+          <WorkflowRulesTab
+            supabase={supabase}
+            triggerModule="inspection"
+            triggerEvents={INSPECTION_TRIGGER_EVENTS}
+          />
+        )}
+      </ModuleAdminShell>
     </div>
   )
 }
