@@ -42,7 +42,7 @@ export const DOCUMENTS_NAV: readonly DocumentsNavItem[] = [
 export function documentsNavActiveId(pathname: string): DocumentsNavItem['id'] | null {
   if (pathname.startsWith('/documents/page/')) return null
   if (pathname.startsWith('/documents/space/')) return 'home'
-  if (pathname === '/documents/compliance') return 'compliance'
+  if (pathname.startsWith('/documents/compliance')) return 'compliance'
   if (pathname === '/documents/templates') return 'templates'
   if (pathname === '/documents/aarsgjennomgang') return 'annual_review'
   if (pathname === '/documents' || pathname === '') return 'home'

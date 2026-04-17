@@ -5,6 +5,7 @@ import { useDocuments } from '../../hooks/useDocuments'
 import type { PageTemplate, WikiSpace } from '../../types/documents'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+import { InspectionReadinessScore } from '../../components/documents/InspectionReadinessScore'
 
 const CATEGORY_LABELS: Record<WikiSpace['category'], string> = {
   hms_handbook: 'HMS-håndbok',
@@ -81,6 +82,10 @@ export function DocumentsHome() {
         <StatCard label="Utkast" value={docs.stats.drafts} icon={<BookOpen className="size-5 text-amber-500" />} />
         <StatCard label="Krever signatur" value={docs.stats.requireAck} icon={<FileText className="size-5 text-[#1a3d32]" />} />
         <StatCard label="Compliance-kvitteringer" value={docs.stats.acknowledged} icon={<CheckCircle2 className="size-5 text-emerald-600" />} />
+      </div>
+
+      <div className="mt-6">
+        <InspectionReadinessScore />
       </div>
 
       {showNewSpace && (
