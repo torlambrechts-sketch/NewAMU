@@ -1,7 +1,7 @@
-import { useState } from 'react'
 import { CheckCircle2, ShieldCheck } from 'lucide-react'
-import { useDocuments, DEMO_USER_NAME } from '../../../hooks/useDocuments'
+import { DEMO_USER_NAME, useWikiPage } from '../../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
+import { maxReceiptVersionForUser } from '../../../lib/wikiCompliance'
 
 type Props = {
   pageId: string
@@ -9,14 +9,25 @@ type Props = {
 }
 
 export function AcknowledgementFooter({ pageId, pageVersion }: Props) {
-  const { acknowledge, hasAcknowledged, receipts, backend } = useDocuments()
-  const { profile } = useOrgSetupContext()
-  const [name, setName] = useState('')
+  const { acknowledge, hasAcknowledged, receipts, page } = useWikiPage(pageId)
+  const { profile, user } = useOrgSetupContext()
+
+  const displayName = profile?.display_name?.trim() || DEMO_USER_NAME
+  const userId = user?.id
+  const myPrevReceiptV = userId ? maxReceiptVersionForUser(pageId, userId, receipts) : null
+  const staleUnsigned =
+    page &&
+    page.requiresAcknowledgement &&
+    page.status === 'published' &&
+    myPrevReceiptV != null &&
+    myPrevReceiptV < pageVersion &&
+    !hasAcknowledged(pageId, pageVersion)
 
   const alreadySigned = hasAcknowledged(pageId, pageVersion)
-  const receipt = receipts.find(
-    (r) => r.pageId === pageId && r.pageVersion === pageVersion,
-  )
+  const myReceipts = receipts.filter((r) => r.pageId === pageId && r.userId === userId)
+  const receipt =
+    myReceipts.find((r) => r.pageVersion === pageVersion) ??
+    [...myReceipts].sort((a, b) => b.pageVersion - a.pageVersion)[0]
 
   return (
     <div className="not-prose mt-8 rounded-xl border-2 border-[#1a3d32]/20 bg-[#1a3d32]/5 p-5">
@@ -33,24 +44,25 @@ export function AcknowledgementFooter({ pageId, pageVersion }: Props) {
             <div className="mt-4 flex items-center gap-2 text-emerald-700">
               <CheckCircle2 className="size-5" />
               <span className="text-sm font-medium">
-                Signert av {receipt?.userName ?? profile?.display_name ?? DEMO_USER_NAME} ·{' '}
+                Signert av {receipt?.userName ?? displayName} ·{' '}
                 {receipt ? new Date(receipt.acknowledgedAt).toLocaleString('no-NO') : ''}
                 {' '}· Versjon {pageVersion}
               </span>
             </div>
           ) : (
-            <div className="mt-4 flex flex-wrap gap-3">
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ditt fulle navn"
-                className="min-w-[200px] flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
-              />
+            <div className="mt-4 space-y-3">
+              {staleUnsigned ? (
+                <p className="rounded-none border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                  Du bekreftet versjon {myPrevReceiptV} — det finnes en nyere versjon (v{pageVersion}).
+                </p>
+              ) : null}
+              <p className="text-sm text-neutral-700">
+                <span className="font-medium text-neutral-900">Signeres som:</span> {displayName}
+              </p>
               <button
                 type="button"
-                disabled={!name.trim() && !profile?.display_name?.trim()}
-                onClick={() => void acknowledge(pageId, name || (profile?.display_name ?? ''))}
-                className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-5 py-2 text-sm font-medium text-white disabled:opacity-40 hover:bg-[#142e26]"
+                onClick={() => void acknowledge(pageId)}
+                className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-5 py-2 text-sm font-medium text-white hover:bg-[#142e26]"
               >
                 <ShieldCheck className="size-4" />
                 Jeg har lest og forstått dette dokumentet
@@ -59,7 +71,7 @@ export function AcknowledgementFooter({ pageId, pageVersion }: Props) {
           )}
           <p className="mt-2 text-xs text-neutral-400">
             Versjon {pageVersion}
-            {backend === 'local' ? ' · Lagret lokalt (demo uten organisasjon).' : ' · Registrert i organisasjonens database.'}
+            {' · Registrert i organisasjonens database.'}
           </p>
         </div>
       </div>
