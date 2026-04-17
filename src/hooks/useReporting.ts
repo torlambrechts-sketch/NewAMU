@@ -125,10 +125,13 @@ export function useReporting() {
     }
   }, [supabase])
 
+  const clearError = useCallback(() => setError(null), [])
+
   return useMemo(
     () => ({
       loading,
       error,
+      clearError,
       fetchAmuAnnual,
       fetchAnnualIk,
       fetchArp,
@@ -141,6 +144,7 @@ export function useReporting() {
     [
       loading,
       error,
+      clearError,
       fetchAmuAnnual,
       fetchAnnualIk,
       fetchArp,

@@ -13,6 +13,7 @@ export type ReportRunRow = {
   title: string
   report_year: number | null
   meta: Record<string, unknown>
+  runner_display_name?: string | null
 }
 
 export type LogReportRunInput = {
@@ -55,6 +56,8 @@ export function useReportRuns() {
     }
   }, [supabase, orgId])
 
+  const clearError = useCallback(() => setError(null), [])
+
   const logRun = useCallback(
     async (input: LogReportRunInput): Promise<boolean> => {
       if (!supabase || !orgId || !uid) return false
@@ -87,10 +90,11 @@ export function useReportRuns() {
       runs,
       loading,
       error,
+      clearError,
       enabled,
       refresh,
       logRun,
     }),
-    [runs, loading, error, enabled, refresh, logRun],
+    [runs, loading, error, clearError, enabled, refresh, logRun],
   )
 }

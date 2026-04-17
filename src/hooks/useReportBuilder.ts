@@ -110,8 +110,8 @@ export function useReportBuilder() {
     [supabase, orgId],
   )
 
-  const refresh = useCallback(async () => {
-    if (!supabase || !orgId) return
+  const refresh = useCallback(async (): Promise<CustomReportTemplate[]> => {
+    if (!supabase || !orgId) return []
     setLoading(true)
     setError(null)
     try {
@@ -133,11 +133,13 @@ export function useReportBuilder() {
       payloadRef.current = { templates: list }
       setTemplates(list)
       writeOrgModuleSnap(LEGACY_MODULE_KEY, orgId, SNAP_USER, { templates: list })
+      return list
     } catch (err) {
       setError(getSupabaseErrorMessage(err))
       clearOrgModuleSnap(LEGACY_MODULE_KEY, orgId, SNAP_USER)
       payloadRef.current = emptyPayload()
       setTemplates([])
+      return []
     } finally {
       setLoading(false)
     }
@@ -270,6 +272,46 @@ export function useReportBuilder() {
     [useRemote, supabase, orgId, user?.id, setTemplatesAndPersist, persistLegacyMirror],
   )
 
+  const clearError = useCallback(() => setError(null), [])
+
+  const duplicateTemplate = useCallback(
+    async (source: CustomReportTemplate): Promise<CustomReportTemplate | null> => {
+      if (!useRemote || !supabase || !orgId) return null
+      const baseName = `${source.name.trim()} (kopi)`
+      let name = baseName
+      let n = 2
+      while (templates.some((t) => t.name.trim() === name.trim())) {
+        name = `${source.name.trim()} (kopi ${n})`
+        n += 1
+      }
+      setError(null)
+      try {
+        const { data, error: ie } = await supabase
+          .from('report_definitions')
+          .insert({
+            organization_id: orgId,
+            name: name.trim(),
+            definition: { modules: source.modules },
+            created_by: user?.id ?? null,
+          })
+          .select('*')
+          .single()
+        if (ie) throw ie
+        const inserted = rowToTemplate(data as DefRow)
+        setTemplates((prev) => {
+          const next = [inserted, ...prev]
+          queueMicrotask(() => persistLegacyMirror({ templates: next }))
+          return next
+        })
+        return inserted
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return null
+      }
+    },
+    [useRemote, supabase, orgId, user?.id, templates, persistLegacyMirror],
+  )
+
   const deleteTemplate = useCallback(
     async (id: string): Promise<boolean> => {
       if (!useRemote || !supabase || !orgId) {
@@ -299,11 +341,13 @@ export function useReportBuilder() {
       templates,
       loading: useRemote ? loading : false,
       error: useRemote ? error : null,
+      clearError,
       refresh,
       saveTemplate,
+      duplicateTemplate,
       deleteTemplate,
       definitionsAvailable: useRemote,
     }),
-    [templates, loading, error, refresh, saveTemplate, deleteTemplate, useRemote],
+    [templates, loading, error, clearError, refresh, saveTemplate, duplicateTemplate, deleteTemplate, useRemote],
   )
 }

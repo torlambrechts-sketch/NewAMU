@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   CalendarClock,
+  Check,
   ChevronDown,
+  Copy,
   Download,
   FileDown,
   History,
@@ -55,6 +57,12 @@ const PANEL_INSET = 'rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 
 
 const HISTORY_KEY = 'atics-report-run-history'
 
+const SCHEDULE_PRESETS = [
+  { id: 'monthly_morning', label: 'Hver måned kl. 08:00 (Europe/Oslo)', cron: '0 8 1 * *', tz: 'Europe/Oslo' },
+  { id: 'weekly_mon', label: 'Hver mandag kl. 08:00 (Europe/Oslo)', cron: '0 8 * * 1', tz: 'Europe/Oslo' },
+  { id: 'daily_morning', label: 'Hver dag kl. 07:30 (Europe/Oslo)', cron: '30 7 * * *', tz: 'Europe/Oslo' },
+] as const
+
 type RunEntry = { id: string; title: string; at: string; kind: 'standard' | 'custom' }
 
 function readHistory(): RunEntry[] {
@@ -75,11 +83,67 @@ function pushHistory(entry: RunEntry) {
 }
 
 function JsonBlock({ data }: { data: unknown }) {
+  const [copied, setCopied] = useState(false)
+  const text = JSON.stringify(data, null, 2)
   return (
-    <pre className="max-h-[420px] overflow-auto rounded-none border border-neutral-200 bg-neutral-50/80 p-4 text-xs leading-relaxed text-neutral-800">
-      {JSON.stringify(data, null, 2)}
-    </pre>
+    <div className="relative">
+      <div className="sticky top-0 z-[1] flex justify-end border-b border-neutral-200 bg-neutral-50/95 px-2 py-1.5">
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard.writeText(text).then(
+              () => {
+                setCopied(true)
+                window.setTimeout(() => setCopied(false), 2000)
+              },
+              () => {
+                /* ignore */
+              },
+            )
+          }}
+          className={`${R_FLAT} inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50`}
+        >
+          {copied ? <Check className="size-3.5 text-emerald-700" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+          {copied ? 'Kopiert' : 'Kopier'}
+        </button>
+      </div>
+      <pre className="max-h-[420px] overflow-auto px-4 pb-4 pt-2 text-xs leading-relaxed text-neutral-800">
+        {text}
+      </pre>
+    </div>
   )
+}
+
+function ScopedError({
+  message,
+  onDismiss,
+  className = '',
+}: {
+  message: string | null
+  onDismiss: () => void
+  className?: string
+}) {
+  if (!message) return null
+  return (
+    <div
+      className={`mt-3 flex items-start gap-2 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 ${className}`}
+      role="alert"
+    >
+      <p className="min-w-0 flex-1 leading-snug">{message}</p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="shrink-0 rounded-none p-1 text-red-700 hover:bg-red-100"
+        aria-label="Lukk melding"
+      >
+        <X className="size-4" />
+      </button>
+    </div>
+  )
+}
+
+function templatesEqual(a: CustomReportTemplate, b: CustomReportTemplate): boolean {
+  return a.name === b.name && a.id === b.id && JSON.stringify(a.modules) === JSON.stringify(b.modules)
 }
 
 type MainTab = 'reports' | 'history' | 'schedules' | 'tools'
@@ -98,7 +162,7 @@ export function ReportingEnginePage() {
   const layout = mergeLayoutPayload(layoutPayload)
   const accent = layout.accent
 
-  const { organization, supabaseConfigured } = useOrgSetupContext()
+  const { organization, supabaseConfigured, profile, user } = useOrgSetupContext()
   const rep = useReporting()
   const org = useOrganisation()
   const { tasks } = useTasks()
@@ -107,6 +171,7 @@ export function ReportingEnginePage() {
   const {
     logRun: logReportRun,
     refresh: refreshReportRuns,
+    clearError: clearReportRunsError,
     enabled: reportRunsEnabled,
     runs: reportRunRows,
     loading: reportRunsLoading,
@@ -123,13 +188,17 @@ export function ReportingEnginePage() {
           ? 'tools'
           : 'reports'
 
-  const setMainTab = useCallback(
+  const setMainTabPreserveDef = useCallback(
     (t: MainTab) => {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev)
-          if (t === 'reports') next.delete('tab')
-          else next.set('tab', t)
+          if (t === 'reports') {
+            next.delete('tab')
+            next.delete('def')
+          } else {
+            next.set('tab', t)
+          }
           return next
         },
         { replace: true },
@@ -151,9 +220,9 @@ export function ReportingEnginePage() {
       label,
       icon: Icon,
       active: mainTab === id,
-      onClick: () => setMainTab(id),
+      onClick: () => setMainTabPreserveDef(id),
     }))
-  }, [mainTab, setMainTab])
+  }, [mainTab, setMainTabPreserveDef])
 
   const year = new Date().getFullYear()
   const [y, setY] = useState(year)
@@ -203,6 +272,23 @@ export function ReportingEnginePage() {
     void schedules.refresh()
   }, [mainTab, schedules.enabled, schedules.refresh])
 
+  const defParam = searchParams.get('def') ?? ''
+
+  useEffect(() => {
+    if (mainTab !== 'schedules') return
+    const id = defParam.trim()
+    if (!id) return
+    if (!rb.templates.some((t) => t.id === id)) return
+    setNewScheduleDefId(id)
+  }, [mainTab, defParam, rb.templates])
+
+  useEffect(() => {
+    return () => {
+      if (saveOkTimer.current) clearTimeout(saveOkTimer.current)
+      if (runOkTimer.current) clearTimeout(runOkTimer.current)
+    }
+  }, [])
+
   const templateNameById = useMemo(() => {
     const m = new Map<string, string>()
     for (const t of rb.templates) m.set(t.id, t.name)
@@ -212,6 +298,25 @@ export function ReportingEnginePage() {
   const [newScheduleDefId, setNewScheduleDefId] = useState('')
   const [newScheduleTitle, setNewScheduleTitle] = useState('')
   const [newScheduleCron, setNewScheduleCron] = useState('0 8 1 * *')
+  const [newScheduleTimezone, setNewScheduleTimezone] = useState('Europe/Oslo')
+  const [scheduleCronAdvanced, setScheduleCronAdvanced] = useState(false)
+
+  const [saveDraftLoading, setSaveDraftLoading] = useState(false)
+  const [saveDraftOk, setSaveDraftOk] = useState(false)
+  const [runCustomLoading, setRunCustomLoading] = useState(false)
+  const [runCustomOk, setRunCustomOk] = useState(false)
+  const [builderBaseline, setBuilderBaseline] = useState<CustomReportTemplate | null>(null)
+  const saveOkTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const runOkTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const currentUserRunLabel = useMemo(() => {
+    return (
+      profile?.display_name?.trim() ||
+      profile?.email?.trim() ||
+      user?.email?.trim() ||
+      'Du'
+    )
+  }, [profile?.display_name, profile?.email, user?.email])
 
   const standardReportCount = useMemo(
     () => STANDARD_REPORT_CATEGORIES.reduce((a, c) => a + c.reports.length, 0),
@@ -263,13 +368,14 @@ export function ReportingEnginePage() {
           title,
           reportYear: y,
           standardReportId: id,
+          meta: { runner_display_name: currentUserRunLabel },
         })
         if (logged) void refreshReportRuns()
       } finally {
         setStandardLoading(false)
       }
     },
-    [rep, y, logReportRun, refreshReportRuns],
+    [rep, y, logReportRun, refreshReportRuns, currentUserRunLabel],
   )
 
   const standardVisualModel = useMemo(() => {
@@ -395,18 +501,6 @@ export function ReportingEnginePage() {
   }, [builderOpen])
 
   useEffect(() => {
-    if (!builderOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setBuilderOpen(false)
-        setDraft(null)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [builderOpen])
-
-  useEffect(() => {
     if (!viewerOpen) return
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -424,58 +518,155 @@ export function ReportingEnginePage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [viewerOpen, closeViewer])
 
-  function openNewReport() {
+  const builderDirty = useMemo(() => {
+    if (!draft || !builderBaseline) return false
+    return !templatesEqual(draft, builderBaseline)
+  }, [draft, builderBaseline])
+
+  const requestCloseBuilder = useCallback(() => {
+    if (!builderOpen) return
+    if (builderDirty) {
+      const ok = window.confirm('Du har ulagrede endringer. Vil du lukke uten å lagre?')
+      if (!ok) return
+    }
+    setBuilderOpen(false)
+    setDraft(null)
+    setBuilderBaseline(null)
+    setSaveDraftOk(false)
+    setRunCustomOk(false)
+  }, [builderOpen, builderDirty])
+
+  const openNewReport = useCallback(() => {
     const now = new Date().toISOString()
-    setDraft({
+    const initial: CustomReportTemplate = {
       id: newModuleId(),
       name: 'Ny tilpasset rapport',
       createdAt: now,
       updatedAt: now,
       modules: [createDefaultModule('kpi'), createDefaultModule('table'), createDefaultModule('bar')],
-    })
-    setBuilderOpen(true)
-  }
-
-  function openEditTemplate(t: CustomReportTemplate) {
-    setDraft({ ...t, modules: t.modules.map((m) => ({ ...m })) })
-    setBuilderOpen(true)
-  }
-
-  function closeBuilder() {
-    setBuilderOpen(false)
-    setDraft(null)
-  }
-
-  async function saveDraft() {
-    if (!draft?.name.trim()) return
-    const now = new Date().toISOString()
-    const saved = await rb.saveTemplate({ ...draft, updatedAt: now })
-    if (saved) {
-      setDraft({ ...saved, modules: saved.modules.map((m) => ({ ...m })) })
     }
-  }
+    setDraft(initial)
+    setBuilderBaseline({ ...initial, modules: initial.modules.map((m) => ({ ...m })) })
+    setBuilderOpen(true)
+    setSaveDraftOk(false)
+    setRunCustomOk(false)
+  }, [])
 
-  function runCustomReport() {
-    if (!draft) return
-    void refreshPreview(draft.modules).then(async () => {
-      const entry: RunEntry = {
-        id: crypto.randomUUID(),
-        title: draft.name,
-        at: new Date().toISOString(),
-        kind: 'custom',
+  const openEditTemplate = useCallback((t: CustomReportTemplate) => {
+    const d: CustomReportTemplate = { ...t, modules: t.modules.map((m) => ({ ...m })) }
+    setDraft(d)
+    setBuilderBaseline({ ...d, modules: d.modules.map((m) => ({ ...m })) })
+    setBuilderOpen(true)
+    setSaveDraftOk(false)
+    setRunCustomOk(false)
+  }, [])
+
+  const saveDraft = useCallback(async () => {
+    if (!draft?.name.trim()) return
+    setSaveDraftLoading(true)
+    setSaveDraftOk(false)
+    try {
+      const now = new Date().toISOString()
+      const saved = await rb.saveTemplate({ ...draft, updatedAt: now })
+      if (saved) {
+        const next = { ...saved, modules: saved.modules.map((m) => ({ ...m })) }
+        setDraft(next)
+        setBuilderBaseline({ ...next, modules: next.modules.map((m) => ({ ...m })) })
+        setSaveDraftOk(true)
+        if (saveOkTimer.current) clearTimeout(saveOkTimer.current)
+        saveOkTimer.current = setTimeout(() => setSaveDraftOk(false), 2500)
       }
-      pushHistory(entry)
-      setHistory(readHistory())
-      const logged = await logReportRun({
-        kind: 'custom',
-        title: draft.name,
-        reportYear: y,
-        customTemplateId: draft.id,
-        meta: { moduleCount: draft.modules.length },
-      })
-      if (logged) void refreshReportRuns()
-    })
-  }
+    } finally {
+      setSaveDraftLoading(false)
+    }
+  }, [draft, rb])
+
+  const runCustomReportFromDraft = useCallback(
+    async (tpl: CustomReportTemplate) => {
+      setRunCustomLoading(true)
+      setRunCustomOk(false)
+      try {
+        let runTpl = tpl
+        if (tpl.rowVersion == null && tpl.name.trim()) {
+          const saved = await rb.saveTemplate({ ...tpl, updatedAt: new Date().toISOString() })
+          if (!saved) return
+          runTpl = { ...saved, modules: saved.modules.map((m) => ({ ...m })) }
+          setDraft((d) => (d && d.id === tpl.id ? runTpl : d))
+          setBuilderBaseline({ ...runTpl, modules: runTpl.modules.map((m) => ({ ...m })) })
+        }
+        await refreshPreview(runTpl.modules)
+        const entry: RunEntry = {
+          id: crypto.randomUUID(),
+          title: runTpl.name,
+          at: new Date().toISOString(),
+          kind: 'custom',
+        }
+        pushHistory(entry)
+        setHistory(readHistory())
+        const logged = await logReportRun({
+          kind: 'custom',
+          title: runTpl.name,
+          reportYear: y,
+          customTemplateId: runTpl.id,
+          meta: {
+            moduleCount: runTpl.modules.length,
+            runner_display_name: currentUserRunLabel,
+          },
+        })
+        if (logged) void refreshReportRuns()
+        setRunCustomOk(true)
+        if (runOkTimer.current) clearTimeout(runOkTimer.current)
+        runOkTimer.current = setTimeout(() => setRunCustomOk(false), 2500)
+      } finally {
+        setRunCustomLoading(false)
+      }
+    },
+    [refreshPreview, logReportRun, y, refreshReportRuns, currentUserRunLabel, rb],
+  )
+
+  const quickRunTemplate = useCallback(
+    (t: CustomReportTemplate) => {
+      const d: CustomReportTemplate = { ...t, modules: t.modules.map((m) => ({ ...m })) }
+      setDraft(d)
+      setBuilderBaseline({ ...d, modules: d.modules.map((m) => ({ ...m })) })
+      setBuilderOpen(true)
+      setSaveDraftOk(false)
+      setRunCustomOk(false)
+      queueMicrotask(() => void runCustomReportFromDraft(d))
+    },
+    [runCustomReportFromDraft],
+  )
+
+  const runCustomReport = useCallback(() => {
+    if (!draft) return
+    void runCustomReportFromDraft(draft)
+  }, [draft, runCustomReportFromDraft])
+
+  const reloadTemplateFromServer = useCallback(async () => {
+    if (!draft?.id || draft.rowVersion == null) return
+    const list = await rb.refresh()
+    const fresh = list.find((t) => t.id === draft.id)
+    if (fresh) {
+      const next = { ...fresh, modules: fresh.modules.map((m) => ({ ...m })) }
+      setDraft(next)
+      setBuilderBaseline({ ...next, modules: next.modules.map((m) => ({ ...m })) })
+    }
+  }, [draft?.id, draft?.rowVersion, rb])
+
+  useEffect(() => {
+    if (!builderOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        requestCloseBuilder()
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        void saveDraft()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [builderOpen, requestCloseBuilder, saveDraft])
 
   async function downloadJson(filename: string, payload: unknown) {
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
@@ -535,6 +726,11 @@ export function ReportingEnginePage() {
             <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-700`}>
               Maler <strong className="ml-1 font-semibold">{rb.templates.length}</strong>
             </span>
+            {schedules.enabled ? (
+              <span className={`${HERO_ACTION_CLASS} bg-white text-neutral-700 ring-1 ring-neutral-200`}>
+                Planer <strong className="ml-1 font-semibold">{schedules.schedules.length}</strong>
+              </span>
+            ) : null}
             <label className={`${HERO_ACTION_CLASS} cursor-pointer bg-white text-neutral-800 ring-1 ring-neutral-200`}>
               År{' '}
               <input
@@ -559,14 +755,9 @@ export function ReportingEnginePage() {
         menu={<HubMenu1Bar ariaLabel="Rapporter — faner" items={reportHubItems} />}
       />
 
-      {(rep.error || rb.error || reportRunsError || schedules.error) && (
-        <p className="mt-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {rep.error ?? rb.error ?? reportRunsError ?? schedules.error}
-        </p>
-      )}
-
       {mainTab === 'reports' && (
         <>
+          <ScopedError message={rep.error} onDismiss={rep.clearError} />
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {(
               [
@@ -669,14 +860,38 @@ export function ReportingEnginePage() {
               <div>
                 <h2 className="text-lg font-semibold text-neutral-900">Lagrede rapportmaler</h2>
                 <p className="mt-1 text-sm text-neutral-500">
-                  Åpne en mal for å redigere moduler, eller kjør forhåndsvisning med ferske data. Maler lagres i{' '}
-                  <code className="rounded bg-neutral-100 px-1 text-xs">report_definitions</code> (optimistisk versjon
-                  ved lagring).
+                  Åpne en mal for å redigere moduler, kjøre rapport eller duplisere. Versjon økes ved hvert lagre for å
+                  unngå at to redigerer overskriver hverandre.
                 </p>
               </div>
+              {rb.definitionsAvailable ? (
+                <button
+                  type="button"
+                  disabled={rb.loading}
+                  onClick={() => void rb.refresh()}
+                  className={`${R_FLAT} inline-flex items-center gap-2 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50`}
+                >
+                  {rb.loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <RefreshCw className="size-4" aria-hidden />}
+                  Oppdater liste
+                </button>
+              ) : null}
             </div>
-            {rb.templates.length === 0 ? (
+            <ScopedError message={rb.error} onDismiss={rb.clearError} />
+            {rb.loading && rb.templates.length === 0 ? (
+              <ul className="space-y-2">
+                {[0, 1, 2].map((i) => (
+                  <li
+                    key={i}
+                    className={`${R_FLAT} h-[4.25rem] animate-pulse border border-neutral-200 bg-neutral-100/80 px-4 py-3`}
+                  />
+                ))}
+              </ul>
+            ) : rb.templates.length === 0 && !rb.error ? (
               <p className="text-sm text-neutral-500">Ingen maler ennå — bruk «Ny rapport».</p>
+            ) : rb.templates.length === 0 && rb.error ? (
+              <p className="text-sm text-neutral-600">
+                Kunne ikke laste maler. Bruk «Oppdater liste» eller prøv igjen senere.
+              </p>
             ) : (
               <ul className="space-y-2">
                 {rb.templates.map((t) => (
@@ -687,11 +902,20 @@ export function ReportingEnginePage() {
                     <div>
                       <p className="font-medium text-neutral-900">{t.name}</p>
                       <p className="text-xs text-neutral-500">
-                        {t.modules.length} modul(er) · oppdatert{' '}
+                        {t.modules.length} modul(er)
+                        {t.rowVersion != null ? ` · v${t.rowVersion}` : ''} · oppdatert{' '}
                         {new Date(t.updatedAt).toLocaleDateString('no-NO')}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => quickRunTemplate(t)}
+                        disabled={runCustomLoading}
+                        className={`${R_FLAT} border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50`}
+                      >
+                        Kjør
+                      </button>
                       <button
                         type="button"
                         onClick={() => openEditTemplate(t)}
@@ -699,6 +923,23 @@ export function ReportingEnginePage() {
                       >
                         Rediger
                       </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void rb.duplicateTemplate(t).then((copy) => {
+                            if (copy) void schedules.refresh()
+                          })
+                        }
+                        className={`${R_FLAT} border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50`}
+                      >
+                        Dupliser
+                      </button>
+                      <Link
+                        to={`/reports?tab=schedules&def=${encodeURIComponent(t.id)}`}
+                        className={`${R_FLAT} inline-flex items-center border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50`}
+                      >
+                        Planlegg
+                      </Link>
                       <button
                         type="button"
                         onClick={() =>
@@ -721,6 +962,7 @@ export function ReportingEnginePage() {
 
       {mainTab === 'history' && (
         <section className="mt-8 space-y-8">
+          <ScopedError message={reportRunsError} onDismiss={clearReportRunsError} />
           <Mainbox1
             title="Rapportlogg (organisasjon)"
             subtitle={
@@ -739,15 +981,24 @@ export function ReportingEnginePage() {
               <p className="text-sm text-neutral-500">Ingen kjøringer er lagret for organisasjonen ennå.</p>
             ) : (
               <ul className="divide-y divide-neutral-100 text-sm">
-                {reportRunRows.map((r) => (
-                  <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
-                    <span className="font-medium text-neutral-900">{r.title}</span>
-                    <span className="text-xs text-neutral-500">
-                      {new Date(r.run_at).toLocaleString('no-NO')} · {r.kind === 'custom' ? 'Tilpasset' : 'Standard'}
-                      {r.report_year != null ? ` · år ${r.report_year}` : ''}
-                    </span>
-                  </li>
-                ))}
+                {reportRunRows.map((r) => {
+                  const who =
+                    (r.meta?.runner_display_name as string | undefined)?.trim() ||
+                    r.runner_display_name?.trim() ||
+                    null
+                  return (
+                    <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                      <span className="font-medium text-neutral-900">{r.title}</span>
+                      <span className="text-right text-xs text-neutral-500">
+                        {new Date(r.run_at).toLocaleString('no-NO')}
+                        <br />
+                        {r.kind === 'custom' ? 'Tilpasset' : 'Standard'}
+                        {r.report_year != null ? ` · år ${r.report_year}` : ''}
+                        {who ? ` · ${who}` : ''}
+                      </span>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </Mainbox1>
@@ -772,11 +1023,12 @@ export function ReportingEnginePage() {
 
       {mainTab === 'schedules' && (
         <section className="mt-8 space-y-6">
+          <ScopedError message={schedules.error} onDismiss={schedules.clearError} />
           <Mainbox1
             title="Planlagte rapporter (utkast)"
             subtitle={
               schedules.enabled
-                ? 'Lagre planer knyttet til en rapportmal. Utsending kjører ikke automatisk ennå — dette er datamodell og CRUD.'
+                ? 'Lagre planer knyttet til en rapportmal. Utsending kjører ikke automatisk ennå — dette er datamodell og CRUD. Kanal: e-post når motoren kommer (webhook senere).'
                 : 'Krever innlogget bruker og migrasjon `report_schedules`.'
             }
           >
@@ -794,7 +1046,20 @@ export function ReportingEnginePage() {
                       <select
                         id="sched-def"
                         value={newScheduleDefId}
-                        onChange={(e) => setNewScheduleDefId(e.target.value)}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          setNewScheduleDefId(v)
+                          setSearchParams(
+                            (prev) => {
+                              const next = new URLSearchParams(prev)
+                              next.set('tab', 'schedules')
+                              if (v) next.set('def', v)
+                              else next.delete('def')
+                              return next
+                            },
+                            { replace: true },
+                          )
+                        }}
                         className={`${SETTINGS_INPUT} bg-white`}
                       >
                         <option value="">Velg mal…</option>
@@ -817,16 +1082,63 @@ export function ReportingEnginePage() {
                         className={`${SETTINGS_INPUT} bg-white`}
                       />
                     </div>
-                    <div>
-                      <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-cron">
-                        Cron (UTC)
+                    <div className="md:col-span-2">
+                      <p className={SETTINGS_FIELD_LABEL}>Frekvens</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {SCHEDULE_PRESETS.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              setNewScheduleCron(p.cron)
+                              setNewScheduleTimezone(p.tz)
+                              setScheduleCronAdvanced(false)
+                            }}
+                            className={`${R_FLAT} border border-neutral-300 bg-white px-2.5 py-1.5 text-left text-[11px] font-medium leading-snug text-neutral-800 hover:bg-neutral-50 sm:text-xs`}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                      <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-neutral-600">
+                        <input
+                          type="checkbox"
+                          checked={scheduleCronAdvanced}
+                          onChange={(e) => setScheduleCronAdvanced(e.target.checked)}
+                          className="size-4 rounded-none border-neutral-300"
+                        />
+                        Avansert: rediger cron og tidssone selv
                       </label>
-                      <input
-                        id="sched-cron"
-                        value={newScheduleCron}
-                        onChange={(e) => setNewScheduleCron(e.target.value)}
-                        className={`${SETTINGS_INPUT} bg-white font-mono text-xs`}
-                      />
+                      {scheduleCronAdvanced ? (
+                        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-cron">
+                              Cron-uttrykk
+                            </label>
+                            <input
+                              id="sched-cron"
+                              value={newScheduleCron}
+                              onChange={(e) => setNewScheduleCron(e.target.value)}
+                              className={`${SETTINGS_INPUT} bg-white font-mono text-xs`}
+                            />
+                          </div>
+                          <div>
+                            <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-tz">
+                              Tidssone
+                            </label>
+                            <input
+                              id="sched-tz"
+                              value={newScheduleTimezone}
+                              onChange={(e) => setNewScheduleTimezone(e.target.value)}
+                              className={`${SETTINGS_INPUT} bg-white font-mono text-xs`}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-xs text-neutral-500">
+                          <span className="font-mono">{newScheduleCron}</span> · {newScheduleTimezone}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <button
@@ -838,11 +1150,15 @@ export function ReportingEnginePage() {
                         report_definition_id: newScheduleDefId,
                         title: newScheduleTitle.trim() || templateNameById.get(newScheduleDefId) || 'Plan',
                         cron_expr: newScheduleCron.trim() || '0 8 1 * *',
+                        timezone: newScheduleTimezone.trim() || 'Europe/Oslo',
                         enabled: false,
+                        channel: 'email',
                       })
                       if (created) {
                         setNewScheduleTitle('')
                         setNewScheduleCron('0 8 1 * *')
+                        setNewScheduleTimezone('Europe/Oslo')
+                        setScheduleCronAdvanced(false)
                       }
                     }}
                     className={`${R_FLAT} mt-4 inline-flex items-center gap-2 border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50`}
@@ -860,38 +1176,51 @@ export function ReportingEnginePage() {
                   <p className="mt-4 text-sm text-neutral-500">Ingen planer lagret ennå.</p>
                 ) : (
                   <ul className="mt-6 divide-y divide-neutral-100 rounded-none border border-neutral-200 bg-white">
-                    {schedules.schedules.map((s) => (
-                      <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
-                        <div className="min-w-0">
-                          <p className="font-medium text-neutral-900">{s.title}</p>
-                          <p className="mt-0.5 text-xs text-neutral-500">
-                            Mal: {templateNameById.get(s.report_definition_id) ?? s.report_definition_id.slice(0, 8)}
-                            {' · '}
-                            <span className="font-mono">{s.cron_expr}</span>
-                            {' · '}
-                            {s.timezone}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <label className="flex cursor-pointer items-center gap-2 text-xs text-neutral-600">
-                            <input
-                              type="checkbox"
-                              checked={s.enabled}
-                              onChange={(e) => void schedules.updateSchedule(s.id, { enabled: e.target.checked })}
-                              className="size-4 rounded-none border-neutral-300"
-                            />
-                            Aktiv (når motor er på plass)
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => void schedules.deleteSchedule(s.id)}
-                            className={`${R_FLAT} border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50`}
-                          >
-                            Slett
-                          </button>
-                        </div>
-                      </li>
-                    ))}
+                    {schedules.schedules.map((s) => {
+                      const malNavn = templateNameById.get(s.report_definition_id)
+                      const malSlettet = !malNavn
+                      return (
+                        <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
+                          <div className="min-w-0">
+                            <p className="font-medium text-neutral-900">{s.title}</p>
+                            <p className="mt-0.5 text-xs text-neutral-500">
+                              Mal:{' '}
+                              {malSlettet ? (
+                                <span className="rounded-none border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-900">
+                                  Mal slettet
+                                </span>
+                              ) : (
+                                malNavn
+                              )}
+                              {' · '}
+                              <span className="font-mono">{s.cron_expr}</span>
+                              {' · '}
+                              {s.timezone}
+                              {' · '}
+                              {s.channel === 'email' ? 'E-post' : s.channel}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className="flex cursor-pointer items-center gap-2 text-xs text-neutral-600">
+                              <input
+                                type="checkbox"
+                                checked={s.enabled}
+                                onChange={(e) => void schedules.updateSchedule(s.id, { enabled: e.target.checked })}
+                                className="size-4 rounded-none border-neutral-300"
+                              />
+                              Aktiv (når motor er på plass)
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => void schedules.deleteSchedule(s.id)}
+                              className={`${R_FLAT} border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50`}
+                            >
+                              Slett
+                            </button>
+                          </div>
+                        </li>
+                      )
+                    })}
                   </ul>
                 )}
               </>
@@ -902,6 +1231,7 @@ export function ReportingEnginePage() {
 
       {mainTab === 'tools' && (
         <section className="mt-8 space-y-6">
+          <ScopedError message={rep.error} onDismiss={rep.clearError} />
           <div className={`inline-flex flex-wrap border border-neutral-200 bg-neutral-50/80 p-1 ${R_FLAT}`}>
             {toolsTabs.map((t) => {
               const sel = toolsTab === t.id
@@ -1165,7 +1495,7 @@ export function ReportingEnginePage() {
           className="fixed inset-0 z-[100] flex justify-end bg-black/45 backdrop-blur-[2px]"
           role="presentation"
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeBuilder()
+            if (e.target === e.currentTarget) requestCloseBuilder()
           }}
         >
           <div
@@ -1175,47 +1505,80 @@ export function ReportingEnginePage() {
             aria-labelledby="report-builder-title"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <header className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-neutral-200/90 bg-[#f7f6f2] px-5 py-4 sm:px-7">
-              <h2
-                id="report-builder-title"
-                className="min-w-0 max-w-[70%] text-xl font-semibold text-neutral-900 sm:text-2xl"
-                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-              >
-                Rapport: {draft.name}
-              </h2>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={closeBuilder}
-                  className={`${R_FLAT} px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-600 hover:bg-neutral-200/50`}
-                >
-                  Tilbake
-                </button>
-                <button
-                  type="button"
-                  onClick={saveDraft}
-                  className={`${R_FLAT} px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-600 hover:bg-neutral-200/50`}
-                >
-                  Lagre mal
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void runCustomReport()}
-                  disabled={previewLoading}
-                  className={`${R_FLAT} px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50`}
-                  style={{ backgroundColor: accent }}
-                >
-                  {previewLoading ? 'Oppdaterer…' : 'Kjør rapport'}
-                </button>
-                <button
-                  type="button"
-                  onClick={closeBuilder}
-                  className="rounded-none p-2 text-neutral-500 hover:bg-neutral-200/60"
-                  aria-label="Lukk"
-                >
-                  <X className="size-5" />
-                </button>
+            <header className="flex shrink-0 flex-col gap-2 border-b border-neutral-200/90 bg-[#f7f6f2] px-5 py-4 sm:px-7">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 max-w-[min(100%,42rem)]">
+                  <h2
+                    id="report-builder-title"
+                    className="text-xl font-semibold text-neutral-900 sm:text-2xl"
+                    style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+                  >
+                    Rapport: {draft.name}
+                  </h2>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    {draft.rowVersion == null
+                      ? 'Lagre én gang for å låse malen til organisasjonen før rapportlogg bruker stabil ID.'
+                      : builderDirty
+                        ? 'Ulagrede endringer — bruk «Lagre mal» eller Ctrl/Cmd+S.'
+                        : 'Alt lagret.'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={requestCloseBuilder}
+                    className={`${R_FLAT} px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-600 hover:bg-neutral-200/50`}
+                  >
+                    Tilbake
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void saveDraft()}
+                    disabled={saveDraftLoading || !draft?.name.trim()}
+                    className={`${R_FLAT} inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-800 hover:bg-neutral-50 disabled:opacity-50`}
+                  >
+                    {saveDraftLoading ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
+                    Lagre mal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void runCustomReport()}
+                    disabled={runCustomLoading || previewLoading}
+                    className={`${R_FLAT} px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50`}
+                    style={{ backgroundColor: accent }}
+                  >
+                    {runCustomLoading || previewLoading ? 'Oppdaterer…' : 'Kjør rapport'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={requestCloseBuilder}
+                    className="rounded-none p-2 text-neutral-500 hover:bg-neutral-200/60"
+                    aria-label="Lukk"
+                  >
+                    <X className="size-5" />
+                  </button>
+                </div>
               </div>
+              <div className="flex min-h-[1.25rem] flex-wrap items-center gap-3 text-xs">
+                {saveDraftOk ? (
+                  <span className="font-medium text-emerald-800">Mal lagret.</span>
+                ) : null}
+                {runCustomOk ? (
+                  <span className="font-medium text-emerald-800">Rapport kjørt og logget.</span>
+                ) : null}
+                {rb.error?.includes('noen andre') ? (
+                  <button
+                    type="button"
+                    onClick={() => void reloadTemplateFromServer()}
+                    className="font-semibold text-[#1a3d32] underline decoration-neutral-400 underline-offset-2 hover:decoration-[#1a3d32]"
+                  >
+                    Last mal på nytt fra server
+                  </button>
+                ) : null}
+              </div>
+              {rb.error ? (
+                <ScopedError message={rb.error} onDismiss={rb.clearError} className="mt-0" />
+              ) : null}
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-7">
