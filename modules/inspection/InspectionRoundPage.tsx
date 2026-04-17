@@ -937,6 +937,7 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
         />
 
         <LayoutScoreStatRow
+          variant="compact"
           items={[
             {
               big: STATUS_LABEL[round.status],
