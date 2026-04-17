@@ -1,7 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CheckCircle2, Clock, History, Loader2, Pencil } from 'lucide-react'
-import { useDocuments } from '../../hooks/useDocuments'
+import { useWikiPage, useWikiSpaces } from '../../hooks/useDocuments'
 import { WikiBlockRenderer } from './WikiBlockRenderer'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
@@ -23,12 +23,12 @@ function getClockSnapshot() {
 export function WikiPageView() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
-  const docs = useDocuments()
-  const { ensurePageLoaded, pageHydrateLoading, pageHydrateError } = docs
+  const wikiPage = useWikiPage(pageId)
+  const wikiSpaces = useWikiSpaces()
+  const { ensurePageLoaded, pageHydrateLoading, pageHydrateError, page, versions } = wikiPage
   const timeNow = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
 
-  const page = docs.pages.find((p) => p.id === pageId)
-  const space = page ? docs.spaces.find((s) => s.id === page.spaceId) : null
+  const space = page ? wikiSpaces.spaces.find((s) => s.id === page.spaceId) : null
 
   useEffect(() => {
     void ensurePageLoaded(pageId)
@@ -45,7 +45,7 @@ export function WikiPageView() {
     )
   }
 
-  if ((docs.loading || pageHydrateLoading) && !page) {
+  if ((wikiPage.loading || pageHydrateLoading) && !page) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-4 text-neutral-600">
         <Loader2 className="size-8 animate-spin text-[#1a3d32]" aria-hidden />
@@ -54,10 +54,10 @@ export function WikiPageView() {
     )
   }
 
-  if (docs.error && !page) {
+  if (wikiPage.error && !page) {
     return (
       <div className="mx-auto max-w-[1400px] px-4 py-12 text-center">
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{docs.error}</p>
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{wikiPage.error}</p>
         <Link to="/documents" className="mt-4 inline-block text-[#1a3d32] underline">
           ← Tilbake til dokumenter
         </Link>
@@ -79,10 +79,9 @@ export function WikiPageView() {
       ? page.template
       : 'standard'
 
-  const alreadySigned = docs.hasAcknowledged(page.id, page.version)
+  const alreadySigned = wikiPage.hasAcknowledged(page.id, page.version)
   const showSignBadge =
-    page.requiresAcknowledgement && docs.acknowledgementRequiredForMe(page)
-  const versions = docs.versionsForPage(page.id)
+    page.requiresAcknowledgement && wikiPage.acknowledgementRequiredForMe(page)
   const due = page.nextRevisionDueAt ? new Date(page.nextRevisionDueAt) : null
   const daysToDue = due
     ? Math.ceil((due.getTime() - timeNow) / (24 * 60 * 60 * 1000))

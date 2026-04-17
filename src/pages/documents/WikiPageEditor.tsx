@@ -4,13 +4,13 @@ import {
   AlertTriangle, CheckCircle2, ChevronDown, ChevronUp,
   Eye, GripVertical, Loader2, Save, Trash2,
 } from 'lucide-react'
-import { useDocuments } from '../../hooks/useDocuments'
+import { useWikiPage, useWikiSpaces } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { RichTextEditor } from '../../components/learning/RichTextEditor'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
-import type { AcknowledgementAudience, ContentBlock, ModuleBlock } from '../../types/documents'
+import type { AcknowledgementAudience, Block, ModuleBlock } from '../../types/documents'
 
-type AddKind = ContentBlock['kind']
+type AddKind = Block['kind']
 
 const ADD_BLOCKS: { kind: AddKind; label: string; icon: string }[] = [
   { kind: 'heading', label: 'Overskrift', icon: 'H' },
@@ -28,7 +28,7 @@ const MODULE_OPTIONS: { name: ModuleBlock['moduleName']; label: string }[] = [
   { name: 'acknowledgement_footer', label: 'Lest og forstått (signatur)' },
 ]
 
-function emptyBlock(kind: AddKind): ContentBlock {
+function emptyBlock(kind: AddKind): Block {
   switch (kind) {
     case 'heading': return { kind: 'heading', level: 2, text: 'Ny overskrift' }
     case 'text': return { kind: 'text', body: '<p>Skriv her…</p>' }
@@ -43,18 +43,18 @@ function emptyBlock(kind: AddKind): ContentBlock {
 export function WikiPageEditor() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
-  const docs = useDocuments()
-  const { ensurePageLoaded, pageHydrateLoading, pageHydrateError } = docs
+  const wikiPage = useWikiPage(pageId)
+  const wikiSpaces = useWikiSpaces()
+  const { ensurePageLoaded, pageHydrateLoading, pageHydrateError, page: original, versions } = wikiPage
   const { departments } = useOrgSetupContext()
 
-  const original = docs.pages.find((p) => p.id === pageId)
-  const space = original ? docs.spaces.find((s) => s.id === original.spaceId) : null
+  const space = original ? wikiSpaces.spaces.find((s) => s.id === original.spaceId) : null
 
   const hydratedKeyRef = useRef<string | null>(null)
 
   const [title, setTitle] = useState(() => original?.title ?? '')
   const [summary, setSummary] = useState(() => original?.summary ?? '')
-  const [blocks, setBlocks] = useState<ContentBlock[]>(() => original?.blocks ?? [])
+  const [blocks, setBlocks] = useState<Block[]>(() => original?.blocks ?? [])
   const [legalRefs, setLegalRefs] = useState(() =>
     (Array.isArray(original?.legalRefs) ? original.legalRefs : []).join(', '),
   )
@@ -116,7 +116,7 @@ export function WikiPageEditor() {
     )
   }
 
-  if ((docs.loading || pageHydrateLoading) && !original) {
+  if ((wikiPage.loading || pageHydrateLoading) && !original) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-4 text-neutral-600">
         <Loader2 className="size-8 animate-spin text-[#1a3d32]" aria-hidden />
@@ -125,10 +125,10 @@ export function WikiPageEditor() {
     )
   }
 
-  if (docs.error && !original) {
+  if (wikiPage.error && !original) {
     return (
       <div className="mx-auto max-w-[1400px] px-4 py-12 text-center">
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{docs.error}</p>
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{wikiPage.error}</p>
         <Link to="/documents" className="mt-4 inline-block text-[#1a3d32] underline">
           ← Tilbake til dokumenter
         </Link>
@@ -146,8 +146,8 @@ export function WikiPageEditor() {
 
   function markDirty() { setDirty(true); setSavedMsg(false) }
 
-  function updateBlock(idx: number, patch: Partial<ContentBlock>) {
-    setBlocks((b) => b.map((bl, i) => i === idx ? { ...bl, ...patch } as ContentBlock : bl))
+  function updateBlock(idx: number, patch: Partial<Block>) {
+    setBlocks((b) => b.map((bl, i) => i === idx ? { ...bl, ...patch } as Block : bl))
     markDirty()
   }
 
@@ -177,7 +177,7 @@ export function WikiPageEditor() {
   async function handleSave() {
     if (!original) return
     const months = Math.max(1, parseInt(revisionMonths, 10) || 12)
-    await docs.updatePage(original.id, {
+    await wikiPage.updatePage(original.id, {
       title: title.trim() || original.title,
       summary,
       blocks,
@@ -196,7 +196,7 @@ export function WikiPageEditor() {
   async function handlePublish() {
     if (!original) return
     await handleSave()
-    await docs.publishPage(original.id)
+    await wikiPage.publishPage(original.id)
     navigate(`/documents/page/${original.id}`)
   }
 
@@ -377,11 +377,11 @@ export function WikiPageEditor() {
             <p className="text-xs text-neutral-500">
               Hver gang du publiserer, lagres gjeldende versjon som et fryst arkiv før versjonsnummer økes.
             </p>
-            {docs.versionsForPage(original.id).length === 0 ? (
+            {versions.length === 0 ? (
               <p className="mt-2 text-xs text-neutral-400">Ingen arkiverte versjoner ennå (første publisering oppretter v1 i arkivet).</p>
             ) : (
               <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-xs text-neutral-600">
-                {docs.versionsForPage(original.id).map((v) => (
+                {versions.map((v) => (
                   <li key={v.id}>
                     v{v.version} · {new Date(v.frozenAt).toLocaleDateString('no-NO')}
                   </li>
@@ -433,16 +433,16 @@ export function WikiPageEditor() {
 function BlockItem({
   block, selected, onSelect, onUpdate, onRemove, onMove, isFirst, isLast,
 }: {
-  block: ContentBlock
+  block: Block
   selected: boolean
   onSelect: () => void
-  onUpdate: (patch: Partial<ContentBlock>) => void
+  onUpdate: (patch: Partial<Block>) => void
   onRemove: () => void
   onMove: (dir: -1 | 1) => void
   isFirst: boolean
   isLast: boolean
 }) {
-  const kindLabel: Record<ContentBlock['kind'], string> = {
+  const kindLabel: Record<Block['kind'], string> = {
     heading: 'Overskrift', text: 'Tekst', alert: 'Varselboks',
     divider: 'Skillelinje', law_ref: 'Lovhenvisning', module: 'Dynamisk widget',
   }
@@ -479,37 +479,37 @@ function BlockItem({
   )
 }
 
-function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: Partial<ContentBlock>) => void }) {
+function BlockEditor({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<Block>) => void }) {
   if (block.kind === 'heading') return (
     <div className="space-y-2">
       <div className="flex gap-2">
         {([1, 2, 3] as const).map((l) => (
-          <button key={l} type="button" onClick={() => onUpdate({ level: l } as Partial<ContentBlock>)}
+          <button key={l} type="button" onClick={() => onUpdate({ level: l } as Partial<Block>)}
             className={`rounded px-2 py-1 text-xs font-bold ${block.level === l ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-600'}`}>
             H{l}
           </button>
         ))}
       </div>
-      <input value={block.text} onChange={(e) => onUpdate({ text: e.target.value } as Partial<ContentBlock>)}
+      <input value={block.text} onChange={(e) => onUpdate({ text: e.target.value } as Partial<Block>)}
         className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm font-semibold" />
     </div>
   )
 
   if (block.kind === 'text') return (
-    <RichTextEditor value={block.body} onChange={(html) => onUpdate({ body: html } as Partial<ContentBlock>)} />
+    <RichTextEditor value={block.body} onChange={(html) => onUpdate({ body: html } as Partial<Block>)} />
   )
 
   if (block.kind === 'alert') return (
     <div className="space-y-2">
       <div className="flex gap-2">
         {(['info', 'warning', 'danger', 'tip'] as const).map((v) => (
-          <button key={v} type="button" onClick={() => onUpdate({ variant: v } as Partial<ContentBlock>)}
+          <button key={v} type="button" onClick={() => onUpdate({ variant: v } as Partial<Block>)}
             className={`rounded px-2 py-1 text-xs ${block.variant === v ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-600'}`}>
             {v}
           </button>
         ))}
       </div>
-      <input value={block.text} onChange={(e) => onUpdate({ text: e.target.value } as Partial<ContentBlock>)}
+      <input value={block.text} onChange={(e) => onUpdate({ text: e.target.value } as Partial<Block>)}
         className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" />
     </div>
   )
@@ -518,13 +518,13 @@ function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: P
 
   if (block.kind === 'law_ref') return (
     <div className="space-y-2">
-      <input value={block.ref} onChange={(e) => onUpdate({ ref: e.target.value } as Partial<ContentBlock>)}
+      <input value={block.ref} onChange={(e) => onUpdate({ ref: e.target.value } as Partial<Block>)}
         placeholder="Referanse (f.eks. IK-f §5 nr. 1a)"
         className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm font-mono" />
-      <input value={block.description} onChange={(e) => onUpdate({ description: e.target.value } as Partial<ContentBlock>)}
+      <input value={block.description} onChange={(e) => onUpdate({ description: e.target.value } as Partial<Block>)}
         placeholder="Beskrivelse"
         className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm" />
-      <input value={block.url ?? ''} onChange={(e) => onUpdate({ url: e.target.value } as Partial<ContentBlock>)}
+      <input value={block.url ?? ''} onChange={(e) => onUpdate({ url: e.target.value } as Partial<Block>)}
         placeholder="URL (valgfritt)"
         className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm" />
     </div>
@@ -536,7 +536,7 @@ function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: P
         <label className="text-xs font-medium text-neutral-500">Modul</label>
         <select
           value={block.moduleName}
-          onChange={(e) => onUpdate({ moduleName: e.target.value as ModuleBlock['moduleName'] } as Partial<ContentBlock>)}
+          onChange={(e) => onUpdate({ moduleName: e.target.value as ModuleBlock['moduleName'] } as Partial<Block>)}
           className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
         >
           {MODULE_OPTIONS.map((o) => <option key={o.name} value={o.name}>{o.label}</option>)}
@@ -546,13 +546,13 @@ function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: P
         <div className="space-y-2">
           <input
             value={typeof block.params?.label === 'string' ? block.params.label : ''}
-            onChange={(e) => onUpdate({ params: { ...block.params, label: e.target.value } } as Partial<ContentBlock>)}
+            onChange={(e) => onUpdate({ params: { ...block.params, label: e.target.value } } as Partial<Block>)}
             placeholder="Knappetekst"
             className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
           />
           <input
             value={typeof block.params?.route === 'string' ? block.params.route : ''}
-            onChange={(e) => onUpdate({ params: { ...block.params, route: e.target.value } } as Partial<ContentBlock>)}
+            onChange={(e) => onUpdate({ params: { ...block.params, route: e.target.value } } as Partial<Block>)}
             placeholder="Rute (f.eks. /workplace-reporting/incidents)"
             className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
           />
