@@ -103,7 +103,7 @@ export function RiskMatrix({
             const selected = probability === p && consequence === c
             const color = riskColorClass(score)
             const baseCell = `${cellPad} ${cellText} flex items-center justify-center rounded-md font-medium transition-colors ${color}`
-            const selectedRing = selected ? ' ring-2 ring-neutral-900 ring-inset font-bold' : ''
+            const selectedRing = selected ? ' ring-2 ring-neutral-900 font-bold' : ''
 
             if (readOnly || !onChange) {
               return (
