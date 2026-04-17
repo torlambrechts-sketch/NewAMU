@@ -15,6 +15,7 @@ import type { PageTemplate, WikiSpace } from '../../types/documents'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
 import { DocumentsSearchBar } from '../../components/documents/DocumentsSearchBar'
+import { readingMinutesFromBlocks } from '../../lib/wikiPageContent'
 
 const CATEGORY_LABELS: Record<WikiSpace['category'], string> = {
   hms_handbook: 'HMS-håndbok',
@@ -40,6 +41,21 @@ const CATEGORY_ORDER: WikiSpace['category'][] = [
   'template_library',
 ]
 
+/** Template picker groups (maps DB categories into UI buckets) */
+const TEMPLATE_PICKER_GROUPS: { key: string; label: string; match: (c: PageTemplate['category']) => boolean }[] = [
+  { key: 'hms_policy', label: 'HMS-policy', match: (c) => c === 'hms_handbook' || c === 'policy' },
+  { key: 'procedure', label: 'Prosedyre', match: (c) => c === 'procedure' },
+  { key: 'beredskap', label: 'Beredskap', match: (c) => c === 'guide' },
+  { key: 'opplaering', label: 'Opplæring', match: (c) => c === 'template_library' },
+]
+
+function templatePickerGroupKey(cat: PageTemplate['category']): string {
+  const g = TEMPLATE_PICKER_GROUPS.find((x) => x.match(cat))
+  return g?.key ?? 'annet'
+}
+
+const TEMPLATE_PICKER_ANNET = { key: 'annet', label: 'Annet' }
+
 const BTN_PRIMARY =
   'inline-flex h-10 items-center justify-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] px-4 text-sm font-medium text-white hover:bg-[#142e26]'
 const BTN_OUTLINE =
@@ -54,6 +70,25 @@ export function DocumentsHome() {
   const compliance = useComplianceDocs()
   const tmpl = useDocumentTemplates()
   const navigate = useNavigate()
+
+  const systemTemplateIds = useMemo(
+    () => new Set(tmpl.systemTemplatesCatalog.map((t) => t.id)),
+    [tmpl.systemTemplatesCatalog],
+  )
+
+  const templatesByPickerGroup = useMemo(() => {
+    const m = new Map<string, PageTemplate[]>()
+    for (const g of TEMPLATE_PICKER_GROUPS) m.set(g.key, [])
+    m.set(TEMPLATE_PICKER_ANNET.key, [])
+    for (const t of tmpl.pageTemplates) {
+      const k = templatePickerGroupKey(t.category)
+      if (!m.has(k)) m.set(k, [])
+      m.get(k)!.push(t)
+    }
+    return m
+  }, [tmpl.pageTemplates])
+
+  const [tplGroupCollapsed, setTplGroupCollapsed] = useState<Record<string, boolean>>({})
 
   const [quickOpen, setQuickOpen] = useState(false)
   const [quickTitle, setQuickTitle] = useState('')
@@ -292,28 +327,61 @@ export function DocumentsHome() {
           <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-500">Malbibliotek</h2>
           <span className="text-xs text-neutral-500">{tmpl.pageTemplates.length} tilgjengelige maler</span>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {tmpl.pageTemplates.map((tpl) => (
-            <TemplateCard
-              key={tpl.id}
-              tpl={tpl}
-              spaces={activeSpaces}
-              onUse={async (spaceId) => {
-                const page = await wiki.createPage(
-                  spaceId,
-                  tpl.page.title,
-                  tpl.page.template,
-                  tpl.page.blocks,
-                  {
-                    legalRefs: tpl.page.legalRefs,
-                    requiresAcknowledgement: tpl.page.requiresAcknowledgement,
-                    summary: tpl.page.summary,
-                  },
-                )
-                navigate(`/documents/page/${page.id}/edit`)
-              }}
-            />
-          ))}
+        <div className="space-y-6">
+          {[...TEMPLATE_PICKER_GROUPS, TEMPLATE_PICKER_ANNET].map((g) => {
+            const list = templatesByPickerGroup.get(g.key) ?? []
+            if (list.length === 0) return null
+            const collapsed = tplGroupCollapsed[g.key] === true
+            return (
+              <section key={g.key}>
+                <button
+                  type="button"
+                  onClick={() => setTplGroupCollapsed((prev) => ({ ...prev, [g.key]: !collapsed }))}
+                  className="mb-3 flex w-full items-center gap-2 text-left"
+                >
+                  {collapsed ? (
+                    <ChevronRight className="size-4 text-neutral-400" aria-hidden />
+                  ) : (
+                    <ChevronDown className="size-4 text-neutral-400" aria-hidden />
+                  )}
+                  <span className="text-sm font-bold text-neutral-800">{g.label}</span>
+                  <span className="text-xs text-neutral-500">({list.length})</span>
+                </button>
+                {!collapsed ? (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {list.map((tpl) => (
+                      <TemplateCard
+                        key={tpl.id}
+                        tpl={tpl}
+                        spaces={activeSpaces}
+                        usageCount={tmpl.templateUsageCounts.get(tpl.id) ?? 0}
+                        systemTemplateIds={systemTemplateIds}
+                        onUse={async (spaceId, templateSourceId) => {
+                          const page = await wiki.createPage(
+                            spaceId,
+                            tpl.page.title,
+                            tpl.page.template,
+                            tpl.page.blocks,
+                            {
+                              legalRefs: tpl.page.legalRefs,
+                              requiresAcknowledgement: tpl.page.requiresAcknowledgement,
+                              summary: tpl.page.summary,
+                              acknowledgementAudience: tpl.page.acknowledgementAudience,
+                              acknowledgementDepartmentId: tpl.page.acknowledgementDepartmentId,
+                              revisionIntervalMonths: tpl.page.revisionIntervalMonths,
+                              nextRevisionDueAt: tpl.page.nextRevisionDueAt,
+                              templateSourceId: templateSourceId ?? undefined,
+                            },
+                          )
+                          navigate(`/documents/page/${page.id}/edit`)
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            )
+          })}
         </div>
       </div>
     </DocumentsModuleLayout>
@@ -335,19 +403,35 @@ function StatCard({ label, value, icon }: { label: string; value: number; icon: 
 function TemplateCard({
   tpl,
   spaces,
+  usageCount,
+  systemTemplateIds,
   onUse,
 }: {
   tpl: PageTemplate
   spaces: WikiSpace[]
-  onUse: (spaceId: string) => void | Promise<void>
+  usageCount: number
+  systemTemplateIds: Set<string>
+  onUse: (spaceId: string, templateSourceId?: string | null) => void | Promise<void>
 }) {
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState(spaces[0]?.id ?? '')
   const [busy, setBusy] = useState(false)
+  const systemSourceId = systemTemplateIds.has(tpl.id) ? tpl.id : null
+  const readMin = readingMinutesFromBlocks(tpl.page.blocks)
+  const readLabel = readMin > 0 ? `ca. ${readMin} min lesing` : null
+
   return (
     <div className="rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
-      <div className="font-medium text-neutral-900">{tpl.label}</div>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="font-medium text-neutral-900">{tpl.label}</div>
+        {usageCount > 0 ? (
+          <span className="shrink-0 rounded-none border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[10px] font-medium text-neutral-600">
+            Brukt {usageCount} {usageCount === 1 ? 'gang' : 'ganger'}
+          </span>
+        ) : null}
+      </div>
       <p className="mt-1 line-clamp-2 text-xs text-neutral-500">{tpl.description}</p>
+      {readLabel ? <p className="mt-1 text-[11px] text-neutral-400">{readLabel}</p> : null}
       <div className="mt-2 flex flex-wrap gap-1">
         {tpl.legalBasis.slice(0, 2).map((ref) => (
           <span key={ref} className="rounded-none bg-[#1a3d32]/10 px-1.5 py-0.5 font-mono text-[10px] text-[#1a3d32]">
@@ -377,7 +461,7 @@ function TemplateCard({
               disabled={busy || !selected}
               onClick={() => {
                 setBusy(true)
-                void Promise.resolve(onUse(selected)).finally(() => {
+                void Promise.resolve(onUse(selected, systemSourceId)).finally(() => {
                   setBusy(false)
                   setOpen(false)
                 })

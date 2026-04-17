@@ -4,6 +4,8 @@ import {
   Archive,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Clock,
   ExternalLink,
   Eye,
@@ -20,14 +22,30 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import { useWikiPages, useWikiSpaces } from '../../hooks/useDocuments'
+import { useDocumentTemplates, useWikiPages, useWikiSpaces } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
 import { DocumentsSearchBar } from '../../components/documents/DocumentsSearchBar'
-import type { WikiPage, WikiSpaceItem } from '../../types/documents'
+import { readingMinutesFromBlocks } from '../../lib/wikiPageContent'
+import { WikiBlockRenderer } from './WikiBlockRenderer'
+import type { PageTemplate, WikiPage, WikiSpaceItem } from '../../types/documents'
 
 const STATUS_LABEL = { published: 'Publisert', draft: 'Utkast', archived: 'Arkivert' }
+
+const TEMPLATE_PICKER_GROUPS: { key: string; label: string; match: (c: PageTemplate['category']) => boolean }[] = [
+  { key: 'hms_policy', label: 'HMS-policy', match: (c) => c === 'hms_handbook' || c === 'policy' },
+  { key: 'procedure', label: 'Prosedyre', match: (c) => c === 'procedure' },
+  { key: 'beredskap', label: 'Beredskap', match: (c) => c === 'guide' },
+  { key: 'opplaering', label: 'Opplæring', match: (c) => c === 'template_library' },
+]
+
+const TEMPLATE_PICKER_ANNET = { key: 'annet', label: 'Annet' }
+
+function templatePickerGroupKey(cat: PageTemplate['category']): string {
+  const g = TEMPLATE_PICKER_GROUPS.find((x) => x.match(cat))
+  return g?.key ?? 'annet'
+}
 
 const BTN_PRIMARY =
   'inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] px-4 text-sm font-medium text-white hover:bg-[#142e26]'
@@ -72,11 +90,14 @@ export function WikiSpaceView() {
   const navigate = useNavigate()
   const wiki = useWikiSpaces()
   const spacePages = useWikiPages(spaceId)
+  const tmpl = useDocumentTemplates()
   const { can } = useOrgSetupContext()
   const canManage = can('documents.manage')
   const timeNow = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
 
   const [newTitle, setNewTitle] = useState('')
+  const [newPageTemplateId, setNewPageTemplateId] = useState<string>('')
+  const [tplGroupCollapsed, setTplGroupCollapsed] = useState<Record<string, boolean>>({})
   const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all')
   const [urlTitle, setUrlTitle] = useState('')
   const [urlHref, setUrlHref] = useState('')
@@ -116,6 +137,7 @@ export function WikiSpaceView() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setNewPageOpen(false)
+        setNewPageTemplateId('')
         setFilesPanelOpen(false)
         setPanelPageId(null)
         setMoveModalOpen(false)
@@ -124,6 +146,61 @@ export function WikiSpaceView() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [anyOverlayOpen])
+
+  const systemTemplateIds = useMemo(
+    () => new Set(tmpl.systemTemplatesCatalog.map((t) => t.id)),
+    [tmpl.systemTemplatesCatalog],
+  )
+
+  const templatesByPickerGroup = useMemo(() => {
+    const m = new Map<string, PageTemplate[]>()
+    for (const g of TEMPLATE_PICKER_GROUPS) m.set(g.key, [])
+    m.set(TEMPLATE_PICKER_ANNET.key, [])
+    for (const t of tmpl.pageTemplates) {
+      const k = templatePickerGroupKey(t.category)
+      if (!m.has(k)) m.set(k, [])
+      m.get(k)!.push(t)
+    }
+    return m
+  }, [tmpl.pageTemplates])
+
+  const selectedNewPageTemplate = useMemo(
+    () => (newPageTemplateId ? tmpl.pageTemplates.find((t) => t.id === newPageTemplateId) ?? null : null),
+    [newPageTemplateId, tmpl.pageTemplates],
+  )
+
+  const selectedTemplateReadMin = selectedNewPageTemplate ? readingMinutesFromBlocks(selectedNewPageTemplate.page.blocks) : 0
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!spaceId) return
+    if (!newPageTemplateId) {
+      if (!newTitle.trim()) return
+      const page = await spacePages.createPage(newTitle.trim())
+      setNewTitle('')
+      setNewPageOpen(false)
+      navigate(`/documents/page/${page.id}/edit`)
+      return
+    }
+    const tpl = tmpl.pageTemplates.find((t) => t.id === newPageTemplateId)
+    if (!tpl) return
+    const title = newTitle.trim() || tpl.page.title
+    const templateSourceId = systemTemplateIds.has(tpl.id) ? tpl.id : undefined
+    const page = await spacePages.createPage(title, tpl.page.template, tpl.page.blocks, {
+      legalRefs: tpl.page.legalRefs,
+      requiresAcknowledgement: tpl.page.requiresAcknowledgement,
+      summary: tpl.page.summary,
+      acknowledgementAudience: tpl.page.acknowledgementAudience,
+      acknowledgementDepartmentId: tpl.page.acknowledgementDepartmentId,
+      revisionIntervalMonths: tpl.page.revisionIntervalMonths,
+      nextRevisionDueAt: tpl.page.nextRevisionDueAt,
+      templateSourceId,
+    })
+    setNewTitle('')
+    setNewPageTemplateId('')
+    setNewPageOpen(false)
+    navigate(`/documents/page/${page.id}/edit`)
+  }
 
   if (!space) {
     return (
@@ -134,15 +211,6 @@ export function WikiSpaceView() {
         </Link>
       </div>
     )
-  }
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault()
-    if (!newTitle.trim() || !spaceId) return
-    const page = await spacePages.createPage(newTitle)
-    setNewTitle('')
-    setNewPageOpen(false)
-    navigate(`/documents/page/${page.id}/edit`)
   }
 
   async function handleAddUrl(e: React.FormEvent) {
@@ -219,7 +287,15 @@ export function WikiSpaceView() {
                 Last opp / lenke
               </button>
             )}
-            <button type="button" onClick={() => setNewPageOpen(true)} className={BTN_PRIMARY}>
+            <button
+              type="button"
+              onClick={() => {
+                setNewPageTemplateId('')
+                setNewTitle('')
+                setNewPageOpen(true)
+              }}
+              className={BTN_PRIMARY}
+            >
               <FilePlus className="size-4 shrink-0" aria-hidden />
               Ny side
             </button>
@@ -442,6 +518,7 @@ export function WikiSpaceView() {
             className="absolute inset-0 bg-black/40"
             onClick={() => {
               setNewPageOpen(false)
+              setNewPageTemplateId('')
               setFilesPanelOpen(false)
               setPanelPageId(null)
               setMoveModalOpen(false)
@@ -449,7 +526,9 @@ export function WikiSpaceView() {
           />
           <div
             ref={panelRef}
-            className="relative flex h-full w-full max-w-lg flex-col border-l border-neutral-200 bg-white shadow-xl"
+            className={`relative flex h-full w-full flex-col border-l border-neutral-200 bg-white shadow-xl ${
+              newPageOpen ? 'max-w-lg lg:max-w-4xl' : 'max-w-lg'
+            }`}
             role="dialog"
             aria-modal="true"
           >
@@ -469,6 +548,7 @@ export function WikiSpaceView() {
                 type="button"
                 onClick={() => {
                   setNewPageOpen(false)
+                  setNewPageTemplateId('')
                   setFilesPanelOpen(false)
                   setPanelPageId(null)
                   setMoveModalOpen(false)
@@ -481,20 +561,123 @@ export function WikiSpaceView() {
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {newPageOpen && (
                 <form onSubmit={(e) => void handleCreate(e)} className="space-y-4">
-                  <p className="text-sm text-neutral-600">Opprett en tom side og gå rett til redigering.</p>
-                  <div>
-                    <label className="text-xs font-medium text-neutral-500">Tittel</label>
-                    <input
-                      value={newTitle}
-                      onChange={(e) => setNewTitle(e.target.value)}
-                      placeholder="Tittel på siden"
-                      required
-                      className={`${INPUT} mt-1 w-full`}
-                    />
+                  <p className="text-sm text-neutral-600">
+                    Velg en mal eller la feltet for mal stå tomt for en blank side. Du kan overstyre tittelen før du
+                    oppretter.
+                  </p>
+                  <div className="max-h-[40vh] space-y-2 overflow-y-auto border border-neutral-100 bg-neutral-50/80 p-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Mal</p>
+                    <label className="flex cursor-pointer items-center gap-2 rounded-none border border-transparent bg-white px-2 py-2 text-sm hover:border-neutral-200">
+                      <input
+                        type="radio"
+                        name="new-page-tpl"
+                        checked={newPageTemplateId === ''}
+                        onChange={() => setNewPageTemplateId('')}
+                        className="size-4 border-neutral-300"
+                      />
+                      <span>Blank side</span>
+                    </label>
+                    {[...TEMPLATE_PICKER_GROUPS, TEMPLATE_PICKER_ANNET].map((g) => {
+                      const list = templatesByPickerGroup.get(g.key) ?? []
+                      if (list.length === 0) return null
+                      const collapsed = tplGroupCollapsed[g.key] === true
+                      return (
+                        <div key={g.key} className="rounded-none border border-neutral-200 bg-white">
+                          <button
+                            type="button"
+                            onClick={() => setTplGroupCollapsed((prev) => ({ ...prev, [g.key]: !collapsed }))}
+                            className="flex w-full items-center gap-2 px-2 py-2 text-left text-xs font-bold text-neutral-700"
+                          >
+                            {collapsed ? (
+                              <ChevronRight className="size-3.5 shrink-0 text-neutral-400" aria-hidden />
+                            ) : (
+                              <ChevronDown className="size-3.5 shrink-0 text-neutral-400" aria-hidden />
+                            )}
+                            {g.label}
+                            <span className="font-normal text-neutral-400">({list.length})</span>
+                          </button>
+                          {!collapsed ? (
+                            <div className="border-t border-neutral-100 px-1 pb-2">
+                              {list.map((tpl) => (
+                                <label
+                                  key={tpl.id}
+                                  className="flex cursor-pointer items-start gap-2 px-2 py-1.5 text-sm hover:bg-neutral-50"
+                                >
+                                  <input
+                                    type="radio"
+                                    name="new-page-tpl"
+                                    checked={newPageTemplateId === tpl.id}
+                                    onChange={() => setNewPageTemplateId(tpl.id)}
+                                    className="mt-1 size-4 shrink-0 border-neutral-300"
+                                  />
+                                  <span className="min-w-0">
+                                    <span className="font-medium text-neutral-900">{tpl.label}</span>
+                                    <span className="mt-0.5 line-clamp-2 block text-xs text-neutral-500">{tpl.description}</span>
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      )
+                    })}
                   </div>
-                  <button type="submit" className={BTN_PRIMARY}>
-                    Opprett og rediger
-                  </button>
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+                    <div className="min-w-0 flex-1 space-y-4">
+                      <div>
+                        <label className="text-xs font-medium text-neutral-500">Tittel</label>
+                        <input
+                          value={newTitle}
+                          onChange={(e) => setNewTitle(e.target.value)}
+                          placeholder={selectedNewPageTemplate ? selectedNewPageTemplate.page.title : 'Tittel på siden'}
+                          required={!newPageTemplateId}
+                          className={`${INPUT} mt-1 w-full`}
+                        />
+                      </div>
+                      <button type="submit" className={BTN_PRIMARY}>
+                        Opprett og rediger
+                      </button>
+                    </div>
+                    {selectedNewPageTemplate ? (
+                      <div className="min-h-[200px] w-full shrink-0 border-t border-neutral-100 pt-4 lg:w-[42%] lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Forhåndsvisning</p>
+                        <div className="mt-2 space-y-2 text-xs text-neutral-600">
+                          {selectedNewPageTemplate.page.legalRefs.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {selectedNewPageTemplate.page.legalRefs.map((ref) => (
+                                <span
+                                  key={ref}
+                                  className="rounded-none bg-[#1a3d32]/10 px-1.5 py-0.5 font-mono text-[10px] text-[#1a3d32]"
+                                >
+                                  {ref}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-neutral-400">Ingen lovhenvisninger i malen.</p>
+                          )}
+                          <p>
+                            Krever bekreftelse:{' '}
+                            <strong>{selectedNewPageTemplate.page.requiresAcknowledgement ? 'Ja' : 'Nei'}</strong>
+                          </p>
+                          <p>
+                            Lesetid:{' '}
+                            <strong>
+                              {selectedTemplateReadMin > 0 ? `ca. ${selectedTemplateReadMin} min` : '—'}
+                            </strong>
+                          </p>
+                        </div>
+                        <div className="mt-3 max-h-[min(50vh,420px)] overflow-auto rounded border border-neutral-200 bg-white p-2">
+                          <div
+                            className="origin-top-left"
+                            style={{ transform: 'scale(0.82)', width: `${100 / 0.82}%` }}
+                          >
+                            <WikiBlockRenderer blocks={selectedNewPageTemplate.page.blocks} pageId="preview" pageVersion={1} />
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 </form>
               )}
 

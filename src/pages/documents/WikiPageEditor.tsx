@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  AlertTriangle,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   Columns2,
+  Copy,
   Eye,
   GripVertical,
   LayoutPanelLeft,
@@ -17,17 +17,17 @@ import {
   Search,
   Trash2,
   Undo2,
+  X,
 } from 'lucide-react'
-import { useWikiPage, useWikiSpaces } from '../../hooks/useDocuments'
+import { useDocumentTemplates, useWikiPage, useWikiSpaces } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
-import { RichTextEditor, type MarkdownShortcutKind } from '../../components/learning/RichTextEditor'
+import type { MarkdownShortcutKind } from '../../components/learning/RichTextEditor'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
 import { DocumentsSearchBar } from '../../components/documents/DocumentsSearchBar'
-import type { AcknowledgementAudience, Block, ModuleBlock } from '../../types/documents'
+import type { AcknowledgementAudience, Block, SpaceCategory } from '../../types/documents'
 import { WikiBlockRenderer } from './WikiBlockRenderer'
 import { WikiEditorCommandPalette, type PaletteEntry } from './WikiEditorCommandPalette'
-import { filterLegalRefSuggestions } from '../../data/wikiLegalReferences'
-import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
+import { WikiBlockEditor } from './wikiBlockEditors'
 
 const AUTOSAVE_MS = 3000
 const UNDO_MAX = 50
@@ -35,6 +35,14 @@ const DRAFT_LS_PREFIX = 'atics-wiki-draft:'
 
 type LayoutMode = 'canvas-split' | 'canvas-only' | 'preview-only'
 type RightPanel = 'meta' | 'settings' | 'preview'
+
+const TPL_CATEGORY_LABELS: Record<SpaceCategory, string> = {
+  hms_handbook: 'HMS-håndbok',
+  policy: 'Policy',
+  procedure: 'Prosedyre',
+  guide: 'Veiledning',
+  template_library: 'Malbibliotek',
+}
 
 function draftStorageKey(pageId: string) {
   return `${DRAFT_LS_PREFIX}${pageId}`
@@ -67,18 +75,12 @@ function emptyBlock(kind: Block['kind'], palette?: PaletteEntry): Block {
   }
 }
 
-const MODULE_OPTIONS: { name: ModuleBlock['moduleName']; label: string }[] = [
-  { name: 'live_org_chart', label: 'Live organisasjonskart (AMU/Verneombud)' },
-  { name: 'live_risk_feed', label: 'Live risikooversikt (ROS)' },
-  { name: 'action_button', label: 'Handlingsknapp' },
-  { name: 'acknowledgement_footer', label: 'Lest og forstått (signatur)' },
-]
-
 export function WikiPageEditor() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
   const wikiPage = useWikiPage(pageId)
   const wikiSpaces = useWikiSpaces()
+  const documentTemplates = useDocumentTemplates()
   const { ensurePageLoaded, pageHydrateLoading, pageHydrateError, page: original, versions } = wikiPage
   const { departments, organization } = useOrgSetupContext()
 
@@ -124,6 +126,11 @@ export function WikiPageEditor() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [paletteKey, setPaletteKey] = useState(0)
   const [slashIdx, setSlashIdx] = useState<number | null>(null)
+  const [saveTplOpen, setSaveTplOpen] = useState(false)
+  const [tplLabel, setTplLabel] = useState('')
+  const [tplDesc, setTplDesc] = useState('')
+  const [tplCategory, setTplCategory] = useState<SpaceCategory>('hms_handbook')
+  const [tplSaving, setTplSaving] = useState(false)
 
   const openPalette = useCallback(() => {
     setPaletteKey((k) => k + 1)
@@ -323,6 +330,12 @@ export function WikiPageEditor() {
     }
   }, [dirty, original, runAutosave, title, summary, blocks, legalRefs, requiresAck, template, ackAudience, ackDeptId, revisionMonths, nextRevision])
 
+  const templateSourceId = original?.templateSourceId ?? null
+  const sourceTemplate = useMemo(() => {
+    if (!templateSourceId) return null
+    return documentTemplates.systemTemplatesCatalog.find((t) => t.id === templateSourceId) ?? null
+  }, [templateSourceId, documentTemplates.systemTemplatesCatalog])
+
   if (pageHydrateError && !original) {
     return (
       <div className="mx-auto max-w-[1400px] px-4 py-12 text-center">
@@ -366,6 +379,41 @@ export function WikiPageEditor() {
   }
 
   const page = original
+
+  async function handleSaveAsTemplate() {
+    if (!tplLabel.trim()) return
+    setTplSaving(true)
+    try {
+      const d = draftRef.current
+      const legal = d.legalRefs.split(',').map((s) => s.trim()).filter(Boolean)
+      await documentTemplates.saveOrgCustomTemplate({
+        label: tplLabel.trim(),
+        description: tplDesc.trim(),
+        category: tplCategory,
+        legalBasis: legal.length > 0 ? legal : sourceTemplate?.legalBasis ?? [],
+        page: {
+          title: d.title.trim() || page.title,
+          summary: d.summary,
+          status: 'draft',
+          template: d.template,
+          legalRefs: legal,
+          requiresAcknowledgement: d.requiresAck,
+          acknowledgementAudience: d.ackAudience,
+          acknowledgementDepartmentId: d.ackAudience === 'department' ? d.ackDeptId || null : null,
+          revisionIntervalMonths: Math.max(1, parseInt(d.revisionMonths, 10) || 12),
+          nextRevisionDueAt: d.nextRevision ? new Date(`${d.nextRevision}T12:00:00`).toISOString() : null,
+          blocks: cloneBlocks(d.blocks),
+        },
+      })
+      setSaveTplOpen(false)
+      setTplLabel('')
+      setTplDesc('')
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setTplSaving(false)
+    }
+  }
 
   async function persistToServer(opts?: { forceStatusDraft?: boolean }) {
     const d = draftRef.current
@@ -529,10 +577,95 @@ export function WikiPageEditor() {
             >
               <Search className="size-3.5" /> Blokk
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTplLabel(title.trim() || page.title)
+                setTplDesc(summary.trim())
+                setTplCategory(
+                  (sourceTemplate?.category as SpaceCategory | undefined) ??
+                    wikiSpaces.spaces.find((s) => s.id === page.spaceId)?.category ??
+                    'hms_handbook',
+                )
+                setSaveTplOpen(true)
+              }}
+              className="inline-flex items-center gap-1 rounded-none border border-neutral-200 px-2 py-1 text-xs font-medium text-neutral-800 hover:bg-neutral-50"
+              title="Lagre som organisasjonsmal"
+            >
+              <Copy className="size-3.5" /> Lagre som mal
+            </button>
           </div>
         </div>
       }
     >
+      {saveTplOpen ? (
+        <div
+          className="fixed inset-0 z-[250] flex items-start justify-center bg-black/40 p-4 pt-[10vh]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="save-tpl-title"
+        >
+          <div className="w-full max-w-md rounded-lg border border-neutral-200 bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 id="save-tpl-title" className="text-sm font-semibold text-neutral-900">
+                Lagre som mal
+              </h2>
+              <button type="button" onClick={() => setSaveTplOpen(false)} className="rounded p-1 text-neutral-500 hover:bg-neutral-100" aria-label="Lukk">
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="space-y-3 text-sm">
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Navn på mal</label>
+                <input
+                  value={tplLabel}
+                  onChange={(e) => setTplLabel(e.target.value)}
+                  className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Beskrivelse</label>
+                <textarea
+                  value={tplDesc}
+                  onChange={(e) => setTplDesc(e.target.value)}
+                  rows={3}
+                  className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-500">Kategori</label>
+                <select
+                  value={tplCategory}
+                  onChange={(e) => setTplCategory(e.target.value as SpaceCategory)}
+                  className="mt-1 w-full rounded-none border border-neutral-200 bg-white px-3 py-2"
+                >
+                  {(Object.keys(TPL_CATEGORY_LABELS) as SpaceCategory[]).map((c) => (
+                    <option key={c} value={c}>
+                      {TPL_CATEGORY_LABELS[c]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-xs text-neutral-500">Blokker, layout, lovhenvisninger og signaturinnstillinger kopieres til malbiblioteket.</p>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setSaveTplOpen(false)} className="rounded-none border border-neutral-200 px-3 py-2 text-sm">
+                Avbryt
+              </button>
+              <button
+                type="button"
+                disabled={tplSaving || !tplLabel.trim()}
+                onClick={() => void handleSaveAsTemplate()}
+                className="rounded-none border border-[#1a3d32] bg-[#1a3d32] px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
+              >
+                {tplSaving ? 'Lagrer…' : 'Opprett mal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <WikiEditorCommandPalette
         key={paletteKey}
         open={paletteOpen}
@@ -885,7 +1018,7 @@ function BlockItem({
       </div>
       {selected && (
         <div className="border-t border-neutral-100 px-3 pb-3 pt-3">
-          <BlockEditor
+          <WikiBlockEditor
             block={block}
             onUpdate={onUpdate}
             onSlashPalette={block.kind === 'text' ? onSlashPalette : undefined}
@@ -895,255 +1028,6 @@ function BlockItem({
           />
         </div>
       )}
-    </div>
-  )
-}
-
-function BlockEditor({
-  block,
-  onUpdate,
-  onSlashPalette,
-  onMarkdownShortcut,
-  spaceId,
-  orgId,
-}: {
-  block: Block
-  onUpdate: (p: Partial<Block>) => void
-  onSlashPalette?: () => void
-  onMarkdownShortcut?: (k: MarkdownShortcutKind) => void
-  spaceId: string
-  orgId: string | undefined
-}) {
-  if (block.kind === 'heading')
-    return (
-      <div className="space-y-2">
-        <div className="flex gap-2">
-          {([1, 2, 3] as const).map((l) => (
-            <button
-              key={l}
-              type="button"
-              onClick={() => onUpdate({ level: l } as Partial<Block>)}
-              className={`rounded px-2 py-1 text-xs font-bold ${block.level === l ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-600'}`}
-            >
-              H{l}
-            </button>
-          ))}
-        </div>
-        <input
-          value={block.text}
-          onChange={(e) => onUpdate({ text: e.target.value } as Partial<Block>)}
-          className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm font-semibold"
-        />
-      </div>
-    )
-
-  if (block.kind === 'text')
-    return (
-      <div className="space-y-2">
-        <RichTextEditor
-          value={block.body}
-          onChange={(html) => onUpdate({ body: html } as Partial<Block>)}
-          markdownShortcuts={!!onMarkdownShortcut}
-          onMarkdownShortcut={onMarkdownShortcut}
-          onSlashLine={onSlashPalette}
-        />
-        {onSlashPalette && (
-          <p className="text-[11px] text-neutral-400">
-            Tips: Tom linje + <kbd className="rounded border px-1">/</kbd> åpner blokkvelger.{' '}
-            <kbd className="rounded border px-1">## </kbd> / <kbd className="rounded border px-1">### </kbd> / <kbd className="rounded border px-1">--- </kbd> / <kbd className="rounded border px-1">! </kbd>
-          </p>
-        )}
-      </div>
-    )
-
-  if (block.kind === 'alert')
-    return (
-      <div className="space-y-2">
-        <div className="flex gap-2">
-          {(['info', 'warning', 'danger', 'tip'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => onUpdate({ variant: v } as Partial<Block>)}
-              className={`rounded px-2 py-1 text-xs ${block.variant === v ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-600'}`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-        <input
-          value={block.text}
-          onChange={(e) => onUpdate({ text: e.target.value } as Partial<Block>)}
-          className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-        />
-      </div>
-    )
-
-  if (block.kind === 'divider') return <p className="text-xs text-neutral-400">Visuell skillelinje.</p>
-
-  if (block.kind === 'image')
-    return (
-      <ImageBlockEditor block={block} onUpdate={onUpdate} spaceId={spaceId} orgId={orgId} />
-    )
-
-  if (block.kind === 'law_ref') return <LawRefEditor block={block} onUpdate={onUpdate} />
-
-  if (block.kind === 'module')
-    return (
-      <div className="space-y-3">
-        <div>
-          <label className="text-xs font-medium text-neutral-500">Modul</label>
-          <select
-            value={block.moduleName}
-            onChange={(e) => onUpdate({ moduleName: e.target.value as ModuleBlock['moduleName'] } as Partial<Block>)}
-            className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
-          >
-            {MODULE_OPTIONS.map((o) => (
-              <option key={o.name} value={o.name}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        {block.moduleName === 'action_button' && (
-          <div className="space-y-2">
-            <input
-              value={typeof block.params?.label === 'string' ? block.params.label : ''}
-              onChange={(e) => onUpdate({ params: { ...block.params, label: e.target.value } } as Partial<Block>)}
-              placeholder="Knappetekst"
-              className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
-            />
-            <input
-              value={typeof block.params?.route === 'string' ? block.params.route : ''}
-              onChange={(e) => onUpdate({ params: { ...block.params, route: e.target.value } } as Partial<Block>)}
-              placeholder="Rute"
-              className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
-            />
-          </div>
-        )}
-        <div className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-          <AlertTriangle className="size-3.5 shrink-0" />
-          Modulen er dynamisk ved visning.
-        </div>
-      </div>
-    )
-
-  return null
-}
-
-function LawRefEditor({ block, onUpdate }: { block: Extract<Block, { kind: 'law_ref' }>; onUpdate: (p: Partial<Block>) => void }) {
-  const [open, setOpen] = useState(false)
-  const suggestions = filterLegalRefSuggestions(block.ref, 10)
-
-  return (
-    <div className="space-y-2">
-      <div className="relative">
-        <input
-          value={block.ref}
-          onChange={(e) => {
-            onUpdate({ ref: e.target.value } as Partial<Block>)
-            setOpen(true)
-          }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => window.setTimeout(() => setOpen(false), 150)}
-          placeholder="Hjemmel (f.eks. AML § 3-1)"
-          className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm font-mono"
-        />
-        {open && suggestions.length > 0 && (
-          <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-neutral-200 bg-white py-1 text-sm shadow-lg">
-            {suggestions.map((s) => (
-              <li key={s.ref}>
-                <button
-                  type="button"
-                  className="w-full px-3 py-2 text-left hover:bg-neutral-50"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    onUpdate({ ref: s.ref, description: s.description } as Partial<Block>)
-                    setOpen(false)
-                  }}
-                >
-                  <span className="font-mono text-xs text-[#1a3d32]">{s.ref}</span>
-                  <span className="mt-0.5 block text-xs text-neutral-600">{s.description}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <label className="text-xs text-neutral-500">Beskrivende etikett (vises ved siden av hjemmelen)</label>
-      <input
-        value={block.description}
-        onChange={(e) => onUpdate({ description: e.target.value } as Partial<Block>)}
-        placeholder="Kort forklaring for lesere"
-        className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm"
-      />
-      <input
-        value={block.url ?? ''}
-        onChange={(e) => onUpdate({ url: e.target.value } as Partial<Block>)}
-        placeholder="URL (valgfritt)"
-        className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm"
-      />
-    </div>
-  )
-}
-
-function ImageBlockEditor({
-  block,
-  onUpdate,
-  spaceId,
-  orgId,
-}: {
-  block: Extract<Block, { kind: 'image' }>
-  onUpdate: (p: Partial<Block>) => void
-  spaceId: string
-  orgId: string | undefined
-}) {
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-
-  async function onFile(f: File | null) {
-    if (!f || !orgId) return
-    const sb = getSupabaseBrowserClient()
-    if (!sb) {
-      setErr('Ingen tilkobling')
-      return
-    }
-    setBusy(true)
-    setErr(null)
-    try {
-      const safe = f.name.replace(/[^\w.\-åæøÅÆØ ()[\]]+/g, '_')
-      const path = `${orgId}/${spaceId}/page-img/${crypto.randomUUID()}-${safe}`
-      const { error: up } = await sb.storage.from('wiki_space_files').upload(path, f, { cacheControl: '3600', upsert: false })
-      if (up) throw up
-      onUpdate({ storagePath: path } as Partial<Block>)
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Opplasting feilet')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="space-y-2">
-      <input type="file" accept="image/*" disabled={busy || !orgId} onChange={(e) => void onFile(e.target.files?.[0] ?? null)} className="text-sm" />
-      {busy ? <p className="text-xs text-neutral-500">Laster opp…</p> : null}
-      {err ? <p className="text-xs text-red-600">{err}</p> : null}
-      {block.storagePath ? <p className="break-all text-[10px] text-neutral-400">{block.storagePath}</p> : null}
-      <input
-        value={block.caption ?? ''}
-        onChange={(e) => onUpdate({ caption: e.target.value } as Partial<Block>)}
-        placeholder="Bildetekst"
-        className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
-      />
-      <select
-        value={block.width}
-        onChange={(e) => onUpdate({ width: e.target.value as 'full' | 'wide' | 'medium' } as Partial<Block>)}
-        className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
-      >
-        <option value="medium">Medium bredde</option>
-        <option value="wide">Bred</option>
-        <option value="full">Full bredde</option>
-      </select>
     </div>
   )
 }

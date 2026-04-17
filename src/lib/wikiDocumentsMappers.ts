@@ -53,6 +53,7 @@ export function mapWikiPage(
     word_count?: number | null
     sort_order?: number | null
     is_pinned?: boolean | null
+    template_source_id?: string | null
   },
   authorFallback: string,
 ): WikiPage {
@@ -74,6 +75,7 @@ export function mapWikiPage(
     wordCount: row.word_count ?? undefined,
     sortOrder: row.sort_order ?? 0,
     isPinned: row.is_pinned === true,
+    templateSourceId: row.template_source_id ?? undefined,
     version: row.version,
     authorId: row.author_id ?? authorFallback,
     createdAt: row.created_at,

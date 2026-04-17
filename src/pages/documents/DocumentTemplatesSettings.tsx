@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Loader2, Plus, Trash2, X } from 'lucide-react'
 import { useDocumentTemplates } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
@@ -32,6 +32,7 @@ const BTN_PRIMARY =
 
 export function DocumentTemplatesSettings() {
   const docs = useDocumentTemplates()
+  const navigate = useNavigate()
   const { can } = useOrgSetupContext()
   const canManage = can('documents.manage')
 
@@ -356,6 +357,13 @@ export function DocumentTemplatesSettings() {
                     <span>Aktiv i malbiblioteket</span>
                     {busyId === systemPanelTpl.id ? <Loader2 className="size-4 animate-spin" /> : null}
                   </label>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/documents/templates/${systemPanelTpl.id}/customize`)}
+                    className="w-full rounded-none border border-[#1a3d32] bg-white px-4 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
+                  >
+                    Tilpass standardblokker
+                  </button>
                 </>
               )}
               {customPanelTpl && (

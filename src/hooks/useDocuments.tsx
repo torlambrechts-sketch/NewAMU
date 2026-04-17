@@ -58,7 +58,7 @@ export type OrgPeerProfile = {
   is_org_admin?: boolean | null
 }
 
-type OrgTemplateSetting = { templateId: string; enabled: boolean }
+type OrgTemplateSetting = { templateId: string; enabled: boolean; customBlocks: Block[] | null }
 
 type OrgCustomTemplate = {
   id: string
@@ -71,6 +71,10 @@ type OrgCustomTemplate = {
 
 function emptyState(): DocumentsState {
   return { spaces: [], pages: [], auditLedger: [], receipts: [], spaceItems: [], pageVersions: [] }
+}
+
+function cloneBlocksSafe(blocks: Block[]): Block[] {
+  return JSON.parse(JSON.stringify(blocks)) as Block[]
 }
 
 function snapKey(orgId: string, userId: string) {
@@ -198,7 +202,7 @@ function useDocumentsStore() {
           .from('document_system_templates')
           .select('id, label, description, category, legal_basis, page_payload, sort_order')
           .order('sort_order', { ascending: true }),
-        supabase.from('document_org_template_settings').select('template_id, enabled').eq('organization_id', orgId),
+        supabase.from('document_org_template_settings').select('template_id, enabled, custom_blocks').eq('organization_id', orgId),
         supabase.from('document_org_templates').select('*').eq('organization_id', orgId).order('created_at'),
         fetchAllForOrg(supabase, orgId, authorFallback),
       ])
@@ -244,7 +248,11 @@ function useDocumentsStore() {
         })),
       )
       setOrgTemplateSettings(
-        (setRes.data ?? []).map((r) => ({ templateId: r.template_id, enabled: r.enabled })),
+        (setRes.data ?? []).map((r) => ({
+          templateId: r.template_id,
+          enabled: r.enabled,
+          customBlocks: Array.isArray(r.custom_blocks) ? (r.custom_blocks as Block[]) : null,
+        })),
       )
       setOrgCustomTemplates(
         (customRes.data ?? []).map((r) => ({
@@ -314,14 +322,23 @@ function useDocumentsStore() {
     }
     const system: PageTemplate[] = systemTemplates
       .filter((t) => enabled(t.id))
-      .map((t) => ({
-        id: t.id,
-        label: t.label,
-        description: t.description,
-        legalBasis: t.legalBasis,
-        category: t.category,
-        page: t.pagePayload,
-      }))
+      .map((t) => {
+        const row = orgTemplateSettings.find((s) => s.templateId === t.id)
+        const custom = row?.customBlocks
+        const pagePayload = t.pagePayload as PageTemplate['page']
+        const page =
+          custom && custom.length > 0
+            ? { ...pagePayload, blocks: cloneBlocksSafe(custom) }
+            : pagePayload
+        return {
+          id: t.id,
+          label: t.label,
+          description: t.description,
+          legalBasis: t.legalBasis,
+          category: t.category,
+          page,
+        }
+      })
     const custom: PageTemplate[] = orgCustomTemplates.map((t) => ({
       id: t.id,
       label: t.label,
@@ -336,18 +353,51 @@ function useDocumentsStore() {
   const setSystemTemplateEnabled = useCallback(
     async (templateId: string, enabled: boolean) => {
       if (!supabase || !orgId) return
+      const existing = orgTemplateSettings.find((x) => x.templateId === templateId)
       const { error: e } = await supabase.from('document_org_template_settings').upsert(
-        { organization_id: orgId, template_id: templateId, enabled },
+        {
+          organization_id: orgId,
+          template_id: templateId,
+          enabled,
+          custom_blocks: existing?.customBlocks ?? null,
+        },
         { onConflict: 'organization_id,template_id' },
       )
       if (e) throw e
       setOrgTemplateSettings((prev) => {
         const next = prev.filter((x) => x.templateId !== templateId)
-        next.push({ templateId, enabled })
+        next.push({ templateId, enabled, customBlocks: existing?.customBlocks ?? null })
         return next
       })
     },
-    [supabase, orgId],
+    [supabase, orgId, orgTemplateSettings],
+  )
+
+  const saveSystemTemplateCustomBlocks = useCallback(
+    async (templateId: string, blocks: Block[]) => {
+      if (!supabase || !orgId) throw new Error('Ikke tilkoblet')
+      const existing = orgTemplateSettings.find((x) => x.templateId === templateId)
+      const payload = {
+        organization_id: orgId,
+        template_id: templateId,
+        enabled: existing?.enabled ?? true,
+        custom_blocks: blocks.length > 0 ? blocks : null,
+      }
+      const { error: e } = await supabase.from('document_org_template_settings').upsert(payload, {
+        onConflict: 'organization_id,template_id',
+      })
+      if (e) throw e
+      setOrgTemplateSettings((prev) => {
+        const next = prev.filter((x) => x.templateId !== templateId)
+        next.push({
+          templateId,
+          enabled: existing?.enabled ?? true,
+          customBlocks: blocks.length > 0 ? cloneBlocksSafe(blocks) : null,
+        })
+        return next
+      })
+    },
+    [supabase, orgId, orgTemplateSettings],
   )
 
   const saveOrgCustomTemplate = useCallback(
@@ -482,13 +532,14 @@ function useDocumentsStore() {
           | 'acknowledgementDepartmentId'
           | 'revisionIntervalMonths'
           | 'nextRevisionDueAt'
+          | 'templateSourceId'
         >
       >,
     ) => {
       if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
       const id = crypto.randomUUID()
       const maxSort = remoteState.pages.filter((p) => p.spaceId === spaceId).reduce((m, p) => Math.max(m, p.sortOrder), -1)
-      const pageRow = {
+      const pageRow: Record<string, unknown> = {
         id,
         organization_id: orgId,
         space_id: spaceId,
@@ -506,6 +557,7 @@ function useDocumentsStore() {
         author_id: userId,
         sort_order: maxSort + 1,
       }
+      if (opts?.templateSourceId) pageRow.template_source_id = opts.templateSourceId
       const { data, error: pe } = await supabase.from('wiki_pages').insert(pageRow).select('*').single()
       if (pe) throw pe
       const page = mapWikiPage(data as Parameters<typeof mapWikiPage>[0], authorFallback)
@@ -872,6 +924,16 @@ function useDocumentsStore() {
     return { published, drafts, requireAck, acknowledged, total: remoteState.pages.length }
   }, [remoteState.pages, remoteState.receipts])
 
+  const templateUsageCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const p of remoteState.pages) {
+      const tid = p.templateSourceId
+      if (!tid) continue
+      m.set(tid, (m.get(tid) ?? 0) + 1)
+    }
+    return m
+  }, [remoteState.pages])
+
   const legalCoverageDisplay = useMemo((): LegalCoverageRow[] => {
     if (legalCoverage.length > 0) return legalCoverage
     return STATIC_LEGAL_COVERAGE.map((r) => ({
@@ -953,8 +1015,10 @@ function useDocumentsStore() {
       orgCustomTemplates,
       refreshDocuments,
       setSystemTemplateEnabled,
+      saveSystemTemplateCustomBlocks,
       saveOrgCustomTemplate,
       deleteOrgCustomTemplate,
+      templateUsageCounts,
       stats,
       createSpace,
       updateSpace,
@@ -999,8 +1063,10 @@ function useDocumentsStore() {
       orgCustomTemplates,
       refreshDocuments,
       setSystemTemplateEnabled,
+      saveSystemTemplateCustomBlocks,
       saveOrgCustomTemplate,
       deleteOrgCustomTemplate,
+      templateUsageCounts,
       stats,
       createSpace,
       updateSpace,
@@ -1156,9 +1222,11 @@ export function useDocumentTemplates() {
       orgTemplateSettings: v.orgTemplateSettings,
       orgCustomTemplates: v.orgCustomTemplates,
       setSystemTemplateEnabled: v.setSystemTemplateEnabled,
+      saveSystemTemplateCustomBlocks: v.saveSystemTemplateCustomBlocks,
       saveOrgCustomTemplate: v.saveOrgCustomTemplate,
       deleteOrgCustomTemplate: v.deleteOrgCustomTemplate,
       refreshDocuments: v.refreshDocuments,
+      templateUsageCounts: v.templateUsageCounts,
     }),
     [v],
   )

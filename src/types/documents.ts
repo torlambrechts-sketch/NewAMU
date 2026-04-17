@@ -100,6 +100,8 @@ export type WikiPage = {
   sortOrder: number
   /** Highlight on documents home. */
   isPinned: boolean
+  /** When created from a system catalog template (usage analytics). */
+  templateSourceId?: string | null
   version: number
   createdAt: string
   updatedAt: string
@@ -194,5 +196,5 @@ export type PageTemplate = {
   legalBasis: string[]
   category: SpaceCategory
   /** Pre-filled page scaffold */
-  page: Omit<WikiPage, 'id' | 'spaceId' | 'createdAt' | 'updatedAt' | 'authorId' | 'version' | 'wordCount' | 'sortOrder' | 'isPinned'>
+  page: Omit<WikiPage, 'id' | 'spaceId' | 'createdAt' | 'updatedAt' | 'authorId' | 'version' | 'wordCount' | 'sortOrder' | 'isPinned' | 'templateSourceId'>
 }
