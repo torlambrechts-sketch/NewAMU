@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   DOCUMENTS_MODULE_DESC,
   DOCUMENTS_MODULE_TITLE,
@@ -8,6 +8,7 @@ import {
 } from '../../data/documentsNav'
 import { HubMenu1Bar } from '../layout/HubMenu1Bar'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { apiFetchAnnualReview } from '../../api/wikiAnnualReview'
 
 const PAGE = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 
@@ -19,11 +20,38 @@ type Props = {
 
 export function DocumentsModuleLayout({ children, subHeader }: Props) {
   const location = useLocation()
-  const { can } = useOrgSetupContext()
+  const { can, supabase, organization } = useOrgSetupContext()
   const activeId = documentsNavActiveId(location.pathname)
+  const [annualReviewDot, setAnnualReviewDot] = useState(false)
+
+  useEffect(() => {
+    if (!can('documents.manage') || !supabase || !organization?.id) {
+      queueMicrotask(() => setAnnualReviewDot(false))
+      return
+    }
+    const y = new Date().getFullYear()
+    const now = new Date()
+    const afterFeb1 = now.getMonth() > 1 || (now.getMonth() === 1 && now.getDate() > 1)
+    if (!afterFeb1) {
+      queueMicrotask(() => setAnnualReviewDot(false))
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const { review } = await apiFetchAnnualReview(supabase, organization.id, y)
+        if (!cancelled) queueMicrotask(() => setAnnualReviewDot(review == null || review.status !== 'completed'))
+      } catch {
+        if (!cancelled) queueMicrotask(() => setAnnualReviewDot(false))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [can, supabase, organization?.id])
 
   const menuItems = DOCUMENTS_NAV.filter((n) => {
-    if (n.id === 'templates') return can('documents.manage')
+    if (n.permission) return can(n.permission)
     return true
   }).map((n) => ({
     key: n.id,
@@ -32,6 +60,7 @@ export function DocumentsModuleLayout({ children, subHeader }: Props) {
     active: activeId === n.id,
     to: n.to,
     end: n.to === '/documents',
+    badgeDot: n.id === 'annual_review' ? annualReviewDot : undefined,
   }))
 
   return (

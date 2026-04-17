@@ -1,11 +1,13 @@
 import type { LucideIcon } from 'lucide-react'
-import { LayoutList, Settings2, ShieldCheck } from 'lucide-react'
+import { ClipboardCheck, LayoutList, Settings2, ShieldCheck } from 'lucide-react'
 
 export type DocumentsNavItem = {
-  id: 'home' | 'compliance' | 'templates'
+  id: 'home' | 'compliance' | 'templates' | 'annual_review'
   to: string
   label: string
   icon: LucideIcon
+  /** If set, item is shown only when `can(permission)` is true */
+  permission?: 'documents.manage'
 }
 
 export const DOCUMENTS_NAV: readonly DocumentsNavItem[] = [
@@ -27,6 +29,13 @@ export const DOCUMENTS_NAV: readonly DocumentsNavItem[] = [
     label: 'Maler',
     icon: Settings2,
   },
+  {
+    id: 'annual_review',
+    to: '/documents/aarsgjennomgang',
+    label: 'Årsgjennomgang',
+    icon: ClipboardCheck,
+    permission: 'documents.manage',
+  },
 ] as const
 
 /** Active tab: first matching rule wins (order in DOCUMENTS_NAV). */
@@ -35,6 +44,7 @@ export function documentsNavActiveId(pathname: string): DocumentsNavItem['id'] |
   if (pathname.startsWith('/documents/space/')) return 'home'
   if (pathname === '/documents/compliance') return 'compliance'
   if (pathname === '/documents/templates') return 'templates'
+  if (pathname === '/documents/aarsgjennomgang') return 'annual_review'
   if (pathname === '/documents' || pathname === '') return 'home'
   return null
 }

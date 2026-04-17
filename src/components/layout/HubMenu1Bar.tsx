@@ -31,6 +31,8 @@ export type HubMenu1Item = {
   active: boolean
   /** Icon-only control (label becomes screen-reader + title). */
   iconOnly?: boolean
+  /** Small red alert dot (e.g. overdue annual review). */
+  badgeDot?: boolean
   /** Optional count badge (same styling as Organisasjon → Ansatte). */
   badgeCount?: number
   /** Use NavLink when `to` is set; otherwise a button with `onClick`. */
@@ -100,6 +102,9 @@ export function HubMenu1Bar({ ariaLabel, items }: Props) {
                           {item.badgeCount}
                         </span>
                       ) : null}
+                      {!compact && item.badgeDot ? (
+                        <span className="size-2 shrink-0 rounded-full bg-red-500" title="Krever oppmerksomhet" aria-hidden />
+                      ) : null}
                     </>
                   )
                 }}
@@ -118,6 +123,10 @@ export function HubMenu1Bar({ ariaLabel, items }: Props) {
                 {item.badgeCount}
               </span>
             ) : null
+          const dot =
+            !compact && item.badgeDot ? (
+              <span className="size-2 shrink-0 rounded-full bg-red-500" title="Krever oppmerksomhet" aria-hidden />
+            ) : null
 
           return (
             <button
@@ -132,6 +141,7 @@ export function HubMenu1Bar({ ariaLabel, items }: Props) {
               <Icon className={`size-4 shrink-0 ${on ? 'text-white' : 'text-neutral-500'}`} aria-hidden={compact} />
               {compact ? <span className="sr-only">{item.label}</span> : <span className="whitespace-nowrap">{item.label}</span>}
               {badge}
+              {dot}
             </button>
           )
         })}

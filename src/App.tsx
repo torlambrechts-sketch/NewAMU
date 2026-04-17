@@ -61,6 +61,7 @@ import { WikiSpaceView } from './pages/documents/WikiSpaceView'
 import { WikiPageView } from './pages/documents/WikiPageView'
 import { WikiPageEditor } from './pages/documents/WikiPageEditor'
 import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
+import { AnnualReviewPage } from './pages/documents/AnnualReviewPage'
 import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import { DocumentsLayout } from './hooks/useDocuments'
@@ -203,6 +204,14 @@ function App() {
                       />
                       <Route path="documents/compliance" element={<ComplianceDashboard />} />
                       <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
+                      <Route
+                        path="documents/aarsgjennomgang"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise årsgjennomgang">
+                            <AnnualReviewPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
                     </Route>
                   </Route>
                 </Route>

@@ -22,6 +22,7 @@ import {
   PAGE_TEMPLATES as STATIC_PAGE_TEMPLATES,
 } from '../data/documentTemplates'
 import { WIKI_RETENTION_CATEGORIES_STATIC } from '../data/wikiRetentionCategories'
+import * as wikiAnnualApi from '../api/wikiAnnualReview'
 
 const STORAGE_KEY = 'atics-documents-v2'
 
@@ -1233,6 +1234,121 @@ function useDocumentsStore() {
     [state.pageVersions],
   )
 
+  const fetchAnnualReview = useCallback(
+    async (year: number) => {
+      if (!supabase || !orgId) return { review: null as wikiAnnualApi.WikiAnnualReviewRow | null, items: [] as wikiAnnualApi.WikiAnnualReviewItemRow[] }
+      return wikiAnnualApi.apiFetchAnnualReview(supabase, orgId, year)
+    },
+    [supabase, orgId],
+  )
+
+  const ensureAnnualReview = useCallback(
+    async (year: number) => {
+      if (!useRemote || !supabase || !orgId || !userId) return { review: null as wikiAnnualApi.WikiAnnualReviewRow | null, items: [] as wikiAnnualApi.WikiAnnualReviewItemRow[] }
+      const existing = await wikiAnnualApi.apiFetchAnnualReview(supabase, orgId, year)
+      if (existing.review) return existing
+      const review = await wikiAnnualApi.apiInsertAnnualReview(supabase, orgId, year)
+      const coverage = await wikiAnnualApi.apiFetchLegalCoverageRefs(supabase)
+      const rowMap = new Map<string, { page_id: string | null; legal_ref: string; description: string }>()
+      for (const c of coverage) {
+        const key = `cov:${c.ref}`
+        if (!rowMap.has(key)) {
+          rowMap.set(key, { page_id: null, legal_ref: c.ref, description: c.label })
+        }
+      }
+      const { data: pageRows, error: pe } = await supabase
+        .from('wiki_pages')
+        .select('id, title, legal_refs')
+        .eq('organization_id', orgId)
+      if (pe) throw pe
+      for (const pr of pageRows ?? []) {
+        const refs = (pr as { legal_refs?: string[] }).legal_refs
+        if (!refs?.length) continue
+        const ref0 = refs[0] ?? 'Dokument'
+        rowMap.set(`page:${(pr as { id: string }).id}`, {
+          page_id: (pr as { id: string }).id,
+          legal_ref: ref0,
+          description: (pr as { title: string }).title,
+        })
+      }
+      await wikiAnnualApi.apiInsertAnnualReviewItems(supabase, review.id, [...rowMap.values()])
+      await wikiAnnualApi.apiRecalcAnnualReviewProgress(supabase, review.id)
+      return wikiAnnualApi.apiFetchAnnualReview(supabase, orgId, year)
+    },
+    [useRemote, supabase, orgId, userId],
+  )
+
+  const updateAnnualReviewItem = useCallback(
+    async (
+      reviewId: string,
+      itemId: string,
+      patch: { status: wikiAnnualApi.WikiAnnualReviewItemRow['status']; reviewer_notes?: string | null },
+    ) => {
+      if (!supabase || !orgId || !userId) return
+      await wikiAnnualApi.apiUpdateAnnualReviewItem(supabase, itemId, {
+        ...patch,
+        reviewed_by: userId,
+        reviewed_at: new Date().toISOString(),
+      })
+      await wikiAnnualApi.apiRecalcAnnualReviewProgress(supabase, reviewId)
+    },
+    [supabase, orgId, userId],
+  )
+
+  const finalizeAnnualReview = useCallback(
+    async (reviewId: string, year: number, notes: string | null) => {
+      if (!useRemote || !supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const hms = remoteState.spaces.find((s) => s.category === 'hms_handbook')
+      if (!hms) throw new Error('Mangler HMS-håndbok-mappe.')
+      const tpl = pageTemplates.find((t) => t.id === 'tpl-aarsgjennomgang')
+      if (!tpl) throw new Error('Mal tpl-aarsgjennomgang ikke funnet.')
+      const title = tpl.page.title.replace('[ÅR]', String(year))
+      const summary = (tpl.page.summary ?? '').replace('[ÅR]', String(year))
+      const blocks = JSON.parse(JSON.stringify(tpl.page.blocks)) as typeof tpl.page.blocks
+      for (const b of blocks) {
+        if (b.kind === 'heading' && 'text' in b && typeof b.text === 'string') {
+          b.text = b.text.replace('[ÅR]', String(year))
+        }
+        if (b.kind === 'text' && 'body' in b && typeof b.body === 'string') {
+          b.body = b.body.replace(/\[ÅR\]/g, String(year))
+        }
+      }
+      const page = await createPage(hms.id, title, tpl.page.template, blocks, {
+        legalRefs: tpl.page.legalRefs,
+        requiresAcknowledgement: tpl.page.requiresAcknowledgement ?? false,
+        summary,
+        acknowledgementAudience: tpl.page.acknowledgementAudience,
+        revisionIntervalMonths: tpl.page.revisionIntervalMonths,
+      })
+      await publishPage(page.id)
+      const ledgerPage: WikiPage = {
+        ...page,
+        status: 'published',
+        version: page.version + 1,
+        nextRevisionDueAt: page.nextRevisionDueAt ?? null,
+      }
+      await insertLedgerRemote(ledgerPage, 'annual_review_completed')
+      await wikiAnnualApi.apiCompleteAnnualReview(supabase, reviewId, userId, {
+        completed_at: new Date().toISOString(),
+        review_page_id: page.id,
+        notes: notes?.trim() || null,
+      })
+      await refreshDocuments()
+    },
+    [
+      useRemote,
+      supabase,
+      orgId,
+      userId,
+      remoteState.spaces,
+      pageTemplates,
+      createPage,
+      publishPage,
+      insertLedgerRemote,
+      refreshDocuments,
+    ],
+  )
+
   return {
     backend: useRemote ? ('supabase' as const) : ('local' as const),
     loading: useRemote && loading,
@@ -1273,6 +1389,10 @@ function useDocumentsStore() {
     hasAcknowledged,
     acknowledgementRequiredForMe,
     resetDemo,
+    fetchAnnualReview,
+    ensureAnnualReview,
+    updateAnnualReviewItem,
+    finalizeAnnualReview,
   }
 }
 

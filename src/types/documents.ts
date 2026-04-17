@@ -183,7 +183,7 @@ export type AuditLedgerEntry = {
   id: string
   pageId: string
   pageTitle: string
-  action: 'created' | 'updated' | 'published' | 'archived' | 'acknowledged'
+  action: 'created' | 'updated' | 'published' | 'archived' | 'acknowledged' | 'annual_review_completed'
   userId: string
   fromVersion?: number
   toVersion: number
