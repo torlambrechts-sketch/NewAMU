@@ -57,12 +57,15 @@ import { LearningComplianceMatrix } from './pages/learning/LearningComplianceMat
 import { LearningPathsPage } from './pages/learning/LearningPathsPage'
 import { LearningExternalTraining } from './pages/learning/LearningExternalTraining'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
+import { DocumentsMyPage } from './pages/documents/DocumentsMyPage'
 import { WikiSpaceView } from './pages/documents/WikiSpaceView'
 import { WikiPageView } from './pages/documents/WikiPageView'
-import { WikiPageEditor } from './pages/documents/WikiPageEditor'
+import { WikiPageEditorLazy } from './pages/documents/WikiPageEditorLazy'
 import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
+import { WikiTemplateCustomizePage } from './pages/documents/WikiTemplateCustomizePage'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
+import { DocumentErrorBoundary } from './pages/documents/DocumentErrorBoundary'
 import { DocumentsLayout } from './hooks/useDocuments'
 import { PlatformAdminLoginPage } from './pages/platform/PlatformAdminLoginPage'
 import { PlatformAdminLayout } from './pages/platform/PlatformAdminLayout'
@@ -183,13 +186,37 @@ function App() {
                       <Route path="hr/discussion" element={<HrDiscussionPage />} />
                       <Route path="hr/consultation" element={<HrConsultationPage />} />
                       <Route path="hr/o-ros" element={<HrORosPage />} />
-                      <Route path="documents" element={<DocumentsHome />} />
-                      <Route path="documents/space/:spaceId" element={<WikiSpaceView />} />
+                      <Route
+                        path="documents"
+                        element={
+                          <DocumentErrorBoundary title="Kunne ikke vise dokumentbiblioteket">
+                            <DocumentsHome />
+                          </DocumentErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="documents/my"
+                        element={
+                          <DocumentErrorBoundary title="Kunne ikke vise Mine dokumenter">
+                            <DocumentsMyPage />
+                          </DocumentErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="documents/space/:spaceId"
+                        element={
+                          <DocumentErrorBoundary title="Kunne ikke vise mappen">
+                            <WikiSpaceView />
+                          </DocumentErrorBoundary>
+                        }
+                      />
                       <Route
                         path="documents/page/:pageId"
                         element={
                           <RouteErrorBoundary title="Kunne ikke vise dokumentet">
-                            <WikiPageView />
+                            <DocumentErrorBoundary title="Kunne ikke vise dokumentet">
+                              <WikiPageView />
+                            </DocumentErrorBoundary>
                           </RouteErrorBoundary>
                         }
                       />
@@ -197,12 +224,36 @@ function App() {
                         path="documents/page/:pageId/edit"
                         element={
                           <RouteErrorBoundary title="Kunne ikke åpne redigering">
-                            <WikiPageEditor />
+                            <DocumentErrorBoundary title="Kunne ikke åpne redigering">
+                              <WikiPageEditorLazy />
+                            </DocumentErrorBoundary>
                           </RouteErrorBoundary>
                         }
                       />
-                      <Route path="documents/compliance" element={<ComplianceDashboard />} />
-                      <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
+                      <Route
+                        path="documents/compliance"
+                        element={
+                          <DocumentErrorBoundary title="Kunne ikke vise samsvarsoversikten">
+                            <ComplianceDashboard />
+                          </DocumentErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="documents/templates"
+                        element={
+                          <DocumentErrorBoundary title="Kunne ikke vise malinnstillinger">
+                            <DocumentTemplatesSettings />
+                          </DocumentErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="documents/templates/:templateId/customize"
+                        element={
+                          <DocumentErrorBoundary title="Kunne ikke tilpasse malen">
+                            <WikiTemplateCustomizePage />
+                          </DocumentErrorBoundary>
+                        }
+                      />
                     </Route>
                   </Route>
                 </Route>

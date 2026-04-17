@@ -41,3 +41,66 @@
     @apply min-h-screen w-full max-w-none m-0 text-left;
   }
 }
+
+/* Wiki document print: hide app chrome and documents chrome; keep article body */
+@media print {
+  .atics-shell-root {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .atics-shell-root > header,
+  .atics-shell-root > aside {
+    display: none !important;
+  }
+  .atics-shell-root > div > header {
+    display: none !important;
+  }
+  .atics-shell-root > div,
+  .atics-shell-root > main {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  .wiki-page-print-root .documents-module-breadcrumb,
+  .wiki-page-print-root .documents-module-header,
+  .wiki-page-print-root .documents-module-hub {
+    display: none !important;
+  }
+
+  .wiki-no-print {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  .wiki-print-header {
+    border-bottom: 1px solid #e5e5e5;
+    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .wiki-block-renderer {
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+  .wiki-block-renderer .prose {
+    max-width: none !important;
+  }
+  .wiki-block-renderer a[href]::after {
+    content: ' (' attr(href) ')';
+    font-size: 9pt;
+    color: #666;
+    word-break: break-all;
+  }
+
+  .compliance-dashboard-root .compliance-no-print {
+    display: none !important;
+  }
+  .compliance-dashboard-root .compliance-print-report {
+    display: block !important;
+  }
+}
