@@ -65,8 +65,78 @@
     <!-- Theme colour (matches nav) -->
     <meta name="theme-color" content="#0c1929" />
   </head>
-  <body>
+  <body class="bg-gray-100 font-sans">
     <div id="root"></div>
+
+    <header class="bg-white shadow-md py-4 px-6">
+      <div class="container mx-auto flex justify-between items-center">
+        <a href="/" class="text-xl font-bold">Klarert</a>
+        <nav>
+          <ul class="flex space-x-4">
+            <li><a href="#features" class="hover:text-blue-500">Features</a></li>
+            <li><a href="#about" class="hover:text-blue-500">Om oss</a></li>
+            <li><a href="#contact" class="hover:text-blue-500">Kontakt</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <section id="hero" class="bg-white py-24 px-6">
+      <div class="container mx-auto text-center">
+        <h1 class="text-4xl font-bold mb-4">Komplett HMS-system for norske virksomheter</h1>
+        <p class="text-xl mb-8">AMU-møter, sykefraværsoppfølging, vernerunder, ROS og internkontroll — med alle lovpålagte frister automatisk. AML og IK-forskriften innebygd.</p>
+        <a href="#get-started" class="bg-blue-500 text-white px-6 py-3 rounded hover:bg-blue-700">Få tilgang</a>
+      </div>
+    </section>
+
+    <section id="features" class="py-24 px-6 bg-gray-100">
+      <div class="container mx-auto">
+        <h2 class="text-3xl font-bold mb-8 text-center">Hovedfunkjoner</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div class="bg-white p-6 rounded shadow-md">
+            <h3 class="text-xl font-bold mb-4">AMU-møter</h3>
+            <p>Automatiske AMU-møter med lovpålagte frister.</p>
+          </div>
+          <div class="bg-white p-6 rounded shadow-md">
+            <h3 class="text-xl font-bold mb-4">Sykefraværsoppfølging</h3>
+            <p>Oppfølging av sykefravær med automatisk oppdatring.</p>
+          </div>
+          <div class="bg-white p-6 rounded shadow-md">
+            <h3 class="text-xl font-bold mb-4">Vernerunder</h3>
+            <p>Automatisert vernerunder og rømning.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="about" class="py-24 px-6 bg-white">
+      <div class="container mx-auto text-center">
+        <h2 class="text-3xl font-bold mb-8">Om oss</h2>
+        <p>Klarert er et innovativt HMS-system for norske virksomheter, basert på lovpålagte frister og arbeidsmiljøloven.</p>
+      </div>
+    </section>
+
+    <section id="contact" class="py-24 px-6 bg-gray-100">
+      <div class="container mx-auto text-center">
+        <h2 class="text-3xl font-bold mb-8">Kontakt oss</h2>
+        <p>Har du spørsmål eller ønsker å kontakte oss? Ta kontakt med oss via e-post eller telefon.</p>
+        <a href="mailto:support@klarert.com" class="bg-blue-500 text-white px-6 py-3 rounded hover:bg-blue-700">Kontakt support</a>
+      </div>
+    </section>
+
+    <footer class="bg-white py-4 px-6">
+      <div class="container mx-auto flex justify-between items-center">
+        <p>&copy; 2023 Klarert. Alle rettigheter reservert.</p>
+        <nav>
+          <ul class="flex space-x-4">
+            <li><a href="#features" class="hover:text-blue-500">Features</a></li>
+            <li><a href="#about" class="hover:text-blue-500">Om oss</a></li>
+            <li><a href="#contact" class="hover:text-blue-500">Kontakt</a></li>
+          </ul>
+        </nav>
+      </div>
+    </footer>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
