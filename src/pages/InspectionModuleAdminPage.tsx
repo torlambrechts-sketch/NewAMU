@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   ArrowLeft,
+  BarChart2,
   Building2,
   CheckCircle2,
   Circle,
@@ -27,6 +28,7 @@ import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useInspectionModule } from '../../modules/inspection/useInspectionModule'
 import { WorkflowRulesTab } from '../components/workflow/WorkflowRulesTab'
 import { parseChecklistItems } from '../../modules/inspection/schema'
+import { HseStatsPanel } from '../components/hse/HseStatsPanel'
 import type {
   HmsCategory,
   InspectionChecklistItem,
@@ -86,7 +88,7 @@ function newItem(index: number): InspectionChecklistItem {
   return { key: `item_${Date.now()}_${index}`, label: '', fieldType: 'yes_no_na', required: true }
 }
 
-type Tab = 'templates' | 'locations' | 'signoff' | 'workflow'
+type Tab = 'templates' | 'locations' | 'signoff' | 'workflow' | 'stats'
 
 const INSPECTION_TRIGGER_EVENTS = [
   { value: 'round_created', label: 'Runde opprettet' },
@@ -113,6 +115,7 @@ export function InspectionModuleAdminPage() {
       { key: 'locations', label: 'Lokasjoner', icon: <MapPin className="h-4 w-4" /> },
       { key: 'signoff', label: 'Signaturer', icon: <UserCheck className="h-4 w-4" /> },
       { key: 'workflow', label: 'Arbeidsflyt', icon: <GitBranch className="h-4 w-4" /> },
+      { key: 'stats', label: 'Statistikk', icon: <BarChart2 className="h-4 w-4" /> },
     ],
     [],
   )
@@ -157,6 +160,7 @@ export function InspectionModuleAdminPage() {
             triggerEvents={INSPECTION_TRIGGER_EVENTS}
           />
         )}
+        {tab === 'stats' && <HseStatsPanel supabase={supabase} />}
       </ModuleAdminShell>
     </div>
   )

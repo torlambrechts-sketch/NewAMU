@@ -63,6 +63,7 @@ export type InspectionModuleState = {
   }) => Promise<void>
   signRound: (roundId: string) => Promise<void>
   signRoundWithRole: (roundId: string, role: 'manager' | 'deputy') => Promise<void>
+  stampRoundGps: (roundId: string) => Promise<void>
   saveRoundSummary: (payload: {
     roundId: string
     summary: string
@@ -85,8 +86,11 @@ export type InspectionModuleState = {
     description: string
     severity: InspectionFindingRow['severity']
     photoPath?: string
+    riskProbability?: number
+    riskConsequence?: number
   }) => Promise<void>
   deleteFinding: (findingId: string) => Promise<void>
+  createDeviationFromFinding: (findingId: string) => Promise<string | null>
 }
 
 function groupByRound<T extends { round_id: string }>(rows: T[]): Record<string, T[]> {
@@ -555,19 +559,23 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       description: string
       severity: InspectionFindingRow['severity']
       photoPath?: string
+      riskProbability?: number
+      riskConsequence?: number
     }) => {
       if (!supabase) {
         setError('Supabase is not configured.')
         return
       }
       setError(null)
-      const findingInsert = {
+      const findingInsert: Record<string, unknown> = {
         round_id: payload.roundId,
         item_id: payload.itemId ?? null,
         description: payload.description.trim(),
         severity: payload.severity,
         photo_path: payload.photoPath ?? null,
       }
+      if (payload.riskProbability != null) findingInsert.risk_probability = payload.riskProbability
+      if (payload.riskConsequence != null) findingInsert.risk_consequence = payload.riskConsequence
       const { data, error: insertError } = await supabase
         .from('inspection_findings')
         .insert(findingInsert)
@@ -607,6 +615,64 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     [supabase],
   )
 
+  const createDeviationFromFinding = useCallback(
+    async (findingId: string) => {
+      if (!supabase) {
+        setError('Supabase is not configured.')
+        return null
+      }
+      const finding = findings.find((f) => f.id === findingId)
+      if (!finding) {
+        setError('Fant ikke funnet.')
+        return null
+      }
+      if (finding.deviation_id) {
+        return finding.deviation_id
+      }
+      setError(null)
+      const titleBase = finding.description.trim().slice(0, 80)
+      const deviationInsert = {
+        organization_id: finding.organization_id,
+        source: 'inspection_finding',
+        source_id: findingId,
+        title: `Funn: ${titleBase}`,
+        description: finding.description,
+        severity: finding.severity,
+        status: 'rapportert' as const,
+        risk_probability: finding.risk_probability,
+        risk_consequence: finding.risk_consequence,
+      }
+      const { data: devRow, error: devErr } = await supabase
+        .from('deviations')
+        .insert(deviationInsert)
+        .select('id')
+        .single()
+      if (devErr || !devRow?.id) {
+        setError(devErr?.message ?? 'Kunne ikke opprette avvik.')
+        return null
+      }
+      const newDeviationId = String(devRow.id)
+      const { data: updatedFinding, error: linkErr } = await supabase
+        .from('inspection_findings')
+        .update({ deviation_id: newDeviationId })
+        .eq('id', findingId)
+        .select('*')
+        .single()
+      if (linkErr || !updatedFinding) {
+        setError(linkErr?.message ?? 'Avvik opprettet, men kunne ikke koble til funn.')
+        return newDeviationId
+      }
+      const parsed = InspectionFindingRowSchema.safeParse(updatedFinding)
+      if (!parsed.success) {
+        setError('Kunne ikke lese oppdatert funn.')
+        return newDeviationId
+      }
+      setFindings((previous) => previous.map((f) => (f.id === findingId ? parsed.data : f)))
+      return newDeviationId
+    },
+    [supabase, findings],
+  )
+
   const signRoundWithRole = useCallback(
     async (roundId: string, role: 'manager' | 'deputy') => {
       if (!supabase) {
@@ -637,6 +703,49 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         return
       }
       setRounds((previous) => previous.map((r) => (r.id === roundId ? parsed.data : r)))
+    },
+    [supabase],
+  )
+
+  const stampRoundGps = useCallback(
+    async (roundId: string) => {
+      if (!supabase || !navigator.geolocation) return
+      setError(null)
+      await new Promise<void>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            const row = {
+              gps_lat: pos.coords.latitude,
+              gps_lon: pos.coords.longitude,
+              gps_accuracy_m: pos.coords.accuracy,
+              gps_stamped_at: new Date().toISOString(),
+            }
+            const { data, error } = await supabase
+              .from('inspection_rounds')
+              .update(row)
+              .eq('id', roundId)
+              .select('*')
+              .single()
+            if (error) {
+              setError(error.message)
+              resolve()
+              return
+            }
+            const parsed = InspectionRoundRowSchema.safeParse(data)
+            if (parsed.success) {
+              setRounds((prev) => prev.map((r) => (r.id === roundId ? parsed.data : r)))
+            } else {
+              setError('Failed to parse round after GPS stamp.')
+            }
+            resolve()
+          },
+          (err) => {
+            setError(`GPS ikke tilgjengelig: ${err.message}`)
+            resolve()
+          },
+          { enableHighAccuracy: true, timeout: 10_000 },
+        )
+      })
     },
     [supabase],
   )
@@ -713,9 +822,11 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     updateRoundSchedule,
     signRound,
     signRoundWithRole,
+    stampRoundGps,
     saveRoundSummary,
     upsertItemResponse,
     addFinding,
     deleteFinding,
+    createDeviationFromFinding,
   }
 }

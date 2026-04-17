@@ -86,6 +86,11 @@ export type InspectionRoundRow = {
   summary: string | null
   conducted_by: string | null
   conducted_at: string | null
+  /** Browser geolocation stamp when inspector records on-site position */
+  gps_lat: number | null
+  gps_lon: number | null
+  gps_accuracy_m: number | null
+  gps_stamped_at: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -113,6 +118,10 @@ export type InspectionFindingRow = {
   item_id: string | null
   description: string
   severity: InspectionFindingSeverity
+  risk_probability: number | null
+  risk_consequence: number | null
+  /** Generated column — read-only from DB */
+  risk_score: number | null
   photo_path: string | null
   created_by: string | null
   deviation_id: string | null
