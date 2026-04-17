@@ -11,6 +11,7 @@ type ChecklistItemExecutionRowProps = {
   response: ChecklistResponse | undefined
   readOnly: boolean
   onSaveResponse: ChecklistExecutionTabProps['onSaveResponse']
+  onReportIssue?: (itemKey: string, itemLabel: string) => void
 }
 
 function ChecklistItemExecutionRow({
@@ -19,6 +20,7 @@ function ChecklistItemExecutionRow({
   response,
   readOnly,
   onSaveResponse,
+  onReportIssue,
 }: ChecklistItemExecutionRowProps) {
   const fieldType = item.fieldType ?? 'yes_no_na'
   const currentValue = response?.value ?? ''
@@ -91,33 +93,44 @@ function ChecklistItemExecutionRow({
           {item.helpText && <p className="text-xs text-neutral-500">{item.helpText}</p>}
 
           {!readOnly && fieldType === 'yes_no_na' && (
-            <div className="flex gap-1.5">
-              {(['yes', 'no', 'na'] as const).map((v) => {
-                const labels = { yes: 'Yes', no: 'No', na: 'N/A' }
-                const activeClass =
-                  v === 'yes'
-                    ? 'bg-green-600 text-white border-green-600'
-                    : v === 'no'
-                      ? 'bg-red-600 text-white border-red-600'
-                      : 'bg-neutral-500 text-white border-neutral-500'
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex gap-1.5">
+                {(['yes', 'no', 'na'] as const).map((v) => {
+                  const labels = { yes: 'Ja', no: 'Nei', na: 'N/A' }
+                  const activeClass =
+                    v === 'yes'
+                      ? 'bg-green-600 text-white border-green-600'
+                      : v === 'no'
+                        ? 'bg-red-600 text-white border-red-600'
+                        : 'bg-neutral-500 text-white border-neutral-500'
 
-                return (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => {
-                      const nextValue = displayedValue === v ? '' : v
-                      setOptimisticValue(nextValue)
-                      void save(nextValue, notes.trim().length > 0 ? notes : null, true)
-                    }}
-                    className={`rounded border px-3 py-1 text-xs font-semibold transition-colors ${
-                      displayedValue === v ? activeClass : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
-                    }`}
-                  >
-                    {labels[v]}
-                  </button>
-                )
-              })}
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => {
+                        const nextValue = displayedValue === v ? '' : v
+                        setOptimisticValue(nextValue)
+                        void save(nextValue, notes.trim().length > 0 ? notes : null, true)
+                      }}
+                      className={`rounded border px-3 py-1 text-xs font-semibold transition-colors ${
+                        displayedValue === v ? activeClass : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
+                      }`}
+                    >
+                      {labels[v]}
+                    </button>
+                  )
+                })}
+              </div>
+              {displayedValue === 'no' && onReportIssue && (
+                <button
+                  type="button"
+                  onClick={() => onReportIssue(item.key, item.label)}
+                  className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
+                >
+                  ⚠ Registrer avvik
+                </button>
+              )}
             </div>
           )}
 
@@ -212,6 +225,7 @@ export function ChecklistExecutionTab({
   readOnly = false,
   onSaveResponse,
   activationBanner,
+  onReportIssue,
 }: ChecklistExecutionTabProps) {
   const responseByKey = useMemo(() => {
     const map = new Map<string, ChecklistResponse>()
@@ -287,6 +301,7 @@ export function ChecklistExecutionTab({
               response={responseByKey.get(item.key)}
               readOnly={readOnly}
               onSaveResponse={onSaveResponse}
+              onReportIssue={onReportIssue}
             />
           ))}
         </div>

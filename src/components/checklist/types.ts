@@ -27,4 +27,5 @@ export type ChecklistExecutionTabProps = {
   readOnly?: boolean
   onSaveResponse: (key: string, value: string, notes: string | null) => Promise<void>
   activationBanner?: ReactNode
+  onReportIssue?: (itemKey: string, itemLabel: string) => void
 }
