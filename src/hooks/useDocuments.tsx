@@ -33,7 +33,18 @@ type DocumentsState = {
   pageVersions: WikiPageVersionSnapshot[]
 }
 
-type LegalCoverageRow = { id: string; ref: string; label: string; templateIds: string[] }
+export type LegalCoverageRow = {
+  id: string
+  ref: string
+  label: string
+  requirement: string
+  category: string
+  templateIds: string[]
+  mandatoryForAll: boolean
+  minEmployees: number
+  maxRevisionMonths: number
+  legalConsequence: string | null
+}
 
 export type WikiComplianceSummaryRow = {
   id: string
@@ -174,7 +185,13 @@ function useDocumentsStore() {
           id: r.id,
           ref: r.ref,
           label: r.label,
+          requirement: r.requirement ?? r.label,
+          category: r.category ?? 'compliance',
           templateIds: r.template_ids ?? [],
+          mandatoryForAll: r.mandatory_for_all !== false,
+          minEmployees: typeof r.min_employees === 'number' ? r.min_employees : 1,
+          maxRevisionMonths: typeof r.max_revision_months === 'number' ? r.max_revision_months : 12,
+          legalConsequence: r.legal_consequence ?? null,
         })),
       )
       setComplianceSummary(sumRows as WikiComplianceSummaryRow[])
@@ -861,7 +878,13 @@ function useDocumentsStore() {
       id: `static-${r.ref}`,
       ref: r.ref,
       label: r.label,
+      requirement: r.label,
+      category: 'compliance',
       templateIds: r.templateIds,
+      mandatoryForAll: true,
+      minEmployees: 1,
+      maxRevisionMonths: 12,
+      legalConsequence: null,
     }))
   }, [legalCoverage])
 

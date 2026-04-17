@@ -3,13 +3,15 @@ import { Link } from 'react-router-dom'
 import { Calendar, CheckCircle2, ChevronDown, ChevronRight, Circle, Download, ExternalLink, Printer, X } from 'lucide-react'
 import { useComplianceDocs } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { MandatoryDocsAlert } from '../../components/documents/MandatoryDocsAlert'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
 import { DocumentsSearchBar } from '../../components/documents/DocumentsSearchBar'
 import {
+  coverageStatusForRef,
   hasAcknowledgedCurrentVersion,
-  isRevisionCurrent,
   pageCoversLegalRef,
   userMustAcknowledgePage,
+  type CoverageStatus,
 } from '../../lib/wikiCompliance'
 import type { WikiPage } from '../../types/documents'
 
@@ -49,33 +51,41 @@ function localDateKey(iso: string): string {
   return `${y}-${m}-${day}`
 }
 
+type CoverageFilter = 'all' | 'missing' | 'stale' | 'covered'
+
+function statusLabel(s: CoverageStatus): string {
+  if (s === 'covered') return 'Dekket'
+  if (s === 'stale') return 'Forfalt'
+  return 'Mangler'
+}
+
 export function ComplianceDashboard() {
   const docs = useComplianceDocs()
-  const { profile, can, isAdmin } = useOrgSetupContext()
+  const { profile, can, isAdmin, members } = useOrgSetupContext()
   const canManageDocs = can('documents.manage') || isAdmin
   const isOrgAdminUser = profile?.is_org_admin === true || isAdmin
 
   const [panelRef, setPanelRef] = useState<string | null>(null)
   const [expandedAckPageId, setExpandedAckPageId] = useState<string | null>(null)
   const [ackReminderBusyId, setAckReminderBusyId] = useState<string | null>(null)
+  const [coverageFilter, setCoverageFilter] = useState<CoverageFilter>('all')
 
   const coverageRows = useMemo(() => {
     const summaryByItemId = new Map<string, (typeof docs.complianceSummary)[0]>()
     for (const s of docs.complianceSummary) summaryByItemId.set(s.id, s)
     return docs.legalCoverage.map((item) => {
       const sum = summaryByItemId.get(item.id)
+      const status: CoverageStatus = coverageStatusForRef(item.ref, docs.pages)
       const coveredBy = docs.pages.filter((p) => pageCoversLegalRef(p, item.ref))
-      const coveredCount = sum?.covered_count ?? coveredBy.length
-      const covered = coveredCount > 0
-      const hasOverdue = sum?.has_overdue ?? coveredBy.some((p) => p.status === 'published' && !isRevisionCurrent(p.nextRevisionDueAt))
+      const publishedWithRef = docs.pages.filter((p) => p.status === 'published' && p.legalRefs.includes(item.ref))
       const earliest = sum?.earliest_revision_due ?? null
       const ownerId = docs.coverageOwnerByItemId[item.id] ?? null
       const ownerName = ownerId ? docs.orgPeerProfiles.find((p) => p.id === ownerId)?.display_name ?? '—' : '—'
       return {
         item,
+        status,
         coveredBy,
-        covered,
-        hasOverdue,
+        publishedWithRef,
         earliestRevision: earliest,
         ownerId,
         ownerName,
@@ -83,10 +93,17 @@ export function ComplianceDashboard() {
     })
   }, [docs])
 
+  const filteredCoverageRows = useMemo(() => {
+    if (coverageFilter === 'all') return coverageRows
+    return coverageRows.filter((r) => r.status === coverageFilter)
+  }, [coverageRows, coverageFilter])
+
   const panelRow = useMemo(
     () => (panelRef ? coverageRows.find((c) => c.item.ref === panelRef) ?? null : null),
     [coverageRows, panelRef],
   )
+
+  const coveredCount = useMemo(() => coverageRows.filter((r) => r.status === 'covered').length, [coverageRows])
 
   useBodyScrollLock(Boolean(panelRef))
 
@@ -100,8 +117,7 @@ export function ComplianceDashboard() {
   }, [panelRef])
 
   const total = coverageRows.length
-  const covered = coverageRows.filter((c) => c.covered).length
-  const pct = total ? Math.round((covered / total) * 100) : 0
+  const pct = total ? Math.round((coveredCount / total) * 100) : 0
 
   const revisionCalendar = useMemo(() => {
     const pages = docs.pages.filter((p) => p.nextRevisionDueAt && p.status === 'published')
@@ -143,12 +159,13 @@ export function ComplianceDashboard() {
 
   const exportCsv = useCallback(() => {
     const lines = [
-      ['Krav', 'Status', 'Siste revidert', 'Ansvarlig', 'Sider'].join(';'),
+      ['Krav', 'Status', 'Siste revidert', 'Ansvarlig', 'Konsekvens', 'Sider'].join(';'),
       ...coverageRows.map((row) => {
-        const status = row.covered && !row.hasOverdue ? 'OK' : row.covered ? 'Revisjon forfalt' : 'Mangler'
+        const status = statusLabel(row.status)
         const rev = row.earliestRevision ? new Date(row.earliestRevision).toLocaleDateString('no-NO') : '—'
         const pages = row.coveredBy.map((p) => p.title).join(', ')
-        return [row.item.ref, status, rev, row.ownerName, `"${pages.replace(/"/g, '""')}"`].join(';')
+        const cons = (row.item.legalConsequence ?? '').replace(/"/g, '""')
+        return [row.item.ref, status, rev, row.ownerName, `"${cons}"`, `"${pages.replace(/"/g, '""')}"`].join(';')
       }),
     ]
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
@@ -187,6 +204,10 @@ export function ComplianceDashboard() {
         </div>
       }
     >
+      <div className="compliance-no-print mt-6">
+        <MandatoryDocsAlert orgEmployeeCount={members.length} />
+      </div>
+
       <div className="compliance-no-print mt-6 rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -195,10 +216,10 @@ export function ComplianceDashboard() {
           </div>
           <div className="text-right text-sm text-neutral-500">
             <div>
-              <strong className="text-emerald-700">{covered}</strong> dekket
+              <strong className="text-emerald-700">{coveredCount}</strong> dekket
             </div>
             <div>
-              <strong className="text-amber-600">{total - covered}</strong> mangler eller forfalt revisjon
+              <strong className="text-amber-600">{total - coveredCount}</strong> mangler eller forfalt revisjon
             </div>
           </div>
         </div>
@@ -254,6 +275,7 @@ export function ComplianceDashboard() {
               <th className="py-2 pr-2">Status</th>
               <th className="py-2 pr-2">Siste revidert</th>
               <th className="py-2 pr-2">Ansvarlig</th>
+              <th className="py-2 pr-2">Konsekvens</th>
               <th className="py-2">Sider</th>
             </tr>
           </thead>
@@ -261,11 +283,12 @@ export function ComplianceDashboard() {
             {coverageRows.map((row) => (
               <tr key={row.item.ref} className="border-b border-neutral-200">
                 <td className="py-2 pr-2 font-mono text-xs">{row.item.ref}</td>
-                <td className="py-2 pr-2">{row.covered && !row.hasOverdue ? 'OK' : row.covered ? 'Revisjon forfalt' : 'Mangler'}</td>
+                <td className="py-2 pr-2">{statusLabel(row.status)}</td>
                 <td className="py-2 pr-2">
                   {row.earliestRevision ? new Date(row.earliestRevision).toLocaleDateString('no-NO') : '—'}
                 </td>
                 <td className="py-2 pr-2">{row.ownerName}</td>
+                <td className="py-2 pr-2 text-xs">{row.item.legalConsequence ?? '—'}</td>
                 <td className="py-2">{row.coveredBy.map((p) => p.title).join(', ') || '—'}</td>
               </tr>
             ))}
@@ -276,32 +299,63 @@ export function ComplianceDashboard() {
       <div className="compliance-no-print mb-8 mt-8 overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
         <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">
           <h2 className="font-semibold text-neutral-900">Krav per lovhenvisning</h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(
+              [
+                { id: 'all' as const, label: 'Alle' },
+                { id: 'missing' as const, label: 'Manglende' },
+                { id: 'stale' as const, label: 'Forfalt' },
+                { id: 'covered' as const, label: 'Dekket' },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setCoverageFilter(tab.id)}
+                className={`rounded-none border px-3 py-1.5 text-xs font-medium ${
+                  coverageFilter === tab.id
+                    ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                    : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px] text-left text-sm">
+          <table className="w-full min-w-[1100px] text-left text-sm">
             <thead>
               <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Hjemmel</th>
                 <th className="px-4 py-3">Krav</th>
+                <th className="px-4 py-3">Konsekvens ved manglende oppfyllelse</th>
                 <th className="px-4 py-3">Ansvarlig</th>
                 <th className="px-4 py-3">Neste revisjon</th>
                 <th className="px-4 py-3">Dekket av</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
-              {coverageRows.map((c) => (
+              {filteredCoverageRows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-neutral-500">
+                    Ingen rader i dette filteret.
+                  </td>
+                </tr>
+              ) : null}
+              {filteredCoverageRows.map((c) => (
                 <tr
                   key={c.item.ref}
                   className={`cursor-pointer transition-colors hover:bg-neutral-50 ${
-                    c.covered && !c.hasOverdue ? '' : 'bg-amber-50/40'
+                    c.status === 'covered' ? '' : 'bg-amber-50/40'
                   }`}
                   onClick={() => setPanelRef(c.item.ref)}
                 >
                   <td className="px-4 py-3">
-                    {c.covered && !c.hasOverdue ? (
+                    {c.status === 'covered' ? (
                       <CheckCircle2 className="size-5 text-emerald-600" />
-                    ) : c.covered && c.hasOverdue ? (
+                    ) : c.status === 'stale' ? (
                       <span className="text-xs font-medium text-amber-800" title="Publisert dekning, men revisjon forfalt">
                         ⚠
                       </span>
@@ -312,7 +366,10 @@ export function ComplianceDashboard() {
                   <td className="px-4 py-3">
                     <span className="rounded-none bg-[#1a3d32]/10 px-1.5 py-0.5 font-mono text-xs text-[#1a3d32]">{c.item.ref}</span>
                   </td>
-                  <td className="px-4 py-3 text-neutral-700">{c.item.label}</td>
+                  <td className="px-4 py-3 text-neutral-700">{c.item.requirement || c.item.label}</td>
+                  <td className="max-w-xs px-4 py-3 text-xs text-neutral-600">
+                    {c.item.legalConsequence ?? '—'}
+                  </td>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     {canManageDocs && !c.item.id.startsWith('static-') ? (
                       <select
@@ -501,17 +558,23 @@ export function ComplianceDashboard() {
               </button>
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 text-sm">
-              <p className="text-neutral-700">{panelRow.item.label}</p>
+              <p className="text-neutral-700">{panelRow.item.requirement || panelRow.item.label}</p>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Status</p>
                 <p className="mt-1 text-neutral-800">
-                  {panelRow.covered && !panelRow.hasOverdue
+                  {panelRow.status === 'covered'
                     ? 'Dekket med gyldig revisjon'
-                    : panelRow.covered && panelRow.hasOverdue
-                      ? 'Publisert dekning finnes, men minst én side har forfalt revisjon'
-                      : 'Ikke dekket'}
+                    : panelRow.status === 'stale'
+                      ? 'Publisert dekning finnes, men revisjon er forfalt eller forfaller i dag'
+                      : 'Ikke dekket (ingen publisert side med hjemmelen)'}
                 </p>
               </div>
+              {panelRow.item.legalConsequence ? (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Konsekvens</p>
+                  <p className="mt-1 text-neutral-800">{panelRow.item.legalConsequence}</p>
+                </div>
+              ) : null}
               {panelRow.coveredBy.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Gyldige publiserte sider</p>
@@ -530,6 +593,28 @@ export function ComplianceDashboard() {
                   </ul>
                 </div>
               )}
+              {panelRow.publishedWithRef.length > panelRow.coveredBy.length ? (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                    Publiserte sider med hjemmel (revisjon kan være forfalt)
+                  </p>
+                  <ul className="mt-2 space-y-2">
+                    {panelRow.publishedWithRef
+                      .filter((p) => !panelRow.coveredBy.some((c) => c.id === p.id))
+                      .map((p) => (
+                        <li key={p.id}>
+                          <Link to={`/documents/page/${p.id}`} className="font-medium text-amber-900 hover:underline">
+                            {p.title}
+                          </Link>
+                          <p className="text-xs text-neutral-500">
+                            Revisjon:{' '}
+                            {p.nextRevisionDueAt ? new Date(p.nextRevisionDueAt).toLocaleDateString('no-NO') : 'Ikke satt'}
+                          </p>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

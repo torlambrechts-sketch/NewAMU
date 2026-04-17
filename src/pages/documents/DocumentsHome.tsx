@@ -11,6 +11,8 @@ import {
   Plus,
 } from 'lucide-react'
 import { useComplianceDocs, useDocumentTemplates, useWikiSpaces } from '../../hooks/useDocuments'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { MandatoryDocsAlert } from '../../components/documents/MandatoryDocsAlert'
 import type { PageTemplate, WikiSpace } from '../../types/documents'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
@@ -69,6 +71,7 @@ export function DocumentsHome() {
   const wiki = useWikiSpaces()
   const compliance = useComplianceDocs()
   const tmpl = useDocumentTemplates()
+  const { members } = useOrgSetupContext()
   const navigate = useNavigate()
 
   const systemTemplateIds = useMemo(
@@ -196,6 +199,10 @@ export function DocumentsHome() {
           {loadError}
         </div>
       )}
+
+      <div className="mt-6">
+        <MandatoryDocsAlert orgEmployeeCount={members.length} />
+      </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Publiserte sider" value={compliance.stats.published} icon={<FileText className="size-5 text-emerald-600" />} />

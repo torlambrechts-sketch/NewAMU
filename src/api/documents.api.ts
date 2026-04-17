@@ -36,10 +36,26 @@ export async function apiWikiEnsureOrgDefaults(supabase: SupabaseClient) {
   if (error) throw error
 }
 
-export type LegalCoverageApiRow = { id: string; ref: string; label: string; template_ids: string[] }
+export type LegalCoverageApiRow = {
+  id: string
+  ref: string
+  label: string
+  requirement: string
+  category: string
+  template_ids: string[]
+  mandatory_for_all: boolean
+  min_employees: number
+  max_revision_months: number
+  legal_consequence: string | null
+}
 
 export async function apiFetchLegalCoverage(supabase: SupabaseClient): Promise<LegalCoverageApiRow[]> {
-  const { data, error } = await supabase.from('wiki_legal_coverage_items').select('id, ref, label, template_ids').order('ref')
+  const { data, error } = await supabase
+    .from('wiki_legal_coverage_items')
+    .select(
+      'id, ref, label, requirement, category, template_ids, mandatory_for_all, min_employees, max_revision_months, legal_consequence',
+    )
+    .order('ref')
   if (error) throw error
   return (data ?? []) as LegalCoverageApiRow[]
 }

@@ -14,6 +14,16 @@ export function pageCoversLegalRef(page: WikiPage, ref: string): boolean {
   return page.status === 'published' && page.legalRefs.includes(ref) && isRevisionCurrent(page.nextRevisionDueAt)
 }
 
+export type CoverageStatus = 'covered' | 'stale' | 'missing'
+
+/** Published page cites ref but revision is overdue (or due today per isRevisionCurrent). */
+export function coverageStatusForRef(ref: string, pages: WikiPage[]): CoverageStatus {
+  const publishedWithRef = pages.filter((p) => p.status === 'published' && p.legalRefs.includes(ref))
+  if (publishedWithRef.some((p) => isRevisionCurrent(p.nextRevisionDueAt))) return 'covered'
+  if (publishedWithRef.length > 0) return 'stale'
+  return 'missing'
+}
+
 export function userMustAcknowledgePage(
   page: WikiPage,
   ctx: {
