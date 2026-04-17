@@ -323,6 +323,153 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       ],
     },
   },
+
+  {
+    id: 'tpl-personvern-ansatt',
+    label: 'Personvernerklæring for ansatte',
+    description:
+      'Informasjon til ansatte om behandling av personopplysninger i tråd med GDPR art. 13–14 og personopplysningsloven.',
+    legalBasis: ['GDPR Art. 13', 'GDPR Art. 14', 'Personopplysningsloven §2'],
+    category: 'policy',
+    page: {
+      title: 'Personvernerklæring for ansatte',
+      summary: 'Hvordan vi behandler personopplysninger om deg i arbeidsforholdet.',
+      status: 'draft',
+      template: 'policy',
+      legalRefs: ['GDPR Art. 13', 'GDPR Art. 14', 'Personopplysningsloven §2'],
+      requiresAcknowledgement: true,
+      acknowledgementAudience: 'all_employees',
+      revisionIntervalMonths: 12,
+      blocks: [
+        {
+          kind: 'alert',
+          variant: 'info',
+          text: 'Dette dokumentet skal gi deg informasjon i tråd med GDPR art. 13 og 14. Fyll ut alle avsnitt merket [FYLL INN].',
+        },
+        { kind: 'heading', level: 1, text: 'Personvernerklæring for ansatte' },
+        { kind: 'heading', level: 2, text: 'Behandlingsansvarlig' },
+        {
+          kind: 'text',
+          body:
+            '<p>[FYLL INN: Virksomhetens navn, organisasjonsnummer, adresse, kontaktperson for personvern (navn, e-post, telefon).]</p>',
+        },
+        { kind: 'heading', level: 2, text: 'Personvernombud' },
+        {
+          kind: 'text',
+          body:
+            '<p>[FYLL INN: Navn og kontaktinfo til personvernombud, eller «Vi har ikke utpekt personvernombud» hvis unntak gjelder.]</p>',
+        },
+        { kind: 'heading', level: 2, text: 'Formål og rettslig grunnlag' },
+        {
+          kind: 'text',
+          body:
+            '<p>[FYLL INN: Tabell eller punktliste — hver behandlingsaktivitet: formål og rettslig grunnlag etter GDPR art. 6 (og art. 9 ved særlige kategorier).]</p>',
+        },
+        { kind: 'heading', level: 2, text: 'Lagringstid' },
+        {
+          kind: 'text',
+          body: '<p>[FYLL INN: Lagringstid per kategori av opplysninger og kriterier for sletting.]</p>',
+        },
+        { kind: 'heading', level: 2, text: 'Databehandlere og overføringer' },
+        {
+          kind: 'text',
+          body:
+            '<p>[FYLL INN: Liste over databehandlere, formål, og om opplysninger overføres utenfor EØS (sikkerhetsmekanismer / SCC / beslutning om tilstrekkelighet).]</p>',
+        },
+        { kind: 'heading', level: 2, text: 'Dine rettigheter' },
+        {
+          kind: 'text',
+          body:
+            '<p>[FYLL INN: Beskriv rett til innsyn, sletting, begrensning, dataportabilitet, innsigelse og hvordan den ansatte utøver rettighetene.]</p>',
+        },
+        { kind: 'heading', level: 2, text: 'Klage til Datatilsynet' },
+        {
+          kind: 'text',
+          body:
+            '<p>Du har rett til å klage til Datatilsynet dersom du mener behandlingen er i strid med regelverket. Kontakt: <a href="https://www.datatilsynet.no">www.datatilsynet.no</a>.</p><p>[FYLL INN: Eventuell intern klagekanal først.]</p>',
+        },
+        {
+          kind: 'law_ref',
+          ref: 'GDPR art. 13–14',
+          description: 'Informasjonsplikt overfor den registrerte',
+          url: 'https://lovdata.no/dokument/NL/lov/2018-06-15-38',
+        },
+        { kind: 'module', moduleName: 'acknowledgement_footer', params: {} },
+      ],
+    },
+  },
+
+  {
+    id: 'tpl-behandlingsprotokoll',
+    label: 'Behandlingsprotokoll (GDPR art. 30)',
+    description: 'Oversikt over behandlingsaktiviteter — internt dokument for behandlingsansvarlig.',
+    legalBasis: ['GDPR Art. 30', 'Personopplysningsloven §2'],
+    category: 'policy',
+    page: {
+      title: 'Behandlingsprotokoll',
+      summary: 'Register over behandlingsaktiviteter etter GDPR art. 30.',
+      status: 'draft',
+      template: 'wide',
+      legalRefs: ['GDPR Art. 30', 'Personopplysningsloven §2'],
+      requiresAcknowledgement: false,
+      revisionIntervalMonths: 12,
+      blocks: [
+        {
+          kind: 'alert',
+          variant: 'warning',
+          text: 'Intern dokumentasjon. Ved endringer: oppdater protokollen og vurder behov for DPIA (særlig ved videoovervåking).',
+        },
+        { kind: 'heading', level: 1, text: 'Behandlingsprotokoll' },
+        {
+          kind: 'text',
+          body:
+            '<p><strong>Kolonner:</strong> Behandlingsaktivitet | Formål | Rettslig grunnlag | Kategorier av registrerte / personopplysninger | Mottakere | Lagring | Sikkerhetstiltak</p>',
+        },
+        { kind: 'heading', level: 2, text: 'Lønnsutbetaling' },
+        {
+          kind: 'text',
+          body:
+            '<p>Lønnsutbetaling | Lønn og arbeidsavtale | GDPR art. 6 nr. 1 bokstav b og c | Ansatte, lønnsdata, skatteopplysninger | Lønnssystem, bank, Skatteetaten | [FYLL INN: lagringstid] | [FYLL INN: tiltak]</p>',
+        },
+        { kind: 'heading', level: 2, text: 'Fraværsregistrering' },
+        {
+          kind: 'text',
+          body:
+            '<p>Fraværsregistrering | Sykefravær og permisjoner | GDPR art. 6 nr. 1 bokstav b og c | Ansatte, fraværsdata | HR-system, NAV ved behov | [FYLL INN] | [FYLL INN]</p>',
+        },
+        { kind: 'heading', level: 2, text: 'Rekruttering' },
+        {
+          kind: 'text',
+          body:
+            '<p>Rekruttering | Nyansettelser | GDPR art. 6 nr. 1 bokstav b | Søkere, CV, referanser | Rekrutteringsverktøy, intervjuer | [FYLL INN] | [FYLL INN]</p>',
+        },
+        { kind: 'heading', level: 2, text: 'HMS-registre og avvikslogg' },
+        {
+          kind: 'text',
+          body:
+            '<p>HMS / avvik | Internkontroll og arbeidsmiljø | GDPR art. 6 nr. 1 bokstav c | Ansatte, hendelsesbeskrivelser | Ledelse, verneombud | [FYLL INN] | [FYLL INN]</p>',
+        },
+        { kind: 'heading', level: 2, text: 'Videoovervåking (hvis aktuelt)' },
+        {
+          kind: 'text',
+          body:
+            '<p>Videoovervåking | Sikkerhet / drift | GDPR art. 6 nr. 1 bokstav f (berettiget interesse), vurder art. 9 | Besøkende og ansatte | [FYLL INN leverandør] | [FYLL INN] | Krever ofte DPIA — [FYLL INN status]</p>',
+        },
+        { kind: 'heading', level: 2, text: 'Elektronisk adgangskontroll' },
+        {
+          kind: 'text',
+          body:
+            '<p>Adgangskontroll | Sikkerhet og sporbarhet | GDPR art. 6 nr. 1 bokstav f | Ansatte, tid/sted | Leverandør av adgangssystem | [FYLL INN] | [FYLL INN]</p>',
+        },
+        {
+          kind: 'law_ref',
+          ref: 'GDPR art. 30',
+          description: 'Behandlingsprotokoll',
+          url: 'https://lovdata.no/dokument/NL/lov/2018-06-15-38',
+        },
+      ],
+    },
+  },
 ]
 
 /** Seed spaces for the HMS Handbook */
@@ -375,4 +522,8 @@ export const LEGAL_COVERAGE: { ref: string; label: string; templateIds: string[]
   { ref: 'AML kap. 4 / §4-6', label: 'Individuell tilrettelegging', templateIds: ['tpl-tilrettelegging'] },
   { ref: 'Inkluderingsloven', label: 'Likestilling og ikke-diskriminering', templateIds: ['tpl-likestilling-mangfold'] },
   { ref: 'Livsfase / seniorpolitikk', label: 'Seniorpolitikk og livsfaser', templateIds: ['tpl-seniorpolitikk'] },
+  { ref: 'GDPR Art. 13', label: 'Informasjon til den registrerte (ansatte)', templateIds: ['tpl-personvern-ansatt'] },
+  { ref: 'GDPR Art. 14', label: 'Informasjon når opplysninger ikke er innhentet fra den registrerte', templateIds: ['tpl-personvern-ansatt'] },
+  { ref: 'Personopplysningsloven §2', label: 'Behandling av personopplysninger', templateIds: ['tpl-personvern-ansatt', 'tpl-behandlingsprotokoll'] },
+  { ref: 'GDPR Art. 30', label: 'Behandlingsprotokoll', templateIds: ['tpl-behandlingsprotokoll'] },
 ]

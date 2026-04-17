@@ -82,6 +82,12 @@ export type WikiPage = {
   /** Next mandatory review (IK-f §5 — systematic review) */
   nextRevisionDueAt?: string | null
   revisionIntervalMonths?: number
+  /** Page contains personal data — drives viewer banner and optional RLS for sensitive categories */
+  containsPii?: boolean
+  /** e.g. helse, lonn — overlap with helse|fagforeningsmedlemskap|etnisitet triggers hr.sensitive RLS */
+  piiCategories?: string[]
+  piiLegalBasis?: string | null
+  piiRetentionNote?: string | null
   blocks: ContentBlock[]
   version: number
   createdAt: string

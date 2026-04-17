@@ -9,6 +9,11 @@ import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { RichTextEditor } from '../../components/learning/RichTextEditor'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
 import type { AcknowledgementAudience, ContentBlock, ModuleBlock } from '../../types/documents'
+import {
+  GDPR_ART6_SUGGESTIONS,
+  GDPR_ART9_SUGGESTIONS,
+  PII_CATEGORY_OPTIONS,
+} from '../../data/wikiPiiLegalBasisSuggestions'
 
 type AddKind = ContentBlock['kind']
 
@@ -68,6 +73,12 @@ export function WikiPageEditor() {
     original?.nextRevisionDueAt ? original.nextRevisionDueAt.slice(0, 10) : '',
   )
   const [template, setTemplate] = useState<'standard' | 'wide' | 'policy'>(() => original?.template ?? 'standard')
+  const [containsPii, setContainsPii] = useState(() => original?.containsPii ?? false)
+  const [piiCategories, setPiiCategories] = useState<string[]>(() =>
+    Array.isArray(original?.piiCategories) ? [...original.piiCategories] : [],
+  )
+  const [piiLegalBasis, setPiiLegalBasis] = useState(() => original?.piiLegalBasis ?? '')
+  const [piiRetentionNote, setPiiRetentionNote] = useState(() => original?.piiRetentionNote ?? '')
   const [dirty, setDirty] = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
@@ -95,6 +106,10 @@ export function WikiPageEditor() {
           ? o.template
           : 'standard',
       )
+      setContainsPii(o.containsPii ?? false)
+      setPiiCategories(Array.isArray(o.piiCategories) ? [...o.piiCategories] : [])
+      setPiiLegalBasis(o.piiLegalBasis ?? '')
+      setPiiRetentionNote(o.piiRetentionNote ?? '')
       setDirty(false)
       setSavedMsg(false)
       setSelectedIdx(null)
@@ -188,6 +203,10 @@ export function WikiPageEditor() {
       acknowledgementDepartmentId: ackAudience === 'department' ? (ackDeptId || null) : null,
       revisionIntervalMonths: months,
       nextRevisionDueAt: nextRevision ? new Date(`${nextRevision}T12:00:00`).toISOString() : null,
+      containsPii,
+      piiCategories: containsPii ? piiCategories : [],
+      piiLegalBasis: containsPii ? (piiLegalBasis.trim() || null) : null,
+      piiRetentionNote: containsPii ? (piiRetentionNote.trim() || null) : null,
     })
     setDirty(false)
     setSavedMsg(true)
@@ -370,6 +389,100 @@ export function WikiPageEditor() {
                 </p>
               </div>
             </div>
+          </div>
+
+          <div className="rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
+            <h3 className="mb-3 text-sm font-semibold text-neutral-700">Personopplysninger</h3>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={containsPii}
+                onChange={(e) => {
+                  setContainsPii(e.target.checked)
+                  if (!e.target.checked) setPiiCategories([])
+                  markDirty()
+                }}
+                className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+              />
+              Inneholder personopplysninger
+            </label>
+            {containsPii && (
+              <div className="mt-3 space-y-3 border-t border-neutral-100 pt-3">
+                <div>
+                  <span className="text-xs font-medium text-neutral-500">Kategorier</span>
+                  <ul className="mt-2 space-y-2">
+                    {PII_CATEGORY_OPTIONS.map((opt) => (
+                      <li key={opt.value}>
+                        <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
+                          <input
+                            type="checkbox"
+                            checked={piiCategories.includes(opt.value)}
+                            onChange={(ev) => {
+                              setPiiCategories((prev) =>
+                                ev.target.checked
+                                  ? [...prev, opt.value]
+                                  : prev.filter((x) => x !== opt.value),
+                              )
+                              markDirty()
+                            }}
+                            className="size-4 rounded border-neutral-300 text-[#1a3d32]"
+                          />
+                          {opt.label}
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {(piiCategories.includes('helse') ||
+                  piiCategories.includes('fagforeningsmedlemskap') ||
+                  piiCategories.includes('etnisitet')) && (
+                  <p className="rounded-none border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
+                    Dokument med særlige kategorier (f.eks. helse) er kun lesbart for brukere med tilgangen{' '}
+                    <strong>hr.sensitive</strong> eller administrator.
+                  </p>
+                )}
+                <div>
+                  <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-pii-legal-basis">
+                    Behandlingsgrunnlag
+                  </label>
+                  <input
+                    id="wiki-pii-legal-basis"
+                    list="wiki-pii-legal-basis-list"
+                    value={piiLegalBasis}
+                    onChange={(e) => {
+                      setPiiLegalBasis(e.target.value)
+                      markDirty()
+                    }}
+                    placeholder="f.eks. GDPR art. 6 nr. 1 bokstav b — kontraktsforhold"
+                    className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
+                  />
+                  <datalist id="wiki-pii-legal-basis-list">
+                    {[...GDPR_ART6_SUGGESTIONS, ...GDPR_ART9_SUGGESTIONS].map((s) => (
+                      <option key={s} value={s} />
+                    ))}
+                  </datalist>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-pii-retention">
+                    Lagringstid / notat
+                  </label>
+                  <textarea
+                    id="wiki-pii-retention"
+                    rows={2}
+                    value={piiRetentionNote}
+                    onChange={(e) => {
+                      setPiiRetentionNote(e.target.value)
+                      markDirty()
+                    }}
+                    placeholder="f.eks. Slettes 5 år etter avsluttet arbeidsforhold"
+                    className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <p className="text-xs text-amber-800">
+                  Husk å oppdatere behandlingsprotokollen ved endring av behandlingen.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">

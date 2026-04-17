@@ -149,6 +149,10 @@ function mapPage(
     author_id: string | null
     created_at: string
     updated_at: string
+    contains_pii?: boolean | null
+    pii_categories?: string[] | null
+    pii_legal_basis?: string | null
+    pii_retention_note?: string | null
   },
   authorFallback: string,
 ): WikiPage {
@@ -166,6 +170,10 @@ function mapPage(
     acknowledgementDepartmentId: row.acknowledgement_department_id ?? null,
     nextRevisionDueAt: row.next_revision_due_at ?? null,
     revisionIntervalMonths: row.revision_interval_months ?? 12,
+    containsPii: row.contains_pii ?? false,
+    piiCategories: Array.isArray(row.pii_categories) ? row.pii_categories : [],
+    piiLegalBasis: row.pii_legal_basis ?? null,
+    piiRetentionNote: row.pii_retention_note ?? null,
     blocks: (Array.isArray(row.blocks) ? row.blocks : []) as ContentBlock[],
     version: row.version,
     authorId: row.author_id ?? authorFallback,
@@ -671,12 +679,12 @@ function useDocumentsStore() {
           | 'revisionIntervalMonths'
           | 'nextRevisionDueAt'
         >
-      >,
+      > & { templateId?: string },
     ) => {
       const now = new Date().toISOString()
       if (useRemote && supabase && orgId && userId) {
         const id = crypto.randomUUID()
-        const pageRow = {
+        const pageRow: Record<string, unknown> = {
           id,
           organization_id: orgId,
           space_id: spaceId,
@@ -692,6 +700,17 @@ function useDocumentsStore() {
           blocks: blocks as unknown as Record<string, unknown>[],
           version: 1,
           author_id: userId,
+        }
+        if (opts?.templateId === 'tpl-personvern-ansatt') {
+          pageRow.contains_pii = true
+          pageRow.pii_categories = ['navn', 'lonn']
+          pageRow.pii_legal_basis = '[FYLL INN: f.eks. GDPR art. 6 nr. 1 bokstav b — kontraktsforhold]'
+          pageRow.pii_retention_note = '[FYLL INN: f.eks. slettes 5 år etter avsluttet arbeidsforhold der ikke annet følger av lov]'
+        } else if (opts?.templateId === 'tpl-behandlingsprotokoll') {
+          pageRow.contains_pii = true
+          pageRow.pii_categories = ['navn', 'lonn']
+          pageRow.pii_legal_basis = 'GDPR art. 30 — dokumentasjonsplikt for behandlingsansvarlig'
+          pageRow.pii_retention_note = '[FYLL INN: oppbevaring per aktivitet, jf. behandlingsprotokollen]'
         }
         const { data, error: pe } = await supabase.from('wiki_pages').insert(pageRow).select('*').single()
         if (pe) throw pe
@@ -713,6 +732,24 @@ function useDocumentsStore() {
         acknowledgementDepartmentId: opts?.acknowledgementDepartmentId ?? null,
         revisionIntervalMonths: opts?.revisionIntervalMonths ?? 12,
         nextRevisionDueAt: opts?.nextRevisionDueAt ?? null,
+        containsPii:
+          opts?.templateId === 'tpl-personvern-ansatt' || opts?.templateId === 'tpl-behandlingsprotokoll',
+        piiCategories:
+          opts?.templateId === 'tpl-personvern-ansatt' || opts?.templateId === 'tpl-behandlingsprotokoll'
+            ? ['navn', 'lonn']
+            : [],
+        piiLegalBasis:
+          opts?.templateId === 'tpl-personvern-ansatt'
+            ? '[FYLL INN: f.eks. GDPR art. 6 nr. 1 bokstav b — kontraktsforhold]'
+            : opts?.templateId === 'tpl-behandlingsprotokoll'
+              ? 'GDPR art. 30 — dokumentasjonsplikt for behandlingsansvarlig'
+              : null,
+        piiRetentionNote:
+          opts?.templateId === 'tpl-personvern-ansatt'
+            ? '[FYLL INN: f.eks. slettes 5 år etter avsluttet arbeidsforhold der ikke annet følger av lov]'
+            : opts?.templateId === 'tpl-behandlingsprotokoll'
+              ? '[FYLL INN: oppbevaring per aktivitet, jf. behandlingsprotokollen]'
+              : null,
         blocks,
         version: 1,
         createdAt: now,
@@ -746,6 +783,10 @@ function useDocumentsStore() {
           | 'acknowledgementDepartmentId'
           | 'revisionIntervalMonths'
           | 'nextRevisionDueAt'
+          | 'containsPii'
+          | 'piiCategories'
+          | 'piiLegalBasis'
+          | 'piiRetentionNote'
         >
       >,
     ) => {
@@ -773,6 +814,10 @@ function useDocumentsStore() {
         if (patch.nextRevisionDueAt !== undefined) {
           dbPatch.next_revision_due_at = patch.nextRevisionDueAt
         }
+        if (patch.containsPii !== undefined) dbPatch.contains_pii = patch.containsPii
+        if (patch.piiCategories !== undefined) dbPatch.pii_categories = patch.piiCategories
+        if (patch.piiLegalBasis !== undefined) dbPatch.pii_legal_basis = patch.piiLegalBasis
+        if (patch.piiRetentionNote !== undefined) dbPatch.pii_retention_note = patch.piiRetentionNote
         const { error: e } = await supabase.from('wiki_pages').update(dbPatch).eq('id', id).eq('organization_id', orgId)
         if (e) throw e
         await refreshDocuments()

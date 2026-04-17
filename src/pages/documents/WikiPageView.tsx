@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { CheckCircle2, Clock, History, Loader2, Pencil } from 'lucide-react'
+import { CheckCircle2, Clock, History, Loader2, Pencil, Shield } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { WikiBlockRenderer } from './WikiBlockRenderer'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
@@ -183,6 +183,28 @@ export function WikiPageView() {
             Rediger
           </button>
         </div>
+
+        {page.containsPii ? (
+          <div
+            className="mb-6 flex gap-3 rounded-none border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950"
+            role="status"
+          >
+            <Shield className="mt-0.5 size-5 shrink-0 text-sky-700" aria-hidden />
+            <div>
+              <p className="font-semibold text-sky-950">Dette dokumentet inneholder personopplysninger.</p>
+              {page.piiLegalBasis?.trim() ? (
+                <p className="mt-1 text-sky-900">
+                  <span className="font-medium">Behandlingsgrunnlag:</span> {page.piiLegalBasis}
+                </p>
+              ) : null}
+              {page.piiRetentionNote?.trim() ? (
+                <p className="mt-1 text-sky-900">
+                  <span className="font-medium">Lagringstid:</span> {page.piiRetentionNote}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
 
         {/* Content */}
         <WikiBlockRenderer blocks={Array.isArray(page.blocks) ? page.blocks : []} pageId={page.id} pageVersion={page.version} />

@@ -181,6 +181,9 @@ export function DocumentsHome() {
                     legalRefs: tpl.page.legalRefs,
                     requiresAcknowledgement: tpl.page.requiresAcknowledgement,
                     summary: tpl.page.summary,
+                    acknowledgementAudience: tpl.page.acknowledgementAudience,
+                    revisionIntervalMonths: tpl.page.revisionIntervalMonths,
+                    templateId: tpl.id,
                   },
                 )
                 navigate(`/documents/page/${page.id}/edit`)
