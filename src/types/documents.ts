@@ -28,6 +28,14 @@ export type DividerBlock = {
   kind: 'divider'
 }
 
+export type ImageBlock = {
+  kind: 'image'
+  /** Storage path in wiki_space_files bucket (preferred for signing) */
+  storagePath: string
+  caption?: string
+  width: 'full' | 'wide' | 'medium'
+}
+
 export type LawRefBlock = {
   kind: 'law_ref'
   /** Short reference, e.g. "IK-forskriften §5 nr. 1b" */
@@ -53,7 +61,7 @@ export type ModuleBlock = {
   params?: Record<string, string | number | boolean>
 }
 
-export type Block = TextBlock | HeadingBlock | AlertBlock | DividerBlock | LawRefBlock | ModuleBlock
+export type Block = TextBlock | HeadingBlock | AlertBlock | DividerBlock | ImageBlock | LawRefBlock | ModuleBlock
 
 /** @deprecated Use `Block` */
 export type ContentBlock = Block

@@ -5,6 +5,7 @@ import { LiveOrgChart } from './modules/LiveOrgChart'
 import { LiveRiskFeed } from './modules/LiveRiskFeed'
 import { ActionButton } from './modules/ActionButton'
 import { AcknowledgementFooter } from './modules/AcknowledgementFooter'
+import { WikiImageBlock } from './WikiImageBlock'
 
 type Props = {
   blocks: Block[]
@@ -69,6 +70,26 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion }: Props) {
 
           case 'divider':
             return <hr key={i} className="my-4 border-neutral-200" />
+
+          case 'image': {
+            const path = typeof block.storagePath === 'string' ? block.storagePath : ''
+            if (!path) {
+              return (
+                <p key={i} className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  Bilde mangler lagringssti.
+                </p>
+              )
+            }
+            const w = block.width === 'wide' || block.width === 'medium' || block.width === 'full' ? block.width : 'medium'
+            return (
+              <WikiImageBlock
+                key={i}
+                storagePath={path}
+                caption={typeof block.caption === 'string' ? block.caption : undefined}
+                width={w}
+              />
+            )
+          }
 
           case 'law_ref':
             return (

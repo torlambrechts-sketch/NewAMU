@@ -490,6 +490,7 @@ function useDocumentsStore() {
           WikiPage,
           | 'title'
           | 'summary'
+          | 'status'
           | 'blocks'
           | 'legalRefs'
           | 'requiresAcknowledgement'
@@ -505,6 +506,7 @@ function useDocumentsStore() {
       const dbPatch: Record<string, unknown> = { updated_at: new Date().toISOString() }
       if (patch.title !== undefined) dbPatch.title = patch.title
       if (patch.summary !== undefined) dbPatch.summary = patch.summary
+      if (patch.status !== undefined) dbPatch.status = patch.status
       if (patch.blocks !== undefined) dbPatch.blocks = patch.blocks
       if (patch.legalRefs !== undefined) dbPatch.legal_refs = patch.legalRefs
       if (patch.requiresAcknowledgement !== undefined) {
