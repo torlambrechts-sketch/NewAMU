@@ -7,6 +7,7 @@ import type { InspectionModuleState } from './useInspectionModule'
 import { ChecklistExecutionTab } from '../../src/components/checklist/ChecklistExecutionTab'
 import type { ChecklistItem, ChecklistResponse } from '../../src/components/checklist/types'
 import { DeviationPanel } from '../../src/components/hse/DeviationPanel'
+import { HseAuditLogViewer } from '../../src/components/hse/HseAuditLogViewer'
 import { RiskMatrix, riskColorClass, riskLabel, riskScoreFromProbCons } from '../../src/components/hse/RiskMatrix'
 
 type Props = {
@@ -16,13 +17,14 @@ type Props = {
   onClose: () => void
 }
 
-type PanelTab = 'checklist' | 'findings' | 'summary' | 'signatures'
+type PanelTab = 'checklist' | 'findings' | 'summary' | 'signatures' | 'history'
 
 const TAB_LABELS: Record<PanelTab, string> = {
   checklist: 'Sjekkliste',
   findings: 'Funn',
   summary: 'Sammendrag',
   signatures: 'Signaturer',
+  history: 'Historikk',
 }
 
 const STATUS_LABEL: Record<InspectionRoundRow['status'], string> = {
@@ -858,6 +860,13 @@ export function InspectionRoundPanel({ round, inspection, supabase, onClose }: P
           )}
           {activeTab === 'signatures' && (
             <SignaturesTab round={round} inspection={inspection} checklistItems={checklistItems} />
+          )}
+          {activeTab === 'history' && supabase && (
+            <HseAuditLogViewer
+              supabase={supabase}
+              recordId={round.id}
+              tableName="inspection_rounds"
+            />
           )}
         </div>
 
