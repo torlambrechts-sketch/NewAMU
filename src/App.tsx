@@ -57,11 +57,13 @@ import { LearningComplianceMatrix } from './pages/learning/LearningComplianceMat
 import { LearningPathsPage } from './pages/learning/LearningPathsPage'
 import { LearningExternalTraining } from './pages/learning/LearningExternalTraining'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
+import { DocumentsMyPage } from './pages/documents/DocumentsMyPage'
 import { WikiSpaceView } from './pages/documents/WikiSpaceView'
 import { WikiPageView } from './pages/documents/WikiPageView'
 import { WikiPageEditor } from './pages/documents/WikiPageEditor'
 import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
+import { WikiTemplateCustomizePage } from './pages/documents/WikiTemplateCustomizePage'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import { DocumentsLayout } from './hooks/useDocuments'
 import { PlatformAdminLoginPage } from './pages/platform/PlatformAdminLoginPage'
@@ -184,6 +186,7 @@ function App() {
                       <Route path="hr/consultation" element={<HrConsultationPage />} />
                       <Route path="hr/o-ros" element={<HrORosPage />} />
                       <Route path="documents" element={<DocumentsHome />} />
+                      <Route path="documents/my" element={<DocumentsMyPage />} />
                       <Route path="documents/space/:spaceId" element={<WikiSpaceView />} />
                       <Route
                         path="documents/page/:pageId"
@@ -203,6 +206,7 @@ function App() {
                       />
                       <Route path="documents/compliance" element={<ComplianceDashboard />} />
                       <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
+                      <Route path="documents/templates/:templateId/customize" element={<WikiTemplateCustomizePage />} />
                     </Route>
                   </Route>
                 </Route>

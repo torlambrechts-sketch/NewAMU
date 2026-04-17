@@ -1,15 +1,20 @@
+import { Fragment, type RefObject } from 'react'
 import { ExternalLink } from 'lucide-react'
-import type { ContentBlock } from '../../types/documents'
+import type { Block } from '../../types/documents'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
 import { LiveOrgChart } from './modules/LiveOrgChart'
 import { LiveRiskFeed } from './modules/LiveRiskFeed'
 import { ActionButton } from './modules/ActionButton'
 import { AcknowledgementFooter } from './modules/AcknowledgementFooter'
+import { WikiImageBlock } from './WikiImageBlock'
+import { wikiHeadingDomId } from '../../lib/wikiPageContent'
 
 type Props = {
-  blocks: ContentBlock[]
+  blocks: Block[]
   pageId: string
   pageVersion: number
+  /** When set, the acknowledgement module wrapper receives this ref (e.g. for scroll-into-view). */
+  acknowledgementAnchorRef?: RefObject<HTMLDivElement | null>
 }
 
 const alertStyles = {
@@ -25,9 +30,20 @@ function isAlertVariant(v: unknown): v is keyof typeof alertStyles {
   return v === 'info' || v === 'warning' || v === 'danger' || v === 'tip'
 }
 
-export function WikiBlockRenderer({ blocks, pageId, pageVersion }: Props) {
+export function WikiBlockRenderer({ blocks, pageId, pageVersion, acknowledgementAnchorRef }: Props) {
+  const headingDomIds: (string | null)[] = []
+  let headingOrd = 0
+  for (const block of blocks) {
+    if (block.kind !== 'heading') {
+      headingDomIds.push(null)
+      continue
+    }
+    const text = typeof block.text === 'string' ? block.text : ''
+    headingDomIds.push(wikiHeadingDomId(headingOrd, text))
+    headingOrd += 1
+  }
   return (
-    <div className="space-y-4">
+    <div className="wiki-block-renderer space-y-4">
       {blocks.map((block, i) => {
         if (!block || typeof block !== 'object' || !('kind' in block)) {
           return (
@@ -40,13 +56,19 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion }: Props) {
           case 'heading': {
             const level = block.level === 1 || block.level === 2 || block.level === 3 ? block.level : 2
             const Tag = `h${level}` as 'h1' | 'h2' | 'h3'
+            const text = typeof block.text === 'string' ? block.text : ''
+            const hid = headingDomIds[i] ?? wikiHeadingDomId(0, text)
             const cls =
               level === 1
-                ? 'text-2xl font-bold text-neutral-900 mt-6 mb-2'
+                ? 'scroll-mt-24 text-2xl font-bold text-neutral-900 mt-6 mb-2'
                 : level === 2
-                  ? 'text-lg font-semibold text-neutral-800 mt-5 mb-1'
-                  : 'text-base font-semibold text-neutral-700 mt-4 mb-1'
-            return <Tag key={i} className={cls}>{typeof block.text === 'string' ? block.text : ''}</Tag>
+                  ? 'scroll-mt-24 text-lg font-semibold text-neutral-800 mt-5 mb-1'
+                  : 'scroll-mt-24 text-base font-semibold text-neutral-700 mt-4 mb-1'
+            return (
+              <Tag key={i} id={hid} className={cls}>
+                {text}
+              </Tag>
+            )
           }
 
           case 'text':
@@ -69,6 +91,26 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion }: Props) {
 
           case 'divider':
             return <hr key={i} className="my-4 border-neutral-200" />
+
+          case 'image': {
+            const path = typeof block.storagePath === 'string' ? block.storagePath : ''
+            if (!path) {
+              return (
+                <p key={i} className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  Bilde mangler lagringssti.
+                </p>
+              )
+            }
+            const w = block.width === 'wide' || block.width === 'medium' || block.width === 'full' ? block.width : 'medium'
+            return (
+              <WikiImageBlock
+                key={i}
+                storagePath={path}
+                caption={typeof block.caption === 'string' ? block.caption : undefined}
+                width={w}
+              />
+            )
+          }
 
           case 'law_ref':
             return (
@@ -123,14 +165,22 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion }: Props) {
                     }
                   />
                 )
-              case 'acknowledgement_footer':
-                return (
-                  <AcknowledgementFooter
-                    key={i}
-                    pageId={pageId}
-                    pageVersion={pageVersion}
-                  />
-                )
+              case 'acknowledgement_footer': {
+                const footer = <AcknowledgementFooter pageId={pageId} pageVersion={pageVersion} />
+                if (acknowledgementAnchorRef) {
+                  return (
+                    <div
+                      key={i}
+                      ref={acknowledgementAnchorRef}
+                      id="wiki-page-acknowledgement"
+                      className="wiki-ack-anchor scroll-mt-28"
+                    >
+                      {footer}
+                    </div>
+                  )
+                }
+                return <Fragment key={i}>{footer}</Fragment>
+              }
               default:
                 return (
                   <div

@@ -1,12 +1,11 @@
-/* eslint-disable react-refresh/only-export-components -- provider + hook + store in one module */
+/* eslint-disable react-refresh/only-export-components -- provider + hooks in one module */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Outlet } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
-  AcknowledgementAudience,
   AuditLedgerEntry,
+  Block,
   ComplianceReceipt,
-  ContentBlock,
   PageTemplate,
   SpaceCategory,
   WikiPage,
@@ -16,16 +15,21 @@ import type {
 } from '../types/documents'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
+import { LEGAL_COVERAGE as STATIC_LEGAL_COVERAGE, PAGE_TEMPLATES as STATIC_PAGE_TEMPLATES } from '../data/documentTemplates'
 import {
-  LEGAL_COVERAGE as STATIC_LEGAL_COVERAGE,
-  PAGE_TEMPLATES as STATIC_PAGE_TEMPLATES,
-} from '../data/documentTemplates'
+  mapWikiLedger,
+  mapWikiPage,
+  mapWikiPageVersion,
+  mapWikiReceipt,
+  mapWikiSpace,
+  mapWikiSpaceItem,
+} from '../lib/wikiDocumentsMappers'
+import {
+  hasAcknowledgedCurrentVersion,
+  maxReceiptVersionForUser,
+  userMustAcknowledgePage,
+} from '../lib/wikiCompliance'
 
-const STORAGE_KEY = 'atics-documents-v2'
-
-/** @deprecated Local demo only */
-export const DEMO_USER_ID = 'user-demo'
-/** @deprecated Local demo only */
 export const DEMO_USER_NAME = 'Demo User'
 
 type DocumentsState = {
@@ -37,9 +41,28 @@ type DocumentsState = {
   pageVersions: WikiPageVersionSnapshot[]
 }
 
-type LegalCoverageRow = { ref: string; label: string; templateIds: string[] }
+type LegalCoverageRow = { id: string; ref: string; label: string; templateIds: string[] }
 
-type OrgTemplateSetting = { templateId: string; enabled: boolean }
+export type WikiComplianceSummaryRow = {
+  id: string
+  ref: string
+  requirement: string
+  category: string
+  organization_id: string
+  covered_count: number
+  earliest_revision_due: string | null
+  has_overdue: boolean
+}
+
+export type OrgPeerProfile = {
+  id: string
+  display_name: string
+  department_id?: string | null
+  learning_metadata?: Record<string, unknown> | null
+  is_org_admin?: boolean | null
+}
+
+type OrgTemplateSetting = { templateId: string; enabled: boolean; customBlocks: Block[] | null }
 
 type OrgCustomTemplate = {
   id: string
@@ -47,35 +70,15 @@ type OrgCustomTemplate = {
   description: string
   category: SpaceCategory
   legalBasis: string[]
-  pagePayload: Omit<WikiPage, 'id' | 'spaceId' | 'createdAt' | 'updatedAt' | 'authorId' | 'version'>
+  pagePayload: Omit<WikiPage, 'id' | 'spaceId' | 'createdAt' | 'updatedAt' | 'authorId' | 'version' | 'wordCount' | 'sortOrder' | 'isPinned'>
 }
 
-function emptyLocalState(): DocumentsState {
+function emptyState(): DocumentsState {
   return { spaces: [], pages: [], auditLedger: [], receipts: [], spaceItems: [], pageVersions: [] }
 }
 
-function loadLocal(): DocumentsState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const p = JSON.parse(raw) as DocumentsState
-      return {
-        spaces: Array.isArray(p.spaces) ? p.spaces : [],
-        pages: Array.isArray(p.pages) ? p.pages : [],
-        auditLedger: Array.isArray(p.auditLedger) ? p.auditLedger : [],
-        receipts: Array.isArray(p.receipts) ? p.receipts : [],
-        spaceItems: Array.isArray((p as DocumentsState).spaceItems) ? (p as DocumentsState).spaceItems : [],
-        pageVersions: Array.isArray((p as DocumentsState).pageVersions) ? (p as DocumentsState).pageVersions : [],
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  return emptyLocalState()
-}
-
-function saveLocal(state: DocumentsState) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+function cloneBlocksSafe(blocks: Block[]): Block[] {
+  return JSON.parse(JSON.stringify(blocks)) as Block[]
 }
 
 function snapKey(orgId: string, userId: string) {
@@ -108,178 +111,6 @@ function clearSnap(orgId: string, userId: string) {
   }
 }
 
-function mapSpace(row: {
-  id: string
-  title: string
-  description: string
-  category: string
-  icon: string
-  status: string
-  created_at: string
-  updated_at: string
-}): WikiSpace {
-  return {
-    id: row.id,
-    title: row.title,
-    description: row.description ?? '',
-    category: row.category as WikiSpace['category'],
-    icon: row.icon ?? '📁',
-    status: row.status as WikiSpace['status'],
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  }
-}
-
-function mapPage(
-  row: {
-    id: string
-    space_id: string
-    title: string
-    summary: string | null
-    status: string
-    template: string
-    legal_refs: string[] | null
-    requires_acknowledgement: boolean
-    acknowledgement_audience?: string | null
-    acknowledgement_department_id?: string | null
-    next_revision_due_at?: string | null
-    revision_interval_months?: number | null
-    blocks: unknown
-    version: number
-    author_id: string | null
-    created_at: string
-    updated_at: string
-  },
-  authorFallback: string,
-): WikiPage {
-  const aud = (row.acknowledgement_audience ?? 'all_employees') as AcknowledgementAudience
-  return {
-    id: row.id,
-    spaceId: row.space_id,
-    title: row.title,
-    summary: row.summary ?? '',
-    status: row.status as WikiPage['status'],
-    template: row.template as WikiPage['template'],
-    legalRefs: row.legal_refs ?? [],
-    requiresAcknowledgement: row.requires_acknowledgement,
-    acknowledgementAudience: aud,
-    acknowledgementDepartmentId: row.acknowledgement_department_id ?? null,
-    nextRevisionDueAt: row.next_revision_due_at ?? null,
-    revisionIntervalMonths: row.revision_interval_months ?? 12,
-    blocks: (Array.isArray(row.blocks) ? row.blocks : []) as ContentBlock[],
-    version: row.version,
-    authorId: row.author_id ?? authorFallback,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  }
-}
-
-function mapSpaceItem(row: {
-  id: string
-  space_id: string
-  kind: string
-  title: string
-  file_path: string | null
-  file_name: string | null
-  mime_type: string | null
-  file_size: number | null
-  url: string | null
-  created_at: string
-}): WikiSpaceItem {
-  return {
-    id: row.id,
-    spaceId: row.space_id,
-    kind: row.kind as WikiSpaceItem['kind'],
-    title: row.title,
-    filePath: row.file_path,
-    fileName: row.file_name,
-    mimeType: row.mime_type,
-    fileSize: row.file_size,
-    url: row.url,
-    createdAt: row.created_at,
-  }
-}
-
-function mapPageVersion(row: {
-  id: string
-  page_id: string
-  version: number
-  title: string
-  summary: string | null
-  status: string
-  template: string
-  legal_refs: string[] | null
-  requires_acknowledgement: boolean
-  acknowledgement_audience?: string | null
-  acknowledgement_department_id?: string | null
-  blocks: unknown
-  next_revision_due_at?: string | null
-  revision_interval_months?: number | null
-  frozen_at: string
-}): WikiPageVersionSnapshot {
-  return {
-    id: row.id,
-    pageId: row.page_id,
-    version: row.version,
-    title: row.title,
-    summary: row.summary ?? '',
-    status: row.status,
-    template: row.template,
-    legalRefs: row.legal_refs ?? [],
-    requiresAcknowledgement: row.requires_acknowledgement,
-    acknowledgementAudience: (row.acknowledgement_audience ?? 'all_employees') as AcknowledgementAudience,
-    acknowledgementDepartmentId: row.acknowledgement_department_id ?? null,
-    blocks: (Array.isArray(row.blocks) ? row.blocks : []) as ContentBlock[],
-    nextRevisionDueAt: row.next_revision_due_at ?? null,
-    revisionIntervalMonths: row.revision_interval_months ?? 12,
-    frozenAt: row.frozen_at,
-  }
-}
-
-function mapLedger(
-  row: {
-    id: string
-    page_id: string
-    page_title: string
-    action: string
-    user_id: string
-    from_version: number | null
-    to_version: number
-    at: string
-  },
-): AuditLedgerEntry {
-  return {
-    id: row.id,
-    pageId: row.page_id,
-    pageTitle: row.page_title,
-    action: row.action as AuditLedgerEntry['action'],
-    userId: row.user_id,
-    fromVersion: row.from_version ?? undefined,
-    toVersion: row.to_version,
-    at: row.at,
-  }
-}
-
-function mapReceipt(row: {
-  id: string
-  page_id: string
-  page_title: string
-  page_version: number
-  user_id: string
-  user_name: string
-  acknowledged_at: string
-}): ComplianceReceipt {
-  return {
-    id: row.id,
-    pageId: row.page_id,
-    pageTitle: row.page_title,
-    pageVersion: row.page_version,
-    userId: row.user_id,
-    userName: row.user_name,
-    acknowledgedAt: row.acknowledged_at,
-  }
-}
-
 async function fetchAllForOrg(
   supabase: SupabaseClient,
   orgId: string,
@@ -287,7 +118,13 @@ async function fetchAllForOrg(
 ): Promise<DocumentsState> {
   const [spacesRes, pagesRes, ledgerRes, receiptsRes, itemsRes, verRes] = await Promise.all([
     supabase.from('wiki_spaces').select('*').eq('organization_id', orgId).order('created_at'),
-    supabase.from('wiki_pages').select('*').eq('organization_id', orgId),
+    supabase
+      .from('wiki_pages')
+      .select('*')
+      .eq('organization_id', orgId)
+      .order('space_id')
+      .order('sort_order', { ascending: true })
+      .order('updated_at', { ascending: false }),
     supabase.from('wiki_audit_ledger').select('*').eq('organization_id', orgId).order('at', { ascending: false }).limit(500),
     supabase.from('wiki_compliance_receipts').select('*').eq('organization_id', orgId),
     supabase.from('wiki_space_items').select('*').eq('organization_id', orgId).order('created_at', { ascending: false }),
@@ -301,98 +138,53 @@ async function fetchAllForOrg(
   if (verRes.error) throw verRes.error
 
   return {
-    spaces: (spacesRes.data ?? []).map(mapSpace),
-    pages: (pagesRes.data ?? []).map((r) => mapPage(r as Parameters<typeof mapPage>[0], authorFallback)),
-    auditLedger: (ledgerRes.data ?? []).map(mapLedger),
-    receipts: (receiptsRes.data ?? []).map(mapReceipt),
-    spaceItems: (itemsRes.data ?? []).map((r) => mapSpaceItem(r as Parameters<typeof mapSpaceItem>[0])),
-    pageVersions: (verRes.data ?? []).map((r) => mapPageVersion(r as Parameters<typeof mapPageVersion>[0])),
+    spaces: (spacesRes.data ?? []).map(mapWikiSpace),
+    pages: (pagesRes.data ?? []).map((r) => mapWikiPage(r as Parameters<typeof mapWikiPage>[0], authorFallback)),
+    auditLedger: (ledgerRes.data ?? []).map(mapWikiLedger),
+    receipts: (receiptsRes.data ?? []).map(mapWikiReceipt),
+    spaceItems: (itemsRes.data ?? []).map((r) => mapWikiSpaceItem(r as Parameters<typeof mapWikiSpaceItem>[0])),
+    pageVersions: (verRes.data ?? []).map((r) => mapWikiPageVersion(r as Parameters<typeof mapWikiPageVersion>[0])),
   }
-}
-
-function userMustAcknowledgePage(
-  page: WikiPage,
-  ctx: {
-    isOrgAdmin: boolean
-    departmentId: string | null | undefined
-    learningMetadata: Record<string, unknown> | null | undefined
-  },
-): boolean {
-  if (!page.requiresAcknowledgement) return false
-  const aud: AcknowledgementAudience = page.acknowledgementAudience ?? 'all_employees'
-  if (aud === 'all_employees') return true
-  if (aud === 'leaders_only') return ctx.isOrgAdmin === true
-  if (aud === 'safety_reps_only') {
-    return ctx.learningMetadata?.is_safety_rep === true
-  }
-  if (aud === 'department') {
-    if (!page.acknowledgementDepartmentId) return true
-    return ctx.departmentId === page.acknowledgementDepartmentId
-  }
-  return true
 }
 
 function useDocumentsStore() {
   const { supabase, organization, user, profile, isAdmin: isOrgAdminFromPerms } = useOrgSetupContext()
   const orgId = organization?.id
   const userId = user?.id
-  const authorFallback = userId ?? DEMO_USER_ID
+  const authorFallback = userId ?? ''
 
-  const useRemote = !!(supabase && orgId && userId)
-  const initialSnap = useRemote && orgId && userId ? readSnap(orgId, userId) : null
+  const ready = !!(supabase && orgId && userId)
+  const initialSnap = ready ? readSnap(orgId, userId) : null
 
-  const [localState, setLocalState] = useState<DocumentsState>(() => loadLocal())
-  const [remoteState, setRemoteState] = useState<DocumentsState>(
-    () => initialSnap ?? emptyLocalState(),
-  )
+  const [remoteState, setRemoteState] = useState<DocumentsState>(() => initialSnap ?? emptyState())
   const [legalCoverage, setLegalCoverage] = useState<LegalCoverageRow[]>([])
+  const [complianceSummary, setComplianceSummary] = useState<WikiComplianceSummaryRow[]>([])
+  const [coverageOwnerByItemId, setCoverageOwnerByItemId] = useState<Record<string, string | null>>({})
+  const [orgPeerProfiles, setOrgPeerProfiles] = useState<OrgPeerProfile[]>([])
   const [systemTemplates, setSystemTemplates] = useState<
     { id: string; label: string; description: string; category: SpaceCategory; legalBasis: string[]; pagePayload: PageTemplate['page'] }[]
   >([])
   const [orgTemplateSettings, setOrgTemplateSettings] = useState<OrgTemplateSetting[]>([])
   const [orgCustomTemplates, setOrgCustomTemplates] = useState<OrgCustomTemplate[]>([])
-  const [loading, setLoading] = useState(useRemote)
+  const [loading, setLoading] = useState(ready)
   const [error, setError] = useState<string | null>(null)
-  /** Deep-link / stale cache: fetch one page by id when missing from state */
   const [pageHydrate, setPageHydrate] = useState<{ loading: boolean; error: string | null }>({
     loading: false,
     error: null,
   })
 
-  const state = useRemote ? remoteState : localState
-
   const isOrgAdmin = profile?.is_org_admin === true || isOrgAdminFromPerms
 
-  const ensurePageLoaded = useCallback(
-    async (pageId: string | undefined) => {
-      if (!pageId) return
-      if (!useRemote || !supabase || !orgId || !userId) return
-      setPageHydrate({ loading: true, error: null })
-      try {
-        const { data, error: qe } = await supabase
-          .from('wiki_pages')
-          .select('*')
-          .eq('id', pageId)
-          .eq('organization_id', orgId)
-          .maybeSingle()
-        if (qe) throw qe
-        if (!data) {
-          setPageHydrate({ loading: false, error: null })
-          return
-        }
-        const mapped = mapPage(data as Parameters<typeof mapPage>[0], authorFallback)
-        setRemoteState((s) => {
-          if (s.pages.some((p) => p.id === mapped.id)) return s
-          const next = { ...s, pages: [...s.pages, mapped] }
-          writeSnap(orgId, userId, next)
-          return next
-        })
-        setPageHydrate({ loading: false, error: null })
-      } catch (e) {
-        setPageHydrate({ loading: false, error: getSupabaseErrorMessage(e) })
-      }
+  const mergeState = useCallback(
+    (fn: (prev: DocumentsState) => DocumentsState) => {
+      if (!orgId || !userId) return
+      setRemoteState((prev) => {
+        const next = fn(prev)
+        writeSnap(orgId, userId, next)
+        return next
+      })
     },
-    [useRemote, supabase, orgId, userId, authorFallback],
+    [orgId, userId],
   )
 
   const refreshDocuments = useCallback(async () => {
@@ -401,32 +193,52 @@ function useDocumentsStore() {
     setError(null)
     try {
       await supabase.rpc('wiki_ensure_org_defaults')
-      const [
-        covRes,
-        tplRes,
-        setRes,
-        customRes,
-        data,
-      ] = await Promise.all([
-        supabase.from('wiki_legal_coverage_items').select('ref, label, template_ids').order('ref'),
+      const [covRes, sumRes, assignRes, peersRes, tplRes, setRes, customRes, data] = await Promise.all([
+        supabase.from('wiki_legal_coverage_items').select('id, ref, label, template_ids').order('ref'),
+        supabase.from('wiki_compliance_summary').select('*').eq('organization_id', orgId),
+        supabase.from('wiki_legal_coverage_item_assignments').select('coverage_item_id, owner_id').eq('organization_id', orgId),
+        supabase
+          .from('profiles')
+          .select('id, display_name, department_id, learning_metadata, is_org_admin')
+          .eq('organization_id', orgId)
+          .order('display_name'),
         supabase
           .from('document_system_templates')
           .select('id, label, description, category, legal_basis, page_payload, sort_order')
           .order('sort_order', { ascending: true }),
-        supabase.from('document_org_template_settings').select('template_id, enabled').eq('organization_id', orgId),
+        supabase.from('document_org_template_settings').select('template_id, enabled, custom_blocks').eq('organization_id', orgId),
         supabase.from('document_org_templates').select('*').eq('organization_id', orgId).order('created_at'),
         fetchAllForOrg(supabase, orgId, authorFallback),
       ])
       if (covRes.error) throw covRes.error
+      if (sumRes.error) throw sumRes.error
+      if (assignRes.error) throw assignRes.error
+      if (peersRes.error) throw peersRes.error
       if (tplRes.error) throw tplRes.error
       if (setRes.error) throw setRes.error
       if (customRes.error) throw customRes.error
 
       setLegalCoverage(
         (covRes.data ?? []).map((r) => ({
+          id: r.id as string,
           ref: r.ref,
           label: r.label,
           templateIds: (r.template_ids as string[]) ?? [],
+        })),
+      )
+      setComplianceSummary((sumRes.data ?? []) as WikiComplianceSummaryRow[])
+      const ownMap: Record<string, string | null> = {}
+      for (const row of assignRes.data ?? []) {
+        ownMap[(row as { coverage_item_id: string }).coverage_item_id] = (row as { owner_id: string | null }).owner_id
+      }
+      setCoverageOwnerByItemId(ownMap)
+      setOrgPeerProfiles(
+        (peersRes.data ?? []).map((p) => ({
+          id: p.id as string,
+          display_name: (p.display_name as string) ?? 'Bruker',
+          department_id: (p as { department_id?: string | null }).department_id ?? null,
+          learning_metadata: (p as { learning_metadata?: Record<string, unknown> | null }).learning_metadata ?? null,
+          is_org_admin: (p as { is_org_admin?: boolean | null }).is_org_admin ?? null,
         })),
       )
       setSystemTemplates(
@@ -440,7 +252,11 @@ function useDocumentsStore() {
         })),
       )
       setOrgTemplateSettings(
-        (setRes.data ?? []).map((r) => ({ templateId: r.template_id, enabled: r.enabled })),
+        (setRes.data ?? []).map((r) => ({
+          templateId: r.template_id,
+          enabled: r.enabled,
+          customBlocks: Array.isArray(r.custom_blocks) ? (r.custom_blocks as Block[]) : null,
+        })),
       )
       setOrgCustomTemplates(
         (customRes.data ?? []).map((r) => ({
@@ -456,43 +272,77 @@ function useDocumentsStore() {
       writeSnap(orgId, userId, data)
     } catch (e) {
       setError(getSupabaseErrorMessage(e))
-      if (orgId && userId) clearSnap(orgId, userId)
-      setRemoteState(emptyLocalState())
+      clearSnap(orgId, userId)
+      setRemoteState(emptyState())
     } finally {
       setLoading(false)
     }
   }, [supabase, orgId, userId, authorFallback])
 
   useEffect(() => {
-    if (!useRemote) {
+    if (!ready) {
       setLoading(false)
+      setError(ready ? null : 'Logg inn med organisasjon for å bruke dokumenter.')
+      setRemoteState(emptyState())
       return
     }
     void refreshDocuments()
-  }, [useRemote, refreshDocuments])
+  }, [ready, refreshDocuments])
 
-  useEffect(() => {
-    if (!useRemote) {
-      saveLocal(localState)
-    }
-  }, [useRemote, localState])
+  const ensurePageLoaded = useCallback(
+    async (pageId: string | undefined) => {
+      if (!pageId || !supabase || !orgId || !userId) return
+      setPageHydrate({ loading: true, error: null })
+      try {
+        const { data, error: qe } = await supabase
+          .from('wiki_pages')
+          .select('*')
+          .eq('id', pageId)
+          .eq('organization_id', orgId)
+          .maybeSingle()
+        if (qe) throw qe
+        if (!data) {
+          setPageHydrate({ loading: false, error: null })
+          return
+        }
+        const mapped = mapWikiPage(data as Parameters<typeof mapWikiPage>[0], authorFallback)
+        mergeState((s) => {
+          if (s.pages.some((p) => p.id === mapped.id)) return s
+          return { ...s, pages: [...s.pages, mapped] }
+        })
+        setPageHydrate({ loading: false, error: null })
+      } catch (e) {
+        setPageHydrate({ loading: false, error: getSupabaseErrorMessage(e) })
+      }
+    },
+    [supabase, orgId, userId, authorFallback, mergeState],
+  )
 
   const pageTemplates: PageTemplate[] = useMemo(() => {
-    if (!useRemote) return STATIC_PAGE_TEMPLATES
+    if (!ready) return STATIC_PAGE_TEMPLATES
     const enabled = (tid: string) => {
       const row = orgTemplateSettings.find((s) => s.templateId === tid)
       return row ? row.enabled : true
     }
     const system: PageTemplate[] = systemTemplates
       .filter((t) => enabled(t.id))
-      .map((t) => ({
-        id: t.id,
-        label: t.label,
-        description: t.description,
-        legalBasis: t.legalBasis,
-        category: t.category,
-        page: t.pagePayload,
-      }))
+      .map((t) => {
+        const row = orgTemplateSettings.find((s) => s.templateId === t.id)
+        const custom = row?.customBlocks
+        const pagePayload = t.pagePayload as PageTemplate['page']
+        const page =
+          custom && custom.length > 0
+            ? { ...pagePayload, blocks: cloneBlocksSafe(custom) }
+            : pagePayload
+        return {
+          id: t.id,
+          label: t.label,
+          description: t.description,
+          legalBasis: t.legalBasis,
+          category: t.category,
+          page,
+        }
+      })
     const custom: PageTemplate[] = orgCustomTemplates.map((t) => ({
       id: t.id,
       label: t.label,
@@ -502,23 +352,56 @@ function useDocumentsStore() {
       page: t.pagePayload,
     }))
     return [...system, ...custom]
-  }, [useRemote, systemTemplates, orgTemplateSettings, orgCustomTemplates])
+  }, [ready, systemTemplates, orgTemplateSettings, orgCustomTemplates])
 
   const setSystemTemplateEnabled = useCallback(
     async (templateId: string, enabled: boolean) => {
       if (!supabase || !orgId) return
+      const existing = orgTemplateSettings.find((x) => x.templateId === templateId)
       const { error: e } = await supabase.from('document_org_template_settings').upsert(
-        { organization_id: orgId, template_id: templateId, enabled },
+        {
+          organization_id: orgId,
+          template_id: templateId,
+          enabled,
+          custom_blocks: existing?.customBlocks ?? null,
+        },
         { onConflict: 'organization_id,template_id' },
       )
       if (e) throw e
       setOrgTemplateSettings((prev) => {
         const next = prev.filter((x) => x.templateId !== templateId)
-        next.push({ templateId, enabled })
+        next.push({ templateId, enabled, customBlocks: existing?.customBlocks ?? null })
         return next
       })
     },
-    [supabase, orgId],
+    [supabase, orgId, orgTemplateSettings],
+  )
+
+  const saveSystemTemplateCustomBlocks = useCallback(
+    async (templateId: string, blocks: Block[]) => {
+      if (!supabase || !orgId) throw new Error('Ikke tilkoblet')
+      const existing = orgTemplateSettings.find((x) => x.templateId === templateId)
+      const payload = {
+        organization_id: orgId,
+        template_id: templateId,
+        enabled: existing?.enabled ?? true,
+        custom_blocks: blocks.length > 0 ? blocks : null,
+      }
+      const { error: e } = await supabase.from('document_org_template_settings').upsert(payload, {
+        onConflict: 'organization_id,template_id',
+      })
+      if (e) throw e
+      setOrgTemplateSettings((prev) => {
+        const next = prev.filter((x) => x.templateId !== templateId)
+        next.push({
+          templateId,
+          enabled: existing?.enabled ?? true,
+          customBlocks: blocks.length > 0 ? cloneBlocksSafe(blocks) : null,
+        })
+        return next
+      })
+    },
+    [supabase, orgId, orgTemplateSettings],
   )
 
   const saveOrgCustomTemplate = useCallback(
@@ -543,10 +426,26 @@ function useDocumentsStore() {
       }
       const { error: e } = await supabase.from('document_org_templates').upsert(row, { onConflict: 'id' })
       if (e) throw e
-      await refreshDocuments()
+      const { data: rowOut, error: selErr } = await supabase.from('document_org_templates').select('*').eq('id', id).single()
+      if (selErr) throw selErr
+      const mapped = {
+        id: rowOut.id,
+        label: rowOut.label,
+        description: rowOut.description ?? '',
+        category: rowOut.category as SpaceCategory,
+        legalBasis: (rowOut.legal_basis as string[]) ?? [],
+        pagePayload: rowOut.page_payload as OrgCustomTemplate['pagePayload'],
+      }
+      setOrgCustomTemplates((prev) => {
+        const i = prev.findIndex((x) => x.id === id)
+        if (i < 0) return [mapped, ...prev]
+        const copy = [...prev]
+        copy[i] = mapped
+        return copy
+      })
       return id
     },
-    [supabase, orgId, userId, refreshDocuments],
+    [supabase, orgId, userId],
   )
 
   const deleteOrgCustomTemplate = useCallback(
@@ -554,104 +453,71 @@ function useDocumentsStore() {
       if (!supabase || !orgId) return
       const { error: e } = await supabase.from('document_org_templates').delete().eq('id', id).eq('organization_id', orgId)
       if (e) throw e
-      await refreshDocuments()
+      setOrgCustomTemplates((prev) => prev.filter((t) => t.id !== id))
     },
-    [supabase, orgId, refreshDocuments],
-  )
-
-  const ledgerEntryLocal = useCallback(
-    (page: WikiPage, action: AuditLedgerEntry['action'], fromVersion?: number): AuditLedgerEntry => ({
-      id: crypto.randomUUID(),
-      pageId: page.id,
-      pageTitle: page.title,
-      action,
-      userId: authorFallback,
-      fromVersion,
-      toVersion: page.version,
-      at: new Date().toISOString(),
-    }),
-    [authorFallback],
-  )
-
-  const createSpace = useCallback(
-    async (title: string, description: string, category: WikiSpace['category'], icon: string) => {
-      const now = new Date().toISOString()
-      if (useRemote && supabase && orgId && userId) {
-        const id = crypto.randomUUID()
-        const row = {
-          id,
-          organization_id: orgId,
-          title: title.trim(),
-          description: description.trim(),
-          category,
-          icon,
-          status: 'active' as const,
-        }
-        const { data, error: e } = await supabase.from('wiki_spaces').insert(row).select('*').single()
-        if (e) throw e
-        const space = mapSpace(data as Parameters<typeof mapSpace>[0])
-        setRemoteState((s) => {
-          const next = { ...s, spaces: [...s.spaces, space] }
-          writeSnap(orgId, userId, next)
-          return next
-        })
-        return space
-      }
-      const space: WikiSpace = {
-        id: crypto.randomUUID(),
-        title: title.trim(),
-        description: description.trim(),
-        category,
-        icon,
-        status: 'active',
-        createdAt: now,
-        updatedAt: now,
-      }
-      setLocalState((s) => ({ ...s, spaces: [...s.spaces, space] }))
-      return space
-    },
-    [useRemote, supabase, orgId, userId],
-  )
-
-  const updateSpace = useCallback(
-    async (id: string, patch: Partial<WikiSpace>) => {
-      if (useRemote && supabase && orgId && userId) {
-        const dbPatch: Record<string, unknown> = {}
-        if (patch.title !== undefined) dbPatch.title = patch.title
-        if (patch.description !== undefined) dbPatch.description = patch.description
-        if (patch.category !== undefined) dbPatch.category = patch.category
-        if (patch.icon !== undefined) dbPatch.icon = patch.icon
-        if (patch.status !== undefined) dbPatch.status = patch.status
-        const { error: e } = await supabase.from('wiki_spaces').update(dbPatch).eq('id', id).eq('organization_id', orgId)
-        if (e) throw e
-        await refreshDocuments()
-        return
-      }
-      setLocalState((s) => ({
-        ...s,
-        spaces: s.spaces.map((sp) =>
-          sp.id === id ? { ...sp, ...patch, updatedAt: new Date().toISOString() } : sp,
-        ),
-      }))
-    },
-    [useRemote, supabase, orgId, userId, refreshDocuments],
+    [supabase, orgId],
   )
 
   const insertLedgerRemote = useCallback(
     async (page: WikiPage, action: AuditLedgerEntry['action'], fromVersion?: number) => {
       if (!supabase || !orgId || !userId) return
-      const { error: e } = await supabase.from('wiki_audit_ledger').insert({
-        organization_id: orgId,
-        page_id: page.id,
-        page_title: page.title,
-        action,
-        user_id: userId,
-        from_version: fromVersion ?? null,
-        to_version: page.version,
-      })
+      const { data: ins, error: e } = await supabase
+        .from('wiki_audit_ledger')
+        .insert({
+          organization_id: orgId,
+          page_id: page.id,
+          page_title: page.title,
+          action,
+          user_id: userId,
+          from_version: fromVersion ?? null,
+          to_version: page.version,
+        })
+        .select('*')
+        .single()
       if (e) throw e
+      const entry = mapWikiLedger(ins as Parameters<typeof mapWikiLedger>[0])
+      mergeState((s) => ({ ...s, auditLedger: [entry, ...s.auditLedger] }))
     },
-    [supabase, orgId, userId],
+    [supabase, orgId, userId, mergeState],
+  )
+
+  const createSpace = useCallback(
+    async (title: string, description: string, category: WikiSpace['category'], icon: string) => {
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const id = crypto.randomUUID()
+      const row = {
+        id,
+        organization_id: orgId,
+        title: title.trim(),
+        description: description.trim(),
+        category,
+        icon,
+        status: 'active' as const,
+      }
+      const { data, error: e } = await supabase.from('wiki_spaces').insert(row).select('*').single()
+      if (e) throw e
+      const space = mapWikiSpace(data as Parameters<typeof mapWikiSpace>[0])
+      mergeState((s) => ({ ...s, spaces: [...s.spaces, space] }))
+      return space
+    },
+    [supabase, orgId, userId, mergeState],
+  )
+
+  const updateSpace = useCallback(
+    async (id: string, patch: Partial<WikiSpace>) => {
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const dbPatch: Record<string, unknown> = {}
+      if (patch.title !== undefined) dbPatch.title = patch.title
+      if (patch.description !== undefined) dbPatch.description = patch.description
+      if (patch.category !== undefined) dbPatch.category = patch.category
+      if (patch.icon !== undefined) dbPatch.icon = patch.icon
+      if (patch.status !== undefined) dbPatch.status = patch.status
+      const { data, error: e } = await supabase.from('wiki_spaces').update(dbPatch).eq('id', id).eq('organization_id', orgId).select('*').single()
+      if (e) throw e
+      const space = mapWikiSpace(data as Parameters<typeof mapWikiSpace>[0])
+      mergeState((s) => ({ ...s, spaces: s.spaces.map((sp) => (sp.id === id ? space : sp)) }))
+    },
+    [supabase, orgId, userId, mergeState],
   )
 
   const createPage = useCallback(
@@ -659,7 +525,7 @@ function useDocumentsStore() {
       spaceId: string,
       title: string,
       template: WikiPage['template'] = 'standard',
-      blocks: ContentBlock[] = [],
+      blocks: Block[] = [],
       opts?: Partial<
         Pick<
           WikiPage,
@@ -670,64 +536,102 @@ function useDocumentsStore() {
           | 'acknowledgementDepartmentId'
           | 'revisionIntervalMonths'
           | 'nextRevisionDueAt'
+          | 'templateSourceId'
         >
       >,
     ) => {
-      const now = new Date().toISOString()
-      if (useRemote && supabase && orgId && userId) {
-        const id = crypto.randomUUID()
-        const pageRow = {
-          id,
-          organization_id: orgId,
-          space_id: spaceId,
-          title: title.trim(),
-          summary: opts?.summary ?? '',
-          status: 'draft' as const,
-          template,
-          legal_refs: opts?.legalRefs ?? [],
-          requires_acknowledgement: opts?.requiresAcknowledgement ?? false,
-          acknowledgement_audience: opts?.acknowledgementAudience ?? 'all_employees',
-          acknowledgement_department_id: opts?.acknowledgementDepartmentId ?? null,
-          revision_interval_months: opts?.revisionIntervalMonths ?? 12,
-          blocks: blocks as unknown as Record<string, unknown>[],
-          version: 1,
-          author_id: userId,
-        }
-        const { data, error: pe } = await supabase.from('wiki_pages').insert(pageRow).select('*').single()
-        if (pe) throw pe
-        const page = mapPage(data as Parameters<typeof mapPage>[0], authorFallback)
-        await insertLedgerRemote(page, 'created')
-        await refreshDocuments()
-        return page
-      }
-      const page: WikiPage = {
-        id: crypto.randomUUID(),
-        spaceId,
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const id = crypto.randomUUID()
+      const maxSort = remoteState.pages.filter((p) => p.spaceId === spaceId).reduce((m, p) => Math.max(m, p.sortOrder), -1)
+      const pageRow: Record<string, unknown> = {
+        id,
+        organization_id: orgId,
+        space_id: spaceId,
         title: title.trim(),
         summary: opts?.summary ?? '',
-        status: 'draft',
+        status: 'draft' as const,
         template,
-        legalRefs: opts?.legalRefs ?? [],
-        requiresAcknowledgement: opts?.requiresAcknowledgement ?? false,
-        acknowledgementAudience: opts?.acknowledgementAudience ?? 'all_employees',
-        acknowledgementDepartmentId: opts?.acknowledgementDepartmentId ?? null,
-        revisionIntervalMonths: opts?.revisionIntervalMonths ?? 12,
-        nextRevisionDueAt: opts?.nextRevisionDueAt ?? null,
-        blocks,
+        legal_refs: opts?.legalRefs ?? [],
+        requires_acknowledgement: opts?.requiresAcknowledgement ?? false,
+        acknowledgement_audience: opts?.acknowledgementAudience ?? 'all_employees',
+        acknowledgement_department_id: opts?.acknowledgementDepartmentId ?? null,
+        revision_interval_months: opts?.revisionIntervalMonths ?? 12,
+        blocks: blocks as unknown as Record<string, unknown>[],
         version: 1,
-        createdAt: now,
-        updatedAt: now,
-        authorId: authorFallback,
+        author_id: userId,
+        sort_order: maxSort + 1,
       }
-      const entry = ledgerEntryLocal(page, 'created')
-      setLocalState((s) => ({
-        ...s,
-        pages: [...s.pages, page],
-        auditLedger: [entry, ...s.auditLedger],
-      }))
+      if (opts?.templateSourceId) pageRow.template_source_id = opts.templateSourceId
+      const { data, error: pe } = await supabase.from('wiki_pages').insert(pageRow).select('*').single()
+      if (pe) throw pe
+      const page = mapWikiPage(data as Parameters<typeof mapWikiPage>[0], authorFallback)
+      await insertLedgerRemote(page, 'created')
+      mergeState((s) => ({ ...s, pages: [page, ...s.pages] }))
       return page
     },
-    [useRemote, supabase, orgId, userId, authorFallback, insertLedgerRemote, refreshDocuments, ledgerEntryLocal],
+    [supabase, orgId, userId, authorFallback, insertLedgerRemote, mergeState, remoteState.pages],
+  )
+
+  const searchWikiPages = useCallback(
+    async (query: string) => {
+      if (!supabase || !orgId) return [] as { id: string; space_id: string; title: string; summary: string; status: string; updated_at: string }[]
+      const q = query.trim()
+      if (!q) return []
+      const { data, error: e } = await supabase
+        .from('wiki_pages')
+        .select('id, space_id, title, summary, status, updated_at')
+        .eq('organization_id', orgId)
+        .textSearch('search_vector', q, { type: 'websearch', config: 'norwegian' })
+        .limit(40)
+      if (e) throw e
+      return (data ?? []) as { id: string; space_id: string; title: string; summary: string; status: string; updated_at: string }[]
+    },
+    [supabase, orgId],
+  )
+
+  const reorderPagesInSpace = useCallback(
+    async (spaceId: string, orderedPageIds: string[]) => {
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const now = new Date().toISOString()
+      for (let i = 0; i < orderedPageIds.length; i++) {
+        const pid = orderedPageIds[i]!
+        const { error: e } = await supabase
+          .from('wiki_pages')
+          .update({ sort_order: i, updated_at: now })
+          .eq('id', pid)
+          .eq('organization_id', orgId)
+          .eq('space_id', spaceId)
+        if (e) throw e
+      }
+      mergeState((s) => ({
+        ...s,
+        pages: s.pages.map((p) => {
+          const idx = orderedPageIds.indexOf(p.id)
+          if (p.spaceId !== spaceId || idx < 0) return p
+          return { ...p, sortOrder: idx }
+        }),
+      }))
+    },
+    [supabase, orgId, userId, mergeState],
+  )
+
+  const movePageToSpace = useCallback(
+    async (pageId: string, newSpaceId: string) => {
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const inTarget = remoteState.pages.filter((p) => p.spaceId === newSpaceId)
+      const maxSort = inTarget.reduce((m, p) => Math.max(m, p.sortOrder), -1)
+      const { data, error: e } = await supabase
+        .from('wiki_pages')
+        .update({ space_id: newSpaceId, sort_order: maxSort + 1, updated_at: new Date().toISOString() })
+        .eq('id', pageId)
+        .eq('organization_id', orgId)
+        .select('*')
+        .single()
+      if (e) throw e
+      const updated = mapWikiPage(data as Parameters<typeof mapWikiPage>[0], authorFallback)
+      mergeState((s) => ({ ...s, pages: s.pages.map((p) => (p.id === pageId ? updated : p)) }))
+    },
+    [supabase, orgId, userId, remoteState.pages, authorFallback, mergeState],
   )
 
   const updatePage = useCallback(
@@ -738,6 +642,7 @@ function useDocumentsStore() {
           WikiPage,
           | 'title'
           | 'summary'
+          | 'status'
           | 'blocks'
           | 'legalRefs'
           | 'requiresAcknowledgement'
@@ -746,198 +651,139 @@ function useDocumentsStore() {
           | 'acknowledgementDepartmentId'
           | 'revisionIntervalMonths'
           | 'nextRevisionDueAt'
+          | 'spaceId'
+          | 'sortOrder'
+          | 'isPinned'
         >
       >,
     ) => {
-      if (useRemote && supabase && orgId && userId) {
-        const old = remoteState.pages.find((p) => p.id === id)
-        if (!old) return
-        const dbPatch: Record<string, unknown> = { updated_at: new Date().toISOString() }
-        if (patch.title !== undefined) dbPatch.title = patch.title
-        if (patch.summary !== undefined) dbPatch.summary = patch.summary
-        if (patch.blocks !== undefined) dbPatch.blocks = patch.blocks
-        if (patch.legalRefs !== undefined) dbPatch.legal_refs = patch.legalRefs
-        if (patch.requiresAcknowledgement !== undefined) {
-          dbPatch.requires_acknowledgement = patch.requiresAcknowledgement
-        }
-        if (patch.template !== undefined) dbPatch.template = patch.template
-        if (patch.acknowledgementAudience !== undefined) {
-          dbPatch.acknowledgement_audience = patch.acknowledgementAudience
-        }
-        if (patch.acknowledgementDepartmentId !== undefined) {
-          dbPatch.acknowledgement_department_id = patch.acknowledgementDepartmentId
-        }
-        if (patch.revisionIntervalMonths !== undefined) {
-          dbPatch.revision_interval_months = patch.revisionIntervalMonths
-        }
-        if (patch.nextRevisionDueAt !== undefined) {
-          dbPatch.next_revision_due_at = patch.nextRevisionDueAt
-        }
-        const { error: e } = await supabase.from('wiki_pages').update(dbPatch).eq('id', id).eq('organization_id', orgId)
-        if (e) throw e
-        await refreshDocuments()
-        return
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const dbPatch: Record<string, unknown> = { updated_at: new Date().toISOString() }
+      if (patch.title !== undefined) dbPatch.title = patch.title
+      if (patch.summary !== undefined) dbPatch.summary = patch.summary
+      if (patch.status !== undefined) dbPatch.status = patch.status
+      if (patch.blocks !== undefined) dbPatch.blocks = patch.blocks
+      if (patch.legalRefs !== undefined) dbPatch.legal_refs = patch.legalRefs
+      if (patch.requiresAcknowledgement !== undefined) {
+        dbPatch.requires_acknowledgement = patch.requiresAcknowledgement
       }
-      setLocalState((s) => {
-        const old = s.pages.find((p) => p.id === id)
-        if (!old) return s
-        const next: WikiPage = {
-          ...old,
-          ...patch,
-          updatedAt: new Date().toISOString(),
-        }
-        return {
-          ...s,
-          pages: s.pages.map((p) => (p.id === id ? next : p)),
-        }
-      })
+      if (patch.template !== undefined) dbPatch.template = patch.template
+      if (patch.acknowledgementAudience !== undefined) {
+        dbPatch.acknowledgement_audience = patch.acknowledgementAudience
+      }
+      if (patch.acknowledgementDepartmentId !== undefined) {
+        dbPatch.acknowledgement_department_id = patch.acknowledgementDepartmentId
+      }
+      if (patch.revisionIntervalMonths !== undefined) {
+        dbPatch.revision_interval_months = patch.revisionIntervalMonths
+      }
+      if (patch.nextRevisionDueAt !== undefined) {
+        dbPatch.next_revision_due_at = patch.nextRevisionDueAt
+      }
+      if (patch.spaceId !== undefined) dbPatch.space_id = patch.spaceId
+      if (patch.sortOrder !== undefined) dbPatch.sort_order = patch.sortOrder
+      if (patch.isPinned !== undefined) dbPatch.is_pinned = patch.isPinned
+      const { data, error: e } = await supabase.from('wiki_pages').update(dbPatch).eq('id', id).eq('organization_id', orgId).select('*').single()
+      if (e) throw e
+      const updated = mapWikiPage(data as Parameters<typeof mapWikiPage>[0], authorFallback)
+      mergeState((s) => ({ ...s, pages: s.pages.map((p) => (p.id === id ? updated : p)) }))
     },
-    [useRemote, supabase, orgId, userId, remoteState.pages, refreshDocuments],
+    [supabase, orgId, userId, authorFallback, mergeState],
   )
 
   const publishPage = useCallback(
-    async (id: string) => {
-      if (useRemote && supabase && orgId && userId) {
-        const old = remoteState.pages.find((p) => p.id === id)
-        if (!old) return
-        const fromVersion = old.version
-        const nextVersion = old.version + 1
-        const interval = old.revisionIntervalMonths ?? 12
-        const nextDue = new Date()
-        nextDue.setMonth(nextDue.getMonth() + interval)
+    async (id: string, opts?: { minorRevision?: boolean }) => {
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const old = remoteState.pages.find((p) => p.id === id)
+      if (!old) return
+      const fromVersion = old.version
+      const nextVersion = old.version + 1
+      const interval = old.revisionIntervalMonths ?? 12
+      const nextDue = new Date()
+      nextDue.setMonth(nextDue.getMonth() + interval)
+      const isMinor = opts?.minorRevision === true
 
-        const snap = {
-          organization_id: orgId,
-          page_id: old.id,
-          version: old.version,
-          title: old.title,
-          summary: old.summary ?? '',
-          status: old.status,
-          template: old.template,
-          legal_refs: old.legalRefs,
-          requires_acknowledgement: old.requiresAcknowledgement,
-          acknowledgement_audience: old.acknowledgementAudience ?? 'all_employees',
-          acknowledgement_department_id: old.acknowledgementDepartmentId ?? null,
-          blocks: old.blocks as unknown as Record<string, unknown>[],
-          next_revision_due_at: old.nextRevisionDueAt,
-          revision_interval_months: interval,
-          created_by: userId,
-        }
-        const { error: snapErr } = await supabase.from('wiki_page_versions').insert(snap)
-        if (snapErr) throw snapErr
-
-        const { data, error: e } = await supabase
-          .from('wiki_pages')
-          .update({
-            status: 'published',
-            version: nextVersion,
-            next_revision_due_at: nextDue.toISOString(),
-          })
-          .eq('id', id)
-          .eq('organization_id', orgId)
-          .select('*')
-          .single()
-        if (e) throw e
-        const page = mapPage(data as Parameters<typeof mapPage>[0], authorFallback)
-        await insertLedgerRemote(page, 'published', fromVersion)
-        await refreshDocuments()
-        return
+      const snap = {
+        organization_id: orgId,
+        page_id: old.id,
+        version: old.version,
+        title: old.title,
+        summary: old.summary ?? '',
+        status: old.status,
+        template: old.template,
+        legal_refs: old.legalRefs,
+        requires_acknowledgement: old.requiresAcknowledgement,
+        acknowledgement_audience: old.acknowledgementAudience ?? 'all_employees',
+        acknowledgement_department_id: old.acknowledgementDepartmentId ?? null,
+        blocks: old.blocks as unknown as Record<string, unknown>[],
+        next_revision_due_at: old.nextRevisionDueAt,
+        revision_interval_months: interval,
+        created_by: userId,
+        is_minor_revision: isMinor,
       }
-      setLocalState((s) => {
-        const old = s.pages.find((p) => p.id === id)
-        if (!old) return s
-        const fromVersion = old.version
-        const interval = old.revisionIntervalMonths ?? 12
-        const nextDue = new Date()
-        nextDue.setMonth(nextDue.getMonth() + interval)
-        const snap: WikiPageVersionSnapshot = {
-          id: crypto.randomUUID(),
-          pageId: old.id,
-          version: old.version,
-          title: old.title,
-          summary: old.summary ?? '',
-          status: old.status,
-          template: old.template,
-          legalRefs: old.legalRefs,
-          requiresAcknowledgement: old.requiresAcknowledgement,
-          acknowledgementAudience: old.acknowledgementAudience ?? 'all_employees',
-          acknowledgementDepartmentId: old.acknowledgementDepartmentId ?? null,
-          blocks: old.blocks,
-          nextRevisionDueAt: old.nextRevisionDueAt ?? null,
-          revisionIntervalMonths: interval,
-          frozenAt: new Date().toISOString(),
-        }
-        const next: WikiPage = {
-          ...old,
+      const { data: verRow, error: snapErr } = await supabase.from('wiki_page_versions').insert(snap).select('*').single()
+      if (snapErr) throw snapErr
+
+      const { data, error: e } = await supabase
+        .from('wiki_pages')
+        .update({
           status: 'published',
-          version: old.version + 1,
-          nextRevisionDueAt: nextDue.toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-        const entry = ledgerEntryLocal(next, 'published', fromVersion)
-        return {
-          ...s,
-          pages: s.pages.map((p) => (p.id === id ? next : p)),
-          pageVersions: [snap, ...s.pageVersions],
-          auditLedger: [entry, ...s.auditLedger],
-        }
-      })
+          version: nextVersion,
+          next_revision_due_at: nextDue.toISOString(),
+        })
+        .eq('id', id)
+        .eq('organization_id', orgId)
+        .select('*')
+        .single()
+      if (e) throw e
+      const page = mapWikiPage(data as Parameters<typeof mapWikiPage>[0], authorFallback)
+      await insertLedgerRemote(page, 'published', fromVersion)
+      const snapMapped = mapWikiPageVersion(verRow as Parameters<typeof mapWikiPageVersion>[0])
+      mergeState((s) => ({
+        ...s,
+        pages: s.pages.map((p) => (p.id === id ? page : p)),
+        pageVersions: [snapMapped, ...s.pageVersions],
+      }))
     },
-    [useRemote, supabase, orgId, userId, remoteState.pages, authorFallback, insertLedgerRemote, refreshDocuments, ledgerEntryLocal],
+    [supabase, orgId, userId, remoteState.pages, authorFallback, insertLedgerRemote, mergeState],
   )
 
   const archivePage = useCallback(
     async (id: string) => {
-      if (useRemote && supabase && orgId && userId) {
-        const old = remoteState.pages.find((p) => p.id === id)
-        if (!old) return
-        const fromVersion = old.version
-        const nextVersion = old.version + 1
-        const { data, error: e } = await supabase
-          .from('wiki_pages')
-          .update({ status: 'archived', version: nextVersion })
-          .eq('id', id)
-          .eq('organization_id', orgId)
-          .select('*')
-          .single()
-        if (e) throw e
-        const page = mapPage(data as Parameters<typeof mapPage>[0], authorFallback)
-        await insertLedgerRemote(page, 'archived', fromVersion)
-        await refreshDocuments()
-        return
-      }
-      setLocalState((s) => {
-        const old = s.pages.find((p) => p.id === id)
-        if (!old) return s
-        const fromVersion = old.version
-        const next: WikiPage = {
-          ...old,
-          status: 'archived',
-          version: old.version + 1,
-          updatedAt: new Date().toISOString(),
-        }
-        const entry = ledgerEntryLocal(next, 'archived', fromVersion)
-        return {
-          ...s,
-          pages: s.pages.map((p) => (p.id === id ? next : p)),
-          auditLedger: [entry, ...s.auditLedger],
-        }
-      })
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const old = remoteState.pages.find((p) => p.id === id)
+      if (!old) return
+      const fromVersion = old.version
+      const nextVersion = old.version + 1
+      const { data, error: e } = await supabase
+        .from('wiki_pages')
+        .update({ status: 'archived', version: nextVersion })
+        .eq('id', id)
+        .eq('organization_id', orgId)
+        .select('*')
+        .single()
+      if (e) throw e
+      const page = mapWikiPage(data as Parameters<typeof mapWikiPage>[0], authorFallback)
+      await insertLedgerRemote(page, 'archived', fromVersion)
+      mergeState((s) => ({ ...s, pages: s.pages.map((p) => (p.id === id ? page : p)) }))
     },
-    [useRemote, supabase, orgId, userId, remoteState.pages, authorFallback, insertLedgerRemote, refreshDocuments, ledgerEntryLocal],
+    [supabase, orgId, userId, remoteState.pages, authorFallback, insertLedgerRemote, mergeState],
   )
 
   const deletePage = useCallback(
     async (id: string) => {
-      if (useRemote && supabase && orgId && userId) {
-        const { error: e } = await supabase.from('wiki_pages').delete().eq('id', id).eq('organization_id', orgId)
-        if (e) throw e
-        await refreshDocuments()
-        return
-      }
-      setLocalState((s) => ({ ...s, pages: s.pages.filter((p) => p.id !== id) }))
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const { error: e } = await supabase.from('wiki_pages').delete().eq('id', id).eq('organization_id', orgId)
+      if (e) throw e
+      mergeState((s) => ({
+        ...s,
+        pages: s.pages.filter((p) => p.id !== id),
+        pageVersions: s.pageVersions.filter((v) => v.pageId !== id),
+        receipts: s.receipts.filter((r) => r.pageId !== id),
+        auditLedger: s.auditLedger.filter((a) => a.pageId !== id),
+      }))
     },
-    [useRemote, supabase, orgId, userId, refreshDocuments],
+    [supabase, orgId, userId, mergeState],
   )
 
   const acknowledgementRequiredForMe = useCallback(
@@ -952,17 +798,16 @@ function useDocumentsStore() {
   )
 
   const acknowledge = useCallback(
-    async (pageId: string, userName: string) => {
-      const display = userName.trim() || profile?.display_name?.trim() || DEMO_USER_NAME
-      if (useRemote && supabase && orgId && userId) {
-        const page = remoteState.pages.find((p) => p.id === pageId)
-        if (!page) return
-        if (!acknowledgementRequiredForMe(page)) return
-        const dup = remoteState.receipts.some(
-          (r) => r.pageId === pageId && r.userId === userId && r.pageVersion === page.version,
-        )
-        if (dup) return
-        const { error: re } = await supabase.from('wiki_compliance_receipts').insert({
+    async (pageId: string) => {
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const display = profile?.display_name?.trim() || DEMO_USER_NAME
+      const page = remoteState.pages.find((p) => p.id === pageId)
+      if (!page) return
+      if (!acknowledgementRequiredForMe(page)) return
+      if (hasAcknowledgedCurrentVersion(page, userId, remoteState.receipts, remoteState.pageVersions)) return
+      const { data: recRow, error: re } = await supabase
+        .from('wiki_compliance_receipts')
+        .insert({
           organization_id: orgId,
           page_id: pageId,
           page_title: page.title,
@@ -970,91 +815,107 @@ function useDocumentsStore() {
           user_id: userId,
           user_name: display,
         })
-        if (re) throw re
-        await insertLedgerRemote(page, 'acknowledged')
-        await refreshDocuments()
-        return
-      }
-      setLocalState((s) => {
-        const page = s.pages.find((p) => p.id === pageId)
-        if (!page) return s
-        if (
-          !userMustAcknowledgePage(page, {
-            isOrgAdmin,
-            departmentId: profile?.department_id,
-            learningMetadata: profile?.learning_metadata as Record<string, unknown> | null | undefined,
-          })
-        ) {
-          return s
-        }
-        const already = s.receipts.some(
-          (r) => r.pageId === pageId && r.userId === authorFallback && r.pageVersion === page.version,
-        )
-        if (already) return s
-        const receipt: ComplianceReceipt = {
-          id: crypto.randomUUID(),
-          pageId,
-          pageTitle: page.title,
-          pageVersion: page.version,
-          userId: authorFallback,
-          userName: display,
-          acknowledgedAt: new Date().toISOString(),
-        }
-        const entry = ledgerEntryLocal(page, 'acknowledged')
-        return {
-          ...s,
-          receipts: [receipt, ...s.receipts],
-          auditLedger: [entry, ...s.auditLedger],
-        }
-      })
+        .select('*')
+        .single()
+      if (re) throw re
+      await insertLedgerRemote(page, 'acknowledged')
+      const receipt = mapWikiReceipt(recRow as Parameters<typeof mapWikiReceipt>[0])
+      mergeState((s) => ({ ...s, receipts: [receipt, ...s.receipts] }))
     },
     [
-      useRemote,
       supabase,
       orgId,
       userId,
       remoteState.pages,
       remoteState.receipts,
+      remoteState.pageVersions,
       profile?.display_name,
-      profile?.department_id,
-      profile?.learning_metadata,
-      isOrgAdmin,
       acknowledgementRequiredForMe,
-      authorFallback,
       insertLedgerRemote,
-      refreshDocuments,
-      ledgerEntryLocal,
+      mergeState,
     ],
   )
 
   const hasAcknowledged = useCallback(
     (pageId: string, version: number) => {
-      const uid = useRemote ? userId : authorFallback
-      if (!uid) return false
-      return state.receipts.some((r) => r.pageId === pageId && r.userId === uid && r.pageVersion === version)
+      if (!userId) return false
+      const page = remoteState.pages.find((p) => p.id === pageId)
+      if (!page || page.version !== version) return false
+      return hasAcknowledgedCurrentVersion(page, userId, remoteState.receipts, remoteState.pageVersions)
     },
-    [state.receipts, useRemote, userId, authorFallback],
+    [remoteState.pages, remoteState.receipts, remoteState.pageVersions, userId],
+  )
+
+  const queueAckReminderNotifications = useCallback(
+    async (pageId: string) => {
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const page = remoteState.pages.find((p) => p.id === pageId)
+      if (!page || page.status !== 'published' || !page.requiresAcknowledgement) {
+        throw new Error('Siden krever ikke bekreftelse eller er ikke publisert.')
+      }
+      const eligible = orgPeerProfiles.filter((peer) =>
+        userMustAcknowledgePage(page, {
+          isOrgAdmin: peer.is_org_admin === true,
+          departmentId: peer.department_id,
+          learningMetadata: peer.learning_metadata,
+        }),
+      )
+      const signed = new Set(
+        remoteState.receipts
+          .filter((r) => r.pageId === pageId && r.pageVersion === page.version)
+          .map((r) => r.userId),
+      )
+      const unsigned = eligible.filter((p) => !signed.has(p.id))
+      if (unsigned.length === 0) throw new Error('Alle i målgruppen har allerede signert denne versjonen.')
+      const rows = unsigned.map((peer) => ({
+        organization_id: orgId,
+        rule_id: null,
+        step_id: null,
+        step_type: 'send_notification',
+        config_json: {
+          title: 'Påminnelse: dokument krever bekreftelse',
+          body: `Du har ikke bekreftet at du har lest «${page.title}» (versjon ${page.version}).`,
+        },
+        context_json: {
+          pageId: page.id,
+          pageTitle: page.title,
+          pageVersion: page.version,
+          audience: page.acknowledgementAudience ?? 'all_employees',
+          targetUserId: peer.id,
+          kind: 'wiki_ack_reminder',
+        },
+        status: 'pending',
+      }))
+      const { error: e } = await supabase.from('workflow_action_queue').insert(rows)
+      if (e) throw e
+    },
+    [supabase, orgId, userId, remoteState.pages, remoteState.receipts, orgPeerProfiles],
   )
 
   const addSpaceUrl = useCallback(
     async (spaceId: string, title: string, url: string) => {
-      if (!supabase || !orgId || !userId) return
-      const { error: e } = await supabase.from('wiki_space_items').insert({
-        organization_id: orgId,
-        space_id: spaceId,
-        kind: 'url',
-        title: title.trim(),
-        url: url.trim(),
-      })
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const { data, error: e } = await supabase
+        .from('wiki_space_items')
+        .insert({
+          organization_id: orgId,
+          space_id: spaceId,
+          kind: 'url',
+          title: title.trim(),
+          url: url.trim(),
+        })
+        .select('*')
+        .single()
       if (e) throw e
-      await refreshDocuments()
+      const item = mapWikiSpaceItem(data as Parameters<typeof mapWikiSpaceItem>[0])
+      mergeState((s) => ({ ...s, spaceItems: [item, ...s.spaceItems] }))
     },
-    [supabase, orgId, userId, refreshDocuments],
+    [supabase, orgId, userId, mergeState],
   )
 
   const uploadSpaceFile = useCallback(
     async (spaceId: string, file: File) => {
-      if (!supabase || !orgId || !userId) return
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
       const safe = file.name.replace(/[^\w.\-åæøÅÆØ ()[\]]+/g, '_')
       const path = `${orgId}/${spaceId}/${crypto.randomUUID()}-${safe}`
       const { error: upErr } = await supabase.storage.from('wiki_space_files').upload(path, file, {
@@ -1062,34 +923,39 @@ function useDocumentsStore() {
         upsert: false,
       })
       if (upErr) throw upErr
-      const { error: insErr } = await supabase.from('wiki_space_items').insert({
-        organization_id: orgId,
-        space_id: spaceId,
-        kind: 'file',
-        title: file.name,
-        file_path: path,
-        file_name: file.name,
-        mime_type: file.type || null,
-        file_size: file.size,
-        created_by: userId,
-      })
+      const { data, error: insErr } = await supabase
+        .from('wiki_space_items')
+        .insert({
+          organization_id: orgId,
+          space_id: spaceId,
+          kind: 'file',
+          title: file.name,
+          file_path: path,
+          file_name: file.name,
+          mime_type: file.type || null,
+          file_size: file.size,
+          created_by: userId,
+        })
+        .select('*')
+        .single()
       if (insErr) throw insErr
-      await refreshDocuments()
+      const item = mapWikiSpaceItem(data as Parameters<typeof mapWikiSpaceItem>[0])
+      mergeState((s) => ({ ...s, spaceItems: [item, ...s.spaceItems] }))
     },
-    [supabase, orgId, userId, refreshDocuments],
+    [supabase, orgId, userId, mergeState],
   )
 
   const deleteSpaceItem = useCallback(
     async (item: WikiSpaceItem) => {
-      if (!supabase || !orgId) return
+      if (!supabase || !orgId) throw new Error('Ikke tilkoblet')
       if (item.kind === 'file' && item.filePath) {
         await supabase.storage.from('wiki_space_files').remove([item.filePath])
       }
       const { error: e } = await supabase.from('wiki_space_items').delete().eq('id', item.id).eq('organization_id', orgId)
       if (e) throw e
-      await refreshDocuments()
+      mergeState((s) => ({ ...s, spaceItems: s.spaceItems.filter((i) => i.id !== item.id) }))
     },
-    [supabase, orgId, refreshDocuments],
+    [supabase, orgId, mergeState],
   )
 
   const getSpaceFileUrl = useCallback(
@@ -1103,78 +969,207 @@ function useDocumentsStore() {
   )
 
   const stats = useMemo(() => {
-    const published = state.pages.filter((p) => p.status === 'published').length
-    const drafts = state.pages.filter((p) => p.status === 'draft').length
-    const requireAck = state.pages.filter((p) => p.requiresAcknowledgement && p.status === 'published').length
-    const acknowledged = state.receipts.length
-    return { published, drafts, requireAck, acknowledged, total: state.pages.length }
-  }, [state.pages, state.receipts])
+    const published = remoteState.pages.filter((p) => p.status === 'published').length
+    const drafts = remoteState.pages.filter((p) => p.status === 'draft').length
+    const requireAck = remoteState.pages.filter((p) => p.requiresAcknowledgement && p.status === 'published').length
+    const acknowledged = remoteState.receipts.length
+    return { published, drafts, requireAck, acknowledged, total: remoteState.pages.length }
+  }, [remoteState.pages, remoteState.receipts])
 
-  const resetDemo = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY)
-    setLocalState(emptyLocalState())
-    if (orgId && userId) clearSnap(orgId, userId)
-    setRemoteState(emptyLocalState())
-  }, [orgId, userId])
+  const templateUsageCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const p of remoteState.pages) {
+      const tid = p.templateSourceId
+      if (!tid) continue
+      m.set(tid, (m.get(tid) ?? 0) + 1)
+    }
+    return m
+  }, [remoteState.pages])
 
-  const versionsForPage = useCallback(
-    (pageId: string) => state.pageVersions.filter((v) => v.pageId === pageId).sort((a, b) => b.version - a.version),
-    [state.pageVersions],
+  const legalCoverageDisplay = useMemo((): LegalCoverageRow[] => {
+    if (legalCoverage.length > 0) return legalCoverage
+    return STATIC_LEGAL_COVERAGE.map((r) => ({
+      id: `static-${r.ref}`,
+      ref: r.ref,
+      label: r.label,
+      templateIds: r.templateIds,
+    }))
+  }, [legalCoverage])
+
+  const setCoverageItemOwner = useCallback(
+    async (coverageItemId: string, ownerId: string | null) => {
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const row = {
+        organization_id: orgId,
+        coverage_item_id: coverageItemId,
+        owner_id: ownerId,
+        updated_at: new Date().toISOString(),
+      }
+      const { error: e } = await supabase.from('wiki_legal_coverage_item_assignments').upsert(row, {
+        onConflict: 'organization_id,coverage_item_id',
+      })
+      if (e) throw e
+      setCoverageOwnerByItemId((prev) => ({ ...prev, [coverageItemId]: ownerId }))
+    },
+    [supabase, orgId, userId],
   )
 
-  return {
-    backend: useRemote ? ('supabase' as const) : ('local' as const),
-    loading: useRemote && loading,
-    error,
-    pageHydrateLoading: pageHydrate.loading,
-    pageHydrateError: pageHydrate.error,
-    ensurePageLoaded,
-    spaces: state.spaces,
-    pages: state.pages,
-    auditLedger: state.auditLedger,
-    receipts: state.receipts,
-    spaceItems: state.spaceItems,
-    pageVersions: state.pageVersions,
-    versionsForPage,
-    addSpaceUrl,
-    uploadSpaceFile,
-    deleteSpaceItem,
-    getSpaceFileUrl,
-    legalCoverage: useRemote ? legalCoverage : STATIC_LEGAL_COVERAGE,
-    pageTemplates,
-    systemTemplatesCatalog: systemTemplates,
-    orgTemplateSettings,
-    orgCustomTemplates,
-    refreshDocuments,
-    setSystemTemplateEnabled,
-    saveOrgCustomTemplate,
-    deleteOrgCustomTemplate,
-    stats,
-    createSpace,
-    updateSpace,
-    createPage,
-    updatePage,
-    publishPage,
-    archivePage,
-    deletePage,
-    acknowledge,
-    hasAcknowledged,
-    acknowledgementRequiredForMe,
-    resetDemo,
-  }
+  const versionsForPage = useCallback(
+    (pageId: string) => remoteState.pageVersions.filter((v) => v.pageId === pageId).sort((a, b) => b.version - a.version),
+    [remoteState.pageVersions],
+  )
+
+  const myRecentWikiEdits = useMemo(() => {
+    if (!userId) return []
+    const seen = new Set<string>()
+    const out: { pageId: string; pageTitle: string; at: string; action: AuditLedgerEntry['action'] }[] = []
+    for (const e of remoteState.auditLedger) {
+      if (e.userId !== userId) continue
+      if (e.action !== 'updated' && e.action !== 'published' && e.action !== 'created') continue
+      if (seen.has(e.pageId)) continue
+      seen.add(e.pageId)
+      out.push({ pageId: e.pageId, pageTitle: e.pageTitle, at: e.at, action: e.action })
+      if (out.length >= 5) break
+    }
+    return out
+  }, [remoteState.auditLedger, userId])
+
+  const myAcknowledgementBuckets = useMemo(() => {
+    if (!userId) return { needsSignature: [] as WikiPage[], outdated: [] as WikiPage[] }
+    const ctx = {
+      isOrgAdmin,
+      departmentId: profile?.department_id,
+      learningMetadata: profile?.learning_metadata as Record<string, unknown> | null | undefined,
+    }
+    const needsSignature: WikiPage[] = []
+    const outdated: WikiPage[] = []
+    for (const p of remoteState.pages) {
+      if (p.status !== 'published' || !p.requiresAcknowledgement) continue
+      if (!userMustAcknowledgePage(p, ctx)) continue
+      const maxRv = maxReceiptVersionForUser(p.id, userId, remoteState.receipts)
+      const ok = hasAcknowledgedCurrentVersion(p, userId, remoteState.receipts, remoteState.pageVersions)
+      if (ok) continue
+      if (maxRv == null) needsSignature.push(p)
+      else outdated.push(p)
+    }
+    return { needsSignature, outdated }
+  }, [userId, remoteState.pages, remoteState.receipts, remoteState.pageVersions, isOrgAdmin, profile?.department_id, profile?.learning_metadata])
+
+  const pageHydrateLoading = pageHydrate.loading
+  const pageHydrateError = pageHydrate.error
+
+  const value = useMemo(
+    () => ({
+      ready,
+      loading,
+      error,
+      pageHydrateLoading,
+      pageHydrateError,
+      ensurePageLoaded,
+      spaces: remoteState.spaces,
+      pages: remoteState.pages,
+      auditLedger: remoteState.auditLedger,
+      receipts: remoteState.receipts,
+      spaceItems: remoteState.spaceItems,
+      pageVersions: remoteState.pageVersions,
+      versionsForPage,
+      addSpaceUrl,
+      uploadSpaceFile,
+      deleteSpaceItem,
+      getSpaceFileUrl,
+      legalCoverage: legalCoverageDisplay,
+      complianceSummary,
+      coverageOwnerByItemId,
+      orgPeerProfiles,
+      setCoverageItemOwner,
+      pageTemplates,
+      systemTemplatesCatalog: systemTemplates,
+      orgTemplateSettings,
+      orgCustomTemplates,
+      refreshDocuments,
+      setSystemTemplateEnabled,
+      saveSystemTemplateCustomBlocks,
+      saveOrgCustomTemplate,
+      deleteOrgCustomTemplate,
+      templateUsageCounts,
+      stats,
+      createSpace,
+      updateSpace,
+      createPage,
+      updatePage,
+      publishPage,
+      archivePage,
+      deletePage,
+      acknowledge,
+      hasAcknowledged,
+      acknowledgementRequiredForMe,
+      queueAckReminderNotifications,
+      myAcknowledgementBuckets,
+      searchWikiPages,
+      reorderPagesInSpace,
+      movePageToSpace,
+      myRecentWikiEdits,
+    }),
+    [
+      ready,
+      loading,
+      error,
+      pageHydrateLoading,
+      pageHydrateError,
+      ensurePageLoaded,
+      remoteState,
+      versionsForPage,
+      searchWikiPages,
+      reorderPagesInSpace,
+      movePageToSpace,
+      myRecentWikiEdits,
+      addSpaceUrl,
+      uploadSpaceFile,
+      deleteSpaceItem,
+      getSpaceFileUrl,
+      legalCoverageDisplay,
+      complianceSummary,
+      coverageOwnerByItemId,
+      orgPeerProfiles,
+      setCoverageItemOwner,
+      pageTemplates,
+      systemTemplates,
+      orgTemplateSettings,
+      orgCustomTemplates,
+      refreshDocuments,
+      setSystemTemplateEnabled,
+      saveSystemTemplateCustomBlocks,
+      saveOrgCustomTemplate,
+      deleteOrgCustomTemplate,
+      templateUsageCounts,
+      stats,
+      createSpace,
+      updateSpace,
+      createPage,
+      updatePage,
+      publishPage,
+      archivePage,
+      deletePage,
+      acknowledge,
+      hasAcknowledged,
+      acknowledgementRequiredForMe,
+      queueAckReminderNotifications,
+      myAcknowledgementBuckets,
+    ],
+  )
+
+  return value
 }
 
 export type DocumentsContextValue = ReturnType<typeof useDocumentsStore>
 
 const DocumentsContext = createContext<DocumentsContextValue | null>(null)
 
-/** Single shared wiki/documents store — avoids duplicate state per route (fixes blank wiki / crashes). */
 export function DocumentsProvider({ children }: { children: ReactNode }) {
   const value = useDocumentsStore()
   return <DocumentsContext.Provider value={value}>{children}</DocumentsContext.Provider>
 }
 
-/** Route layout: wraps shell routes with shared documents context. */
 export function DocumentsLayout() {
   return (
     <DocumentsProvider>
@@ -1183,10 +1178,158 @@ export function DocumentsLayout() {
   )
 }
 
-export function useDocuments(): DocumentsContextValue {
+function useDocumentsContext(): DocumentsContextValue {
   const ctx = useContext(DocumentsContext)
   if (!ctx) {
-    throw new Error('useDocuments must be used within DocumentsProvider')
+    throw new Error('Documents hooks must be used within DocumentsProvider')
   }
   return ctx
+}
+
+/** Full documents API (legacy / convenience). */
+export function useDocuments(): DocumentsContextValue {
+  return useDocumentsContext()
+}
+
+export function useWikiSpaces() {
+  const v = useDocumentsContext()
+  return useMemo(
+    () => ({
+      ready: v.ready,
+      loading: v.loading,
+      error: v.error,
+      spaces: v.spaces,
+      spaceItems: v.spaceItems,
+      createSpace: v.createSpace,
+      updateSpace: v.updateSpace,
+      createPage: v.createPage,
+      publishPage: v.publishPage,
+      addSpaceUrl: v.addSpaceUrl,
+      uploadSpaceFile: v.uploadSpaceFile,
+      deleteSpaceItem: v.deleteSpaceItem,
+      getSpaceFileUrl: v.getSpaceFileUrl,
+      refreshDocuments: v.refreshDocuments,
+      searchWikiPages: v.searchWikiPages,
+      myRecentWikiEdits: v.myRecentWikiEdits,
+    }),
+    [v],
+  )
+}
+
+export function useWikiPages(spaceId: string | undefined) {
+  const v = useDocumentsContext()
+  const pages = useMemo(
+    () => (spaceId ? v.pages.filter((p) => p.spaceId === spaceId) : []),
+    [v.pages, spaceId],
+  )
+  const spaceItems = useMemo(
+    () => (spaceId ? v.spaceItems.filter((i) => i.spaceId === spaceId) : []),
+    [v.spaceItems, spaceId],
+  )
+  const createPageInSpace = useCallback(
+    (
+      title: string,
+      template?: WikiPage['template'],
+      blocks?: Block[],
+      opts?: Parameters<typeof v.createPage>[4],
+    ) => {
+      if (!spaceId) throw new Error('Mangler spaceId')
+      return v.createPage(spaceId, title, template, blocks, opts)
+    },
+    [v, spaceId],
+  )
+  return useMemo(
+    () => ({
+      ready: v.ready,
+      loading: v.loading,
+      error: v.error,
+      pages,
+      spaceItems,
+      createPage: createPageInSpace,
+      deletePage: v.deletePage,
+      publishPage: v.publishPage,
+      archivePage: v.archivePage,
+      refreshDocuments: v.refreshDocuments,
+      updatePage: v.updatePage,
+      reorderPagesInSpace: v.reorderPagesInSpace,
+      movePageToSpace: v.movePageToSpace,
+    }),
+    [v, pages, spaceItems, createPageInSpace],
+  )
+}
+
+export function useWikiPage(pageId: string | undefined) {
+  const v = useDocumentsContext()
+  const page = useMemo(() => (pageId ? v.pages.find((p) => p.id === pageId) : undefined), [v.pages, pageId])
+  const versions = useMemo(() => (pageId ? v.versionsForPage(pageId) : []), [v, pageId])
+  return useMemo(
+    () => ({
+      ready: v.ready,
+      loading: v.loading,
+      error: v.error,
+      pageHydrateLoading: v.pageHydrateLoading,
+      pageHydrateError: v.pageHydrateError,
+      ensurePageLoaded: v.ensurePageLoaded,
+      page,
+      pages: v.pages,
+      versions,
+      receipts: v.receipts,
+      pageVersions: v.pageVersions,
+      updatePage: v.updatePage,
+      publishPage: v.publishPage,
+      archivePage: v.archivePage,
+      deletePage: v.deletePage,
+      acknowledge: v.acknowledge,
+      hasAcknowledged: v.hasAcknowledged,
+      acknowledgementRequiredForMe: v.acknowledgementRequiredForMe,
+      refreshDocuments: v.refreshDocuments,
+    }),
+    [v, page, versions],
+  )
+}
+
+export function useDocumentTemplates() {
+  const v = useDocumentsContext()
+  return useMemo(
+    () => ({
+      ready: v.ready,
+      loading: v.loading,
+      error: v.error,
+      pageTemplates: v.pageTemplates,
+      systemTemplatesCatalog: v.systemTemplatesCatalog,
+      orgTemplateSettings: v.orgTemplateSettings,
+      orgCustomTemplates: v.orgCustomTemplates,
+      setSystemTemplateEnabled: v.setSystemTemplateEnabled,
+      saveSystemTemplateCustomBlocks: v.saveSystemTemplateCustomBlocks,
+      saveOrgCustomTemplate: v.saveOrgCustomTemplate,
+      deleteOrgCustomTemplate: v.deleteOrgCustomTemplate,
+      refreshDocuments: v.refreshDocuments,
+      templateUsageCounts: v.templateUsageCounts,
+    }),
+    [v],
+  )
+}
+
+export function useComplianceDocs() {
+  const v = useDocumentsContext()
+  return useMemo(
+    () => ({
+      ready: v.ready,
+      loading: v.loading,
+      error: v.error,
+      legalCoverage: v.legalCoverage,
+      complianceSummary: v.complianceSummary,
+      coverageOwnerByItemId: v.coverageOwnerByItemId,
+      orgPeerProfiles: v.orgPeerProfiles,
+      setCoverageItemOwner: v.setCoverageItemOwner,
+      pages: v.pages,
+      pageTemplates: v.pageTemplates,
+      receipts: v.receipts,
+      pageVersions: v.pageVersions,
+      stats: v.stats,
+      refreshDocuments: v.refreshDocuments,
+      queueAckReminderNotifications: v.queueAckReminderNotifications,
+    }),
+    [v],
+  )
 }
