@@ -13,6 +13,7 @@ import {
 } from '../../src/components/layout/layoutTable1PostingsKit'
 import type { InspectionRoundRow } from './types'
 import { useInspectionModule } from './useInspectionModule'
+import { InspectionRoundPanel } from './InspectionRoundPanel'
 
 type Props = { supabase: SupabaseClient | null }
 
@@ -176,6 +177,11 @@ function toDateTimeLocalValue(input: string | null): string {
 export function InspectionModuleView({ supabase }: Props) {
   const inspection = useInspectionModule({ supabase })
   const { load } = inspection
+  const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null)
+  const selectedRound = useMemo(
+    () => inspection.rounds.find((r) => r.id === selectedRoundId) ?? null,
+    [inspection.rounds, selectedRoundId],
+  )
   const [search, setSearch] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
@@ -352,7 +358,11 @@ export function InspectionModuleView({ supabase }: Props) {
               const findings = inspection.findingsByRoundId[round.id] ?? []
               const critCount = findings.filter((f) => f.severity === 'critical').length
               return (
-                <tr key={round.id} className={LAYOUT_TABLE1_POSTINGS_BODY_ROW}>
+                <tr
+                  key={round.id}
+                  className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer hover:bg-neutral-50`}
+                  onClick={() => setSelectedRoundId(round.id)}
+                >
                   <td className="px-5 py-3 font-medium text-neutral-900">
                     {round.title}
                     {critCount > 0 && (
@@ -403,14 +413,13 @@ export function InspectionModuleView({ supabase }: Props) {
                     </div>
                   </td>
                   <td className="px-5 py-3">
-                    {round.status !== 'signed' && (
-                      <Link
-                        to="/inspection-module/admin"
-                        className="text-xs font-medium text-[#1a3d32] hover:underline"
-                      >
-                        Signer
-                      </Link>
-                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setSelectedRoundId(round.id) }}
+                      className="text-xs font-medium text-[#1a3d32] hover:underline"
+                    >
+                      Åpne
+                    </button>
                   </td>
                 </tr>
               )
@@ -530,6 +539,16 @@ export function InspectionModuleView({ supabase }: Props) {
           </div>
         </div>
       </FormModal>
+
+      {/* ── Inspection round panel ───────────────────────────────────────────── */}
+      {selectedRound && (
+        <InspectionRoundPanel
+          round={selectedRound}
+          inspection={inspection}
+          supabase={supabase}
+          onClose={() => setSelectedRoundId(null)}
+        />
+      )}
 
       {/* ── Scheduling modal ─────────────────────────────────────────────────── */}
       <FormModal

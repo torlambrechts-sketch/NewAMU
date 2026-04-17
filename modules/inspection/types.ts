@@ -82,6 +82,10 @@ export type InspectionRoundRow = {
   manager_signed_by: string | null
   deputy_signed_at: string | null
   deputy_signed_by: string | null
+  /** Written protocol — Internkontrollforskriften § 5 */
+  summary: string | null
+  conducted_by: string | null
+  conducted_at: string | null
   created_by: string | null
   created_at: string
   updated_at: string

@@ -60,6 +60,13 @@ export type InspectionModuleState = {
     status?: InspectionRoundRow['status']
   }) => Promise<void>
   signRound: (roundId: string) => Promise<void>
+  signRoundWithRole: (roundId: string, role: 'manager' | 'deputy') => Promise<void>
+  saveRoundSummary: (payload: {
+    roundId: string
+    summary: string
+    conductedBy?: string | null
+    conductedAt?: string | null
+  }) => Promise<void>
   upsertItemResponse: (payload: {
     roundId: string
     checklistItemKey: string
@@ -558,6 +565,77 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     [supabase],
   )
 
+  const signRoundWithRole = useCallback(
+    async (roundId: string, role: 'manager' | 'deputy') => {
+      if (!supabase) {
+        setError('Supabase is not configured.')
+        return
+      }
+      setError(null)
+      const { error: rpcError } = await supabase.rpc('sign_inspection_round', {
+        p_round_id: roundId,
+        p_role: role,
+      })
+      if (rpcError) {
+        setError(rpcError.message)
+        return
+      }
+      const { data, error: fetchError } = await supabase
+        .from('inspection_rounds')
+        .select('*')
+        .eq('id', roundId)
+        .single()
+      if (fetchError) {
+        setError(fetchError.message)
+        return
+      }
+      const parsed = InspectionRoundRowSchema.safeParse(data)
+      if (!parsed.success) {
+        setError('Failed to parse round after signing.')
+        return
+      }
+      setRounds((previous) => previous.map((r) => (r.id === roundId ? parsed.data : r)))
+    },
+    [supabase],
+  )
+
+  const saveRoundSummary = useCallback(
+    async (payload: {
+      roundId: string
+      summary: string
+      conductedBy?: string | null
+      conductedAt?: string | null
+    }) => {
+      if (!supabase) {
+        setError('Supabase is not configured.')
+        return
+      }
+      setError(null)
+      const row: Record<string, unknown> = { summary: payload.summary }
+      if (payload.conductedBy !== undefined) row.conducted_by = payload.conductedBy || null
+      if (payload.conductedAt !== undefined) {
+        row.conducted_at = normalizeTimestamptzInput(payload.conductedAt || undefined)
+      }
+      const { data, error: updateError } = await supabase
+        .from('inspection_rounds')
+        .update(row)
+        .eq('id', payload.roundId)
+        .select('*')
+        .single()
+      if (updateError) {
+        setError(updateError.message)
+        return
+      }
+      const parsed = InspectionRoundRowSchema.safeParse(data)
+      if (!parsed.success) {
+        setError('Failed to parse round after summary save.')
+        return
+      }
+      setRounds((previous) => previous.map((r) => (r.id === payload.roundId ? parsed.data : r)))
+    },
+    [supabase],
+  )
+
   const itemsByRoundId = useMemo(() => groupByRound(items), [items])
   const findingsByRoundId = useMemo(() => groupByRound(findings), [findings])
 
@@ -577,6 +655,8 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     createRound,
     updateRoundSchedule,
     signRound,
+    signRoundWithRole,
+    saveRoundSummary,
     upsertItemResponse,
     addFinding,
   }
