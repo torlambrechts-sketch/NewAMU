@@ -57,10 +57,18 @@ export function ComplianceDashboard() {
   return (
     <DocumentsModuleLayout
       subHeader={
-        <p className="mt-6 border-b border-neutral-200/80 pb-6 text-sm text-neutral-600">
-          Oversikt over hvilke krav i Internkontrollforskriften og Arbeidsmiljøloven som er dekket av publiserte sider.
-          Klikk en rad for detaljer og lenker.
-        </p>
+        <div className="mt-6 border-b border-neutral-200/80 pb-6">
+          <p className="text-sm text-neutral-600">
+            Oversikt over hvilke krav i Internkontrollforskriften og Arbeidsmiljøloven som er dekket av publiserte sider.
+            Klikk en rad for detaljer og lenker.
+          </p>
+          <Link
+            to="/documents/compliance/inspection-export"
+            className="mt-3 inline-flex text-sm font-medium text-[#1a3d32] underline"
+          >
+            Arbeidstilsynet-rapport (strukturert utskrift) →
+          </Link>
+        </div>
       }
     >
       <div className="mt-6 rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
