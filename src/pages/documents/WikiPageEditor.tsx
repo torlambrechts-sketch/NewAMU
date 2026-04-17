@@ -131,6 +131,7 @@ export function WikiPageEditor() {
   const [tplDesc, setTplDesc] = useState('')
   const [tplCategory, setTplCategory] = useState<SpaceCategory>('hms_handbook')
   const [tplSaving, setTplSaving] = useState(false)
+  const [publishMinorRevision, setPublishMinorRevision] = useState(false)
 
   const openPalette = useCallback(() => {
     setPaletteKey((k) => k + 1)
@@ -441,12 +442,15 @@ export function WikiPageEditor() {
 
   async function handlePublish() {
     await persistToServer()
-    await wikiPage.publishPage(page.id)
+    await wikiPage.publishPage(page.id, {
+      minorRevision: page.status === 'published' && requiresAck ? publishMinorRevision : false,
+    })
     try {
       if (pageId) localStorage.removeItem(draftStorageKey(pageId))
     } catch {
       /* ignore */
     }
+    setPublishMinorRevision(false)
     navigate(`/documents/page/${page.id}`)
   }
 
@@ -907,6 +911,19 @@ export function WikiPageEditor() {
                   <Save className="size-4" />
                   Lagre utkast
                 </button>
+                {page.status === 'published' && requiresAck ? (
+                  <label className="flex cursor-pointer items-start gap-2 rounded-none border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700">
+                    <input
+                      type="checkbox"
+                      checked={publishMinorRevision}
+                      onChange={(e) => setPublishMinorRevision(e.target.checked)}
+                      className="mt-0.5 size-4 shrink-0 border-neutral-300"
+                    />
+                    <span>
+                      Dette er en mindre endring (krever ikke ny bekreftelse). Eksisterende signaturer gjelder fortsatt.
+                    </span>
+                  </label>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => void handlePublish()}

@@ -1,6 +1,7 @@
 import { CheckCircle2, ShieldCheck } from 'lucide-react'
 import { DEMO_USER_NAME, useWikiPage } from '../../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
+import { maxReceiptVersionForUser } from '../../../lib/wikiCompliance'
 
 type Props = {
   pageId: string
@@ -8,13 +9,25 @@ type Props = {
 }
 
 export function AcknowledgementFooter({ pageId, pageVersion }: Props) {
-  const { acknowledge, hasAcknowledged, receipts } = useWikiPage(pageId)
-  const { profile } = useOrgSetupContext()
+  const { acknowledge, hasAcknowledged, receipts, page } = useWikiPage(pageId)
+  const { profile, user } = useOrgSetupContext()
 
   const displayName = profile?.display_name?.trim() || DEMO_USER_NAME
+  const userId = user?.id
+  const myPrevReceiptV = userId ? maxReceiptVersionForUser(pageId, userId, receipts) : null
+  const staleUnsigned =
+    page &&
+    page.requiresAcknowledgement &&
+    page.status === 'published' &&
+    myPrevReceiptV != null &&
+    myPrevReceiptV < pageVersion &&
+    !hasAcknowledged(pageId, pageVersion)
 
   const alreadySigned = hasAcknowledged(pageId, pageVersion)
-  const receipt = receipts.find((r) => r.pageId === pageId && r.pageVersion === pageVersion)
+  const myReceipts = receipts.filter((r) => r.pageId === pageId && r.userId === userId)
+  const receipt =
+    myReceipts.find((r) => r.pageVersion === pageVersion) ??
+    [...myReceipts].sort((a, b) => b.pageVersion - a.pageVersion)[0]
 
   return (
     <div className="not-prose mt-8 rounded-xl border-2 border-[#1a3d32]/20 bg-[#1a3d32]/5 p-5">
@@ -38,6 +51,11 @@ export function AcknowledgementFooter({ pageId, pageVersion }: Props) {
             </div>
           ) : (
             <div className="mt-4 space-y-3">
+              {staleUnsigned ? (
+                <p className="rounded-none border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                  Du bekreftet versjon {myPrevReceiptV} — det finnes en nyere versjon (v{pageVersion}).
+                </p>
+              ) : null}
               <p className="text-sm text-neutral-700">
                 <span className="font-medium text-neutral-900">Signeres som:</span> {displayName}
               </p>

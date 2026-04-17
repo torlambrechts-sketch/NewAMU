@@ -125,6 +125,8 @@ export type WikiPageVersionSnapshot = {
   nextRevisionDueAt: string | null
   revisionIntervalMonths: number
   frozenAt: string
+  /** True when this snapshot was taken for a publish marked as a minor revision (receipts stay valid). */
+  isMinorRevision?: boolean
 }
 
 // ─── Space ────────────────────────────────────────────────────────────────────

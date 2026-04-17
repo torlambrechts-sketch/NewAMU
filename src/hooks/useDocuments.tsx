@@ -24,7 +24,11 @@ import {
   mapWikiSpace,
   mapWikiSpaceItem,
 } from '../lib/wikiDocumentsMappers'
-import { userMustAcknowledgePage } from '../lib/wikiCompliance'
+import {
+  hasAcknowledgedCurrentVersion,
+  maxReceiptVersionForUser,
+  userMustAcknowledgePage,
+} from '../lib/wikiCompliance'
 
 export const DEMO_USER_NAME = 'Demo User'
 
@@ -688,7 +692,7 @@ function useDocumentsStore() {
   )
 
   const publishPage = useCallback(
-    async (id: string) => {
+    async (id: string, opts?: { minorRevision?: boolean }) => {
       if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
       const old = remoteState.pages.find((p) => p.id === id)
       if (!old) return
@@ -697,6 +701,7 @@ function useDocumentsStore() {
       const interval = old.revisionIntervalMonths ?? 12
       const nextDue = new Date()
       nextDue.setMonth(nextDue.getMonth() + interval)
+      const isMinor = opts?.minorRevision === true
 
       const snap = {
         organization_id: orgId,
@@ -714,6 +719,7 @@ function useDocumentsStore() {
         next_revision_due_at: old.nextRevisionDueAt,
         revision_interval_months: interval,
         created_by: userId,
+        is_minor_revision: isMinor,
       }
       const { data: verRow, error: snapErr } = await supabase.from('wiki_page_versions').insert(snap).select('*').single()
       if (snapErr) throw snapErr
@@ -798,10 +804,7 @@ function useDocumentsStore() {
       const page = remoteState.pages.find((p) => p.id === pageId)
       if (!page) return
       if (!acknowledgementRequiredForMe(page)) return
-      const dup = remoteState.receipts.some(
-        (r) => r.pageId === pageId && r.userId === userId && r.pageVersion === page.version,
-      )
-      if (dup) return
+      if (hasAcknowledgedCurrentVersion(page, userId, remoteState.receipts, remoteState.pageVersions)) return
       const { data: recRow, error: re } = await supabase
         .from('wiki_compliance_receipts')
         .insert({
@@ -825,6 +828,7 @@ function useDocumentsStore() {
       userId,
       remoteState.pages,
       remoteState.receipts,
+      remoteState.pageVersions,
       profile?.display_name,
       acknowledgementRequiredForMe,
       insertLedgerRemote,
@@ -835,9 +839,57 @@ function useDocumentsStore() {
   const hasAcknowledged = useCallback(
     (pageId: string, version: number) => {
       if (!userId) return false
-      return remoteState.receipts.some((r) => r.pageId === pageId && r.userId === userId && r.pageVersion === version)
+      const page = remoteState.pages.find((p) => p.id === pageId)
+      if (!page || page.version !== version) return false
+      return hasAcknowledgedCurrentVersion(page, userId, remoteState.receipts, remoteState.pageVersions)
     },
-    [remoteState.receipts, userId],
+    [remoteState.pages, remoteState.receipts, remoteState.pageVersions, userId],
+  )
+
+  const queueAckReminderNotifications = useCallback(
+    async (pageId: string) => {
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const page = remoteState.pages.find((p) => p.id === pageId)
+      if (!page || page.status !== 'published' || !page.requiresAcknowledgement) {
+        throw new Error('Siden krever ikke bekreftelse eller er ikke publisert.')
+      }
+      const eligible = orgPeerProfiles.filter((peer) =>
+        userMustAcknowledgePage(page, {
+          isOrgAdmin: peer.is_org_admin === true,
+          departmentId: peer.department_id,
+          learningMetadata: peer.learning_metadata,
+        }),
+      )
+      const signed = new Set(
+        remoteState.receipts
+          .filter((r) => r.pageId === pageId && r.pageVersion === page.version)
+          .map((r) => r.userId),
+      )
+      const unsigned = eligible.filter((p) => !signed.has(p.id))
+      if (unsigned.length === 0) throw new Error('Alle i målgruppen har allerede signert denne versjonen.')
+      const rows = unsigned.map((peer) => ({
+        organization_id: orgId,
+        rule_id: null,
+        step_id: null,
+        step_type: 'send_notification',
+        config_json: {
+          title: 'Påminnelse: dokument krever bekreftelse',
+          body: `Du har ikke bekreftet at du har lest «${page.title}» (versjon ${page.version}).`,
+        },
+        context_json: {
+          pageId: page.id,
+          pageTitle: page.title,
+          pageVersion: page.version,
+          audience: page.acknowledgementAudience ?? 'all_employees',
+          targetUserId: peer.id,
+          kind: 'wiki_ack_reminder',
+        },
+        status: 'pending',
+      }))
+      const { error: e } = await supabase.from('workflow_action_queue').insert(rows)
+      if (e) throw e
+    },
+    [supabase, orgId, userId, remoteState.pages, remoteState.receipts, orgPeerProfiles],
   )
 
   const addSpaceUrl = useCallback(
@@ -982,6 +1034,27 @@ function useDocumentsStore() {
     return out
   }, [remoteState.auditLedger, userId])
 
+  const myAcknowledgementBuckets = useMemo(() => {
+    if (!userId) return { needsSignature: [] as WikiPage[], outdated: [] as WikiPage[] }
+    const ctx = {
+      isOrgAdmin,
+      departmentId: profile?.department_id,
+      learningMetadata: profile?.learning_metadata as Record<string, unknown> | null | undefined,
+    }
+    const needsSignature: WikiPage[] = []
+    const outdated: WikiPage[] = []
+    for (const p of remoteState.pages) {
+      if (p.status !== 'published' || !p.requiresAcknowledgement) continue
+      if (!userMustAcknowledgePage(p, ctx)) continue
+      const maxRv = maxReceiptVersionForUser(p.id, userId, remoteState.receipts)
+      const ok = hasAcknowledgedCurrentVersion(p, userId, remoteState.receipts, remoteState.pageVersions)
+      if (ok) continue
+      if (maxRv == null) needsSignature.push(p)
+      else outdated.push(p)
+    }
+    return { needsSignature, outdated }
+  }, [userId, remoteState.pages, remoteState.receipts, remoteState.pageVersions, isOrgAdmin, profile?.department_id, profile?.learning_metadata])
+
   const pageHydrateLoading = pageHydrate.loading
   const pageHydrateError = pageHydrate.error
 
@@ -1030,6 +1103,8 @@ function useDocumentsStore() {
       acknowledge,
       hasAcknowledged,
       acknowledgementRequiredForMe,
+      queueAckReminderNotifications,
+      myAcknowledgementBuckets,
       searchWikiPages,
       reorderPagesInSpace,
       movePageToSpace,
@@ -1078,6 +1153,8 @@ function useDocumentsStore() {
       acknowledge,
       hasAcknowledged,
       acknowledgementRequiredForMe,
+      queueAckReminderNotifications,
+      myAcknowledgementBuckets,
     ],
   )
 
@@ -1197,6 +1274,7 @@ export function useWikiPage(pageId: string | undefined) {
       pages: v.pages,
       versions,
       receipts: v.receipts,
+      pageVersions: v.pageVersions,
       updatePage: v.updatePage,
       publishPage: v.publishPage,
       archivePage: v.archivePage,
@@ -1247,8 +1325,10 @@ export function useComplianceDocs() {
       pages: v.pages,
       pageTemplates: v.pageTemplates,
       receipts: v.receipts,
+      pageVersions: v.pageVersions,
       stats: v.stats,
       refreshDocuments: v.refreshDocuments,
+      queueAckReminderNotifications: v.queueAckReminderNotifications,
     }),
     [v],
   )

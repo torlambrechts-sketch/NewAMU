@@ -125,6 +125,7 @@ export function mapWikiPageVersion(row: {
   next_revision_due_at?: string | null
   revision_interval_months?: number | null
   frozen_at: string
+  is_minor_revision?: boolean | null
 }): WikiPageVersionSnapshot {
   return {
     id: row.id,
@@ -142,6 +143,7 @@ export function mapWikiPageVersion(row: {
     nextRevisionDueAt: row.next_revision_due_at ?? null,
     revisionIntervalMonths: row.revision_interval_months ?? 12,
     frozenAt: row.frozen_at,
+    isMinorRevision: row.is_minor_revision === true,
   }
 }
 

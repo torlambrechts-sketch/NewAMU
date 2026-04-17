@@ -136,15 +136,20 @@ export function DocumentsHome() {
       subHeader={
         <div className="mt-6 flex flex-wrap items-center justify-end gap-2 border-b border-neutral-200/80 pb-6">
           {!quickOpen ? (
-            <button
-              type="button"
-              onClick={() => setQuickOpen(true)}
-              className={`${BTN_PRIMARY} gap-2`}
-              title="Ny mappe"
-            >
-              <Plus className="size-4 shrink-0" aria-hidden />
-              Ny mappe
-            </button>
+            <>
+              <Link to="/documents/my" className={BTN_OUTLINE}>
+                Mine dokumenter
+              </Link>
+              <button
+                type="button"
+                onClick={() => setQuickOpen(true)}
+                className={`${BTN_PRIMARY} gap-2`}
+                title="Ny mappe"
+              >
+                <Plus className="size-4 shrink-0" aria-hidden />
+                Ny mappe
+              </button>
+            </>
           ) : (
             <form
               onSubmit={(e) => void handleQuickCreate(e)}

@@ -57,6 +57,7 @@ import { LearningComplianceMatrix } from './pages/learning/LearningComplianceMat
 import { LearningPathsPage } from './pages/learning/LearningPathsPage'
 import { LearningExternalTraining } from './pages/learning/LearningExternalTraining'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
+import { DocumentsMyPage } from './pages/documents/DocumentsMyPage'
 import { WikiSpaceView } from './pages/documents/WikiSpaceView'
 import { WikiPageView } from './pages/documents/WikiPageView'
 import { WikiPageEditor } from './pages/documents/WikiPageEditor'
@@ -185,6 +186,7 @@ function App() {
                       <Route path="hr/consultation" element={<HrConsultationPage />} />
                       <Route path="hr/o-ros" element={<HrORosPage />} />
                       <Route path="documents" element={<DocumentsHome />} />
+                      <Route path="documents/my" element={<DocumentsMyPage />} />
                       <Route path="documents/space/:spaceId" element={<WikiSpaceView />} />
                       <Route
                         path="documents/page/:pageId"

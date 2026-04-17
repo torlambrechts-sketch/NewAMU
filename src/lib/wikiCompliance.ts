@@ -1,4 +1,4 @@
-import type { AcknowledgementAudience, WikiPage } from '../types/documents'
+import type { AcknowledgementAudience, ComplianceReceipt, WikiPage, WikiPageVersionSnapshot } from '../types/documents'
 
 /** Same rules as DB view: published and revision date strictly after "today" (local calendar), or no due date. */
 export function isRevisionCurrent(nextRevisionDueAt: string | null | undefined): boolean {
@@ -34,4 +34,51 @@ export function userMustAcknowledgePage(
     return ctx.departmentId === page.acknowledgementDepartmentId
   }
   return true
+}
+
+/** Snapshots at version `k` describe the state before bumping page version from k → k+1. */
+function publishChainUsedOnlyMinorRevisions(
+  pageId: string,
+  fromReceiptVersion: number,
+  currentPageVersion: number,
+  pageVersions: WikiPageVersionSnapshot[],
+): boolean {
+  if (fromReceiptVersion >= currentPageVersion) return true
+  for (let k = fromReceiptVersion; k < currentPageVersion; k++) {
+    const snap = pageVersions.find((v) => v.pageId === pageId && v.version === k)
+    if (!snap?.isMinorRevision) return false
+  }
+  return true
+}
+
+export function maxReceiptVersionForUser(
+  pageId: string,
+  userId: string | undefined,
+  receipts: ComplianceReceipt[],
+): number | null {
+  if (!userId) return null
+  let max: number | null = null
+  for (const r of receipts) {
+    if (r.pageId !== pageId || r.userId !== userId) continue
+    if (max == null || r.pageVersion > max) max = r.pageVersion
+  }
+  return max
+}
+
+/**
+ * User has a valid receipt for the current page version, including "minor revision" bumps
+ * that do not require a new signature.
+ */
+export function hasAcknowledgedCurrentVersion(
+  page: WikiPage,
+  userId: string | undefined,
+  receipts: ComplianceReceipt[],
+  pageVersions: WikiPageVersionSnapshot[],
+): boolean {
+  if (!userId || !page.requiresAcknowledgement) return false
+  const maxRv = maxReceiptVersionForUser(page.id, userId, receipts)
+  if (maxRv == null) return false
+  if (maxRv === page.version) return true
+  if (maxRv > page.version) return false
+  return publishChainUsedOnlyMinorRevisions(page.id, maxRv, page.version, pageVersions)
 }

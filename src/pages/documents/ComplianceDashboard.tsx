@@ -5,7 +5,12 @@ import { useComplianceDocs } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
 import { DocumentsSearchBar } from '../../components/documents/DocumentsSearchBar'
-import { isRevisionCurrent, pageCoversLegalRef, userMustAcknowledgePage } from '../../lib/wikiCompliance'
+import {
+  hasAcknowledgedCurrentVersion,
+  isRevisionCurrent,
+  pageCoversLegalRef,
+  userMustAcknowledgePage,
+} from '../../lib/wikiCompliance'
 import type { WikiPage } from '../../types/documents'
 
 function useBodyScrollLock(active: boolean) {
@@ -52,6 +57,7 @@ export function ComplianceDashboard() {
 
   const [panelRef, setPanelRef] = useState<string | null>(null)
   const [expandedAckPageId, setExpandedAckPageId] = useState<string | null>(null)
+  const [ackReminderBusyId, setAckReminderBusyId] = useState<string | null>(null)
 
   const coverageRows = useMemo(() => {
     const summaryByItemId = new Map<string, (typeof docs.complianceSummary)[0]>()
@@ -121,13 +127,19 @@ export function ComplianceDashboard() {
         }),
       )
       const receiptsForVersion = docs.receipts.filter((r) => r.pageId === page.id && r.pageVersion === page.version)
-      const signedUserIds = new Set(receiptsForVersion.map((r) => r.userId))
+      const signedUserIds = new Set(
+        eligible
+          .filter((peer) =>
+            hasAcknowledgedCurrentVersion(page, peer.id, docs.receipts, docs.pageVersions),
+          )
+          .map((p) => p.id),
+      )
       const signedCount = signedUserIds.size
       const eligibleCount = eligible.length
       const unsigned = eligible.filter((p) => !signedUserIds.has(p.id))
       return { page, eligibleCount, signedCount, unsigned, receiptsForVersion }
     })
-  }, [docs.pages, docs.receipts, docs.orgPeerProfiles])
+  }, [docs.pages, docs.receipts, docs.pageVersions, docs.orgPeerProfiles])
 
   const exportCsv = useCallback(() => {
     const lines = [
@@ -365,6 +377,7 @@ export function ComplianceDashboard() {
                   <th className="px-4 py-3">Versjon</th>
                   <th className="px-4 py-3">Signaturer</th>
                   <th className="px-4 py-3">Siste signatur</th>
+                  {canManageDocs ? <th className="px-4 py-3">Påminnelse</th> : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -410,10 +423,35 @@ export function ComplianceDashboard() {
                         <td className="px-4 py-3 text-xs text-neutral-500">
                           {last ? `${last.userName} · ${new Date(last.acknowledgedAt).toLocaleDateString('no-NO')}` : '—'}
                         </td>
+                        {canManageDocs ? (
+                          <td className="px-4 py-3">
+                            {unsigned.length > 0 ? (
+                              <button
+                                type="button"
+                                disabled={ackReminderBusyId === page.id}
+                                onClick={() => {
+                                  setAckReminderBusyId(page.id)
+                                  void docs
+                                    .queueAckReminderNotifications(page.id)
+                                    .then(() => {
+                                      /* optional toast */
+                                    })
+                                    .catch((err) => console.error(err))
+                                    .finally(() => setAckReminderBusyId(null))
+                                }}
+                                className="rounded-none border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-950 hover:bg-amber-100 disabled:opacity-50"
+                              >
+                                {ackReminderBusyId === page.id ? 'Sender…' : 'Send påminnelse'}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-neutral-400">—</span>
+                            )}
+                          </td>
+                        ) : null}
                       </tr>
                       {expanded && isOrgAdminUser ? (
                         <tr className="bg-neutral-50">
-                          <td colSpan={5} className="px-6 py-3 text-xs text-neutral-700">
+                          <td colSpan={canManageDocs ? 6 : 5} className="px-6 py-3 text-xs text-neutral-700">
                             <p className="mb-2 font-semibold text-neutral-800">Ikke signert ({unsigned.length})</p>
                             {unsigned.length === 0 ? (
                               <p className="text-neutral-500">Alle relevante ansatte har signert.</p>
