@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CheckCircle2, Circle, ExternalLink, X } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
 
 function useBodyScrollLock(active: boolean) {
@@ -17,6 +18,7 @@ function useBodyScrollLock(active: boolean) {
 
 export function ComplianceDashboard() {
   const docs = useDocuments()
+  const { members } = useOrgSetupContext()
   const [panelRef, setPanelRef] = useState<string | null>(null)
 
   const coverage = docs.legalCoverage.map((item) => {
@@ -54,6 +56,28 @@ export function ComplianceDashboard() {
   const covered = coverage.filter((c) => c.covered).length
   const pct = total ? Math.round((covered / total) * 100) : 0
 
+  const varslingTpl = docs.systemTemplatesCatalog.find((t) => t.id === 'tpl-varsling')
+  const varslingBasis = varslingTpl?.legalBasis ?? []
+  const varslingPages =
+    varslingBasis.length > 0
+      ? docs.pages.filter(
+          (p) =>
+            p.status === 'published' &&
+            p.requiresAcknowledgement &&
+            varslingBasis.some((ref) => p.legalRefs.includes(ref)),
+        )
+      : []
+  const varslingPage =
+    varslingPages.length > 0
+      ? varslingPages.reduce((best, p) => (p.version > best.version ? p : best), varslingPages[0]!)
+      : null
+  const varslingSigned =
+    varslingPage != null
+      ? docs.receipts.filter((r) => r.pageId === varslingPage.id && r.pageVersion === varslingPage.version).length
+      : 0
+  const varslingTotal = members.length
+  const varslingPct = varslingTotal > 0 ? Math.round((varslingSigned / varslingTotal) * 100) : 0
+
   return (
     <DocumentsModuleLayout
       subHeader={
@@ -63,6 +87,21 @@ export function ComplianceDashboard() {
         </p>
       }
     >
+      {varslingPage && varslingTotal > 0 ? (
+        <div className="mt-4 rounded-none border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+          <strong className="tabular-nums">{varslingPct}%</strong> av ansatte har bekreftet å ha lest varslingsrutinen
+          <span className="text-sky-900/80">
+            {' '}
+            ({varslingSigned} av {varslingTotal} · gjeldende versjon v{varslingPage.version})
+          </span>
+          <div className="mt-2">
+            <Link to={`/documents/page/${varslingPage.id}`} className="font-medium text-[#1a3d32] underline">
+              Åpne varslingsrutinen
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
       <div className="mt-6 rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>

@@ -4,6 +4,10 @@ export type OrganizationRow = {
   name: string
   /** Public URL segment for anonymous whistleblowing form */
   whistle_public_slug?: string | null
+  /** Varslingsansvarlig (for varslingsrutine-mal og varslingssaker) */
+  varsling_contact_id?: string | null
+  varsling_contact_email?: string | null
+  varsling_channel_description?: string | null
   brreg_snapshot: Record<string, unknown> | null
   onboarding_completed_at: string | null
   created_at: string

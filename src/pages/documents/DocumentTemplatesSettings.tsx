@@ -12,6 +12,7 @@ const CATEGORY_LABELS: Record<SpaceCategory, string> = {
   procedure: 'Prosedyre',
   guide: 'Veiledning',
   template_library: 'Malbibliotek',
+  varsling: 'Varsling',
 }
 
 function useBodyScrollLock(active: boolean) {
