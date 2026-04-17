@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { CheckCircle2, ShieldCheck } from 'lucide-react'
 import { DEMO_USER_NAME, useWikiPage } from '../../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
@@ -11,12 +10,11 @@ type Props = {
 export function AcknowledgementFooter({ pageId, pageVersion }: Props) {
   const { acknowledge, hasAcknowledged, receipts } = useWikiPage(pageId)
   const { profile } = useOrgSetupContext()
-  const [name, setName] = useState('')
+
+  const displayName = profile?.display_name?.trim() || DEMO_USER_NAME
 
   const alreadySigned = hasAcknowledged(pageId, pageVersion)
-  const receipt = receipts.find(
-    (r) => r.pageId === pageId && r.pageVersion === pageVersion,
-  )
+  const receipt = receipts.find((r) => r.pageId === pageId && r.pageVersion === pageVersion)
 
   return (
     <div className="not-prose mt-8 rounded-xl border-2 border-[#1a3d32]/20 bg-[#1a3d32]/5 p-5">
@@ -33,24 +31,20 @@ export function AcknowledgementFooter({ pageId, pageVersion }: Props) {
             <div className="mt-4 flex items-center gap-2 text-emerald-700">
               <CheckCircle2 className="size-5" />
               <span className="text-sm font-medium">
-                Signert av {receipt?.userName ?? profile?.display_name ?? DEMO_USER_NAME} ·{' '}
+                Signert av {receipt?.userName ?? displayName} ·{' '}
                 {receipt ? new Date(receipt.acknowledgedAt).toLocaleString('no-NO') : ''}
                 {' '}· Versjon {pageVersion}
               </span>
             </div>
           ) : (
-            <div className="mt-4 flex flex-wrap gap-3">
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ditt fulle navn"
-                className="min-w-[200px] flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
-              />
+            <div className="mt-4 space-y-3">
+              <p className="text-sm text-neutral-700">
+                <span className="font-medium text-neutral-900">Signeres som:</span> {displayName}
+              </p>
               <button
                 type="button"
-                disabled={!name.trim() && !profile?.display_name?.trim()}
-                onClick={() => void acknowledge(pageId, name || (profile?.display_name ?? ''))}
-                className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-5 py-2 text-sm font-medium text-white disabled:opacity-40 hover:bg-[#142e26]"
+                onClick={() => void acknowledge(pageId)}
+                className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-5 py-2 text-sm font-medium text-white hover:bg-[#142e26]"
               >
                 <ShieldCheck className="size-4" />
                 Jeg har lest og forstått dette dokumentet

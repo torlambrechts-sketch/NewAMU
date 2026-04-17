@@ -638,9 +638,9 @@ function useDocumentsStore() {
   )
 
   const acknowledge = useCallback(
-    async (pageId: string, userName: string) => {
+    async (pageId: string) => {
       if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
-      const display = userName.trim() || profile?.display_name?.trim() || DEMO_USER_NAME
+      const display = profile?.display_name?.trim() || DEMO_USER_NAME
       const page = remoteState.pages.find((p) => p.id === pageId)
       if (!page) return
       if (!acknowledgementRequiredForMe(page)) return
@@ -962,6 +962,7 @@ export function useWikiPage(pageId: string | undefined) {
       pageHydrateError: v.pageHydrateError,
       ensurePageLoaded: v.ensurePageLoaded,
       page,
+      pages: v.pages,
       versions,
       receipts: v.receipts,
       updatePage: v.updatePage,
