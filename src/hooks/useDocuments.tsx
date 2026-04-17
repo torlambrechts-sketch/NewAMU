@@ -10,6 +10,7 @@ import type {
   PageTemplate,
   SpaceCategory,
   WikiPage,
+  WikiPageLang,
   WikiPageVersionSnapshot,
   WikiRetentionCategoryRow,
   WikiSpace,
@@ -144,6 +145,7 @@ function mapPage(
     status: string
     template: string
     legal_refs: string[] | null
+    lang?: string | null
     requires_acknowledgement: boolean
     acknowledgement_audience?: string | null
     acknowledgement_department_id?: string | null
@@ -175,6 +177,12 @@ function mapPage(
     status: row.status as WikiPage['status'],
     template: row.template as WikiPage['template'],
     legalRefs: row.legal_refs ?? [],
+    lang:
+      row.lang === 'nn' || row.lang === 'en'
+        ? (row.lang as WikiPageLang)
+        : row.lang === 'nb'
+          ? 'nb'
+          : undefined,
     requiresAcknowledgement: row.requires_acknowledgement,
     acknowledgementAudience: aud,
     acknowledgementDepartmentId: row.acknowledgement_department_id ?? null,
@@ -232,6 +240,7 @@ function mapPageVersion(row: {
   status: string
   template: string
   legal_refs: string[] | null
+  lang?: string | null
   requires_acknowledgement: boolean
   acknowledgement_audience?: string | null
   acknowledgement_department_id?: string | null
@@ -249,6 +258,12 @@ function mapPageVersion(row: {
     status: row.status,
     template: row.template,
     legalRefs: row.legal_refs ?? [],
+    lang:
+      row.lang === 'nn' || row.lang === 'en'
+        ? (row.lang as WikiPageLang)
+        : row.lang === 'nb'
+          ? 'nb'
+          : undefined,
     requiresAcknowledgement: row.requires_acknowledgement,
     acknowledgementAudience: (row.acknowledgement_audience ?? 'all_employees') as AcknowledgementAudience,
     acknowledgementDepartmentId: row.acknowledgement_department_id ?? null,
@@ -748,6 +763,7 @@ function useDocumentsStore() {
           status: 'draft' as const,
           template,
           legal_refs: opts?.legalRefs ?? [],
+          lang: 'nb' as const,
           requires_acknowledgement: opts?.requiresAcknowledgement ?? false,
           acknowledgement_audience: opts?.acknowledgementAudience ?? 'all_employees',
           acknowledgement_department_id: opts?.acknowledgementDepartmentId ?? null,
@@ -782,6 +798,7 @@ function useDocumentsStore() {
         status: 'draft',
         template,
         legalRefs: opts?.legalRefs ?? [],
+        lang: 'nb',
         requiresAcknowledgement: opts?.requiresAcknowledgement ?? false,
         acknowledgementAudience: opts?.acknowledgementAudience ?? 'all_employees',
         acknowledgementDepartmentId: opts?.acknowledgementDepartmentId ?? null,
@@ -832,6 +849,7 @@ function useDocumentsStore() {
           | 'summary'
           | 'blocks'
           | 'legalRefs'
+          | 'lang'
           | 'requiresAcknowledgement'
           | 'template'
           | 'acknowledgementAudience'
@@ -857,6 +875,7 @@ function useDocumentsStore() {
         if (patch.summary !== undefined) dbPatch.summary = patch.summary
         if (patch.blocks !== undefined) dbPatch.blocks = patch.blocks
         if (patch.legalRefs !== undefined) dbPatch.legal_refs = patch.legalRefs
+        if (patch.lang !== undefined) dbPatch.lang = patch.lang
         if (patch.requiresAcknowledgement !== undefined) {
           dbPatch.requires_acknowledgement = patch.requiresAcknowledgement
         }
@@ -923,6 +942,7 @@ function useDocumentsStore() {
           status: old.status,
           template: old.template,
           legal_refs: old.legalRefs,
+          lang: old.lang ?? 'nb',
           requires_acknowledgement: old.requiresAcknowledgement,
           acknowledgement_audience: old.acknowledgementAudience ?? 'all_employees',
           acknowledgement_department_id: old.acknowledgementDepartmentId ?? null,
@@ -968,6 +988,7 @@ function useDocumentsStore() {
           status: old.status,
           template: old.template,
           legalRefs: old.legalRefs,
+          lang: old.lang ?? 'nb',
           requiresAcknowledgement: old.requiresAcknowledgement,
           acknowledgementAudience: old.acknowledgementAudience ?? 'all_employees',
           acknowledgementDepartmentId: old.acknowledgementDepartmentId ?? null,

@@ -36,6 +36,15 @@ export type LawRefBlock = {
   url?: string
 }
 
+export type ImageBlock = {
+  kind: 'image'
+  url: string
+  caption?: string
+  /** Accessibility — use meaningful text (WCAG) */
+  alt?: string
+  width?: 'full' | 'wide' | 'medium'
+}
+
 /**
  * Dynamic module block — the content engine lazy-loads a named component
  * and passes the params object to it.
@@ -59,7 +68,7 @@ export type ModuleBlock = {
   params?: Record<string, string | number | boolean>
 }
 
-export type ContentBlock = TextBlock | HeadingBlock | AlertBlock | DividerBlock | LawRefBlock | ModuleBlock
+export type ContentBlock = TextBlock | HeadingBlock | AlertBlock | DividerBlock | LawRefBlock | ImageBlock | ModuleBlock
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -89,6 +98,9 @@ export type WikiRetentionCategoryRow = {
   description: string | null
 }
 
+/** Primary language of the document (short BCP 47 codes used in DB) */
+export type WikiPageLang = 'nb' | 'nn' | 'en'
+
 export type WikiPage = {
   id: string
   spaceId: string
@@ -100,6 +112,8 @@ export type WikiPage = {
   template: 'standard' | 'wide' | 'policy'
   /** IK-forskriften / AML references this page satisfies */
   legalRefs: string[]
+  /** Primary language of page body (accessibility); default nb when omitted */
+  lang?: WikiPageLang
   /** True → acknowledgement_footer module activates for this page */
   requiresAcknowledgement: boolean
   /** Defaults to all_employees when omitted (legacy templates) */
@@ -140,6 +154,8 @@ export type WikiPageVersionSnapshot = {
   status: string
   template: string
   legalRefs: string[]
+  /** Language at publish time (optional for legacy rows) */
+  lang?: WikiPageLang
   requiresAcknowledgement: boolean
   acknowledgementAudience: AcknowledgementAudience
   acknowledgementDepartmentId: string | null

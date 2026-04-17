@@ -41,3 +41,8 @@
     @apply min-h-screen w-full max-w-none m-0 text-left;
   }
 }
+
+/* Documents module — user-controlled reading scale (WCAG comfort) */
+.docs-module-shell {
+  font-size: var(--doc-font-size, 1rem);
+}

@@ -18,6 +18,9 @@ export type ProfileRow = {
   is_org_admin?: boolean
   /** UI locale: nb | en (requires DB migration profiles_locale). */
   locale?: string | null
+  /** Documents module reading comfort */
+  doc_font_size?: 'normal' | 'large' | 'xlarge' | string | null
+  doc_high_contrast?: boolean | null
   /** Optional link for department-level learning stats */
   department_id?: string | null
   /** Flags for learning paths (e.g. is_safety_rep) — synced with `profiles.learning_metadata` */

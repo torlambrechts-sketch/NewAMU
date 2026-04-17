@@ -9,6 +9,8 @@ import {
 import { HubMenu1Bar } from '../layout/HubMenu1Bar'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { apiFetchAnnualReview } from '../../api/wikiAnnualReview'
+import { DocumentsReadingPrefs } from './DocumentsReadingPrefs'
+import { documentsModuleShellStyle } from '../../lib/documentsModuleShellStyle'
 
 const PAGE = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 
@@ -20,7 +22,7 @@ type Props = {
 
 export function DocumentsModuleLayout({ children, subHeader }: Props) {
   const location = useLocation()
-  const { can, supabase, organization } = useOrgSetupContext()
+  const { can, supabase, organization, profile } = useOrgSetupContext()
   const activeId = documentsNavActiveId(location.pathname)
   const [annualReviewDot, setAnnualReviewDot] = useState(false)
 
@@ -64,7 +66,7 @@ export function DocumentsModuleLayout({ children, subHeader }: Props) {
   }))
 
   return (
-    <div className={PAGE}>
+    <div className={`${PAGE} docs-module-shell`} style={documentsModuleShellStyle(profile)}>
       <nav className="mb-4 text-sm text-neutral-600">
         <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
           Workspace
@@ -86,6 +88,8 @@ export function DocumentsModuleLayout({ children, subHeader }: Props) {
       <div className="mt-6">
         <HubMenu1Bar ariaLabel="Bibliotek og wiki" items={menuItems} />
       </div>
+
+      <DocumentsReadingPrefs />
 
       {subHeader}
 
