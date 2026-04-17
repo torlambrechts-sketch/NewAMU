@@ -119,6 +119,7 @@ function mapSpace(row: {
   status: string
   created_at: string
   updated_at: string
+  is_amu_space?: boolean | null
 }): WikiSpace {
   return {
     id: row.id,
@@ -127,6 +128,7 @@ function mapSpace(row: {
     category: row.category as WikiSpace['category'],
     icon: row.icon ?? '📁',
     status: row.status as WikiSpace['status'],
+    isAmuSpace: row.is_amu_space ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

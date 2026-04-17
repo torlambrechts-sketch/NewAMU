@@ -234,6 +234,40 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
   // ── 8. AMU-årsrapport ────────────────────────────────────────────────────
 
   {
+    id: 'tpl-amu-protokoll',
+    label: 'AMU-møteprotokoll',
+    description: 'Protokoll fra AMU-møte etter AML §7-2 og §7-4.',
+    legalBasis: ['AML §7-2', 'AML §7-4'],
+    category: 'procedure',
+    page: {
+      title: 'AMU-protokoll — møte [dato]',
+      summary: 'Protokoll fra AMU-møte.',
+      status: 'draft',
+      template: 'standard',
+      legalRefs: ['AML §7-2', 'AML §7-4'],
+      requiresAcknowledgement: false,
+      revisionIntervalMonths: 999,
+      blocks: [
+        { kind: 'heading', level: 1, text: 'AMU-protokoll — møte {dato}' },
+        {
+          kind: 'text',
+          body:
+            '<p>Møtedato: [dato]<br/>Møtested: [sted]<br/>Tilstede: [navneliste — representanter fra arbeidsgiver og ansatte]<br/>Arbeidsgiverside: [navn, tittel]<br/>Ansattside: [navn, verneombud/representant]</p>',
+        },
+        { kind: 'heading', level: 2, text: 'Saksliste' },
+        { kind: 'text', body: '<p>Sak 1: …<br/>Sak 2: …<br/>Sak 3: …</p>' },
+        { kind: 'heading', level: 2, text: 'Vedtak' },
+        { kind: 'alert', variant: 'warning', text: 'Vedtak er bindende for virksomheten iht. AML §7-2' },
+        { kind: 'heading', level: 2, text: 'Signaturer' },
+        { kind: 'text', body: '<p>Leder AMU: _____ · Sekretær: _____</p>' },
+        { kind: 'law_ref', ref: 'AML §7-1', description: 'Arbeidsmiljøutvalget', url: 'https://lovdata.no/lov/2005-06-17-62/§7-1' },
+        { kind: 'law_ref', ref: 'AML §7-2', description: 'AMUs oppgaver og vedtak', url: 'https://lovdata.no/lov/2005-06-17-62/§7-2' },
+        { kind: 'law_ref', ref: 'AML §7-4', description: 'Protokoller og årsrapport', url: 'https://lovdata.no/lov/2005-06-17-62/§7-4' },
+      ],
+    },
+  },
+
+  {
     id: 'tpl-amu-rapport',
     label: 'AMU-årsrapport',
     description: 'AMUs årsrapport om arbeidsmiljøarbeidet. Hjemlet i AML §7-2.',
@@ -504,6 +538,16 @@ export const SEED_SPACES = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  {
+    id: 'space-amu',
+    title: 'AMU — Arbeidsmiljøutvalg',
+    description: 'Protokoller, årsrapporter og vedtak fra AMU (AML §7-4)',
+    category: 'procedure' as const,
+    icon: '🏛️',
+    status: 'active' as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
 ]
 
 /** Compliance coverage map — which IK-f / AML requirements each template covers */
@@ -519,6 +563,7 @@ export const LEGAL_COVERAGE: { ref: string; label: string; templateIds: string[]
   { ref: 'AML §3-2', label: 'HMS-opplæring', templateIds: ['tpl-opplaering'] },
   { ref: 'AML §6-2/§6-5', label: 'Verneombud oppgaver og opplæring', templateIds: ['tpl-verneombud', 'tpl-opplaering'] },
   { ref: 'AML §7-2/§7-4', label: 'AMU årsrapport', templateIds: ['tpl-amu-rapport'] },
+  { ref: 'AML §7-4', label: 'AMU-protokoller tilgjengelig for ansatte', templateIds: ['tpl-amu-protokoll', 'tpl-amu-rapport'] },
   { ref: 'AML kap. 4 / §4-6', label: 'Individuell tilrettelegging', templateIds: ['tpl-tilrettelegging'] },
   { ref: 'Inkluderingsloven', label: 'Likestilling og ikke-diskriminering', templateIds: ['tpl-likestilling-mangfold'] },
   { ref: 'Livsfase / seniorpolitikk', label: 'Seniorpolitikk og livsfaser', templateIds: ['tpl-seniorpolitikk'] },

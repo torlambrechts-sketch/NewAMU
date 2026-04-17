@@ -1,8 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router-dom'
 import { CheckCircle2, Circle, ExternalLink, X } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+
+function subscribeClock(cb: () => void) {
+  const id = window.setInterval(cb, 60_000)
+  return () => window.clearInterval(id)
+}
+function getClockSnapshot() {
+  return Date.now()
+}
 
 function useBodyScrollLock(active: boolean) {
   useEffect(() => {
@@ -17,7 +26,68 @@ function useBodyScrollLock(active: boolean) {
 
 export function ComplianceDashboard() {
   const docs = useDocuments()
+  const { members } = useOrgSetupContext()
   const [panelRef, setPanelRef] = useState<string | null>(null)
+  const nowMs = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
+
+  const employeeCount = members.length
+  const amuSpace = useMemo(
+    () => docs.spaces.find((s) => s.isAmuSpace === true || /amu/i.test(s.title)),
+    [docs.spaces],
+  )
+  const amuPageIds = useMemo(
+    () => (amuSpace ? docs.pages.filter((p) => p.spaceId === amuSpace.id).map((p) => p.id) : []),
+    [docs.pages, amuSpace],
+  )
+  const amuCompliance = useMemo(() => {
+    if (employeeCount < 50) {
+      return {
+        applies: false as const,
+        hasAmuSpace: Boolean(amuSpace),
+        annualReportOk: false,
+        protocolRecentOk: false,
+        lastProtocolAt: null as string | null,
+        meetingsPublishedLast12m: 0,
+      }
+    }
+    const annualReportOk = docs.pages.some(
+      (p) =>
+        p.status === 'published' &&
+        p.legalRefs.some((r) => r.includes('7-2')) &&
+        p.legalRefs.some((r) => r.includes('7-4')),
+    )
+    const publishedInAmu = docs.auditLedger.filter(
+      (e) =>
+        e.action === 'published' &&
+        amuPageIds.includes(e.pageId) &&
+        new Date(e.at).getTime() > nowMs - 90 * 86400000,
+    )
+    const lastProtocolAt =
+      publishedInAmu.length > 0
+        ? publishedInAmu.reduce((best, e) => (e.at > best ? e.at : best), publishedInAmu[0]!.at)
+        : null
+    const protocolRecentOk = publishedInAmu.length > 0
+    const meetingsPublishedLast12m = docs.auditLedger.filter(
+      (e) =>
+        e.action === 'published' &&
+        amuPageIds.includes(e.pageId) &&
+        new Date(e.at).getTime() > nowMs - 365 * 86400000,
+    ).length
+    return {
+      applies: true as const,
+      hasAmuSpace: Boolean(amuSpace),
+      annualReportOk,
+      protocolRecentOk,
+      lastProtocolAt,
+      meetingsPublishedLast12m,
+    }
+  }, [employeeCount, docs.pages, docs.auditLedger, amuSpace, amuPageIds, nowMs])
+
+  const amuProtocolsOk =
+    amuCompliance.applies &&
+    amuCompliance.hasAmuSpace &&
+    amuCompliance.annualReportOk &&
+    amuCompliance.protocolRecentOk
 
   const coverage = docs.legalCoverage.map((item) => {
     const coveredBy = docs.pages.filter(
@@ -82,6 +152,88 @@ export function ComplianceDashboard() {
           <div className="h-full rounded-none bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
         </div>
       </div>
+
+      {employeeCount >= 50 ? (
+        <div className="mt-8 space-y-4">
+          <div className="overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
+            <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">
+              <h2 className="font-semibold text-neutral-900">AMU (AML §7 — store virksomheter)</h2>
+              <p className="text-xs text-neutral-500">
+                Kravene under gjelder når virksomheten har AMU-plikt (her: {employeeCount} registrerte medlemmer som
+                terskel). AMU-protokoller skal være tilgjengelige for ansatte (AML §7-4).
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                    <th className="px-4 py-3">Hjemmel</th>
+                    <th className="px-4 py-3">Krav</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Siste</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  <tr>
+                    <td className="px-4 py-3 font-mono text-xs text-[#1a3d32]">AML §7-4</td>
+                    <td className="px-4 py-3 text-neutral-700">AMU-protokoller tilgjengelig</td>
+                    <td className="px-4 py-3">
+                      {amuProtocolsOk ? (
+                        <CheckCircle2 className="size-5 text-emerald-600" aria-label="OK" />
+                      ) : (
+                        <Circle className="size-5 text-amber-400" aria-label="Mangler" />
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-neutral-600">
+                      {amuCompliance.lastProtocolAt
+                        ? new Date(amuCompliance.lastProtocolAt).toLocaleDateString('no-NO')
+                        : '—'}
+                      {!amuCompliance.hasAmuSpace ? (
+                        <span className="mt-1 block text-amber-700">Mangler AMU-mappe</span>
+                      ) : null}
+                      {!amuCompliance.annualReportOk ? (
+                        <span className="mt-1 block text-amber-700">Mangler publisert AMU-årsrapport (§7-2/7-4)</span>
+                      ) : null}
+                      {amuCompliance.hasAmuSpace && amuCompliance.annualReportOk && !amuCompliance.protocolRecentOk ? (
+                        <span className="mt-1 block text-amber-700">Ingen protokoll publisert siste 3 mnd.</span>
+                      ) : null}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div
+            className={`rounded-none border px-4 py-3 text-sm ${
+              amuCompliance.meetingsPublishedLast12m >= 4
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                : 'border-amber-200 bg-amber-50 text-amber-950'
+            }`}
+          >
+            <p className="font-medium">AMU-møtefrekvens (AML §7-3)</p>
+            <p className="mt-1 text-neutral-800">
+              {amuCompliance.meetingsPublishedLast12m} av 4 planlagte AMU-møter protokollert siste år
+              {amuSpace ? (
+                <span className="text-neutral-600">
+                  {' '}
+                  (publiseringer i «{amuSpace.title}», fra aktivitetslogg)
+                </span>
+              ) : null}
+            </p>
+            {amuCompliance.meetingsPublishedLast12m < 4 ? (
+              <p className="mt-2 text-xs text-amber-900">
+                Virksomheter med AMU bør dokumentere minst fire møter i året. Opprett/publiser protokoller i AMU-mappen.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <p className="mt-6 text-xs text-neutral-500">
+          Utvidet AMU-samsvar (mappe, protokoller, møtefrekvens) vises når organisasjonen har minst 50 registrerte
+          medlemmer — typisk AMU-plikt.
+        </p>
+      )}
 
       <div className="mb-8 mt-8 overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
         <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">

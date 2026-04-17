@@ -155,6 +155,8 @@ export type WikiSpace = {
   /** Emoji or icon identifier */
   icon: string
   status: 'active' | 'archived'
+  /** Org AMU folder — published pages visible to all members (server RLS). */
+  isAmuSpace?: boolean
   createdAt: string
   updatedAt: string
 }
