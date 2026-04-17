@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
+  AlertTriangle,
   BarChart3,
   Briefcase,
   BookOpen,
@@ -416,6 +417,13 @@ const navGroups: NavGroup[] = [
               pathname.startsWith('/inspection-module/admin'),
           },
         ],
+      },
+      {
+        to: '/avvik',
+        label: 'Avvik',
+        end: false,
+        icon: AlertTriangle,
+        subs: [],
       },
     ],
   },
