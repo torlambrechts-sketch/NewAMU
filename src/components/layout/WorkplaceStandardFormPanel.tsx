@@ -18,7 +18,7 @@ export const WPSTD_FORM_INPUT =
 
 export const WPSTD_FORM_INPUT_ON_WHITE = `${WPSTD_FORM_INPUT} bg-white`
 
-type WorkplaceStandardFormPanelProps = {
+export type WorkplaceStandardFormPanelProps = {
   open: boolean
   onClose: () => void
   titleId: string
