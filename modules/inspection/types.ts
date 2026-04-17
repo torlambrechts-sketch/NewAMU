@@ -86,6 +86,11 @@ export type InspectionRoundRow = {
   summary: string | null
   conducted_by: string | null
   conducted_at: string | null
+  /** Browser geolocation stamp when inspector records on-site position */
+  gps_lat: number | null
+  gps_lon: number | null
+  gps_accuracy_m: number | null
+  gps_stamped_at: string | null
   created_by: string | null
   created_at: string
   updated_at: string

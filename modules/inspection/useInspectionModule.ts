@@ -63,6 +63,7 @@ export type InspectionModuleState = {
   }) => Promise<void>
   signRound: (roundId: string) => Promise<void>
   signRoundWithRole: (roundId: string, role: 'manager' | 'deputy') => Promise<void>
+  stampRoundGps: (roundId: string) => Promise<void>
   saveRoundSummary: (payload: {
     roundId: string
     summary: string
@@ -706,6 +707,49 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     [supabase],
   )
 
+  const stampRoundGps = useCallback(
+    async (roundId: string) => {
+      if (!supabase || !navigator.geolocation) return
+      setError(null)
+      await new Promise<void>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            const row = {
+              gps_lat: pos.coords.latitude,
+              gps_lon: pos.coords.longitude,
+              gps_accuracy_m: pos.coords.accuracy,
+              gps_stamped_at: new Date().toISOString(),
+            }
+            const { data, error } = await supabase
+              .from('inspection_rounds')
+              .update(row)
+              .eq('id', roundId)
+              .select('*')
+              .single()
+            if (error) {
+              setError(error.message)
+              resolve()
+              return
+            }
+            const parsed = InspectionRoundRowSchema.safeParse(data)
+            if (parsed.success) {
+              setRounds((prev) => prev.map((r) => (r.id === roundId ? parsed.data : r)))
+            } else {
+              setError('Failed to parse round after GPS stamp.')
+            }
+            resolve()
+          },
+          (err) => {
+            setError(`GPS ikke tilgjengelig: ${err.message}`)
+            resolve()
+          },
+          { enableHighAccuracy: true, timeout: 10_000 },
+        )
+      })
+    },
+    [supabase],
+  )
+
   const saveRoundSummary = useCallback(
     async (payload: {
       roundId: string
@@ -778,6 +822,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     updateRoundSchedule,
     signRound,
     signRoundWithRole,
+    stampRoundGps,
     saveRoundSummary,
     upsertItemResponse,
     addFinding,

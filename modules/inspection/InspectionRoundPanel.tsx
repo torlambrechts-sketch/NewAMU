@@ -144,6 +144,43 @@ function ChecklistTab({
         </div>
       )}
 
+      {!isRoundDetailLoading && round.status === 'active' && (
+        <div className="border-b border-neutral-200 bg-neutral-50/80 px-5 py-3">
+          {round.gps_stamped_at == null ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-neutral-600">
+                Registrer posisjon for vernerunden (valgfritt, krever nettlesertilgang til posisjon).
+              </p>
+              <button
+                type="button"
+                onClick={() => void inspection.stampRoundGps(round.id)}
+                className="shrink-0 rounded border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
+              >
+                📍 Stempel GPS-posisjon
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-neutral-700">
+              GPS:{' '}
+              {round.gps_lat != null && round.gps_lon != null
+                ? `${round.gps_lat.toFixed(4)}, ${round.gps_lon.toFixed(4)}`
+                : '—'}
+              {round.gps_accuracy_m != null && (
+                <> — nøyaktighet {Math.round(round.gps_accuracy_m)}m</>
+              )}
+              {round.gps_stamped_at && (
+                <>
+                  {' '}
+                  <span className="text-neutral-500">
+                    ({new Date(round.gps_stamped_at).toLocaleString('nb-NO')})
+                  </span>
+                </>
+              )}
+            </p>
+          )}
+        </div>
+      )}
+
       {!isRoundDetailLoading && checklistItems.length > 0 && (
         <ChecklistExecutionTab
           items={checklistTabItems}
