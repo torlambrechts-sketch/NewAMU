@@ -113,6 +113,10 @@ export type InspectionFindingRow = {
   item_id: string | null
   description: string
   severity: InspectionFindingSeverity
+  risk_probability: number | null
+  risk_consequence: number | null
+  /** Generated column — read-only from DB */
+  risk_score: number | null
   photo_path: string | null
   created_by: string | null
   deviation_id: string | null

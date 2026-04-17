@@ -1,14 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { CheckCircle2, Circle, Trash2, X } from 'lucide-react'
 import type { HmsCategory, InspectionChecklistItem, InspectionRoundRow } from './types'
 import { parseChecklistItems } from './schema'
 import type { InspectionModuleState } from './useInspectionModule'
 import { ChecklistExecutionTab } from '../../src/components/checklist/ChecklistExecutionTab'
 import type { ChecklistItem, ChecklistResponse } from '../../src/components/checklist/types'
+import { DeviationPanel } from '../../src/components/hse/DeviationPanel'
+import { RiskMatrix, riskColorClass, riskLabel, riskScoreFromProbCons } from '../../src/components/hse/RiskMatrix'
 
 type Props = {
   round: InspectionRoundRow
   inspection: InspectionModuleState
+  supabase: SupabaseClient | null
   onClose: () => void
 }
 
@@ -185,18 +189,26 @@ function FindingsTab({
   inspection,
   prefillItemKey,
   checklistItems,
+  onOpenDeviation,
 }: {
   round: InspectionRoundRow
   inspection: InspectionModuleState
   prefillItemKey: string | null
   checklistItems: InspectionChecklistItem[]
+  onOpenDeviation: (deviationId: string) => void
 }) {
   const findings = inspection.findingsByRoundId[round.id] ?? []
   const items = inspection.itemsByRoundId[round.id] ?? []
   const [description, setDescription] = useState('')
   const [severity, setSeverity] = useState<'low' | 'medium' | 'high' | 'critical'>('high')
+  const [findingProb, setFindingProb] = useState<number | null>(null)
+  const [findingCons, setFindingCons] = useState<number | null>(null)
   const [linkedItemKey, setLinkedItemKey] = useState(prefillItemKey ?? '')
   const [saving, setSaving] = useState(false)
+  const [creatingForFindingId, setCreatingForFindingId] = useState<string | null>(null)
+  const [deviationSuccess, setDeviationSuccess] = useState<{ findingId: string; deviationId: string } | null>(
+    null,
+  )
 
   useEffect(() => {
     if (prefillItemKey) setLinkedItemKey(prefillItemKey)
@@ -215,9 +227,13 @@ function FindingsTab({
       description,
       severity,
       itemId: linkedItemId,
+      riskProbability: findingProb ?? undefined,
+      riskConsequence: findingCons ?? undefined,
     })
     setDescription('')
     setSeverity('high')
+    setFindingProb(null)
+    setFindingCons(null)
     setLinkedItemKey('')
     setSaving(false)
   }
@@ -269,6 +285,20 @@ function FindingsTab({
               </select>
             </div>
           </div>
+          <div>
+            <p className={PANEL_FIELD_LABEL}>Risiko (sannsynlighet × konsekvens)</p>
+            <div className="mt-2 rounded border border-neutral-200 bg-white p-3">
+              <RiskMatrix
+                probability={findingProb}
+                consequence={findingCons}
+                onChange={(p, c) => {
+                  setFindingProb(p)
+                  setFindingCons(c)
+                }}
+                size="sm"
+              />
+            </div>
+          </div>
           <button
             type="button"
             disabled={!description.trim() || saving}
@@ -289,16 +319,63 @@ function FindingsTab({
             const linkedLabel = f.item_id
               ? (items.find((i) => i.id === f.item_id)?.checklist_item_label ?? null)
               : null
+            const riskScore =
+              f.risk_score ?? riskScoreFromProbCons(f.risk_probability, f.risk_consequence)
+            const showDeviationBanner =
+              !f.deviation_id && riskScore != null && riskScore >= 10
+
             return (
               <div key={f.id} className="border-b border-neutral-100 px-5 py-4 last:border-b-0">
+                {deviationSuccess?.findingId === f.id && (
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900">
+                    <span>Avvik er opprettet.</span>
+                    <button
+                      type="button"
+                      className="font-semibold underline decoration-green-800 hover:text-green-950"
+                      onClick={() => {
+                        onOpenDeviation(deviationSuccess.deviationId)
+                        setDeviationSuccess(null)
+                      }}
+                    >
+                      Åpne avvik →
+                    </button>
+                  </div>
+                )}
+                {showDeviationBanner && (
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                    <span>
+                      Risikoskår {riskScore} — opprett avvik (IK-f §5 krav)
+                    </span>
+                    <button
+                      type="button"
+                      disabled={creatingForFindingId === f.id}
+                      className="shrink-0 rounded bg-[#1a3d32] px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                      onClick={async () => {
+                        setCreatingForFindingId(f.id)
+                        const id = await inspection.createDeviationFromFinding(f.id)
+                        setCreatingForFindingId(null)
+                        if (id) setDeviationSuccess({ findingId: f.id, deviationId: id })
+                      }}
+                    >
+                      {creatingForFindingId === f.id ? 'Oppretter…' : 'Opprett avvik'}
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-start justify-between gap-3">
                   <p className="text-sm text-neutral-900">{f.description}</p>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                     <span
                       className={`rounded px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_COLORS[f.severity]}`}
                     >
                       {SEVERITY_LABELS[f.severity]}
                     </span>
+                    {riskScore != null && (
+                      <span
+                        className={`rounded px-2 py-0.5 text-[11px] font-semibold ${riskColorClass(riskScore)}`}
+                      >
+                        Risiko {riskScore} — {riskLabel(riskScore)}
+                      </span>
+                    )}
                     {!readOnly && (
                       <button
                         type="button"
@@ -630,9 +707,10 @@ function SignaturesTab({
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
-export function InspectionRoundPanel({ round, inspection, onClose }: Props) {
+export function InspectionRoundPanel({ round, inspection, supabase, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<PanelTab>('checklist')
   const [findingPrefillKey] = useState<string | null>(null)
+  const [selectedDeviationId, setSelectedDeviationId] = useState<string | null>(null)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -660,6 +738,7 @@ export function InspectionRoundPanel({ round, inspection, onClose }: Props) {
   const critCount = findings.filter((f) => f.severity === 'critical').length
 
   return (
+    <>
     <div
       className="fixed inset-0 z-40 flex justify-end bg-black/45 backdrop-blur-[2px]"
       onClick={handleOverlayClick}
@@ -734,6 +813,7 @@ export function InspectionRoundPanel({ round, inspection, onClose }: Props) {
               inspection={inspection}
               prefillItemKey={findingPrefillKey}
               checklistItems={checklistItems}
+              onOpenDeviation={(id) => setSelectedDeviationId(id)}
             />
           )}
           {activeTab === 'summary' && (
@@ -763,5 +843,16 @@ export function InspectionRoundPanel({ round, inspection, onClose }: Props) {
         </div>
       </div>
     </div>
+    {selectedDeviationId && supabase ? (
+      <DeviationPanel
+        deviationId={selectedDeviationId}
+        supabase={supabase}
+        onClose={() => setSelectedDeviationId(null)}
+        onUpdated={() => {
+          void inspection.loadRoundDetail(round.id)
+        }}
+      />
+    ) : null}
+    </>
   )
 }
