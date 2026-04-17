@@ -51,6 +51,8 @@ export function mapWikiPage(
     created_at: string
     updated_at: string
     word_count?: number | null
+    sort_order?: number | null
+    is_pinned?: boolean | null
   },
   authorFallback: string,
 ): WikiPage {
@@ -70,6 +72,8 @@ export function mapWikiPage(
     revisionIntervalMonths: row.revision_interval_months ?? 12,
     blocks: (Array.isArray(row.blocks) ? row.blocks : []) as Block[],
     wordCount: row.word_count ?? undefined,
+    sortOrder: row.sort_order ?? 0,
+    isPinned: row.is_pinned === true,
     version: row.version,
     authorId: row.author_id ?? authorFallback,
     createdAt: row.created_at,

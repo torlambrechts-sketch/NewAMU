@@ -5,6 +5,7 @@ import { useDocumentTemplates } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PageTemplate, SpaceCategory } from '../../types/documents'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+import { DocumentsSearchBar } from '../../components/documents/DocumentsSearchBar'
 
 const CATEGORY_LABELS: Record<SpaceCategory, string> = {
   hms_handbook: 'HMS-håndbok',
@@ -132,7 +133,7 @@ export function DocumentTemplatesSettings() {
 
   if (!canManage) {
     return (
-      <DocumentsModuleLayout>
+      <DocumentsModuleLayout headerActions={<DocumentsSearchBar />}>
         <p className="mt-8 text-center text-neutral-600">Du har ikke tilgang til å administrere dokumentmaler.</p>
         <div className="mt-4 text-center">
           <Link to="/documents" className="text-[#1a3d32] underline">
@@ -145,6 +146,7 @@ export function DocumentTemplatesSettings() {
 
   return (
     <DocumentsModuleLayout
+      headerActions={<DocumentsSearchBar />}
       subHeader={
         <p className="mt-6 border-b border-neutral-200/80 pb-6 text-sm text-neutral-600">
           Aktiver eller skjul systemmaler for organisasjonen, og opprett egne maler som vises i malbiblioteket. Klikk en

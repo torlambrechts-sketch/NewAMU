@@ -17,9 +17,11 @@ type Props = {
   subHeader?: ReactNode
   /** Extra classes on the outer page container (e.g. print hooks). */
   className?: string
+  /** Right side of module title row (e.g. global search). */
+  headerActions?: ReactNode
 }
 
-export function DocumentsModuleLayout({ children, subHeader, className = '' }: Props) {
+export function DocumentsModuleLayout({ children, subHeader, className = '', headerActions }: Props) {
   const location = useLocation()
   const { can } = useOrgSetupContext()
   const activeId = documentsNavActiveId(location.pathname)
@@ -47,13 +49,18 @@ export function DocumentsModuleLayout({ children, subHeader, className = '' }: P
       </nav>
 
       <header className="documents-module-header border-b border-neutral-200/80 pb-6">
-        <h1
-          className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-          style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-        >
-          {DOCUMENTS_MODULE_TITLE}
-        </h1>
-        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-neutral-600">{DOCUMENTS_MODULE_DESC}</p>
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <h1
+              className="text-2xl font-semibold text-neutral-900 md:text-3xl"
+              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+            >
+              {DOCUMENTS_MODULE_TITLE}
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-neutral-600">{DOCUMENTS_MODULE_DESC}</p>
+          </div>
+          {headerActions ? <div className="shrink-0 md:pt-1">{headerActions}</div> : null}
+        </div>
       </header>
 
       <div className="documents-module-hub mt-6">

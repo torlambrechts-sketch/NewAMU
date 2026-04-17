@@ -22,6 +22,7 @@ import { useWikiPage, useWikiSpaces } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { RichTextEditor, type MarkdownShortcutKind } from '../../components/learning/RichTextEditor'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+import { DocumentsSearchBar } from '../../components/documents/DocumentsSearchBar'
 import type { AcknowledgementAudience, Block, ModuleBlock } from '../../types/documents'
 import { WikiBlockRenderer } from './WikiBlockRenderer'
 import { WikiEditorCommandPalette, type PaletteEntry } from './WikiEditorCommandPalette'
@@ -439,6 +440,7 @@ export function WikiPageEditor() {
 
   return (
     <DocumentsModuleLayout
+      headerActions={<DocumentsSearchBar />}
       subHeader={
         <div className="mt-6 space-y-3 border-b border-neutral-200/80 pb-6">
           <nav className="flex flex-wrap items-center gap-2 text-sm text-neutral-600">

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { CheckCircle2, Circle, ExternalLink, X } from 'lucide-react'
 import { useComplianceDocs } from '../../hooks/useDocuments'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+import { DocumentsSearchBar } from '../../components/documents/DocumentsSearchBar'
 
 function useBodyScrollLock(active: boolean) {
   useEffect(() => {
@@ -56,6 +57,7 @@ export function ComplianceDashboard() {
 
   return (
     <DocumentsModuleLayout
+      headerActions={<DocumentsSearchBar />}
       subHeader={
         <p className="mt-6 border-b border-neutral-200/80 pb-6 text-sm text-neutral-600">
           Oversikt over hvilke krav i Internkontrollforskriften og Arbeidsmiljøloven som er dekket av publiserte sider.

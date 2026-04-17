@@ -14,6 +14,7 @@ import { useWikiPage, useWikiSpaces } from '../../hooks/useDocuments'
 import { WikiBlockRenderer } from './WikiBlockRenderer'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+import { DocumentsSearchBar } from '../../components/documents/DocumentsSearchBar'
 import { WikiPageTocRail } from './WikiPageTocRail'
 import { WikiVersionDiffModal } from './WikiVersionDiffModal'
 import {
@@ -171,6 +172,7 @@ export function WikiPageView() {
   return (
     <DocumentsModuleLayout
       className="wiki-page-print-root"
+      headerActions={<DocumentsSearchBar />}
       subHeader={
         <nav className="mt-6 flex flex-wrap items-center gap-2 border-b border-neutral-200/80 pb-6 text-sm text-neutral-600 print:hidden">
           <Link to="/documents" className="text-neutral-500 hover:text-[#1a3d32]">

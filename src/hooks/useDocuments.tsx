@@ -47,7 +47,7 @@ type OrgCustomTemplate = {
   description: string
   category: SpaceCategory
   legalBasis: string[]
-  pagePayload: Omit<WikiPage, 'id' | 'spaceId' | 'createdAt' | 'updatedAt' | 'authorId' | 'version' | 'wordCount'>
+  pagePayload: Omit<WikiPage, 'id' | 'spaceId' | 'createdAt' | 'updatedAt' | 'authorId' | 'version' | 'wordCount' | 'sortOrder' | 'isPinned'>
 }
 
 function emptyState(): DocumentsState {
@@ -91,7 +91,13 @@ async function fetchAllForOrg(
 ): Promise<DocumentsState> {
   const [spacesRes, pagesRes, ledgerRes, receiptsRes, itemsRes, verRes] = await Promise.all([
     supabase.from('wiki_spaces').select('*').eq('organization_id', orgId).order('created_at'),
-    supabase.from('wiki_pages').select('*').eq('organization_id', orgId),
+    supabase
+      .from('wiki_pages')
+      .select('*')
+      .eq('organization_id', orgId)
+      .order('space_id')
+      .order('sort_order', { ascending: true })
+      .order('updated_at', { ascending: false }),
     supabase.from('wiki_audit_ledger').select('*').eq('organization_id', orgId).order('at', { ascending: false }).limit(500),
     supabase.from('wiki_compliance_receipts').select('*').eq('organization_id', orgId),
     supabase.from('wiki_space_items').select('*').eq('organization_id', orgId).order('created_at', { ascending: false }),
@@ -455,6 +461,7 @@ function useDocumentsStore() {
     ) => {
       if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
       const id = crypto.randomUUID()
+      const maxSort = remoteState.pages.filter((p) => p.spaceId === spaceId).reduce((m, p) => Math.max(m, p.sortOrder), -1)
       const pageRow = {
         id,
         organization_id: orgId,
@@ -471,6 +478,7 @@ function useDocumentsStore() {
         blocks: blocks as unknown as Record<string, unknown>[],
         version: 1,
         author_id: userId,
+        sort_order: maxSort + 1,
       }
       const { data, error: pe } = await supabase.from('wiki_pages').insert(pageRow).select('*').single()
       if (pe) throw pe
@@ -479,7 +487,69 @@ function useDocumentsStore() {
       mergeState((s) => ({ ...s, pages: [page, ...s.pages] }))
       return page
     },
-    [supabase, orgId, userId, authorFallback, insertLedgerRemote, mergeState],
+    [supabase, orgId, userId, authorFallback, insertLedgerRemote, mergeState, remoteState.pages],
+  )
+
+  const searchWikiPages = useCallback(
+    async (query: string) => {
+      if (!supabase || !orgId) return [] as { id: string; space_id: string; title: string; summary: string; status: string; updated_at: string }[]
+      const q = query.trim()
+      if (!q) return []
+      const { data, error: e } = await supabase
+        .from('wiki_pages')
+        .select('id, space_id, title, summary, status, updated_at')
+        .eq('organization_id', orgId)
+        .textSearch('search_vector', q, { type: 'websearch', config: 'norwegian' })
+        .limit(40)
+      if (e) throw e
+      return (data ?? []) as { id: string; space_id: string; title: string; summary: string; status: string; updated_at: string }[]
+    },
+    [supabase, orgId],
+  )
+
+  const reorderPagesInSpace = useCallback(
+    async (spaceId: string, orderedPageIds: string[]) => {
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const now = new Date().toISOString()
+      for (let i = 0; i < orderedPageIds.length; i++) {
+        const pid = orderedPageIds[i]!
+        const { error: e } = await supabase
+          .from('wiki_pages')
+          .update({ sort_order: i, updated_at: now })
+          .eq('id', pid)
+          .eq('organization_id', orgId)
+          .eq('space_id', spaceId)
+        if (e) throw e
+      }
+      mergeState((s) => ({
+        ...s,
+        pages: s.pages.map((p) => {
+          const idx = orderedPageIds.indexOf(p.id)
+          if (p.spaceId !== spaceId || idx < 0) return p
+          return { ...p, sortOrder: idx }
+        }),
+      }))
+    },
+    [supabase, orgId, userId, mergeState],
+  )
+
+  const movePageToSpace = useCallback(
+    async (pageId: string, newSpaceId: string) => {
+      if (!supabase || !orgId || !userId) throw new Error('Ikke tilkoblet')
+      const inTarget = remoteState.pages.filter((p) => p.spaceId === newSpaceId)
+      const maxSort = inTarget.reduce((m, p) => Math.max(m, p.sortOrder), -1)
+      const { data, error: e } = await supabase
+        .from('wiki_pages')
+        .update({ space_id: newSpaceId, sort_order: maxSort + 1, updated_at: new Date().toISOString() })
+        .eq('id', pageId)
+        .eq('organization_id', orgId)
+        .select('*')
+        .single()
+      if (e) throw e
+      const updated = mapWikiPage(data as Parameters<typeof mapWikiPage>[0], authorFallback)
+      mergeState((s) => ({ ...s, pages: s.pages.map((p) => (p.id === pageId ? updated : p)) }))
+    },
+    [supabase, orgId, userId, remoteState.pages, authorFallback, mergeState],
   )
 
   const updatePage = useCallback(
@@ -499,6 +569,9 @@ function useDocumentsStore() {
           | 'acknowledgementDepartmentId'
           | 'revisionIntervalMonths'
           | 'nextRevisionDueAt'
+          | 'spaceId'
+          | 'sortOrder'
+          | 'isPinned'
         >
       >,
     ) => {
@@ -525,6 +598,9 @@ function useDocumentsStore() {
       if (patch.nextRevisionDueAt !== undefined) {
         dbPatch.next_revision_due_at = patch.nextRevisionDueAt
       }
+      if (patch.spaceId !== undefined) dbPatch.space_id = patch.spaceId
+      if (patch.sortOrder !== undefined) dbPatch.sort_order = patch.sortOrder
+      if (patch.isPinned !== undefined) dbPatch.is_pinned = patch.isPinned
       const { data, error: e } = await supabase.from('wiki_pages').update(dbPatch).eq('id', id).eq('organization_id', orgId).select('*').single()
       if (e) throw e
       const updated = mapWikiPage(data as Parameters<typeof mapWikiPage>[0], authorFallback)
@@ -775,6 +851,21 @@ function useDocumentsStore() {
     [remoteState.pageVersions],
   )
 
+  const myRecentWikiEdits = useMemo(() => {
+    if (!userId) return []
+    const seen = new Set<string>()
+    const out: { pageId: string; pageTitle: string; at: string; action: AuditLedgerEntry['action'] }[] = []
+    for (const e of remoteState.auditLedger) {
+      if (e.userId !== userId) continue
+      if (e.action !== 'updated' && e.action !== 'published' && e.action !== 'created') continue
+      if (seen.has(e.pageId)) continue
+      seen.add(e.pageId)
+      out.push({ pageId: e.pageId, pageTitle: e.pageTitle, at: e.at, action: e.action })
+      if (out.length >= 5) break
+    }
+    return out
+  }, [remoteState.auditLedger, userId])
+
   const pageHydrateLoading = pageHydrate.loading
   const pageHydrateError = pageHydrate.error
 
@@ -817,6 +908,10 @@ function useDocumentsStore() {
       acknowledge,
       hasAcknowledged,
       acknowledgementRequiredForMe,
+      searchWikiPages,
+      reorderPagesInSpace,
+      movePageToSpace,
+      myRecentWikiEdits,
     }),
     [
       ready,
@@ -827,6 +922,10 @@ function useDocumentsStore() {
       ensurePageLoaded,
       remoteState,
       versionsForPage,
+      searchWikiPages,
+      reorderPagesInSpace,
+      movePageToSpace,
+      myRecentWikiEdits,
       addSpaceUrl,
       uploadSpaceFile,
       deleteSpaceItem,
@@ -905,6 +1004,8 @@ export function useWikiSpaces() {
       deleteSpaceItem: v.deleteSpaceItem,
       getSpaceFileUrl: v.getSpaceFileUrl,
       refreshDocuments: v.refreshDocuments,
+      searchWikiPages: v.searchWikiPages,
+      myRecentWikiEdits: v.myRecentWikiEdits,
     }),
     [v],
   )
@@ -944,6 +1045,9 @@ export function useWikiPages(spaceId: string | undefined) {
       publishPage: v.publishPage,
       archivePage: v.archivePage,
       refreshDocuments: v.refreshDocuments,
+      updatePage: v.updatePage,
+      reorderPagesInSpace: v.reorderPagesInSpace,
+      movePageToSpace: v.movePageToSpace,
     }),
     [v, pages, spaceItems, createPageInSpace],
   )

@@ -96,6 +96,10 @@ export type WikiPage = {
   blocks: Block[]
   /** Populated when server exposes `word_count` (generated column). */
   wordCount?: number
+  /** Manual sort within space (ascending). */
+  sortOrder: number
+  /** Highlight on documents home. */
+  isPinned: boolean
   version: number
   createdAt: string
   updatedAt: string
@@ -190,5 +194,5 @@ export type PageTemplate = {
   legalBasis: string[]
   category: SpaceCategory
   /** Pre-filled page scaffold */
-  page: Omit<WikiPage, 'id' | 'spaceId' | 'createdAt' | 'updatedAt' | 'authorId' | 'version' | 'wordCount'>
+  page: Omit<WikiPage, 'id' | 'spaceId' | 'createdAt' | 'updatedAt' | 'authorId' | 'version' | 'wordCount' | 'sortOrder' | 'isPinned'>
 }
