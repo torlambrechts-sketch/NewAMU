@@ -4,7 +4,7 @@
 // Blocks are either rich-text or a reference to a named dynamic module.
 // This keeps content portable and independently renderable.
 
-// ─── Content blocks ───────────────────────────────────────────────────────────
+// ─── Blocks (page content units) ─────────────────────────────────────────────
 
 export type TextBlock = {
   kind: 'text'
@@ -26,6 +26,14 @@ export type AlertBlock = {
 
 export type DividerBlock = {
   kind: 'divider'
+}
+
+export type ImageBlock = {
+  kind: 'image'
+  /** Storage path in wiki_space_files bucket (preferred for signing) */
+  storagePath: string
+  caption?: string
+  width: 'full' | 'wide' | 'medium'
 }
 
 export type LawRefBlock = {
@@ -53,7 +61,10 @@ export type ModuleBlock = {
   params?: Record<string, string | number | boolean>
 }
 
-export type ContentBlock = TextBlock | HeadingBlock | AlertBlock | DividerBlock | LawRefBlock | ModuleBlock
+export type Block = TextBlock | HeadingBlock | AlertBlock | DividerBlock | ImageBlock | LawRefBlock | ModuleBlock
+
+/** @deprecated Use `Block` */
+export type ContentBlock = Block
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -82,7 +93,9 @@ export type WikiPage = {
   /** Next mandatory review (IK-f §5 — systematic review) */
   nextRevisionDueAt?: string | null
   revisionIntervalMonths?: number
-  blocks: ContentBlock[]
+  blocks: Block[]
+  /** Populated when server exposes `word_count` (generated column). */
+  wordCount?: number
   version: number
   createdAt: string
   updatedAt: string
@@ -102,7 +115,7 @@ export type WikiPageVersionSnapshot = {
   requiresAcknowledgement: boolean
   acknowledgementAudience: AcknowledgementAudience
   acknowledgementDepartmentId: string | null
-  blocks: ContentBlock[]
+  blocks: Block[]
   nextRevisionDueAt: string | null
   revisionIntervalMonths: number
   frozenAt: string
@@ -177,5 +190,5 @@ export type PageTemplate = {
   legalBasis: string[]
   category: SpaceCategory
   /** Pre-filled page scaffold */
-  page: Omit<WikiPage, 'id' | 'spaceId' | 'createdAt' | 'updatedAt' | 'authorId' | 'version'>
+  page: Omit<WikiPage, 'id' | 'spaceId' | 'createdAt' | 'updatedAt' | 'authorId' | 'version' | 'wordCount'>
 }

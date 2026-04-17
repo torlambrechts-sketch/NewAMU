@@ -15,9 +15,11 @@ type Props = {
   children: ReactNode
   /** Optional extra row below the horizontal menu (e.g. space title). */
   subHeader?: ReactNode
+  /** Extra classes on the outer page container (e.g. print hooks). */
+  className?: string
 }
 
-export function DocumentsModuleLayout({ children, subHeader }: Props) {
+export function DocumentsModuleLayout({ children, subHeader, className = '' }: Props) {
   const location = useLocation()
   const { can } = useOrgSetupContext()
   const activeId = documentsNavActiveId(location.pathname)
@@ -35,8 +37,8 @@ export function DocumentsModuleLayout({ children, subHeader }: Props) {
   }))
 
   return (
-    <div className={PAGE}>
-      <nav className="mb-4 text-sm text-neutral-600">
+    <div className={`${PAGE} documents-module-root ${className}`.trim()}>
+      <nav className="documents-module-breadcrumb mb-4 text-sm text-neutral-600">
         <Link to="/" className="text-neutral-500 hover:text-[#1a3d32]">
           Workspace
         </Link>
@@ -44,7 +46,7 @@ export function DocumentsModuleLayout({ children, subHeader }: Props) {
         <span className="font-medium text-neutral-800">{DOCUMENTS_MODULE_TITLE}</span>
       </nav>
 
-      <header className="border-b border-neutral-200/80 pb-6">
+      <header className="documents-module-header border-b border-neutral-200/80 pb-6">
         <h1
           className="text-2xl font-semibold text-neutral-900 md:text-3xl"
           style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
@@ -54,7 +56,7 @@ export function DocumentsModuleLayout({ children, subHeader }: Props) {
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-neutral-600">{DOCUMENTS_MODULE_DESC}</p>
       </header>
 
-      <div className="mt-6">
+      <div className="documents-module-hub mt-6">
         <HubMenu1Bar ariaLabel="Bibliotek og wiki" items={menuItems} />
       </div>
 

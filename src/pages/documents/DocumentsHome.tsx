@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BookOpen, CheckCircle2, Clock, FileText, Plus } from 'lucide-react'
-import { useDocuments } from '../../hooks/useDocuments'
+import { useComplianceDocs, useDocumentTemplates, useWikiSpaces } from '../../hooks/useDocuments'
 import type { PageTemplate, WikiSpace } from '../../types/documents'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
@@ -32,7 +32,9 @@ const INPUT =
   'rounded-none border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]'
 
 export function DocumentsHome() {
-  const docs = useDocuments()
+  const wiki = useWikiSpaces()
+  const compliance = useComplianceDocs()
+  const tmpl = useDocumentTemplates()
   const navigate = useNavigate()
 
   const [showNewSpace, setShowNewSpace] = useState(false)
@@ -41,14 +43,15 @@ export function DocumentsHome() {
   const [newCategory, setNewCategory] = useState<WikiSpace['category']>('hms_handbook')
   const [savingSpace, setSavingSpace] = useState(false)
 
-  const activeSpaces = docs.spaces.filter((s) => s.status === 'active')
+  const activeSpaces = wiki.spaces.filter((s) => s.status === 'active')
+  const loadError = wiki.error ?? compliance.error ?? tmpl.error
 
   async function handleCreateSpace(e: React.FormEvent) {
     e.preventDefault()
     if (!newTitle.trim()) return
     setSavingSpace(true)
     try {
-      await docs.createSpace(newTitle, newDesc, newCategory, CATEGORY_ICONS[newCategory])
+      await wiki.createSpace(newTitle, newDesc, newCategory, CATEGORY_ICONS[newCategory])
       setNewTitle('')
       setNewDesc('')
       setShowNewSpace(false)
@@ -70,17 +73,17 @@ export function DocumentsHome() {
         </div>
       }
     >
-      {docs.error && (
+      {loadError && (
         <div className="mt-4 rounded-none border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          {docs.error}
+          {loadError}
         </div>
       )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Publiserte sider" value={docs.stats.published} icon={<FileText className="size-5 text-emerald-600" />} />
-        <StatCard label="Utkast" value={docs.stats.drafts} icon={<BookOpen className="size-5 text-amber-500" />} />
-        <StatCard label="Krever signatur" value={docs.stats.requireAck} icon={<FileText className="size-5 text-[#1a3d32]" />} />
-        <StatCard label="Compliance-kvitteringer" value={docs.stats.acknowledged} icon={<CheckCircle2 className="size-5 text-emerald-600" />} />
+        <StatCard label="Publiserte sider" value={compliance.stats.published} icon={<FileText className="size-5 text-emerald-600" />} />
+        <StatCard label="Utkast" value={compliance.stats.drafts} icon={<BookOpen className="size-5 text-amber-500" />} />
+        <StatCard label="Krever signatur" value={compliance.stats.requireAck} icon={<FileText className="size-5 text-[#1a3d32]" />} />
+        <StatCard label="Compliance-kvitteringer" value={compliance.stats.acknowledged} icon={<CheckCircle2 className="size-5 text-emerald-600" />} />
       </div>
 
       {showNewSpace && (
@@ -127,7 +130,7 @@ export function DocumentsHome() {
         <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-neutral-500">Mapper</h2>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {activeSpaces.map((space) => {
-            const pagesInSpace = docs.pages.filter((p) => p.spaceId === space.id)
+            const pagesInSpace = compliance.pages.filter((p) => p.spaceId === space.id)
             const published = pagesInSpace.filter((p) => p.status === 'published').length
             return (
               <Link key={space.id} to={`/documents/space/${space.id}`} className={CARD}>
@@ -162,17 +165,17 @@ export function DocumentsHome() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-500">Malbibliotek</h2>
           <span className="text-xs text-neutral-500">
-            {docs.pageTemplates.length} {docs.backend === 'supabase' ? 'tilgjengelige maler' : 'mal(er) (demo lokalt)'}
+            {tmpl.pageTemplates.length} tilgjengelige maler
           </span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {docs.pageTemplates.map((tpl) => (
+          {tmpl.pageTemplates.map((tpl) => (
             <TemplateCard
               key={tpl.id}
               tpl={tpl}
               spaces={activeSpaces}
               onUse={async (spaceId) => {
-                const page = await docs.createPage(
+                const page = await wiki.createPage(
                   spaceId,
                   tpl.page.title,
                   tpl.page.template,

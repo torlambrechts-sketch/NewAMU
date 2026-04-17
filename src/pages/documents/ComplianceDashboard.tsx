@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CheckCircle2, Circle, ExternalLink, X } from 'lucide-react'
-import { useDocuments } from '../../hooks/useDocuments'
+import { useComplianceDocs } from '../../hooks/useDocuments'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
 
 function useBodyScrollLock(active: boolean) {
@@ -16,7 +16,7 @@ function useBodyScrollLock(active: boolean) {
 }
 
 export function ComplianceDashboard() {
-  const docs = useDocuments()
+  const docs = useComplianceDocs()
   const [panelRef, setPanelRef] = useState<string | null>(null)
 
   const coverage = docs.legalCoverage.map((item) => {
