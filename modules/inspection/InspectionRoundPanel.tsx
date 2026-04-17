@@ -82,8 +82,10 @@ function ChecklistItemRow({
 }) {
   const fieldType = item.fieldType ?? 'yes_no_na'
   const currentValue = typeof existing?.response?.value === 'string' ? existing.response.value : ''
+  const hasExistingNotes = (existing?.notes ?? '').trim().length > 0
   const [optimisticValue, setOptimisticValue] = useState<string | null>(null)
   const [notes, setNotes] = useState(existing?.notes ?? '')
+  const [showNotes, setShowNotes] = useState(hasExistingNotes)
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
   const displayedValue = optimisticValue ?? currentValue
@@ -91,6 +93,10 @@ function ChecklistItemRow({
   useEffect(() => {
     setNotes(existing?.notes ?? '')
   }, [existing?.notes])
+
+  useEffect(() => {
+    if (hasExistingNotes) setShowNotes(true)
+  }, [hasExistingNotes])
 
   useEffect(() => {
     if (!justSaved) return
@@ -215,10 +221,20 @@ function ChecklistItemRow({
           )}
 
           {/* Notes */}
-          {!readOnly && (
+          {!readOnly && !showNotes && !hasExistingNotes && (
+            <button
+              type="button"
+              onClick={() => setShowNotes(true)}
+              className="text-xs font-medium text-neutral-500 hover:text-neutral-700 hover:underline"
+            >
+              + Legg til notat
+            </button>
+          )}
+          {!readOnly && (showNotes || hasExistingNotes) && (
             <textarea
               rows={1}
               value={notes}
+              autoFocus={!hasExistingNotes}
               onChange={(e) => setNotes(e.target.value)}
               onBlur={() => void saveNotes()}
               placeholder="Notat (valgfritt)…"
@@ -295,6 +311,7 @@ function ChecklistTab({
 
   const readOnly = round.status === 'signed'
   const isDraft = round.status === 'draft'
+  const total = checklistItems.length
 
   return (
     <div>
@@ -317,17 +334,19 @@ function ChecklistTab({
         </div>
       )}
 
-      <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-5 py-2.5">
-        <span className="text-xs text-neutral-500">
-          {answered} / {checklistItems.length} besvart
-        </span>
-        <div
-          className="h-1.5 w-32 overflow-hidden rounded-full bg-neutral-100"
-          title={`${answered} av ${checklistItems.length}`}
-        >
+      <div className="sticky top-0 z-10 border-b border-neutral-200 bg-white px-5 py-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-neutral-700">
+            {answered} / {total} punkter besvart
+          </span>
+          <span className="text-sm font-semibold text-[#1a3d32]">
+            {total > 0 ? Math.round((answered / total) * 100) : 0}%
+          </span>
+        </div>
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
           <div
-            className="h-full rounded-full bg-[#1a3d32] transition-all"
-            style={{ width: checklistItems.length > 0 ? `${(answered / checklistItems.length) * 100}%` : '0%' }}
+            className="h-full rounded-full bg-[#1a3d32] transition-all duration-300"
+            style={{ width: `${total > 0 ? (answered / total) * 100 : 0}%` }}
           />
         </div>
       </div>
@@ -345,7 +364,7 @@ function ChecklistTab({
         const catLaw = cat !== '__none__' ? HMS_LAW[cat] : undefined
         return (
           <div key={cat}>
-            <div className="sticky top-0 z-10 border-b border-neutral-200 bg-neutral-50 px-5 py-2">
+            <div className="sticky top-14 z-10 border-b border-neutral-200 bg-neutral-50 px-5 py-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-neutral-700">{catLabel}</span>
                 {catLaw && (
