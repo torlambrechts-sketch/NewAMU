@@ -36,6 +36,7 @@ export type InspectionModuleState = {
   itemsByRoundId: Record<string, InspectionItemRow[]>
   findingsByRoundId: Record<string, InspectionFindingRow[]>
   load: () => Promise<void>
+  loadRoundDetail: (roundId: string) => Promise<void>
   createTemplate: (payload: { name: string; checklistItems?: InspectionChecklistItem[] }) => Promise<void>
   updateTemplate: (payload: {
     templateId: string
@@ -116,6 +117,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
   const [assignableUsers, setAssignableUsers] = useState<InspectionAssignableUser[]>([])
   const [items, setItems] = useState<InspectionItemRow[]>([])
   const [findings, setFindings] = useState<InspectionFindingRow[]>([])
+  const [loadedRoundIds, setLoadedRoundIds] = useState<string[]>([])
 
   const load = useCallback(async () => {
     if (!supabase) {
@@ -176,11 +178,21 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
           })
           .filter((row): row is InspectionAssignableUser => row !== null),
       )
+      setItems([])
+      setFindings([])
+      setLoadedRoundIds([])
+    } catch (unknownError) {
+      const message = unknownError instanceof Error ? unknownError.message : 'Failed loading inspection module.'
+      setError(message)
+    } finally {
+      setLoading(false)
+    }
+  }, [supabase])
 
-      const roundIds = nextRounds.map((round) => round.id)
-      if (roundIds.length === 0) {
-        setItems([])
-        setFindings([])
+  const loadRoundDetail = useCallback(
+    async (roundId: string) => {
+      if (!supabase) {
+        setError('Supabase is not configured.')
         return
       }
 
@@ -188,16 +200,23 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         supabase
           .from('inspection_items')
           .select('*')
-          .in('round_id', roundIds)
+          .eq('round_id', roundId)
           .order('position', { ascending: true }),
         supabase
           .from('inspection_findings')
           .select('*')
-          .in('round_id', roundIds)
+          .eq('round_id', roundId)
           .order('created_at', { ascending: false }),
       ])
-      if (itemsRes.error) throw itemsRes.error
-      if (findingsRes.error) throw findingsRes.error
+
+      if (itemsRes.error) {
+        setError(itemsRes.error.message)
+        return
+      }
+      if (findingsRes.error) {
+        setError(findingsRes.error.message)
+        return
+      }
 
       const nextItems = parseRows<InspectionItemRow>(itemsRes.data ?? [], (row) => {
         const parsed = InspectionItemRowSchema.safeParse(row)
@@ -207,15 +226,13 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         const parsed = InspectionFindingRowSchema.safeParse(row)
         return parsed.success ? parsed.data : null
       })
-      setItems(nextItems)
-      setFindings(nextFindings)
-    } catch (unknownError) {
-      const message = unknownError instanceof Error ? unknownError.message : 'Failed loading inspection module.'
-      setError(message)
-    } finally {
-      setLoading(false)
-    }
-  }, [supabase])
+
+      setItems((previous) => [...previous.filter((item) => item.round_id !== roundId), ...nextItems])
+      setFindings((previous) => [...previous.filter((finding) => finding.round_id !== roundId), ...nextFindings])
+      setLoadedRoundIds((previous) => (previous.includes(roundId) ? previous : [...previous, roundId]))
+    },
+    [supabase],
+  )
 
   const createTemplate = useCallback(
     async (payload: { name: string; checklistItems?: InspectionChecklistItem[] }) => {
@@ -636,8 +653,21 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     [supabase],
   )
 
-  const itemsByRoundId = useMemo(() => groupByRound(items), [items])
-  const findingsByRoundId = useMemo(() => groupByRound(findings), [findings])
+  const itemsByRoundId = useMemo(() => {
+    const grouped = groupByRound(items)
+    for (const roundId of loadedRoundIds) {
+      if (!grouped[roundId]) grouped[roundId] = []
+    }
+    return grouped
+  }, [items, loadedRoundIds])
+
+  const findingsByRoundId = useMemo(() => {
+    const grouped = groupByRound(findings)
+    for (const roundId of loadedRoundIds) {
+      if (!grouped[roundId]) grouped[roundId] = []
+    }
+    return grouped
+  }, [findings, loadedRoundIds])
 
   return {
     loading,
@@ -649,6 +679,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     itemsByRoundId,
     findingsByRoundId,
     load,
+    loadRoundDetail,
     createTemplate,
     updateTemplate,
     createLocation,

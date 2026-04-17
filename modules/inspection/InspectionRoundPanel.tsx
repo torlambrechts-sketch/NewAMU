@@ -85,6 +85,10 @@ function ChecklistItemRow({
   const [notes, setNotes] = useState(existing?.notes ?? '')
   const [saving, setSaving] = useState(false)
 
+  useEffect(() => {
+    setNotes(existing?.notes ?? '')
+  }, [existing?.notes])
+
   const saveResponse = useCallback(
     async (value: string, noteOverride?: string) => {
       setSaving(true)
@@ -234,13 +238,16 @@ function ChecklistTab({
   inspection: InspectionModuleState
   onAddFinding: (itemKey: string, itemLabel: string) => void
 }) {
+  const roundItems = inspection.itemsByRoundId[round.id]
+  const isRoundDetailLoading = roundItems === undefined
+
   const itemResponseByKey = useMemo(() => {
     const map = new Map<string, InspectionItemRow>()
-    for (const item of inspection.itemsByRoundId[round.id] ?? []) {
+    for (const item of roundItems ?? []) {
       map.set(item.checklist_item_key, item)
     }
     return map
-  }, [inspection.itemsByRoundId, round.id])
+  }, [roundItems])
 
   const grouped = useMemo(() => {
     const groups = new Map<HmsCategory | '__none__', InspectionChecklistItem[]>()
@@ -305,7 +312,14 @@ function ChecklistTab({
         </div>
       </div>
 
-      {orderedKeys.map((cat) => {
+      {isRoundDetailLoading && (
+        <div className="flex items-center justify-center gap-2 px-5 py-8 text-sm text-neutral-500">
+          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-700" />
+          Laster sjekkliste…
+        </div>
+      )}
+
+      {!isRoundDetailLoading && orderedKeys.map((cat) => {
         const catItems = grouped.get(cat) ?? []
         const catLabel = cat === '__none__' ? 'Generelt' : HMS_LABELS[cat]
         const catLaw = cat !== '__none__' ? HMS_LAW[cat] : undefined
@@ -319,11 +333,11 @@ function ChecklistTab({
                 )}
               </div>
             </div>
-            {catItems.map((item) => (
+            {catItems.map((item, idx) => (
               <ChecklistItemRow
                 key={item.key}
                 item={item}
-                position={checklistItems.indexOf(item)}
+                position={idx}
                 existing={itemResponseByKey.get(item.key)}
                 roundId={round.id}
                 readOnly={readOnly}
@@ -745,6 +759,18 @@ function SignaturesTab({
 export function InspectionRoundPanel({ round, inspection, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<PanelTab>('checklist')
   const [findingPrefillKey, setFindingPrefillKey] = useState<string | null>(null)
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  useEffect(() => {
+    void inspection.loadRoundDetail(round.id)
+  }, [round.id])
 
   const template = inspection.templates.find((t) => t.id === round.template_id)
   const checklistItems = useMemo(
