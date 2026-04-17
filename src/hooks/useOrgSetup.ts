@@ -382,6 +382,8 @@ export function useOrgSetup() {
       phone?: string | null
       job_title?: string | null
       avatar_url?: string | null
+      doc_font_size?: 'normal' | 'large' | 'xlarge' | null
+      doc_high_contrast?: boolean | null
     }) => {
       if (!supabase || !user) throw new Error('Ikke innlogget.')
       const row: Record<string, unknown> = {}
@@ -389,6 +391,11 @@ export function useOrgSetup() {
       if (patch.phone !== undefined) row.phone = patch.phone?.trim() || null
       if (patch.job_title !== undefined) row.job_title = patch.job_title?.trim() || null
       if (patch.avatar_url !== undefined) row.avatar_url = patch.avatar_url?.trim() || null
+      if (patch.doc_font_size !== undefined) {
+        const v = patch.doc_font_size
+        row.doc_font_size = v && ['normal', 'large', 'xlarge'].includes(v) ? v : 'normal'
+      }
+      if (patch.doc_high_contrast !== undefined) row.doc_high_contrast = Boolean(patch.doc_high_contrast)
       if (Object.keys(row).length === 0) return
       const { error: e } = await supabase.from('profiles').update(row).eq('id', user.id)
       if (e) throw new Error(getSupabaseErrorMessage(e))
@@ -400,6 +407,8 @@ export function useOrgSetup() {
           ...(row.phone !== undefined ? { phone: row.phone as string | null } : {}),
           ...(row.job_title !== undefined ? { job_title: row.job_title as string | null } : {}),
           ...(row.avatar_url !== undefined ? { avatar_url: row.avatar_url as string | null } : {}),
+          ...(row.doc_font_size !== undefined ? { doc_font_size: String(row.doc_font_size) } : {}),
+          ...(row.doc_high_contrast !== undefined ? { doc_high_contrast: Boolean(row.doc_high_contrast) } : {}),
         }
       })
     },

@@ -185,7 +185,12 @@ export function WikiPageView() {
         </div>
 
         {/* Content */}
-        <WikiBlockRenderer blocks={Array.isArray(page.blocks) ? page.blocks : []} pageId={page.id} pageVersion={page.version} />
+        <WikiBlockRenderer
+          blocks={Array.isArray(page.blocks) ? page.blocks : []}
+          pageId={page.id}
+          pageVersion={page.version}
+          lang={page.lang ?? 'nb'}
+        />
 
         {versions.length > 0 && (
           <div className="mt-10 rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
