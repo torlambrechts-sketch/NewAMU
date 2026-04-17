@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { ClipboardList, Loader2 } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
@@ -26,8 +26,11 @@ function groupItems(items: WikiAnnualReviewItemRow[]) {
 
 export function AnnualReviewPage() {
   const docs = useDocuments()
+  const [searchParams] = useSearchParams()
   const nowMs = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
-  const year = new Date().getFullYear()
+  const yearParam = Number(searchParams.get('year'))
+  const year =
+    Number.isFinite(yearParam) && yearParam >= 2000 && yearParam <= 2100 ? yearParam : new Date().getFullYear()
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [reviewId, setReviewId] = useState<string | null>(null)
