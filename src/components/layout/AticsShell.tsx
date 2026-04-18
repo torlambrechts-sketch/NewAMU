@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   BarChart3,
   Briefcase,
+  BookMarked,
   BookOpen,
   Building2,
   CalendarRange,
@@ -82,6 +83,49 @@ const tasksSubs: SubItem[] = [
     match: ({ pathname, search }) =>
       pathname === '/tasks' &&
       (!new URLSearchParams(search).get('view') || new URLSearchParams(search).get('view') === 'list'),
+  },
+]
+
+const internkontrollSubs: SubItem[] = [
+  {
+    label: 'Oversikt',
+    path: '/internkontroll',
+    match: ({ pathname }) => pathname === '/internkontroll',
+  },
+  {
+    label: 'Lovregister',
+    path: '/internkontroll/lovregister',
+    match: ({ pathname }) => pathname === '/internkontroll/lovregister',
+  },
+  {
+    label: 'Kompetanse',
+    path: '/internkontroll/kompetanse',
+    match: ({ pathname }) => pathname === '/internkontroll/kompetanse',
+  },
+  {
+    label: 'Medvirkning & roller',
+    path: '/internkontroll/medvirkning',
+    match: ({ pathname }) => pathname === '/internkontroll/medvirkning',
+  },
+  {
+    label: 'HMS-mål & KPI',
+    path: '/internkontroll/mal',
+    match: ({ pathname }) => pathname === '/internkontroll/mal',
+  },
+  {
+    label: 'Tiltaksplan',
+    path: '/internkontroll/tiltaksplan',
+    match: ({ pathname }) => pathname === '/internkontroll/tiltaksplan',
+  },
+  {
+    label: 'ROS-analyse',
+    path: '/internal-control?tab=ros',
+    match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'ros',
+  },
+  {
+    label: 'Årsgjennomgang',
+    path: '/internal-control?tab=annual',
+    match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'annual',
   },
 ]
 
@@ -424,6 +468,14 @@ const navGroups: NavGroup[] = [
         end: false,
         icon: AlertTriangle,
         subs: [],
+      },
+      {
+        to: '/internkontroll',
+        label: 'Internkontroll',
+        end: false,
+        icon: BookMarked,
+        subs: internkontrollSubs,
+        perm: 'module.view.internal_control',
       },
       {
         to: '/sja',
