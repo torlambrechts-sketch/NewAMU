@@ -4,11 +4,17 @@ import { ListTodo, Loader2, Mail, Save, Zap } from 'lucide-react'
 import { useModuleTemplate } from '../../hooks/useModuleTemplate'
 import type { WorkflowRule } from '../../types/moduleTemplate'
 import { ModuleTemplateWorkflowRulesEditor } from './ModuleTemplateWorkflowRulesEditor'
-
-const BTN_PRI =
-  'inline-flex items-center gap-1.5 rounded-none border border-[#1a3d32] bg-[#1a3d32] px-3 py-2 text-xs font-semibold text-white hover:bg-[#142e26] disabled:opacity-50'
-const BTN_SEC =
-  'inline-flex items-center gap-1.5 rounded-none border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50'
+import {
+  WMR_BTN_PRIMARY,
+  WMR_BTN_SECONDARY,
+  WMR_EMPTY_STATE,
+  WMR_ERROR_BOX,
+  WMR_MODULE_HEADER_CARD,
+  WMR_MODULE_HEADER_CARD_SHADOW,
+  WMR_RULE_CARD,
+  WMR_RULE_CARD_MUTED,
+  WMR_SECTION_LABEL,
+} from './workflowModuleRulesLayoutKit'
 
 function triggerLabel(rule: WorkflowRule): string {
   const t = rule.trigger
@@ -148,7 +154,7 @@ export function ModuleRulesModuleSection({
 
   return (
     <div className="col-span-full space-y-4">
-      <div className="rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
+      <div className={WMR_MODULE_HEADER_CARD} style={WMR_MODULE_HEADER_CARD_SHADOW}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <span
@@ -158,6 +164,7 @@ export function ModuleRulesModuleSection({
               <Zap className="size-4" style={{ color }} aria-hidden />
             </span>
             <div>
+              <p className={WMR_SECTION_LABEL}>Modul</p>
               <h2 className="text-base font-semibold text-neutral-900">{label}</h2>
               <p className="mt-0.5 text-xs text-neutral-500">
                 {rules.length} regel{rules.length === 1 ? '' : 'er'}
@@ -168,25 +175,25 @@ export function ModuleRulesModuleSection({
           {canManage && (
             <div className="flex flex-wrap gap-2">
               {!editing ? (
-                <button type="button" onClick={startEdit} className={BTN_PRI}>
+                <button type="button" onClick={startEdit} className={WMR_BTN_PRIMARY}>
                   Rediger regler
                 </button>
               ) : (
                 <>
-                  <button type="button" className={BTN_PRI} disabled={saving} onClick={() => void handleSave()}>
+                  <button type="button" className={WMR_BTN_PRIMARY} disabled={saving} onClick={() => void handleSave()}>
                     <Save className="size-3.5" />
                     {saving ? 'Lagrer…' : 'Lagre'}
                   </button>
                   {template.published ? (
-                    <button type="button" className={BTN_SEC} disabled={saving} onClick={() => void handleUnpublish()}>
+                    <button type="button" className={WMR_BTN_SECONDARY} disabled={saving} onClick={() => void handleUnpublish()}>
                       Avpubliser
                     </button>
                   ) : (
-                    <button type="button" className={BTN_SEC} disabled={saving} onClick={() => void handlePublish()}>
+                    <button type="button" className={WMR_BTN_SECONDARY} disabled={saving} onClick={() => void handlePublish()}>
                       Publiser
                     </button>
                   )}
-                  <button type="button" className={BTN_SEC} disabled={saving} onClick={cancelEdit}>
+                  <button type="button" className={WMR_BTN_SECONDARY} disabled={saving} onClick={cancelEdit}>
                     Avbryt
                   </button>
                 </>
@@ -197,9 +204,7 @@ export function ModuleRulesModuleSection({
 
         {editing && canManage && draftRules && (
           <div className="mt-4 border-t border-neutral-200/80 pt-4">
-            {errMsg && (
-              <p className="mb-3 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{errMsg}</p>
-            )}
+            {errMsg && <p className={`mb-3 ${WMR_ERROR_BOX}`}>{errMsg}</p>}
             <p className="mb-3 text-xs text-neutral-600">
               Lagre endringene, deretter <strong>publiser</strong> slik at alle i organisasjonen får oppdatert modulmal.
             </p>
@@ -212,9 +217,7 @@ export function ModuleRulesModuleSection({
         {filteredForCards.map((rule) => (
           <div
             key={rule.id}
-            className={`rounded-none border bg-white p-4 shadow-sm ${
-              rule.active ? 'border-neutral-200/80' : 'border-neutral-100 opacity-70'
-            }`}
+            className={rule.active ? WMR_RULE_CARD : WMR_RULE_CARD_MUTED}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -229,7 +232,7 @@ export function ModuleRulesModuleSection({
                 {rule.active ? 'Aktiv' : 'Inaktiv'}
               </span>
             </div>
-            <div className="mt-3 rounded-lg bg-neutral-50 px-3 py-2">
+            <div className="mt-3 rounded-lg border border-neutral-100 bg-neutral-50/90 px-3 py-2">
               <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Utløser</p>
               <p className="mt-0.5 text-xs font-medium text-neutral-700">{triggerLabel(rule)}</p>
             </div>
@@ -246,7 +249,7 @@ export function ModuleRulesModuleSection({
           </div>
         ))}
         {filteredForCards.length === 0 && (
-          <div className="rounded-none border border-dashed border-neutral-200 bg-neutral-50 p-6 text-center text-sm text-neutral-400 sm:col-span-2 lg:col-span-3">
+          <div className={`${WMR_EMPTY_STATE} sm:col-span-2 lg:col-span-3`}>
             Ingen regler i dette filteret for {label}.
             {canManage && !editing && (
               <>
