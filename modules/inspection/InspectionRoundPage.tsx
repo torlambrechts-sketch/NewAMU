@@ -14,7 +14,6 @@ import {
   Settings,
   Trash2,
 } from 'lucide-react'
-import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import { HubMenu1Bar, type HubMenu1Item } from '../../src/components/layout/HubMenu1Bar'
 import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
 import {
@@ -72,9 +71,9 @@ const SEVERITY_COLORS = {
   critical: 'bg-red-100 text-red-700',
 }
 
-const PANEL_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-700'
+const PANEL_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-600'
 const PANEL_INPUT =
-  'mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900'
+  'mt-1.5 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]/30'
 
 // ── Checklist tab ─────────────────────────────────────────────────────────────
 
@@ -433,7 +432,12 @@ function FindingsTab({
             const showLegacyLinkBanner = !f.deviation_id && riskScore != null && riskScore >= 10
 
             return (
-              <div key={f.id} className="border-b border-neutral-100 px-5 py-4 last:border-b-0">
+              <div key={f.id} className={`border-b border-neutral-100 border-l-4 px-5 py-4 last:border-b-0 ${
+                f.severity === 'critical' ? 'border-l-red-500 bg-red-50/30' :
+                f.severity === 'high' ? 'border-l-orange-400 bg-orange-50/20' :
+                f.severity === 'medium' ? 'border-l-yellow-400' :
+                'border-l-blue-300'
+              }`}>
                 {showLegacyLinkBanner && (
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
                     <span>Risikoskår {riskScore} — koble til avvik i systemet</span>
@@ -719,86 +723,96 @@ function SignaturesTab({
       )}
 
       {/* Manager */}
-      <div className="rounded-none border border-neutral-200 bg-white p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold text-neutral-900">Leder</p>
-            <p className="text-xs text-neutral-500">AML § 2-1 — arbeidsgiveransvar</p>
-            {round.manager_signed_at ? (
-              <p className="mt-1 text-xs text-green-700">
-                Signert{' '}
-                {new Date(round.manager_signed_at).toLocaleDateString('nb-NO', { dateStyle: 'medium' })}
-                {round.manager_signed_by && userNameById.has(round.manager_signed_by)
-                  ? ` av ${userNameById.get(round.manager_signed_by)}`
-                  : ''}
-              </p>
-            ) : (
-              <p className="mt-1 text-xs text-neutral-400">Ikke signert</p>
-            )}
+      <div className={`rounded-xl border-2 p-5 transition-all ${
+        round.manager_signed_at
+          ? 'border-green-300 bg-green-50'
+          : canSign && (!hasRoleRestriction || isManager)
+            ? 'border-[#1a3d32]/40 bg-white shadow-sm'
+            : 'border-neutral-200 bg-white'
+      }`}>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            {round.manager_signed_at
+              ? <CheckCircle2 className="h-7 w-7 shrink-0 text-green-500" />
+              : <Circle className="h-7 w-7 shrink-0 text-neutral-300" />
+            }
+            <div>
+              <p className="text-base font-semibold text-neutral-900">Leder</p>
+              <p className="text-xs text-neutral-500">AML § 2-1 — arbeidsgiveransvar</p>
+              {round.manager_signed_at ? (
+                <p className="mt-0.5 text-xs font-medium text-green-700">
+                  ✓ Signert {new Date(round.manager_signed_at).toLocaleDateString('nb-NO', { dateStyle: 'medium' })}
+                  {round.manager_signed_by && userNameById.has(round.manager_signed_by)
+                    ? ` av ${userNameById.get(round.manager_signed_by)}`
+                    : ''}
+                </p>
+              ) : (
+                <p className="mt-0.5 text-xs text-neutral-400">Venter på signatur</p>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            {round.manager_signed_at ? (
-              <CheckCircle2 className="h-6 w-6 text-green-500" />
-            ) : (
-              <Circle className="h-6 w-6 text-neutral-300" />
-            )}
-            {!round.manager_signed_at && !isSigned && (
-              <button
-                type="button"
-                disabled={managerButtonDisabled}
-                title={unauthorizedTooltip}
-                onClick={() => void handleSign('manager')}
-                className={`rounded px-3 py-1.5 text-xs font-semibold disabled:opacity-40 ${
-                  managerButtonSolid ? 'text-white' : 'border border-neutral-300 bg-white text-neutral-700'
-                }`}
-                style={managerButtonSolid ? { backgroundColor: '#1a3d32' } : undefined}
-              >
-                {signing === 'manager' ? 'Signerer…' : 'Signer som leder'}
-              </button>
-            )}
-          </div>
+          {!round.manager_signed_at && !isSigned && (
+            <button
+              type="button"
+              disabled={managerButtonDisabled}
+              title={unauthorizedTooltip}
+              onClick={() => void handleSign('manager')}
+              className={`shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40 ${
+                managerButtonSolid
+                  ? 'bg-[#1a3d32] text-white hover:bg-[#14312a]'
+                  : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
+              }`}
+            >
+              {signing === 'manager' ? 'Signerer…' : 'Signer som leder'}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Deputy */}
-      <div className="rounded-none border border-neutral-200 bg-white p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold text-neutral-900">Verneombud</p>
-            <p className="text-xs text-neutral-500">AML § 6-2 — verneombudets representasjon</p>
-            {round.deputy_signed_at ? (
-              <p className="mt-1 text-xs text-green-700">
-                Signert{' '}
-                {new Date(round.deputy_signed_at).toLocaleDateString('nb-NO', { dateStyle: 'medium' })}
-                {round.deputy_signed_by && userNameById.has(round.deputy_signed_by)
-                  ? ` av ${userNameById.get(round.deputy_signed_by)}`
-                  : ''}
-              </p>
-            ) : (
-              <p className="mt-1 text-xs text-neutral-400">Ikke signert</p>
-            )}
+      <div className={`rounded-xl border-2 p-5 transition-all ${
+        round.deputy_signed_at
+          ? 'border-green-300 bg-green-50'
+          : canSign && (!hasRoleRestriction || isDeputy)
+            ? 'border-[#1a3d32]/40 bg-white shadow-sm'
+            : 'border-neutral-200 bg-white'
+      }`}>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            {round.deputy_signed_at
+              ? <CheckCircle2 className="h-7 w-7 shrink-0 text-green-500" />
+              : <Circle className="h-7 w-7 shrink-0 text-neutral-300" />
+            }
+            <div>
+              <p className="text-base font-semibold text-neutral-900">Verneombud</p>
+              <p className="text-xs text-neutral-500">AML § 6-2 — verneombudets representasjon</p>
+              {round.deputy_signed_at ? (
+                <p className="mt-0.5 text-xs font-medium text-green-700">
+                  ✓ Signert {new Date(round.deputy_signed_at).toLocaleDateString('nb-NO', { dateStyle: 'medium' })}
+                  {round.deputy_signed_by && userNameById.has(round.deputy_signed_by)
+                    ? ` av ${userNameById.get(round.deputy_signed_by)}`
+                    : ''}
+                </p>
+              ) : (
+                <p className="mt-0.5 text-xs text-neutral-400">Venter på signatur</p>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            {round.deputy_signed_at ? (
-              <CheckCircle2 className="h-6 w-6 text-green-500" />
-            ) : (
-              <Circle className="h-6 w-6 text-neutral-300" />
-            )}
-            {!round.deputy_signed_at && !isSigned && (
-              <button
-                type="button"
-                disabled={deputyButtonDisabled}
-                title={unauthorizedTooltip}
-                onClick={() => void handleSign('deputy')}
-                className={`rounded px-3 py-1.5 text-xs font-semibold disabled:opacity-40 ${
-                  deputyButtonSolid ? 'text-white' : 'border border-neutral-300 bg-white text-neutral-700'
-                }`}
-                style={deputyButtonSolid ? { backgroundColor: '#1a3d32' } : undefined}
-              >
-                {signing === 'deputy' ? 'Signerer…' : 'Signer som verneombud'}
-              </button>
-            )}
-          </div>
+          {!round.deputy_signed_at && !isSigned && (
+            <button
+              type="button"
+              disabled={deputyButtonDisabled}
+              title={unauthorizedTooltip}
+              onClick={() => void handleSign('deputy')}
+              className={`shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40 ${
+                deputyButtonSolid
+                  ? 'bg-[#1a3d32] text-white hover:bg-[#14312a]'
+                  : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
+              }`}
+            >
+              {signing === 'deputy' ? 'Signerer…' : 'Signer som verneombud'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -1007,7 +1021,13 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
             description={<p className="max-w-4xl text-xs leading-relaxed text-neutral-600">{headerSubtitle}</p>}
             headerActions={
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-semibold text-neutral-800 shadow-sm">
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${
+                  round.status === 'signed'
+                    ? 'border border-green-200 bg-green-100 text-green-800'
+                    : round.status === 'active'
+                      ? 'border border-blue-200 bg-blue-100 text-blue-800'
+                      : 'border border-neutral-200 bg-neutral-100 text-neutral-700'
+                }`}>
                   {STATUS_LABEL[round.status]}
                 </span>
                 <Link
@@ -1027,99 +1047,62 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
       <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
         {activeTab === 'checklist' && (
           <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <LayoutTable1PostingsShell
-              wrap={false}
-              titleTypography="sans"
-              title="Sjekkliste"
-              description="Svar på punktene under — «Nei» gir mulighet til å registrere avvik og hoppe til fanen Avvik."
-              headerActions={
-                critCount > 0 ? (
-                  <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
-                    {critCount} kritisk
-                  </span>
-                ) : undefined
-              }
-              toolbar={<span className="text-sm text-neutral-600">Punkter fra malen · lagring skjer ved svar</span>}
-              footer={
-                <span className="text-neutral-500">
-                  {itemsAnswered} av {checklistItems.length} punkter besvart
-                </span>
-              }
-            >
-              <ChecklistTab
-                round={round}
-                checklistItems={checklistItems}
-                inspection={inspection}
-                onSwitchToFindings={(key) => {
-                  setFindingPrefillKey(key)
-                  setActiveTab('findings')
-                }}
-              />
-            </LayoutTable1PostingsShell>
+            {critCount > 0 && (
+              <div className="flex items-center gap-2 border-b border-red-100 bg-red-50 px-5 py-2">
+                <span className="text-xs font-semibold text-red-700">⚠ {critCount} kritiske funn registrert</span>
+              </div>
+            )}
+            <ChecklistTab
+              round={round}
+              checklistItems={checklistItems}
+              inspection={inspection}
+              onSwitchToFindings={(key) => {
+                setFindingPrefillKey(key)
+                setActiveTab('findings')
+              }}
+            />
           </div>
         )}
 
         {activeTab === 'findings' && (
           <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <LayoutTable1PostingsShell
-              wrap={false}
-              titleTypography="sans"
-              title={TAB_LABELS.findings}
-              description="Registrer observasjoner og opprett avvik der risikoen krever det."
-              toolbar={<span className="text-sm text-neutral-600">Tilknytt sjekklistepunkt ved behov</span>}
-              footer={findings.length > 0 ? <span>{findings.length} avvik</span> : null}
-            >
-              <FindingsTab
-                key={`${round.id}-${findingPrefillKey ?? ''}`}
-                round={round}
-                inspection={inspection}
-                prefillItemKey={findingPrefillKey}
-                checklistItems={checklistItems}
-                onOpenDeviation={(id) => setSelectedDeviationId(id)}
-              />
-            </LayoutTable1PostingsShell>
+            {findings.length > 0 && (
+              <div className="flex items-center justify-between border-b border-neutral-100 bg-neutral-50 px-5 py-2">
+                <span className="text-xs text-neutral-500">{findings.length} avvik registrert · tilknytt sjekklistepunkt ved behov</span>
+                {critCount > 0 && (
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">{critCount} kritisk</span>
+                )}
+              </div>
+            )}
+            <FindingsTab
+              key={`${round.id}-${findingPrefillKey ?? ''}`}
+              round={round}
+              inspection={inspection}
+              prefillItemKey={findingPrefillKey}
+              checklistItems={checklistItems}
+              onOpenDeviation={(id) => setSelectedDeviationId(id)}
+            />
           </div>
         )}
 
         {activeTab === 'summary' && (
           <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <LayoutTable1PostingsShell
-              wrap={false}
-              titleTypography="sans"
-              title={TAB_LABELS.summary}
-              description="Skriftlig protokoll for runden."
-              toolbar={<span className="text-sm text-neutral-600">Påkrevd før signering</span>}
-            >
-              <SummaryTab key={`${round.id}-${round.updated_at}`} round={round} inspection={inspection} />
-            </LayoutTable1PostingsShell>
+            <SummaryTab key={`${round.id}-${round.updated_at}`} round={round} inspection={inspection} />
           </div>
         )}
 
         {activeTab === 'signatures' && (
           <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <LayoutTable1PostingsShell
-              wrap={false}
-              titleTypography="sans"
-              title={TAB_LABELS.signatures}
-              description="Dobbel signering — leder og verneombud."
-              toolbar={<span className="text-sm text-neutral-600">IK-forskriften § 5</span>}
-            >
-              <SignaturesTab round={round} inspection={inspection} checklistItems={checklistItems} />
-            </LayoutTable1PostingsShell>
+            <SignaturesTab round={round} inspection={inspection} checklistItems={checklistItems} />
           </div>
         )}
 
         {activeTab === 'history' && supabase && (
           <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <LayoutTable1PostingsShell
-              wrap={false}
-              titleTypography="sans"
-              title={TAB_LABELS.history}
-              description="Endringer loggført for denne runden."
-              toolbar={<span className="text-sm text-neutral-600">Revisjonsspor</span>}
-            >
-              <HseAuditLogViewer supabase={supabase} recordId={round.id} tableName="inspection_rounds" />
-            </LayoutTable1PostingsShell>
+            <div className="border-b border-neutral-100 bg-neutral-50 px-5 py-2">
+              <span className="text-xs text-neutral-500">Revisjonsspor — alle endringer loggført for denne runden</span>
+            </div>
+            <HseAuditLogViewer supabase={supabase} recordId={round.id} tableName="inspection_rounds" />
           </div>
         )}
       </div>
