@@ -30,7 +30,7 @@ export function IkLovregisterView({ rows, canManage, onUpsert, onMarkReviewed }:
         <button
           type="button"
           onClick={() => setFilterLaw('ALL')}
-          className={`rounded border px-3 py-1 text-xs font-semibold transition-colors ${
+          className={`rounded-lg border px-3 py-1 text-xs font-semibold transition-colors ${
             filterLaw === 'ALL'
               ? 'bg-neutral-900 text-white border-neutral-900'
               : 'border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50'
@@ -43,7 +43,7 @@ export function IkLovregisterView({ rows, canManage, onUpsert, onMarkReviewed }:
             key={law}
             type="button"
             onClick={() => setFilterLaw(law)}
-            className={`rounded border px-3 py-1 text-xs font-semibold transition-colors`}
+            className="rounded-lg border px-3 py-1 text-xs font-semibold transition-colors"
             style={
               filterLaw === law
                 ? { backgroundColor: LAW_COLOR[law], color: '#fff', borderColor: LAW_COLOR[law] }
@@ -57,7 +57,7 @@ export function IkLovregisterView({ rows, canManage, onUpsert, onMarkReviewed }:
           <button
             type="button"
             onClick={() => onUpsert({})}
-            className="ml-auto rounded border border-[#1a3d32] bg-[#1a3d32] px-3 py-1 text-xs font-semibold text-white hover:bg-[#14312a]"
+            className="ml-auto rounded-lg border border-[#1a3d32] bg-[#1a3d32] px-3 py-1 text-xs font-semibold text-white hover:bg-[#14312a]"
           >
             + Legg til paragraf
           </button>
@@ -65,7 +65,7 @@ export function IkLovregisterView({ rows, canManage, onUpsert, onMarkReviewed }:
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded border border-neutral-200">
+      <div className="overflow-hidden rounded-xl border border-neutral-200/90 shadow-sm">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-neutral-200 bg-neutral-50">

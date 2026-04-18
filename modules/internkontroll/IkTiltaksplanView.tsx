@@ -36,7 +36,7 @@ export function IkTiltaksplanView({ plans, canManage, onUpsert, onUpdateStatus }
     <div className="space-y-4">
       {/* Overdue banner */}
       {overdue > 0 && (
-        <div className="flex items-center gap-2 rounded border border-red-200 bg-red-50 px-4 py-2.5">
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5">
           <span className="text-red-600">⚠</span>
           <p className="text-sm font-semibold text-red-800">{overdue} tiltak er forfalt</p>
         </div>
@@ -51,7 +51,7 @@ export function IkTiltaksplanView({ plans, canManage, onUpsert, onUpdateStatus }
               key={s}
               type="button"
               onClick={() => setStatusFilter(s)}
-              className={`rounded border px-3 py-1 text-xs font-semibold transition-colors ${
+              className={`rounded-lg border px-3 py-1 text-xs font-semibold transition-colors ${
                 statusFilter === s
                   ? 'bg-neutral-900 text-white border-neutral-900'
                   : 'border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50'
@@ -65,7 +65,7 @@ export function IkTiltaksplanView({ plans, canManage, onUpsert, onUpdateStatus }
           <button
             type="button"
             onClick={() => onUpsert({})}
-            className="ml-auto rounded border border-[#1a3d32] bg-[#1a3d32] px-3 py-1 text-xs font-semibold text-white hover:bg-[#14312a]"
+            className="ml-auto rounded-lg border border-[#1a3d32] bg-[#1a3d32] px-3 py-1 text-xs font-semibold text-white hover:bg-[#14312a]"
           >
             + Nytt tiltak
           </button>
@@ -73,7 +73,7 @@ export function IkTiltaksplanView({ plans, canManage, onUpsert, onUpdateStatus }
       </div>
 
       {/* Plans list */}
-      <div className="overflow-hidden rounded border border-neutral-200">
+      <div className="overflow-hidden rounded-xl border border-neutral-200/90 shadow-sm">
         {filtered.map((plan, i) => {
           const pc = PRIORITY_COLOR[plan.priority]
           const isOverdue = ['open', 'in_progress'].includes(plan.status) && plan.due_date && new Date(plan.due_date) < today

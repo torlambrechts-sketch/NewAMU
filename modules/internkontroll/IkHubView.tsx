@@ -51,7 +51,7 @@ export function IkHubView({ pillarStatuses, overallIkStatus, loading }: Props) {
   return (
     <div className="space-y-6">
       {/* Overall status banner */}
-      <div className={`flex items-center gap-3 rounded border px-5 py-4 ${overall.bg} ${overall.border}`}>
+      <div className={`flex items-center gap-3 rounded-xl border px-5 py-4 ${overall.bg} ${overall.border}`}>
         <span className={`h-3 w-3 rounded-full ${overall.dot}`} />
         <div>
           <p className={`text-sm font-semibold ${overall.text}`}>
@@ -77,7 +77,7 @@ export function IkHubView({ pillarStatuses, overallIkStatus, loading }: Props) {
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-36 animate-pulse rounded border border-neutral-100 bg-neutral-50" />
+            <div key={i} className="h-36 animate-pulse rounded-xl border border-neutral-100 bg-neutral-50" />
           ))}
         </div>
       ) : (
@@ -90,7 +90,7 @@ export function IkHubView({ pillarStatuses, overallIkStatus, loading }: Props) {
                 key={p.pillar}
                 type="button"
                 onClick={() => navigate(PILLAR_ROUTES[p.pillar])}
-                className={`group rounded border p-4 text-left transition-shadow hover:shadow-md ${colors.bg} ${colors.border}`}
+                className={`group rounded-xl border p-4 text-left shadow-sm transition-shadow hover:shadow-md ${colors.bg} ${colors.border}`}
               >
                 <div className="flex items-start justify-between">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">

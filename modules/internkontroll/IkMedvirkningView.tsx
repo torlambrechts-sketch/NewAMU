@@ -24,7 +24,7 @@ export function IkMedvirkningView({ roles, canManage, onUpsertRole }: Props) {
         AML § 6-1 krever verneombud ved ≥10 ansatte. AMU er pliktig ved ≥50. Bekreft at rollene er besatt og gyldig.
       </p>
 
-      <div className="overflow-hidden rounded border border-neutral-200">
+      <div className="overflow-hidden rounded-xl border border-neutral-200/90 shadow-sm">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-neutral-200 bg-neutral-50">

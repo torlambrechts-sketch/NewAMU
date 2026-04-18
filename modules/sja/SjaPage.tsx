@@ -17,6 +17,15 @@ import {
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../src/components/layout/HubMenu1Bar'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
+import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
+import {
+  WORKPLACE_MODULE_CANVAS_BG,
+  WORKPLACE_MODULE_CARD,
+  WORKPLACE_MODULE_CARD_SHADOW,
+  WORKPLACE_MODULE_FIELD,
+  WORKPLACE_MODULE_SUBTLE_PANEL,
+  WORKPLACE_MODULE_SUBTLE_PANEL_STYLE,
+} from '../../src/components/layout/workplaceModuleSurface'
 import { HseAuditLogViewer } from '../../src/components/hse/HseAuditLogViewer'
 import { RiskMatrix, riskColorClass, riskLabel, riskScoreFromProbCons } from '../../src/components/hse/RiskMatrix'
 import type {
@@ -174,8 +183,7 @@ const ROLE_LABEL: Record<SjaParticipantRole, string> = {
 }
 
 const PANEL_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-700'
-const PANEL_INPUT =
-  'mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900'
+const PANEL_INPUT = WORKPLACE_MODULE_FIELD
 
 function StatusStepIndicator({ status }: { status: SjaAnalysis['status'] }) {
   const stopped = status === 'stopped'
@@ -429,7 +437,10 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
 
   if (!sjaId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5f4f0] text-sm text-neutral-600">
+      <div
+        className="flex min-h-screen items-center justify-center text-sm text-neutral-600"
+        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
+      >
         Mangler SJA-ID.
       </div>
     )
@@ -437,7 +448,10 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
 
   if (showSpinner) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#f5f4f0]">
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-3"
+        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
+      >
         <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden />
         <p className="text-sm text-neutral-600">Laster SJA…</p>
       </div>
@@ -446,7 +460,10 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
 
   if (showNotFound) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#f5f4f0] px-4">
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-4 px-4"
+        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
+      >
         <p className="text-lg font-semibold text-neutral-900">SJA ikke funnet</p>
         <button
           type="button"
@@ -461,7 +478,10 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
 
   if (!analysis || !detail || !draft) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#f5f4f0]">
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-3"
+        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
+      >
         <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden />
         <p className="text-sm text-neutral-600">Laster SJA…</p>
       </div>
@@ -472,59 +492,56 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
   const jobTypeLocked = analysis.status !== 'draft'
 
   return (
-    <div className="min-h-screen bg-[#f5f4f0]">
-      <header className="sticky top-0 z-30 border-b border-neutral-200/90 bg-[#f5f4f0]/95 backdrop-blur-sm">
-        <div className="mx-auto max-w-[1400px] space-y-3 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <button
-                type="button"
-                onClick={() => navigate('/sja')}
-                className="shrink-0 text-sm font-medium text-neutral-600 hover:text-neutral-900"
-              >
-                ← SJA
-              </button>
-              <h1
-                className="min-w-0 truncate text-xl font-semibold text-neutral-900 md:text-2xl"
-                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-              >
-                {draft.title || 'Uten tittel'}
-              </h1>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-semibold text-neutral-800">
-                {STATUS_LABEL[analysis.status]}
-              </span>
-              {analysis.status === 'stopped' ? (
-                <span className="rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white">STOPPET</span>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500">
-            <span>{JOB_TYPE_LABEL[draft.job_type]}</span>
-            <span>·</span>
-            <span>{locationName ?? (draft.location_text.trim() || '—')}</span>
-            <span>·</span>
-            <span>{responsibleName ?? 'Ingen ansvarlig'}</span>
-            <span>·</span>
-            <span>
-              Planlagt start:{' '}
-              {analysis.scheduled_start
-                ? new Date(analysis.scheduled_start).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' })
-                : '—'}
-            </span>
-          </div>
-          <HubMenu1Bar ariaLabel="SJA-faner" items={hubMenuItems} />
+    <div className="min-h-full pb-10" style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}>
+      <header className="sticky top-0 z-30 border-b border-neutral-200/80 bg-[#F9F7F2]/95 backdrop-blur-sm">
+        <div className="mx-auto max-w-[1400px] px-4 pb-4 pt-4 md:px-8">
+          <WorkplacePageHeading1
+            breadcrumb={[
+              { label: 'HMS' },
+              { label: 'Sikker jobbanalyse', to: '/sja' },
+              { label: 'Detaljer' },
+            ]}
+            title={draft.title || 'Uten tittel'}
+            description={
+              <p className="max-w-3xl text-sm text-neutral-600">
+                <button
+                  type="button"
+                  onClick={() => navigate('/sja')}
+                  className="mr-2 font-medium text-[#1a3d32] underline decoration-neutral-300 underline-offset-2 hover:text-neutral-900"
+                >
+                  ← Tilbake til oversikt
+                </button>
+                <span className="text-neutral-400">·</span>{' '}
+                {JOB_TYPE_LABEL[draft.job_type]} · {locationName ?? (draft.location_text.trim() || '—')} ·{' '}
+                {responsibleName ?? 'Ingen ansvarlig'} · Planlagt start:{' '}
+                {analysis.scheduled_start
+                  ? new Date(analysis.scheduled_start).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' })
+                  : '—'}
+              </p>
+            }
+            headerActions={
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-semibold text-neutral-800 shadow-sm">
+                  {STATUS_LABEL[analysis.status]}
+                </span>
+                {analysis.status === 'stopped' ? (
+                  <span className="rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-sm">STOPPET</span>
+                ) : null}
+              </div>
+            }
+            menu={<HubMenu1Bar ariaLabel="SJA-faner" items={hubMenuItems} />}
+          />
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1400px] py-6">
+      <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
+        <div className={`${WORKPLACE_MODULE_CARD} space-y-6 p-5 md:p-6`} style={WORKPLACE_MODULE_CARD_SHADOW}>
         {sja.error ? (
-          <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{sja.error}</div>
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{sja.error}</div>
         ) : null}
 
         {highRisk > 0 ? (
-          <div className="mb-6 w-full border border-red-800 bg-red-600 px-4 py-4 text-white shadow-sm">
+          <div className="w-full rounded-xl border border-red-800 bg-red-600 px-4 py-4 text-white shadow-sm">
             <p className="text-sm font-bold">⛔ STOPPET — {highRisk} farekilder har gjenværende risiko i rød sone.</p>
             <p className="mt-2 text-sm font-medium">
               Arbeidet kan IKKE igangsettes. Revider tiltak.
@@ -590,6 +607,7 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
             <HseAuditLogViewer supabase={supabase} recordId={analysis.id} tableName="sja_analyses" />
           </LayoutTable1PostingsShell>
         )}
+        </div>
       </div>
     </div>
   )
@@ -640,14 +658,14 @@ function SignaturerTab({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-4">
+      <div className={WORKPLACE_MODULE_SUBTLE_PANEL} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
         <p className="text-xs font-semibold text-neutral-700">AML § 4-2 — felles forståelse</p>
         <p className="mt-1 text-xs text-neutral-600">
           Alle deltakere skal ha lest og forstått SJA-en og bekreftet at de er kjent med risikoene og tiltakene (AML § 4-2).
         </p>
       </div>
 
-      <div className="space-y-1.5 rounded-none border border-neutral-200 bg-white p-4">
+      <div className="space-y-1.5 rounded-xl border border-neutral-200 bg-white p-4">
         <p className={PANEL_LABEL}>Sjekkliste før signering</p>
         {[
           { ok: tasksOk, label: 'Alle deloppgaver har definerte farekilder' },
@@ -675,7 +693,7 @@ function SignaturerTab({
 
       <div className="space-y-3">
         {detail.participants.map((p) => (
-          <div key={p.id} className="rounded-none border border-neutral-200 bg-white p-4 shadow-sm">
+          <div key={p.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="font-semibold text-neutral-900">{p.name}</p>
@@ -792,7 +810,7 @@ function EtterarbeidTab({
 
   if (!interactive && !debriefDone) {
     return (
-      <div className="space-y-4 rounded-none border border-neutral-200 bg-white p-6 shadow-sm">
+      <div className="space-y-4 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
         <div className="rounded border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
           Etterarbeid (debrief) låses opp når SJA er merket som <strong>fullført</strong>. Gå til Grunnlag og fullfør
           utførelsen først.
@@ -805,8 +823,8 @@ function EtterarbeidTab({
 
   if (debriefDone) {
     return (
-      <div className="space-y-4 rounded-none border border-neutral-200 bg-white p-6 shadow-sm">
-        <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-4">
+      <div className="space-y-4 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+        <div className={WORKPLACE_MODULE_SUBTLE_PANEL} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
           <p className="text-xs font-semibold text-neutral-700">IK-forskriften § 5</p>
           <p className="mt-1 text-xs text-neutral-600">
             Erfaringsoverføring er obligatorisk etter gjennomføring (IK-forskriften § 5). Uventede hendelser skal
@@ -843,8 +861,8 @@ function EtterarbeidTab({
   }
 
   return (
-    <div className="space-y-6 rounded-none border border-neutral-200 bg-white p-6 shadow-sm">
-      <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-4">
+    <div className="space-y-6 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <div className={WORKPLACE_MODULE_SUBTLE_PANEL} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
         <p className="text-xs font-semibold text-neutral-700">IK-forskriften § 5</p>
         <p className="mt-1 text-xs text-neutral-600">
           Erfaringsoverføring er obligatorisk etter gjennomføring (IK-forskriften § 5). Uventede hendelser skal
@@ -936,7 +954,7 @@ function DebriefFormFields({
 
 function PlaceholderTab({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-none border border-neutral-200 bg-white p-6 shadow-sm">
+    <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
       <h2 className="text-lg font-semibold text-neutral-900">{title}</h2>
       <p className="mt-2 text-sm text-neutral-600">{body}</p>
     </div>
@@ -979,7 +997,7 @@ function GrunnlagTab({
   setStopReasonDraft: (v: string) => void
 }) {
   return (
-    <div className="space-y-8 rounded-none border border-neutral-200 bg-white p-5 shadow-sm md:p-8">
+    <div className="space-y-8 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm md:p-8">
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div>
           <label className={PANEL_LABEL}>Tittel</label>
@@ -1369,7 +1387,7 @@ function DeltakereTab({
         4-2 og § 7-2).
       </div>
 
-      <div className="overflow-x-auto rounded-none border border-neutral-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm">
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-neutral-200 bg-neutral-50 text-xs font-semibold uppercase text-neutral-600">
             <tr>
