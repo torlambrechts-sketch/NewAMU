@@ -61,8 +61,12 @@ function colWidthClass(col: TableColumn): string {
 
 /* ── Table header row ─────────────────────────────────────────────────────── */
 
-const TH_BASE = 'border-b border-neutral-200 bg-[#EFE8DC] px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-600 first:pl-5 last:pr-5'
-const TD_BASE = 'border-b border-neutral-100 px-4 py-3 text-sm text-neutral-800 first:pl-5 last:pr-5'
+/** Exported for bespoke tables (e.g. SJA) that should match ModulePageRenderer. */
+export const MODULE_PAGE_TABLE_TH_CLASS =
+  'border-b border-neutral-200 bg-[#EFE8DC] px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-600 first:pl-5 last:pr-5'
+export const MODULE_PAGE_TABLE_TD_CLASS = 'border-b border-neutral-100 px-4 py-3 text-sm text-neutral-800 first:pl-5 last:pr-5'
+const TH_BASE = MODULE_PAGE_TABLE_TH_CLASS
+const TD_BASE = MODULE_PAGE_TABLE_TD_CLASS
 
 /* ── Props ────────────────────────────────────────────────────────────────── */
 
@@ -97,6 +101,8 @@ export type ModulePageRendererProps<T extends Record<string, unknown>> = {
   emptyMessage?: string
   /** Optional extra content above the table (e.g. notice panels) */
   aboveTable?: ReactNode
+  /** When false, hide the inner H1/description (parent page already shows module title). */
+  showListHeading?: boolean
 }
 
 /* ── Component ────────────────────────────────────────────────────────────── */
@@ -119,6 +125,7 @@ export function ModulePageRenderer<T extends Record<string, unknown>>({
   onSortChange,
   emptyMessage = 'Ingen poster matcher søket.',
   aboveTable,
+  showListHeading = true,
 }: ModulePageRendererProps<T>) {
   const [filtersOpen, setFiltersOpen] = useState(false)
 
@@ -191,6 +198,7 @@ export function ModulePageRenderer<T extends Record<string, unknown>>({
           ? <p className="max-w-2xl text-sm text-neutral-600">{heading.description}</p>
           : undefined
       }
+      showTitleBlock={showListHeading}
       hubAriaLabel={`${heading.title} — faner`}
       hubItems={hubItems}
       toolbar={{
