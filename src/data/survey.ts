@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SURVEY MODULE — Types, constants, and helpers
 // AML § 3-1, § 4-1, § 4-3, § 4-4, Kap 6&7 | IK-forskriften § 5 | GDPR n≥5
@@ -271,3 +273,114 @@ export const ARK_QUESTIONS: QpsQuestion[] = [
 export function isAnonymised(responseCount: number, threshold = 5): boolean {
   return responseCount < threshold
 }
+
+// ── Zod (Supabase / API row validation) ───────────────────────────────────
+
+export const pillarEnum = z.enum(['psychosocial', 'physical', 'organization', 'safety_culture', 'custom'])
+export const statusEnum = z.enum(['draft', 'open', 'closed', 'archived'])
+export const qTypeEnum = z.enum(['likert5', 'likert7', 'yesno', 'text', 'nps'])
+export const actionStatusEnum = z.enum(['open', 'in_progress', 'closed'])
+export const amuStatusEnum = z.enum(['pending', 'reviewed', 'signed'])
+
+export const SurveyCampaignRowSchema = z.object({
+  id:                  z.string().uuid(),
+  organization_id:     z.string().uuid(),
+  title:               z.string(),
+  description:         z.string().nullable(),
+  pillar:              pillarEnum,
+  question_set:        z.enum(['qpsnordic', 'ark', 'custom']),
+  status:              statusEnum,
+  opens_at:            z.string().nullable(),
+  closes_at:           z.string().nullable(),
+  anonymity_threshold: z.number().int().min(1),
+  recurrence_months:   z.number().int().nullable(),
+  next_scheduled_at:   z.string().nullable(),
+  amu_review_required: z.boolean(),
+  action_threshold:    z.number().int().min(0).max(100),
+  created_by:          z.string().uuid().nullable(),
+  created_at:          z.string(),
+  updated_at:          z.string(),
+})
+
+export const SurveyQuestionRowSchema = z.object({
+  id:              z.string().uuid(),
+  campaign_id:     z.string().uuid(),
+  organization_id: z.string().uuid(),
+  pillar:          pillarEnum,
+  category:        z.string(),
+  question_text:   z.string(),
+  question_type:   qTypeEnum,
+  source_key:      z.string().nullable(),
+  is_mandatory:    z.boolean(),
+  mandatory_law:   z.string().nullable(),
+  sort_order:      z.number().int(),
+  deleted_at:      z.string().nullable(),
+  created_at:      z.string(),
+})
+
+export const SurveyResponseRowSchema = z.object({
+  id:               z.string().uuid(),
+  campaign_id:      z.string().uuid(),
+  organization_id:  z.string().uuid(),
+  question_id:      z.string().uuid(),
+  respondent_token: z.string(),
+  department:       z.string().nullable(),
+  answer_numeric:   z.number().nullable(),
+  answer_text:      z.string().nullable(),
+  answer_bool:      z.boolean().nullable(),
+  submitted_at:     z.string(),
+})
+
+export const SurveyResultRowSchema = z.object({
+  id:              z.string().uuid(),
+  campaign_id:     z.string().uuid(),
+  organization_id: z.string().uuid(),
+  department:      z.string().nullable(),
+  pillar:          pillarEnum,
+  category:        z.string(),
+  question_id:     z.string().uuid().nullable(),
+  score:           z.number().nullable(),
+  response_count:  z.number().int().min(0),
+  is_suppressed:   z.boolean(),
+  computed_at:     z.string(),
+})
+
+export const SurveyActionPlanRowSchema = z.object({
+  id:                 z.string().uuid(),
+  campaign_id:        z.string().uuid(),
+  organization_id:  z.string().uuid(),
+  ik_action_plan_id:  z.string().uuid().nullable(),
+  pillar:             pillarEnum,
+  category:           z.string(),
+  score:              z.number().nullable(),
+  trigger_threshold:  z.number().int(),
+  title:              z.string(),
+  description:        z.string().nullable(),
+  status:             actionStatusEnum,
+  assigned_to:        z.string().uuid().nullable(),
+  due_at:             z.string().nullable(),
+  closed_at:            z.string().nullable(),
+  closed_by:            z.string().uuid().nullable(),
+  created_by:         z.string().uuid().nullable(),
+  created_at:         z.string(),
+  updated_at:         z.string(),
+})
+
+export const SurveyAmuReviewRowSchema = z.object({
+  id:                  z.string().uuid(),
+  campaign_id:         z.string().uuid(),
+  organization_id:     z.string().uuid(),
+  meeting_date:        z.string().nullable(),
+  agenda_item:         z.string().nullable(),
+  amu_chair_signed_at:  z.string().nullable(),
+  amu_chair_signed_by:  z.string().uuid().nullable(),
+  amu_chair_name:      z.string().nullable(),
+  vo_signed_at:        z.string().nullable(),
+  vo_signed_by:         z.string().uuid().nullable(),
+  vo_name:              z.string().nullable(),
+  protocol_text:        z.string().nullable(),
+  status:               amuStatusEnum,
+  created_by:         z.string().uuid().nullable(),
+  created_at:         z.string(),
+  updated_at:         z.string(),
+})
