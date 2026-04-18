@@ -470,6 +470,14 @@ const navGroups: NavGroup[] = [
         subs: [],
       },
       {
+        to: '/ros',
+        label: 'ROS-analyser',
+        end: false,
+        icon: ShieldAlert,
+        subs: [],
+        perm: 'module.view.hse',
+      },
+      {
         to: '/internkontroll',
         label: 'Internkontroll',
         end: false,
