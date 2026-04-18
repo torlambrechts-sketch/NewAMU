@@ -85,6 +85,9 @@ import { ModuleSlugPage } from './pages/ModuleSlugPage'
 import { InspectionModulePage } from './pages/InspectionModulePage'
 import { InspectionModuleAdminPage } from './pages/InspectionModuleAdminPage'
 import { InspectionRoundDetailPage } from './pages/InspectionRoundDetailPage'
+import { SjaDetailPage } from './pages/SjaDetailPage'
+import { SjaModulePage } from './pages/SjaModulePage'
+import { SjaModuleAdminPage } from './pages/SjaModuleAdminPage'
 import { ModuleAdminPage } from './pages/ModuleAdminPage'
 import { AvvikPage } from './pages/AvvikPage'
 
@@ -164,6 +167,9 @@ function App() {
                       {/* Avvik / funn — dedicated deviation management */}
                       <Route path="avvik" element={<AvvikPage />} />
                       <Route path="inspection-module/:roundId" element={<InspectionRoundDetailPage />} />
+                      <Route path="sja" element={<SjaModulePage />} />
+                      <Route path="sja/admin" element={<SjaModuleAdminPage />} />
+                      <Route path="sja/:sjaId" element={<SjaDetailPage />} />
                       {/* Admin: module overview + RBAC */}
                       <Route path="admin/modules" element={<ModuleAdminPage />} />
                       {/* Phase 2: dynamic module route — loaded from `modules` table via registry */}

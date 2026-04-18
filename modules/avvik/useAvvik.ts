@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { fetchAssignableUsers } from '../../src/hooks/useAssignableUsers'
 import type { AvvikRow, AvvikCreatePayload, AvvikUpdatePayload } from './types'
 import { AvvikRowSchema } from './schema'
 
@@ -41,39 +42,23 @@ export function useAvvik({ supabase }: Input): AvvikModuleState {
     setLoading(true)
     setError(null)
     try {
-      const [avvikRes, usersRes] = await Promise.all([
+      const [avvikRes, assignableUsersList] = await Promise.all([
         supabase
           .from('deviations')
           .select('*')
           .is('deleted_at', null)
           .order('severity', { ascending: false })
           .order('created_at', { ascending: false }),
-        supabase
-          .from('profiles')
-          .select('id, display_name')
-          .order('display_name', { ascending: true }),
+        fetchAssignableUsers(supabase),
       ])
       if (avvikRes.error) throw avvikRes.error
-      if (usersRes.error) throw usersRes.error
 
       setAvvik(
         (avvikRes.data ?? [])
           .map(parseRow)
           .filter((r): r is AvvikRow => r !== null),
       )
-      setAssignableUsers(
-        (usersRes.data ?? [])
-          .map((row) => {
-            const id = typeof row.id === 'string' ? row.id : ''
-            if (!id) return null
-            const displayName =
-              typeof row.display_name === 'string' && row.display_name.trim()
-                ? row.display_name.trim()
-                : id
-            return { id, displayName }
-          })
-          .filter((u): u is AvvikAssignableUser => u !== null),
-      )
+      setAssignableUsers(assignableUsersList)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Kunne ikke laste avvik.')
     } finally {
@@ -89,7 +74,7 @@ export function useAvvik({ supabase }: Input): AvvikModuleState {
         title: payload.title.trim(),
         description: payload.description.trim(),
         severity: payload.severity,
-        status: 'open',
+        status: 'rapportert',
         source: payload.source ?? 'manual',
         source_id: payload.sourceId ?? null,
         due_at: normalizeDate(payload.dueAt),

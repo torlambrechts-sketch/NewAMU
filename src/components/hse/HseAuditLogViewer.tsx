@@ -155,11 +155,19 @@ export function HseAuditLogViewer({
     [profiles],
   )
 
+  const missingAuditTable =
+    !!error &&
+    (/hse_audit_log/i.test(error) && (/does not exist|schema cache|not find/i.test(error) || /42P01/i.test(error)))
+
   return (
     <div className="px-5 py-4">
-      {error && (
+      {error && missingAuditTable ? (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          Revisjonslogg ikke tilgjengelig — migrasjon for revisjonstabell er kanskje ikke kjørt ennå.
+        </div>
+      ) : error ? (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
-      )}
+      ) : null}
       {loading && (
         <div className="flex items-center gap-2 text-sm text-neutral-600">
           <Loader2 className="h-4 w-4 animate-spin" />

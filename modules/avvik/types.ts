@@ -1,5 +1,12 @@
 export type AvvikSeverity = 'low' | 'medium' | 'high' | 'critical'
-export type AvvikStatus = 'open' | 'in_progress' | 'closed'
+export type AvvikStatus =
+  | 'open'
+  | 'in_progress'
+  | 'closed'
+  | 'rapportert'
+  | 'under_behandling'
+  | 'tiltak_iverksatt'
+  | 'lukket'
 
 export type AvvikRow = {
   id: string

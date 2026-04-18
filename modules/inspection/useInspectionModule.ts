@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { fetchAssignableUsers } from '../../src/hooks/useAssignableUsers'
 import type {
   InspectionChecklistItem,
   InspectionFindingRow,
@@ -142,7 +143,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     setLoading(true)
     setError(null)
     try {
-      const [templatesRes, locationsRes, roundsRes, usersRes, authUserRes] = await Promise.all([
+      const [templatesRes, locationsRes, roundsRes, authUserRes, assignableUsersList] = await Promise.all([
         supabase
           .from('inspection_templates')
           .select('*')
@@ -154,16 +155,12 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
           .eq('is_active', true)
           .order('name', { ascending: true }),
         supabase.from('inspection_rounds').select('*').order('scheduled_for', { ascending: false }),
-        supabase
-          .from('profiles')
-          .select('id, display_name')
-          .order('display_name', { ascending: true }),
         supabase.auth.getUser(),
+        fetchAssignableUsers(supabase),
       ])
       if (templatesRes.error) throw templatesRes.error
       if (locationsRes.error) throw locationsRes.error
       if (roundsRes.error) throw roundsRes.error
-      if (usersRes.error) throw usersRes.error
       setCurrentUserId(authUserRes.data.user?.id ?? null)
 
       const nextTemplates = parseRows<InspectionTemplateRow>(templatesRes.data ?? [], (row) => {
@@ -182,19 +179,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       setTemplates(nextTemplates)
       setLocations(nextLocations)
       setRounds(nextRounds)
-      setAssignableUsers(
-        (usersRes.data ?? [])
-          .map((row) => {
-            const id = typeof row.id === 'string' ? row.id : ''
-            if (!id) return null
-            const displayName =
-              typeof row.display_name === 'string' && row.display_name.trim().length > 0
-                ? row.display_name.trim()
-                : id
-            return { id, displayName }
-          })
-          .filter((row): row is InspectionAssignableUser => row !== null),
-      )
+      setAssignableUsers(assignableUsersList)
       setItems([])
       setFindings([])
       setLoadedRoundIds([])

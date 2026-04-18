@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { AlertTriangle, CheckCircle2, ChevronRight, Plus, Search, X } from 'lucide-react'
 import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
@@ -29,12 +30,22 @@ const SEVERITY_ORDER: Record<AvvikSeverity, number> = {
   critical: 0, high: 1, medium: 2, low: 3,
 }
 const STATUS_LABEL: Record<AvvikStatus, string> = {
-  open: 'Åpent', in_progress: 'Under behandling', closed: 'Lukket',
+  open: 'Åpent',
+  in_progress: 'Under behandling',
+  closed: 'Lukket',
+  rapportert: 'Rapportert',
+  under_behandling: 'Under behandling',
+  tiltak_iverksatt: 'Tiltak iverksatt',
+  lukket: 'Lukket',
 }
 const STATUS_COLOR: Record<AvvikStatus, string> = {
   open: 'bg-red-50 text-red-700',
   in_progress: 'bg-yellow-50 text-yellow-700',
   closed: 'bg-green-50 text-green-700',
+  rapportert: 'bg-orange-50 text-orange-800',
+  under_behandling: 'bg-yellow-50 text-yellow-700',
+  tiltak_iverksatt: 'bg-blue-50 text-blue-800',
+  lukket: 'bg-green-50 text-green-700',
 }
 const STATUS_NEXT: Partial<Record<AvvikStatus, AvvikStatus>> = {
   open: 'in_progress',
@@ -96,7 +107,18 @@ function HistorikkTab({
       })
   }, [supabase, avvik.id])
 
+  const missingTable =
+    !!error &&
+    (/hse_audit_log/i.test(error) && (/does not exist|schema cache|not find/i.test(error) || /42P01/i.test(error)))
+
   if (loading) return <p className="px-5 py-8 text-center text-sm text-neutral-400">Laster historikk…</p>
+  if (error && missingTable) {
+    return (
+      <p className="px-5 py-6 text-center text-sm text-amber-800">
+        Revisjonslogg ikke tilgjengelig — migrasjon for revisjonstabell er kanskje ikke kjørt ennå.
+      </p>
+    )
+  }
   if (error) return <p className="px-5 py-6 text-center text-sm text-red-500">{error}</p>
   if (rows.length === 0) return <p className="px-5 py-8 text-center text-sm text-neutral-400">Ingen loggoppføringer ennå.</p>
 
@@ -491,10 +513,24 @@ function CreateAvvikModal({
 
 const STATUS_FILTER_OPTIONS: { value: 'all' | AvvikStatus; label: string }[] = [
   { value: 'all', label: 'Alle statuser' },
-  { value: 'open', label: 'Åpne' },
-  { value: 'in_progress', label: 'Under behandling' },
-  { value: 'closed', label: 'Lukket' },
+  { value: 'open', label: 'Åpen (legacy)' },
+  { value: 'in_progress', label: 'Under behandling (legacy)' },
+  { value: 'closed', label: 'Lukket (legacy)' },
+  { value: 'rapportert', label: 'Rapportert' },
+  { value: 'under_behandling', label: 'Under behandling' },
+  { value: 'tiltak_iverksatt', label: 'Tiltak iverksatt' },
+  { value: 'lukket', label: 'Lukket' },
 ]
+
+function isOpenAvvikStatus(s: AvvikRow['status']): boolean {
+  return (
+    s === 'open' ||
+    s === 'in_progress' ||
+    s === 'rapportert' ||
+    s === 'under_behandling' ||
+    s === 'tiltak_iverksatt'
+  )
+}
 
 const SEVERITY_FILTER_OPTIONS: { value: 'all' | AvvikSeverity; label: string }[] = [
   { value: 'all', label: 'Alle alvorligheter' },
@@ -507,6 +543,8 @@ const SEVERITY_FILTER_OPTIONS: { value: 'all' | AvvikSeverity; label: string }[]
 export function AvvikView({ supabase }: Props) {
   const module = useAvvik({ supabase })
   const { load } = module
+  const [searchParams] = useSearchParams()
+  const sourceIdFilter = searchParams.get('sourceId')?.trim() || null
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | AvvikStatus>('all')
   const [severityFilter, setSeverityFilter] = useState<'all' | AvvikSeverity>('all')
@@ -524,29 +562,42 @@ export function AvvikView({ supabase }: Props) {
     let list = [...module.avvik].sort(
       (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
     )
+    if (sourceIdFilter) {
+      list = list.filter((a) => a.source_id === sourceIdFilter)
+    }
     if (statusFilter !== 'all') list = list.filter((a) => a.status === statusFilter)
     if (severityFilter !== 'all') list = list.filter((a) => a.severity === severityFilter)
     const q = search.trim().toLowerCase()
     if (q) list = list.filter((a) => a.title.toLowerCase().includes(q) || a.description.toLowerCase().includes(q))
     return list
-  }, [module.avvik, statusFilter, severityFilter, search])
+  }, [module.avvik, sourceIdFilter, statusFilter, severityFilter, search])
 
   const stats = useMemo(() => {
-    const open = module.avvik.filter((a) => a.status === 'open').length
-    const inProgress = module.avvik.filter((a) => a.status === 'in_progress').length
-    const critical = module.avvik.filter((a) => a.severity === 'critical' && a.status !== 'closed').length
+    const open = module.avvik.filter((a) => a.status === 'open' || a.status === 'rapportert').length
+    const inProgress = module.avvik.filter(
+      (a) => a.status === 'in_progress' || a.status === 'under_behandling' || a.status === 'tiltak_iverksatt',
+    ).length
+    const critical = module.avvik.filter((a) => a.severity === 'critical' && isOpenAvvikStatus(a.status)).length
     return { open, inProgress, critical }
   }, [module.avvik])
 
   const overdue = useCallback(
-    (a: AvvikRow) => a.due_at && a.status !== 'closed' && new Date(a.due_at) < new Date(),
+    (a: AvvikRow) => a.due_at && isOpenAvvikStatus(a.status) && new Date(a.due_at) < new Date(),
     [],
   )
 
   return (
     <div className="space-y-6">
       <WorkplacePageHeading1
-        breadcrumb={[{ label: 'HMS' }, { label: 'Avvik' }]}
+        breadcrumb={
+          sourceIdFilter
+            ? [
+                { label: 'HMS' },
+                { label: 'Avvik', to: '/avvik' },
+                { label: 'Tilknyttet kilde' },
+              ]
+            : [{ label: 'HMS' }, { label: 'Avvik' }]
+        }
         title="Avviksregister"
         description="Alle avvik på tvers av inspeksjoner og meldinger — IK-forskriften § 5 nr. 7."
         headerActions={
@@ -561,6 +612,17 @@ export function AvvikView({ supabase }: Props) {
           </button>
         }
       />
+
+      {sourceIdFilter ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <span>
+            Filtrert på kilde-ID: <code className="rounded bg-white/80 px-1.5 py-0.5 font-mono text-xs">{sourceIdFilter}</code>
+          </span>
+          <Link to="/avvik" className="font-medium text-[#1a3d32] underline">
+            Vis alle avvik
+          </Link>
+        </div>
+      ) : null}
 
       <LayoutScoreStatRow
         items={[

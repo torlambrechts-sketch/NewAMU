@@ -1,11 +1,11 @@
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
-import { InspectionRoundPage } from '../../modules/inspection/InspectionRoundPage'
+import { SjaPage } from '../../modules/sja/SjaPage'
 
-export function InspectionRoundDetailPage() {
+export function SjaDetailPage() {
   const { supabase } = useOrgSetupContext()
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-      <InspectionRoundPage supabase={supabase} />
+      <SjaPage supabase={supabase} />
     </div>
   )
 }

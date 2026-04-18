@@ -14,8 +14,6 @@ import {
   Settings,
   Trash2,
 } from 'lucide-react'
-import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
-import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import { HubMenu1Bar, type HubMenu1Item } from '../../src/components/layout/HubMenu1Bar'
 import type { HmsCategory, InspectionChecklistItem, InspectionRoundRow } from './types'
@@ -866,6 +864,27 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
     ? inspection.assignableUsers.find((u) => u.id === round.assigned_to)?.displayName ?? null
     : null
 
+  const headerSubtitle = useMemo(() => {
+    if (!round) return ''
+    const parts: string[] = []
+    parts.push(template?.name ? `Mal: ${template.name}` : 'Mal: —')
+    parts.push(locationName ? `Lokasjon: ${locationName}` : 'Lokasjon: —')
+    parts.push(assignedName ? `Ansvarlig: ${assignedName}` : 'Ansvarlig: —')
+    parts.push(`Planlagt: ${scheduledLabel}`)
+    parts.push(`${itemsAnswered}/${checklistItems.length} punkter besvart`)
+    if (critCount > 0) parts.push(`${critCount} kritiske funn`)
+    return parts.join(' · ')
+  }, [
+    round,
+    template?.name,
+    locationName,
+    assignedName,
+    scheduledLabel,
+    itemsAnswered,
+    checklistItems.length,
+    critCount,
+  ])
+
   const hubMenuItems: HubMenu1Item[] = useMemo(() => {
     if (!round) return []
     const f = inspection.findingsByRoundId[round.id] ?? []
@@ -958,24 +977,28 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
 
   return (
     <div className="min-h-screen bg-[#f5f4f0]">
-      <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
-        <WorkplacePageHeading1
-          breadcrumb={[
-            { label: 'HMS' },
-            { label: 'Inspeksjonsrunder', to: '/inspection-module' },
-            { label: round.title },
-          ]}
-          title={round.title}
-          description="Gjennomfør sjekkliste, registrer avvik og signer vernerunden i henhold til Internkontrollforskriften § 5."
-          headerActions={
-            <div className="flex flex-wrap items-center gap-2">
+      <header className="sticky top-0 z-30 border-b border-neutral-200/90 bg-[#f5f4f0]/95 backdrop-blur-sm">
+        <div className="mx-auto max-w-[1400px] space-y-3 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <button
                 type="button"
                 onClick={() => navigate('/inspection-module')}
-                className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                className="shrink-0 text-sm font-medium text-neutral-600 hover:text-neutral-900"
               >
-                Tilbake til liste
+                ← Inspeksjon
               </button>
+              <h1
+                className="min-w-0 truncate text-xl font-semibold text-neutral-900 md:text-2xl"
+                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+              >
+                {round.title}
+              </h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-semibold text-neutral-800">
+                {STATUS_LABEL[round.status]}
+              </span>
               <Link
                 to="/inspection-module/admin"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
@@ -983,43 +1006,14 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
                 <Settings className="h-4 w-4" aria-hidden />
                 <span className="hidden sm:inline">Admin</span>
               </Link>
-              <Link
-                to="/platform-admin/layout"
-                className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
-              >
-                Layout
-              </Link>
             </div>
-          }
-          menu={<HubMenu1Bar ariaLabel="Runde-seksjoner" items={hubMenuItems} />}
-        />
+          </div>
+          <p className="text-xs leading-relaxed text-neutral-500">{headerSubtitle}</p>
+          <HubMenu1Bar ariaLabel="Runde-seksjoner" items={hubMenuItems} />
+        </div>
+      </header>
 
-        <LayoutScoreStatRow
-          variant="compact"
-          items={[
-            {
-              big: STATUS_LABEL[round.status],
-              title: 'Status',
-              sub: critCount > 0 ? `${critCount} kritiske avvik` : 'Ingen kritiske avvik',
-            },
-            {
-              big: template?.name ?? '—',
-              title: 'Mal',
-              sub: 'Sjekklistemal for runden',
-            },
-            {
-              big: locationName ?? '—',
-              title: 'Lokasjon',
-              sub: assignedName ? `Ansvarlig: ${assignedName}` : 'Ingen lokasjon valgt',
-            },
-            {
-              big: scheduledLabel,
-              title: 'Planlagt',
-              sub: `Besvart ${itemsAnswered} / ${checklistItems.length} punkter`,
-            },
-          ]}
-        />
-
+      <div className="mx-auto max-w-[1400px] space-y-6 py-6">
         {activeTab === 'checklist' && (
           <LayoutTable1PostingsShell
             wrap
