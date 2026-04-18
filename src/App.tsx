@@ -96,6 +96,8 @@ import { IkKompetansePage } from './pages/IkKompetansePage'
 import { IkMedvirkningPage } from './pages/IkMedvirkningPage'
 import { IkMalPage } from './pages/IkMalPage'
 import { IkTiltaksplanPage } from './pages/IkTiltaksplanPage'
+import { RosModulePage }         from './pages/RosModulePage'
+import { RosAnalysisDetailPage } from './pages/RosAnalysisDetailPage'
 
 function App() {
   return (
@@ -182,6 +184,8 @@ function App() {
                       <Route path="sja" element={<SjaModulePage />} />
                       <Route path="sja/admin" element={<SjaModuleAdminPage />} />
                       <Route path="sja/:sjaId" element={<SjaDetailPage />} />
+                      <Route path="ros"         element={<RosModulePage />} />
+                      <Route path="ros/:rosId"  element={<RosAnalysisDetailPage />} />
                       {/* Admin: module overview + RBAC */}
                       <Route path="admin/modules" element={<ModuleAdminPage />} />
                       {/* Phase 2: dynamic module route — loaded from `modules` table via registry */}
