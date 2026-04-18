@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
+import { withTimeout } from '../lib/withTimeout'
 import type { PermissionKey } from '../lib/permissionKeys'
+
+const PERMISSIONS_RPC_TIMEOUT_MS = 15_000
 
 export function usePermissions(userId: string | undefined) {
   const supabase = getSupabaseBrowserClient()
@@ -19,17 +22,28 @@ export function usePermissions(userId: string | undefined) {
     if (!everHadKeys.current) {
       setLoading(true)
     }
-    const { data, error } = await supabase.rpc('get_my_effective_permissions')
-    if (error) {
-      console.warn('get_my_effective_permissions', error.message)
+    try {
+      const { data, error } = await withTimeout(
+        supabase.rpc('get_my_effective_permissions'),
+        PERMISSIONS_RPC_TIMEOUT_MS,
+        'get_my_effective_permissions',
+      )
+      if (error) {
+        console.warn('get_my_effective_permissions', error.message)
+        setKeys(new Set())
+      } else {
+        const rows = (data ?? []) as { permission_key: string }[]
+        const next = new Set(rows.map((r) => r.permission_key))
+        setKeys(next)
+        if (next.size > 0) everHadKeys.current = true
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.warn('get_my_effective_permissions', msg)
       setKeys(new Set())
-    } else {
-      const rows = (data ?? []) as { permission_key: string }[]
-      const next = new Set(rows.map((r) => r.permission_key))
-      setKeys(next)
-      if (next.size > 0) everHadKeys.current = true
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [supabase, userId])
 
   useEffect(() => {

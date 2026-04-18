@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
+import { withTimeout } from '../lib/withTimeout'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import type {
   WorkflowAction,
@@ -9,10 +10,13 @@ import type {
   WorkflowXorActionsEnvelope,
 } from '../types/workflow'
 
+const WORKFLOW_QUERY_TIMEOUT_MS = 20_000
+
 export function useWorkflows() {
-  const { supabase, organization, can, isAdmin } = useOrgSetupContext()
+  const { supabase, organization, profile, can, isAdmin } = useOrgSetupContext()
   const orgId = organization?.id
-  const canManage = isAdmin || can('workflows.manage')
+  const isOrgAdminProfile = profile?.is_org_admin === true
+  const canManage = isOrgAdminProfile || isAdmin || can('workflows.manage')
 
   const [rules, setRules] = useState<WorkflowRuleRow[]>([])
   const [runs, setRuns] = useState<WorkflowRunRow[]>([])
@@ -24,12 +28,16 @@ export function useWorkflows() {
     setLoading(true)
     setError(null)
     try {
-      const { data, error: e } = await supabase
-        .from('workflow_rules')
-        .select('*')
-        .eq('organization_id', orgId)
-        .order('priority', { ascending: false })
-        .order('name')
+      const { data, error: e } = await withTimeout(
+        supabase
+          .from('workflow_rules')
+          .select('*')
+          .eq('organization_id', orgId)
+          .order('priority', { ascending: false })
+          .order('name'),
+        WORKFLOW_QUERY_TIMEOUT_MS,
+        'workflow_rules select',
+      )
       if (e) throw e
       setRules((data ?? []) as WorkflowRuleRow[])
     } catch (err) {
@@ -42,12 +50,16 @@ export function useWorkflows() {
   const refreshRuns = useCallback(async () => {
     if (!supabase || !orgId) return
     try {
-      const { data, error: e } = await supabase
-        .from('workflow_runs')
-        .select('*')
-        .eq('organization_id', orgId)
-        .order('created_at', { ascending: false })
-        .limit(80)
+      const { data, error: e } = await withTimeout(
+        supabase
+          .from('workflow_runs')
+          .select('*')
+          .eq('organization_id', orgId)
+          .order('created_at', { ascending: false })
+          .limit(80),
+        WORKFLOW_QUERY_TIMEOUT_MS,
+        'workflow_runs select',
+      )
       if (e) throw e
       setRuns((data ?? []) as WorkflowRunRow[])
     } catch (err) {

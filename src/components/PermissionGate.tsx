@@ -5,7 +5,7 @@ import { permissionForPath } from '../lib/permissionKeys'
 
 /** Enforces module.view.* from roles when Supabase + user session exist. */
 export function PermissionGate() {
-  const { supabaseConfigured, user, can, permissionsLoading, permissionKeys } = useOrgSetupContext()
+  const { supabaseConfigured, user, profile, can, permissionsLoading, permissionKeys } = useOrgSetupContext()
   const location = useLocation()
 
   if (!supabaseConfigured || !user) {
@@ -24,6 +24,20 @@ export function PermissionGate() {
         Laster tilganger…
       </div>
     )
+  }
+
+  const path = location.pathname
+  const isWorkflowPath = path === '/workflow' || path.startsWith('/workflow/')
+  /** Matches RLS: org admins may manage rules without module.view.workflow on their role. */
+  if (isWorkflowPath) {
+    const allowedWorkflow =
+      can('module.view.workflow') ||
+      can('workflows.manage') ||
+      profile?.is_org_admin === true
+    if (!allowedWorkflow) {
+      return <Navigate to="/" replace state={{ accessDenied: 'module.view.workflow' }} />
+    }
+    return <Outlet />
   }
 
   const required = permissionForPath(location.pathname)
