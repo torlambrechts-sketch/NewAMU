@@ -552,8 +552,8 @@ function SummaryTab({
 
   return (
     <div className="space-y-5 px-5 py-5">
-      <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-4">
-        <p className="text-xs font-semibold text-neutral-700">IK-forskriften § 5 — skriftlig protokoll</p>
+      <div className="rounded-lg border border-[#1a3d32]/20 bg-[#f4f1ea] p-4">
+        <p className="text-xs font-semibold text-[#1a3d32]">IK-forskriften § 5 — skriftlig protokoll</p>
         <p className="mt-1 text-xs text-neutral-500">
           Vernerunden skal dokumenteres skriftlig. Sammendraget arkiveres som del av HMS-protokollen.
         </p>
@@ -674,7 +674,7 @@ function SignaturesTab({
     <div className="space-y-5 px-5 py-5">
       {location && (
         <div
-          className={`rounded-none border px-4 py-3 text-xs font-medium ${
+          className={`rounded-lg border px-4 py-3 text-xs font-medium ${
             isManager
               ? 'border-green-200 bg-green-50 text-green-800'
               : isDeputy
@@ -690,8 +690,8 @@ function SignaturesTab({
         </div>
       )}
 
-      <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-4">
-        <p className="text-xs font-semibold text-neutral-700">IK-forskriften § 5 — dobbel signering</p>
+      <div className="rounded-lg border border-[#1a3d32]/20 bg-[#f4f1ea] p-4">
+        <p className="text-xs font-semibold text-[#1a3d32]">IK-forskriften § 5 — dobbel signering</p>
         <p className="mt-1 text-xs text-neutral-500">
           Vernerunden krever signatur fra både leder (AML § 2-1) og verneombud (AML § 6-2) for å være gyldig
           dokumentert i henhold til Internkontrollforskriften.
