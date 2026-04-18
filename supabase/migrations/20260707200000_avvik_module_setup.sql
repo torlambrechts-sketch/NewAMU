@@ -26,16 +26,26 @@ create index if not exists hse_audit_log_record_idx
 
 alter table public.hse_audit_log enable row level security;
 
-create policy if not exists hse_audit_log_select
+-- PostgreSQL has no CREATE POLICY IF NOT EXISTS — drop then create.
+drop policy if exists hse_audit_log_select on public.hse_audit_log;
+create policy hse_audit_log_select
   on public.hse_audit_log for select to authenticated
-  using (organization_id = public.current_org_id()
-    and (public.is_org_admin() or public.user_has_permission('hse.audit_read')));
+  using (
+    organization_id = public.current_org_id()
+    and (
+      public.is_org_admin()
+      or public.user_has_permission('hse.audit_read')
+    )
+  );
 
-create policy if not exists hse_audit_log_insert_system
+drop policy if exists hse_audit_log_insert_system on public.hse_audit_log;
+create policy hse_audit_log_insert_system
   on public.hse_audit_log for insert to authenticated
   with check (organization_id = public.current_org_id());
 
 grant select, insert on public.hse_audit_log to authenticated;
+
+revoke update, delete on public.hse_audit_log from authenticated;
 
 -- ── 2. Generic audit trigger function ────────────────────────────────────────
 
