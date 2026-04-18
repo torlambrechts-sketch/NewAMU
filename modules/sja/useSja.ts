@@ -14,6 +14,8 @@ import type {
   SjaParticipantRole,
   SjaTask,
   SjaTemplate,
+  SjaTemplateHazard,
+  SjaTemplateTask,
 } from './types'
 import {
   SjaAnalysisSchema,
@@ -110,6 +112,8 @@ export type SjaState = {
     controlType: SjaControlType
     assignedToId?: string | null
     assignedToName?: string | null
+    isFromTemplate?: boolean
+    isMandatory?: boolean
   }) => Promise<void>
   updateMeasure: (
     measureId: string,
@@ -130,6 +134,7 @@ export type SjaState = {
     >,
   ) => Promise<void>
   deleteMeasure: (measureId: string, opts?: { justification?: string | null }) => Promise<void>
+  hardDeleteMeasure: (measureId: string) => Promise<void>
   signParticipant: (participantId: string) => Promise<void>
   completeDebrief: (input: {
     sjaId: string
@@ -324,9 +329,109 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         return null
       }
       mergeAnalysis(parsed)
+
+      const tplId = payload.templateId ?? null
+      if (tplId) {
+        const tpl = templates.find((t) => t.id === tplId) ?? null
+        const prefill = tpl?.prefill_tasks
+        if (tpl && Array.isArray(prefill) && prefill.length > 0) {
+          const sortedTasks = [...prefill].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)) as SjaTemplateTask[]
+          for (let ti = 0; ti < sortedTasks.length; ti += 1) {
+            const pt = sortedTasks[ti]
+            const title = typeof pt.title === 'string' ? pt.title.trim() : ''
+            if (!title) continue
+            const { data: taskRow, error: taskErr } = await supabase
+              .from('sja_tasks')
+              .insert({
+                sja_id: parsed.id,
+                title,
+                description: typeof pt.description === 'string' ? pt.description.trim() || null : null,
+                position: typeof pt.position === 'number' ? pt.position : ti,
+              })
+              .select('*')
+              .single()
+            if (taskErr) {
+              setError(taskErr.message)
+              break
+            }
+            const taskParsed = parseRow(taskRow, SjaTaskSchema)
+            if (!taskParsed) continue
+            setTasks((prev) => [...prev, taskParsed])
+
+            const hazards = Array.isArray(pt.hazards) ? (pt.hazards as SjaTemplateHazard[]) : []
+            for (const th of hazards) {
+              const hzDesc = typeof th.description === 'string' ? th.description.trim() : ''
+              if (!hzDesc) continue
+              const catRaw = typeof th.category === 'string' ? th.category : 'other'
+              const category = (
+                [
+                  'fall',
+                  'chemical',
+                  'electrical',
+                  'mechanical',
+                  'fire',
+                  'ergonomic',
+                  'dropped_object',
+                  'other',
+                ].includes(catRaw)
+                  ? catRaw
+                  : 'other'
+              ) as SjaHazardCategory
+              const { data: hazRow, error: hazErr } = await supabase
+                .from('sja_hazards')
+                .insert({
+                  sja_id: parsed.id,
+                  task_id: taskParsed.id,
+                  description: hzDesc,
+                  category,
+                })
+                .select('*')
+                .single()
+              if (hazErr) {
+                setError(hazErr.message)
+                break
+              }
+              const hazParsed = parseRow(hazRow, SjaHazardSchema)
+              if (!hazParsed) continue
+              setHazards((prev) => [...prev, hazParsed])
+
+              const mz = Array.isArray(th.measures) ? th.measures : []
+              for (const m of mz) {
+                const md = typeof m.description === 'string' ? m.description.trim() : ''
+                if (!md) continue
+                const ctRaw = typeof m.control_type === 'string' ? m.control_type : 'administrative'
+                const ct = (
+                  ['eliminate', 'substitute', 'engineering', 'administrative', 'ppe'].includes(ctRaw)
+                    ? ctRaw
+                    : 'administrative'
+                ) as SjaControlType
+                const { data: measRow, error: measErr } = await supabase
+                  .from('sja_measures')
+                  .insert({
+                    sja_id: parsed.id,
+                    hazard_id: hazParsed.id,
+                    description: md,
+                    control_type: ct,
+                    is_from_template: true,
+                    is_mandatory: Boolean(m.is_mandatory),
+                  })
+                  .select('*')
+                  .single()
+                if (measErr) {
+                  setError(measErr.message)
+                  break
+                }
+                const measParsed = parseRow(measRow, SjaMeasureSchema)
+                if (measParsed) setMeasures((prev) => [...prev, measParsed])
+              }
+            }
+          }
+        }
+      }
+
       return parsed
     },
-    [supabase, mergeAnalysis],
+    [supabase, mergeAnalysis, templates],
   )
 
   const loadDetail = useCallback(
@@ -392,7 +497,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         participants: participants.filter((p) => p.sja_id === sjaId),
         tasks: tasks.filter((t) => t.sja_id === sjaId).sort((a, b) => a.position - b.position),
         hazards: hazards.filter((h) => h.sja_id === sjaId),
-        measures: measures.filter((m) => m.sja_id === sjaId && m.deleted_at == null),
+        measures: measures.filter((m) => m.sja_id === sjaId),
       }
     },
     [analyses, participants, tasks, hazards, measures],
@@ -680,6 +785,8 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       controlType: SjaControlType
       assignedToId?: string | null
       assignedToName?: string | null
+      isFromTemplate?: boolean
+      isMandatory?: boolean
     }) => {
       if (!supabase) return
       setError(null)
@@ -692,6 +799,8 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
           control_type: input.controlType,
           assigned_to_id: input.assignedToId ?? null,
           assigned_to_name: input.assignedToName?.trim() || null,
+          is_from_template: input.isFromTemplate ?? false,
+          is_mandatory: input.isMandatory ?? false,
         })
         .select('*')
         .single()
@@ -754,10 +863,6 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         setError(upErr.message)
         return
       }
-      if (patch.deleted_at != null) {
-        setMeasures((prev) => removeById(prev, measureId))
-        return
-      }
       const parsed = parseRow(data, SjaMeasureSchema)
       if (parsed) setMeasures((prev) => replaceById(prev, measureId, parsed))
     },
@@ -772,7 +877,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         data: { user },
       } = await supabase.auth.getUser()
       const now = new Date().toISOString()
-      const { error: upErr } = await supabase
+      const { data, error: upErr } = await supabase
         .from('sja_measures')
         .update({
           deleted_at: now,
@@ -780,8 +885,26 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
           deletion_justification: opts?.justification?.trim() || null,
         })
         .eq('id', measureId)
+        .select('*')
+        .maybeSingle()
       if (upErr) {
         setError(upErr.message)
+        return
+      }
+      const parsed = parseRow(data, SjaMeasureSchema)
+      if (parsed) setMeasures((prev) => replaceById(prev, measureId, parsed))
+      else setMeasures((prev) => removeById(prev, measureId))
+    },
+    [supabase],
+  )
+
+  const hardDeleteMeasure = useCallback(
+    async (measureId: string) => {
+      if (!supabase) return
+      setError(null)
+      const { error: delErr } = await supabase.from('sja_measures').delete().eq('id', measureId)
+      if (delErr) {
+        setError(delErr.message)
         return
       }
       setMeasures((prev) => removeById(prev, measureId))
@@ -985,6 +1108,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       addMeasure,
       updateMeasure,
       deleteMeasure,
+      hardDeleteMeasure,
       signParticipant,
       completeDebrief,
       createAvvikFromDebrief,
@@ -1022,6 +1146,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       addMeasure,
       updateMeasure,
       deleteMeasure,
+      hardDeleteMeasure,
       signParticipant,
       completeDebrief,
       createAvvikFromDebrief,

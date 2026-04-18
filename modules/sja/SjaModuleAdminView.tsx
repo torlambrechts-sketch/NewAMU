@@ -54,26 +54,15 @@ const SJA_PERMISSIONS = [
 
 const CARD = 'rounded-xl border border-neutral-200/80 bg-white shadow-sm'
 const CARD_SHADOW = { boxShadow: '0 1px 2px rgba(0,0,0,0.04)' } as const
+const SETTINGS_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-800'
 
 type Tab = 'templates' | 'locations' | 'access'
-
-const CONTROL_TYPE_OPTIONS: { value: SjaControlType; label: string }[] = [
-  { value: 'eliminate', label: 'Eliminering' },
-  { value: 'substitute', label: 'Substitusjon' },
-  { value: 'engineering', label: 'Teknisk' },
-  { value: 'administrative', label: 'Administrativt' },
-  { value: 'ppe', label: 'PPE' },
-]
 
 type PrefillMeasureDraft = { description: string; control_type: SjaControlType; is_mandatory: boolean }
 
 type PrefillHazardDraft = { description: string; category: SjaHazardCategory; measures: PrefillMeasureDraft[] }
 
 type PrefillTaskDraft = { title: string; description: string; position: number; hazards: PrefillHazardDraft[] }
-
-function emptyMeasure(): PrefillMeasureDraft {
-  return { description: '', control_type: 'administrative', is_mandatory: false }
-}
 
 function emptyTask(position: number): PrefillTaskDraft {
   return { title: '', description: '', hazards: [], position }
@@ -504,6 +493,44 @@ function TemplateFormBody({
 }) {
   void _dn
   void _sdn
+
+  type FormMeasure = { description: string; control_type: string; is_mandatory: boolean }
+
+  function addMeasure(taskIdx: number, hazardIdx: number) {
+    setDraftTasks((prev) => {
+      const next = structuredClone(prev)
+      next[taskIdx].hazards[hazardIdx].measures.push({
+        description: '',
+        control_type: 'administrative',
+        is_mandatory: false,
+      })
+      return next
+    })
+  }
+
+  function removeMeasure(taskIdx: number, hazardIdx: number, measureIdx: number) {
+    setDraftTasks((prev) => {
+      const next = structuredClone(prev)
+      next[taskIdx].hazards[hazardIdx].measures.splice(measureIdx, 1)
+      return next
+    })
+  }
+
+  function updateMeasure(
+    taskIdx: number,
+    hazardIdx: number,
+    measureIdx: number,
+    field: keyof FormMeasure,
+    value: string | boolean,
+  ) {
+    setDraftTasks((prev) => {
+      const next = structuredClone(prev)
+      const row = next[taskIdx].hazards[hazardIdx].measures[measureIdx] as Record<string, unknown>
+      row[field] = value
+      return next
+    })
+  }
+
   return (
     <div className="space-y-4">
       <label className="flex flex-col gap-1 text-xs">
@@ -574,21 +601,26 @@ function TemplateFormBody({
       </div>
 
       <div>
-        <p className="text-xs font-semibold text-neutral-600">Standard personlig verneutstyr (mal)</p>
+        <label className={SETTINGS_FIELD_LABEL}>Standard verneutstyr (PPE)</label>
+        <p className="mt-1 text-xs text-neutral-500">
+          Grunnleggende verneutstyr for hele jobben — uavhengig av deloppgaver.
+        </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {SJA_PPE_OPTIONS.map((opt) => {
-            const on = draftRequiredPpe.includes(opt.key)
+            const active = draftRequiredPpe.includes(opt.key)
             return (
               <button
                 key={opt.key}
                 type="button"
                 onClick={() =>
                   setDraftRequiredPpe((prev) =>
-                    on ? prev.filter((k) => k !== opt.key) : [...prev, opt.key],
+                    active ? prev.filter((k) => k !== opt.key) : [...prev, opt.key],
                   )
                 }
-                className={`rounded-full border px-2.5 py-1 text-xs ${
-                  on ? 'border-[#1a3d32] bg-[#1a3d32]/10 font-semibold text-[#1a3d32]' : 'border-neutral-200 bg-white'
+                className={`rounded border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  active
+                    ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                    : 'border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50'
                 }`}
               >
                 {opt.label}
@@ -682,101 +714,53 @@ function TemplateFormBody({
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
-                    <p className="mt-2 text-[10px] font-semibold uppercase text-neutral-500">Tiltak i mal</p>
-                    <ul className="mt-1 space-y-1">
+                    <div className="ml-4 mt-2 space-y-1">
                       {hz.measures.map((m, mi) => (
-                        <li key={mi} className="flex flex-wrap items-center gap-1.5 text-xs">
-                          <input
-                            value={m.description}
-                            onChange={(e) =>
-                              setDraftTasks((prev) => {
-                                const next = [...prev]
-                                const th = [...next[ti].hazards]
-                                const mm = [...th[hi].measures]
-                                mm[mi] = { ...mm[mi], description: e.target.value }
-                                th[hi] = { ...th[hi], measures: mm }
-                                next[ti] = { ...next[ti], hazards: th }
-                                return next
-                              })
-                            }
-                            placeholder="Tiltak"
-                            className="min-w-[6rem] flex-1 rounded border bg-white px-1.5 py-0.5"
-                          />
+                        <div key={mi} className="flex items-center gap-2">
                           <select
                             value={m.control_type}
-                            onChange={(e) =>
-                              setDraftTasks((prev) => {
-                                const next = [...prev]
-                                const th = [...next[ti].hazards]
-                                const mm = [...th[hi].measures]
-                                mm[mi] = { ...mm[mi], control_type: e.target.value as SjaControlType }
-                                th[hi] = { ...th[hi], measures: mm }
-                                next[ti] = { ...next[ti], hazards: th }
-                                return next
-                              })
-                            }
-                            className="rounded border bg-white px-1 py-0.5 text-[10px]"
+                            onChange={(e) => updateMeasure(ti, hi, mi, 'control_type', e.target.value)}
+                            className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs"
                           >
-                            {CONTROL_TYPE_OPTIONS.map((c) => (
-                              <option key={c.value} value={c.value}>
-                                {c.label}
-                              </option>
-                            ))}
+                            <option value="eliminate">Eliminering</option>
+                            <option value="substitute">Substitusjon</option>
+                            <option value="engineering">Teknisk tiltak</option>
+                            <option value="administrative">Administrativt</option>
+                            <option value="ppe">Verneutstyr</option>
                           </select>
-                          <label className="inline-flex items-center gap-0.5 whitespace-nowrap text-[10px]">
+                          <input
+                            type="text"
+                            value={m.description}
+                            onChange={(e) => updateMeasure(ti, hi, mi, 'description', e.target.value)}
+                            placeholder="Beskriv tiltaket…"
+                            className="flex-1 rounded border border-neutral-300 px-2 py-1 text-xs"
+                          />
+                          <label className="flex cursor-pointer items-center gap-1 text-xs text-neutral-600">
                             <input
                               type="checkbox"
                               checked={m.is_mandatory}
-                              onChange={(e) =>
-                                setDraftTasks((prev) => {
-                                  const next = [...prev]
-                                  const th = [...next[ti].hazards]
-                                  const mm = [...th[hi].measures]
-                                  mm[mi] = { ...mm[mi], is_mandatory: e.target.checked }
-                                  th[hi] = { ...th[hi], measures: mm }
-                                  next[ti] = { ...next[ti], hazards: th }
-                                  return next
-                                })
-                              }
+                              onChange={(e) => updateMeasure(ti, hi, mi, 'is_mandatory', e.target.checked)}
+                              className="rounded"
                             />
-                            Påkrevd
+                            Obligatorisk
                           </label>
                           <button
                             type="button"
-                            className="text-neutral-400 hover:text-red-600"
-                            onClick={() =>
-                              setDraftTasks((prev) => {
-                                const next = [...prev]
-                                const th = [...next[ti].hazards]
-                                th[hi] = {
-                                  ...th[hi],
-                                  measures: th[hi].measures.filter((_, i) => i !== mi),
-                                }
-                                next[ti] = { ...next[ti], hazards: th }
-                                return next
-                              })
-                            }
+                            onClick={() => removeMeasure(ti, hi, mi)}
+                            className="text-xs text-red-500 hover:text-red-700"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            ×
                           </button>
-                        </li>
+                        </div>
                       ))}
-                    </ul>
-                    <button
-                      type="button"
-                      className="mt-1 text-[10px] font-semibold text-[#1a3d32] underline"
-                      onClick={() =>
-                        setDraftTasks((prev) => {
-                          const next = [...prev]
-                          const th = [...next[ti].hazards]
-                          th[hi] = { ...th[hi], measures: [...th[hi].measures, emptyMeasure()] }
-                          next[ti] = { ...next[ti], hazards: th }
-                          return next
-                        })
-                      }
-                    >
-                      + Tiltak
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => addMeasure(ti, hi)}
+                        className="mt-1 text-xs text-[#1a3d32] hover:underline"
+                      >
+                        + Legg til standard tiltak
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>

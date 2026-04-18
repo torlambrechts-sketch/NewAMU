@@ -39,6 +39,7 @@ import type {
   SjaTask,
   SjaTemplate,
 } from './types'
+import { SJA_PPE_OPTIONS } from './types'
 import { useSja } from './useSja'
 
 export const JOB_TYPE_LABEL: Record<SjaJobType, string> = {
@@ -579,7 +580,13 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
         {activeTab === 'oppgaver' && <OppgaverTab detail={detail} sja={sja} readOnly={readOnly} />}
 
         {activeTab === 'risikovurdering' && (
-          <RisikovurderingTab detail={detail} sja={sja} readOnly={readOnly} assignableUsers={sja.assignableUsers} />
+          <RisikovurderingTab
+            detail={detail}
+            template={template}
+            sja={sja}
+            readOnly={readOnly}
+            assignableUsers={sja.assignableUsers}
+          />
         )}
 
         {activeTab === 'signaturer' && highRisk === 0 && (
@@ -634,6 +641,14 @@ function SignaturerTab({
   const [signingId, setSigningId] = useState<string | null>(null)
   const currentUserId = sja.currentUserId
 
+  const removedMandatory = useMemo(
+    () =>
+      detail.measures.filter(
+        (m) => m.is_mandatory && m.deleted_at != null && String(m.deleted_at).trim() !== '',
+      ),
+    [detail.measures],
+  )
+
   const tasksOk = useMemo(() => {
     if (detail.tasks.length === 0) return false
     for (const t of detail.tasks) {
@@ -661,6 +676,25 @@ function SignaturerTab({
 
   return (
     <div className="space-y-6">
+      {removedMandatory.length > 0 ? (
+        <div className="mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-semibold text-amber-800">
+            ⚠ {removedMandatory.length} obligatorisk tiltak fjernet
+          </p>
+          <ul className="mt-2 space-y-1">
+            {removedMandatory.map((m) => (
+              <li key={m.id} className="text-xs text-amber-700">
+                <strong>{m.description}</strong>
+                {m.deletion_justification ? ` — «${m.deletion_justification}»` : null}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-amber-600">
+            Ved å signere bekrefter du at du har lest og akseptert disse avvikene.
+          </p>
+        </div>
+      ) : null}
+
       <div className={WORKPLACE_MODULE_SUBTLE_PANEL} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
         <p className="text-xs font-semibold text-neutral-700">AML § 4-2 — felles forståelse</p>
         <p className="mt-1 text-xs text-neutral-600">
@@ -1713,11 +1747,13 @@ function OppgaverTab({
 
 function RisikovurderingTab({
   detail,
+  template,
   sja,
   readOnly,
   assignableUsers,
 }: {
   detail: SjaDetail
+  template: SjaTemplate | null
   sja: ReturnType<typeof useSja>
   readOnly: boolean
   assignableUsers: { id: string; displayName: string }[]
@@ -1739,6 +1775,23 @@ function RisikovurderingTab({
 
   return (
     <div className="space-y-4">
+      {template?.required_ppe && template.required_ppe.length > 0 ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded border border-neutral-200 bg-neutral-50 px-4 py-3">
+          <span className="mr-2 text-xs font-bold uppercase tracking-wider text-neutral-500">Standard PPE</span>
+          {template.required_ppe.map((key) => {
+            const opt = SJA_PPE_OPTIONS.find((o) => o.key === key)
+            return opt ? (
+              <span
+                key={key}
+                className="rounded border border-neutral-300 bg-white px-2 py-0.5 text-xs font-medium text-neutral-700"
+              >
+                {opt.label}
+              </span>
+            ) : null
+          })}
+        </div>
+      ) : null}
+
       {chemicalMissing.length > 0 ? (
         <div className="rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           ⚠ {chemicalMissing.length} farekilder med kjemikalier mangler HMS-datablad referanse. Fyll inn referanse per
@@ -1754,6 +1807,7 @@ function RisikovurderingTab({
           sja={sja}
           readOnly={readOnly}
           assignableUsers={assignableUsers}
+          onAfterMeasureChange={() => void sja.loadDetail(detail.analysis.id)}
         />
       ))}
     </div>
@@ -1766,12 +1820,14 @@ function TaskRiskAccordion({
   sja,
   readOnly,
   assignableUsers,
+  onAfterMeasureChange,
 }: {
   task: SjaTask
   detail: SjaDetail
   sja: ReturnType<typeof useSja>
   readOnly: boolean
   assignableUsers: { id: string; displayName: string }[]
+  onAfterMeasureChange: () => void
 }) {
   const [open, setOpen] = useState(true)
   const [addHazardOpen, setAddHazardOpen] = useState(false)
@@ -1795,11 +1851,12 @@ function TaskRiskAccordion({
             <HazardCard
               key={h.id}
               hazard={h}
-              measures={detail.measures.filter((m) => m.hazard_id === h.id)}
+              measures={detail.measures.filter((m) => m.hazard_id === h.id && m.deleted_at == null)}
               sja={sja}
               sjaId={detail.analysis.id}
               readOnly={readOnly}
               assignableUsers={assignableUsers}
+              onAfterMeasureChange={onAfterMeasureChange}
             />
           ))}
           {!readOnly ? (
@@ -1817,6 +1874,67 @@ function TaskRiskAccordion({
   )
 }
 
+function MandatoryMeasureDeleteDialog({
+  onConfirm,
+}: {
+  onConfirm: (justification: string) => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-xs text-red-500 hover:text-red-700"
+      >
+        Fjern
+      </button>
+    )
+  }
+
+  return (
+    <div className="mt-2 space-y-2 rounded border border-red-200 bg-red-50 p-3">
+      <p className="text-xs font-semibold text-red-800">⚠ Obligatorisk tiltak — oppgi begrunnelse for fjerning</p>
+      <textarea
+        rows={2}
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        placeholder="Begrunn hvorfor dette tiltaket ikke gjelder her…"
+        className="w-full rounded border border-red-300 bg-white px-2 py-1.5 text-xs"
+      />
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={reason.trim().length < 10 || saving}
+          onClick={async () => {
+            setSaving(true)
+            await onConfirm(reason.trim())
+            setOpen(false)
+            setSaving(false)
+            setReason('')
+          }}
+          className="rounded bg-red-700 px-3 py-1 text-xs font-semibold text-white disabled:opacity-40"
+        >
+          Bekreft fjerning
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false)
+            setReason('')
+          }}
+          className="rounded border border-neutral-300 px-3 py-1 text-xs"
+        >
+          Avbryt
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function HazardCard({
   hazard,
   measures,
@@ -1824,6 +1942,7 @@ function HazardCard({
   sjaId,
   readOnly,
   assignableUsers,
+  onAfterMeasureChange,
 }: {
   hazard: SjaHazard
   measures: SjaMeasure[]
@@ -1831,6 +1950,7 @@ function HazardCard({
   sjaId: string
   readOnly: boolean
   assignableUsers: { id: string; displayName: string }[]
+  onAfterMeasureChange: () => void
 }) {
   const [descDraft, setDescDraft] = useState(hazard.description)
   useEffect(() => {
@@ -1899,25 +2019,52 @@ function HazardCard({
           </p>
           <ul className="space-y-2">
             {measures.map((m) => (
-              <li key={m.id} className="flex flex-wrap items-start gap-2 text-sm">
-                <span
-                  className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-bold ${CONTROL_TYPE_COLOR[m.control_type]}`}
-                >
-                  {CONTROL_TYPE_LETTER[m.control_type]}
-                </span>
-                <span className="flex-1 text-neutral-800">{m.description}</span>
-                <span className="text-xs text-neutral-500">
-                  {m.assigned_to_name ?? assignableUsers.find((u) => u.id === m.assigned_to_id)?.displayName ?? '—'}
-                </span>
-                <label className="flex items-center gap-1 text-xs">
-                  <input
-                    type="checkbox"
-                    disabled={readOnly}
-                    checked={m.completed}
-                    onChange={(e) => void sja.updateMeasure(m.id, { completed: e.target.checked })}
-                  />
-                  Utført
-                </label>
+              <li key={m.id} className="flex flex-col gap-1 border-b border-neutral-100 pb-2 last:border-0">
+                <div className="flex flex-wrap items-start gap-2 text-sm">
+                  <span
+                    className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-bold ${CONTROL_TYPE_COLOR[m.control_type]}`}
+                  >
+                    {CONTROL_TYPE_LETTER[m.control_type]}
+                  </span>
+                  <span className="flex-1 text-neutral-800">
+                    {m.description}
+                    {m.is_mandatory ? (
+                      <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
+                        Obligatorisk
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="text-xs text-neutral-500">
+                    {m.assigned_to_name ?? assignableUsers.find((u) => u.id === m.assigned_to_id)?.displayName ?? '—'}
+                  </span>
+                  <label className="flex items-center gap-1 text-xs">
+                    <input
+                      type="checkbox"
+                      disabled={readOnly}
+                      checked={m.completed}
+                      onChange={(e) => void sja.updateMeasure(m.id, { completed: e.target.checked })}
+                    />
+                    Utført
+                  </label>
+                  {!readOnly ? (
+                    m.is_mandatory ? (
+                      <MandatoryMeasureDeleteDialog
+                        onConfirm={async (justification) => {
+                          await sja.deleteMeasure(m.id, { justification })
+                          onAfterMeasureChange()
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void sja.hardDeleteMeasure(m.id).then(() => onAfterMeasureChange())}
+                        className="text-xs text-red-500 hover:text-red-700"
+                      >
+                        ×
+                      </button>
+                    )
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
