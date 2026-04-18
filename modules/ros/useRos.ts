@@ -50,16 +50,28 @@ export function useRos({ supabase }: { supabase: SupabaseClient | null }) {
   const loadDetail = useCallback(async (rosId: string) => {
     if (!supabase) return
     try {
-      const [hRes, mRes, pRes, sRes] = await Promise.all([
+      const [aRes, hRes, mRes, pRes, sRes] = await Promise.all([
+        supabase.from('ros_analyses').select('*').eq('id', rosId).maybeSingle(),
         supabase.from('ros_hazards').select('*').eq('ros_id', rosId).order('position'),
         supabase.from('ros_measures').select('*').eq('ros_id', rosId).order('position'),
         supabase.from('ros_participants').select('*').eq('ros_id', rosId),
         supabase.from('ros_signatures').select('*').eq('ros_id', rosId),
       ])
+      if (aRes.error) throw aRes.error
       if (hRes.error) throw hRes.error
       if (mRes.error) throw mRes.error
       if (pRes.error) throw pRes.error
       if (sRes.error) throw sRes.error
+      if (aRes.data) {
+        const row = aRes.data as RosAnalysisRow
+        setAnalyses((prev) => {
+          const i = prev.findIndex((a) => a.id === row.id)
+          if (i < 0) return [row, ...prev]
+          const next = [...prev]
+          next[i] = row
+          return next
+        })
+      }
       setHazardsByRos((p) => ({ ...p, [rosId]: (hRes.data ?? []) as RosHazardRow[] }))
       setMeasuresByRos((p) => ({ ...p, [rosId]: (mRes.data ?? []) as RosMeasureRow[] }))
       setParticipants((p) => ({ ...p, [rosId]: (pRes.data ?? []) as RosParticipantRow[] }))
