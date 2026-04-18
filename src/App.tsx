@@ -87,6 +87,7 @@ import { InspectionModuleAdminPage } from './pages/InspectionModuleAdminPage'
 import { InspectionRoundDetailPage } from './pages/InspectionRoundDetailPage'
 import { SjaDetailPage } from './pages/SjaDetailPage'
 import { SjaModulePage } from './pages/SjaModulePage'
+import { SjaModuleAdminPage } from './pages/SjaModuleAdminPage'
 import { ModuleAdminPage } from './pages/ModuleAdminPage'
 import { AvvikPage } from './pages/AvvikPage'
 
@@ -167,6 +168,7 @@ function App() {
                       <Route path="avvik" element={<AvvikPage />} />
                       <Route path="inspection-module/:roundId" element={<InspectionRoundDetailPage />} />
                       <Route path="sja" element={<SjaModulePage />} />
+                      <Route path="sja/admin" element={<SjaModuleAdminPage />} />
                       <Route path="sja/:sjaId" element={<SjaDetailPage />} />
                       {/* Admin: module overview + RBAC */}
                       <Route path="admin/modules" element={<ModuleAdminPage />} />

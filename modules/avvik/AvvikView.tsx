@@ -29,12 +29,22 @@ const SEVERITY_ORDER: Record<AvvikSeverity, number> = {
   critical: 0, high: 1, medium: 2, low: 3,
 }
 const STATUS_LABEL: Record<AvvikStatus, string> = {
-  open: 'Åpent', in_progress: 'Under behandling', closed: 'Lukket',
+  open: 'Åpent',
+  in_progress: 'Under behandling',
+  closed: 'Lukket',
+  rapportert: 'Rapportert',
+  under_behandling: 'Under behandling',
+  tiltak_iverksatt: 'Tiltak iverksatt',
+  lukket: 'Lukket',
 }
 const STATUS_COLOR: Record<AvvikStatus, string> = {
   open: 'bg-red-50 text-red-700',
   in_progress: 'bg-yellow-50 text-yellow-700',
   closed: 'bg-green-50 text-green-700',
+  rapportert: 'bg-orange-50 text-orange-800',
+  under_behandling: 'bg-yellow-50 text-yellow-700',
+  tiltak_iverksatt: 'bg-blue-50 text-blue-800',
+  lukket: 'bg-green-50 text-green-700',
 }
 const STATUS_NEXT: Partial<Record<AvvikStatus, AvvikStatus>> = {
   open: 'in_progress',

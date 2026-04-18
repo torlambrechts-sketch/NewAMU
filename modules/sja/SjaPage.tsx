@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   AlertTriangle,
@@ -16,6 +16,8 @@ import {
   Users,
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../src/components/layout/HubMenu1Bar'
+import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
+import { HseAuditLogViewer } from '../../src/components/hse/HseAuditLogViewer'
 import { RiskMatrix, riskColorClass, riskLabel, riskScoreFromProbCons } from '../../src/components/hse/RiskMatrix'
 import type {
   SjaAnalysis,
@@ -31,7 +33,7 @@ import type {
 } from './types'
 import { useSja } from './useSja'
 
-const JOB_TYPE_LABEL: Record<SjaJobType, string> = {
+export const JOB_TYPE_LABEL: Record<SjaJobType, string> = {
   hot_work: 'Varmt arbeid',
   confined_space: 'Arbeid i trange rom',
   work_at_height: 'Arbeid i høyden',
@@ -242,6 +244,7 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const [stopFormOpen, setStopFormOpen] = useState(false)
   const [stopReasonDraft, setStopReasonDraft] = useState('')
+  const allSignedPromptedRef = useRef(false)
 
   const [draft, setDraft] = useState<GrunnlagDraft | null>(null)
 
@@ -375,6 +378,35 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
     }
     return true
   }, [detail])
+
+  const hasResponsibleParticipant = useMemo(() => {
+    if (!detail) return false
+    return (
+      detail.participants.some((p) => p.role === 'responsible') ||
+      (analysis?.responsible_id != null && detail.participants.some((p) => p.user_id === analysis.responsible_id))
+    )
+  }, [detail, analysis?.responsible_id])
+
+  const allParticipantsSigned = useMemo(() => {
+    if (!detail || detail.participants.length === 0) return false
+    return detail.participants.every((p) => p.signed_at != null && String(p.signed_at).trim() !== '')
+  }, [detail])
+
+  useEffect(() => {
+    if (!analysis || !detail || highRisk > 0) return
+    if (analysis.status !== 'approved' || !allParticipantsSigned || allSignedPromptedRef.current) return
+    allSignedPromptedRef.current = true
+    const ok = window.confirm(
+      'Alle deltakere har signert. Vil du starte arbeidet nå? Status settes til «Under utførelse» og faktisk start registreres.',
+    )
+    if (ok) {
+      void sja.advanceStatus(analysis.id, 'in_execution')
+    }
+  }, [analysis, detail, highRisk, allParticipantsSigned, sja])
+
+  useEffect(() => {
+    allSignedPromptedRef.current = false
+  }, [analysis?.id, analysis?.status, participantTotal])
 
   const handleSaveGrunnlag = useCallback(async () => {
     if (!sjaId || !draft || !analysis) return
@@ -531,22 +563,372 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
           <RisikovurderingTab detail={detail} sja={sja} readOnly={readOnly} assignableUsers={sja.assignableUsers} />
         )}
 
-        {activeTab === 'signaturer' && (
-          <PlaceholderTab
-            title="Signaturer"
-            body={
-              highRisk > 0
-                ? 'Fanen er blokkert: restrisiko i rød sone (P×C ≥ 15). Revider tiltak i Risikovurdering først.'
-                : 'Signatur-fanen kommer i neste leveranse (alle deltakere signerer individuelt).'
-            }
+        {activeTab === 'signaturer' && highRisk === 0 && (
+          <SignaturerTab
+            detail={detail}
+            sja={sja}
+            analysis={analysis}
+            canRequestApproval={canRequestApproval}
+            hasResponsibleParticipant={hasResponsibleParticipant}
+            onApproved={() => void sja.advanceStatus(analysis.id, 'approved')}
           />
         )}
-        {activeTab === 'etterarbeid' && (
-          <PlaceholderTab title="Etterarbeid" body="Debrief og avvik-kobling kommer i neste leveranse." />
+        {activeTab === 'signaturer' && highRisk > 0 && (
+          <PlaceholderTab
+            title="Signaturer"
+            body="Fanen er blokkert: restrisiko i rød sone (P×C ≥ 15). Revider tiltak i Risikovurdering først."
+          />
         )}
-        {activeTab === 'historikk' && (
-          <PlaceholderTab title="Historikk" body="Revisjonslogg for SJA kommer i neste leveranse." />
+        {activeTab === 'etterarbeid' && <EtterarbeidTab sja={sja} analysis={analysis} />}
+        {activeTab === 'historikk' && supabase && (
+          <LayoutTable1PostingsShell
+            wrap
+            title="Historikk"
+            description="Endringer loggført for denne SJA-en."
+            toolbar={<span className="text-sm text-neutral-600">Revisjonsspor</span>}
+          >
+            <HseAuditLogViewer supabase={supabase} recordId={analysis.id} tableName="sja_analyses" />
+          </LayoutTable1PostingsShell>
         )}
+      </div>
+    </div>
+  )
+}
+
+function SignaturerTab({
+  detail,
+  sja,
+  analysis,
+  canRequestApproval,
+  hasResponsibleParticipant,
+  onApproved,
+}: {
+  detail: SjaDetail
+  sja: ReturnType<typeof useSja>
+  analysis: SjaAnalysis
+  hasResponsibleParticipant: boolean
+  canRequestApproval: boolean
+  onApproved: () => void
+}) {
+  const [signingId, setSigningId] = useState<string | null>(null)
+  const currentUserId = sja.currentUserId
+
+  const tasksOk = useMemo(() => {
+    if (detail.tasks.length === 0) return false
+    for (const t of detail.tasks) {
+      if (detail.hazards.filter((h) => h.task_id === t.id).length === 0) return false
+    }
+    return true
+  }, [detail.tasks, detail.hazards])
+
+  const noRedResidual = highResidualRiskCount(detail.hazards) === 0
+  const minParticipants = detail.participants.length >= 2
+  const statusApproved = analysis.status === 'approved'
+  const statusActive = analysis.status === 'active'
+  const showApproveButton = canRequestApproval && statusActive
+
+  const userNameById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const u of sja.assignableUsers) m.set(u.id, u.displayName)
+    return m
+  }, [sja.assignableUsers])
+
+  const signerName = (p: (typeof detail.participants)[0]) => {
+    if (p.user_id && userNameById.has(p.user_id)) return userNameById.get(p.user_id)!
+    return p.name
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-4">
+        <p className="text-xs font-semibold text-neutral-700">AML § 4-2 — felles forståelse</p>
+        <p className="mt-1 text-xs text-neutral-600">
+          Alle deltakere skal ha lest og forstått SJA-en og bekreftet at de er kjent med risikoene og tiltakene (AML § 4-2).
+        </p>
+      </div>
+
+      <div className="space-y-1.5 rounded-none border border-neutral-200 bg-white p-4">
+        <p className={PANEL_LABEL}>Sjekkliste før signering</p>
+        {[
+          { ok: tasksOk, label: 'Alle deloppgaver har definerte farekilder' },
+          { ok: noRedResidual, label: 'Ingen farekilder i rød restrisiko-sone' },
+          { ok: minParticipants, label: 'Minimum 2 deltakere (inkl. ansvarlig)' },
+          { ok: hasResponsibleParticipant, label: 'SJA-ansvarlig er utpekt' },
+          { ok: statusApproved, label: 'Status er «Godkjent»' },
+        ].map(({ ok, label }) => (
+          <div key={label} className="flex items-center gap-2 text-xs">
+            {ok ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" /> : <Circle className="h-4 w-4 shrink-0 text-neutral-300" />}
+            <span className={ok ? 'text-neutral-700' : 'text-neutral-400'}>{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {showApproveButton ? (
+        <button
+          type="button"
+          onClick={() => onApproved()}
+          className="rounded border border-[#1a3d32] bg-[#1a3d32] px-4 py-2.5 text-sm font-semibold text-white"
+        >
+          Godkjenn SJA
+        </button>
+      ) : null}
+
+      <div className="space-y-3">
+        {detail.participants.map((p) => (
+          <div key={p.id} className="rounded-none border border-neutral-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold text-neutral-900">{p.name}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span className={`rounded px-2 py-0.5 text-xs font-semibold ${roleBadgeClass(p.role)}`}>
+                    {ROLE_LABEL[p.role]}
+                  </span>
+                  {p.company ? <span className="text-xs text-neutral-500">{p.company}</span> : null}
+                </div>
+                <div className="mt-2">
+                  {p.certs_verified ? (
+                    <span className="inline-flex items-center gap-1 rounded bg-green-50 px-2 py-0.5 text-xs font-medium text-green-800">
+                      <Check className="h-3.5 w-3.5" /> Sertifikater verifisert
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900">
+                      <AlertTriangle className="h-3.5 w-3.5" /> Sertifikater ikke verifisert
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="text-right">
+                {p.signed_at ? (
+                  <div className="inline-flex items-center gap-2 text-sm text-green-700">
+                    <CheckCircle2 className="h-5 w-5 shrink-0" />
+                    <span>
+                      Signert {new Date(p.signed_at).toLocaleDateString('nb-NO', { dateStyle: 'medium' })} av{' '}
+                      {signerName(p)}
+                    </span>
+                  </div>
+                ) : p.user_id && currentUserId && p.user_id === currentUserId ? (
+                  <button
+                    type="button"
+                    disabled={signingId !== null}
+                    onClick={async () => {
+                      setSigningId(p.id)
+                      await sja.signParticipant(p.id)
+                      setSigningId(null)
+                    }}
+                    className="rounded border border-[#1a3d32] bg-[#1a3d32] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                  >
+                    {signingId === p.id ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Signerer…
+                      </span>
+                    ) : (
+                      'Signer'
+                    )}
+                  </button>
+                ) : (
+                  <p className="text-xs text-neutral-400">Venter på signatur</p>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DebriefAvvikBanner({ sjaId, sja }: { sjaId: string; sja: ReturnType<typeof useSja> }) {
+  const [createdId, setCreatedId] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  if (createdId) {
+    return (
+      <div className="rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
+        Avvik opprettet —{' '}
+        <Link to="/avvik" className="font-semibold underline">
+          åpne avvik-modulen
+        </Link>
+      </div>
+    )
+  }
+  return (
+    <div className="rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+      <p className="font-semibold">Uventede hendelser ble rapportert. Opprett avvik for videre oppfølging.</p>
+      <button
+        type="button"
+        disabled={busy}
+        className="mt-3 rounded bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+        onClick={async () => {
+          setBusy(true)
+          const id = await sja.createAvvikFromDebrief(sjaId)
+          if (id) setCreatedId(id)
+          setBusy(false)
+        }}
+      >
+        {busy ? 'Oppretter…' : 'Opprett avvik'}
+      </button>
+    </div>
+  )
+}
+
+function EtterarbeidTab({
+  sja,
+  analysis,
+}: {
+  sja: ReturnType<typeof useSja>
+  analysis: SjaAnalysis
+}) {
+  const [unexpected, setUnexpected] = useState<boolean | null>(analysis.unexpected_hazards)
+  const [notes, setNotes] = useState(analysis.debrief_notes ?? '')
+  const [submitting, setSubmitting] = useState(false)
+  const [avvikBanner, setAvvikBanner] = useState(false)
+  const debriefDone = analysis.debrief_completed_at != null && String(analysis.debrief_completed_at).trim() !== ''
+
+  useEffect(() => {
+    setUnexpected(analysis.unexpected_hazards)
+    setNotes(analysis.debrief_notes ?? '')
+  }, [analysis.id, analysis.updated_at, analysis.unexpected_hazards, analysis.debrief_notes])
+
+  const interactive = analysis.status === 'completed'
+
+  if (!interactive && !debriefDone) {
+    return (
+      <div className="space-y-4 rounded-none border border-neutral-200 bg-white p-6 shadow-sm">
+        <div className="rounded border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+          Etterarbeid (debrief) låses opp når SJA er merket som <strong>fullført</strong>. Gå til Grunnlag og fullfør
+          utførelsen først.
+        </div>
+        <p className="text-xs text-neutral-500">Forhåndsvisning — feltene er skrivebeskyttet.</p>
+        <DebriefFormFields unexpected={unexpected} setUnexpected={setUnexpected} notes={notes} setNotes={setNotes} disabled />
+      </div>
+    )
+  }
+
+  if (debriefDone) {
+    return (
+      <div className="space-y-4 rounded-none border border-neutral-200 bg-white p-6 shadow-sm">
+        <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-4">
+          <p className="text-xs font-semibold text-neutral-700">IK-forskriften § 5</p>
+          <p className="mt-1 text-xs text-neutral-600">
+            Erfaringsoverføring er obligatorisk etter gjennomføring (IK-forskriften § 5). Uventede hendelser skal
+            registreres som avvik.
+          </p>
+        </div>
+        <p className="text-sm text-neutral-800">
+          <span className="font-semibold">Uventede farekilder:</span>{' '}
+          {analysis.unexpected_hazards === true ? 'Ja' : analysis.unexpected_hazards === false ? 'Nei' : '—'}
+        </p>
+        <div>
+          <p className={PANEL_LABEL}>Notater</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-700">{analysis.debrief_notes ?? '—'}</p>
+        </div>
+        <p className="text-xs text-neutral-500">
+          Arkivert / fullført etterarbeid{' '}
+          {analysis.debrief_completed_at
+            ? new Date(analysis.debrief_completed_at).toLocaleString('nb-NO', { dateStyle: 'medium', timeStyle: 'short' })
+            : ''}
+        </p>
+        {analysis.unexpected_hazards === true && !analysis.avvik_created ? (
+          <DebriefAvvikBanner sjaId={analysis.id} sja={sja} />
+        ) : null}
+        {analysis.avvik_created ? (
+          <p className="text-sm font-medium text-green-800">
+            Avvik ble knyttet til denne debriefen.{' '}
+            <Link to="/avvik" className="underline">
+              Gå til avvik
+            </Link>
+          </p>
+        ) : null}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6 rounded-none border border-neutral-200 bg-white p-6 shadow-sm">
+      <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-4">
+        <p className="text-xs font-semibold text-neutral-700">IK-forskriften § 5</p>
+        <p className="mt-1 text-xs text-neutral-600">
+          Erfaringsoverføring er obligatorisk etter gjennomføring (IK-forskriften § 5). Uventede hendelser skal
+          registreres som avvik.
+        </p>
+      </div>
+
+      <DebriefFormFields unexpected={unexpected} setUnexpected={setUnexpected} notes={notes} setNotes={setNotes} disabled={false} />
+
+      {unexpected === true && avvikBanner && !analysis.avvik_created ? <DebriefAvvikBanner sjaId={analysis.id} sja={sja} /> : null}
+
+      <button
+        type="button"
+        disabled={submitting || unexpected === null}
+        onClick={async () => {
+          if (unexpected === null) return
+          setSubmitting(true)
+          await sja.completeDebrief({
+            sjaId: analysis.id,
+            unexpectedHazards: unexpected,
+            debriefNotes: notes,
+          })
+          setSubmitting(false)
+          if (unexpected) setAvvikBanner(true)
+          await sja.loadDetail(analysis.id)
+        }}
+        className="rounded border border-[#1a3d32] bg-[#1a3d32] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+      >
+        {submitting ? 'Lagrer…' : 'Fullfør etterarbeid og arkiver'}
+      </button>
+    </div>
+  )
+}
+
+function DebriefFormFields({
+  unexpected,
+  setUnexpected,
+  notes,
+  setNotes,
+  disabled,
+}: {
+  unexpected: boolean | null
+  setUnexpected: (v: boolean | null) => void
+  notes: string
+  setNotes: (v: string) => void
+  disabled: boolean
+}) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className={`${PANEL_LABEL} mb-3`}>Ble det oppdaget uventede farekilder?</p>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          {[
+            { v: false as const, label: 'Nei' },
+            { v: true as const, label: 'Ja' },
+          ].map(({ v, label }) => (
+            <label
+              key={String(v)}
+              className={`flex min-h-[3rem] flex-1 cursor-pointer items-center justify-center rounded-lg border-2 px-4 py-3 text-base font-semibold transition ${
+                unexpected === v ? 'border-[#1a3d32] bg-[#1a3d32]/10 text-[#1a3d32]' : 'border-neutral-200 bg-neutral-50 text-neutral-600'
+              } ${disabled ? 'pointer-events-none opacity-60' : ''}`}
+            >
+              <input
+                type="radio"
+                className="sr-only"
+                checked={unexpected === v}
+                disabled={disabled}
+                onChange={() => setUnexpected(v)}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div>
+        <label className={PANEL_LABEL}>Beskriv erfaringer og avvik</label>
+        <textarea
+          className={`${PANEL_INPUT} min-h-[8rem]`}
+          rows={6}
+          disabled={disabled}
+          placeholder="Hva fungerte? Hva gikk galt? Hva bør forbedres?"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
       </div>
     </div>
   )
@@ -831,13 +1213,12 @@ function WorkflowActions({
       )
     }
     return (
-      <button
-        type="button"
-        onClick={() => onAdvance('approved')}
-        className="w-fit rounded border border-[#1a3d32] bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white"
-      >
-        Godkjenn SJA
-      </button>
+      <div className="max-w-xl rounded border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-950">
+        <p className="font-medium">Forutsetningene for godkjenning er oppfylt.</p>
+        <p className="mt-1 text-xs text-emerald-900/90">
+          Gå til fanen <span className="font-semibold">Signaturer</span> for å gjennomføre sjekklisten og trykke «Godkjenn SJA».
+        </p>
+      </div>
     )
   }
 

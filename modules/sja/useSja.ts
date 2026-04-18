@@ -34,6 +34,7 @@ export type UseSjaInput = { supabase: SupabaseClient | null }
 export type SjaState = {
   loading: boolean
   error: string | null
+  currentUserId: string | null
   analyses: SjaAnalysis[]
   templates: SjaTemplate[]
   locations: SjaLocationRow[]
@@ -98,6 +99,32 @@ export type SjaState = {
     patch: Partial<Pick<SjaMeasure, 'description' | 'control_type' | 'assigned_to_id' | 'assigned_to_name' | 'completed'>>,
   ) => Promise<void>
   deleteMeasure: (measureId: string) => Promise<void>
+  signParticipant: (participantId: string) => Promise<void>
+  completeDebrief: (input: {
+    sjaId: string
+    unexpectedHazards: boolean
+    debriefNotes: string
+  }) => Promise<void>
+  createAvvikFromDebrief: (sjaId: string) => Promise<string | null>
+  createTemplate: (row: {
+    name: string
+    job_type: string
+    description?: string | null
+    required_certs?: string[] | null
+    prefill_tasks?: unknown
+    is_active?: boolean
+  }) => Promise<SjaTemplate | null>
+  updateTemplate: (
+    templateId: string,
+    row: {
+      name?: string
+      job_type?: string
+      description?: string | null
+      required_certs?: string[] | null
+      prefill_tasks?: unknown
+      is_active?: boolean
+    },
+  ) => Promise<void>
 }
 
 function parseRow<T>(row: unknown, schema: { safeParse: (v: unknown) => { success: boolean; data?: T } }): T | null {
@@ -116,6 +143,7 @@ function removeById<T extends { id: string }>(list: T[], id: string): T[] {
 export function useSja({ supabase }: UseSjaInput): SjaState {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [analyses, setAnalyses] = useState<SjaAnalysis[]>([])
   const [templates, setTemplates] = useState<SjaTemplate[]>([])
   const [locations, setLocations] = useState<SjaLocationRow[]>([])
@@ -134,16 +162,18 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
     setLoading(true)
     setError(null)
     try {
-      const [analysesRes, templatesRes, locationsRes, usersRes] = await Promise.all([
+      const [analysesRes, templatesRes, locationsRes, usersRes, authRes] = await Promise.all([
         supabase.from('sja_analyses').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
-        supabase.from('sja_templates').select('*').eq('is_active', true).order('name', { ascending: true }),
+        supabase.from('sja_templates').select('*').order('name', { ascending: true }),
         supabase.from('locations').select('id, name').order('name', { ascending: true }),
         supabase.from('profiles').select('id, display_name').order('display_name', { ascending: true }),
+        supabase.auth.getUser(),
       ])
       if (analysesRes.error) throw analysesRes.error
       if (templatesRes.error) throw templatesRes.error
       if (locationsRes.error) throw locationsRes.error
       if (usersRes.error) throw usersRes.error
+      setCurrentUserId(authRes.data.user?.id ?? null)
 
       setAnalyses(
         (analysesRes.data ?? [])
@@ -153,7 +183,8 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       setTemplates(
         (templatesRes.data ?? [])
           .map((row) => parseRow(row, SjaTemplateSchema))
-          .filter((r): r is SjaTemplate => r !== null),
+          .filter((r): r is SjaTemplate => r !== null)
+          .sort((a, b) => a.name.localeCompare(b.name, 'nb')),
       )
       setLocations(
         (locationsRes.data ?? [])
@@ -622,10 +653,171 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
     [supabase],
   )
 
+  const signParticipant = useCallback(
+    async (participantId: string) => {
+      if (!supabase) return
+      setError(null)
+      const now = new Date().toISOString()
+      const { data, error: upErr } = await supabase
+        .from('sja_participants')
+        .update({ signed_at: now })
+        .eq('id', participantId)
+        .select('*')
+        .single()
+      if (upErr) {
+        setError(upErr.message)
+        return
+      }
+      const parsed = parseRow(data, SjaParticipantSchema)
+      if (parsed) setParticipants((prev) => replaceById(prev, participantId, parsed))
+    },
+    [supabase],
+  )
+
+  const completeDebrief = useCallback(
+    async (input: { sjaId: string; unexpectedHazards: boolean; debriefNotes: string }) => {
+      if (!supabase) return
+      setError(null)
+      const uid = (await supabase.auth.getUser()).data.user?.id ?? null
+      const { data, error: upErr } = await supabase
+        .from('sja_analyses')
+        .update({
+          unexpected_hazards: input.unexpectedHazards,
+          debrief_notes: input.debriefNotes.trim(),
+          debrief_completed_by: uid,
+          debrief_completed_at: new Date().toISOString(),
+          status: 'archived',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', input.sjaId)
+        .select('*')
+        .single()
+      if (upErr) {
+        setError(upErr.message)
+        return
+      }
+      const parsed = parseRow(data, SjaAnalysisSchema)
+      if (parsed) mergeAnalysis(parsed)
+    },
+    [supabase, mergeAnalysis],
+  )
+
+  const createAvvikFromDebrief = useCallback(
+    async (sjaId: string): Promise<string | null> => {
+      if (!supabase) return null
+      setError(null)
+      const analysis = analyses.find((a) => a.id === sjaId)
+      if (!analysis) return null
+      const title = `SJA: Uventede hendelser — ${analysis.title}`.slice(0, 200)
+      const description =
+        (analysis.debrief_notes ?? '').trim() ||
+        'Uventede farekilder rapportert i SJA-debrief. Se SJA for detaljer.'
+      const { data, error: insErr } = await supabase
+        .from('deviations')
+        .insert({
+          title,
+          description,
+          severity: 'high',
+          status: 'rapportert',
+          source: 'sja_debrief',
+          source_id: sjaId,
+        })
+        .select('id')
+        .single()
+      if (insErr) {
+        setError(insErr.message)
+        return null
+      }
+      const id = typeof (data as { id?: string })?.id === 'string' ? (data as { id: string }).id : null
+      if (id) {
+        await saveAnalysisPatch(sjaId, { avvik_created: true })
+      }
+      return id
+    },
+    [supabase, analyses, saveAnalysisPatch],
+  )
+
+  const createTemplate = useCallback(
+    async (row: {
+      name: string
+      job_type: string
+      description?: string | null
+      required_certs?: string[] | null
+      prefill_tasks?: unknown
+      is_active?: boolean
+    }): Promise<SjaTemplate | null> => {
+      if (!supabase) return null
+      setError(null)
+      const { data, error: insErr } = await supabase
+        .from('sja_templates')
+        .insert({
+          name: row.name.trim(),
+          job_type: row.job_type,
+          description: row.description ?? null,
+          required_certs: row.required_certs ?? null,
+          prefill_tasks: row.prefill_tasks ?? null,
+          is_active: row.is_active ?? true,
+        })
+        .select('*')
+        .single()
+      if (insErr) {
+        setError(insErr.message)
+        return null
+      }
+      const parsed = parseRow(data, SjaTemplateSchema)
+      if (parsed) {
+        setTemplates((prev) => [...prev.filter((t) => t.id !== parsed.id), parsed].sort((a, b) => a.name.localeCompare(b.name, 'nb')))
+        return parsed
+      }
+      return null
+    },
+    [supabase],
+  )
+
+  const updateTemplate = useCallback(
+    async (
+      templateId: string,
+      row: {
+        name?: string
+        job_type?: string
+        description?: string | null
+        required_certs?: string[] | null
+        prefill_tasks?: unknown
+        is_active?: boolean
+      },
+    ) => {
+      if (!supabase) return
+      setError(null)
+      const body: Record<string, unknown> = { updated_at: new Date().toISOString() }
+      if (row.name !== undefined) body.name = row.name.trim()
+      if (row.job_type !== undefined) body.job_type = row.job_type
+      if (row.description !== undefined) body.description = row.description
+      if (row.required_certs !== undefined) body.required_certs = row.required_certs
+      if (row.prefill_tasks !== undefined) body.prefill_tasks = row.prefill_tasks
+      if (row.is_active !== undefined) body.is_active = row.is_active
+      const { data, error: upErr } = await supabase
+        .from('sja_templates')
+        .update(body)
+        .eq('id', templateId)
+        .select('*')
+        .single()
+      if (upErr) {
+        setError(upErr.message)
+        return
+      }
+      const parsed = parseRow(data, SjaTemplateSchema)
+      if (parsed) {
+        setTemplates((prev) => prev.map((t) => (t.id === templateId ? parsed : t)))
+      }
+    },
+    [supabase],
+  )
+
   return useMemo(
     () => ({
       loading,
       error,
+      currentUserId,
       analyses,
       templates,
       locations,
@@ -652,10 +844,16 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       addMeasure,
       updateMeasure,
       deleteMeasure,
+      signParticipant,
+      completeDebrief,
+      createAvvikFromDebrief,
+      createTemplate,
+      updateTemplate,
     }),
     [
       loading,
       error,
+      currentUserId,
       analyses,
       templates,
       locations,
@@ -682,6 +880,11 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       addMeasure,
       updateMeasure,
       deleteMeasure,
+      signParticipant,
+      completeDebrief,
+      createAvvikFromDebrief,
+      createTemplate,
+      updateTemplate,
     ],
   )
 }

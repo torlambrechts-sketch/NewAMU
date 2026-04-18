@@ -10,12 +10,14 @@ export function SjaModulePage() {
       <p className="mt-3 text-sm text-neutral-600">
         Oversikt over SJA-er kommer her. Åpne en analyse direkte fra lenken, eller legg til rute for opprettelse senere.
       </p>
-      <Link
-        to="/hse"
-        className="mt-6 inline-block text-sm font-medium text-[#1a3d32] underline-offset-2 hover:underline"
-      >
-        ← Tilbake til HMS
-      </Link>
+      <div className="mt-6 flex flex-wrap gap-4 text-sm">
+        <Link to="/hse" className="font-medium text-[#1a3d32] underline-offset-2 hover:underline">
+          ← Tilbake til HMS
+        </Link>
+        <Link to="/sja/admin" className="font-medium text-[#1a3d32] underline-offset-2 hover:underline">
+          SJA-innstillinger (maler og tilgang)
+        </Link>
+      </div>
     </div>
   )
 }

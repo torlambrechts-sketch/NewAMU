@@ -89,7 +89,7 @@ export function useAvvik({ supabase }: Input): AvvikModuleState {
         title: payload.title.trim(),
         description: payload.description.trim(),
         severity: payload.severity,
-        status: 'open',
+        status: 'rapportert',
         source: payload.source ?? 'manual',
         source_id: payload.sourceId ?? null,
         due_at: normalizeDate(payload.dueAt),
