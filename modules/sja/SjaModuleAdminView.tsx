@@ -4,6 +4,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { ArrowLeft, ClipboardList, MapPin, Plus, Save, Shield, Trash2, X } from 'lucide-react'
 import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
 import { ModuleAdminShell } from '../../src/components/layout/ModuleAdminShell'
+import { LocationsCrudTab } from '../../src/components/hse/LocationsCrudTab'
+import { useInspectionModule } from '../inspection/useInspectionModule'
 import type { SjaHazardCategory, SjaJobType, SjaTemplate } from './types'
 import { useSja } from './useSja'
 import type { PrefillTask } from './types'
@@ -102,11 +104,16 @@ export function SjaModuleAdminView({
   organizationId: string | null
 }) {
   const sja = useSja({ supabase })
+  const inspection = useInspectionModule({ supabase })
   const [tab, setTab] = useState<Tab>('templates')
 
   useEffect(() => {
     void sja.load()
   }, [sja.load])
+
+  useEffect(() => {
+    if (tab === 'locations') void inspection.load()
+  }, [tab, inspection.load])
 
   const tabs = useMemo(
     () => [
@@ -118,7 +125,7 @@ export function SjaModuleAdminView({
   )
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
+    <div className="space-y-6">
       <WorkplacePageHeading1
         breadcrumb={[{ label: 'HMS' }, { label: 'Sikker jobbanalyse', to: '/sja' }, { label: 'Innstillinger' }]}
         title="SJA-innstillinger"
@@ -146,7 +153,20 @@ export function SjaModuleAdminView({
         onTabChange={(k) => setTab(k as Tab)}
       >
         {tab === 'templates' && <SjaTemplatesAdmin sja={sja} />}
-        {tab === 'locations' && <SjaLocationsNote />}
+        {tab === 'locations' && (
+          <div className="space-y-4">
+            <p className="text-sm text-neutral-600">
+              Lokasjoner deles med inspeksjonsmodulen (<code className="rounded bg-neutral-100 px-1">inspection_locations</code>
+              ). Endringer her synes også der.
+            </p>
+            <LocationsCrudTab
+              supabase={supabase}
+              locations={inspection.locations}
+              assignableUsers={inspection.assignableUsers}
+              onRefresh={() => inspection.load()}
+            />
+          </div>
+        )}
         {tab === 'access' && (
           <SjaAccessTab supabase={supabase} canManageRbac={canManageRbac} organizationId={organizationId} />
         )}
@@ -586,22 +606,6 @@ function TemplateFormBody({
           + Deloppgave
         </button>
       </div>
-    </div>
-  )
-}
-
-function SjaLocationsNote() {
-  return (
-    <div className={`${CARD} p-6`} style={CARD_SHADOW}>
-      <h2 className="text-base font-semibold text-neutral-900">Lokasjoner</h2>
-      <p className="mt-2 text-sm text-neutral-600">
-        Arbeidssteder bruker det delte <strong>locations</strong>-registeret (samme som for øvrig HMS). Rediger
-        lokasjoner under{' '}
-        <Link to="/inspection-module/admin" className="font-semibold text-[#1a3d32] underline">
-          Inspeksjonsinnstillinger → Lokasjoner
-        </Link>{' '}
-        eller via organisasjonsoppsett der det er tilgjengelig.
-      </p>
     </div>
   )
 }

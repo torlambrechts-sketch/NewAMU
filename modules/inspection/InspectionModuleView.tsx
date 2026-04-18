@@ -190,8 +190,38 @@ export function InspectionModuleView({ supabase }: Props) {
   const [scheduleDraft, setScheduleDraft] = useState<
     Record<string, { scheduledFor: string; cronExpression: string; assignedTo: string }>
   >({})
+  const [deviationCountByRoundId, setDeviationCountByRoundId] = useState<Record<string, number>>({})
 
   useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    if (!supabase || inspection.rounds.length === 0) {
+      setDeviationCountByRoundId({})
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const ids = inspection.rounds.map((r) => r.id)
+      const { data, error } = await supabase
+        .from('deviations')
+        .select('source_id')
+        .in('source_id', ids)
+        .is('deleted_at', null)
+      if (cancelled || error) {
+        if (!cancelled) setDeviationCountByRoundId({})
+        return
+      }
+      const counts: Record<string, number> = {}
+      for (const row of data ?? []) {
+        const sid = (row as { source_id?: string | null }).source_id
+        if (typeof sid === 'string' && sid) counts[sid] = (counts[sid] ?? 0) + 1
+      }
+      setDeviationCountByRoundId(counts)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, inspection.rounds])
 
   // ── Stats ────────────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -344,6 +374,7 @@ export function InspectionModuleView({ supabase }: Props) {
               <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
               <th className={LAYOUT_TABLE1_POSTINGS_TH}>Planlagt</th>
               <th className={LAYOUT_TABLE1_POSTINGS_TH}>Signaturer</th>
+              <th className={`w-24 ${LAYOUT_TABLE1_POSTINGS_TH}`} />
               <th className={`w-8 ${LAYOUT_TABLE1_POSTINGS_TH}`}></th>
             </tr>
           </thead>
@@ -351,6 +382,7 @@ export function InspectionModuleView({ supabase }: Props) {
             {roundsFiltered.map((round) => {
               const findings = inspection.findingsByRoundId[round.id] ?? []
               const critCount = findings.filter((f) => f.severity === 'critical').length
+              const nAvvik = deviationCountByRoundId[round.id] ?? 0
               return (
                 <tr
                   key={round.id}
@@ -406,6 +438,19 @@ export function InspectionModuleView({ supabase }: Props) {
                       </span>
                     </div>
                   </td>
+                  <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                    {nAvvik > 0 ? (
+                      <Link
+                        to={`/avvik?sourceId=${encodeURIComponent(round.id)}`}
+                        className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900 hover:bg-amber-200"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {nAvvik} avvik
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-neutral-300">—</span>
+                    )}
+                  </td>
                   <td className="w-8 px-3 py-3 text-neutral-300">
                     <ChevronRight className="h-4 w-4" aria-hidden />
                   </td>
@@ -414,7 +459,7 @@ export function InspectionModuleView({ supabase }: Props) {
             })}
             {roundsFiltered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-5 py-10 text-center text-sm text-neutral-500">
+                <td colSpan={9} className="px-5 py-10 text-center text-sm text-neutral-500">
                   {inspection.loading ? 'Laster runder…' : 'Ingen runder matcher søket.'}
                 </td>
               </tr>

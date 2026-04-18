@@ -26,6 +26,7 @@ import {
   Layers,
   Settings2,
   Shield,
+  ShieldAlert,
   ShieldCheck,
   Users,
   UsersRound,
@@ -424,6 +425,24 @@ const navGroups: NavGroup[] = [
         end: false,
         icon: AlertTriangle,
         subs: [],
+      },
+      {
+        to: '/sja',
+        label: 'Sikker Jobbanalyse',
+        end: false,
+        icon: ShieldAlert,
+        subs: [
+          {
+            label: 'Oversikt',
+            path: '/sja',
+            match: ({ pathname }) => pathname === '/sja',
+          },
+          {
+            label: 'Innstillinger',
+            path: '/sja/admin',
+            match: ({ pathname }) => pathname.startsWith('/sja/admin'),
+          },
+        ],
       },
     ],
   },

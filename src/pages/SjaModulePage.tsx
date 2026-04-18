@@ -1,23 +1,11 @@
-import { Link } from 'react-router-dom'
+import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { SjaModuleView } from '../../modules/sja/SjaModuleView'
 
-/** Placeholder until SJA list UI is implemented. */
 export function SjaModulePage() {
+  const { supabase } = useOrgSetupContext()
   return (
-    <div className="mx-auto max-w-[720px] px-4 py-16 md:px-8">
-      <h1 className="text-2xl font-semibold text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
-        Sikker jobbanalyse
-      </h1>
-      <p className="mt-3 text-sm text-neutral-600">
-        Oversikt over SJA-er kommer her. Åpne en analyse direkte fra lenken, eller legg til rute for opprettelse senere.
-      </p>
-      <div className="mt-6 flex flex-wrap gap-4 text-sm">
-        <Link to="/hse" className="font-medium text-[#1a3d32] underline-offset-2 hover:underline">
-          ← Tilbake til HMS
-        </Link>
-        <Link to="/sja/admin" className="font-medium text-[#1a3d32] underline-offset-2 hover:underline">
-          SJA-innstillinger (maler og tilgang)
-        </Link>
-      </div>
+    <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
+      <SjaModuleView supabase={supabase} />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { fetchAssignableUsers } from '../../src/hooks/useAssignableUsers'
 import type {
   SjaAnalysis,
   SjaControlType,
@@ -162,17 +163,16 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
     setLoading(true)
     setError(null)
     try {
-      const [analysesRes, templatesRes, locationsRes, usersRes, authRes] = await Promise.all([
+      const [analysesRes, templatesRes, locationsRes, authRes, assignableUsersList] = await Promise.all([
         supabase.from('sja_analyses').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
         supabase.from('sja_templates').select('*').order('name', { ascending: true }),
         supabase.from('locations').select('id, name').order('name', { ascending: true }),
-        supabase.from('profiles').select('id, display_name').order('display_name', { ascending: true }),
         supabase.auth.getUser(),
+        fetchAssignableUsers(supabase),
       ])
       if (analysesRes.error) throw analysesRes.error
       if (templatesRes.error) throw templatesRes.error
       if (locationsRes.error) throw locationsRes.error
-      if (usersRes.error) throw usersRes.error
       setCurrentUserId(authRes.data.user?.id ?? null)
 
       setAnalyses(
@@ -195,19 +195,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
           })
           .filter((r): r is SjaLocationRow => r !== null),
       )
-      setAssignableUsers(
-        (usersRes.data ?? [])
-          .map((row) => {
-            const id = typeof row.id === 'string' ? row.id : ''
-            if (!id) return null
-            const displayName =
-              typeof row.display_name === 'string' && row.display_name.trim().length > 0
-                ? row.display_name.trim()
-                : id
-            return { id, displayName }
-          })
-          .filter((r): r is SjaAssignableUser => r !== null),
-      )
+      setAssignableUsers(assignableUsersList)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Kunne ikke laste SJA.')
     } finally {

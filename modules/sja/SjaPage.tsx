@@ -474,7 +474,7 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
   return (
     <div className="min-h-screen bg-[#f5f4f0]">
       <header className="sticky top-0 z-30 border-b border-neutral-200/90 bg-[#f5f4f0]/95 backdrop-blur-sm">
-        <div className="mx-auto max-w-[1400px] space-y-3 px-4 py-4 md:px-8">
+        <div className="mx-auto max-w-[1400px] space-y-3 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <button
@@ -518,7 +518,7 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
+      <div className="mx-auto max-w-[1400px] py-6">
         {sja.error ? (
           <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{sja.error}</div>
         ) : null}
