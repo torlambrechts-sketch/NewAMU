@@ -188,6 +188,13 @@ const SJA_STATUS_LABELS: Record<SjaAnalysis['status'], string> = {
   closed: 'Avsluttet',
 }
 
+const SJA_STATUS_COLORS: Record<SjaAnalysis['status'], string> = {
+  draft: 'border-blue-200 bg-blue-50 text-blue-800',
+  awaiting_participants: 'border-amber-200 bg-amber-50 text-amber-800',
+  approved: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+  closed: 'border-neutral-200 bg-neutral-100 text-neutral-600',
+}
+
 const SICK_STATUS_LABELS: Record<SickLeaveCase['status'], string> = {
   active: 'Sykemeldt (100%)',
   partial: 'Gradert sykemeldt',
@@ -3723,9 +3730,9 @@ export function HseModule() {
                         </p>
                       </div>
                       <div className={TASK_PANEL_INSET}>
-                        <p className="text-sm font-medium text-neutral-800">
+                        <span className={`inline-block rounded border px-2 py-0.5 text-xs font-semibold ${SJA_STATUS_COLORS[sjaPanelExisting.status]}`}>
                           {SJA_STATUS_LABELS[sjaPanelExisting.status]}
-                        </p>
+                        </span>
                         {sjaPanelExisting.status === 'closed' ? (
                           <p className="mt-2 text-xs text-neutral-500">Avsluttet — ikke endre signaturer.</p>
                         ) : (
@@ -3734,11 +3741,12 @@ export function HseModule() {
                               <p className={SETTINGS_FIELD_LABEL}>Manuell status (valgfritt)</p>
                               <select
                                 value={sjaPanelExisting.status}
-                                onChange={(e) =>
-                                  hse.updateSja(sjaPanelExisting.id, {
-                                    status: e.target.value as SjaAnalysis['status'],
-                                  })
-                                }
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  const valid: SjaAnalysis['status'][] = ['draft', 'awaiting_participants', 'approved', 'closed']
+                                  if (!valid.includes(val as SjaAnalysis['status'])) return
+                                  void hse.updateSja(sjaPanelExisting.id, { status: val as SjaAnalysis['status'] })
+                                }}
                                 className={`${SETTINGS_INPUT} mt-2 bg-white`}
                               >
                                 <option value="draft">Utkast</option>
@@ -3758,6 +3766,11 @@ export function HseModule() {
                                 )
                               })}
                             </ul>
+                            {hse.error && (
+                              <p className="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+                                {hse.error}
+                              </p>
+                            )}
                             {user ? (
                               <div className="mt-4 flex flex-col gap-2">
                                 {viewerEmployeeId &&
@@ -3771,11 +3784,12 @@ export function HseModule() {
                                       void (async () => {
                                         const name =
                                           profile?.display_name?.trim() || user.email?.trim() || 'Bruker'
-                                        await hse.signSja(sjaPanelExisting.id, {
+                                        const ok = await hse.signSja(sjaPanelExisting.id, {
                                           signerName: name,
                                           role: 'worker',
                                           signerEmployeeId: viewerEmployeeId,
                                         })
+                                        if (!ok) console.warn('SJA worker sign failed — check hse.error')
                                       })()
                                     }}
                                     className={`${HERO_ACTION_CLASS} bg-[#1a3d32] text-white`}
@@ -3794,11 +3808,12 @@ export function HseModule() {
                                       void (async () => {
                                         const name =
                                           profile?.display_name?.trim() || user.email?.trim() || 'Bruker'
-                                        await hse.signSja(sjaPanelExisting.id, {
+                                        const ok = await hse.signSja(sjaPanelExisting.id, {
                                           signerName: name,
                                           role: 'foreman',
                                           signerEmployeeId: viewerEmployeeId,
                                         })
+                                        if (!ok) console.warn('SJA foreman sign failed — check hse.error')
                                       })()
                                     }}
                                     className={`${HERO_ACTION_CLASS} border border-[#1a3d32] bg-white text-[#1a3d32]`}
@@ -5248,7 +5263,7 @@ function SjaTableRow({
       </td>
       <td className={cellClass}>{sja.rows.length}</td>
       <td className={cellClass}>
-        <span className={`${R_FLAT} border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium`}>
+        <span className={`${R_FLAT} border px-2 py-0.5 text-xs font-medium ${SJA_STATUS_COLORS[sja.status]}`}>
           {SJA_STATUS_LABELS[sja.status]}
         </span>
       </td>
