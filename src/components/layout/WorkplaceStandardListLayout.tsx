@@ -215,6 +215,8 @@ export type WorkplaceStandardListLayoutProps = {
   title: ReactNode
   description?: ReactNode
   headerActions?: ReactNode
+  /** When false, only breadcrumb + hub render (tab supplies page title elsewhere, e.g. HSE module shell). */
+  showTitleBlock?: boolean
   hubAriaLabel: string
   hubItems: HubMenu1Item[]
   /** Omit or pass `undefined` to hide the toolbar row (e.g. compact dashboard). */
@@ -237,6 +239,7 @@ export function WorkplaceStandardListLayout({
   title,
   description,
   headerActions,
+  showTitleBlock = true,
   hubAriaLabel,
   hubItems,
   toolbar,
@@ -252,6 +255,7 @@ export function WorkplaceStandardListLayout({
         title={title}
         description={description}
         headerActions={headerActions}
+        showTitleBlock={showTitleBlock}
         menu={<HubMenu1Bar ariaLabel={hubAriaLabel} items={hubItems} />}
       />
       {toolbar ? <WorkplaceListToolbar {...toolbar} /> : null}

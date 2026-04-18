@@ -35,11 +35,11 @@ export function HseInspectionRunsPanel({ hse }: { hse: ReturnType<typeof useHse>
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200/80 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-950">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200/90 bg-neutral-50/90 px-4 py-3 text-sm text-neutral-800">
         <p>
           <strong>Konfigurerbare inspeksjoner:</strong> typer, maler med felt (ja/nei, tekst, tall, bilde),
           lokasjoner, roller, statusflyt, planer og avviksnivåer.{' '}
-          <Link to="/hse/inspection-settings" className="font-medium underline">
+          <Link to="/hse/inspection-settings" className="font-medium text-[#1a3d32] underline hover:text-[#142e26]">
             Åpne innstillinger
           </Link>
           .
@@ -47,7 +47,7 @@ export function HseInspectionRunsPanel({ hse }: { hse: ReturnType<typeof useHse>
         <button
           type="button"
           onClick={() => hse.generateScheduledInspectionRuns()}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-700 bg-white px-3 py-1.5 text-xs font-medium text-emerald-900"
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-50"
         >
           <CalendarClock className="size-3.5" />
           Kjør tidsplaner (forfalte)

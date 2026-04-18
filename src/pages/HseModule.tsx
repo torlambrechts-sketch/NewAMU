@@ -77,7 +77,13 @@ import { SAFETY_ROUND_TEMPLATE_ID, TRAINING_KIND_LABELS } from '../data/hseTempl
 import { WizardButton } from '../components/wizard/WizardButton'
 import { makeSickLeaveWizard, makeSjaWizard, makeSafetyRoundWizard } from '../components/wizard/wizards'
 import { useModuleTemplate } from '../hooks/useModuleTemplate'
-import { ModulePageRenderer, StatusPill } from '../components/module/ModulePageRenderer'
+import {
+  MODULE_PAGE_TABLE_TD_CLASS,
+  MODULE_PAGE_TABLE_TH_CLASS,
+  ModulePageRenderer,
+  StatusPill,
+} from '../components/module/ModulePageRenderer'
+import { WorkplaceListToolbar } from '../components/layout/WorkplaceStandardListLayout'
 import { ModuleSettingsPanel } from '../components/module/ModuleSettingsPanel'
 import type { TableColumn } from '../types/moduleTemplate'
 import type {
@@ -427,6 +433,7 @@ export function HseModule() {
 
   // SJA form
   const [sjaSearch, setSjaSearch] = useState('')
+  const [sjaFiltersOpen, setSjaFiltersOpen] = useState(false)
   const [sjaPanelId, setSjaPanelId] = useState<string | null>(null)
   const [sjaPanelTitle, setSjaPanelTitle] = useState('')
   const [sjaPanelJobDescription, setSjaPanelJobDescription] = useState('')
@@ -753,8 +760,9 @@ export function HseModule() {
       out.rounds = 'hide'
       out.rounds2 = 'hide'
     }
-    // Inspeksjoner tab always uses ModulePageRenderer which owns its own hub menu
+    // Inspeksjoner / SJA tabs use ModulePageRenderer + WorkplaceStandardListLayout (own hub + list chrome)
     out.inspections = 'hide'
+    out.sja = 'hide'
     return out
   }, [vernerunderGridResolved, inspectionsGridResolved, stackVernerunderOrder, stackInspectionsOrder])
 
@@ -2251,10 +2259,10 @@ export function HseModule() {
           .
         </p>
       }
-      showTitleBlock={tab !== 'rounds' && tab !== 'rounds2' && tab !== 'inspections'}
+      showTitleBlock={tab !== 'rounds' && tab !== 'rounds2' && tab !== 'inspections' && tab !== 'sja'}
       hubAriaLabel="HSE / HMS — faner"
       hubItems={hseShellHubOverride[tab] === 'hide' ? [] : hseHubItems}
-      contentCard={tab !== 'rounds' && tab !== 'rounds2' && tab !== 'inspections'}
+      contentCard={tab !== 'rounds' && tab !== 'rounds2' && tab !== 'inspections' && tab !== 'sja'}
     >
       {hse.error && (
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{hse.error}</p>
@@ -2841,6 +2849,7 @@ export function HseModule() {
             onSearchChange={setInsSearch}
             sortField="conductedAt"
             hubItems={hseHubItems}
+            showListHeading={false}
             primaryActionLabel="Ny inspeksjon"
             onPrimaryAction={openNewInspectionPanel}
             onSettingsClick={isAdmin ? () => setInsSettingsOpen(true) : undefined}
@@ -2920,166 +2929,164 @@ export function HseModule() {
         </div>
       )}
 
-      {/* ── SJA (samme mønster som inspeksjoner) ──────────────────────────────── */}
+      {/* ── SJA — samme liste-krom som Inspeksjonsrunder (WorkplaceStandardListLayout) ── */}
       {tab === 'sja' && (
-        <div className="mt-8 space-y-6">
-          <div className="flex flex-col gap-6 border-b border-neutral-200/80 pb-8 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 flex-1">
-              <h2
-                className="text-2xl font-semibold text-neutral-900 md:text-3xl"
-                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-              >
-                Sikker jobb analyse (SJA)
-              </h2>
-              <p className="mt-3 max-w-2xl rounded-none border border-neutral-200 bg-white p-4 text-sm text-neutral-700">
+        <div className="relative mt-2 min-w-0 space-y-6">
+          <WorkplacePageHeading1
+            breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Samsvar', to: '/compliance' }, { label: 'HSE / HMS' }]}
+            title="Sikker jobb analyse (SJA)"
+            description={
+              <p className="max-w-2xl text-sm text-neutral-600">
                 <strong>Sikker Jobb Analyse (SJA)</strong> er påkrevd for <em>ikke-rutinepregede og høyrisikooperasjoner</em> etter
                 IK-forskriften §5 nr. 2 og AML §3-1. Analysen gjennomføres med berørte arbeidstakere <strong>før</strong> arbeidet
                 starter. Deltakere velges fra ansattregisteret og må signere med innlogget bruker (nivå 1) før status blir godkjent.
               </p>
-              <div className="mt-5 flex flex-wrap items-center gap-2">
-                <span className={`${HERO_ACTION_CLASS} bg-neutral-200/80 text-neutral-800`}>
-                  Totalt <strong className="ml-1 font-semibold">{sjaStats.total}</strong>
+            }
+            menu={<HubMenu1Bar ariaLabel="HSE / HMS — faner" items={hseHubItems} />}
+          />
+
+          <WorkplaceListToolbar
+            count={{ value: sjaFiltered.length, label: `sja (${sjaFiltered.length} treff)` }}
+            searchPlaceholder="Søk i tittel, sted, beskrivelse …"
+            searchValue={sjaSearch}
+            onSearchChange={setSjaSearch}
+            filtersOpen={sjaFiltersOpen}
+            onFiltersOpenChange={setSjaFiltersOpen}
+            filterStatusText={
+              sjaFiltersOpen
+                ? 'Statusfordeling — samme tall som kortene under'
+                : undefined
+            }
+            filterPanel={
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-semibold text-neutral-700">
+                  Totalt <strong className="ml-1">{sjaStats.total}</strong>
                 </span>
-                <span className={`${HERO_ACTION_CLASS} bg-amber-100 text-amber-900`}>
-                  Utkast <strong className="ml-1 font-semibold">{sjaStats.draft}</strong>
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-950">
+                  Utkast <strong className="ml-1">{sjaStats.draft}</strong>
                 </span>
-                <span className={`${HERO_ACTION_CLASS} bg-sky-100 text-sky-900`}>
-                  Venter signatur <strong className="ml-1 font-semibold">{sjaStats.awaiting}</strong>
+                <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-950">
+                  Venter signatur <strong className="ml-1">{sjaStats.awaiting}</strong>
                 </span>
-                <span className={`${HERO_ACTION_CLASS} bg-emerald-100 text-emerald-900`}>
-                  Godkjent <strong className="ml-1 font-semibold">{sjaStats.approved}</strong>
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-950">
+                  Godkjent <strong className="ml-1">{sjaStats.approved}</strong>
                 </span>
-                <button
-                  type="button"
-                  onClick={openNewSjaPanel}
-                  className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
-                >
-                  <Plus className="size-4 shrink-0" />
-                  Ny SJA
-                </button>
-                <WizardButton
-                  label="Veiviser"
-                  variant="solid"
-                  className={HERO_ACTION_CLASS}
-                  def={makeSjaWizard((data) => {
-                    const deptStr = String(data.department ?? '').trim()
-                    const deptOpt = departmentSelectOptions.find(
-                      (o) => o.label.trim().toLowerCase() === deptStr.toLowerCase(),
-                    )
-                    const leaderStr = String(data.conductedBy ?? '').trim()
-                    const leaderEmp = org.displayEmployees.find(
-                      (e) => e.name.trim().toLowerCase() === leaderStr.toLowerCase(),
-                    )
-                    const partStr = String(data.participants ?? '')
-                    const partNames = partStr
-                      .split(',')
-                      .map((x) => x.trim())
-                      .filter(Boolean)
-                    const partIds: string[] = []
-                    for (const n of partNames) {
-                      const em = org.displayEmployees.find((e) => e.name.trim().toLowerCase() === n.toLowerCase())
-                      if (em) partIds.push(em.id)
-                    }
-                    if (leaderEmp && !partIds.includes(leaderEmp.id)) partIds.unshift(leaderEmp.id)
-                    const sja = hse.createSja({
-                      title: String(data.title),
-                      jobDescription: String(data.jobDescription),
-                      location: String(data.location),
-                      department: deptOpt?.label ?? deptStr,
-                      departmentId: deptOpt?.value,
-                      plannedAt: data.plannedAt
-                        ? new Date(String(data.plannedAt)).toISOString()
-                        : new Date().toISOString(),
-                      conductedBy: leaderEmp?.name ?? leaderStr,
-                      workLeaderEmployeeId: leaderEmp?.id,
-                      participantEmployeeIds: partIds,
-                      participants: partNames.join(', ') || leaderEmp?.name || '',
-                      rows: [],
-                      status: 'draft',
-                      conclusion: '',
-                    })
-                    openEditSjaPanel(sja)
-                  })}
-                />
               </div>
-            </div>
-          </div>
+            }
+            viewMode="table"
+            onViewModeChange={() => void 0}
+            primaryAction={{
+              label: 'Ny SJA',
+              icon: Plus,
+              onClick: openNewSjaPanel,
+            }}
+          />
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
-              <div className="text-2xl font-semibold">{sjaStats.total}</div>
-              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Registrert</div>
-            </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
-              <div className="text-2xl font-semibold">{sjaStats.draft}</div>
-              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Utkast</div>
-            </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
-              <div className="text-2xl font-semibold">{sjaStats.awaiting}</div>
-              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Venter deltakere</div>
-            </div>
-            <div className={`${R_FLAT} flex min-h-[5.5rem] flex-col justify-center border border-black/15 px-4 py-3 text-white sm:px-5`} style={kpiStripStyle}>
-              <div className="text-2xl font-semibold">{sjaStats.approved}</div>
-              <div className="text-xs font-medium uppercase tracking-wide text-white/85">Alle signert</div>
-            </div>
-          </div>
-
-          <Mainbox1
-            title="SJA-register"
-            subtitle="Sortert etter planlagt tid. Åpne en rad for skall, faretabell, arbeidstillatelser og signaturer."
+          <div
+            className="rounded-xl border border-neutral-200/80 bg-white p-4 shadow-sm md:p-6"
+            style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
           >
-            <Table1Shell
-              variant="pinpoint"
-              toolbar={
-                <Table1Toolbar
-                  searchSlot={
-                    <div className="min-w-[200px] flex-1">
-                      <label className="sr-only" htmlFor="sja-search">
-                        Søk
-                      </label>
-                      <input
-                        id="sja-search"
-                        value={sjaSearch}
-                        onChange={(e) => setSjaSearch(e.target.value)}
-                        placeholder="Søk i tittel, sted, beskrivelse …"
-                        className={`${SETTINGS_INPUT} bg-white`}
-                      />
-                    </div>
+            <div className="mb-5 flex flex-wrap items-center justify-end gap-2">
+              <WizardButton
+                label="Veiviser"
+                variant="solid"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50"
+                def={makeSjaWizard((data) => {
+                  const deptStr = String(data.department ?? '').trim()
+                  const deptOpt = departmentSelectOptions.find(
+                    (o) => o.label.trim().toLowerCase() === deptStr.toLowerCase(),
+                  )
+                  const leaderStr = String(data.conductedBy ?? '').trim()
+                  const leaderEmp = org.displayEmployees.find(
+                    (e) => e.name.trim().toLowerCase() === leaderStr.toLowerCase(),
+                  )
+                  const partStr = String(data.participants ?? '')
+                  const partNames = partStr
+                    .split(',')
+                    .map((x) => x.trim())
+                    .filter(Boolean)
+                  const partIds: string[] = []
+                  for (const n of partNames) {
+                    const em = org.displayEmployees.find((e) => e.name.trim().toLowerCase() === n.toLowerCase())
+                    if (em) partIds.push(em.id)
                   }
-                />
-              }
-            >
-              <div className="overflow-x-auto">
-                <table className="min-w-full border-collapse text-left">
-                  <thead>
-                    <tr className={theadRow}>
-                      <th className={tableCell}>Operasjon</th>
-                      <th className={tableCell}>Planlagt</th>
-                      <th className={tableCell}>Sted / avdeling</th>
-                      <th className={tableCell}>Rader</th>
-                      <th className={tableCell}>Status</th>
-                      <th className={`${tableCell} text-right`}>Handling</th>
+                  if (leaderEmp && !partIds.includes(leaderEmp.id)) partIds.unshift(leaderEmp.id)
+                  const sja = hse.createSja({
+                    title: String(data.title),
+                    jobDescription: String(data.jobDescription),
+                    location: String(data.location),
+                    department: deptOpt?.label ?? deptStr,
+                    departmentId: deptOpt?.value,
+                    plannedAt: data.plannedAt
+                      ? new Date(String(data.plannedAt)).toISOString()
+                      : new Date().toISOString(),
+                    conductedBy: leaderEmp?.name ?? leaderStr,
+                    workLeaderEmployeeId: leaderEmp?.id,
+                    participantEmployeeIds: partIds,
+                    participants: partNames.join(', ') || leaderEmp?.name || '',
+                    rows: [],
+                    status: 'draft',
+                    conclusion: '',
+                  })
+                  openEditSjaPanel(sja)
+                })}
+              />
+            </div>
+
+            <div className="mb-5">
+              <LayoutScoreStatRow
+                items={[
+                  { big: String(sjaStats.total), title: 'Registrert', sub: 'Alle SJA-er' },
+                  { big: String(sjaStats.draft), title: 'Utkast', sub: 'Under arbeid' },
+                  { big: String(sjaStats.awaiting), title: 'Venter deltakere', sub: 'Signaturer' },
+                  { big: String(sjaStats.approved), title: 'Alle signert', sub: 'Godkjent' },
+                ]}
+              />
+            </div>
+
+            <p className="mb-4 text-xs text-neutral-500">
+              Sortert etter planlagt tid. Åpne en rad for skall, faretabell, arbeidstillatelser og signaturer.
+            </p>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[540px] border-collapse text-left">
+                <thead>
+                  <tr>
+                    <th className={`${MODULE_PAGE_TABLE_TH_CLASS} lg:w-[22%]`}>Operasjon</th>
+                    <th className={MODULE_PAGE_TABLE_TH_CLASS}>Planlagt</th>
+                    <th className={`${MODULE_PAGE_TABLE_TH_CLASS} lg:w-[22%]`}>Sted / avdeling</th>
+                    <th className={`${MODULE_PAGE_TABLE_TH_CLASS} w-20`}>Rader</th>
+                    <th className={`${MODULE_PAGE_TABLE_TH_CLASS} lg:w-[18%]`}>Status</th>
+                    <th className={`${MODULE_PAGE_TABLE_TH_CLASS} text-right`}>Handling</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sjaFiltered.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-12 text-center text-sm text-neutral-400">
+                        Ingen SJA-er matcher søket.
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {sjaFiltered.map((sja, ri) => (
+                  ) : (
+                    sjaFiltered.map((sja, ri) => (
                       <SjaTableRow
                         key={sja.id}
                         sja={sja}
                         deptLabel={sjaDepartmentLabel(sja)}
-                        rowClass={table1BodyRowClass(layout, ri)}
-                        cellClass={tableCell}
+                        rowClass={`${table1BodyRowClass(layout, ri)} hover:bg-neutral-50/70`}
+                        cellClass={MODULE_PAGE_TABLE_TD_CLASS}
                         onOpen={() => openEditSjaPanel(sja)}
                       />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {sjaFiltered.length === 0 ? (
-                <p className="px-4 py-10 text-center text-sm text-neutral-500">Ingen SJA-er matcher søket.</p>
-              ) : null}
-            </Table1Shell>
-          </Mainbox1>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-3 text-right text-xs text-neutral-400">
+              {sjaFiltered.length} {sjaFiltered.length === 1 ? 'post' : 'poster'}
+            </div>
+          </div>
         </div>
       )}
 
