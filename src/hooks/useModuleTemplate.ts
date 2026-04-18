@@ -13,6 +13,28 @@ const DEFAULT_FACTORIES: Record<string, () => ModuleTemplate> = {
   'hse.inspections': defaultInspeksjonsrunderTemplate,
 }
 
+/** Stable default — must not be a new function each render (breaks useCallback([load]) → infinite fetch loop). */
+function defaultTemplateForKey(moduleKey: string): ModuleTemplate {
+  const f = DEFAULT_FACTORIES[moduleKey]
+  if (f) return f()
+  return {
+    id: `local-${moduleKey}`,
+    moduleKey,
+    name: moduleKey,
+    schemaVersion: 1,
+    heading: { title: moduleKey, description: '' },
+    tableColumns: [],
+    statuses: [],
+    caseTypes: [],
+    fieldSchema: [],
+    workflowRules: [],
+    schedules: [],
+    kpis: [],
+    rolePermissions: [],
+    published: false,
+  } as ModuleTemplate
+}
+
 function rowToTemplate(row: ModuleTemplateRow): ModuleTemplate {
   return {
     id: row.id,
@@ -68,26 +90,9 @@ export type UseModuleTemplateReturn = {
 export function useModuleTemplate(moduleKey: string): UseModuleTemplateReturn {
   const { supabase, user } = useOrgSetupContext()
 
-  const factory = DEFAULT_FACTORIES[moduleKey] ?? (() => ({
-    id: `local-${moduleKey}`,
-    moduleKey,
-    name: moduleKey,
-    schemaVersion: 1,
-    heading: { title: moduleKey, description: '' },
-    tableColumns: [],
-    statuses: [],
-    caseTypes: [],
-    fieldSchema: [],
-    workflowRules: [],
-    schedules: [],
-    kpis: [],
-    rolePermissions: [],
-    published: false,
-  } as ModuleTemplate))
-
   const [template, setTemplate] = useState<ModuleTemplate>(() => {
     // Synchronous init: try localStorage first, then default
-    return readLocalTemplate(moduleKey) ?? factory()
+    return readLocalTemplate(moduleKey) ?? defaultTemplateForKey(moduleKey)
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -142,9 +147,9 @@ export function useModuleTemplate(moduleKey: string): UseModuleTemplateReturn {
     // Fallback: localStorage → code default
     const local = readLocalTemplate(moduleKey)
     if (local) setTemplate(local)
-    else setTemplate(factory())
+    else setTemplate(defaultTemplateForKey(moduleKey))
     setLoading(false)
-  }, [supabase, moduleKey, factory])
+  }, [supabase, moduleKey])
 
   useEffect(() => { load() }, [load])
 
