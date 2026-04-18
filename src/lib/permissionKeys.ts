@@ -11,6 +11,8 @@ export const PERMISSION_KEYS = [
   'module.view.hse',
   'module.view.inspection',
   'module.view.internal_control',
+  /** Redigere IK-tabeller (lovregister, roller, kompetanse, mål, tiltak) */
+  'internkontroll.manage',
   /** Varslingsmottak — full innsyn i whistleblowing_cases (AML kap. 2A) */
   'whistleblowing.committee',
   'module.view.tasks',
@@ -53,6 +55,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'module.view.hse': 'HSE',
   'module.view.inspection': 'Inspeksjonsmodul',
   'module.view.internal_control': 'Internkontroll',
+  'internkontroll.manage': 'Internkontroll — redigere data',
   'whistleblowing.committee': 'Varslingsmottak',
   'module.view.tasks': 'Tasks',
   'module.view.learning': 'E-learning',
