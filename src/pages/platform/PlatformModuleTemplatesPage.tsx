@@ -14,9 +14,10 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertCircle, CheckCircle2, ChevronDown,
-  Database, GripVertical, LayoutList, Mail,
+  Database, GripVertical, LayoutList,
   ListTodo, Plus, Save, Settings, Trash2, Zap,
 } from 'lucide-react'
+import { ModuleTemplateWorkflowRulesEditor } from '../../components/workflow/ModuleTemplateWorkflowRulesEditor'
 import { useModuleTemplate } from '../../hooks/useModuleTemplate'
 import { defaultInspeksjonsrunderTemplate } from '../../types/moduleTemplate'
 import type {
@@ -29,7 +30,6 @@ import type {
   StatusDef,
   TableColumn,
   WorkflowRule,
-  WorkflowTrigger,
 } from '../../types/moduleTemplate'
 
 /* ── Constants ────────────────────────────────────────────────────────────── */
@@ -431,94 +431,41 @@ export function PlatformModuleTemplatesPage() {
             {/* ── Workflow rules ────────────────────────────────────────── */}
             {activeTab === 'workflow' && (
               <div className="space-y-4">
-                <SectionH action={
-                  <button type="button" className={BTN_GHOST} onClick={() => {
-                    const newRule: WorkflowRule = {
-                      id: `wr-${uid()}`,
-                      name: 'Ny regel',
-                      active: false,
-                      priority: draft.workflowRules.length * 10,
-                      trigger: { type: 'on_create' },
-                      actions: [{ type: 'notify_role', role: 'admin', messageTemplate: '{{module.title}} ble opprettet.' }],
-                    }
-                    patch({ workflowRules: [...draft.workflowRules, newRule] })
-                  }}>
-                    <Plus className="size-3.5" /> Legg til regel
-                  </button>
-                }>Automatiseringsregler</SectionH>
-
-                <div className="space-y-3">
-                  {draft.workflowRules.sort((a, b) => a.priority - b.priority).map((rule, i) => (
-                    <div key={rule.id} className={`rounded-xl border ${BORDER} bg-slate-800/60 p-4`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1 space-y-3">
-                          <div className="flex items-center gap-2">
-                            <input type="text" value={rule.name} onChange={(e) => {
-                              const list = draft.workflowRules.map((r, j) => j === i ? { ...r, name: e.target.value } : r)
-                              patch({ workflowRules: list })
-                            }} className="flex-1 rounded-lg border border-white/10 bg-slate-700 px-2 py-1.5 text-sm font-semibold text-white" />
-                            <label className="flex shrink-0 items-center gap-1 text-xs text-neutral-400">
-                              <input type="checkbox" checked={rule.active} onChange={(e) => {
-                                const list = draft.workflowRules.map((r, j) => j === i ? { ...r, active: e.target.checked } : r)
-                                patch({ workflowRules: list })
-                              }} />
-                              Aktiv
-                            </label>
-                          </div>
-
-                          {/* Trigger type */}
-                          <div>
-                            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Utløser</p>
-                            <select value={rule.trigger.type} onChange={(e) => {
-                              const t = e.target.value as WorkflowTrigger['type']
-                              const baseTrigger: WorkflowTrigger = t === 'on_create' ? { type: 'on_create' }
-                                : t === 'on_status_change' ? { type: 'on_status_change', toStatus: '' }
-                                : t === 'on_overdue' ? { type: 'on_overdue', daysOverdue: 3 }
-                                : t === 'on_finding_added' ? { type: 'on_finding_added' }
-                                : { type: 'on_field_value', field: '', operator: 'eq', value: '' }
-                              const list = draft.workflowRules.map((r, j) => j === i ? { ...r, trigger: baseTrigger } : r)
-                              patch({ workflowRules: list })
-                            }} className="w-full rounded-lg border border-white/10 bg-slate-700 px-2 py-1.5 text-xs text-white">
-                              {[
-                                { value: 'on_create',         label: 'Ved opprettelse' },
-                                { value: 'on_status_change',  label: 'Ved statusendring' },
-                                { value: 'on_finding_added',  label: 'Ved avvik registrert' },
-                                { value: 'on_overdue',        label: 'Ved forfall' },
-                                { value: 'on_field_value',    label: 'Feltverdi-sjekk' },
-                              ].map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                            </select>
-                            {'toStatus' in rule.trigger && (
-                              <input type="text" value={rule.trigger.toStatus} placeholder="status-nøkkel" onChange={(e) => {
-                                const list = draft.workflowRules.map((r, j) => j === i ? { ...r, trigger: { ...r.trigger, toStatus: e.target.value } as WorkflowTrigger } : r)
-                                patch({ workflowRules: list })
-                              }} className="mt-1 w-full rounded-lg border border-white/10 bg-slate-700 px-2 py-1.5 text-xs text-white font-mono" />
-                            )}
-                          </div>
-
-                          {/* Actions summary */}
-                          <div>
-                            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Handlinger ({rule.actions.length})</p>
-                            <div className="space-y-1">
-                              {rule.actions.map((a, ai) => (
-                                <div key={ai} className="flex items-center gap-2 rounded-lg bg-slate-700/80 px-2 py-1.5 text-xs text-neutral-300">
-                                  {a.type === 'create_task' && <ListTodo className="size-3.5 shrink-0 text-[#1a3d32]" />}
-                                  {a.type === 'send_email'  && <Mail className="size-3.5 shrink-0 text-blue-400" />}
-                                  {!['create_task','send_email'].includes(a.type) && <Zap className="size-3.5 shrink-0 text-amber-400" />}
-                                  <span className="font-mono">{a.type}</span>
-                                  {'assigneeRole' in a && <span className="text-neutral-400">→ {a.assigneeRole} ({a.dueDays}d)</span>}
-                                  {'toRole' in a && <span className="text-neutral-400">→ {a.toRole}</span>}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                        <button type="button" className={BTN_DANGER} onClick={() => patch({ workflowRules: draft.workflowRules.filter((_, j) => j !== i) })}>
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <SectionH
+                  action={
+                    <button
+                      type="button"
+                      className={BTN_GHOST}
+                      onClick={() => {
+                        const newRule: WorkflowRule = {
+                          id: `wr-${uid()}`,
+                          name: 'Ny regel',
+                          active: false,
+                          priority: draft.workflowRules.length * 10,
+                          trigger: { type: 'on_create' },
+                          actions: [
+                            {
+                              type: 'notify_role',
+                              role: 'admin',
+                              messageTemplate: '{{module.title}} ble opprettet.',
+                            },
+                          ],
+                        }
+                        patch({ workflowRules: [...draft.workflowRules, newRule] })
+                      }}
+                    >
+                      <Plus className="size-3.5" /> Legg til regel
+                    </button>
+                  }
+                >
+                  Automatiseringsregler
+                </SectionH>
+                <ModuleTemplateWorkflowRulesEditor
+                  rules={draft.workflowRules}
+                  onChange={(next) => patch({ workflowRules: next })}
+                  variant="platformAdmin"
+                  hideToolbar
+                />
               </div>
             )}
 
