@@ -35,11 +35,15 @@ export type HubMenu1Item = {
   badgeDot?: boolean
   /** Optional count badge (same styling as Organisasjon → Ansatte). */
   badgeCount?: number
+  /** `danger` — red badge for critical counts (e.g. SJA stopp-regel). */
+  badgeVariant?: 'default' | 'danger'
   /** Use NavLink when `to` is set; otherwise a button with `onClick`. */
   to?: string
   end?: boolean
   replace?: boolean
   onClick?: () => void
+  /** When true, tab is non-interactive (e.g. gated step). */
+  disabled?: boolean
 }
 
 type Props = {
@@ -96,7 +100,13 @@ export function HubMenu1Bar({ ariaLabel, items }: Props) {
                       {!compact && item.badgeCount != null && item.badgeCount >= 0 ? (
                         <span
                           className={`rounded-md px-2 py-0.5 text-[10px] font-semibold tabular-nums ${
-                            on ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+                            item.badgeVariant === 'danger'
+                              ? on
+                                ? 'bg-red-600 text-white'
+                                : 'bg-red-100 text-red-800'
+                              : on
+                                ? 'bg-white/20 text-white'
+                                : 'bg-neutral-200 text-neutral-700'
                           }`}
                         >
                           {item.badgeCount}
@@ -117,7 +127,13 @@ export function HubMenu1Bar({ ariaLabel, items }: Props) {
             !compact && item.badgeCount != null && item.badgeCount >= 0 ? (
               <span
                 className={`rounded-md px-2 py-0.5 text-[10px] font-semibold tabular-nums ${
-                  on ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+                  item.badgeVariant === 'danger'
+                    ? on
+                      ? 'bg-red-600 text-white'
+                      : 'bg-red-100 text-red-800'
+                    : on
+                      ? 'bg-white/20 text-white'
+                      : 'bg-neutral-200 text-neutral-700'
                 }`}
               >
                 {item.badgeCount}
@@ -132,10 +148,13 @@ export function HubMenu1Bar({ ariaLabel, items }: Props) {
             <button
               key={item.key}
               type="button"
-              onClick={item.onClick}
+              disabled={item.disabled === true}
+              onClick={item.disabled === true ? undefined : item.onClick}
               title={compact ? item.label : undefined}
               aria-label={compact ? item.label : undefined}
-              className={`${tabClass} ${on ? TAB_ACTIVE : TAB_INACTIVE}`}
+              className={`${tabClass} ${on ? TAB_ACTIVE : TAB_INACTIVE} ${
+                item.disabled === true ? 'cursor-not-allowed opacity-45' : ''
+              }`}
               style={on ? { backgroundColor: WORKPLACE_FOREST } : undefined}
             >
               <Icon className={`size-4 shrink-0 ${on ? 'text-white' : 'text-neutral-500'}`} aria-hidden={compact} />
