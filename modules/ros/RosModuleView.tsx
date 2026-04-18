@@ -21,17 +21,26 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 const BTN_PRIMARY = 'rounded-lg bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white hover:bg-[#14312a] transition-colors disabled:opacity-40'
 const BTN_SECONDARY = 'rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors'
 
+type CreateAnalysisForm = {
+  title: string
+  ros_type: RosType
+  law_domains: RosLawDomain[]
+  description: string
+}
+
+const emptyCreateForm = (): CreateAnalysisForm => ({
+  title: '',
+  ros_type: 'general',
+  law_domains: ['AML'],
+  description: '',
+})
+
 export function RosModuleView({ supabase }: { supabase: SupabaseClient | null }) {
   const navigate = useNavigate()
   const ros = useRos({ supabase })
   const [search, setSearch] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
-  const [form, setForm] = useState({
-    title: '',
-    ros_type: 'general' as const,
-    law_domains: ['AML'] as RosLawDomain[],
-    description: '',
-  })
+  const [form, setForm] = useState<CreateAnalysisForm>(emptyCreateForm)
 
   const stats = useMemo(() => {
     let open = 0, critical = 0, approved = 0
