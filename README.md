@@ -31,7 +31,7 @@ Uten Supabase kjører appen fortsatt med **localStorage** i moduler som ikke er 
 
 1. **Prosjekt** i [Supabase](https://supabase.com): kopier **Project URL** og **anon public** API-nøkkel.
 2. **Vercel → Environment Variables**: enten bruk variablene Vercel fyller inn (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`) — Vite er satt opp med `envPrefix` så de blir med i bygget — eller legg til `VITE_SUPABASE_URL` og **anon/publishable key** som `VITE_SUPABASE_ANON_KEY` **eller** `VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY` (samme verdi som «anon public» i Supabase).
-3. **Database schema:** kjør SQL-filene i `supabase/migrations/` i **Supabase → SQL Editor**, eller bruk **direkte Postgres** (se under). Koden i repoet kan ikke oppdatere databasen din uten at **du** gir en tilkoblingsstreng i miljøet ditt (lokalt, CI eller agent med tilgang til hemmeligheter).
+3. **Database schema:** kjør SQL-filene i `supabase/migrations/archive/` (rekursivt under `supabase/migrations/`) i **Supabase → SQL Editor**, eller bruk **direkte Postgres** (se under). Koden i repoet kan ikke oppdatere databasen din uten at **du** gir en tilkoblingsstreng i miljøet ditt (lokalt, CI eller agent med tilgang til hemmeligheter).
 4. **Ikke** eksponer `service_role`, `SUPABASE_SECRET_KEY`, `POSTGRES_URL_NON_POOLING`, eller Postgres-passord i **frontend** (Vite bygger inn `VITE_*`). Disse er for **server**, **CLI** eller **CI** — ikke for nettleserappen.
 
 ### Migrasjoner med `psql` (lokalt eller CI)
@@ -46,7 +46,7 @@ npm run db:migrate
 
 **GitHub Actions:** Workflow **Apply Supabase migrations** (`workflow_dispatch`). Legg inn repository secret **`DATABASE_URL`** eller **`POSTGRES_URL_NON_POOLING`**.
 
-**Språk (profil):** Kjør migrasjon **`20260406120000_profiles_locale.sql`** for `profiles.locale` (`nb` / `en`). Brukerens valg lagres i databasen; **`/profile`** og språkvelger i toppfeltet.
+**Språk (profil):** Kjør migrasjon **`archive/20260406120000_profiles_locale.sql`** for `profiles.locale` (`nb` / `en`). Brukerens valg lagres i databasen; **`/profile`** og språkvelger i toppfeltet.
 
 5. **Ny deploy** etter at variablene er satt.
 
@@ -56,9 +56,9 @@ Tabeller og **Row Level Security (RLS)** må settes opp i Supabase før klienten
 
 ### Organisasjon og onboarding (database)
 
-1. Kjør SQL fra `supabase/migrations/20260401120000_org_structure.sql`, deretter **`20260402120000_rbac_invites.sql`**, **`20260402120100_org_creation_admin_roles.sql`**, og ved **500-feil på `/profiles`**: **`20260405120000_fix_profiles_rls_no_recursion.sql`**. Ved org.nr. som allerede finnes: **`20260405130000_create_org_join_if_exists.sql`**. Ved behov: **`20260405140000_org_rpc_user_facing_messages.sql`**, **`20260405150000_profiles_update_rls_split.sql`**, **`20260405160000_profiles_rls_no_subquery_recursion.sql`**, **`20260404180000_profile_full_name_metadata.sql`**.
+1. Kjør SQL fra `supabase/migrations/archive/20260401120000_org_structure.sql`, deretter **`archive/20260402120000_rbac_invites.sql`**, **`archive/20260402120100_org_creation_admin_roles.sql`**, og ved **500-feil på `/profiles`**: **`archive/20260405120000_fix_profiles_rls_no_recursion.sql`**. Ved org.nr. som allerede finnes: **`archive/20260405130000_create_org_join_if_exists.sql`**. Ved behov: **`archive/20260405140000_org_rpc_user_facing_messages.sql`**, **`archive/20260405150000_profiles_update_rls_split.sql`**, **`archive/20260405160000_profiles_rls_no_subquery_recursion.sql`**, **`archive/20260404180000_profile_full_name_metadata.sql`**.
 2. **Authentication → Providers**: slå på **Email** (passord).
-3. **`/signup`** og **`/login`**. Kjør migrasjon **`20260404180000_profile_full_name_metadata.sql`** hvis du har eldre SQL.
+3. **`/signup`** og **`/login`**. Kjør migrasjon **`archive/20260404180000_profile_full_name_metadata.sql`** hvis du har eldre SQL.
 4. **Roller:** se `src/lib/permissionKeys.ts`; **`get_my_effective_permissions()`** i klienten.
 5. **Invitasjoner:** **`/admin`** → `create_invitation` → `/invite/:token` → `accept_invitation`.
 6. **Delegering:** tabell `role_delegations` (Admin-UI).

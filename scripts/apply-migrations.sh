@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Apply all SQL files in supabase/migrations/ in lexical (timestamp) order.
+# Apply all SQL files under supabase/migrations/ (including archive/) in
+# lexical order by filename (timestamp prefix YYYYMMDDHHMMSS_...).
 # Requires: psql (postgresql-client) and a Postgres connection URL in the environment.
 #
 # Reads the first non-empty value among:
@@ -31,7 +32,10 @@ fi
 FILES=()
 while IFS= read -r line; do
   [[ -n "${line}" ]] && FILES+=("${line}")
-done < <(find "${MIG_DIR}" -maxdepth 1 -name '*.sql' -type f | sort)
+done < <(
+  # Sort by migration filename (timestamp prefix), not path — works with archive/ subfolder.
+  find "${MIG_DIR}" -name '*.sql' -type f | awk -F/ '{ print $NF "\t" $0 }' | LC_ALL=C sort | cut -f2-
+)
 
 if [[ ${#FILES[@]} -eq 0 ]]; then
   echo "Ingen .sql-filer i ${MIG_DIR}" >&2
