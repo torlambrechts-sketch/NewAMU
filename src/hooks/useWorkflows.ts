@@ -10,9 +10,9 @@ import type {
 } from '../types/workflow'
 
 export function useWorkflows() {
-  const { supabase, organization, can } = useOrgSetupContext()
+  const { supabase, organization, can, isAdmin } = useOrgSetupContext()
   const orgId = organization?.id
-  const canManage = can('workflows.manage')
+  const canManage = isAdmin || can('workflows.manage')
 
   const [rules, setRules] = useState<WorkflowRuleRow[]>([])
   const [runs, setRuns] = useState<WorkflowRunRow[]>([])
@@ -84,7 +84,11 @@ export function useWorkflows() {
       flow_graph_json?: Record<string, unknown> | null
       priority?: number
     }) => {
-      if (!supabase || !orgId || !canManage) return { ok: false as const }
+      if (!supabase || !orgId) return { ok: false as const }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å administrere arbeidsflytregler. Kontakt administrator.')
+        return { ok: false as const }
+      }
       try {
         if (input.id) {
           const { error: e } = await supabase
