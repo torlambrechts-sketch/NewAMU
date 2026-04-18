@@ -1514,10 +1514,13 @@ export function useHse() {
         const cur = s.sjaAnalyses.find((x) => x.id === id)
         if (!cur) return s
         const merged: SjaAnalysis = { ...cur, ...patch, updatedAt: new Date().toISOString() }
+        const statusExplicitlyPatched = Object.prototype.hasOwnProperty.call(patch, 'status')
         const nextStatus =
           patch.status === 'closed' || merged.status === 'closed'
             ? 'closed'
-            : recomputeSjaStatus(merged)
+            : statusExplicitlyPatched
+              ? merged.status
+              : recomputeSjaStatus(merged)
         const final = { ...merged, status: nextStatus }
         const entry = auditEntry('sja_updated', 'sja', id, 'SJA oppdatert', { status: final.status })
         return {
