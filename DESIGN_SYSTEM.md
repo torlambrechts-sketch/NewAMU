@@ -369,6 +369,15 @@ For double-signing flows (IK-forskriften dobbel signering):
 
 Usage: small pill badges on law register rows, IK pillar cards.
 
+**In React:** use the Tailwind maps on `modules/ros/types.ts` — `LAW_DOMAIN_BG`, `LAW_DOMAIN_CHIP_ACTIVE`, `LAW_DOMAIN_BORDER` — for `className`. Do **not** use `style={{ backgroundColor: LAW_DOMAIN_COLOR[d] }}` (see §1). The hex `LAW_DOMAIN_COLOR` object remains for non-UI use (e.g. exports, docs).
+
+### ROS (risikovurdering) module
+
+- **Routes:** `/ros` (list), `/ros/:rosId` (detail + tabs)
+- **Permission:** `module.view.hse` (same nav gate as SJA)
+- **Files:** `modules/ros/` per §15, page wrappers `src/pages/RosModulePage.tsx`, `RosAnalysisDetailPage.tsx`
+- **Hook:** `useRos` — `canManage = isAdmin || can('ros.manage')` (see §17)
+
 ---
 
 ## 15. Module File Structure
@@ -385,6 +394,8 @@ modules/[module-name]/
   [ModuleName]DetailPage.tsx ← full-page detail view (optional)
   [SubFeature]Tab.tsx       ← individual tab components (optional)
 ```
+
+**Example (ROS):** `modules/ros/` — `RosModuleView.tsx`, `RosAnalysisPage.tsx`, `RosScopeTab.tsx`, `RosHazardsTab.tsx`, `RosMeasuresTab.tsx`, `RosSignaturesTab.tsx`, `RosRiskScatter.tsx`, `useRos.ts`, `index.ts`.
 
 Page wrappers live in `src/pages/[ModuleName]Page.tsx` and are thin:
 

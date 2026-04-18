@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { RosAnalysisRow, RosHazardRow, RosMeasureRow, RosControlType } from './types'
 import {
   CONTROL_TYPE_LABEL, CONTROL_TYPE_COLOR, CONTROL_TYPE_RANK,
-  LAW_DOMAIN_COLOR, riskScore, RISK_BAND_COLOR, RISK_BAND_LABEL, riskBand,
+  LAW_DOMAIN_BG, riskScore, RISK_BAND_COLOR, RISK_BAND_LABEL, riskBand,
 } from './types'
 import type { RosState } from './useRos'
 
@@ -83,8 +83,7 @@ export function RosMeasuresTab({
               {/* Hazard header */}
               <div className="flex items-center justify-between gap-3 border-b border-neutral-100 bg-neutral-50 px-4 py-2.5">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold text-white"
-                    style={{ backgroundColor: LAW_DOMAIN_COLOR[h.law_domain] }}>{h.law_domain}</span>
+                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold text-white ${LAW_DOMAIN_BG[h.law_domain]}`}>{h.law_domain}</span>
                   <p className="text-sm font-semibold text-neutral-900 truncate">{h.description}</p>
                   {resScore != null && (
                     <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${RISK_BAND_COLOR[band]}`}>

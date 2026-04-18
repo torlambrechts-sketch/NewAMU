@@ -25,6 +25,30 @@ export const LAW_DOMAIN_COLOR: Record<RosLawDomain, string> = {
   FL:  '#0891b2',
   PKL: '#6d28d9',
 }
+/** Tailwind `bg-[…]` — use for pills/dots; avoid inline `style={{ backgroundColor }}` (Design System). */
+export const LAW_DOMAIN_BG: Record<RosLawDomain, string> = {
+  AML: 'bg-[#1a3d32]',
+  BVL: 'bg-[#c2410c]',
+  ETL: 'bg-[#d97706]',
+  FL:  'bg-[#0891b2]',
+  PKL: 'bg-[#6d28d9]',
+}
+/** Filled law toggle (background + text + border). */
+export const LAW_DOMAIN_CHIP_ACTIVE: Record<RosLawDomain, string> = {
+  AML: 'border-[#1a3d32] bg-[#1a3d32] text-white',
+  BVL: 'border-[#c2410c] bg-[#c2410c] text-white',
+  ETL: 'border-[#d97706] bg-[#d97706] text-white',
+  FL:  'border-[#0891b2] bg-[#0891b2] text-white',
+  PKL: 'border-[#6d28d9] bg-[#6d28d9] text-white',
+}
+/** Border color for hollow ring dots (e.g. risk scatter). */
+export const LAW_DOMAIN_BORDER: Record<RosLawDomain, string> = {
+  AML: 'border-[#1a3d32]',
+  BVL: 'border-[#c2410c]',
+  ETL: 'border-[#d97706]',
+  FL:  'border-[#0891b2]',
+  PKL: 'border-[#6d28d9]',
+}
 export const ALL_LAW_DOMAINS: RosLawDomain[] = ['AML', 'BVL', 'ETL', 'FL', 'PKL']
 
 // ── Control hierarchy ─────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { RosAnalysisRow } from './types'
 import {
-  ROS_TYPE_LABEL, LAW_DOMAIN_COLOR, ALL_LAW_DOMAINS,
+  ROS_TYPE_LABEL, ALL_LAW_DOMAINS, LAW_DOMAIN_CHIP_ACTIVE,
 } from './types'
 import type { RosLawDomain, RosType } from './types'
 import type { RosState } from './useRos'
@@ -105,11 +105,11 @@ export function RosScopeTab({ analysis, ros }: { analysis: RosAnalysisRow; ros: 
                   onClick={() => setLawDomains((prev) =>
                     active ? prev.filter((x) => x !== d) : [...prev, d]
                   )}
-                  className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60"
-                  style={active
-                    ? { backgroundColor: LAW_DOMAIN_COLOR[d], color: '#fff', borderColor: LAW_DOMAIN_COLOR[d] }
-                    : { borderColor: '#d4d4d4', color: '#525252', backgroundColor: '#fff' }
-                  }>
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60 ${
+                    active
+                      ? LAW_DOMAIN_CHIP_ACTIVE[d]
+                      : 'border-neutral-300 bg-white text-neutral-600'
+                  }`}>
                   {d}
                 </button>
               )

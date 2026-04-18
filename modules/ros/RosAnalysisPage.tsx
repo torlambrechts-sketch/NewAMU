@@ -4,9 +4,7 @@ import { ClipboardList, FileText, History, Loader2, PenLine, ShieldAlert } from 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
 import { HubMenu1Bar, type HubMenu1Item } from '../../src/components/layout/HubMenu1Bar'
-import {
-  WORKPLACE_MODULE_CANVAS_BG, WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW,
-} from '../../src/components/layout/workplaceModuleSurface'
+import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
 import { useRos } from './useRos'
 import { RosScopeTab }    from './RosScopeTab'
 import { RosHazardsTab }  from './RosHazardsTab'
@@ -52,14 +50,14 @@ export function RosAnalysisPage({ supabase }: { supabase: SupabaseClient | null 
   if (!rosId) return <div className="p-8 text-sm text-neutral-500">Mangler analyse-ID.</div>
 
   if (!analysis && ros.loading) return (
-    <div className="flex min-h-screen items-center justify-center gap-3" style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}>
+    <div className="flex min-h-screen items-center justify-center gap-3 bg-[#F9F7F2]">
       <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" />
       <p className="text-sm text-neutral-600">Laster analyse…</p>
     </div>
   )
 
   if (!analysis) return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4" style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}>
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#F9F7F2]">
       <p className="font-semibold text-neutral-900">Analyse ikke funnet</p>
       <button type="button" onClick={() => navigate('/ros')}
         className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm hover:bg-neutral-50">
@@ -69,7 +67,7 @@ export function RosAnalysisPage({ supabase }: { supabase: SupabaseClient | null 
   )
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}>
+    <div className="min-h-screen bg-[#F9F7F2]">
       <header className="sticky top-0 z-30 border-b border-neutral-200/80 bg-[#F9F7F2]/95 backdrop-blur-sm">
         <div className="mx-auto max-w-[1400px] px-4 pb-4 pt-4 md:px-8">
           <WorkplacePageHeading1

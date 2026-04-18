@@ -1,7 +1,7 @@
 /** 5×5 risk matrix with hazard dots. Hollow = initial, filled = residual. */
 import { Fragment } from 'react'
 import type { RosHazardRow } from './types'
-import { LAW_DOMAIN_COLOR } from './types'
+import { LAW_DOMAIN_BG, LAW_DOMAIN_BORDER } from './types'
 
 const PROB_LABELS = ['', 'Svært lav', 'Lav', 'Middels', 'Høy', 'Svært høy']
 const CONS_LABELS = ['', 'Ubetydelig', 'Liten', 'Moderat', 'Alvorlig', 'Katastrofal']
@@ -70,13 +70,9 @@ export function RosRiskScatter({ hazards, selectedId, onSelect }: Props) {
                         type="button"
                         title={`Initial: ${h.description}`}
                         onClick={() => onSelect(h.id)}
-                        className={`h-3 w-3 rounded-full border-2 transition-transform hover:scale-125 ${
+                        className={`h-3 w-3 rounded-full border-2 bg-transparent transition-transform hover:scale-125 ${LAW_DOMAIN_BORDER[h.law_domain]} ${
                           selectedId === h.id ? 'scale-125' : ''
                         }`}
-                        style={{
-                          borderColor: LAW_DOMAIN_COLOR[h.law_domain],
-                          backgroundColor: 'transparent',
-                        }}
                       />
                     ))}
                     {/* Residual dots (filled) */}
@@ -88,8 +84,7 @@ export function RosRiskScatter({ hazards, selectedId, onSelect }: Props) {
                         onClick={() => onSelect(h.id)}
                         className={`h-3 w-3 rounded-full transition-transform hover:scale-125 ${
                           selectedId === h.id ? 'scale-125 ring-2 ring-white' : ''
-                        }`}
-                        style={{ backgroundColor: LAW_DOMAIN_COLOR[h.law_domain] }}
+                        } ${LAW_DOMAIN_BG[h.law_domain]}`}
                       />
                     ))}
                   </div>

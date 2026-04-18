@@ -13,7 +13,7 @@ import { FormModal } from '../../src/template'
 import { useRos } from './useRos'
 import {
   ROS_STATUS_LABEL, ROS_STATUS_COLOR, ROS_TYPE_LABEL,
-  LAW_DOMAIN_COLOR, ALL_LAW_DOMAINS,
+  ALL_LAW_DOMAINS, LAW_DOMAIN_BG, LAW_DOMAIN_CHIP_ACTIVE,
 } from './types'
 import type { RosLawDomain, RosType } from './types'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -117,8 +117,7 @@ export function RosModuleView({ supabase }: { supabase: SupabaseClient | null })
                 <td className="px-5 py-3">
                   <div className="flex flex-wrap gap-1">
                     {a.law_domains.map((d) => (
-                      <span key={d} className="rounded px-1.5 py-0.5 text-[9px] font-bold text-white"
-                        style={{ backgroundColor: LAW_DOMAIN_COLOR[d] }}>
+                      <span key={d} className={`rounded px-1.5 py-0.5 text-[9px] font-bold text-white ${LAW_DOMAIN_BG[d]}`}>
                         {d}
                       </span>
                     ))}
@@ -197,11 +196,11 @@ export function RosModuleView({ supabase }: { supabase: SupabaseClient | null })
                       ...p,
                       law_domains: active ? p.law_domains.filter((x) => x !== d) : [...p.law_domains, d],
                     }))}
-                    className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors"
-                    style={active
-                      ? { backgroundColor: LAW_DOMAIN_COLOR[d], color: '#fff', borderColor: LAW_DOMAIN_COLOR[d] }
-                      : { borderColor: '#d4d4d4', color: '#525252', backgroundColor: '#fff' }
-                    }>
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      active
+                        ? LAW_DOMAIN_CHIP_ACTIVE[d]
+                        : 'border-neutral-300 bg-white text-neutral-600'
+                    }`}>
                     {d}
                   </button>
                 )

@@ -4,7 +4,7 @@ import { RiskMatrix, riskScoreFromProbCons } from '../../src/components/hse/Risk
 import { RosRiskScatter } from './RosRiskScatter'
 import type { RosAnalysisRow, RosHazardRow, RosMeasureRow, RosLawDomain } from './types'
 import {
-  LAW_DOMAIN_COLOR, ALL_LAW_DOMAINS, riskScore, riskBand,
+  LAW_DOMAIN_BG, ALL_LAW_DOMAINS, LAW_DOMAIN_CHIP_ACTIVE, riskScore, riskBand,
   RISK_BAND_COLOR, RISK_BAND_LABEL,
 } from './types'
 import type { RosState } from './useRos'
@@ -121,11 +121,11 @@ export function RosHazardsTab({
             </button>
             {analysis.law_domains.map((d) => (
               <button key={d} type="button" onClick={() => setLawFilter(lawFilter === d ? null : d)}
-                className="rounded-full border px-2.5 py-0.5 text-[10px] font-bold transition-colors"
-                style={lawFilter === d
-                  ? { backgroundColor: LAW_DOMAIN_COLOR[d], color: '#fff', borderColor: LAW_DOMAIN_COLOR[d] }
-                  : { borderColor: '#d4d4d4', color: '#737373' }
-                }>
+                className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold transition-colors ${
+                  lawFilter === d
+                    ? `${LAW_DOMAIN_CHIP_ACTIVE[d]} border-transparent`
+                    : 'border-neutral-300 text-neutral-500'
+                }`}>
                 {d}
               </button>
             ))}
@@ -151,8 +151,7 @@ export function RosHazardsTab({
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-neutral-900 line-clamp-2">{h.description}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <span className="rounded px-1.5 py-0.5 text-[9px] font-bold text-white"
-                          style={{ backgroundColor: LAW_DOMAIN_COLOR[h.law_domain] }}>
+                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold text-white ${LAW_DOMAIN_BG[h.law_domain]}`}>
                           {h.law_domain}
                         </span>
                         {initScore != null && (
