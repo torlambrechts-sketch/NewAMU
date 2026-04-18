@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ChecklistExecutionTabProps, ChecklistItem, ChecklistResponse } from './types'
 
-const FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-700'
 const INPUT_CLASS =
-  'mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900'
+  'mt-1.5 w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]'
 
 type ChecklistItemExecutionRowProps = {
   item: ChecklistItem
@@ -33,30 +32,25 @@ function ChecklistItemExecutionRow({
   const [justSaved, setJustSaved] = useState(false)
 
   const displayedValue = optimisticValue ?? currentValue
+  const isAnswered = displayedValue.length > 0
 
-  useEffect(() => {
-    setNotes(response?.notes ?? '')
-  }, [response?.notes])
-
-  useEffect(() => {
-    if (hasExistingNotes) setShowNotes(true)
-  }, [hasExistingNotes])
-
+  useEffect(() => { setNotes(response?.notes ?? '') }, [response?.notes])
+  useEffect(() => { if (hasExistingNotes) setShowNotes(true) }, [hasExistingNotes])
   useEffect(() => {
     if (!justSaved) return
-    const timeoutId = window.setTimeout(() => setJustSaved(false), 1200)
-    return () => window.clearTimeout(timeoutId)
+    const id = window.setTimeout(() => setJustSaved(false), 1200)
+    return () => window.clearTimeout(id)
   }, [justSaved])
 
   const save = useCallback(
-    async (value: string, noteValue: string | null, isOptimisticWrite = false) => {
+    async (value: string, noteValue: string | null, isOptimistic = false) => {
       setSaving(true)
       try {
         await onSaveResponse(item.key, value, noteValue)
-        if (isOptimisticWrite) setOptimisticValue(null)
+        if (isOptimistic) setOptimisticValue(null)
         setJustSaved(true)
       } catch {
-        if (isOptimisticWrite) setOptimisticValue(null)
+        if (isOptimistic) setOptimisticValue(null)
       } finally {
         setSaving(false)
       }
@@ -65,56 +59,76 @@ function ChecklistItemExecutionRow({
   )
 
   const saveNotes = useCallback(async () => {
-    const existingNotes = response?.notes ?? ''
-    if (notes === existingNotes) return
+    if (notes === (response?.notes ?? '')) return
     await save(currentValue, notes.trim().length > 0 ? notes : null)
   }, [notes, response?.notes, currentValue, save])
 
+  // Left border colour — answered=green, unanswered+required=amber, unanswered optional=transparent
+  const borderAccent = isAnswered
+    ? displayedValue === 'no'
+      ? 'border-l-red-400'
+      : 'border-l-green-400'
+    : item.required
+      ? 'border-l-amber-300'
+      : 'border-l-transparent'
+
   return (
     <div
-      className={`border-b border-neutral-100 px-5 py-4 transition-shadow last:border-b-0 ${
-        justSaved ? 'ring-1 ring-green-400' : ''
+      className={`border-b border-neutral-100 border-l-4 bg-white px-4 py-3.5 transition-colors last:border-b-0 md:px-5 ${borderAccent} ${
+        justSaved ? 'bg-green-50/40' : ''
       }`}
     >
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 shrink-0 text-xs text-neutral-400">{position + 1}.</span>
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-neutral-900">{item.label}</span>
+      {/* Horizontal split on md+: info left, answer right */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:gap-6">
+
+        {/* ── LEFT: number + label + meta + help ── */}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <span className="shrink-0 text-sm font-bold text-neutral-400">{position + 1}.</span>
+            <span className="text-base font-semibold text-neutral-900 leading-snug">{item.label}</span>
             {item.required && (
-              <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">Required</span>
+              <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-600">
+                Påkrevd
+              </span>
             )}
             {item.lawRef && (
-              <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-500">{item.lawRef}</span>
+              <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">
+                {item.lawRef}
+              </span>
             )}
-            {saving && <span className="text-[10px] text-neutral-400">Saving…</span>}
           </div>
+          {item.helpText && (
+            <p className="mt-1 text-sm text-neutral-500 leading-relaxed">{item.helpText}</p>
+          )}
+        </div>
 
-          {item.helpText && <p className="text-xs text-neutral-500">{item.helpText}</p>}
-
+        {/* ── RIGHT: answer controls ── */}
+        <div className="shrink-0 md:w-64">
+          {/* Yes / No / N/A */}
           {!readOnly && fieldType === 'yes_no_na' && (
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex gap-1.5">
+            <div className="space-y-2">
+              <div className="flex gap-2">
                 {(['yes', 'no', 'na'] as const).map((v) => {
                   const labels = { yes: 'Ja', no: 'Nei', na: 'N/A' }
                   const activeClass =
                     v === 'yes'
-                      ? 'bg-green-600 text-white border-green-600'
+                      ? 'bg-green-600 text-white border-green-600 shadow-sm'
                       : v === 'no'
-                        ? 'bg-red-600 text-white border-red-600'
-                        : 'bg-neutral-500 text-white border-neutral-500'
-
+                        ? 'bg-red-600 text-white border-red-600 shadow-sm'
+                        : 'bg-neutral-600 text-white border-neutral-600 shadow-sm'
                   return (
                     <button
                       key={v}
                       type="button"
                       onClick={() => {
-                        const nextValue = displayedValue === v ? '' : v
-                        setOptimisticValue(nextValue)
-                        void save(nextValue, notes.trim().length > 0 ? notes : null, true)
+                        const next = displayedValue === v ? '' : v
+                        setOptimisticValue(next)
+                        void save(next, notes.trim().length > 0 ? notes : null, true)
                       }}
-                      className={`rounded border px-3 py-1 text-xs font-semibold transition-colors ${
-                        displayedValue === v ? activeClass : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
+                      className={`flex-1 rounded-lg border py-2 text-sm font-semibold transition-all ${
+                        displayedValue === v
+                          ? activeClass
+                          : 'border-neutral-200 bg-neutral-50 text-neutral-600 hover:border-neutral-400 hover:bg-white'
                       }`}
                     >
                       {labels[v]}
@@ -122,24 +136,70 @@ function ChecklistItemExecutionRow({
                   )
                 })}
               </div>
+
+              {/* Avvik button — appears below answer row when Nei */}
               {displayedValue === 'no' && onReportIssue && (
                 <button
                   type="button"
                   onClick={() => onReportIssue(item.key, item.label)}
-                  className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition-colors"
                 >
                   ⚠ Registrer avvik
                 </button>
               )}
+
+              {/* Notes */}
+              {!showNotes && !hasExistingNotes ? (
+                <button
+                  type="button"
+                  onClick={() => setShowNotes(true)}
+                  className="text-xs text-neutral-400 hover:text-neutral-600 hover:underline"
+                >
+                  + Legg til merknad
+                </button>
+              ) : (
+                <textarea
+                  rows={1}
+                  value={notes}
+                  autoFocus={!hasExistingNotes && showNotes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  onBlur={() => void saveNotes()}
+                  placeholder="Merknad…"
+                  className={`${INPUT_CLASS} resize-none text-xs`}
+                />
+              )}
+
+              {saving && (
+                <span className="block text-right text-[10px] text-neutral-400">Lagrer…</span>
+              )}
             </div>
           )}
 
-          {readOnly && fieldType === 'yes_no_na' && displayedValue && (
-            <span className="inline-block rounded border border-neutral-200 px-2 py-0.5 text-xs text-neutral-600">
-              {displayedValue === 'yes' ? 'Yes' : displayedValue === 'no' ? 'No' : 'N/A'}
-            </span>
+          {/* Read-only yes/no/na */}
+          {readOnly && fieldType === 'yes_no_na' && (
+            <div className="space-y-1">
+              {displayedValue ? (
+                <span
+                  className={`inline-block rounded-lg border px-3 py-1.5 text-sm font-semibold ${
+                    displayedValue === 'yes'
+                      ? 'border-green-200 bg-green-50 text-green-800'
+                      : displayedValue === 'no'
+                        ? 'border-red-200 bg-red-50 text-red-800'
+                        : 'border-neutral-200 bg-neutral-50 text-neutral-600'
+                  }`}
+                >
+                  {displayedValue === 'yes' ? 'Ja' : displayedValue === 'no' ? 'Nei' : 'N/A'}
+                </span>
+              ) : (
+                <span className="text-xs text-neutral-400 italic">Ikke besvart</span>
+              )}
+              {response?.notes && (
+                <p className="text-xs text-neutral-500 italic mt-1">{response.notes}</p>
+              )}
+            </div>
           )}
 
+          {/* Text field */}
           {fieldType === 'text' && (
             <textarea
               rows={2}
@@ -147,15 +207,16 @@ function ChecklistItemExecutionRow({
               readOnly={readOnly}
               onChange={(e) => {
                 if (readOnly) return
-                const nextValue = e.target.value
-                setOptimisticValue(nextValue)
-                void save(nextValue, notes.trim().length > 0 ? notes : null, true)
+                const next = e.target.value
+                setOptimisticValue(next)
+                void save(next, notes.trim().length > 0 ? notes : null, true)
               }}
-              placeholder="Enter response…"
+              placeholder="Skriv svar…"
               className={`${INPUT_CLASS} resize-none`}
             />
           )}
 
+          {/* Number field */}
           {fieldType === 'number' && (
             <input
               type="number"
@@ -163,9 +224,9 @@ function ChecklistItemExecutionRow({
               readOnly={readOnly}
               onChange={(e) => {
                 if (readOnly) return
-                const nextValue = e.target.value
-                setOptimisticValue(nextValue)
-                void save(nextValue, notes.trim().length > 0 ? notes : null, true)
+                const next = e.target.value
+                setOptimisticValue(next)
+                void save(next, notes.trim().length > 0 ? notes : null, true)
               }}
               className={INPUT_CLASS}
             />
@@ -173,38 +234,8 @@ function ChecklistItemExecutionRow({
 
           {(fieldType === 'photo' || fieldType === 'signature') && (
             <p className="text-xs text-neutral-400 italic">
-              {fieldType === 'signature' ? 'Signature' : 'Photo'} capture is not available here.
+              {fieldType === 'signature' ? 'Signatur' : 'Foto'} registreres ikke her.
             </p>
-          )}
-
-          {!readOnly && !showNotes && !hasExistingNotes && (
-            <button
-              type="button"
-              onClick={() => setShowNotes(true)}
-              className="text-xs font-medium text-neutral-500 hover:text-neutral-700 hover:underline"
-            >
-              + Add note
-            </button>
-          )}
-
-          {!readOnly && (showNotes || hasExistingNotes) && (
-            <div>
-              <label className={FIELD_LABEL} htmlFor={`notes-${item.key}`}>Notes</label>
-              <textarea
-                id={`notes-${item.key}`}
-                rows={1}
-                value={notes}
-                autoFocus={!hasExistingNotes}
-                onChange={(e) => setNotes(e.target.value)}
-                onBlur={() => void saveNotes()}
-                placeholder="Optional note…"
-                className={`${INPUT_CLASS} resize-none text-xs`}
-              />
-            </div>
-          )}
-
-          {readOnly && response?.notes && (
-            <p className="text-xs text-neutral-500 italic">{response.notes}</p>
           )}
         </div>
       </div>
@@ -229,87 +260,117 @@ export function ChecklistExecutionTab({
 }: ChecklistExecutionTabProps) {
   const responseByKey = useMemo(() => {
     const map = new Map<string, ChecklistResponse>()
-    for (const response of responses) map.set(response.key, response)
+    for (const r of responses) map.set(r.key, r)
     return map
   }, [responses])
 
   const grouped = useMemo(() => {
     const groups = new Map<string, ChecklistCategoryGroup>()
     for (const item of items) {
-      const categoryKey = item.category ?? '__default__'
-      if (!groups.has(categoryKey)) {
-        groups.set(categoryKey, {
-          key: categoryKey,
-          label: item.categoryLabel ?? (categoryKey === '__default__' ? 'General' : categoryKey),
+      const key = item.category ?? '__default__'
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          label: item.categoryLabel ?? (key === '__default__' ? 'Generelt' : key),
           lawRef: item.categoryLawRef,
           items: [],
         })
       }
-      const group = groups.get(categoryKey)!
-      if (!group.lawRef && item.categoryLawRef) group.lawRef = item.categoryLawRef
-      group.items.push(item)
+      const g = groups.get(key)!
+      if (!g.lawRef && item.categoryLawRef) g.lawRef = item.categoryLawRef
+      g.items.push(item)
     }
     return Array.from(groups.values())
   }, [items])
 
   const answered = useMemo(
-    () => items.filter((item) => {
-      const response = responseByKey.get(item.key)
-      return response?.status === 'completed' || (response?.value ?? '').length > 0
-    }).length,
+    () =>
+      items.filter((item) => {
+        const r = responseByKey.get(item.key)
+        return r?.status === 'completed' || (r?.value ?? '').length > 0
+      }).length,
     [items, responseByKey],
   )
 
   const total = items.length
+  const pct = total > 0 ? Math.round((answered / total) * 100) : 0
 
   return (
-    <div>
+    <div className="bg-neutral-50/60 min-h-full">
       {activationBanner}
 
-      <div className="sticky top-0 z-10 border-b border-neutral-200 bg-white px-5 py-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-neutral-700">
-            {answered} / {total} items completed
-          </span>
-          <span className="text-sm font-semibold text-[#1a3d32]">
-            {total > 0 ? Math.round((answered / total) * 100) : 0}%
+      {/* ── Progress header ── */}
+      <div className="sticky top-0 z-10 border-b border-neutral-200 bg-white px-5 py-4 shadow-sm">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <span className="text-base font-semibold text-neutral-900">{answered}</span>
+            <span className="text-sm text-neutral-500"> / {total} besvart</span>
+          </div>
+          <span
+            className={`text-lg font-bold tabular-nums ${
+              pct === 100 ? 'text-green-600' : pct > 50 ? 'text-[#1a3d32]' : 'text-neutral-500'
+            }`}
+          >
+            {pct}%
           </span>
         </div>
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-100">
           <div
-            className="h-full rounded-full bg-[#1a3d32] transition-all duration-300"
-            style={{ width: `${total > 0 ? (answered / total) * 100 : 0}%` }}
+            className={`h-full rounded-full transition-all duration-500 ${
+              pct === 100 ? 'bg-green-500' : 'bg-[#1a3d32]'
+            }`}
+            style={{ width: `${pct}%` }}
           />
         </div>
       </div>
 
-      {grouped.map((group) => (
-        <div key={group.key}>
-          <div className="sticky top-14 z-10 border-b border-neutral-200 bg-neutral-50 px-5 py-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-neutral-700">{group.label}</span>
-              {group.lawRef && (
-                <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] text-neutral-600">{group.lawRef}</span>
-              )}
+      {/* ── Category groups ── */}
+      {grouped.map((group) => {
+        const groupAnswered = group.items.filter((item) => {
+          const r = responseByKey.get(item.key)
+          return (r?.value ?? '').length > 0
+        }).length
+
+        return (
+          <div key={group.key} className="mb-3">
+            {/* Category header */}
+            <div className="sticky top-[72px] z-10 flex items-center justify-between border-y border-neutral-200 bg-[#f0ede8] px-5 py-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-widest text-[#1a3d32]">
+                  {group.label}
+                </span>
+                {group.lawRef && (
+                  <span className="rounded bg-[#1a3d32]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#1a3d32]">
+                    {group.lawRef}
+                  </span>
+                )}
+              </div>
+              <span className="text-xs font-medium text-neutral-500">
+                {groupAnswered}/{group.items.length}
+              </span>
+            </div>
+
+            {/* Items */}
+            <div className="divide-y divide-neutral-100 overflow-hidden rounded-b border-x border-b border-neutral-200 bg-white mx-0">
+              {group.items.map((item, idx) => (
+                <ChecklistItemExecutionRow
+                  key={item.key}
+                  item={item}
+                  position={idx}
+                  response={responseByKey.get(item.key)}
+                  readOnly={readOnly}
+                  onSaveResponse={onSaveResponse}
+                  onReportIssue={onReportIssue}
+                />
+              ))}
             </div>
           </div>
-          {group.items.map((item, idx) => (
-            <ChecklistItemExecutionRow
-              key={item.key}
-              item={item}
-              position={idx}
-              response={responseByKey.get(item.key)}
-              readOnly={readOnly}
-              onSaveResponse={onSaveResponse}
-              onReportIssue={onReportIssue}
-            />
-          ))}
-        </div>
-      ))}
+        )
+      })}
 
       {items.length === 0 && (
-        <p className="px-5 py-10 text-center text-sm text-neutral-400">
-          No checklist items.
+        <p className="px-5 py-16 text-center text-sm text-neutral-400">
+          Ingen sjekklistepunkter.
         </p>
       )}
     </div>
