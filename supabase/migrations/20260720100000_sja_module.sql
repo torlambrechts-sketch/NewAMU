@@ -111,9 +111,6 @@ create index if not exists sja_analyses_org_status_idx on public.sja_analyses(or
 create index if not exists sja_hazards_task_idx on public.sja_hazards(task_id);
 create index if not exists sja_measures_hazard_idx on public.sja_measures(hazard_id);
 create index if not exists sja_participants_sja_idx on public.sja_participants(sja_id);
-create index if not exists sja_tasks_sja_idx on public.sja_tasks(sja_id);
-create index if not exists sja_hazards_sja_idx on public.sja_hazards(sja_id);
-create index if not exists sja_measures_sja_idx on public.sja_measures(sja_id);
 
 -- ── RLS: sja_analyses ─────────────────────────────────────────────────────────
 
