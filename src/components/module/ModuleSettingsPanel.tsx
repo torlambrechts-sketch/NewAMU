@@ -330,7 +330,10 @@ export function ModuleSettingsPanel({
                   </div>
                 ))}
               </div>
-              <p className="mt-2 text-[11px] text-neutral-400">Full redigering av statusflyt er tilgjengelig i platform-admin.</p>
+              <p className="mt-2 text-[11px] text-neutral-400">
+                Full redigering av statusflyt og øvrig modulmal: <strong>Arbeidsflyt</strong> → <strong>Modul-regler</strong>{' '}
+                (<code className="text-[10px]">/workflow</code>).
+              </p>
             </div>
           </div>
         )}
@@ -392,7 +395,7 @@ export function ModuleSettingsPanel({
                 ))}
               </div>
               <p className="mt-2 text-[11px] text-neutral-400">
-                For å legge til nye regler, gå til platform-admin → Moduler.
+                For å legge til eller endre regler: gå til <strong>Arbeidsflyt</strong> → <strong>Modul-regler</strong> og velg modulen.
               </p>
             </div>
           </div>
@@ -434,7 +437,7 @@ export function ModuleSettingsPanel({
                 </table>
               </div>
               <p className="mt-2 text-[11px] text-neutral-400">
-                Rolletilgang endres i platform-admin → Moduler.
+                Rolletilgang og øvrig mal finner du under <strong>Arbeidsflyt</strong> → <strong>Modul-regler</strong> (krever admin / workflows.manage).
               </p>
             </div>
 
