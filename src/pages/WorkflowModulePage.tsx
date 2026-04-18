@@ -240,7 +240,13 @@ export function WorkflowModulePage() {
       actions_json: acts,
       flow_graph_json: flowDoc as unknown as Record<string, unknown>,
     })
-    if (res.ok) closeEditor()
+    if (res.ok) {
+      closeEditor()
+    } else if (!wf.canManage) {
+      setFormErr('Du har ikke tilgang til å lagre regler. Kontakt administrator.')
+    } else {
+      setFormErr(wf.error ?? 'Lagring feilet. Prøv igjen.')
+    }
   }, [closeEditor, editingRuleId, flowDoc, name, slug, sourceModule, triggerOn, wf])
 
   const applyAdvancedToFlow = useCallback(() => {
@@ -299,10 +305,15 @@ export function WorkflowModulePage() {
                 Tabellen viser kilde, utløser, hva som skjer og status. Rediger i sidevinduet med den visuelle byggeren.
               </p>
             </div>
-            {wf.canManage && (
+            {wf.canManage ? (
               <button type="button" onClick={openNewRule} className={BTN_PRI}>
                 <Plus className="size-4" /> Ny regel
               </button>
+            ) : (
+              <p className="text-sm text-neutral-500">
+                Du har ikke tilgang til å opprette regler.{' '}
+                <span className="text-neutral-400">(Krever workflows.manage eller admin)</span>
+              </p>
             )}
           </div>
 
