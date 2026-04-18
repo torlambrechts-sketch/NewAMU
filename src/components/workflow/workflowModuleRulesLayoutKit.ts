@@ -1,7 +1,10 @@
+import { WORKPLACE_LIST_LAYOUT_CTA } from '../layout/WorkplaceStandardListLayout'
+
 /**
  * Visual tokens for Arbeidsflyt → Modul-regler, aligned with:
- * - `PlatformModuleTemplatesPage` (modul-maler: amber primary, rounded-xl, section labels)
- * - `platformLayoutKitDemos` cream preview wrap (rounded-xl border, white body card)
+ * - `InspectionModuleView` (forest primary CTA, rounded-lg outline secondary)
+ * - `PlatformModuleTemplatesPage` (amber for secondary actions like Lagre in admin)
+ * - Layout-hub cream preview (rounded-xl page card)
  *
  * Used on the workplace (cream) surface — not inside slate-950 platform chrome.
  */
@@ -23,13 +26,21 @@ export const WMR_CALLOUT =
 export const WMR_CALLOUT_WARN =
   'rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950'
 
-/** Primary CTA — same amber as platform `BTN_PRIMARY` on Modul-maler */
+/** Main save / confirm in editor — amber (platform Modul-maler «Lagre») */
 export const WMR_BTN_PRIMARY =
   'inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500/90 px-3 py-2 text-xs font-semibold text-slate-950 shadow-sm transition-colors hover:bg-amber-400 disabled:opacity-50'
 
-/** Secondary — platform `BTN_GHOST` adapted for light surface */
+/** Outline secondary — same as Inspeksjonsmodul «Planlegging» */
 export const WMR_BTN_SECONDARY =
   'inline-flex items-center justify-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-50'
+
+/** Hero CTA — same as `InspectionModuleView` «Ny runde» (`WORKPLACE_LIST_LAYOUT_CTA`) */
+export const WMR_BTN_CTA_FOREST =
+  `inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-bold uppercase tracking-wide text-white shadow-sm transition-opacity hover:opacity-95 disabled:opacity-50`
+
+export function wmrCtaForestStyle(): { backgroundColor: string } {
+  return { backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }
+}
 
 /** Filter / pill group container */
 export const WMR_PILL_GROUP = 'flex flex-wrap gap-1 rounded-xl border border-neutral-200/90 bg-neutral-50/80 p-1'

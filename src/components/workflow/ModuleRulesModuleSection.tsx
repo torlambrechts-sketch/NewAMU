@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ListTodo, Loader2, Mail, Save, Zap } from 'lucide-react'
+import { ListTodo, Loader2, Mail, Plus, Save, Zap } from 'lucide-react'
 import { useModuleTemplate } from '../../hooks/useModuleTemplate'
 import type { WorkflowRule } from '../../types/moduleTemplate'
 import { ModuleTemplateWorkflowRulesEditor } from './ModuleTemplateWorkflowRulesEditor'
 import {
+  WMR_BTN_CTA_FOREST,
   WMR_BTN_PRIMARY,
   WMR_BTN_SECONDARY,
   WMR_EMPTY_STATE,
@@ -14,7 +15,9 @@ import {
   WMR_RULE_CARD,
   WMR_RULE_CARD_MUTED,
   WMR_SECTION_LABEL,
+  wmrCtaForestStyle,
 } from './workflowModuleRulesLayoutKit'
+import { createNewWorkflowRule } from './workflowRuleFactory'
 
 function triggerLabel(rule: WorkflowRule): string {
   const t = rule.trigger
@@ -99,6 +102,16 @@ export function ModuleRulesModuleSection({
     setLocalErr(null)
   }, [])
 
+  /** Opens editor and appends a blank rule (works from list view or inside editor). */
+  const addNewRule = useCallback(() => {
+    setLocalErr(null)
+    setEditing(true)
+    setDraftRules((prev) => {
+      const current = prev ?? rules
+      return [...current, createNewWorkflowRule(current.length)]
+    })
+  }, [rules])
+
   async function handleSave() {
     if (!draftRules) return
     setSaving(true)
@@ -173,10 +186,20 @@ export function ModuleRulesModuleSection({
             </div>
           </div>
           {canManage && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={addNewRule}
+                disabled={saving}
+                className={WMR_BTN_CTA_FOREST}
+                style={wmrCtaForestStyle()}
+              >
+                <Plus className="size-4 shrink-0" strokeWidth={2.5} />
+                Ny regel
+              </button>
               {!editing ? (
-                <button type="button" onClick={startEdit} className={WMR_BTN_PRIMARY}>
-                  Rediger regler
+                <button type="button" onClick={startEdit} className={`${WMR_BTN_SECONDARY} px-4 py-2 text-sm font-medium`}>
+                  Rediger alle
                 </button>
               ) : (
                 <>
@@ -249,15 +272,19 @@ export function ModuleRulesModuleSection({
           </div>
         ))}
         {filteredForCards.length === 0 && (
-          <div className={`${WMR_EMPTY_STATE} sm:col-span-2 lg:col-span-3`}>
-            Ingen regler i dette filteret for {label}.
-            {canManage && !editing && (
-              <>
-                {' '}
-                <button type="button" className="font-medium text-[#1a3d32] underline" onClick={startEdit}>
-                  Opprett regler
-                </button>
-              </>
+          <div className={`${WMR_EMPTY_STATE} flex flex-col items-center gap-4 sm:col-span-2 lg:col-span-3`}>
+            <p>Ingen regler i dette filteret for {label}.</p>
+            {canManage && (
+              <button
+                type="button"
+                onClick={addNewRule}
+                disabled={saving}
+                className={WMR_BTN_CTA_FOREST}
+                style={wmrCtaForestStyle()}
+              >
+                <Plus className="size-4 shrink-0" strokeWidth={2.5} />
+                Opprett første regel
+              </button>
             )}
           </div>
         )}

@@ -5,6 +5,8 @@
 
 import { Plus, Trash2 } from 'lucide-react'
 import type { WorkflowAction, WorkflowRule, WorkflowTrigger } from '../../types/moduleTemplate'
+import { createNewWorkflowRule } from './workflowRuleFactory'
+import { WMR_BTN_CTA_FOREST, wmrCtaForestStyle } from './workflowModuleRulesLayoutKit'
 
 export type ModuleTemplateWorkflowRulesEditorVariant = 'workplace' | 'platformAdmin'
 
@@ -24,18 +26,18 @@ const THEME: Record<
 > = {
   workplace: {
     input:
-      'w-full rounded-none border border-neutral-200 bg-white px-2.5 py-1.5 text-sm text-neutral-900 outline-none focus:ring-1 focus:ring-[#1a3d32]/30',
+      'w-full rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-[#1a3d32]/25',
     btnGhost:
-      'inline-flex items-center gap-1.5 rounded-none border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50',
+      'inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50',
     btnDanger:
-      'inline-flex items-center justify-center rounded-none border border-transparent p-1.5 text-red-600 hover:bg-red-50',
-    actionCard: 'rounded-none border border-neutral-200/90 bg-neutral-50/80 p-3',
-    ruleCard: 'rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm',
+      'inline-flex items-center justify-center rounded-lg border border-transparent p-1.5 text-red-600 hover:bg-red-50',
+    actionCard: 'rounded-lg border border-neutral-200/90 bg-neutral-50/80 p-3',
+    ruleCard: 'rounded-lg border border-neutral-200/90 bg-white p-4 shadow-sm',
     labelUpper: 'mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500',
     labelUpperSm: 'text-[10px] font-semibold uppercase tracking-wide text-neutral-500',
     checkboxLabel: 'flex shrink-0 items-center gap-1.5 text-xs text-neutral-600',
     emptyState:
-      'rounded-none border border-dashed border-neutral-200 bg-neutral-50 px-4 py-6 text-center text-sm text-neutral-500',
+      'rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-4 py-6 text-center text-sm text-neutral-500',
   },
   platformAdmin: {
     input:
@@ -52,10 +54,6 @@ const THEME: Record<
     emptyState:
       'rounded-xl border border-dashed border-white/10 bg-slate-800/40 px-4 py-6 text-center text-sm text-neutral-400',
   },
-}
-
-function uid() {
-  return `wr-${Math.random().toString(36).slice(2, 10)}`
 }
 
 function defaultActionForType(t: WorkflowAction['type']): WorkflowAction {
@@ -323,26 +321,15 @@ export function ModuleTemplateWorkflowRulesEditor({
           <button
             type="button"
             disabled={disabled}
-            className={`${BTN_GHOST} disabled:opacity-50`}
-            onClick={() => {
-              const newRule: WorkflowRule = {
-                id: uid(),
-                name: 'Ny regel',
-                active: false,
-                priority: rules.length * 10,
-                trigger: { type: 'on_create' },
-                actions: [
-                  {
-                    type: 'notify_role',
-                    role: 'admin',
-                    messageTemplate: '{{module.title}} ble oppdatert.',
-                  },
-                ],
-              }
-              onChange([...rules, newRule])
-            }}
+            className={
+              variant === 'workplace'
+                ? `${WMR_BTN_CTA_FOREST} disabled:opacity-50`
+                : `${BTN_GHOST} disabled:opacity-50`
+            }
+            style={variant === 'workplace' ? wmrCtaForestStyle() : undefined}
+            onClick={() => onChange([...rules, createNewWorkflowRule(rules.length)])}
           >
-            <Plus className="size-3.5" />
+            <Plus className="size-3.5" strokeWidth={variant === 'workplace' ? 2.5 : 2} />
             Legg til regel
           </button>
         </div>

@@ -18,6 +18,7 @@ import {
   ListTodo, Plus, Save, Settings, Trash2, Zap,
 } from 'lucide-react'
 import { ModuleTemplateWorkflowRulesEditor } from '../../components/workflow/ModuleTemplateWorkflowRulesEditor'
+import { createNewWorkflowRule } from '../../components/workflow/workflowRuleFactory'
 import { useModuleTemplate } from '../../hooks/useModuleTemplate'
 import { defaultInspeksjonsrunderTemplate } from '../../types/moduleTemplate'
 import type {
@@ -29,7 +30,6 @@ import type {
   StatusColor,
   StatusDef,
   TableColumn,
-  WorkflowRule,
 } from '../../types/moduleTemplate'
 
 /* ── Constants ────────────────────────────────────────────────────────────── */
@@ -437,21 +437,9 @@ export function PlatformModuleTemplatesPage() {
                       type="button"
                       className={BTN_GHOST}
                       onClick={() => {
-                        const newRule: WorkflowRule = {
-                          id: `wr-${uid()}`,
-                          name: 'Ny regel',
-                          active: false,
-                          priority: draft.workflowRules.length * 10,
-                          trigger: { type: 'on_create' },
-                          actions: [
-                            {
-                              type: 'notify_role',
-                              role: 'admin',
-                              messageTemplate: '{{module.title}} ble opprettet.',
-                            },
-                          ],
-                        }
-                        patch({ workflowRules: [...draft.workflowRules, newRule] })
+                        patch({
+                          workflowRules: [...draft.workflowRules, createNewWorkflowRule(draft.workflowRules.length)],
+                        })
                       }}
                     >
                       <Plus className="size-3.5" /> Legg til regel
