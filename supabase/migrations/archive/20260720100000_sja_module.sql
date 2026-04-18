@@ -116,32 +116,40 @@ create index if not exists sja_participants_sja_idx on public.sja_participants(s
 
 alter table public.sja_analyses enable row level security;
 
-create policy if not exists sja_analyses_select on public.sja_analyses for select to authenticated
+drop policy if exists sja_analyses_select on public.sja_analyses;
+create policy sja_analyses_select on public.sja_analyses for select to authenticated
   using (organization_id = public.current_org_id() and deleted_at is null);
 
-create policy if not exists sja_analyses_insert on public.sja_analyses for insert to authenticated
+drop policy if exists sja_analyses_insert on public.sja_analyses;
+create policy sja_analyses_insert on public.sja_analyses for insert to authenticated
   with check (organization_id = public.current_org_id());
 
-create policy if not exists sja_analyses_update on public.sja_analyses for update to authenticated
+drop policy if exists sja_analyses_update on public.sja_analyses;
+create policy sja_analyses_update on public.sja_analyses for update to authenticated
   using (organization_id = public.current_org_id());
 
-create policy if not exists sja_analyses_delete on public.sja_analyses for delete to authenticated
+drop policy if exists sja_analyses_delete on public.sja_analyses;
+create policy sja_analyses_delete on public.sja_analyses for delete to authenticated
   using (organization_id = public.current_org_id());
 
 -- ── RLS: sja_templates (direct org column) ───────────────────────────────────
 
 alter table public.sja_templates enable row level security;
 
-create policy if not exists sja_templates_select on public.sja_templates for select to authenticated
+drop policy if exists sja_templates_select on public.sja_templates;
+create policy sja_templates_select on public.sja_templates for select to authenticated
   using (organization_id = public.current_org_id());
 
-create policy if not exists sja_templates_insert on public.sja_templates for insert to authenticated
+drop policy if exists sja_templates_insert on public.sja_templates;
+create policy sja_templates_insert on public.sja_templates for insert to authenticated
   with check (organization_id = public.current_org_id());
 
-create policy if not exists sja_templates_update on public.sja_templates for update to authenticated
+drop policy if exists sja_templates_update on public.sja_templates;
+create policy sja_templates_update on public.sja_templates for update to authenticated
   using (organization_id = public.current_org_id());
 
-create policy if not exists sja_templates_delete on public.sja_templates for delete to authenticated
+drop policy if exists sja_templates_delete on public.sja_templates;
+create policy sja_templates_delete on public.sja_templates for delete to authenticated
   using (organization_id = public.current_org_id());
 
 -- ── RLS: nested rows (org via parent sja_analyses) ───────────────────────────
@@ -151,7 +159,8 @@ alter table public.sja_tasks enable row level security;
 alter table public.sja_hazards enable row level security;
 alter table public.sja_measures enable row level security;
 
-create policy if not exists sja_participants_select on public.sja_participants for select to authenticated
+drop policy if exists sja_participants_select on public.sja_participants;
+create policy sja_participants_select on public.sja_participants for select to authenticated
   using (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_participants.sja_id
@@ -159,28 +168,32 @@ create policy if not exists sja_participants_select on public.sja_participants f
       and a.deleted_at is null
   ));
 
-create policy if not exists sja_participants_insert on public.sja_participants for insert to authenticated
+drop policy if exists sja_participants_insert on public.sja_participants;
+create policy sja_participants_insert on public.sja_participants for insert to authenticated
   with check (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_participants.sja_id
       and a.organization_id = public.current_org_id()
   ));
 
-create policy if not exists sja_participants_update on public.sja_participants for update to authenticated
+drop policy if exists sja_participants_update on public.sja_participants;
+create policy sja_participants_update on public.sja_participants for update to authenticated
   using (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_participants.sja_id
       and a.organization_id = public.current_org_id()
   ));
 
-create policy if not exists sja_participants_delete on public.sja_participants for delete to authenticated
+drop policy if exists sja_participants_delete on public.sja_participants;
+create policy sja_participants_delete on public.sja_participants for delete to authenticated
   using (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_participants.sja_id
       and a.organization_id = public.current_org_id()
   ));
 
-create policy if not exists sja_tasks_select on public.sja_tasks for select to authenticated
+drop policy if exists sja_tasks_select on public.sja_tasks;
+create policy sja_tasks_select on public.sja_tasks for select to authenticated
   using (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_tasks.sja_id
@@ -188,28 +201,32 @@ create policy if not exists sja_tasks_select on public.sja_tasks for select to a
       and a.deleted_at is null
   ));
 
-create policy if not exists sja_tasks_insert on public.sja_tasks for insert to authenticated
+drop policy if exists sja_tasks_insert on public.sja_tasks;
+create policy sja_tasks_insert on public.sja_tasks for insert to authenticated
   with check (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_tasks.sja_id
       and a.organization_id = public.current_org_id()
   ));
 
-create policy if not exists sja_tasks_update on public.sja_tasks for update to authenticated
+drop policy if exists sja_tasks_update on public.sja_tasks;
+create policy sja_tasks_update on public.sja_tasks for update to authenticated
   using (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_tasks.sja_id
       and a.organization_id = public.current_org_id()
   ));
 
-create policy if not exists sja_tasks_delete on public.sja_tasks for delete to authenticated
+drop policy if exists sja_tasks_delete on public.sja_tasks;
+create policy sja_tasks_delete on public.sja_tasks for delete to authenticated
   using (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_tasks.sja_id
       and a.organization_id = public.current_org_id()
   ));
 
-create policy if not exists sja_hazards_select on public.sja_hazards for select to authenticated
+drop policy if exists sja_hazards_select on public.sja_hazards;
+create policy sja_hazards_select on public.sja_hazards for select to authenticated
   using (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_hazards.sja_id
@@ -217,28 +234,32 @@ create policy if not exists sja_hazards_select on public.sja_hazards for select 
       and a.deleted_at is null
   ));
 
-create policy if not exists sja_hazards_insert on public.sja_hazards for insert to authenticated
+drop policy if exists sja_hazards_insert on public.sja_hazards;
+create policy sja_hazards_insert on public.sja_hazards for insert to authenticated
   with check (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_hazards.sja_id
       and a.organization_id = public.current_org_id()
   ));
 
-create policy if not exists sja_hazards_update on public.sja_hazards for update to authenticated
+drop policy if exists sja_hazards_update on public.sja_hazards;
+create policy sja_hazards_update on public.sja_hazards for update to authenticated
   using (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_hazards.sja_id
       and a.organization_id = public.current_org_id()
   ));
 
-create policy if not exists sja_hazards_delete on public.sja_hazards for delete to authenticated
+drop policy if exists sja_hazards_delete on public.sja_hazards;
+create policy sja_hazards_delete on public.sja_hazards for delete to authenticated
   using (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_hazards.sja_id
       and a.organization_id = public.current_org_id()
   ));
 
-create policy if not exists sja_measures_select on public.sja_measures for select to authenticated
+drop policy if exists sja_measures_select on public.sja_measures;
+create policy sja_measures_select on public.sja_measures for select to authenticated
   using (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_measures.sja_id
@@ -246,21 +267,24 @@ create policy if not exists sja_measures_select on public.sja_measures for selec
       and a.deleted_at is null
   ));
 
-create policy if not exists sja_measures_insert on public.sja_measures for insert to authenticated
+drop policy if exists sja_measures_insert on public.sja_measures;
+create policy sja_measures_insert on public.sja_measures for insert to authenticated
   with check (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_measures.sja_id
       and a.organization_id = public.current_org_id()
   ));
 
-create policy if not exists sja_measures_update on public.sja_measures for update to authenticated
+drop policy if exists sja_measures_update on public.sja_measures;
+create policy sja_measures_update on public.sja_measures for update to authenticated
   using (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_measures.sja_id
       and a.organization_id = public.current_org_id()
   ));
 
-create policy if not exists sja_measures_delete on public.sja_measures for delete to authenticated
+drop policy if exists sja_measures_delete on public.sja_measures;
+create policy sja_measures_delete on public.sja_measures for delete to authenticated
   using (exists (
     select 1 from public.sja_analyses a
     where a.id = sja_measures.sja_id
