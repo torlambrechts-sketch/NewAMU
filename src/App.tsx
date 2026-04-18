@@ -90,6 +90,12 @@ import { SjaModulePage } from './pages/SjaModulePage'
 import { SjaModuleAdminPage } from './pages/SjaModuleAdminPage'
 import { ModuleAdminPage } from './pages/ModuleAdminPage'
 import { AvvikPage } from './pages/AvvikPage'
+import { IkHubPage } from './pages/IkHubPage'
+import { IkLovregisterPage } from './pages/IkLovregisterPage'
+import { IkKompetansePage } from './pages/IkKompetansePage'
+import { IkMedvirkningPage } from './pages/IkMedvirkningPage'
+import { IkMalPage } from './pages/IkMalPage'
+import { IkTiltaksplanPage } from './pages/IkTiltaksplanPage'
 
 function App() {
   return (
@@ -158,6 +164,12 @@ function App() {
                       <Route path="org-health/settings" element={<OrgHealthSettings />} />
                       <Route path="compliance" element={<ComplianceDashboardPage />} />
                       <Route path="internal-control" element={<InternalControlModule />} />
+                      <Route path="internkontroll" element={<IkHubPage />} />
+                      <Route path="internkontroll/lovregister" element={<IkLovregisterPage />} />
+                      <Route path="internkontroll/kompetanse" element={<IkKompetansePage />} />
+                      <Route path="internkontroll/medvirkning" element={<IkMedvirkningPage />} />
+                      <Route path="internkontroll/mal" element={<IkMalPage />} />
+                      <Route path="internkontroll/tiltaksplan" element={<IkTiltaksplanPage />} />
                       <Route path="modules/aarskontroll" element={<YearskontrollModule />} />
                       <Route path="hse" element={<HseModule />} />
                       <Route path="hse/inspection-settings" element={<HseInspectionSettings />} />

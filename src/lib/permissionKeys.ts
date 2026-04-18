@@ -84,6 +84,7 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/sja', permission: 'module.view.hse' },
   { pathPrefix: '/inspection-module', permission: 'module.view.inspection' },
   { pathPrefix: '/internal-control', permission: 'module.view.internal_control' },
+  { pathPrefix: '/internkontroll', permission: 'module.view.internal_control' },
   { pathPrefix: '/modules/aarskontroll', permission: 'module.view.internal_control' },
   { pathPrefix: '/tasks', permission: 'module.view.tasks' },
   { pathPrefix: '/learning', permission: 'module.view.learning' },
