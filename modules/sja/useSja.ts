@@ -8,6 +8,7 @@ import type {
   SjaDetail,
   SjaHazard,
   SjaHazardCategory,
+  SjaJobType,
   SjaMeasure,
   SjaParticipant,
   SjaParticipantRole,
@@ -33,6 +34,19 @@ export type AdvanceStatusPayload = {
 
 export type UseSjaInput = { supabase: SupabaseClient | null }
 
+export type CreateSjaAnalysisPayload = {
+  title: string
+  templateId?: string | null
+  jobType: SjaJobType
+  jobDescription?: string
+  triggerReason?: string
+  locationId?: string | null
+  locationText?: string | null
+  responsibleId?: string | null
+  scheduledStart?: string | null
+  scheduledEnd?: string | null
+}
+
 export type SjaState = {
   loading: boolean
   error: string | null
@@ -49,6 +63,7 @@ export type SjaState = {
   load: () => Promise<void>
   loadDetail: (sjaId: string) => Promise<void>
   getDetail: (sjaId: string) => SjaDetail | null
+  createAnalysis: (payload: CreateSjaAnalysisPayload) => Promise<SjaAnalysis | null>
   saveAnalysisPatch: (sjaId: string, patch: Partial<SjaAnalysis>) => Promise<void>
   advanceStatus: (sjaId: string, nextStatus: SjaAnalysis['status'], payload?: AdvanceStatusPayload) => Promise<void>
   addParticipant: (input: {
@@ -246,6 +261,57 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       return next
     })
   }, [])
+
+  const createAnalysis = useCallback(
+    async (payload: CreateSjaAnalysisPayload): Promise<SjaAnalysis | null> => {
+      if (!supabase) {
+        setError('Supabase er ikke konfigurert.')
+        return null
+      }
+      const title = payload.title.trim()
+      if (!title) {
+        setError('Tittel er påkrevd.')
+        return null
+      }
+      setError(null)
+      const jobDescription = (payload.jobDescription ?? '').trim() || '—'
+      const triggerReason = (payload.triggerReason ?? 'non_routine').trim() || 'non_routine'
+      const scheduledStartIso =
+        payload.scheduledStart?.trim() && !Number.isNaN(new Date(payload.scheduledStart).getTime())
+          ? new Date(payload.scheduledStart).toISOString()
+          : null
+      const scheduledEndIso =
+        payload.scheduledEnd?.trim() && !Number.isNaN(new Date(payload.scheduledEnd).getTime())
+          ? new Date(payload.scheduledEnd).toISOString()
+          : null
+      const row = {
+        title,
+        job_description: jobDescription,
+        job_type: payload.jobType,
+        trigger_reason: triggerReason,
+        template_id: payload.templateId ?? null,
+        location_id: payload.locationId ?? null,
+        location_text: payload.locationText?.trim() ? payload.locationText.trim() : null,
+        responsible_id: payload.responsibleId ?? null,
+        scheduled_start: scheduledStartIso,
+        scheduled_end: scheduledEndIso,
+        status: 'draft' as const,
+      }
+      const { data, error: insErr } = await supabase.from('sja_analyses').insert(row).select('*').single()
+      if (insErr) {
+        setError(getSupabaseErrorMessage(insErr))
+        return null
+      }
+      const parsed = parseRow(data, SjaAnalysisSchema)
+      if (!parsed) {
+        setError('Kunne ikke tolke ny SJA fra databasen.')
+        return null
+      }
+      mergeAnalysis(parsed)
+      return parsed
+    },
+    [supabase, mergeAnalysis],
+  )
 
   const loadDetail = useCallback(
     async (sjaId: string) => {
@@ -852,6 +918,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       load,
       loadDetail,
       getDetail,
+      createAnalysis,
       saveAnalysisPatch,
       advanceStatus,
       addParticipant,
@@ -888,6 +955,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       load,
       loadDetail,
       getDetail,
+      createAnalysis,
       saveAnalysisPatch,
       advanceStatus,
       addParticipant,
