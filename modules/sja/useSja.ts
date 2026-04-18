@@ -113,9 +113,23 @@ export type SjaState = {
   }) => Promise<void>
   updateMeasure: (
     measureId: string,
-    patch: Partial<Pick<SjaMeasure, 'description' | 'control_type' | 'assigned_to_id' | 'assigned_to_name' | 'completed'>>,
+    patch: Partial<
+      Pick<
+        SjaMeasure,
+        | 'description'
+        | 'control_type'
+        | 'assigned_to_id'
+        | 'assigned_to_name'
+        | 'completed'
+        | 'is_from_template'
+        | 'is_mandatory'
+        | 'deletion_justification'
+        | 'deleted_at'
+        | 'deleted_by'
+      >
+    >,
   ) => Promise<void>
-  deleteMeasure: (measureId: string) => Promise<void>
+  deleteMeasure: (measureId: string, opts?: { justification?: string | null }) => Promise<void>
   signParticipant: (participantId: string) => Promise<void>
   completeDebrief: (input: {
     sjaId: string
@@ -128,6 +142,7 @@ export type SjaState = {
     job_type: string
     description?: string | null
     required_certs?: string[] | null
+    required_ppe?: string[] | null
     prefill_tasks?: unknown
     is_active?: boolean
   }) => Promise<SjaTemplate | null>
@@ -138,6 +153,7 @@ export type SjaState = {
       job_type?: string
       description?: string | null
       required_certs?: string[] | null
+      required_ppe?: string[] | null
       prefill_tasks?: unknown
       is_active?: boolean
     },
@@ -376,7 +392,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         participants: participants.filter((p) => p.sja_id === sjaId),
         tasks: tasks.filter((t) => t.sja_id === sjaId).sort((a, b) => a.position - b.position),
         hazards: hazards.filter((h) => h.sja_id === sjaId),
-        measures: measures.filter((m) => m.sja_id === sjaId),
+        measures: measures.filter((m) => m.sja_id === sjaId && m.deleted_at == null),
       }
     },
     [analyses, participants, tasks, hazards, measures],
@@ -693,7 +709,19 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
     async (
       measureId: string,
       patch: Partial<
-        Pick<SjaMeasure, 'description' | 'control_type' | 'assigned_to_id' | 'assigned_to_name' | 'completed'>
+        Pick<
+          SjaMeasure,
+          | 'description'
+          | 'control_type'
+          | 'assigned_to_id'
+          | 'assigned_to_name'
+          | 'completed'
+          | 'is_from_template'
+          | 'is_mandatory'
+          | 'deletion_justification'
+          | 'deleted_at'
+          | 'deleted_by'
+        >
       >,
     ) => {
       if (!supabase) return
@@ -704,6 +732,11 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         ...(patch.assigned_to_id !== undefined ? { assigned_to_id: patch.assigned_to_id } : {}),
         ...(patch.assigned_to_name !== undefined ? { assigned_to_name: patch.assigned_to_name } : {}),
         ...(patch.completed !== undefined ? { completed: patch.completed } : {}),
+        ...(patch.is_from_template !== undefined ? { is_from_template: patch.is_from_template } : {}),
+        ...(patch.is_mandatory !== undefined ? { is_mandatory: patch.is_mandatory } : {}),
+        ...(patch.deletion_justification !== undefined ? { deletion_justification: patch.deletion_justification } : {}),
+        ...(patch.deleted_at !== undefined ? { deleted_at: patch.deleted_at } : {}),
+        ...(patch.deleted_by !== undefined ? { deleted_by: patch.deleted_by } : {}),
       }
       if (patch.completed === true) {
         body.completed_at = new Date().toISOString()
@@ -716,9 +749,13 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         .update(body)
         .eq('id', measureId)
         .select('*')
-        .single()
+        .maybeSingle()
       if (upErr) {
         setError(upErr.message)
+        return
+      }
+      if (patch.deleted_at != null) {
+        setMeasures((prev) => removeById(prev, measureId))
         return
       }
       const parsed = parseRow(data, SjaMeasureSchema)
@@ -728,12 +765,23 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
   )
 
   const deleteMeasure = useCallback(
-    async (measureId: string) => {
+    async (measureId: string, opts?: { justification?: string | null }) => {
       if (!supabase) return
       setError(null)
-      const { error: delErr } = await supabase.from('sja_measures').delete().eq('id', measureId)
-      if (delErr) {
-        setError(delErr.message)
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      const now = new Date().toISOString()
+      const { error: upErr } = await supabase
+        .from('sja_measures')
+        .update({
+          deleted_at: now,
+          deleted_by: user?.id ?? null,
+          deletion_justification: opts?.justification?.trim() || null,
+        })
+        .eq('id', measureId)
+      if (upErr) {
+        setError(upErr.message)
         return
       }
       setMeasures((prev) => removeById(prev, measureId))
@@ -831,6 +879,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       job_type: string
       description?: string | null
       required_certs?: string[] | null
+      required_ppe?: string[] | null
       prefill_tasks?: unknown
       is_active?: boolean
     }): Promise<SjaTemplate | null> => {
@@ -843,6 +892,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
           job_type: row.job_type,
           description: row.description ?? null,
           required_certs: row.required_certs ?? null,
+          required_ppe: row.required_ppe ?? [],
           prefill_tasks: row.prefill_tasks ?? null,
           is_active: row.is_active ?? true,
         })
@@ -870,6 +920,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         job_type?: string
         description?: string | null
         required_certs?: string[] | null
+        required_ppe?: string[] | null
         prefill_tasks?: unknown
         is_active?: boolean
       },
@@ -881,6 +932,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       if (row.job_type !== undefined) body.job_type = row.job_type
       if (row.description !== undefined) body.description = row.description
       if (row.required_certs !== undefined) body.required_certs = row.required_certs
+      if (row.required_ppe !== undefined) body.required_ppe = row.required_ppe
       if (row.prefill_tasks !== undefined) body.prefill_tasks = row.prefill_tasks
       if (row.is_active !== undefined) body.is_active = row.is_active
       const { data, error: upErr } = await supabase

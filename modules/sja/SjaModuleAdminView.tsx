@@ -6,7 +6,8 @@ import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePage
 import { ModuleAdminShell } from '../../src/components/layout/ModuleAdminShell'
 import { LocationsCrudTab } from '../../src/components/hse/LocationsCrudTab'
 import { useInspectionModule } from '../inspection/useInspectionModule'
-import type { SjaHazardCategory, SjaJobType, SjaTemplate } from './types'
+import type { SjaControlType, SjaHazardCategory, SjaJobType, SjaPpeKey, SjaTemplate } from './types'
+import { SJA_PPE_OPTIONS } from './types'
 import { useSja } from './useSja'
 import type { PrefillTask } from './types'
 
@@ -56,41 +57,84 @@ const CARD_SHADOW = { boxShadow: '0 1px 2px rgba(0,0,0,0.04)' } as const
 
 type Tab = 'templates' | 'locations' | 'access'
 
-type PrefillHazardDraft = { description: string; category: SjaHazardCategory }
+const CONTROL_TYPE_OPTIONS: { value: SjaControlType; label: string }[] = [
+  { value: 'eliminate', label: 'Eliminering' },
+  { value: 'substitute', label: 'Substitusjon' },
+  { value: 'engineering', label: 'Teknisk' },
+  { value: 'administrative', label: 'Administrativt' },
+  { value: 'ppe', label: 'PPE' },
+]
 
-type PrefillTaskDraft = { title: string; hazards: PrefillHazardDraft[] }
+type PrefillMeasureDraft = { description: string; control_type: SjaControlType; is_mandatory: boolean }
 
-function emptyTask(): PrefillTaskDraft {
-  return { title: '', hazards: [] }
+type PrefillHazardDraft = { description: string; category: SjaHazardCategory; measures: PrefillMeasureDraft[] }
+
+type PrefillTaskDraft = { title: string; description: string; position: number; hazards: PrefillHazardDraft[] }
+
+function emptyMeasure(): PrefillMeasureDraft {
+  return { description: '', control_type: 'administrative', is_mandatory: false }
+}
+
+function emptyTask(position: number): PrefillTaskDraft {
+  return { title: '', description: '', hazards: [], position }
 }
 
 function parsePrefillTasks(raw: unknown): PrefillTaskDraft[] {
   if (!Array.isArray(raw)) return []
   return raw
-    .map((t) => {
-      const o = t as { title?: unknown; hazards?: unknown }
+    .map((t, ti) => {
+      const o = t as { title?: unknown; description?: unknown; position?: unknown; hazards?: unknown }
       const title = typeof o.title === 'string' ? o.title : ''
+      const description = typeof o.description === 'string' ? o.description : ''
+      const position = typeof o.position === 'number' && Number.isFinite(o.position) ? o.position : ti
       const hz = Array.isArray(o.hazards) ? o.hazards : []
       const hazards = hz
         .map((h) => {
-          const ho = h as { description?: unknown; category?: unknown }
-          const description = typeof ho.description === 'string' ? ho.description : ''
+          const ho = h as { description?: unknown; category?: unknown; measures?: unknown }
+          const descriptionH = typeof ho.description === 'string' ? ho.description : ''
           const category =
             typeof ho.category === 'string' && ho.category in HAZARD_CATEGORY_LABEL
               ? (ho.category as SjaHazardCategory)
               : 'other'
-          return { description, category }
+          const mz = Array.isArray(ho.measures) ? ho.measures : []
+          const measures: PrefillMeasureDraft[] = mz.map((m) => {
+            const mo = m as { description?: unknown; control_type?: unknown; is_mandatory?: unknown }
+            const md = typeof mo.description === 'string' ? mo.description : ''
+            const ct =
+              typeof mo.control_type === 'string' &&
+              ['eliminate', 'substitute', 'engineering', 'administrative', 'ppe'].includes(mo.control_type)
+                ? (mo.control_type as SjaControlType)
+                : 'administrative'
+            return {
+              description: md,
+              control_type: ct,
+              is_mandatory: Boolean(mo.is_mandatory),
+            }
+          })
+          return { description: descriptionH, category, measures }
         })
         .filter((h) => h.description.trim().length > 0)
-      return { title, hazards }
+      return { title, description, hazards, position }
     })
     .filter((t) => t.title.trim().length > 0)
 }
 
 function toDbPrefillTasks(tasks: PrefillTaskDraft[]): PrefillTask[] {
-  return tasks.map((t) => ({
+  return tasks.map((t, i) => ({
     title: t.title.trim(),
-    hazards: t.hazards.map((h) => ({ description: h.description.trim(), category: h.category })),
+    description: t.description.trim() || undefined,
+    position: typeof t.position === 'number' ? t.position : i,
+    hazards: t.hazards.map((h) => ({
+      description: h.description.trim(),
+      category: h.category,
+      measures: h.measures
+        .filter((m) => m.description.trim().length > 0)
+        .map((m) => ({
+          description: m.description.trim(),
+          control_type: m.control_type,
+          is_mandatory: m.is_mandatory,
+        })),
+    })),
   }))
 }
 
@@ -186,7 +230,8 @@ function SjaTemplatesAdmin({ sja }: { sja: ReturnType<typeof useSja> }) {
   const [draftDesc, setDraftDesc] = useState('')
   const [draftCerts, setDraftCerts] = useState<string[]>([])
   const [certInput, setCertInput] = useState('')
-  const [draftTasks, setDraftTasks] = useState<PrefillTaskDraft[]>([emptyTask()])
+  const [draftRequiredPpe, setDraftRequiredPpe] = useState<SjaPpeKey[]>([])
+  const [draftTasks, setDraftTasks] = useState<PrefillTaskDraft[]>([emptyTask(0)])
 
   const selected = useMemo(
     () => sja.templates.find((t) => t.id === selectedId) ?? null,
@@ -199,7 +244,12 @@ function SjaTemplatesAdmin({ sja }: { sja: ReturnType<typeof useSja> }) {
     setDraftJobType(t.job_type as SjaJobType)
     setDraftDesc(t.description ?? '')
     setDraftCerts(t.required_certs ?? [])
-    setDraftTasks(parsePrefillTasks(t.prefill_tasks).length ? parsePrefillTasks(t.prefill_tasks) : [emptyTask()])
+    setDraftRequiredPpe(
+      (t.required_ppe ?? []).filter((k): k is SjaPpeKey => SJA_PPE_OPTIONS.some((o) => o.key === k)),
+    )
+    setDraftTasks(
+      parsePrefillTasks(t.prefill_tasks).length ? parsePrefillTasks(t.prefill_tasks) : [emptyTask(0)],
+    )
     setPanelOpen(true)
   }, [])
 
@@ -209,7 +259,8 @@ function SjaTemplatesAdmin({ sja }: { sja: ReturnType<typeof useSja> }) {
     setDraftDesc('')
     setDraftCerts([])
     setCertInput('')
-    setDraftTasks([emptyTask()])
+    setDraftRequiredPpe([])
+    setDraftTasks([emptyTask(0)])
   }
 
   const saveSelected = async () => {
@@ -220,6 +271,7 @@ function SjaTemplatesAdmin({ sja }: { sja: ReturnType<typeof useSja> }) {
       job_type: draftJobType,
       description: draftDesc.trim() || null,
       required_certs: draftCerts.length ? draftCerts : null,
+      required_ppe: draftRequiredPpe,
       prefill_tasks: toDbPrefillTasks(draftTasks.filter((t) => t.title.trim())),
     })
     setSaving(false)
@@ -232,6 +284,7 @@ function SjaTemplatesAdmin({ sja }: { sja: ReturnType<typeof useSja> }) {
       job_type: draftJobType,
       description: draftDesc.trim() || null,
       required_certs: draftCerts.length ? draftCerts : null,
+      required_ppe: draftRequiredPpe,
       prefill_tasks: toDbPrefillTasks(draftTasks.filter((t) => t.title.trim())),
     })
     setSaving(false)
@@ -280,6 +333,11 @@ function SjaTemplatesAdmin({ sja }: { sja: ReturnType<typeof useSja> }) {
                   <td className="px-4 py-3 text-neutral-600">{JOB_TYPE_LABEL[t.job_type as SjaJobType] ?? t.job_type}</td>
                   <td className="px-4 py-3 text-xs text-neutral-600">
                     {(t.required_certs ?? []).join(', ') || '—'}
+                    {t.required_ppe?.length ? (
+                      <span className="mt-1 block text-[10px] text-neutral-500">
+                        PPE: {t.required_ppe.map((k) => SJA_PPE_OPTIONS.find((o) => o.key === k)?.label ?? k).join(', ')}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-xs">{tasks.length}</td>
                   <td className="px-4 py-3">{t.is_active ? 'Ja' : 'Nei'}</td>
@@ -331,6 +389,8 @@ function SjaTemplatesAdmin({ sja }: { sja: ReturnType<typeof useSja> }) {
               setDraftCerts={setDraftCerts}
               certInput={certInput}
               setCertInput={setCertInput}
+              draftRequiredPpe={draftRequiredPpe}
+              setDraftRequiredPpe={setDraftRequiredPpe}
               draftTasks={draftTasks}
               setDraftTasks={setDraftTasks}
             />
@@ -380,6 +440,8 @@ function SjaTemplatesAdmin({ sja }: { sja: ReturnType<typeof useSja> }) {
                 setDraftCerts={setDraftCerts}
                 certInput={certInput}
                 setCertInput={setCertInput}
+                draftRequiredPpe={draftRequiredPpe}
+                setDraftRequiredPpe={setDraftRequiredPpe}
                 draftTasks={draftTasks}
                 setDraftTasks={setDraftTasks}
               />
@@ -420,6 +482,8 @@ function TemplateFormBody({
   setDraftCerts,
   certInput,
   setCertInput,
+  draftRequiredPpe,
+  setDraftRequiredPpe,
   draftTasks,
   setDraftTasks,
 }: {
@@ -433,6 +497,8 @@ function TemplateFormBody({
   setDraftCerts: (v: string[]) => void
   certInput: string
   setCertInput: (v: string) => void
+  draftRequiredPpe: SjaPpeKey[]
+  setDraftRequiredPpe: (v: SjaPpeKey[] | ((p: SjaPpeKey[]) => SjaPpeKey[])) => void
   draftTasks: PrefillTaskDraft[]
   setDraftTasks: (v: PrefillTaskDraft[] | ((p: PrefillTaskDraft[]) => PrefillTaskDraft[])) => void
 }) {
@@ -508,6 +574,31 @@ function TemplateFormBody({
       </div>
 
       <div>
+        <p className="text-xs font-semibold text-neutral-600">Standard personlig verneutstyr (mal)</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {SJA_PPE_OPTIONS.map((opt) => {
+            const on = draftRequiredPpe.includes(opt.key)
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() =>
+                  setDraftRequiredPpe((prev) =>
+                    on ? prev.filter((k) => k !== opt.key) : [...prev, opt.key],
+                  )
+                }
+                className={`rounded-full border px-2.5 py-1 text-xs ${
+                  on ? 'border-[#1a3d32] bg-[#1a3d32]/10 font-semibold text-[#1a3d32]' : 'border-neutral-200 bg-white'
+                }`}
+              >
+                {opt.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div>
         <p className="text-xs font-semibold text-neutral-600">Forhåndsutfylte deloppgaver</p>
         <div className="mt-2 space-y-4">
           {draftTasks.map((task, ti) => (
@@ -517,64 +608,174 @@ function TemplateFormBody({
                 onChange={(e) =>
                   setDraftTasks((prev) => {
                     const next = [...prev]
-                    next[ti] = { ...next[ti], title: e.target.value }
+                    next[ti] = { ...next[ti], title: e.target.value, position: ti }
                     return next
                   })
                 }
                 placeholder="Deloppgavetittel"
                 className="mb-2 w-full rounded border px-2 py-1.5 text-sm"
               />
-              <ul className="space-y-2">
+              <textarea
+                value={task.description}
+                onChange={(e) =>
+                  setDraftTasks((prev) => {
+                    const next = [...prev]
+                    next[ti] = { ...next[ti], description: e.target.value }
+                    return next
+                  })
+                }
+                placeholder="Valgfri beskrivelse av deloppgaven…"
+                rows={2}
+                className="mb-2 w-full rounded border px-2 py-1.5 text-xs"
+              />
+              <ul className="space-y-3">
                 {task.hazards.map((hz, hi) => (
-                  <li key={hi} className="flex flex-wrap gap-2">
-                    <input
-                      value={hz.description}
-                      onChange={(e) =>
-                        setDraftTasks((prev) => {
-                          const next = [...prev]
-                          const th = [...next[ti].hazards]
-                          th[hi] = { ...th[hi], description: e.target.value }
-                          next[ti] = { ...next[ti], hazards: th }
-                          return next
-                        })
-                      }
-                      placeholder="Farekilde"
-                      className="min-w-[8rem] flex-1 rounded border px-2 py-1 text-xs"
-                    />
-                    <select
-                      value={hz.category}
-                      onChange={(e) =>
-                        setDraftTasks((prev) => {
-                          const next = [...prev]
-                          const th = [...next[ti].hazards]
-                          th[hi] = { ...th[hi], category: e.target.value as SjaHazardCategory }
-                          next[ti] = { ...next[ti], hazards: th }
-                          return next
-                        })
-                      }
-                      className="rounded border px-2 py-1 text-xs"
-                    >
-                      {(Object.keys(HAZARD_CATEGORY_LABEL) as SjaHazardCategory[]).map((k) => (
-                        <option key={k} value={k}>
-                          {HAZARD_CATEGORY_LABEL[k]}
-                        </option>
+                  <li key={hi} className="rounded border border-neutral-100 bg-neutral-50/80 p-2">
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        value={hz.description}
+                        onChange={(e) =>
+                          setDraftTasks((prev) => {
+                            const next = [...prev]
+                            const th = [...next[ti].hazards]
+                            th[hi] = { ...th[hi], description: e.target.value }
+                            next[ti] = { ...next[ti], hazards: th }
+                            return next
+                          })
+                        }
+                        placeholder="Farekilde"
+                        className="min-w-[8rem] flex-1 rounded border bg-white px-2 py-1 text-xs"
+                      />
+                      <select
+                        value={hz.category}
+                        onChange={(e) =>
+                          setDraftTasks((prev) => {
+                            const next = [...prev]
+                            const th = [...next[ti].hazards]
+                            th[hi] = { ...th[hi], category: e.target.value as SjaHazardCategory }
+                            next[ti] = { ...next[ti], hazards: th }
+                            return next
+                          })
+                        }
+                        className="rounded border bg-white px-2 py-1 text-xs"
+                      >
+                        {(Object.keys(HAZARD_CATEGORY_LABEL) as SjaHazardCategory[]).map((k) => (
+                          <option key={k} value={k}>
+                            {HAZARD_CATEGORY_LABEL[k]}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="text-neutral-400 hover:text-red-600"
+                        onClick={() =>
+                          setDraftTasks((prev) => {
+                            const next = [...prev]
+                            next[ti] = {
+                              ...next[ti],
+                              hazards: next[ti].hazards.filter((_, i) => i !== hi),
+                            }
+                            return next
+                          })
+                        }
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <p className="mt-2 text-[10px] font-semibold uppercase text-neutral-500">Tiltak i mal</p>
+                    <ul className="mt-1 space-y-1">
+                      {hz.measures.map((m, mi) => (
+                        <li key={mi} className="flex flex-wrap items-center gap-1.5 text-xs">
+                          <input
+                            value={m.description}
+                            onChange={(e) =>
+                              setDraftTasks((prev) => {
+                                const next = [...prev]
+                                const th = [...next[ti].hazards]
+                                const mm = [...th[hi].measures]
+                                mm[mi] = { ...mm[mi], description: e.target.value }
+                                th[hi] = { ...th[hi], measures: mm }
+                                next[ti] = { ...next[ti], hazards: th }
+                                return next
+                              })
+                            }
+                            placeholder="Tiltak"
+                            className="min-w-[6rem] flex-1 rounded border bg-white px-1.5 py-0.5"
+                          />
+                          <select
+                            value={m.control_type}
+                            onChange={(e) =>
+                              setDraftTasks((prev) => {
+                                const next = [...prev]
+                                const th = [...next[ti].hazards]
+                                const mm = [...th[hi].measures]
+                                mm[mi] = { ...mm[mi], control_type: e.target.value as SjaControlType }
+                                th[hi] = { ...th[hi], measures: mm }
+                                next[ti] = { ...next[ti], hazards: th }
+                                return next
+                              })
+                            }
+                            className="rounded border bg-white px-1 py-0.5 text-[10px]"
+                          >
+                            {CONTROL_TYPE_OPTIONS.map((c) => (
+                              <option key={c.value} value={c.value}>
+                                {c.label}
+                              </option>
+                            ))}
+                          </select>
+                          <label className="inline-flex items-center gap-0.5 whitespace-nowrap text-[10px]">
+                            <input
+                              type="checkbox"
+                              checked={m.is_mandatory}
+                              onChange={(e) =>
+                                setDraftTasks((prev) => {
+                                  const next = [...prev]
+                                  const th = [...next[ti].hazards]
+                                  const mm = [...th[hi].measures]
+                                  mm[mi] = { ...mm[mi], is_mandatory: e.target.checked }
+                                  th[hi] = { ...th[hi], measures: mm }
+                                  next[ti] = { ...next[ti], hazards: th }
+                                  return next
+                                })
+                              }
+                            />
+                            Påkrevd
+                          </label>
+                          <button
+                            type="button"
+                            className="text-neutral-400 hover:text-red-600"
+                            onClick={() =>
+                              setDraftTasks((prev) => {
+                                const next = [...prev]
+                                const th = [...next[ti].hazards]
+                                th[hi] = {
+                                  ...th[hi],
+                                  measures: th[hi].measures.filter((_, i) => i !== mi),
+                                }
+                                next[ti] = { ...next[ti], hazards: th }
+                                return next
+                              })
+                            }
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </li>
                       ))}
-                    </select>
+                    </ul>
                     <button
                       type="button"
-                      className="text-neutral-400 hover:text-red-600"
+                      className="mt-1 text-[10px] font-semibold text-[#1a3d32] underline"
                       onClick={() =>
                         setDraftTasks((prev) => {
                           const next = [...prev]
-                          next[ti] = {
-                            ...next[ti],
-                            hazards: next[ti].hazards.filter((_, i) => i !== hi),
-                          }
+                          const th = [...next[ti].hazards]
+                          th[hi] = { ...th[hi], measures: [...th[hi].measures, emptyMeasure()] }
+                          next[ti] = { ...next[ti], hazards: th }
                           return next
                         })
                       }
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      + Tiltak
                     </button>
                   </li>
                 ))}
@@ -587,7 +788,10 @@ function TemplateFormBody({
                     const next = [...prev]
                     next[ti] = {
                       ...next[ti],
-                      hazards: [...next[ti].hazards, { description: '', category: 'other' as SjaHazardCategory }],
+                      hazards: [
+                        ...next[ti].hazards,
+                        { description: '', category: 'other' as SjaHazardCategory, measures: [] },
+                      ],
                     }
                     return next
                   })
@@ -601,7 +805,7 @@ function TemplateFormBody({
         <button
           type="button"
           className="mt-2 text-sm font-medium text-[#1a3d32] underline"
-          onClick={() => setDraftTasks((p) => [...p, emptyTask()])}
+          onClick={() => setDraftTasks((p) => [...p, emptyTask(p.length)])}
         >
           + Deloppgave
         </button>

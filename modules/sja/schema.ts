@@ -46,14 +46,35 @@ const SjaHazardCategoryEnum = z.enum([
   'other',
 ])
 
-const PrefillHazardSchema = z.object({
+const SjaPpeKeyEnum = z.enum([
+  'helmet',
+  'safety_glasses',
+  'hearing',
+  'gloves',
+  'hi_vis',
+  'safety_shoes',
+  'fall_arrest',
+  'respirator',
+  'face_shield',
+])
+
+const SjaTemplateMeasureSchema = z.object({
   description: z.string(),
-  category: SjaHazardCategoryEnum,
+  control_type: SjaControlTypeEnum,
+  is_mandatory: z.boolean().default(false),
 })
 
-const PrefillTaskSchema = z.object({
+const SjaTemplateHazardSchema = z.object({
+  description: z.string(),
+  category: z.union([SjaHazardCategoryEnum, z.string()]).optional(),
+  measures: z.array(SjaTemplateMeasureSchema).default([]),
+})
+
+const SjaTemplateTaskSchema = z.object({
   title: z.string(),
-  hazards: z.array(PrefillHazardSchema),
+  description: z.string().optional(),
+  position: z.number().int().default(0),
+  hazards: z.array(SjaTemplateHazardSchema).default([]),
 })
 
 export const SjaTemplateSchema: z.ZodType<SjaTemplate> = z.object({
@@ -63,12 +84,13 @@ export const SjaTemplateSchema: z.ZodType<SjaTemplate> = z.object({
   job_type: SjaJobTypeEnum,
   description: z.string().nullable().default(null),
   required_certs: z.array(z.string()).nullable().default(null),
-  prefill_tasks: z.array(PrefillTaskSchema).nullable().default(null),
+  required_ppe: z.array(SjaPpeKeyEnum).nullish().default([]),
+  prefill_tasks: z.array(SjaTemplateTaskSchema).nullable().default(null),
   is_active: z.boolean(),
   created_by: UuidSchema.nullable().default(null),
   created_at: TimestampSchema,
   updated_at: TimestampSchema,
-})
+}) as z.ZodType<SjaTemplate>
 
 export const SjaAnalysisSchema: z.ZodType<SjaAnalysis> = z.object({
   id: UuidSchema,
@@ -144,5 +166,10 @@ export const SjaMeasureSchema: z.ZodType<SjaMeasure> = z.object({
   assigned_to_name: z.string().nullable().default(null),
   completed: z.boolean(),
   completed_at: TimestampSchema.nullable().default(null),
+  is_from_template: z.boolean().default(false),
+  is_mandatory: z.boolean().default(false),
+  deletion_justification: z.string().nullable().default(null),
+  deleted_at: TimestampSchema.nullable().default(null),
+  deleted_by: UuidSchema.nullable().default(null),
   created_at: TimestampSchema,
-})
+}) as z.ZodType<SjaMeasure>

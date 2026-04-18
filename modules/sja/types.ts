@@ -30,6 +30,42 @@ export type SjaHazardCategory =
   | 'dropped_object'
   | 'other'
 
+export const SJA_PPE_OPTIONS = [
+  { key: 'helmet', label: 'Hjelm' },
+  { key: 'safety_glasses', label: 'Vernebriller' },
+  { key: 'hearing', label: 'Hørselvern' },
+  { key: 'gloves', label: 'Vernehansker' },
+  { key: 'hi_vis', label: 'Refleksvest' },
+  { key: 'safety_shoes', label: 'Vernesko' },
+  { key: 'fall_arrest', label: 'Fallsikring' },
+  { key: 'respirator', label: 'Åndedrettsvern' },
+  { key: 'face_shield', label: 'Ansiktsskjerm' },
+] as const
+
+export type SjaPpeKey = (typeof SJA_PPE_OPTIONS)[number]['key']
+
+export type SjaTemplateMeasure = {
+  description: string
+  control_type: SjaControlType
+  is_mandatory: boolean
+}
+
+export type SjaTemplateHazard = {
+  description: string
+  category?: string
+  measures: SjaTemplateMeasure[]
+}
+
+export type SjaTemplateTask = {
+  title: string
+  description?: string
+  position: number
+  hazards: SjaTemplateHazard[]
+}
+
+/** @deprecated Prefer SjaTemplateTask — kept as an alias for existing imports */
+export type PrefillTask = SjaTemplateTask
+
 export type SjaTemplate = {
   id: string
   organization_id: string
@@ -37,17 +73,16 @@ export type SjaTemplate = {
   job_type: SjaJobType
   description: string | null
   required_certs: string[] | null
-  prefill_tasks: PrefillTask[] | null
+  required_ppe: SjaPpeKey[]
+  prefill_tasks: SjaTemplateTask[] | null
   is_active: boolean
   created_by: string | null
   created_at: string
   updated_at: string
 }
 
-export type PrefillTask = {
-  title: string
-  hazards: Array<{ description: string; category: SjaHazardCategory }>
-}
+/** Row shape aligned with DB + JSONB (alias of SjaTemplate) */
+export type SjaTemplateRow = SjaTemplate
 
 export type SjaAnalysis = {
   id: string
@@ -123,8 +158,16 @@ export type SjaMeasure = {
   assigned_to_name: string | null
   completed: boolean
   completed_at: string | null
+  is_from_template: boolean
+  is_mandatory: boolean
+  deletion_justification: string | null
+  deleted_at: string | null
+  deleted_by: string | null
   created_at: string
 }
+
+/** Live measure row (alias of SjaMeasure) */
+export type SjaMeasureRow = SjaMeasure
 
 export type SjaCreatePayload = {
   title: string
