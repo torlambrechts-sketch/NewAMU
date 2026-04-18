@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchAssignableUsers } from '../../src/hooks/useAssignableUsers'
+import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import type {
   SjaAnalysis,
   SjaControlType,
@@ -170,9 +171,25 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         supabase.auth.getUser(),
         fetchAssignableUsers(supabase),
       ])
-      if (analysesRes.error) throw analysesRes.error
-      if (templatesRes.error) throw templatesRes.error
-      if (locationsRes.error) throw locationsRes.error
+
+      if (analysesRes.error) {
+        const msg = getSupabaseErrorMessage(analysesRes.error)
+        const low = msg.toLowerCase()
+        if (low.includes('sja_analyses') && (low.includes('does not exist') || low.includes('schema cache') || low.includes('42p01'))) {
+          setError(
+            'SJA-tabellene finnes ikke i databasen ennå. Be administrator kjøre migrasjonen «20260720100000_sja_module.sql» i Supabase.',
+          )
+        } else {
+          setError(msg)
+        }
+        setAnalyses([])
+        setTemplates([])
+        setLocations([])
+        setAssignableUsers(assignableUsersList)
+        setCurrentUserId(authRes.data.user?.id ?? null)
+        return
+      }
+
       setCurrentUserId(authRes.data.user?.id ?? null)
 
       setAnalyses(
@@ -180,24 +197,41 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
           .map((row) => parseRow(row, SjaAnalysisSchema))
           .filter((r): r is SjaAnalysis => r !== null),
       )
-      setTemplates(
-        (templatesRes.data ?? [])
-          .map((row) => parseRow(row, SjaTemplateSchema))
-          .filter((r): r is SjaTemplate => r !== null)
-          .sort((a, b) => a.name.localeCompare(b.name, 'nb')),
-      )
-      setLocations(
-        (locationsRes.data ?? [])
-          .map((row) => {
-            const o = row as { id?: string; name?: string }
-            if (typeof o.id !== 'string' || typeof o.name !== 'string') return null
-            return { id: o.id, name: o.name }
-          })
-          .filter((r): r is SjaLocationRow => r !== null),
-      )
+
+      const warnings: string[] = []
+      if (templatesRes.error) {
+        setTemplates([])
+        warnings.push(`Maler: ${getSupabaseErrorMessage(templatesRes.error)}`)
+      } else {
+        setTemplates(
+          (templatesRes.data ?? [])
+            .map((row) => parseRow(row, SjaTemplateSchema))
+            .filter((r): r is SjaTemplate => r !== null)
+            .sort((a, b) => a.name.localeCompare(b.name, 'nb')),
+        )
+      }
+
+      if (locationsRes.error) {
+        setLocations([])
+        warnings.push(`Lokasjoner: ${getSupabaseErrorMessage(locationsRes.error)}`)
+      } else {
+        setLocations(
+          (locationsRes.data ?? [])
+            .map((row) => {
+              const o = row as { id?: string; name?: string }
+              if (typeof o.id !== 'string' || typeof o.name !== 'string') return null
+              return { id: o.id, name: o.name }
+            })
+            .filter((r): r is SjaLocationRow => r !== null),
+        )
+      }
+
       setAssignableUsers(assignableUsersList)
+      if (warnings.length > 0) {
+        setError(warnings.join(' '))
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Kunne ikke laste SJA.')
+      setError(getSupabaseErrorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -261,7 +295,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         setMeasures((prev) => [...prev.filter((x) => x.sja_id !== sjaId), ...nextM])
         setLoadedDetailIds((prev) => (prev.includes(sjaId) ? prev : [...prev, sjaId]))
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Kunne ikke laste SJA-detaljer.')
+        setError(getSupabaseErrorMessage(e))
       }
     },
     [supabase, mergeAnalysis],
