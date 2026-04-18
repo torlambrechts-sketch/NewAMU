@@ -9,7 +9,6 @@ import {
   CalendarRange,
   CalendarCheck,
   ClipboardList,
-  Clock,
   FileText,
   GraduationCap,
   HardHat,
@@ -898,13 +897,6 @@ export function AticsShell() {
 
   const topBarUtilities = (
     <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2 md:gap-3">
-      <button
-        type="button"
-        className="hidden items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[color:var(--ui-accent)] sm:flex"
-      >
-        <Clock className="size-3.5" />
-        {t('shell.upgrade')}
-      </button>
       {supabaseConfigured ? (
         <>
           <ShellCompanyBlock name={orgDisplayName} variant="topbar" />
