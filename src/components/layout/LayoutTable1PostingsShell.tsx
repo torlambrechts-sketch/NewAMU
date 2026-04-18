@@ -12,6 +12,8 @@ export type LayoutTable1PostingsShellProps = {
    */
   wrap?: boolean
   title: string
+  /** `sans` — matches module detail toolbars (no nested serif H2 on white card). Default `serif` for list/overview pages. */
+  titleTypography?: 'serif' | 'sans'
   description?: string
   /** Valgfri høyre kolonne i tittelrad (f.eks. CTA); utelates når knapper ligger utenfor */
   headerActions?: ReactNode
@@ -27,20 +29,24 @@ export type LayoutTable1PostingsShellProps = {
 export function LayoutTable1PostingsShell({
   wrap = true,
   title,
+  titleTypography = 'serif',
   description,
   headerActions,
   toolbar,
   footer,
   children,
 }: LayoutTable1PostingsShellProps) {
+  const titleClass =
+    titleTypography === 'sans'
+      ? 'text-lg font-semibold tracking-tight text-neutral-900 sm:text-xl'
+      : "text-xl font-semibold text-neutral-900"
+  const titleStyle = titleTypography === 'sans' ? undefined : ({ fontFamily: "'Libre Baskerville', Georgia, serif" } as const)
+
   const inner = (
     <>
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
         <div className="min-w-0">
-          <h2
-            className="text-xl font-semibold text-neutral-900"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-          >
+          <h2 className={titleClass} style={titleStyle}>
             {title}
           </h2>
           {description ? <p className="mt-1 text-sm text-neutral-600">{description}</p> : null}

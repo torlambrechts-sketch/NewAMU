@@ -17,10 +17,9 @@ import {
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../src/components/layout/HubMenu1Bar'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
-import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
+import { WorkplacePageHeading1, WorkplaceSerifSectionTitle } from '../../src/components/layout/WorkplacePageHeading1'
 import {
   WORKPLACE_MODULE_CANVAS_BG,
-  WORKPLACE_MODULE_CARD,
   WORKPLACE_MODULE_CARD_SHADOW,
   WORKPLACE_MODULE_FIELD,
   WORKPLACE_MODULE_SUBTLE_PANEL,
@@ -535,7 +534,10 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
       </header>
 
       <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-        <div className={`${WORKPLACE_MODULE_CARD} space-y-6 p-5 md:p-6`} style={WORKPLACE_MODULE_CARD_SHADOW}>
+        <div
+          className="space-y-6 overflow-hidden rounded-xl border border-neutral-200/80 bg-white p-5 shadow-sm md:p-6"
+          style={WORKPLACE_MODULE_CARD_SHADOW}
+        >
         {sja.error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{sja.error}</div>
         ) : null}
@@ -599,7 +601,8 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
         {activeTab === 'etterarbeid' && <EtterarbeidTab sja={sja} analysis={analysis} />}
         {activeTab === 'historikk' && supabase && (
           <LayoutTable1PostingsShell
-            wrap
+            wrap={false}
+            titleTypography="sans"
             title="Historikk"
             description="Endringer loggført for denne SJA-en."
             toolbar={<span className="text-sm text-neutral-600">Revisjonsspor</span>}
@@ -665,7 +668,7 @@ function SignaturerTab({
         </p>
       </div>
 
-      <div className="space-y-1.5 rounded-xl border border-neutral-200 bg-white p-4">
+      <div className={`space-y-1.5 ${WORKPLACE_MODULE_SUBTLE_PANEL}`} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
         <p className={PANEL_LABEL}>Sjekkliste før signering</p>
         {[
           { ok: tasksOk, label: 'Alle deloppgaver har definerte farekilder' },
@@ -693,7 +696,7 @@ function SignaturerTab({
 
       <div className="space-y-3">
         {detail.participants.map((p) => (
-          <div key={p.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <div key={p.id} className={`${WORKPLACE_MODULE_SUBTLE_PANEL}`} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="font-semibold text-neutral-900">{p.name}</p>
@@ -810,7 +813,7 @@ function EtterarbeidTab({
 
   if (!interactive && !debriefDone) {
     return (
-      <div className="space-y-4 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <div className="space-y-4">
         <div className="rounded border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
           Etterarbeid (debrief) låses opp når SJA er merket som <strong>fullført</strong>. Gå til Grunnlag og fullfør
           utførelsen først.
@@ -823,7 +826,7 @@ function EtterarbeidTab({
 
   if (debriefDone) {
     return (
-      <div className="space-y-4 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <div className="space-y-4">
         <div className={WORKPLACE_MODULE_SUBTLE_PANEL} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
           <p className="text-xs font-semibold text-neutral-700">IK-forskriften § 5</p>
           <p className="mt-1 text-xs text-neutral-600">
@@ -861,7 +864,7 @@ function EtterarbeidTab({
   }
 
   return (
-    <div className="space-y-6 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+    <div className="space-y-6">
       <div className={WORKPLACE_MODULE_SUBTLE_PANEL} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
         <p className="text-xs font-semibold text-neutral-700">IK-forskriften § 5</p>
         <p className="mt-1 text-xs text-neutral-600">
@@ -954,9 +957,9 @@ function DebriefFormFields({
 
 function PlaceholderTab({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-neutral-900">{title}</h2>
-      <p className="mt-2 text-sm text-neutral-600">{body}</p>
+    <div className="space-y-2">
+      <WorkplaceSerifSectionTitle variant="compact">{title}</WorkplaceSerifSectionTitle>
+      <p className="text-sm text-neutral-600">{body}</p>
     </div>
   )
 }
@@ -997,7 +1000,7 @@ function GrunnlagTab({
   setStopReasonDraft: (v: string) => void
 }) {
   return (
-    <div className="space-y-8 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm md:p-8">
+    <div className="space-y-8">
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div>
           <label className={PANEL_LABEL}>Tittel</label>
@@ -1387,7 +1390,7 @@ function DeltakereTab({
         4-2 og § 7-2).
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-lg border border-neutral-200/80">
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-neutral-200 bg-neutral-50 text-xs font-semibold uppercase text-neutral-600">
             <tr>

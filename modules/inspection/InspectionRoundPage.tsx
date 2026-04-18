@@ -16,6 +16,12 @@ import {
 } from 'lucide-react'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import { HubMenu1Bar, type HubMenu1Item } from '../../src/components/layout/HubMenu1Bar'
+import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
+import {
+  WORKPLACE_MODULE_CANVAS_BG,
+  WORKPLACE_MODULE_CARD,
+  WORKPLACE_MODULE_CARD_SHADOW,
+} from '../../src/components/layout/workplaceModuleSurface'
 import type { HmsCategory, InspectionChecklistItem, InspectionRoundRow } from './types'
 import { parseChecklistItems } from './schema'
 import { useInspectionModule, type InspectionModuleState } from './useInspectionModule'
@@ -196,17 +202,17 @@ function ChecklistTab({
           onSaveResponse={handleSaveResponse}
           activationBanner={
             isDraft ? (
-              <div className="flex items-center justify-between gap-4 border-b border-amber-200 bg-amber-50 px-5 py-3">
+              <div className="mx-5 mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3">
                 <div>
                   <p className="text-sm font-medium text-amber-800">Runden er i kladd-modus</p>
-                  <p className="mt-0.5 text-xs text-amber-600">Aktiver runden for å begynne gjennomføringen.</p>
+                  <p className="mt-0.5 text-xs text-amber-700/90">Aktiver runden for å begynne gjennomføringen.</p>
                 </div>
                 <button
                   type="button"
                   onClick={() =>
                     void inspection.updateRoundSchedule({ roundId: round.id, status: 'active' })
                   }
-                  className="shrink-0 rounded px-3 py-1.5 text-xs font-semibold text-white"
+                  className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-white"
                   style={{ backgroundColor: '#1a3d32' }}
                 >
                   Aktiver runden
@@ -936,7 +942,10 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
 
   if (!roundId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5f4f0] text-sm text-neutral-600">
+      <div
+        className="flex min-h-screen items-center justify-center text-sm text-neutral-600"
+        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
+      >
         Mangler runde-ID.
       </div>
     )
@@ -944,7 +953,10 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
 
   if (showSpinner) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#f5f4f0]">
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-3"
+        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
+      >
         <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden />
         <p className="text-sm text-neutral-600">Laster runde…</p>
       </div>
@@ -953,7 +965,10 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
 
   if (showNotFound) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#f5f4f0] px-4">
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-4 px-4"
+        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
+      >
         <p className="text-lg font-semibold text-neutral-900">Runde ikke funnet</p>
         <button
           type="button"
@@ -968,7 +983,10 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
 
   if (!round) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#f5f4f0]">
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-3"
+        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
+      >
         <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden />
         <p className="text-sm text-neutral-600">Laster runde…</p>
       </div>
@@ -976,125 +994,133 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f4f0]">
-      <header className="sticky top-0 z-30 border-b border-neutral-200/90 bg-[#f5f4f0]/95 backdrop-blur-sm">
-        <div className="mx-auto max-w-[1400px] space-y-3 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <button
-                type="button"
-                onClick={() => navigate('/inspection-module')}
-                className="shrink-0 text-sm font-medium text-neutral-600 hover:text-neutral-900"
-              >
-                ← Inspeksjon
-              </button>
-              <h1
-                className="min-w-0 truncate text-xl font-semibold text-neutral-900 md:text-2xl"
-                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-              >
-                {round.title}
-              </h1>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-semibold text-neutral-800">
-                {STATUS_LABEL[round.status]}
-              </span>
-              <Link
-                to="/inspection-module/admin"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
-              >
-                <Settings className="h-4 w-4" aria-hidden />
-                <span className="hidden sm:inline">Admin</span>
-              </Link>
-            </div>
-          </div>
-          <p className="text-xs leading-relaxed text-neutral-500">{headerSubtitle}</p>
-          <HubMenu1Bar ariaLabel="Runde-seksjoner" items={hubMenuItems} />
+    <div className="min-h-screen" style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}>
+      <header className="sticky top-0 z-30 border-b border-neutral-200/80 bg-[#F9F7F2]/95 backdrop-blur-sm">
+        <div className="mx-auto max-w-[1400px] px-4 pb-4 pt-4 md:px-8">
+          <WorkplacePageHeading1
+            breadcrumb={[
+              { label: 'HMS' },
+              { label: 'Inspeksjonsrunder', to: '/inspection-module' },
+              { label: round.title },
+            ]}
+            title={round.title}
+            description={<p className="max-w-4xl text-xs leading-relaxed text-neutral-600">{headerSubtitle}</p>}
+            headerActions={
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-semibold text-neutral-800 shadow-sm">
+                  {STATUS_LABEL[round.status]}
+                </span>
+                <Link
+                  to="/inspection-module/admin"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 shadow-sm hover:bg-neutral-50"
+                >
+                  <Settings className="h-4 w-4" aria-hidden />
+                  <span className="hidden sm:inline">Admin</span>
+                </Link>
+              </div>
+            }
+            menu={<HubMenu1Bar ariaLabel="Runde-seksjoner" items={hubMenuItems} />}
+          />
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1400px] space-y-6 py-6">
+      <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
         {activeTab === 'checklist' && (
-          <LayoutTable1PostingsShell
-            wrap
-            title="Sjekkliste"
-            description="Svar på punktene under — «Nei» gir mulighet til å registrere avvik og hoppe til fanen Avvik."
-            headerActions={
-              critCount > 0 ? (
-                <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
-                  {critCount} kritisk
+          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
+            <LayoutTable1PostingsShell
+              wrap={false}
+              titleTypography="sans"
+              title="Sjekkliste"
+              description="Svar på punktene under — «Nei» gir mulighet til å registrere avvik og hoppe til fanen Avvik."
+              headerActions={
+                critCount > 0 ? (
+                  <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+                    {critCount} kritisk
+                  </span>
+                ) : undefined
+              }
+              toolbar={<span className="text-sm text-neutral-600">Punkter fra malen · lagring skjer ved svar</span>}
+              footer={
+                <span className="text-neutral-500">
+                  {itemsAnswered} av {checklistItems.length} punkter besvart
                 </span>
-              ) : undefined
-            }
-            toolbar={<span className="text-sm text-neutral-600">Punkter fra malen · lagring skjer ved svar</span>}
-            footer={
-              <span className="text-neutral-500">
-                {itemsAnswered} av {checklistItems.length} punkter besvart
-              </span>
-            }
-          >
-            <ChecklistTab
-              round={round}
-              checklistItems={checklistItems}
-              inspection={inspection}
-              onSwitchToFindings={(key) => {
-                setFindingPrefillKey(key)
-                setActiveTab('findings')
-              }}
-            />
-          </LayoutTable1PostingsShell>
+              }
+            >
+              <ChecklistTab
+                round={round}
+                checklistItems={checklistItems}
+                inspection={inspection}
+                onSwitchToFindings={(key) => {
+                  setFindingPrefillKey(key)
+                  setActiveTab('findings')
+                }}
+              />
+            </LayoutTable1PostingsShell>
+          </div>
         )}
 
         {activeTab === 'findings' && (
-          <LayoutTable1PostingsShell
-            wrap
-            title={TAB_LABELS.findings}
-            description="Registrer observasjoner og opprett avvik der risikoen krever det."
-            toolbar={<span className="text-sm text-neutral-600">Tilknytt sjekklistepunkt ved behov</span>}
-            footer={findings.length > 0 ? <span>{findings.length} avvik</span> : null}
-          >
-            <FindingsTab
-              key={`${round.id}-${findingPrefillKey ?? ''}`}
-              round={round}
-              inspection={inspection}
-              prefillItemKey={findingPrefillKey}
-              checklistItems={checklistItems}
-              onOpenDeviation={(id) => setSelectedDeviationId(id)}
-            />
-          </LayoutTable1PostingsShell>
+          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
+            <LayoutTable1PostingsShell
+              wrap={false}
+              titleTypography="sans"
+              title={TAB_LABELS.findings}
+              description="Registrer observasjoner og opprett avvik der risikoen krever det."
+              toolbar={<span className="text-sm text-neutral-600">Tilknytt sjekklistepunkt ved behov</span>}
+              footer={findings.length > 0 ? <span>{findings.length} avvik</span> : null}
+            >
+              <FindingsTab
+                key={`${round.id}-${findingPrefillKey ?? ''}`}
+                round={round}
+                inspection={inspection}
+                prefillItemKey={findingPrefillKey}
+                checklistItems={checklistItems}
+                onOpenDeviation={(id) => setSelectedDeviationId(id)}
+              />
+            </LayoutTable1PostingsShell>
+          </div>
         )}
 
         {activeTab === 'summary' && (
-          <LayoutTable1PostingsShell
-            wrap
-            title={TAB_LABELS.summary}
-            description="Skriftlig protokoll for runden."
-            toolbar={<span className="text-sm text-neutral-600">Påkrevd før signering</span>}
-          >
-            <SummaryTab key={`${round.id}-${round.updated_at}`} round={round} inspection={inspection} />
-          </LayoutTable1PostingsShell>
+          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
+            <LayoutTable1PostingsShell
+              wrap={false}
+              titleTypography="sans"
+              title={TAB_LABELS.summary}
+              description="Skriftlig protokoll for runden."
+              toolbar={<span className="text-sm text-neutral-600">Påkrevd før signering</span>}
+            >
+              <SummaryTab key={`${round.id}-${round.updated_at}`} round={round} inspection={inspection} />
+            </LayoutTable1PostingsShell>
+          </div>
         )}
 
         {activeTab === 'signatures' && (
-          <LayoutTable1PostingsShell
-            wrap
-            title={TAB_LABELS.signatures}
-            description="Dobbel signering — leder og verneombud."
-            toolbar={<span className="text-sm text-neutral-600">IK-forskriften § 5</span>}
-          >
-            <SignaturesTab round={round} inspection={inspection} checklistItems={checklistItems} />
-          </LayoutTable1PostingsShell>
+          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
+            <LayoutTable1PostingsShell
+              wrap={false}
+              titleTypography="sans"
+              title={TAB_LABELS.signatures}
+              description="Dobbel signering — leder og verneombud."
+              toolbar={<span className="text-sm text-neutral-600">IK-forskriften § 5</span>}
+            >
+              <SignaturesTab round={round} inspection={inspection} checklistItems={checklistItems} />
+            </LayoutTable1PostingsShell>
+          </div>
         )}
 
         {activeTab === 'history' && supabase && (
-          <LayoutTable1PostingsShell
-            wrap
-            title={TAB_LABELS.history}
-            description="Endringer loggført for denne runden."
-            toolbar={<span className="text-sm text-neutral-600">Revisjonsspor</span>}
-          >
-            <HseAuditLogViewer supabase={supabase} recordId={round.id} tableName="inspection_rounds" />
-          </LayoutTable1PostingsShell>
+          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
+            <LayoutTable1PostingsShell
+              wrap={false}
+              titleTypography="sans"
+              title={TAB_LABELS.history}
+              description="Endringer loggført for denne runden."
+              toolbar={<span className="text-sm text-neutral-600">Revisjonsspor</span>}
+            >
+              <HseAuditLogViewer supabase={supabase} recordId={round.id} tableName="inspection_rounds" />
+            </LayoutTable1PostingsShell>
+          </div>
         )}
       </div>
 
