@@ -1,5 +1,5 @@
 /**
- * Reads supabase/seed-data/wiki-seed.json and writes supabase/migrations/20260412120001_wiki_seed_data.sql
+ * Reads supabase/seed-data/wiki-seed.json and writes supabase/migrations/archive/20260412120001_wiki_seed_data.sql
  * Run: npx tsx scripts/generate-wiki-seed-sql.ts
  */
 import { readFileSync, writeFileSync } from 'fs'
@@ -48,6 +48,6 @@ for (const t of seed.pageTemplates) {
   )
 }
 
-const out = join(root, 'supabase/migrations/20260412120001_wiki_seed_data.sql')
+const out = join(root, 'supabase/migrations/archive/20260412120001_wiki_seed_data.sql')
 writeFileSync(out, lines.join('\n') + '\n', 'utf8')
 console.log('Wrote', out, `(${lines.length} statements)`)

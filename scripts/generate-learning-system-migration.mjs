@@ -1,5 +1,5 @@
 /**
- * Generates supabase/migrations/*_learning_system_catalog.sql with embedded AML JSON.
+ * Generates supabase/migrations/archive/*_learning_system_catalog.sql with embedded AML JSON.
  * Run: node scripts/generate-learning-system-migration.mjs
  */
 import { readFileSync, writeFileSync } from 'fs'
@@ -9,7 +9,7 @@ import { dirname, join } from 'path'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
 const jsonPath = join(root, 'supabase/seed-data/aml-system-course.json')
-const outPath = join(root, 'supabase/migrations/20260408120000_learning_system_catalog.sql')
+const outPath = join(root, 'supabase/migrations/archive/20260408120000_learning_system_catalog.sql')
 
 const raw = readFileSync(jsonPath, 'utf8')
 // Validate JSON
