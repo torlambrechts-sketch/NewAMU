@@ -476,6 +476,7 @@ const navGroups: NavGroup[] = [
         icon: ShieldAlert,
         subs: [],
         perm: 'module.view.hse',
+        moduleSlug: 'ros',
       },
       {
         to: '/internkontroll',

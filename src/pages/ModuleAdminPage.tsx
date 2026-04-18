@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Users,
   UsersRound,
+  ShieldAlert,
   Workflow,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -37,6 +38,7 @@ type KnownModule = {
 
 const KNOWN_MODULES: KnownModule[] = [
   { slug: 'hse', label: 'HMS & Vernerunder', description: 'Helse, miljø og sikkerhet etter AML og IK-forskriften', icon: HardHat },
+  { slug: 'ros', label: 'ROS-analyser', description: 'Risikovurdering og oppfølging (IK-forskriften § 5 nr. 6)', icon: ShieldAlert },
   { slug: 'inspection', label: 'Inspeksjonsrunder', description: 'Systematiske vernerunder med digitale sjekklister', icon: ClipboardList },
   { slug: 'internal-control', label: 'Internkontroll', description: 'Risikostyring og IK-dokumentasjon', icon: ShieldCheck },
   { slug: 'council', label: 'AMU / Arbeidsmiljøutvalg', description: 'Møtereferat, vedtak og representanter', icon: UsersRound },

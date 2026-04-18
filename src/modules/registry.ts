@@ -196,6 +196,15 @@ const REGISTRY: Record<string, ModuleRegistryEntry> = {
       defaultCronExpression: z.string().optional(),
     }),
   },
+
+  ros: {
+    slug: 'ros',
+    displayName: 'ROS-analyser',
+    component: lazy(() =>
+      import('../pages/RosModulePage').then((m) => ({ default: m.RosModulePage })),
+    ),
+    configSchema: baseConfig,
+  },
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
