@@ -177,7 +177,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         const low = msg.toLowerCase()
         if (low.includes('sja_analyses') && (low.includes('does not exist') || low.includes('schema cache') || low.includes('42p01'))) {
           setError(
-            'SJA-tabellene finnes ikke i databasen ennå. Be administrator kjøre migrasjonen «20260720100000_sja_module.sql» i Supabase.',
+            'SJA-tabellene finnes ikke i databasen ennå. Be administrator kjøre migrasjonen «supabase/migrations/archive/20260720100000_sja_module.sql» (f.eks. via npm run db:migrate eller SQL Editor).',
           )
         } else {
           setError(msg)
