@@ -810,8 +810,6 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         description: finding.description,
         severity: finding.severity,
         status: 'rapportert' as const,
-        risk_probability: finding.risk_probability,
-        risk_consequence: finding.risk_consequence,
       }
       const { data: devRow, error: devErr } = await supabase
         .from('deviations')
