@@ -78,6 +78,13 @@ const workflowConfig = baseConfig.extend({
   visibleTriggers: z.array(z.string()).optional(),
 })
 
+const surveyConfig = baseConfig.extend({
+  defaultPillar: z.enum(['psychosocial', 'physical', 'organization', 'safety_culture', 'custom']).optional(),
+  anonymityThreshold: z.number().int().min(1).optional(),
+  actionThreshold: z.number().int().min(0).max(100).optional(),
+  recurrenceMonths: z.number().int().optional(),
+})
+
 // ── Registry ──────────────────────────────────────────────────────────────
 
 const REGISTRY: Record<string, ModuleRegistryEntry> = {
@@ -204,6 +211,15 @@ const REGISTRY: Record<string, ModuleRegistryEntry> = {
       import('../pages/RosModulePage').then((m) => ({ default: m.RosModulePage })),
     ),
     configSchema: baseConfig,
+  },
+
+  survey: {
+    slug: 'survey',
+    displayName: 'Organisasjonsundersøkelse',
+    component: lazy(() =>
+      import('../pages/SurveyModulePage').then((m) => ({ default: m.SurveyModulePage })),
+    ),
+    configSchema: surveyConfig,
   },
 }
 

@@ -9,6 +9,8 @@ export const PERMISSION_KEYS = [
   'module.view.members',
   'module.view.org_health',
   'module.view.hse',
+  /** Organisasjonsundersøkelser (QPSNordic/ARK, AMU, tiltak) */
+  'module.view.survey',
   'module.view.inspection',
   'module.view.internal_control',
   /** Redigere IK-tabeller (lovregister, roller, kompetanse, mål, tiltak) */
@@ -55,6 +57,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'module.view.members': 'Members',
   'module.view.org_health': 'Org health',
   'module.view.hse': 'HSE',
+  'module.view.survey': 'Organisasjonsundersøkelse',
   'module.view.inspection': 'Inspeksjonsmodul',
   'module.view.internal_control': 'Internkontroll',
   'internkontroll.manage': 'Internkontroll — redigere data',
@@ -86,6 +89,7 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/hse', permission: 'module.view.hse' },
   { pathPrefix: '/sja', permission: 'module.view.hse' },
   { pathPrefix: '/ros', permission: 'module.view.hse' },
+  { pathPrefix: '/survey', permission: 'module.view.survey' },
   { pathPrefix: '/inspection-module', permission: 'module.view.inspection' },
   { pathPrefix: '/internal-control', permission: 'module.view.internal_control' },
   { pathPrefix: '/internkontroll', permission: 'module.view.internal_control' },
