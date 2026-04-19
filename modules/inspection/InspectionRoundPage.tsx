@@ -33,7 +33,7 @@ import { RiskMatrix, riskLabel, riskScoreFromProbCons } from '../../src/componen
 import { Badge, type BadgeVariant } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
 import { ComplianceBanner } from '../../src/components/ui/ComplianceBanner'
-import { StandardInput, standardFieldClassName } from '../../src/components/ui/Input'
+import { StandardInput } from '../../src/components/ui/Input'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { StandardTextarea } from '../../src/components/ui/Textarea'
 
