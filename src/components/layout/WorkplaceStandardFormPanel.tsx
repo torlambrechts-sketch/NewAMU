@@ -18,6 +18,10 @@ export const WPSTD_FORM_INPUT =
 
 export const WPSTD_FORM_INPUT_ON_WHITE = `${WPSTD_FORM_INPUT} bg-white`
 
+/** Rounded-md + gray border + brand focus ring — matches inspection create/edit forms. */
+export const WPSTD_FORM_INPUT_GRAY =
+  'w-full border border-gray-300 rounded-md bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-all focus:border-transparent focus:ring-2 focus:ring-[#1a3d32]'
+
 export type WorkplaceStandardFormPanelProps = {
   open: boolean
   onClose: () => void

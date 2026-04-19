@@ -2,19 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Circle, Info, Search } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
+  WPSTD_FORM_INPUT_GRAY,
   WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { RecurrencePicker } from '../../src/components/hse/RecurrencePicker'
-
-// ─── Local style tokens ───────────────────────────────────────────────────────
-// White bg + brand-green focus ring — matches Pinpoint HR screenshot style
-const GRN = '#1a3d32'
-
-const FIELD_INPUT =
-  'w-full border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 ' +
-  'placeholder:text-neutral-400 outline-none transition-colors ' +
-  'focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -141,16 +133,15 @@ function YesNoToggle({
   value: boolean | null
   onChange: (val: boolean) => void
 }) {
-  const active = { backgroundColor: GRN, color: 'white' }
-  const idle = { backgroundColor: 'white', color: '#9ca3af' }
+  const active = 'bg-[#1a3d32] text-white'
+  const idle = 'bg-white text-neutral-400'
 
   return (
     <div className="mt-1.5 flex w-full overflow-hidden border border-neutral-300">
       <button
         type="button"
         onClick={() => onChange(true)}
-        style={value === true ? active : idle}
-        className="flex flex-1 items-center justify-center gap-2.5 px-4 py-3 text-sm font-medium transition-colors"
+        className={`flex flex-1 items-center justify-center gap-2.5 px-4 py-3 text-sm font-medium transition-colors ${value === true ? active : idle}`}
       >
         {value === true
           ? <CheckCircle2 className="h-[18px] w-[18px] shrink-0" />
@@ -160,8 +151,7 @@ function YesNoToggle({
       <button
         type="button"
         onClick={() => onChange(false)}
-        style={value === false ? active : idle}
-        className="flex flex-1 items-center justify-center gap-2.5 border-l border-neutral-300 px-4 py-3 text-sm font-medium transition-colors"
+        className={`flex flex-1 items-center justify-center gap-2.5 border-l border-neutral-300 px-4 py-3 text-sm font-medium transition-colors ${value === false ? active : idle}`}
       >
         {value === false
           ? <CheckCircle2 className="h-[18px] w-[18px] shrink-0" />
@@ -346,8 +336,7 @@ export function InspeksjonsrunderCreateForm({
             value={form.title}
             onChange={(e) => onChange({ ...form, title: e.target.value })}
             placeholder="F.eks. Q1 vernerunde produksjonshall"
-            className={FIELD_INPUT}
-            style={{ marginTop: '6px' }}
+            className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
           />
         </div>
       </div>
@@ -418,8 +407,7 @@ export function InspeksjonsrunderCreateForm({
             type="datetime-local"
             value={form.scheduledFor}
             onChange={(e) => onChange({ ...form, scheduledFor: e.target.value })}
-            className={FIELD_INPUT}
-            style={{ marginTop: '6px' }}
+            className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
           />
         </div>
       </div>
@@ -432,16 +420,25 @@ export function InspeksjonsrunderCreateForm({
         <div>
           <p className={WPSTD_FORM_FIELD_LABEL}>Gjentakelse</p>
           <YesNoToggle value={recurrenceChoice} onChange={handleRecurrenceToggle} />
-          {recurrenceChoice === true && (
-            <div className="mt-3">
+        </div>
+      </div>
+
+      {recurrenceChoice === true && (
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <p className={WPSTD_FORM_LEAD}>
+            Velg frekvens, ukedag (ved ukentlig mønster) og klokkeslett for planlagt gjentakelse.
+          </p>
+          <div>
+            <p className={WPSTD_FORM_FIELD_LABEL}>Frekvens</p>
+            <div className="mt-1.5">
               <RecurrencePicker
                 value={form.cronExpression}
                 onChange={(cron) => onChange({ ...form, cronExpression: cron })}
               />
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Info ───────────────────────────────────────────────────────────── */}
       <div className="border-t border-neutral-200 px-4 py-4 md:px-5">

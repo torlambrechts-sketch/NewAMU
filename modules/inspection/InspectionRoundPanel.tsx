@@ -4,14 +4,13 @@ import { X } from 'lucide-react'
 import { supabase } from '../../src/lib/supabaseClient'
 import {
   WPSTD_FORM_FIELD_LABEL,
+  WPSTD_FORM_INPUT_GRAY,
   WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
+import { RecurrencePicker } from '../../src/components/hse/RecurrencePicker'
 import { fetchAssignableUsers, type AssignableUser } from '../../src/hooks/useAssignableUsers'
 import type { InspectionLocationRow, InspectionRoundRow, InspectionRoundStatus } from './types'
-
-const WPSTD_FORM_INPUT =
-  'w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-[#1a3d32] focus:border-transparent outline-none transition-all'
 
 type InspectionRoundPanelProps = {
   inspectionId: string
@@ -133,57 +132,54 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
         <div className="mx-6 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-0 py-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-0 py-0">
         {!round ? (
-          <p className="px-6 text-sm text-neutral-600">Ingen data.</p>
+          <p className="px-6 py-6 text-sm text-neutral-600">Ingen data.</p>
         ) : (
-          <>
-            <p className={`${WPSTD_FORM_LEAD} px-6 pb-4`}>
-              Oppdater runden direkte i databasen. Endringer lagres ved hver endring.
-            </p>
-
-            <div className="border-y border-neutral-200 bg-white">
-              <div className={WPSTD_FORM_ROW_GRID}>
-                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="panel-round-title">
-                  Tittel
-                </label>
+          <div className="border-y border-neutral-200 bg-white">
+            <div className={WPSTD_FORM_ROW_GRID}>
+              <p className={WPSTD_FORM_LEAD}>Oppdater runden direkte i databasen. Endringer lagres ved hver endring.</p>
+              <div>
+                <p className={WPSTD_FORM_FIELD_LABEL}>Tittel</p>
                 <input
                   id="panel-round-title"
                   type="text"
                   value={round.title}
                   onChange={(e) => void handleUpdate({ title: e.target.value })}
-                  className={WPSTD_FORM_INPUT}
+                  className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
                   placeholder="F.eks. Månedlig vernerunde"
                 />
               </div>
+            </div>
 
-              <div className={WPSTD_FORM_ROW_GRID}>
-                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="panel-round-status">
-                  Status
-                </label>
+            <div className={WPSTD_FORM_ROW_GRID}>
+              <p className={WPSTD_FORM_LEAD}>Status for inspeksjonsrunden.</p>
+              <div>
+                <p className={WPSTD_FORM_FIELD_LABEL}>Status</p>
                 <select
                   id="panel-round-status"
                   value={round.status}
                   onChange={(e) => void handleUpdate({ status: e.target.value as InspectionRoundStatus })}
-                  className={WPSTD_FORM_INPUT}
+                  className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
                 >
                   <option value="draft">Kladd</option>
                   <option value="active">Aktiv</option>
                   <option value="signed">Signert</option>
                 </select>
               </div>
+            </div>
 
-              <div className={WPSTD_FORM_ROW_GRID}>
-                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="panel-round-location">
-                  Lokasjon
-                </label>
+            <div className={WPSTD_FORM_ROW_GRID}>
+              <p className={WPSTD_FORM_LEAD}>Hvor gjennomføres runden?</p>
+              <div>
+                <p className={WPSTD_FORM_FIELD_LABEL}>Lokasjon</p>
                 <select
                   id="panel-round-location"
                   value={round.location_id ?? ''}
                   onChange={(e) =>
                     void handleUpdate({ location_id: e.target.value ? e.target.value : null })
                   }
-                  className={WPSTD_FORM_INPUT}
+                  className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
                 >
                   <option value="">(Ingen)</option>
                   {locations.map((loc) => (
@@ -193,18 +189,19 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                   ))}
                 </select>
               </div>
+            </div>
 
-              <div className={WPSTD_FORM_ROW_GRID}>
-                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="panel-round-assigned">
-                  Ansvarlig
-                </label>
+            <div className={WPSTD_FORM_ROW_GRID}>
+              <p className={WPSTD_FORM_LEAD}>Hvem er ansvarlig for gjennomføringen?</p>
+              <div>
+                <p className={WPSTD_FORM_FIELD_LABEL}>Ansvarlig</p>
                 <select
                   id="panel-round-assigned"
                   value={round.assigned_to ?? ''}
                   onChange={(e) =>
                     void handleUpdate({ assigned_to: e.target.value ? e.target.value : null })
                   }
-                  className={WPSTD_FORM_INPUT}
+                  className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
                 >
                   <option value="">(Ingen)</option>
                   {assignableUsers.map((u) => (
@@ -214,11 +211,12 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                   ))}
                 </select>
               </div>
+            </div>
 
-              <div className={WPSTD_FORM_ROW_GRID}>
-                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="panel-round-scheduled">
-                  Planlagt tidspunkt
-                </label>
+            <div className={WPSTD_FORM_ROW_GRID}>
+              <p className={WPSTD_FORM_LEAD}>Planlagt dato og tid for gjennomføringen.</p>
+              <div>
+                <p className={WPSTD_FORM_FIELD_LABEL}>Planlagt tidspunkt</p>
                 <input
                   id="panel-round-scheduled"
                   type="datetime-local"
@@ -229,11 +227,24 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                       scheduled_for: v ? new Date(v).toISOString() : null,
                     })
                   }}
-                  className={WPSTD_FORM_INPUT}
+                  className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
                 />
               </div>
             </div>
-          </>
+
+            <div className={WPSTD_FORM_ROW_GRID}>
+              <p className={WPSTD_FORM_LEAD}>Planlegg gjentakelse med cron-uttrykk (valgfritt).</p>
+              <div>
+                <p className={WPSTD_FORM_FIELD_LABEL}>Gjentakelse</p>
+                <div className="mt-1.5">
+                  <RecurrencePicker
+                    value={round.cron_expression ?? ''}
+                    onChange={(cron) => void handleUpdate({ cron_expression: cron || null })}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 

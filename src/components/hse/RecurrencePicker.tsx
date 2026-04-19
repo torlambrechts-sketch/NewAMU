@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_INPUT_GRAY } from '../layout/WorkplaceStandardFormPanel'
 
 export type RecurrenceFreq = 'none' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
 
@@ -55,7 +56,16 @@ export function recurrenceLabel(cron: string): string {
   return cron
 }
 
-export function RecurrencePicker({ value, onChange }: { value: string; onChange: (cron: string) => void }) {
+export function RecurrencePicker({
+  value,
+  onChange,
+  inputClassName = WPSTD_FORM_INPUT_GRAY,
+}: {
+  value: string
+  onChange: (cron: string) => void
+  /** Applied to every native select and the time input (inspection module standard). */
+  inputClassName?: string
+}) {
   const [state, setState] = useState<RecurrenceState>(() => parseCron(value))
 
   function update(next: RecurrenceState) {
@@ -69,12 +79,12 @@ export function RecurrencePicker({ value, onChange }: { value: string; onChange:
   return (
     <div className="space-y-2">
       <div className="grid gap-2 sm:grid-cols-2">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-xs text-neutral-500">Frekvens</span>
+        <label className="flex flex-col gap-1">
+          <span className={WPSTD_FORM_FIELD_LABEL}>Frekvens</span>
           <select
             value={state.freq}
             onChange={(e) => update({ ...state, freq: e.target.value as RecurrenceFreq })}
-            className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            className={inputClassName}
           >
             {(Object.keys(FREQ_LABELS) as RecurrenceFreq[]).map((f) => (
               <option key={f} value={f}>
@@ -85,12 +95,12 @@ export function RecurrencePicker({ value, onChange }: { value: string; onChange:
         </label>
 
         {needsDay && (
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-xs text-neutral-500">Ukedag</span>
+          <label className="flex flex-col gap-1">
+            <span className={WPSTD_FORM_FIELD_LABEL}>Ukedag</span>
             <select
               value={state.weekday}
               onChange={(e) => update({ ...state, weekday: Number(e.target.value) })}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              className={inputClassName}
             >
               {WEEKDAYS.map((d, i) => (
                 <option key={d} value={i}>
@@ -102,8 +112,8 @@ export function RecurrencePicker({ value, onChange }: { value: string; onChange:
         )}
 
         {state.freq !== 'none' && (
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-xs text-neutral-500">Klokkeslett</span>
+          <label className="flex flex-col gap-1">
+            <span className={WPSTD_FORM_FIELD_LABEL}>Klokkeslett</span>
             <input
               type="time"
               value={`${String(state.hour).padStart(2, '0')}:${String(state.minute).padStart(2, '0')}`}
@@ -111,7 +121,7 @@ export function RecurrencePicker({ value, onChange }: { value: string; onChange:
                 const [h, m] = e.target.value.split(':').map(Number)
                 update({ ...state, hour: h ?? 7, minute: m ?? 0 })
               }}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              className={inputClassName}
             />
           </label>
         )}
