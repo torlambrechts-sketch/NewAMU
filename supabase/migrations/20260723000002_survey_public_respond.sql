@@ -1,4 +1,15 @@
 -- Anonymous survey response: read questions + open campaign; insert responses (no auth)
+-- Requires 20260723000000_survey_module_core.sql (creates survey_* tables). Apply migrations
+-- in filename order, or run the core migration before this file in the SQL editor.
+do $survey_public_prereq$
+begin
+  if to_regclass('public.survey_questions') is null then
+    raise exception
+      'public.survey_questions does not exist. Run migration 20260723000000_survey_module_core.sql first (survey tables must exist before anonymous policies).';
+  end if;
+end
+$survey_public_prereq$;
+
 grant usage on schema public to anon;
 
 grant select on public.survey_questions to anon;
