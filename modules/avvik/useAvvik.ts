@@ -79,8 +79,6 @@ export function useAvvik({ supabase }: Input): AvvikModuleState {
         source_id: payload.sourceId ?? null,
         due_at: normalizeDate(payload.dueAt),
         assigned_to: payload.assignedTo ?? null,
-        risk_probability: payload.riskProbability ?? null,
-        risk_consequence: payload.riskConsequence ?? null,
       }
       const { data, error: err } = await supabase
         .from('deviations')
@@ -108,8 +106,6 @@ export function useAvvik({ supabase }: Input): AvvikModuleState {
       if (payload.dueAt !== undefined) row.due_at = normalizeDate(payload.dueAt)
       if (payload.assignedTo !== undefined) row.assigned_to = payload.assignedTo || null
       if (payload.rootCauseAnalysis !== undefined) row.root_cause_analysis = payload.rootCauseAnalysis || null
-      if (payload.riskProbability !== undefined) row.risk_probability = payload.riskProbability
-      if (payload.riskConsequence !== undefined) row.risk_consequence = payload.riskConsequence
 
       const { data, error: err } = await supabase
         .from('deviations')

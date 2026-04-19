@@ -18,9 +18,9 @@ export type DeviationRow = {
   description: string
   severity: 'low' | 'medium' | 'high' | 'critical'
   status: 'rapportert' | 'under_behandling' | 'tiltak_iverksatt' | 'lukket'
-  risk_probability: number | null
-  risk_consequence: number | null
-  risk_score: number | null
+  risk_probability?: number | null
+  risk_consequence?: number | null
+  risk_score?: number | null
   root_cause_analysis: string | null
   is_recurring: boolean
   recurrence_notes: string | null
@@ -237,18 +237,8 @@ export function DeviationPanel({ deviationId, supabase, onClose, onUpdated }: De
     void loadAll()
   }
 
-  async function saveRisk(p: number, c: number) {
-    if (!supabase || !deviation || deviation.status === 'lukket') return
-    const { error: err } = await supabase
-      .from('deviations')
-      .update({ risk_probability: p, risk_consequence: c })
-      .eq('id', deviation.id)
-    if (err) {
-      window.alert(err.message)
-      return
-    }
-    await refreshDeviationOnly()
-    void loadAll()
+  async function saveRisk(_p: number, _c: number) {
+    // risk_probability / risk_consequence columns are not on the deviations table
   }
 
   async function saveRootCause() {
@@ -492,8 +482,8 @@ export function DeviationPanel({ deviationId, supabase, onClose, onUpdated }: De
           {tab === 'risiko' && (
             <div className={WPSTD_FORM_INSET}>
               <RiskMatrix
-                probability={deviation.risk_probability}
-                consequence={deviation.risk_consequence}
+                probability={deviation.risk_probability ?? null}
+                consequence={deviation.risk_consequence ?? null}
                 readOnly={deviation.status === 'lukket'}
                 size="md"
                 onChange={deviation.status === 'lukket' ? undefined : (p, c) => void saveRisk(p, c)}

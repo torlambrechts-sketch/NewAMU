@@ -19,9 +19,9 @@ export type AvvikRow = {
   status: AvvikStatus
   due_at: string | null
   assigned_to: string | null
-  risk_probability: number | null
-  risk_consequence: number | null
-  risk_score: number | null
+  risk_probability?: number | null
+  risk_consequence?: number | null
+  risk_score?: number | null
   root_cause_analysis: string | null
   closed_at: string | null
   closed_by: string | null
