@@ -6,6 +6,10 @@ export interface TabItem {
   label: ReactNode
   icon?: ElementType
   badgeCount?: number
+  /** When true, tab is non-interactive. */
+  disabled?: boolean
+  /** `danger` — e.g. critical count badge on inactive tab. */
+  badgeVariant?: 'default' | 'danger'
 }
 
 interface TabsProps {
@@ -22,17 +26,25 @@ export function Tabs({ items, activeId, onChange, className }: TabsProps) {
         const isActive = activeId === tab.id
         const Icon = tab.icon
 
+        const dangerBadge = tab.badgeVariant === 'danger'
+
         return (
           <button
             key={tab.id}
             type="button"
-            onClick={() => onChange(tab.id)}
+            disabled={tab.disabled}
+            onClick={() => {
+              if (tab.disabled) return
+              onChange(tab.id)
+            }}
             aria-current={isActive ? 'page' : undefined}
             className={twMerge(
               'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              isActive
-                ? 'bg-[#1a3d32] text-white'
-                : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
+              tab.disabled
+                ? 'cursor-not-allowed text-neutral-400 opacity-60'
+                : isActive
+                  ? 'bg-[#1a3d32] text-white'
+                  : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
             )}
           >
             {Icon ? <Icon className="h-4 w-4 shrink-0" aria-hidden="true" /> : null}
@@ -41,7 +53,11 @@ export function Tabs({ items, activeId, onChange, className }: TabsProps) {
               <span
                 className={twMerge(
                   'ml-1.5 rounded-full px-2 py-0.5 text-xs',
-                  isActive ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700',
+                  isActive
+                    ? 'bg-white/20 text-white'
+                    : dangerBadge
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-neutral-200 text-neutral-700',
                 )}
               >
                 {tab.badgeCount}
