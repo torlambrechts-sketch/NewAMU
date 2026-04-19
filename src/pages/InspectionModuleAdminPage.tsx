@@ -248,7 +248,7 @@ function TemplatesTab({ inspection }: { inspection: ReturnType<typeof useInspect
               <input
                 value={draft.name}
                 onChange={(e) => setDraft((p) => p ? { ...p, name: e.target.value } : p)}
-                className="border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none"
+                className="border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
               />
             </label>
           </div>
@@ -359,12 +359,12 @@ function ChecklistItemRow({
         value={item.label}
         onChange={(e) => onChange({ label: e.target.value })}
         placeholder="Kontrollpunkt…"
-        className="border border-neutral-200 px-2 py-1.5 text-sm focus:border-[#1a3d32] focus:outline-none"
+        className="border border-neutral-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
       />
       <select
         value={item.hmsCategory ?? ''}
         onChange={(e) => onChange({ hmsCategory: e.target.value ? (e.target.value as HmsCategory) : undefined })}
-        className={`w-full border border-neutral-200 px-2 py-1.5 text-xs focus:border-[#1a3d32] focus:outline-none ${item.hmsCategory ? hmsCategoryColor(item.hmsCategory) : 'text-neutral-400'}`}
+        className={`w-full border border-neutral-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25 ${item.hmsCategory ? hmsCategoryColor(item.hmsCategory) : 'text-neutral-400'}`}
       >
         <option value="">— Kategori —</option>
         {HMS_CATEGORIES.map((cat) => <option key={cat.value} value={cat.value}>{cat.label}</option>)}
@@ -372,7 +372,7 @@ function ChecklistItemRow({
       <select
         value={item.fieldType ?? 'yes_no_na'}
         onChange={(e) => onChange({ fieldType: e.target.value as InspectionFieldType })}
-        className="border border-neutral-200 px-2 py-1.5 text-xs focus:border-[#1a3d32] focus:outline-none"
+        className="border border-neutral-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
       >
         {FIELD_TYPES.map((ft) => <option key={ft.value} value={ft.value}>{ft.label}</option>)}
       </select>
@@ -380,7 +380,7 @@ function ChecklistItemRow({
         value={item.lawRef ?? ''}
         onChange={(e) => onChange({ lawRef: e.target.value || undefined })}
         placeholder="AML § 4-4"
-        className="border border-neutral-200 px-2 py-1.5 text-xs focus:border-[#1a3d32] focus:outline-none"
+        className="border border-neutral-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
       />
       <div className="flex justify-center">
         <input

@@ -217,7 +217,7 @@ export function InspectionModuleView({ supabase }: Props) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Søk i tittel, lokasjon, ansvarlig …"
-              className="w-full border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
+              className="w-full border border-neutral-300 bg-white py-2 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
             />
           </div>
         }
@@ -417,7 +417,7 @@ export function InspectionModuleView({ supabase }: Props) {
                         onChange={(e) =>
                           setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, scheduledFor: e.target.value } }))
                         }
-                        className="border border-neutral-300 px-2 py-1.5 text-xs"
+                        className="border border-neutral-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
                       />
                     </label>
                     <label className="flex flex-col gap-1 text-xs">
@@ -427,7 +427,7 @@ export function InspectionModuleView({ supabase }: Props) {
                         onChange={(e) =>
                           setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, assignedTo: e.target.value } }))
                         }
-                        className="border border-neutral-300 px-2 py-1.5 text-xs"
+                        className="border border-neutral-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
                       >
                         <option value="">(Ingen)</option>
                         {inspection.assignableUsers.map((u) => (

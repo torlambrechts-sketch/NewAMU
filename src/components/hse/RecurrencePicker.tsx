@@ -74,7 +74,7 @@ export function RecurrencePicker({ value, onChange }: { value: string; onChange:
           <select
             value={state.freq}
             onChange={(e) => update({ ...state, freq: e.target.value as RecurrenceFreq })}
-            className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            className="border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
           >
             {(Object.keys(FREQ_LABELS) as RecurrenceFreq[]).map((f) => (
               <option key={f} value={f}>
@@ -90,7 +90,7 @@ export function RecurrencePicker({ value, onChange }: { value: string; onChange:
             <select
               value={state.weekday}
               onChange={(e) => update({ ...state, weekday: Number(e.target.value) })}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              className="border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
             >
               {WEEKDAYS.map((d, i) => (
                 <option key={d} value={i}>
@@ -111,13 +111,13 @@ export function RecurrencePicker({ value, onChange }: { value: string; onChange:
                 const [h, m] = e.target.value.split(':').map(Number)
                 update({ ...state, hour: h ?? 7, minute: m ?? 0 })
               }}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              className="border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
             />
           </label>
         )}
       </div>
       {preview && (
-        <p className="rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-600">{preview}</p>
+        <p className="bg-neutral-50 px-3 py-2 text-xs text-neutral-600">{preview}</p>
       )}
     </div>
   )
