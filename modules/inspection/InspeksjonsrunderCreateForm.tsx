@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Circle, Info, Search } from 'lucide-react'
 import {
-  WPSTD_FORM_CONTROL_PAIR_GRID,
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_INPUT,
-  WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { RecurrencePicker } from '../../src/components/hse/RecurrencePicker'
@@ -33,11 +31,13 @@ type Option = { value: string; label: string }
 // rotates, filter input inside popup, plain-text items.
 
 function SearchableSelect({
+  id,
   value,
   options,
   placeholder = 'Velg …',
   onChange,
 }: {
+  id?: string
   value: string
   options: Option[]
   placeholder?: string
@@ -62,17 +62,16 @@ function SearchableSelect({
   }, [open])
 
   return (
-    <div ref={ref} className="relative mt-1.5">
-      {/* Trigger */}
+    <div ref={ref} className="relative">
+      {/* Trigger: match native select (WPSTD_FORM_INPUT) height, padding, font */}
       <button
+        id={id}
         type="button"
         onClick={() => { setOpen((v) => !v); setFilter('') }}
         className={[
-          'flex w-full items-center justify-between border bg-white px-3 py-2.5',
-          'text-left text-sm outline-none transition-colors',
-          open
-            ? 'border-[#1a3d32] ring-1 ring-[#1a3d32]/25'
-            : 'border-neutral-300 hover:border-neutral-400',
+          WPSTD_FORM_INPUT,
+          'flex items-center justify-between bg-white text-left',
+          open ? 'border-[#1a3d32] ring-2 ring-[#1a3d32]/30' : 'hover:border-gray-400',
         ].join(' ')}
       >
         <span className={selected ? 'text-neutral-900' : 'text-neutral-400'}>
@@ -98,7 +97,7 @@ function SearchableSelect({
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="Filter..."
-                className="w-full border border-neutral-200 bg-white py-1.5 pl-8 pr-3 text-sm outline-none focus:border-[#1a3d32]/50"
+                className={`${WPSTD_FORM_INPUT} py-1.5 pl-8`}
               />
             </div>
           </div>
@@ -144,7 +143,7 @@ function YesNoToggle({
   const idle = 'bg-white text-neutral-400'
 
   return (
-    <div className="mt-1.5 flex w-full overflow-hidden border border-neutral-300">
+    <div className="flex w-full overflow-hidden border border-neutral-300">
       <button
         type="button"
         onClick={() => onChange(true)}
@@ -355,55 +354,59 @@ export function InspeksjonsrunderCreateForm({
   return (
     // Negative margins cancel the panel's own padding so row borders run edge-to-edge
     <div className="-mx-6 -mt-8 sm:-mx-8">
-      <div className="grid grid-cols-1 gap-y-8">
+      <div className="space-y-8">
 
       {/* ── Tittel ─────────────────────────────────────────────────────────── */}
       <div className={WPSTD_FORM_ROW_GRID}>
-        <p className={WPSTD_FORM_LEAD}>
-          Hva er tittelen på inspeksjonsrunden?
-        </p>
-        <div>
-          <p className={WPSTD_FORM_FIELD_LABEL}>Tittel</p>
+        <div className="flex flex-col">
+          <label htmlFor="inspection-create-title" className={WPSTD_FORM_FIELD_LABEL}>
+            Tittel
+          </label>
+        </div>
+        <div className="flex flex-col">
           <input
+            id="inspection-create-title"
             value={form.title}
             onChange={(e) => onChange({ ...form, title: e.target.value })}
             placeholder="F.eks. Q1 vernerunde produksjonshall"
-            className={`${WPSTD_FORM_INPUT} mt-1.5`}
+            className={WPSTD_FORM_INPUT}
           />
         </div>
       </div>
 
       {/* ── Mal ────────────────────────────────────────────────────────────── */}
       <div className={WPSTD_FORM_ROW_GRID}>
-        <p className={WPSTD_FORM_LEAD}>
-          Velg sjekkliste-mal for runden
-        </p>
-        <div>
-          <p className={WPSTD_FORM_FIELD_LABEL}>Mal</p>
+        <div className="flex flex-col">
+          <label htmlFor="inspection-create-template" className={WPSTD_FORM_FIELD_LABEL}>
+            Mal
+          </label>
+        </div>
+        <div className="flex flex-col gap-2">
           <SearchableSelect
+            id="inspection-create-template"
             value={form.templateId || templates[0]?.id || ''}
             options={templateOptions}
             placeholder="Please Select"
             onChange={(v) => onChange({ ...form, templateId: v })}
           />
           {templates.length === 0 && (
-            <div className="mt-2">
-              <WarningBox>
-                Ingen maler tilgjengelig. Opprett en mal under Innstillinger → Maler.
-              </WarningBox>
-            </div>
+            <WarningBox>
+              Ingen maler tilgjengelig. Opprett en mal under Innstillinger → Maler.
+            </WarningBox>
           )}
         </div>
       </div>
 
       {/* ── Lokasjon ───────────────────────────────────────────────────────── */}
       <div className={WPSTD_FORM_ROW_GRID}>
-        <p className={WPSTD_FORM_LEAD}>
-          Hvor gjennomføres inspeksjonsrunden?
-        </p>
-        <div>
-          <p className={WPSTD_FORM_FIELD_LABEL}>Lokasjon{optionalTag}</p>
+        <div className="flex flex-col">
+          <label htmlFor="inspection-create-location" className={WPSTD_FORM_FIELD_LABEL}>
+            Lokasjon{optionalTag}
+          </label>
+        </div>
+        <div className="flex flex-col">
           <SearchableSelect
+            id="inspection-create-location"
             value={form.locationId}
             options={locationOptions}
             placeholder="Please Select"
@@ -414,12 +417,14 @@ export function InspeksjonsrunderCreateForm({
 
       {/* ── Ansvarlig ──────────────────────────────────────────────────────── */}
       <div className={WPSTD_FORM_ROW_GRID}>
-        <p className={WPSTD_FORM_LEAD}>
-          Hvem er ansvarlig for gjennomføringen?
-        </p>
-        <div>
-          <p className={WPSTD_FORM_FIELD_LABEL}>Ansvarlig{optionalTag}</p>
+        <div className="flex flex-col">
+          <label htmlFor="inspection-create-assigned" className={WPSTD_FORM_FIELD_LABEL}>
+            Ansvarlig{optionalTag}
+          </label>
+        </div>
+        <div className="flex flex-col">
           <SearchableSelect
+            id="inspection-create-assigned"
             value={form.assignedTo}
             options={userOptions}
             placeholder="Please Select"
@@ -430,27 +435,28 @@ export function InspeksjonsrunderCreateForm({
 
       {/* ── Planlagt dato ──────────────────────────────────────────────────── */}
       <div className={WPSTD_FORM_ROW_GRID}>
-        <p className={WPSTD_FORM_LEAD}>
-          Planlagt dato og tid for gjennomføringen
-        </p>
-        <div>
-          <p className={WPSTD_FORM_FIELD_LABEL}>Planlagt dato{optionalTag}</p>
+        <div className="flex flex-col">
+          <label htmlFor="inspection-create-scheduled" className={WPSTD_FORM_FIELD_LABEL}>
+            Planlagt dato{optionalTag}
+          </label>
+        </div>
+        <div className="flex flex-col">
           <input
+            id="inspection-create-scheduled"
             type="datetime-local"
             value={form.scheduledFor}
             onChange={(e) => onChange({ ...form, scheduledFor: e.target.value })}
-            className={`${WPSTD_FORM_INPUT} mt-1.5`}
+            className={WPSTD_FORM_INPUT}
           />
         </div>
       </div>
 
       {/* ── Gjentakelse ────────────────────────────────────────────────────── */}
       <div className={WPSTD_FORM_ROW_GRID}>
-        <p className={WPSTD_FORM_LEAD}>
-          Gjentas runden regelmessig?
-        </p>
-        <div>
-          <p className={WPSTD_FORM_FIELD_LABEL}>Gjentakelse</p>
+        <div className="flex flex-col">
+          <span className={WPSTD_FORM_FIELD_LABEL}>Gjentakelse</span>
+        </div>
+        <div className="flex flex-col">
           <YesNoToggle value={recurrenceChoice} onChange={handleRecurrenceToggle} />
         </div>
       </div>
@@ -458,37 +464,32 @@ export function InspeksjonsrunderCreateForm({
       {recurrenceChoice === true && (
         <>
           <div className={WPSTD_FORM_ROW_GRID}>
-            <p className={WPSTD_FORM_LEAD}>
-              Hvor ofte skal inspeksjonsrunden gjentas?
-            </p>
-            <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
-              <div className="flex flex-col">
-                <label htmlFor="inspection-create-freq" className={WPSTD_FORM_FIELD_LABEL}>
-                  Frekvens
-                </label>
-              </div>
-              <div className="flex flex-col">
-                <select
-                  id="inspection-create-freq"
-                  value={freqSelectValue}
-                  onChange={(e) =>
-                    handleFreqSelectChange(e.target.value as Exclude<RecurrenceFreq, 'none'>)
-                  }
-                  className={WPSTD_FORM_INPUT}
-                >
-                  {(['weekly', 'biweekly', 'monthly', 'quarterly'] as const).map((f) => (
-                    <option key={f} value={f}>
-                      {RECURRENCE_FREQ_LABELS[f]}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="flex flex-col">
+              <label htmlFor="inspection-create-freq" className={WPSTD_FORM_FIELD_LABEL}>
+                Frekvens
+              </label>
+            </div>
+            <div className="flex flex-col">
+              <select
+                id="inspection-create-freq"
+                value={freqSelectValue}
+                onChange={(e) =>
+                  handleFreqSelectChange(e.target.value as Exclude<RecurrenceFreq, 'none'>)
+                }
+                className={WPSTD_FORM_INPUT}
+              >
+                {(['weekly', 'biweekly', 'monthly', 'quarterly'] as const).map((f) => (
+                  <option key={f} value={f}>
+                    {RECURRENCE_FREQ_LABELS[f]}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <div className={WPSTD_FORM_ROW_GRID}>
-            <p className={WPSTD_FORM_LEAD}>
-              Velg ukedag (ved ukentlig mønster) og klokkeslett for planlagt gjentakelse.
-            </p>
+            <div className="flex flex-col">
+              <span className={WPSTD_FORM_FIELD_LABEL}>Ukedag og klokkeslett</span>
+            </div>
             <div className="flex flex-col">
               <RecurrencePicker
                 value={form.cronExpression}

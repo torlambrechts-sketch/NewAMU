@@ -16,7 +16,6 @@ import {
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../src/components/layout/HubMenu1Bar'
 import {
-  WPSTD_FORM_CONTROL_PAIR_GRID,
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_INPUT,
   WPSTD_FORM_LEAD,
@@ -331,96 +330,82 @@ function FindingsTab({
     <div className="divide-y divide-neutral-100">
       {!readOnly && (
         <div className="border-b border-neutral-100 bg-white px-0 py-0">
-          <div className="grid grid-cols-1 gap-y-8">
+          <div className="space-y-8">
           <div className={WPSTD_FORM_ROW_GRID}>
-            <p className={WPSTD_FORM_LEAD}>
-              {editingFindingId ? 'Rediger avvik' : 'Registrer nytt avvik'}. Hvert avvik lagres i avviksmodulen.
-            </p>
-            <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
-              <div className="flex flex-col">
-                <label htmlFor="finding-desc" className={WPSTD_FORM_FIELD_LABEL}>
-                  Beskrivelse
-                </label>
-              </div>
-              <div className="flex flex-col">
-                <textarea
-                  id="finding-desc"
-                  rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Beskriv avviket…"
-                  className={`${WPSTD_FORM_INPUT} resize-none`}
+            <div className="flex flex-col">
+              <label htmlFor="finding-desc" className={WPSTD_FORM_FIELD_LABEL}>
+                Beskrivelse
+              </label>
+            </div>
+            <div className="flex flex-col">
+              <textarea
+                id="finding-desc"
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Beskriv avviket…"
+                className={`${WPSTD_FORM_INPUT} resize-none`}
+              />
+            </div>
+          </div>
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <div className="flex flex-col">
+              <label htmlFor="finding-severity" className={WPSTD_FORM_FIELD_LABEL}>
+                Alvorlighetsgrad
+              </label>
+            </div>
+            <div className="flex flex-col">
+              <select
+                id="finding-severity"
+                value={severity}
+                onChange={(e) => setSeverity(e.target.value as typeof severity)}
+                className={WPSTD_FORM_INPUT}
+              >
+                {(Object.keys(SEVERITY_LABELS) as (keyof typeof SEVERITY_LABELS)[]).map((s) => (
+                  <option key={s} value={s}>
+                    {SEVERITY_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <div className="flex flex-col">
+              <label htmlFor="finding-item" className={WPSTD_FORM_FIELD_LABEL}>
+                Tilknyttet sjekklistepunkt
+              </label>
+            </div>
+            <div className="flex flex-col">
+              <select
+                id="finding-item"
+                value={linkedItemKey}
+                onChange={(e) => setLinkedItemKey(e.target.value)}
+                className={WPSTD_FORM_INPUT}
+              >
+                <option value="">(Ingen)</option>
+                {checklistItems.map((ci) => (
+                  <option key={ci.key} value={ci.key}>
+                    {ci.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <div className="flex flex-col">
+              <span className={WPSTD_FORM_FIELD_LABEL}>Risiko (sannsynlighet × konsekvens)</span>
+            </div>
+            <div className="flex flex-col">
+              <div className="border border-neutral-200 bg-white p-3">
+                <RiskMatrix
+                  probability={findingProb}
+                  consequence={findingCons}
+                  onChange={(p, c) => {
+                    setFindingProb(p)
+                    setFindingCons(c)
+                  }}
+                  size="sm"
                 />
-              </div>
-            </div>
-          </div>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <p className={WPSTD_FORM_LEAD}>Velg alvorlighetsgrad for avviket.</p>
-            <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
-              <div className="flex flex-col">
-                <label htmlFor="finding-severity" className={WPSTD_FORM_FIELD_LABEL}>
-                  Alvorlighetsgrad
-                </label>
-              </div>
-              <div className="flex flex-col">
-                <select
-                  id="finding-severity"
-                  value={severity}
-                  onChange={(e) => setSeverity(e.target.value as typeof severity)}
-                  className={WPSTD_FORM_INPUT}
-                >
-                  {(Object.keys(SEVERITY_LABELS) as (keyof typeof SEVERITY_LABELS)[]).map((s) => (
-                    <option key={s} value={s}>
-                      {SEVERITY_LABELS[s]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <p className={WPSTD_FORM_LEAD}>Koble til et sjekklistepunkt hvis det er relevant.</p>
-            <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
-              <div className="flex flex-col">
-                <label htmlFor="finding-item" className={WPSTD_FORM_FIELD_LABEL}>
-                  Tilknyttet sjekklistepunkt
-                </label>
-              </div>
-              <div className="flex flex-col">
-                <select
-                  id="finding-item"
-                  value={linkedItemKey}
-                  onChange={(e) => setLinkedItemKey(e.target.value)}
-                  className={WPSTD_FORM_INPUT}
-                >
-                  <option value="">(Ingen)</option>
-                  {checklistItems.map((ci) => (
-                    <option key={ci.key} value={ci.key}>
-                      {ci.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <p className={WPSTD_FORM_LEAD}>Vurder sannsynlighet og konsekvens for risiko.</p>
-            <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
-              <div className="flex flex-col">
-                <span className={WPSTD_FORM_FIELD_LABEL}>Risiko (sannsynlighet × konsekvens)</span>
-              </div>
-              <div className="flex flex-col">
-                <div className="border border-neutral-200 bg-white p-3">
-                  <RiskMatrix
-                    probability={findingProb}
-                    consequence={findingCons}
-                    onChange={(p, c) => {
-                      setFindingProb(p)
-                      setFindingCons(c)
-                    }}
-                    size="sm"
-                  />
-                </div>
               </div>
             </div>
           </div>
@@ -587,75 +572,64 @@ function SummaryTab({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-y-8">
+      <div className="space-y-8">
       <div className={WPSTD_FORM_ROW_GRID}>
-        <p className={WPSTD_FORM_LEAD}>
-          Skriv sammendrag av gjennomføringen. Feltet er påkrevd før signering.
-        </p>
-        <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
-          <div className="flex flex-col">
-            <label htmlFor="round-summary" className={WPSTD_FORM_FIELD_LABEL}>
-              Sammendrag <span className="text-red-500">*</span>
-            </label>
-          </div>
-          <div className="flex flex-col">
-            <textarea
-              id="round-summary"
-              rows={6}
-              value={summary}
-              readOnly={readOnly}
-              onChange={(e) => setSummary(e.target.value)}
-              placeholder="Beskriv gjennomføringen, observasjoner og tiltak…"
-              className={`${WPSTD_FORM_INPUT} resize-none`}
-            />
-          </div>
+        <div className="flex flex-col">
+          <label htmlFor="round-summary" className={WPSTD_FORM_FIELD_LABEL}>
+            Sammendrag <span className="text-red-500">*</span>
+          </label>
+        </div>
+        <div className="flex flex-col">
+          <textarea
+            id="round-summary"
+            rows={6}
+            value={summary}
+            readOnly={readOnly}
+            onChange={(e) => setSummary(e.target.value)}
+            placeholder="Beskriv gjennomføringen, observasjoner og tiltak…"
+            className={`${WPSTD_FORM_INPUT} resize-none`}
+          />
         </div>
       </div>
 
       <div className={WPSTD_FORM_ROW_GRID}>
-        <p className={WPSTD_FORM_LEAD}>Hvem gjennomførte runden?</p>
-        <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
-          <div className="flex flex-col">
-            <label htmlFor="conducted-by" className={WPSTD_FORM_FIELD_LABEL}>
-              Gjennomført av
-            </label>
-          </div>
-          <div className="flex flex-col">
-            <select
-              id="conducted-by"
-              value={conductedBy}
-              disabled={readOnly}
-              onChange={(e) => setConductedBy(e.target.value)}
-              className={WPSTD_FORM_INPUT}
-            >
-              <option value="">(Valgfri)</option>
-              {inspection.assignableUsers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.displayName}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="flex flex-col">
+          <label htmlFor="conducted-by" className={WPSTD_FORM_FIELD_LABEL}>
+            Gjennomført av
+          </label>
+        </div>
+        <div className="flex flex-col">
+          <select
+            id="conducted-by"
+            value={conductedBy}
+            disabled={readOnly}
+            onChange={(e) => setConductedBy(e.target.value)}
+            className={WPSTD_FORM_INPUT}
+          >
+            <option value="">(Valgfri)</option>
+            {inspection.assignableUsers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.displayName}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
       <div className={WPSTD_FORM_ROW_GRID}>
-        <p className={WPSTD_FORM_LEAD}>Når ble runden gjennomført?</p>
-        <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
-          <div className="flex flex-col">
-            <label htmlFor="conducted-at" className={WPSTD_FORM_FIELD_LABEL}>
-              Dato gjennomført
-            </label>
-          </div>
-          <div className="flex flex-col">
-            <input
-              id="conducted-at"
-              type="datetime-local"
-              value={conductedAt}
-              readOnly={readOnly}
-              onChange={(e) => setConductedAt(e.target.value)}
-              className={WPSTD_FORM_INPUT}
-            />
-          </div>
+        <div className="flex flex-col">
+          <label htmlFor="conducted-at" className={WPSTD_FORM_FIELD_LABEL}>
+            Dato gjennomført
+          </label>
+        </div>
+        <div className="flex flex-col">
+          <input
+            id="conducted-at"
+            type="datetime-local"
+            value={conductedAt}
+            readOnly={readOnly}
+            onChange={(e) => setConductedAt(e.target.value)}
+            className={WPSTD_FORM_INPUT}
+          />
         </div>
       </div>
       </div>
@@ -937,171 +911,151 @@ function RoundBasicsForm({
 
   return (
     <div className="-mx-4 border-y border-neutral-200 bg-white md:-mx-5">
-      <div className="grid grid-cols-1 gap-y-8">
+      <div className="space-y-8">
         <div className={WPSTD_FORM_ROW_GRID}>
-          <p className={WPSTD_FORM_LEAD}>
-            Grunnleggende opplysninger om runden. Endringer lagres til databasen ved hver endring.
-          </p>
-          <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
-            <div className="flex flex-col">
-              <label htmlFor="round-basics-title" className={WPSTD_FORM_FIELD_LABEL}>
-                Tittel
-              </label>
-            </div>
-            <div className="flex flex-col">
-              <input
-                id="round-basics-title"
-                type="text"
-                value={round.title}
-                readOnly={readOnly}
-                onChange={(e) => void handleUpdate({ title: e.target.value })}
-                className={WPSTD_FORM_INPUT}
-              />
-            </div>
+          <div className="flex flex-col">
+            <label htmlFor="round-basics-title" className={WPSTD_FORM_FIELD_LABEL}>
+              Tittel
+            </label>
+          </div>
+          <div className="flex flex-col">
+            <input
+              id="round-basics-title"
+              type="text"
+              value={round.title}
+              readOnly={readOnly}
+              onChange={(e) => void handleUpdate({ title: e.target.value })}
+              className={WPSTD_FORM_INPUT}
+            />
           </div>
         </div>
         <div className={WPSTD_FORM_ROW_GRID}>
-          <p className={WPSTD_FORM_LEAD}>Status for inspeksjonsrunden.</p>
-          <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
-            <div className="flex flex-col">
-              <label htmlFor="round-basics-status" className={WPSTD_FORM_FIELD_LABEL}>
-                Status
-              </label>
-            </div>
-            <div className="flex flex-col">
-              <select
-                id="round-basics-status"
-                value={round.status}
-                disabled={readOnly}
-                onChange={(e) => void handleUpdate({ status: e.target.value as InspectionRoundRow['status'] })}
-                className={WPSTD_FORM_INPUT}
-              >
-                <option value="draft">Kladd</option>
-                <option value="active">Aktiv</option>
-                <option value="signed">Signert</option>
-              </select>
-            </div>
+          <div className="flex flex-col">
+            <label htmlFor="round-basics-status" className={WPSTD_FORM_FIELD_LABEL}>
+              Status
+            </label>
+          </div>
+          <div className="flex flex-col">
+            <select
+              id="round-basics-status"
+              value={round.status}
+              disabled={readOnly}
+              onChange={(e) => void handleUpdate({ status: e.target.value as InspectionRoundRow['status'] })}
+              className={WPSTD_FORM_INPUT}
+            >
+              <option value="draft">Kladd</option>
+              <option value="active">Aktiv</option>
+              <option value="signed">Signert</option>
+            </select>
           </div>
         </div>
         <div className={WPSTD_FORM_ROW_GRID}>
-          <p className={WPSTD_FORM_LEAD}>Hvor gjennomføres runden?</p>
-          <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
-            <div className="flex flex-col">
-              <label htmlFor="round-basics-location" className={WPSTD_FORM_FIELD_LABEL}>
-                Lokasjon
-              </label>
-            </div>
-            <div className="flex flex-col">
-              <select
-                id="round-basics-location"
-                value={round.location_id ?? ''}
-                disabled={readOnly}
-                onChange={(e) =>
-                  void handleUpdate({ location_id: e.target.value ? e.target.value : null })
+          <div className="flex flex-col">
+            <label htmlFor="round-basics-location" className={WPSTD_FORM_FIELD_LABEL}>
+              Lokasjon
+            </label>
+          </div>
+          <div className="flex flex-col">
+            <select
+              id="round-basics-location"
+              value={round.location_id ?? ''}
+              disabled={readOnly}
+              onChange={(e) =>
+                void handleUpdate({ location_id: e.target.value ? e.target.value : null })
+              }
+              className={WPSTD_FORM_INPUT}
+            >
+              <option value="">(Ingen)</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <div className="flex flex-col">
+            <label htmlFor="round-basics-assigned" className={WPSTD_FORM_FIELD_LABEL}>
+              Ansvarlig
+            </label>
+          </div>
+          <div className="flex flex-col">
+            <select
+              id="round-basics-assigned"
+              value={round.assigned_to ?? ''}
+              disabled={readOnly}
+              onChange={(e) =>
+                void handleUpdate({ assigned_to: e.target.value ? e.target.value : null })
+              }
+              className={WPSTD_FORM_INPUT}
+            >
+              <option value="">(Ingen)</option>
+              {assignableUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.displayName}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <div className="flex flex-col">
+            <label htmlFor="round-basics-scheduled" className={WPSTD_FORM_FIELD_LABEL}>
+              Planlagt tidspunkt
+            </label>
+          </div>
+          <div className="flex flex-col">
+            <input
+              id="round-basics-scheduled"
+              type="datetime-local"
+              value={scheduledLocal}
+              readOnly={readOnly}
+              onChange={(e) => {
+                const v = e.target.value
+                void handleUpdate({
+                  scheduled_for: v ? new Date(v).toISOString() : null,
+                })
+              }}
+              className={WPSTD_FORM_INPUT}
+            />
+          </div>
+        </div>
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <div className="flex flex-col">
+            <label htmlFor="round-basics-freq" className={WPSTD_FORM_FIELD_LABEL}>
+              Frekvens
+            </label>
+          </div>
+          <div className="flex flex-col">
+            <select
+              id="round-basics-freq"
+              value={cronStr.trim() ? freqSelectValue : ''}
+              disabled={readOnly}
+              onChange={(e) => {
+                const v = e.target.value
+                if (!v) {
+                  void handleUpdate({ cron_expression: null })
+                  return
                 }
-                className={WPSTD_FORM_INPUT}
-              >
-                <option value="">(Ingen)</option>
-                {locations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-        <div className={WPSTD_FORM_ROW_GRID}>
-          <p className={WPSTD_FORM_LEAD}>Hvem er ansvarlig for gjennomføringen?</p>
-          <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
-            <div className="flex flex-col">
-              <label htmlFor="round-basics-assigned" className={WPSTD_FORM_FIELD_LABEL}>
-                Ansvarlig
-              </label>
-            </div>
-            <div className="flex flex-col">
-              <select
-                id="round-basics-assigned"
-                value={round.assigned_to ?? ''}
-                disabled={readOnly}
-                onChange={(e) =>
-                  void handleUpdate({ assigned_to: e.target.value ? e.target.value : null })
-                }
-                className={WPSTD_FORM_INPUT}
-              >
-                <option value="">(Ingen)</option>
-                {assignableUsers.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.displayName}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-        <div className={WPSTD_FORM_ROW_GRID}>
-          <p className={WPSTD_FORM_LEAD}>Planlagt dato og tid for gjennomføringen.</p>
-          <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
-            <div className="flex flex-col">
-              <label htmlFor="round-basics-scheduled" className={WPSTD_FORM_FIELD_LABEL}>
-                Planlagt tidspunkt
-              </label>
-            </div>
-            <div className="flex flex-col">
-              <input
-                id="round-basics-scheduled"
-                type="datetime-local"
-                value={scheduledLocal}
-                readOnly={readOnly}
-                onChange={(e) => {
-                  const v = e.target.value
-                  void handleUpdate({
-                    scheduled_for: v ? new Date(v).toISOString() : null,
-                  })
-                }}
-                className={WPSTD_FORM_INPUT}
-              />
-            </div>
-          </div>
-        </div>
-        <div className={WPSTD_FORM_ROW_GRID}>
-          <p className={WPSTD_FORM_LEAD}>Hvor ofte skal inspeksjonsrunden gjentas? (valgfritt)</p>
-          <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
-            <div className="flex flex-col">
-              <label htmlFor="round-basics-freq" className={WPSTD_FORM_FIELD_LABEL}>
-                Frekvens
-              </label>
-            </div>
-            <div className="flex flex-col">
-              <select
-                id="round-basics-freq"
-                value={cronStr.trim() ? freqSelectValue : ''}
-                disabled={readOnly}
-                onChange={(e) => {
-                  const v = e.target.value
-                  if (!v) {
-                    void handleUpdate({ cron_expression: null })
-                    return
-                  }
-                  handleFreqSelectChange(v as Exclude<RecurrenceFreq, 'none'>)
-                }}
-                className={WPSTD_FORM_INPUT}
-              >
-                <option value="">(Ingen)</option>
-                {(['weekly', 'biweekly', 'monthly', 'quarterly'] as const).map((f) => (
-                  <option key={f} value={f}>
-                    {RECURRENCE_FREQ_LABELS[f]}
-                  </option>
-                ))}
-              </select>
-            </div>
+                handleFreqSelectChange(v as Exclude<RecurrenceFreq, 'none'>)
+              }}
+              className={WPSTD_FORM_INPUT}
+            >
+              <option value="">(Ingen)</option>
+              {(['weekly', 'biweekly', 'monthly', 'quarterly'] as const).map((f) => (
+                <option key={f} value={f}>
+                  {RECURRENCE_FREQ_LABELS[f]}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
         {cronStr.trim() !== '' && (
           <div className={WPSTD_FORM_ROW_GRID}>
-            <p className={WPSTD_FORM_LEAD}>
-              Velg ukedag (ved ukentlig mønster) og klokkeslett for planlagt gjentakelse.
-            </p>
+            <div className="flex flex-col">
+              <span className={WPSTD_FORM_FIELD_LABEL}>Ukedag og klokkeslett</span>
+            </div>
             <div className="flex flex-col">
               <RecurrencePicker
                 value={cronStr}

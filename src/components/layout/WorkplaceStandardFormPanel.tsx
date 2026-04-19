@@ -3,10 +3,6 @@ import type { ReactNode } from 'react'
 import { WORKPLACE_PAGE_SERIF } from './WorkplacePageHeading1'
 import { WORKPLACE_STANDARD_LIST_OVERLAY_Z_INDEX } from './WorkplaceStandardListLayout'
 
-/** Same column split as {@link WPSTD_FORM_ROW_GRID} without row chrome (for nesting label + control). */
-export const WPSTD_FORM_CONTROL_PAIR_GRID =
-  'grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10'
-
 /** Same grid as Tasks slide-over: lead 40% / inset 60% from md. */
 export const WPSTD_FORM_ROW_GRID =
   'grid grid-cols-1 gap-4 border-b border-neutral-200 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-5 md:py-5'
