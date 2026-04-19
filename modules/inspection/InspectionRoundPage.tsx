@@ -32,6 +32,7 @@ import { HseAuditLogViewer } from '../../src/components/hse/HseAuditLogViewer'
 import { RiskMatrix, riskLabel, riskScoreFromProbCons } from '../../src/components/hse/RiskMatrix'
 import { Badge, type BadgeVariant } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
+import { ComplianceBanner } from '../../src/components/ui/ComplianceBanner'
 import { StandardInput, standardFieldClassName } from '../../src/components/ui/Input'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { StandardTextarea } from '../../src/components/ui/Textarea'
@@ -184,8 +185,9 @@ function ChecklistTab({
               <Button
                 type="button"
                 variant="secondary"
+                size="sm"
                 onClick={() => void inspection.stampRoundGps(round.id)}
-                className="shrink-0 px-3 py-1.5 text-xs text-neutral-800"
+                className="shrink-0 text-neutral-800"
               >
                 📍 Stempel GPS-posisjon
               </Button>
@@ -228,10 +230,11 @@ function ChecklistTab({
                 <Button
                   type="button"
                   variant="primary"
+                  size="sm"
                   onClick={() =>
                     void inspection.updateRoundSchedule({ roundId: round.id, status: 'active' })
                   }
-                  className="shrink-0 px-3 py-1.5 text-xs"
+                  className="shrink-0"
                 >
                   Aktiver runden
                 </Button>
@@ -449,8 +452,9 @@ function FindingsTab({
                     <Button
                       type="button"
                       variant="primary"
+                      size="sm"
                       disabled={linkingDeviationId === f.id}
-                      className="shrink-0 px-3 py-1 text-xs disabled:opacity-50"
+                      className="shrink-0 disabled:opacity-50"
                       onClick={async () => {
                         setLinkingDeviationId(f.id)
                         const id = await inspection.createDeviationFromFinding(f.id)
@@ -479,30 +483,32 @@ function FindingsTab({
                           <Button
                             type="button"
                             variant="secondary"
+                            size="sm"
                             onClick={() => onOpenDeviation(f.deviation_id!)}
-                            className="border-neutral-200 px-2 py-1 text-xs font-medium text-[#1a3d32]"
+                            className="border-neutral-200 font-medium text-[#1a3d32]"
                           >
                             Åpne avvik
                           </Button>
                         )}
                         <Button
                           type="button"
-                          variant="secondary"
+                          variant="ghost"
+                          size="icon"
                           onClick={() => startEdit(f)}
-                          className="border-transparent bg-transparent p-1 font-normal text-neutral-500 shadow-none hover:bg-neutral-100 hover:text-neutral-900"
                           aria-label="Rediger avvik"
                           title="Rediger"
                           icon={<Pencil className="h-4 w-4" />}
                         />
                         <Button
                           type="button"
-                          variant="secondary"
+                          variant="ghost"
+                          size="icon"
                           onClick={() => {
                             if (!window.confirm('Slette dette avviket?')) return
                             void inspection.deleteFinding(f.id)
                             if (editingFindingId === f.id) resetForm()
                           }}
-                          className="border-transparent bg-transparent p-1 font-normal text-neutral-400 shadow-none hover:bg-neutral-100 hover:text-red-600"
+                          className="text-neutral-400 hover:text-red-600"
                           aria-label="Slett avvik"
                           title="Slett"
                           icon={<Trash2 className="h-4 w-4" />}
@@ -555,12 +561,12 @@ function SummaryTab({
 
   return (
     <div className="border-b border-neutral-100 bg-white">
-      <div className="border-b border-[#1a3d32]/20 bg-[#f4f1ea] px-4 py-4 md:px-5">
-        <p className="text-xs font-semibold text-[#1a3d32]">IK-forskriften § 5 — skriftlig protokoll</p>
-        <p className={`${WPSTD_FORM_LEAD} mt-1`}>
-          Vernerunden skal dokumenteres skriftlig. Sammendraget arkiveres som del av HMS-protokollen.
-        </p>
-      </div>
+      <ComplianceBanner
+        title="IK-forskriften § 5 — skriftlig protokoll"
+        className="border-b border-[#1a3d32]/20"
+      >
+        Vernerunden skal dokumenteres skriftlig. Sammendraget arkiveres som del av HMS-protokollen.
+      </ComplianceBanner>
 
       <div className={WPSTD_FORM_ROW_GRID}>
         <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-summary">
@@ -702,13 +708,10 @@ function SignaturesTab({
         </div>
       )}
 
-      <div className="rounded-md border border-[#1a3d32]/20 bg-[#f4f1ea] p-4">
-        <p className="text-xs font-semibold text-[#1a3d32]">IK-forskriften § 5 — dobbel signering</p>
-        <p className="mt-1 text-xs text-neutral-500">
-          Vernerunden krever signatur fra både leder (AML § 2-1) og verneombud (AML § 6-2) for å være gyldig
-          dokumentert i henhold til Internkontrollforskriften.
-        </p>
-      </div>
+      <ComplianceBanner title="IK-forskriften § 5 — dobbel signering" className="rounded-md">
+        Vernerunden krever signatur fra både leder (AML § 2-1) og verneombud (AML § 6-2) for å være gyldig
+        dokumentert i henhold til Internkontrollforskriften.
+      </ComplianceBanner>
 
       {/* Pre-flight checks */}
       {!isSigned && (
@@ -886,9 +889,6 @@ function RoundBasicsForm({
 
   return (
     <div className="border-y border-neutral-200 bg-white">
-      <p className={`${WPSTD_FORM_LEAD} border-b border-neutral-200 px-4 py-3 md:px-5`}>
-        Grunnleggende opplysninger om runden. Endringer lagres til databasen ved hver endring.
-      </p>
       <div className={WPSTD_FORM_ROW_GRID}>
         <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-title">
           Tittel
