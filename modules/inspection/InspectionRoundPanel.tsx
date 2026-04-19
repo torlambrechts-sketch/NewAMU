@@ -63,9 +63,9 @@ const SEVERITY_COLORS = {
   critical: 'bg-red-100 text-red-700',
 }
 
-const PANEL_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-700'
+const PANEL_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-800'
 const PANEL_INPUT =
-  'mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900'
+  'mt-1.5 w-full border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25'
 
 // ── Checklist tab ─────────────────────────────────────────────────────────────
 

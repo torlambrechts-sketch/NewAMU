@@ -71,9 +71,9 @@ const SEVERITY_COLORS = {
   critical: 'bg-red-100 text-red-700',
 }
 
-const PANEL_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-600'
+const PANEL_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-800'
 const PANEL_INPUT =
-  'mt-1.5 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]/30'
+  'mt-1.5 w-full border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25'
 
 // ── Checklist tab ─────────────────────────────────────────────────────────────
 
@@ -166,7 +166,7 @@ function ChecklistTab({
               <button
                 type="button"
                 onClick={() => void inspection.stampRoundGps(round.id)}
-                className="shrink-0 rounded border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
+                className="shrink-0 border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-800 transition-colors hover:bg-neutral-50"
               >
                 📍 Stempel GPS-posisjon
               </button>
@@ -201,17 +201,17 @@ function ChecklistTab({
           onSaveResponse={handleSaveResponse}
           activationBanner={
             isDraft ? (
-              <div className="mx-5 mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3">
+              <div className="mx-5 mt-4 flex flex-wrap items-center justify-between gap-4 border border-amber-200 bg-amber-50 px-4 py-3">
                 <div>
                   <p className="text-sm font-medium text-amber-800">Runden er i kladd-modus</p>
-                  <p className="mt-0.5 text-xs text-amber-700/90">Aktiver runden for å begynne gjennomføringen.</p>
+                  <p className="mt-0.5 text-xs text-amber-700">Aktiver runden for å begynne gjennomføringen.</p>
                 </div>
                 <button
                   type="button"
                   onClick={() =>
                     void inspection.updateRoundSchedule({ roundId: round.id, status: 'active' })
                   }
-                  className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-white"
+                  className="shrink-0 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
                   style={{ backgroundColor: '#1a3d32' }}
                 >
                   Aktiver runden
@@ -384,7 +384,7 @@ function FindingsTab({
           </div>
           <div>
             <p className={PANEL_FIELD_LABEL}>Risiko (sannsynlighet × konsekvens)</p>
-            <div className="mt-2 rounded border border-neutral-200 bg-white p-3">
+            <div className="mt-2 border border-neutral-200 bg-white p-3">
               <RiskMatrix
                 probability={findingProb}
                 consequence={findingCons}
@@ -401,7 +401,7 @@ function FindingsTab({
               type="button"
               disabled={!description.trim() || saving}
               onClick={() => void handleSave()}
-              className="rounded px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              className="px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50"
               style={{ backgroundColor: '#1a3d32' }}
             >
               {saving ? 'Lagrer…' : editingFindingId ? 'Lagre endringer' : 'Registrer avvik'}
@@ -411,7 +411,7 @@ function FindingsTab({
                 type="button"
                 disabled={saving}
                 onClick={() => resetForm()}
-                className="rounded border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                className="border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
               >
                 Avbryt
               </button>
@@ -439,12 +439,12 @@ function FindingsTab({
                 'border-l-blue-300'
               }`}>
                 {showLegacyLinkBanner && (
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
                     <span>Risikoskår {riskScore} — koble til avvik i systemet</span>
                     <button
                       type="button"
                       disabled={linkingDeviationId === f.id}
-                      className="shrink-0 rounded bg-[#1a3d32] px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                      className="shrink-0 bg-[#1a3d32] px-3 py-1 text-xs font-semibold text-white transition-colors disabled:opacity-50"
                       onClick={async () => {
                         setLinkingDeviationId(f.id)
                         const id = await inspection.createDeviationFromFinding(f.id)
@@ -477,7 +477,7 @@ function FindingsTab({
                           <button
                             type="button"
                             onClick={() => onOpenDeviation(f.deviation_id!)}
-                            className="rounded border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
+                            className="border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-[#1a3d32] transition-colors hover:bg-neutral-50"
                           >
                             Åpne avvik
                           </button>
@@ -485,7 +485,7 @@ function FindingsTab({
                         <button
                           type="button"
                           onClick={() => startEdit(f)}
-                          className="rounded p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+                          className="p-1 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                           aria-label="Rediger avvik"
                           title="Rediger"
                         >
@@ -498,7 +498,7 @@ function FindingsTab({
                             void inspection.deleteFinding(f.id)
                             if (editingFindingId === f.id) resetForm()
                           }}
-                          className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-red-600"
+                          className="p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-red-600"
                           aria-label="Slett avvik"
                           title="Slett"
                         >
@@ -552,7 +552,7 @@ function SummaryTab({
 
   return (
     <div className="space-y-5 px-5 py-5">
-      <div className="rounded-lg border border-[#1a3d32]/20 bg-[#f4f1ea] p-4">
+      <div className="border border-[#1a3d32]/20 bg-[#f4f1ea] p-4">
         <p className="text-xs font-semibold text-[#1a3d32]">IK-forskriften § 5 — skriftlig protokoll</p>
         <p className="mt-1 text-xs text-neutral-500">
           Vernerunden skal dokumenteres skriftlig. Sammendraget arkiveres som del av HMS-protokollen.
@@ -608,7 +608,7 @@ function SummaryTab({
           type="button"
           onClick={() => void handleSave()}
           disabled={saving}
-          className="rounded px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          className="px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50"
           style={{ backgroundColor: '#1a3d32' }}
         >
           {saving ? 'Lagrer…' : saved ? 'Lagret ✓' : 'Lagre sammendrag'}
@@ -674,7 +674,7 @@ function SignaturesTab({
     <div className="space-y-5 px-5 py-5">
       {location && (
         <div
-          className={`rounded-lg border px-4 py-3 text-xs font-medium ${
+          className={`border px-4 py-3 text-xs font-medium ${
             isManager
               ? 'border-green-200 bg-green-50 text-green-800'
               : isDeputy
@@ -690,7 +690,7 @@ function SignaturesTab({
         </div>
       )}
 
-      <div className="rounded-lg border border-[#1a3d32]/20 bg-[#f4f1ea] p-4">
+      <div className="border border-[#1a3d32]/20 bg-[#f4f1ea] p-4">
         <p className="text-xs font-semibold text-[#1a3d32]">IK-forskriften § 5 — dobbel signering</p>
         <p className="mt-1 text-xs text-neutral-500">
           Vernerunden krever signatur fra både leder (AML § 2-1) og verneombud (AML § 6-2) for å være gyldig
@@ -723,7 +723,7 @@ function SignaturesTab({
       )}
 
       {/* Manager */}
-      <div className={`rounded-xl border-2 p-5 transition-all ${
+      <div className={`border-2 p-5 transition-all ${
         round.manager_signed_at
           ? 'border-green-300 bg-green-50'
           : canSign && (!hasRoleRestriction || isManager)
@@ -757,7 +757,7 @@ function SignaturesTab({
               disabled={managerButtonDisabled}
               title={unauthorizedTooltip}
               onClick={() => void handleSign('manager')}
-              className={`shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40 ${
+              className={`shrink-0 px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40 ${
                 managerButtonSolid
                   ? 'bg-[#1a3d32] text-white hover:bg-[#14312a]'
                   : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
@@ -770,7 +770,7 @@ function SignaturesTab({
       </div>
 
       {/* Deputy */}
-      <div className={`rounded-xl border-2 p-5 transition-all ${
+      <div className={`border-2 p-5 transition-all ${
         round.deputy_signed_at
           ? 'border-green-300 bg-green-50'
           : canSign && (!hasRoleRestriction || isDeputy)
@@ -804,7 +804,7 @@ function SignaturesTab({
               disabled={deputyButtonDisabled}
               title={unauthorizedTooltip}
               onClick={() => void handleSign('deputy')}
-              className={`shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40 ${
+              className={`shrink-0 px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40 ${
                 deputyButtonSolid
                   ? 'bg-[#1a3d32] text-white hover:bg-[#14312a]'
                   : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
@@ -817,7 +817,7 @@ function SignaturesTab({
       </div>
 
       {isSigned && (
-        <div className="rounded border border-green-200 bg-green-50 p-4 text-center">
+        <div className="border border-green-200 bg-green-50 p-4 text-center">
           <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-green-600" />
           <p className="text-sm font-semibold text-green-800">Runden er fullstendig signert</p>
           <p className="mt-1 text-xs text-green-600">
@@ -987,7 +987,7 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
         <button
           type="button"
           onClick={() => navigate('/inspection-module')}
-          className="rounded border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+          className="border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition-colors hover:bg-neutral-50"
         >
           ← Tilbake til inspeksjonsrunder
         </button>
@@ -1032,7 +1032,7 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
                 </span>
                 <Link
                   to="/inspection-module/admin"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 shadow-sm hover:bg-neutral-50"
+                  className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-50"
                 >
                   <Settings className="h-4 w-4" aria-hidden />
                   <span className="hidden sm:inline">Admin</span>
