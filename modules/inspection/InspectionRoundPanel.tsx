@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
-import { CheckCircle2, Circle, Pencil, Trash2, X } from 'lucide-react';
+import { supabase } from '../../src/lib/supabaseClient';
+import { X } from 'lucide-react';
 
 import { 
   WPSTD_FORM_ROW_GRID, 
@@ -25,17 +24,22 @@ export const InspectionRoundPanel: React.FC<InspectionRoundPanelProps> = ({ insp
     const fetchPanelData = async () => {
       if (!inspectionId) return;
       try {
-        const docRef = doc(db, 'inspection_rounds', inspectionId);
-        const docSnap = await getDoc(docRef);
+        const { data, error: fetchError } = await supabase
+          .from('inspection_rounds')
+          .select('*')
+          .eq('id', inspectionId)
+          .single();
         
-        if (docSnap.exists()) {
-          setPanelData(docSnap.data());
+        if (fetchError) throw fetchError;
+
+        if (data) {
+          setPanelData(data);
         } else {
           setError("Inspection round details could not be found.");
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        setError("Failed to fetch data from the database.");
+        setError(err.message || "Failed to fetch data from the database.");
       } finally {
         setLoading(false);
       }
@@ -46,11 +50,15 @@ export const InspectionRoundPanel: React.FC<InspectionRoundPanelProps> = ({ insp
 
   const handleFieldChange = async (field: string, value: string) => {
     try {
-      const docRef = doc(db, 'inspection_rounds', inspectionId);
-      await updateDoc(docRef, { [field]: value });
+      const { error: updateError } = await supabase
+        .from('inspection_rounds')
+        .update({ [field]: value })
+        .eq('id', inspectionId);
+
+      if (updateError) throw updateError;
       setPanelData((prev: any) => ({ ...prev, [field]: value }));
-    } catch (err) {
-      console.error("Database update failed: ", err);
+    } catch (err: any) {
+      console.error("Database update failed: ", err.message);
     }
   };
 
@@ -64,7 +72,6 @@ export const InspectionRoundPanel: React.FC<InspectionRoundPanelProps> = ({ insp
 
   return (
     <div className="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl flex flex-col border-l border-gray-200 z-50 transform transition-transform duration-300 ease-in-out">
-      {/* Panel Header */}
       <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
         <h2 className="text-lg font-semibold text-gray-900">
           Rediger Inspeksjon
@@ -77,19 +84,16 @@ export const InspectionRoundPanel: React.FC<InspectionRoundPanelProps> = ({ insp
         </button>
       </div>
 
-      {/* Error Banner */}
       {error && (
         <div className="mx-6 mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800 text-sm">
           {error}
         </div>
       )}
 
-      {/* Panel Content (Scrollable) */}
       <div className="flex-1 overflow-y-auto p-6 space-y-8">
-        
         <div>
           <p className={WPSTD_FORM_LEAD}>
-            Oppdater detaljene for denne inspeksjonsrunden direkte. Endringer lagres automatisk til databasen.
+            Oppdater detaljene for denne inspeksjonsrunden direkte. Endringer lagres automatisk.
           </p>
         </div>
 
@@ -149,19 +153,8 @@ export const InspectionRoundPanel: React.FC<InspectionRoundPanelProps> = ({ insp
             />
           </div>
         </div>
-
-        <div className="pt-6 border-t border-gray-100">
-          <label className={WPSTD_FORM_FIELD_LABEL}>Sjekkliste-elementer</label>
-          <div className="mt-3 bg-gray-50 border border-gray-100 rounded-md p-4 text-center">
-            <p className="text-sm text-gray-500">
-              For å endre sjekkliste-spørsmålene, naviger til Mal-editoren.
-            </p>
-          </div>
-        </div>
-
       </div>
 
-      {/* Panel Footer */}
       <div className="p-6 border-t border-gray-100 bg-white">
         <button 
           onClick={onClose}
