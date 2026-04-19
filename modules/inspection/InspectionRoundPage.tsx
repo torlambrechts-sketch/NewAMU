@@ -33,8 +33,8 @@ import { RiskMatrix, riskColorClass, riskLabel, riskScoreFromProbCons } from '..
 
 type PanelTab = 'checklist' | 'findings' | 'summary' | 'signatures' | 'history'
 
-const WPSTD_FORM_INPUT =
-  'w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-[#1a3d32] focus:border-transparent outline-none transition-all'
+const FIELD_INPUT =
+  'w-full border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25'
 
 const TAB_LABELS: Record<PanelTab, string> = {
   checklist: 'Sjekkliste',
@@ -338,7 +338,7 @@ function FindingsTab({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Beskriv avviket…"
-              className={`${WPSTD_FORM_INPUT} resize-none`}
+              className={`${FIELD_INPUT} resize-none`}
             />
           </div>
           <div className={WPSTD_FORM_ROW_GRID}>
@@ -349,7 +349,7 @@ function FindingsTab({
               id="finding-severity"
               value={severity}
               onChange={(e) => setSeverity(e.target.value as typeof severity)}
-              className={WPSTD_FORM_INPUT}
+              className={FIELD_INPUT}
             >
               {(Object.keys(SEVERITY_LABELS) as (keyof typeof SEVERITY_LABELS)[]).map((s) => (
                 <option key={s} value={s}>
@@ -366,7 +366,7 @@ function FindingsTab({
               id="finding-item"
               value={linkedItemKey}
               onChange={(e) => setLinkedItemKey(e.target.value)}
-              className={WPSTD_FORM_INPUT}
+              className={FIELD_INPUT}
             >
               <option value="">(Ingen)</option>
               {checklistItems.map((ci) => (
@@ -453,13 +453,13 @@ function FindingsTab({
                   <p className="min-w-0 flex-1 text-sm text-neutral-900">{f.description}</p>
                   <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                     <span
-                      className={`rounded px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_COLORS[f.severity]}`}
+                      className={`px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_COLORS[f.severity]}`}
                     >
                       {SEVERITY_LABELS[f.severity]}
                     </span>
                     {riskScore != null && (
                       <span
-                        className={`rounded px-2 py-0.5 text-[11px] font-semibold ${riskColorClass(riskScore)}`}
+                        className={`px-2 py-0.5 text-[11px] font-semibold ${riskColorClass(riskScore)}`}
                       >
                         Risiko {riskScore} — {riskLabel(riskScore)}
                       </span>
@@ -563,7 +563,7 @@ function SummaryTab({
           readOnly={readOnly}
           onChange={(e) => setSummary(e.target.value)}
           placeholder="Beskriv gjennomføringen, observasjoner og tiltak…"
-          className={`${WPSTD_FORM_INPUT} resize-none`}
+          className={`${FIELD_INPUT} resize-none`}
         />
       </div>
 
@@ -576,7 +576,7 @@ function SummaryTab({
           value={conductedBy}
           disabled={readOnly}
           onChange={(e) => setConductedBy(e.target.value)}
-          className={WPSTD_FORM_INPUT}
+          className={FIELD_INPUT}
         >
           <option value="">(Valgfri)</option>
           {inspection.assignableUsers.map((u) => (
@@ -596,7 +596,7 @@ function SummaryTab({
           value={conductedAt}
           readOnly={readOnly}
           onChange={(e) => setConductedAt(e.target.value)}
-          className={WPSTD_FORM_INPUT}
+          className={FIELD_INPUT}
         />
       </div>
 
@@ -875,7 +875,7 @@ function RoundBasicsForm({
           value={round.title}
           readOnly={readOnly}
           onChange={(e) => void handleUpdate({ title: e.target.value })}
-          className={WPSTD_FORM_INPUT}
+          className={FIELD_INPUT}
         />
       </div>
       <div className={WPSTD_FORM_ROW_GRID}>
@@ -887,7 +887,7 @@ function RoundBasicsForm({
           value={round.status}
           disabled={readOnly}
           onChange={(e) => void handleUpdate({ status: e.target.value as InspectionRoundRow['status'] })}
-          className={WPSTD_FORM_INPUT}
+          className={FIELD_INPUT}
         >
           <option value="draft">Kladd</option>
           <option value="active">Aktiv</option>
@@ -905,7 +905,7 @@ function RoundBasicsForm({
           onChange={(e) =>
             void handleUpdate({ location_id: e.target.value ? e.target.value : null })
           }
-          className={WPSTD_FORM_INPUT}
+          className={FIELD_INPUT}
         >
           <option value="">(Ingen)</option>
           {locations.map((loc) => (
@@ -926,7 +926,7 @@ function RoundBasicsForm({
           onChange={(e) =>
             void handleUpdate({ assigned_to: e.target.value ? e.target.value : null })
           }
-          className={WPSTD_FORM_INPUT}
+          className={FIELD_INPUT}
         >
           <option value="">(Ingen)</option>
           {assignableUsers.map((u) => (
@@ -951,7 +951,7 @@ function RoundBasicsForm({
               scheduled_for: v ? new Date(v).toISOString() : null,
             })
           }}
-          className={WPSTD_FORM_INPUT}
+          className={FIELD_INPUT}
         />
       </div>
     </div>

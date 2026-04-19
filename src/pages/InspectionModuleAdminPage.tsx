@@ -51,7 +51,7 @@ const FIELD_TYPES: { value: InspectionFieldType; label: string }[] = [
   { value: 'signature', label: 'Signatur' },
 ]
 
-const CARD = 'rounded-xl border border-neutral-200/80 bg-white shadow-sm'
+const CARD = 'border border-neutral-200/80 bg-white shadow-sm'
 const CARD_SHADOW = { boxShadow: '0 1px 2px rgba(0,0,0,0.04)' } as const
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -112,7 +112,7 @@ export function InspectionModuleAdminPage() {
         headerActions={
           <Link
             to="/inspection-module"
-            className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            className="inline-flex items-center gap-2 border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
           >
             <ArrowLeft className="h-4 w-4" />
             Tilbake til runder
@@ -121,7 +121,7 @@ export function InspectionModuleAdminPage() {
       />
 
       {inspection.error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {inspection.error}
         </div>
       )}
@@ -206,7 +206,7 @@ function TemplatesTab({ inspection }: { inspection: ReturnType<typeof useInspect
           <button
             type="button"
             onClick={() => void inspection.createTemplate({ name: 'Ny mal', checklistItems: [] })}
-            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-neutral-600 hover:bg-neutral-50"
+            className="inline-flex items-center gap-1 border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-neutral-600 hover:bg-neutral-50"
           >
             <Plus className="h-3.5 w-3.5" /> Ny
           </button>
@@ -220,7 +220,7 @@ function TemplatesTab({ inspection }: { inspection: ReturnType<typeof useInspect
                 <button
                   type="button"
                   onClick={() => selectTemplate(t)}
-                  className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                  className={`w-full border px-3 py-2.5 text-left transition-colors ${
                     active ? 'border-[#1a3d32] bg-[#1a3d32]/5' : 'border-neutral-200 bg-white hover:border-neutral-300'
                   }`}
                   style={active ? undefined : CARD_SHADOW}
@@ -232,7 +232,7 @@ function TemplatesTab({ inspection }: { inspection: ReturnType<typeof useInspect
             )
           })}
           {inspection.templates.length === 0 && (
-            <li className="rounded-xl border border-dashed border-neutral-300 px-3 py-4 text-center text-xs text-neutral-500">
+            <li className="border border-dashed border-neutral-300 px-3 py-4 text-center text-xs text-neutral-500">
               Ingen maler ennå
             </li>
           )}
@@ -248,7 +248,7 @@ function TemplatesTab({ inspection }: { inspection: ReturnType<typeof useInspect
               <input
                 value={draft.name}
                 onChange={(e) => setDraft((p) => p ? { ...p, name: e.target.value } : p)}
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none"
+                className="border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none"
               />
             </label>
           </div>
@@ -267,7 +267,7 @@ function TemplatesTab({ inspection }: { inspection: ReturnType<typeof useInspect
                 <button
                   type="button"
                   onClick={addItem}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                  className="inline-flex items-center gap-1.5 border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
                 >
                   <Plus className="h-3.5 w-3.5" /> Legg til rad
                 </button>
@@ -275,7 +275,7 @@ function TemplatesTab({ inspection }: { inspection: ReturnType<typeof useInspect
                   type="button"
                   onClick={() => void save()}
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
                   style={{ backgroundColor: '#1a3d32' }}
                 >
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
@@ -333,7 +333,7 @@ function TemplatesTab({ inspection }: { inspection: ReturnType<typeof useInspect
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-center rounded-xl border border-dashed border-neutral-300 py-16 text-sm text-neutral-400">
+        <div className="flex items-center justify-center border border-dashed border-neutral-300 py-16 text-sm text-neutral-400">
           Velg en mal fra listen for å redigere
         </div>
       )}
@@ -359,12 +359,12 @@ function ChecklistItemRow({
         value={item.label}
         onChange={(e) => onChange({ label: e.target.value })}
         placeholder="Kontrollpunkt…"
-        className="rounded-lg border border-neutral-200 px-2 py-1.5 text-sm focus:border-[#1a3d32] focus:outline-none"
+        className="border border-neutral-200 px-2 py-1.5 text-sm focus:border-[#1a3d32] focus:outline-none"
       />
       <select
         value={item.hmsCategory ?? ''}
         onChange={(e) => onChange({ hmsCategory: e.target.value ? (e.target.value as HmsCategory) : undefined })}
-        className={`w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:border-[#1a3d32] focus:outline-none ${item.hmsCategory ? hmsCategoryColor(item.hmsCategory) : 'text-neutral-400'}`}
+        className={`w-full border border-neutral-200 px-2 py-1.5 text-xs focus:border-[#1a3d32] focus:outline-none ${item.hmsCategory ? hmsCategoryColor(item.hmsCategory) : 'text-neutral-400'}`}
       >
         <option value="">— Kategori —</option>
         {HMS_CATEGORIES.map((cat) => <option key={cat.value} value={cat.value}>{cat.label}</option>)}
@@ -372,7 +372,7 @@ function ChecklistItemRow({
       <select
         value={item.fieldType ?? 'yes_no_na'}
         onChange={(e) => onChange({ fieldType: e.target.value as InspectionFieldType })}
-        className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:border-[#1a3d32] focus:outline-none"
+        className="border border-neutral-200 px-2 py-1.5 text-xs focus:border-[#1a3d32] focus:outline-none"
       >
         {FIELD_TYPES.map((ft) => <option key={ft.value} value={ft.value}>{ft.label}</option>)}
       </select>
@@ -380,7 +380,7 @@ function ChecklistItemRow({
         value={item.lawRef ?? ''}
         onChange={(e) => onChange({ lawRef: e.target.value || undefined })}
         placeholder="AML § 4-4"
-        className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:border-[#1a3d32] focus:outline-none"
+        className="border border-neutral-200 px-2 py-1.5 text-xs focus:border-[#1a3d32] focus:outline-none"
       />
       <div className="flex justify-center">
         <input
@@ -437,7 +437,7 @@ function SignoffTab({ inspection, supabase }: {
             Internkontrollforskriften § 5 — krever signatur fra leder og verneombud
           </p>
         </div>
-        {error && <div className="mx-5 mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
+        {error && <div className="mx-5 mt-4 border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
 
         <table className="w-full border-collapse text-sm">
           <thead>
@@ -471,7 +471,7 @@ function SignoffTab({ inspection, supabase }: {
                           type="button"
                           onClick={() => void signRound(round.id, role)}
                           disabled={signing[key]}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:border-[#1a3d32] hover:text-[#1a3d32] disabled:opacity-60"
+                          className="inline-flex items-center gap-1.5 border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:border-[#1a3d32] hover:text-[#1a3d32] disabled:opacity-60"
                         >
                           {signing[key] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Circle className="h-3 w-3" />}
                           {role === 'manager' ? 'Signer som leder' : 'Signer som verneombud'}

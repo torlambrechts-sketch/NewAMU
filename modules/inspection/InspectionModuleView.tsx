@@ -217,7 +217,7 @@ export function InspectionModuleView({ supabase }: Props) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Søk i tittel, lokasjon, ansvarlig …"
-              className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/25"
+              className="w-full border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
             />
           </div>
         }
@@ -405,7 +405,7 @@ export function InspectionModuleView({ supabase }: Props) {
               assignedTo: round.assigned_to ?? '',
             }
             return (
-              <div key={round.id} className="rounded-lg border border-neutral-200 p-3">
+              <div key={round.id} className="border border-neutral-200 p-3">
                 <p className="text-sm font-medium text-neutral-900">{round.title}</p>
                 <div className="mt-2 space-y-2">
                   <div className="grid gap-2 sm:grid-cols-2">
@@ -417,7 +417,7 @@ export function InspectionModuleView({ supabase }: Props) {
                         onChange={(e) =>
                           setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, scheduledFor: e.target.value } }))
                         }
-                        className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs"
+                        className="border border-neutral-300 px-2 py-1.5 text-xs"
                       />
                     </label>
                     <label className="flex flex-col gap-1 text-xs">
@@ -427,7 +427,7 @@ export function InspectionModuleView({ supabase }: Props) {
                         onChange={(e) =>
                           setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, assignedTo: e.target.value } }))
                         }
-                        className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs"
+                        className="border border-neutral-300 px-2 py-1.5 text-xs"
                       >
                         <option value="">(Ingen)</option>
                         {inspection.assignableUsers.map((u) => (

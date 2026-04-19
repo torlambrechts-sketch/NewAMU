@@ -10,8 +10,8 @@ import {
 import { fetchAssignableUsers, type AssignableUser } from '../../src/hooks/useAssignableUsers'
 import type { InspectionLocationRow, InspectionRoundRow, InspectionRoundStatus } from './types'
 
-const WPSTD_FORM_INPUT =
-  'w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-[#1a3d32] focus:border-transparent outline-none transition-all'
+const FIELD_INPUT =
+  'w-full border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25'
 
 type InspectionRoundPanelProps = {
   inspectionId: string
@@ -122,7 +122,7 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md p-1 text-neutral-500 transition-colors hover:bg-neutral-200/60 hover:text-neutral-800"
+          className="p-1 text-neutral-500 transition-colors hover:bg-neutral-200/60 hover:text-neutral-800"
           aria-label="Lukk"
         >
           <X className="h-5 w-5" />
@@ -130,7 +130,7 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
       </div>
 
       {error ? (
-        <div className="mx-6 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
+        <div className="mx-6 mt-4 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
       ) : null}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-0 py-4">
@@ -152,7 +152,7 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                   type="text"
                   value={round.title}
                   onChange={(e) => void handleUpdate({ title: e.target.value })}
-                  className={WPSTD_FORM_INPUT}
+                  className={FIELD_INPUT}
                   placeholder="F.eks. Månedlig vernerunde"
                 />
               </div>
@@ -165,7 +165,7 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                   id="panel-round-status"
                   value={round.status}
                   onChange={(e) => void handleUpdate({ status: e.target.value as InspectionRoundStatus })}
-                  className={WPSTD_FORM_INPUT}
+                  className={FIELD_INPUT}
                 >
                   <option value="draft">Kladd</option>
                   <option value="active">Aktiv</option>
@@ -183,7 +183,7 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                   onChange={(e) =>
                     void handleUpdate({ location_id: e.target.value ? e.target.value : null })
                   }
-                  className={WPSTD_FORM_INPUT}
+                  className={FIELD_INPUT}
                 >
                   <option value="">(Ingen)</option>
                   {locations.map((loc) => (
@@ -204,7 +204,7 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                   onChange={(e) =>
                     void handleUpdate({ assigned_to: e.target.value ? e.target.value : null })
                   }
-                  className={WPSTD_FORM_INPUT}
+                  className={FIELD_INPUT}
                 >
                   <option value="">(Ingen)</option>
                   {assignableUsers.map((u) => (
@@ -229,7 +229,7 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                       scheduled_for: v ? new Date(v).toISOString() : null,
                     })
                   }}
-                  className={WPSTD_FORM_INPUT}
+                  className={FIELD_INPUT}
                 />
               </div>
             </div>
@@ -241,7 +241,7 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
         <button
           type="button"
           onClick={onClose}
-          className="w-full rounded-md bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#14312a] focus:outline-none focus:ring-2 focus:ring-[#1a3d32] focus:ring-offset-2"
+          className="w-full bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#14312a] focus:outline-none focus:ring-2 focus:ring-[#1a3d32] focus:ring-offset-2"
         >
           Lukk panel
         </button>
