@@ -689,151 +689,153 @@ function SignaturesTab({
   const deputyButtonSolid = !hasRoleRestriction || isDeputy
 
   return (
-    <div className="space-y-5 px-5 py-5">
-      {location && (
-        <div
-          className={`rounded-md border px-4 py-3 text-xs font-medium ${
-            isManager
-              ? 'border-green-200 bg-green-50 text-green-800'
-              : isDeputy
-                ? 'border-blue-200 bg-blue-50 text-blue-800'
-                : 'border-amber-200 bg-amber-50 text-amber-800'
-          }`}
-        >
-          {isManager
-            ? 'Du er registrert som leder for denne lokasjonen'
-            : isDeputy
-              ? 'Du er registrert som verneombud for denne lokasjonen'
-              : 'Du er ikke tilordnet en signaturrolle for denne lokasjonen. Kontakt administrator.'}
-        </div>
-      )}
-
-      <ComplianceBanner title="IK-forskriften § 5 — dobbel signering" className="rounded-md">
+    <div className="flex flex-col">
+      <ComplianceBanner title="IK-forskriften § 5 — dobbel signering" className="border-b border-[#1a3d32]/20">
         Vernerunden krever signatur fra både leder (AML § 2-1) og verneombud (AML § 6-2) for å være gyldig
         dokumentert i henhold til Internkontrollforskriften.
       </ComplianceBanner>
 
-      {/* Pre-flight checks */}
-      {!isSigned && (
-        <div className="space-y-1.5">
-          <p className={WPSTD_FORM_FIELD_LABEL}>Sjekkliste før signering</p>
-          {[
-            { ok: isActive, label: 'Runden er aktiv (ikke kladd)' },
-            {
-              ok: allRequiredAnswered,
-              label: `Alle påkrevde punkter besvart (${answeredRequiredCount}/${requiredItems.length})`,
-            },
-            { ok: hasSummary, label: 'Sammendrag er fylt ut' },
-          ].map(({ ok, label }) => (
-            <div key={label} className="flex items-center gap-2 text-xs">
-              {ok ? (
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-              ) : (
-                <Circle className="h-4 w-4 text-neutral-300" />
-              )}
-              <span className={ok ? 'text-neutral-700' : 'text-neutral-400'}>{label}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Manager */}
-      <div className={`rounded-md border-2 p-5 transition-all ${
-        round.manager_signed_at
-          ? 'border-green-300 bg-green-50'
-          : canSign && (!hasRoleRestriction || isManager)
-            ? 'border-[#1a3d32]/40 bg-white shadow-sm'
-            : 'border-neutral-200 bg-white'
-      }`}>
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            {round.manager_signed_at
-              ? <CheckCircle2 className="h-7 w-7 shrink-0 text-green-500" />
-              : <Circle className="h-7 w-7 shrink-0 text-neutral-300" />
-            }
-            <div>
-              <p className="text-base font-semibold text-neutral-900">Leder</p>
-              <p className="text-xs text-neutral-500">AML § 2-1 — arbeidsgiveransvar</p>
-              {round.manager_signed_at ? (
-                <p className="mt-0.5 text-xs font-medium text-green-700">
-                  ✓ Signert {new Date(round.manager_signed_at).toLocaleDateString('nb-NO', { dateStyle: 'medium' })}
-                  {round.manager_signed_by && userNameById.has(round.manager_signed_by)
-                    ? ` av ${userNameById.get(round.manager_signed_by)}`
-                    : ''}
-                </p>
-              ) : (
-                <p className="mt-0.5 text-xs text-neutral-400">Venter på signatur</p>
-              )}
-            </div>
+      <div className="space-y-5 bg-white p-5">
+        {location && (
+          <div
+            className={`rounded-md border px-4 py-3 text-xs font-medium ${
+              isManager
+                ? 'border-green-200 bg-green-50 text-green-800'
+                : isDeputy
+                  ? 'border-blue-200 bg-blue-50 text-blue-800'
+                  : 'border-amber-200 bg-amber-50 text-amber-800'
+            }`}
+          >
+            {isManager
+              ? 'Du er registrert som leder for denne lokasjonen'
+              : isDeputy
+                ? 'Du er registrert som verneombud for denne lokasjonen'
+                : 'Du er ikke tilordnet en signaturrolle for denne lokasjonen. Kontakt administrator.'}
           </div>
-          {!round.manager_signed_at && !isSigned && (
-            <Button
-              type="button"
-              variant={managerButtonSolid ? 'primary' : 'secondary'}
-              disabled={managerButtonDisabled}
-              title={unauthorizedTooltip}
-              onClick={() => void handleSign('manager')}
-              className="shrink-0 disabled:opacity-40"
-            >
-              {signing === 'manager' ? 'Signerer…' : 'Signer som leder'}
-            </Button>
-          )}
-        </div>
-      </div>
+        )}
 
-      {/* Deputy */}
-      <div className={`rounded-md border-2 p-5 transition-all ${
-        round.deputy_signed_at
-          ? 'border-green-300 bg-green-50'
-          : canSign && (!hasRoleRestriction || isDeputy)
-            ? 'border-[#1a3d32]/40 bg-white shadow-sm'
-            : 'border-neutral-200 bg-white'
-      }`}>
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            {round.deputy_signed_at
-              ? <CheckCircle2 className="h-7 w-7 shrink-0 text-green-500" />
-              : <Circle className="h-7 w-7 shrink-0 text-neutral-300" />
-            }
-            <div>
-              <p className="text-base font-semibold text-neutral-900">Verneombud</p>
-              <p className="text-xs text-neutral-500">AML § 6-2 — verneombudets representasjon</p>
-              {round.deputy_signed_at ? (
-                <p className="mt-0.5 text-xs font-medium text-green-700">
-                  ✓ Signert {new Date(round.deputy_signed_at).toLocaleDateString('nb-NO', { dateStyle: 'medium' })}
-                  {round.deputy_signed_by && userNameById.has(round.deputy_signed_by)
-                    ? ` av ${userNameById.get(round.deputy_signed_by)}`
-                    : ''}
-                </p>
-              ) : (
-                <p className="mt-0.5 text-xs text-neutral-400">Venter på signatur</p>
-              )}
-            </div>
+        {/* Pre-flight checks */}
+        {!isSigned && (
+          <div className="space-y-1.5">
+            <p className={WPSTD_FORM_FIELD_LABEL}>Sjekkliste før signering</p>
+            {[
+              { ok: isActive, label: 'Runden er aktiv (ikke kladd)' },
+              {
+                ok: allRequiredAnswered,
+                label: `Alle påkrevde punkter besvart (${answeredRequiredCount}/${requiredItems.length})`,
+              },
+              { ok: hasSummary, label: 'Sammendrag er fylt ut' },
+            ].map(({ ok, label }) => (
+              <div key={label} className="flex items-center gap-2 text-xs">
+                {ok ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                ) : (
+                  <Circle className="h-4 w-4 text-neutral-300" />
+                )}
+                <span className={ok ? 'text-neutral-700' : 'text-neutral-400'}>{label}</span>
+              </div>
+            ))}
           </div>
-          {!round.deputy_signed_at && !isSigned && (
-            <Button
-              type="button"
-              variant={deputyButtonSolid ? 'primary' : 'secondary'}
-              disabled={deputyButtonDisabled}
-              title={unauthorizedTooltip}
-              onClick={() => void handleSign('deputy')}
-              className="shrink-0 disabled:opacity-40"
-            >
-              {signing === 'deputy' ? 'Signerer…' : 'Signer som verneombud'}
-            </Button>
-          )}
-        </div>
-      </div>
+        )}
 
-      {isSigned && (
-        <div className="rounded-md border border-green-200 bg-green-50 p-4 text-center">
-          <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-green-600" />
-          <p className="text-sm font-semibold text-green-800">Runden er fullstendig signert</p>
-          <p className="mt-1 text-xs text-green-600">
-            Arkivert i henhold til Bokføringsloven § 13 (oppbevaringsplikt 5 år).
-          </p>
+        {/* Manager */}
+        <div className={`rounded-md border-2 p-5 transition-all ${
+          round.manager_signed_at
+            ? 'border-green-300 bg-green-50'
+            : canSign && (!hasRoleRestriction || isManager)
+              ? 'border-[#1a3d32]/40 bg-white shadow-sm'
+              : 'border-neutral-200 bg-white'
+        }`}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              {round.manager_signed_at
+                ? <CheckCircle2 className="h-7 w-7 shrink-0 text-green-500" />
+                : <Circle className="h-7 w-7 shrink-0 text-neutral-300" />
+              }
+              <div>
+                <p className="text-base font-semibold text-neutral-900">Leder</p>
+                <p className="text-xs text-neutral-500">AML § 2-1 — arbeidsgiveransvar</p>
+                {round.manager_signed_at ? (
+                  <p className="mt-0.5 text-xs font-medium text-green-700">
+                    ✓ Signert {new Date(round.manager_signed_at).toLocaleDateString('nb-NO', { dateStyle: 'medium' })}
+                    {round.manager_signed_by && userNameById.has(round.manager_signed_by)
+                      ? ` av ${userNameById.get(round.manager_signed_by)}`
+                      : ''}
+                  </p>
+                ) : (
+                  <p className="mt-0.5 text-xs text-neutral-400">Venter på signatur</p>
+                )}
+              </div>
+            </div>
+            {!round.manager_signed_at && !isSigned && (
+              <Button
+                type="button"
+                variant={managerButtonSolid ? 'primary' : 'secondary'}
+                disabled={managerButtonDisabled}
+                title={unauthorizedTooltip}
+                onClick={() => void handleSign('manager')}
+                className="shrink-0 disabled:opacity-40"
+              >
+                {signing === 'manager' ? 'Signerer…' : 'Signer som leder'}
+              </Button>
+            )}
+          </div>
         </div>
-      )}
+
+        {/* Deputy */}
+        <div className={`rounded-md border-2 p-5 transition-all ${
+          round.deputy_signed_at
+            ? 'border-green-300 bg-green-50'
+            : canSign && (!hasRoleRestriction || isDeputy)
+              ? 'border-[#1a3d32]/40 bg-white shadow-sm'
+              : 'border-neutral-200 bg-white'
+        }`}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              {round.deputy_signed_at
+                ? <CheckCircle2 className="h-7 w-7 shrink-0 text-green-500" />
+                : <Circle className="h-7 w-7 shrink-0 text-neutral-300" />
+              }
+              <div>
+                <p className="text-base font-semibold text-neutral-900">Verneombud</p>
+                <p className="text-xs text-neutral-500">AML § 6-2 — verneombudets representasjon</p>
+                {round.deputy_signed_at ? (
+                  <p className="mt-0.5 text-xs font-medium text-green-700">
+                    ✓ Signert {new Date(round.deputy_signed_at).toLocaleDateString('nb-NO', { dateStyle: 'medium' })}
+                    {round.deputy_signed_by && userNameById.has(round.deputy_signed_by)
+                      ? ` av ${userNameById.get(round.deputy_signed_by)}`
+                      : ''}
+                  </p>
+                ) : (
+                  <p className="mt-0.5 text-xs text-neutral-400">Venter på signatur</p>
+                )}
+              </div>
+            </div>
+            {!round.deputy_signed_at && !isSigned && (
+              <Button
+                type="button"
+                variant={deputyButtonSolid ? 'primary' : 'secondary'}
+                disabled={deputyButtonDisabled}
+                title={unauthorizedTooltip}
+                onClick={() => void handleSign('deputy')}
+                className="shrink-0 disabled:opacity-40"
+              >
+                {signing === 'deputy' ? 'Signerer…' : 'Signer som verneombud'}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {isSigned && (
+          <div className="rounded-md border border-green-200 bg-green-50 p-4 text-center">
+            <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-green-600" />
+            <p className="text-sm font-semibold text-green-800">Runden er fullstendig signert</p>
+            <p className="mt-1 text-xs text-green-600">
+              Arkivert i henhold til Bokføringsloven § 13 (oppbevaringsplikt 5 år).
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -1144,7 +1146,7 @@ export function InspectionRoundPage() {
 
   return (
     <div className="min-h-screen bg-[#F9F7F2]">
-      <header className="sticky top-0 z-30 border-b border-neutral-200/80 bg-[#F9F7F2]/95 backdrop-blur-sm">
+      <header className="sticky top-0 z-30 bg-[#F9F7F2]/95 backdrop-blur-sm">
         <div className="mx-auto max-w-[1400px] px-4 pb-4 pt-4 md:px-8">
           <WorkplacePageHeading1
             breadcrumb={[
