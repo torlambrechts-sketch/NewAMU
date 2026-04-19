@@ -11,7 +11,8 @@ import {
   LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
   LAYOUT_TABLE1_POSTINGS_TH,
 } from '../../src/components/layout/layoutTable1PostingsKit'
-import { RecurrencePicker, toDateTimeLocalValue } from '../../src/components/hse/RecurrencePicker'
+import { RecurrencePicker } from '../../src/components/hse/RecurrencePicker'
+import { toDateTimeLocalValue } from '../../src/components/hse/recurrenceCron'
 import type { InspectionRoundRow } from './types'
 import { useInspectionModule } from './useInspectionModule'
 import { InspeksjonsrunderCreateForm } from './InspeksjonsrunderCreateForm'

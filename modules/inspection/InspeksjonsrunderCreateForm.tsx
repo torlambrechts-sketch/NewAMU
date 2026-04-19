@@ -1,12 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Circle, Info, Search } from 'lucide-react'
 import {
+  WPSTD_FORM_CONTROL_PAIR_GRID,
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_INPUT,
   WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { RecurrencePicker } from '../../src/components/hse/RecurrencePicker'
+import {
+  buildRecurrenceCron,
+  parseRecurrenceCron,
+  RECURRENCE_FREQ_LABELS,
+  type RecurrenceFreq,
+} from '../../src/components/hse/recurrenceCron'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -312,7 +319,31 @@ export function InspeksjonsrunderCreateForm({
 
   function handleRecurrenceToggle(v: boolean) {
     setRecurrenceChoice(v)
-    if (!v) onChange({ ...form, cronExpression: '' })
+    if (!v) {
+      onChange({ ...form, cronExpression: '' })
+      return
+    }
+    if (!form.cronExpression?.trim()) {
+      const base = { freq: 'weekly' as const, weekday: 0, hour: 7, minute: 0 }
+      onChange({ ...form, cronExpression: buildRecurrenceCron(base) })
+    }
+  }
+
+  const recurrenceState = useMemo(
+    () => parseRecurrenceCron(form.cronExpression),
+    [form.cronExpression],
+  )
+
+  const freqSelectValue: Exclude<RecurrenceFreq, 'none'> = useMemo(() => {
+    const f = recurrenceState.freq
+    return f === 'none' ? 'weekly' : f
+  }, [recurrenceState.freq])
+
+  function handleFreqSelectChange(freq: Exclude<RecurrenceFreq, 'none'>) {
+    const prev = form.cronExpression.trim()
+      ? parseRecurrenceCron(form.cronExpression)
+      : { freq: 'weekly' as const, weekday: 0, hour: 7, minute: 0 }
+    onChange({ ...form, cronExpression: buildRecurrenceCron({ ...prev, freq }) })
   }
 
   const optionalTag = (
@@ -324,6 +355,7 @@ export function InspeksjonsrunderCreateForm({
   return (
     // Negative margins cancel the panel's own padding so row borders run edge-to-edge
     <div className="-mx-6 -mt-8 sm:-mx-8">
+      <div className="grid grid-cols-1 gap-y-8">
 
       {/* ── Tittel ─────────────────────────────────────────────────────────── */}
       <div className={WPSTD_FORM_ROW_GRID}>
@@ -424,21 +456,51 @@ export function InspeksjonsrunderCreateForm({
       </div>
 
       {recurrenceChoice === true && (
-        <div className={WPSTD_FORM_ROW_GRID}>
-          <p className={WPSTD_FORM_LEAD}>
-            Velg frekvens, ukedag (ved ukentlig mønster) og klokkeslett for planlagt gjentakelse.
-          </p>
-          <div>
-            <p className={WPSTD_FORM_FIELD_LABEL}>Frekvens</p>
-            <div className="mt-1.5">
+        <>
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <p className={WPSTD_FORM_LEAD}>
+              Hvor ofte skal inspeksjonsrunden gjentas?
+            </p>
+            <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
+              <div className="flex flex-col">
+                <label htmlFor="inspection-create-freq" className={WPSTD_FORM_FIELD_LABEL}>
+                  Frekvens
+                </label>
+              </div>
+              <div className="flex flex-col">
+                <select
+                  id="inspection-create-freq"
+                  value={freqSelectValue}
+                  onChange={(e) =>
+                    handleFreqSelectChange(e.target.value as Exclude<RecurrenceFreq, 'none'>)
+                  }
+                  className={WPSTD_FORM_INPUT}
+                >
+                  {(['weekly', 'biweekly', 'monthly', 'quarterly'] as const).map((f) => (
+                    <option key={f} value={f}>
+                      {RECURRENCE_FREQ_LABELS[f]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <p className={WPSTD_FORM_LEAD}>
+              Velg ukedag (ved ukentlig mønster) og klokkeslett for planlagt gjentakelse.
+            </p>
+            <div className="flex flex-col">
               <RecurrencePicker
                 value={form.cronExpression}
                 onChange={(cron) => onChange({ ...form, cronExpression: cron })}
+                hideFrequencySelect
               />
             </div>
           </div>
-        </div>
+        </>
       )}
+
+      </div>
 
       {/* ── Info ───────────────────────────────────────────────────────────── */}
       <div className="border-t border-neutral-200 px-4 py-4 md:px-5">

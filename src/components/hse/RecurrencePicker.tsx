@@ -1,98 +1,60 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_INPUT } from '../layout/WorkplaceStandardFormPanel'
-
-export type RecurrenceFreq = 'none' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
-
-const FREQ_LABELS: Record<RecurrenceFreq, string> = {
-  none: 'Ingen repetisjon',
-  weekly: 'Ukentlig',
-  biweekly: 'Annenhver uke',
-  monthly: 'Månedlig (1. hver måned)',
-  quarterly: 'Kvartalsvis (hvert kvartal)',
-}
-
-const WEEKDAYS = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag']
-
-type RecurrenceState = { freq: RecurrenceFreq; weekday: number; hour: number; minute: number }
-
-function toCron(r: RecurrenceState): string {
-  const mm = String(r.minute).padStart(2, '0')
-  const hh = String(r.hour).padStart(2, '0')
-  const wd = r.weekday + 1
-  if (r.freq === 'weekly') return `${mm} ${hh} * * ${wd}`
-  if (r.freq === 'biweekly') return `${mm} ${hh} 1,15 * ${wd}`
-  if (r.freq === 'monthly') return `${mm} ${hh} 1 * *`
-  if (r.freq === 'quarterly') return `${mm} ${hh} 1 */3 *`
-  return ''
-}
-
-function parseCron(cron: string): RecurrenceState {
-  const defaultState: RecurrenceState = { freq: 'none', weekday: 0, hour: 7, minute: 0 }
-  if (!cron || !cron.trim()) return defaultState
-  const parts = cron.trim().split(/\s+/)
-  if (parts.length !== 5) return { ...defaultState, freq: 'none' }
-  const [mm, hh, dom, mon, wd] = parts
-  const hour = parseInt(hh, 10)
-  const minute = parseInt(mm, 10)
-  const weekday = Math.max(0, (parseInt(wd, 10) || 1) - 1)
-  if (!Number.isNaN(hour) && !Number.isNaN(minute)) {
-    if (dom === '1' && mon === '*/3') return { freq: 'quarterly', weekday, hour, minute }
-    if (dom === '1' && mon === '*') return { freq: 'monthly', weekday, hour, minute }
-    if (dom === '1,15') return { freq: 'biweekly', weekday, hour, minute }
-    if (dom === '*') return { freq: 'weekly', weekday, hour, minute }
-  }
-  return defaultState
-}
-
-export function recurrenceLabel(cron: string): string {
-  const r = parseCron(cron)
-  if (r.freq === 'none') return 'Ingen repetisjon'
-  const time = `${String(r.hour).padStart(2, '0')}:${String(r.minute).padStart(2, '0')}`
-  const day = WEEKDAYS[r.weekday] ?? ''
-  if (r.freq === 'weekly') return `Ukentlig — ${day} kl. ${time}`
-  if (r.freq === 'biweekly') return `Annenhver uke — ${day} kl. ${time}`
-  if (r.freq === 'monthly') return `Månedlig — 1. i måneden kl. ${time}`
-  if (r.freq === 'quarterly') return `Kvartalsvis — 1. i kvartalet kl. ${time}`
-  return cron
-}
+import {
+  buildRecurrenceCron,
+  parseRecurrenceCron,
+  RECURRENCE_FREQ_LABELS,
+  type RecurrenceFreq,
+  type RecurrenceState,
+  recurrenceLabel,
+} from './recurrenceCron'
 
 export function RecurrencePicker({
   value,
   onChange,
   inputClassName = WPSTD_FORM_INPUT,
+  hideFrequencySelect = false,
 }: {
   value: string
   onChange: (cron: string) => void
   /** Applied to every native select and the time input (inspection module standard). */
   inputClassName?: string
+  /** When true, only weekday / time controls are rendered (frekvens is edited elsewhere). */
+  hideFrequencySelect?: boolean
 }) {
-  const [state, setState] = useState<RecurrenceState>(() => parseCron(value))
+  const [state, setState] = useState<RecurrenceState>(() => parseRecurrenceCron(value))
+
+  useEffect(() => {
+    setState(parseRecurrenceCron(value))
+  }, [value])
 
   function update(next: RecurrenceState) {
     setState(next)
-    onChange(next.freq === 'none' ? '' : toCron(next))
+    onChange(next.freq === 'none' ? '' : buildRecurrenceCron(next))
   }
 
   const needsDay = state.freq === 'weekly' || state.freq === 'biweekly'
-  const preview = state.freq === 'none' ? '' : recurrenceLabel(toCron(state))
+  const preview = state.freq === 'none' ? '' : recurrenceLabel(buildRecurrenceCron(state))
 
   return (
     <div className="space-y-2">
       <div className="grid gap-2 sm:grid-cols-2">
-        <label className="flex flex-col gap-1">
-          <span className={WPSTD_FORM_FIELD_LABEL}>Frekvens</span>
-          <select
-            value={state.freq}
-            onChange={(e) => update({ ...state, freq: e.target.value as RecurrenceFreq })}
-            className={inputClassName}
-          >
-            {(Object.keys(FREQ_LABELS) as RecurrenceFreq[]).map((f) => (
-              <option key={f} value={f}>
-                {FREQ_LABELS[f]}
-              </option>
-            ))}
-          </select>
-        </label>
+        {!hideFrequencySelect && (
+          <label className="flex flex-col gap-1">
+            <span className={WPSTD_FORM_FIELD_LABEL}>Frekvens</span>
+            <select
+              value={state.freq}
+              onChange={(e) => update({ ...state, freq: e.target.value as RecurrenceFreq })}
+              className={inputClassName}
+            >
+              {(Object.keys(RECURRENCE_FREQ_LABELS) as RecurrenceFreq[]).map((f) => (
+                <option key={f} value={f}>
+                  {RECURRENCE_FREQ_LABELS[f]}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         {needsDay && (
           <label className="flex flex-col gap-1">
@@ -102,7 +64,7 @@ export function RecurrencePicker({
               onChange={(e) => update({ ...state, weekday: Number(e.target.value) })}
               className={inputClassName}
             >
-              {WEEKDAYS.map((d, i) => (
+              {['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'].map((d, i) => (
                 <option key={d} value={i}>
                   {d}
                 </option>
@@ -131,16 +93,4 @@ export function RecurrencePicker({
       )}
     </div>
   )
-}
-
-export function toDateTimeLocalValue(input: string | null): string {
-  if (!input) return ''
-  const parsed = new Date(input)
-  if (Number.isNaN(parsed.getTime())) return ''
-  const year = parsed.getFullYear()
-  const month = String(parsed.getMonth() + 1).padStart(2, '0')
-  const day = String(parsed.getDate()).padStart(2, '0')
-  const hours = String(parsed.getHours()).padStart(2, '0')
-  const minutes = String(parsed.getMinutes()).padStart(2, '0')
-  return `${year}-${month}-${day}T${hours}:${minutes}`
 }

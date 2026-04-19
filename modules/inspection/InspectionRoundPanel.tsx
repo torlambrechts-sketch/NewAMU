@@ -3,14 +3,21 @@ import type { PostgrestError } from '@supabase/supabase-js'
 import { X } from 'lucide-react'
 import { supabase } from '../../src/lib/supabaseClient'
 import {
+  WPSTD_FORM_CONTROL_PAIR_GRID,
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_INPUT,
   WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { RecurrencePicker } from '../../src/components/hse/RecurrencePicker'
+import {
+  buildRecurrenceCron,
+  parseRecurrenceCron,
+  RECURRENCE_FREQ_LABELS,
+  type RecurrenceFreq,
+} from '../../src/components/hse/recurrenceCron'
 import { fetchAssignableUsers, type AssignableUser } from '../../src/hooks/useAssignableUsers'
-import type { InspectionLocationRow, InspectionRoundRow, InspectionRoundStatus } from './types'
+import type { InspectionLocationRow, InspectionRoundRow } from './types'
 
 type InspectionRoundPanelProps = {
   inspectionId: string
@@ -21,6 +28,213 @@ function getErrorMessage(err: PostgrestError | Error | null): string {
   if (!err) return 'Ukjent feil'
   if ('message' in err && typeof err.message === 'string') return err.message
   return 'Ukjent feil'
+}
+
+function InspectionRoundPanelFormBody({
+  round,
+  locations,
+  assignableUsers,
+  scheduledLocal,
+  onUpdate,
+}: {
+  round: InspectionRoundRow
+  locations: InspectionLocationRow[]
+  assignableUsers: AssignableUser[]
+  scheduledLocal: string
+  onUpdate: (patch: Partial<InspectionRoundRow>) => void | Promise<void>
+}) {
+  const cronStr = round.cron_expression ?? ''
+  const recurrenceState = useMemo(() => parseRecurrenceCron(cronStr), [cronStr])
+  const freqSelectValue: Exclude<RecurrenceFreq, 'none'> = useMemo(() => {
+    const f = recurrenceState.freq
+    return f === 'none' ? 'weekly' : f
+  }, [recurrenceState.freq])
+
+  const handleFreqSelectChange = (freq: Exclude<RecurrenceFreq, 'none'>) => {
+    const prev = cronStr.trim()
+      ? parseRecurrenceCron(cronStr)
+      : { freq: 'weekly' as const, weekday: 0, hour: 7, minute: 0 }
+    void onUpdate({ cron_expression: buildRecurrenceCron({ ...prev, freq }) })
+  }
+
+  return (
+    <div className="border-y border-neutral-200 bg-white">
+      <div className="grid grid-cols-1 gap-y-8">
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <p className={WPSTD_FORM_LEAD}>Oppdater runden direkte i databasen. Endringer lagres ved hver endring.</p>
+          <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
+            <div className="flex flex-col">
+              <label htmlFor="panel-round-title" className={WPSTD_FORM_FIELD_LABEL}>
+                Tittel
+              </label>
+            </div>
+            <div className="flex flex-col">
+              <input
+                id="panel-round-title"
+                type="text"
+                value={round.title}
+                onChange={(e) => void onUpdate({ title: e.target.value })}
+                className={WPSTD_FORM_INPUT}
+                placeholder="F.eks. Månedlig vernerunde"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <p className={WPSTD_FORM_LEAD}>Status for inspeksjonsrunden.</p>
+          <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
+            <div className="flex flex-col">
+              <label htmlFor="panel-round-status" className={WPSTD_FORM_FIELD_LABEL}>
+                Status
+              </label>
+            </div>
+            <div className="flex flex-col">
+              <select
+                id="panel-round-status"
+                value={round.status}
+                onChange={(e) => void onUpdate({ status: e.target.value as InspectionRoundRow['status'] })}
+                className={WPSTD_FORM_INPUT}
+              >
+                <option value="draft">Kladd</option>
+                <option value="active">Aktiv</option>
+                <option value="signed">Signert</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <p className={WPSTD_FORM_LEAD}>Hvor gjennomføres runden?</p>
+          <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
+            <div className="flex flex-col">
+              <label htmlFor="panel-round-location" className={WPSTD_FORM_FIELD_LABEL}>
+                Lokasjon
+              </label>
+            </div>
+            <div className="flex flex-col">
+              <select
+                id="panel-round-location"
+                value={round.location_id ?? ''}
+                onChange={(e) =>
+                  void onUpdate({ location_id: e.target.value ? e.target.value : null })
+                }
+                className={WPSTD_FORM_INPUT}
+              >
+                <option value="">(Ingen)</option>
+                {locations.map((loc) => (
+                  <option key={loc.id} value={loc.id}>
+                    {loc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <p className={WPSTD_FORM_LEAD}>Hvem er ansvarlig for gjennomføringen?</p>
+          <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
+            <div className="flex flex-col">
+              <label htmlFor="panel-round-assigned" className={WPSTD_FORM_FIELD_LABEL}>
+                Ansvarlig
+              </label>
+            </div>
+            <div className="flex flex-col">
+              <select
+                id="panel-round-assigned"
+                value={round.assigned_to ?? ''}
+                onChange={(e) =>
+                  void onUpdate({ assigned_to: e.target.value ? e.target.value : null })
+                }
+                className={WPSTD_FORM_INPUT}
+              >
+                <option value="">(Ingen)</option>
+                {assignableUsers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.displayName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <p className={WPSTD_FORM_LEAD}>Planlagt dato og tid for gjennomføringen.</p>
+          <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
+            <div className="flex flex-col">
+              <label htmlFor="panel-round-scheduled" className={WPSTD_FORM_FIELD_LABEL}>
+                Planlagt tidspunkt
+              </label>
+            </div>
+            <div className="flex flex-col">
+              <input
+                id="panel-round-scheduled"
+                type="datetime-local"
+                value={scheduledLocal}
+                onChange={(e) => {
+                  const v = e.target.value
+                  void onUpdate({
+                    scheduled_for: v ? new Date(v).toISOString() : null,
+                  })
+                }}
+                className={WPSTD_FORM_INPUT}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <p className={WPSTD_FORM_LEAD}>Hvor ofte skal inspeksjonsrunden gjentas? (valgfritt)</p>
+          <div className={WPSTD_FORM_CONTROL_PAIR_GRID}>
+            <div className="flex flex-col">
+              <label htmlFor="panel-round-freq" className={WPSTD_FORM_FIELD_LABEL}>
+                Frekvens
+              </label>
+            </div>
+            <div className="flex flex-col">
+              <select
+                id="panel-round-freq"
+                value={cronStr.trim() ? freqSelectValue : ''}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (!v) {
+                    void onUpdate({ cron_expression: null })
+                    return
+                  }
+                  handleFreqSelectChange(v as Exclude<RecurrenceFreq, 'none'>)
+                }}
+                className={WPSTD_FORM_INPUT}
+              >
+                <option value="">(Ingen)</option>
+                {(['weekly', 'biweekly', 'monthly', 'quarterly'] as const).map((f) => (
+                  <option key={f} value={f}>
+                    {RECURRENCE_FREQ_LABELS[f]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {cronStr.trim() !== '' && (
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <p className={WPSTD_FORM_LEAD}>
+              Velg ukedag (ved ukentlig mønster) og klokkeslett for planlagt gjentakelse.
+            </p>
+            <div className="flex flex-col">
+              <RecurrencePicker
+                value={cronStr}
+                onChange={(cron) => void onUpdate({ cron_expression: cron || null })}
+                hideFrequencySelect
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundPanelProps) {
@@ -136,115 +350,13 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
         {!round ? (
           <p className="px-6 py-6 text-sm text-neutral-600">Ingen data.</p>
         ) : (
-          <div className="border-y border-neutral-200 bg-white">
-            <div className={WPSTD_FORM_ROW_GRID}>
-              <p className={WPSTD_FORM_LEAD}>Oppdater runden direkte i databasen. Endringer lagres ved hver endring.</p>
-              <div>
-                <p className={WPSTD_FORM_FIELD_LABEL}>Tittel</p>
-                <input
-                  id="panel-round-title"
-                  type="text"
-                  value={round.title}
-                  onChange={(e) => void handleUpdate({ title: e.target.value })}
-                  className={`${WPSTD_FORM_INPUT} mt-1.5`}
-                  placeholder="F.eks. Månedlig vernerunde"
-                />
-              </div>
-            </div>
-
-            <div className={WPSTD_FORM_ROW_GRID}>
-              <p className={WPSTD_FORM_LEAD}>Status for inspeksjonsrunden.</p>
-              <div>
-                <p className={WPSTD_FORM_FIELD_LABEL}>Status</p>
-                <select
-                  id="panel-round-status"
-                  value={round.status}
-                  onChange={(e) => void handleUpdate({ status: e.target.value as InspectionRoundStatus })}
-                  className={`${WPSTD_FORM_INPUT} mt-1.5`}
-                >
-                  <option value="draft">Kladd</option>
-                  <option value="active">Aktiv</option>
-                  <option value="signed">Signert</option>
-                </select>
-              </div>
-            </div>
-
-            <div className={WPSTD_FORM_ROW_GRID}>
-              <p className={WPSTD_FORM_LEAD}>Hvor gjennomføres runden?</p>
-              <div>
-                <p className={WPSTD_FORM_FIELD_LABEL}>Lokasjon</p>
-                <select
-                  id="panel-round-location"
-                  value={round.location_id ?? ''}
-                  onChange={(e) =>
-                    void handleUpdate({ location_id: e.target.value ? e.target.value : null })
-                  }
-                  className={`${WPSTD_FORM_INPUT} mt-1.5`}
-                >
-                  <option value="">(Ingen)</option>
-                  {locations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className={WPSTD_FORM_ROW_GRID}>
-              <p className={WPSTD_FORM_LEAD}>Hvem er ansvarlig for gjennomføringen?</p>
-              <div>
-                <p className={WPSTD_FORM_FIELD_LABEL}>Ansvarlig</p>
-                <select
-                  id="panel-round-assigned"
-                  value={round.assigned_to ?? ''}
-                  onChange={(e) =>
-                    void handleUpdate({ assigned_to: e.target.value ? e.target.value : null })
-                  }
-                  className={`${WPSTD_FORM_INPUT} mt-1.5`}
-                >
-                  <option value="">(Ingen)</option>
-                  {assignableUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.displayName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className={WPSTD_FORM_ROW_GRID}>
-              <p className={WPSTD_FORM_LEAD}>Planlagt dato og tid for gjennomføringen.</p>
-              <div>
-                <p className={WPSTD_FORM_FIELD_LABEL}>Planlagt tidspunkt</p>
-                <input
-                  id="panel-round-scheduled"
-                  type="datetime-local"
-                  value={scheduledLocal}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    void handleUpdate({
-                      scheduled_for: v ? new Date(v).toISOString() : null,
-                    })
-                  }}
-                  className={`${WPSTD_FORM_INPUT} mt-1.5`}
-                />
-              </div>
-            </div>
-
-            <div className={WPSTD_FORM_ROW_GRID}>
-              <p className={WPSTD_FORM_LEAD}>Planlegg gjentakelse med cron-uttrykk (valgfritt).</p>
-              <div>
-                <p className={WPSTD_FORM_FIELD_LABEL}>Gjentakelse</p>
-                <div className="mt-1.5">
-                  <RecurrencePicker
-                    value={round.cron_expression ?? ''}
-                    onChange={(cron) => void handleUpdate({ cron_expression: cron || null })}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+          <InspectionRoundPanelFormBody
+            round={round}
+            locations={locations}
+            assignableUsers={assignableUsers}
+            scheduledLocal={scheduledLocal}
+            onUpdate={handleUpdate}
+          />
         )}
       </div>
 
