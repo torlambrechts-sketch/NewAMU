@@ -14,6 +14,7 @@ import {
 import { RecurrencePicker, toDateTimeLocalValue } from '../../src/components/hse/RecurrencePicker'
 import type { InspectionRoundRow } from './types'
 import { useInspectionModule } from './useInspectionModule'
+import { InspeksjonsrunderCreateForm } from './InspeksjonsrunderCreateForm'
 type Props = { supabase: SupabaseClient | null }
 
 const STATUS_LABEL: Record<InspectionRoundRow['status'], string> = {
@@ -334,17 +335,17 @@ export function InspectionModuleView({ supabase }: Props) {
         titleId="form-create-round"
         title="Ny inspeksjonsrunde"
         footer={
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-3">
             <button
               type="button"
-              className="rounded-lg border border-neutral-300 px-4 py-2 text-sm"
+              className="border border-neutral-300 bg-white px-5 py-2.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
               onClick={() => setCreateOpen(false)}
             >
               Avbryt
             </button>
             <button
               type="button"
-              className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
+              className="px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-colors"
               style={{ backgroundColor: '#1a3d32' }}
               onClick={async () => {
                 const templateId = newRoundForm.templateId || inspection.templates[0]?.id || ''
@@ -361,75 +362,18 @@ export function InspectionModuleView({ supabase }: Props) {
                 setNewRoundForm({ title: '', templateId: '', locationId: '', cronExpression: '', scheduledFor: '', assignedTo: '' })
               }}
             >
-              Opprett
+              Opprett runde
             </button>
           </div>
         }
       >
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-xs text-neutral-500">Tittel</span>
-            <input
-              value={newRoundForm.title}
-              onChange={(e) => setNewRoundForm((p) => ({ ...p, title: e.target.value }))}
-              className="rounded-lg border border-neutral-300 px-3 py-2"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-xs text-neutral-500">Mal</span>
-            <select
-              value={newRoundForm.templateId || inspection.templates[0]?.id || ''}
-              onChange={(e) => setNewRoundForm((p) => ({ ...p, templateId: e.target.value }))}
-              className="rounded-lg border border-neutral-300 px-3 py-2"
-            >
-              {inspection.templates.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-xs text-neutral-500">Lokasjon</span>
-            <select
-              value={newRoundForm.locationId}
-              onChange={(e) => setNewRoundForm((p) => ({ ...p, locationId: e.target.value }))}
-              className="rounded-lg border border-neutral-300 px-3 py-2"
-            >
-              <option value="">(Valgfri)</option>
-              {inspection.locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>{loc.name}</option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-xs text-neutral-500">Planlagt dato</span>
-            <input
-              type="datetime-local"
-              value={newRoundForm.scheduledFor}
-              onChange={(e) => setNewRoundForm((p) => ({ ...p, scheduledFor: e.target.value }))}
-              className="rounded-lg border border-neutral-300 px-3 py-2"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="text-xs text-neutral-500">Ansvarlig</span>
-            <select
-              value={newRoundForm.assignedTo}
-              onChange={(e) => setNewRoundForm((p) => ({ ...p, assignedTo: e.target.value }))}
-              className="rounded-lg border border-neutral-300 px-3 py-2"
-            >
-              <option value="">(Valgfri)</option>
-              {inspection.assignableUsers.map((u) => (
-                <option key={u.id} value={u.id}>{u.displayName}</option>
-              ))}
-            </select>
-          </label>
-          <div className="flex flex-col gap-1 sm:col-span-2">
-            <span className="text-xs text-neutral-500">Gjentakelse (valgfri)</span>
-            <RecurrencePicker
-              value={newRoundForm.cronExpression}
-              onChange={(cron) => setNewRoundForm((p) => ({ ...p, cronExpression: cron }))}
-            />
-          </div>
-        </div>
+        <InspeksjonsrunderCreateForm
+          form={newRoundForm}
+          onChange={(f) => setNewRoundForm(f)}
+          templates={inspection.templates}
+          locations={inspection.locations}
+          users={inspection.assignableUsers}
+        />
       </FormModal>
 
       {/* ── Scheduling modal ─────────────────────────────────────────────────── */}
