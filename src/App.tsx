@@ -98,6 +98,9 @@ import { IkMalPage } from './pages/IkMalPage'
 import { IkTiltaksplanPage } from './pages/IkTiltaksplanPage'
 import { RosModulePage }         from './pages/RosModulePage'
 import { RosAnalysisDetailPage } from './pages/RosAnalysisDetailPage'
+import { SurveyModulePage } from './pages/SurveyModulePage'
+import { SurveyDetailPage } from './pages/SurveyDetailPage'
+import { SurveyRespondPage } from './pages/SurveyRespondPage'
 
 function App() {
   return (
@@ -118,6 +121,7 @@ function App() {
             <Route path="/varsle/status" element={<WhistleStatusPage />} />
             <Route path="/varsle/:slug" element={<PublicWhistlePage />} />
             <Route path="/anonym-aml/:slug" element={<PublicAnonymousAmlPage />} />
+            <Route path="/survey-respond/:campaignId" element={<SurveyRespondPage />} />
             {/* Landing page — root URL, public */}
             <Route index element={<LandingPage />} />
             <Route path="/landing" element={<Navigate to="/" replace />} />
@@ -186,6 +190,8 @@ function App() {
                       <Route path="sja/:sjaId" element={<SjaDetailPage />} />
                       <Route path="ros"         element={<RosModulePage />} />
                       <Route path="ros/:rosId"  element={<RosAnalysisDetailPage />} />
+                      <Route path="survey" element={<SurveyModulePage />} />
+                      <Route path="survey/:surveyId" element={<SurveyDetailPage />} />
                       {/* Admin: module overview + RBAC */}
                       <Route path="admin/modules" element={<ModuleAdminPage />} />
                       {/* Phase 2: dynamic module route — loaded from `modules` table via registry */}

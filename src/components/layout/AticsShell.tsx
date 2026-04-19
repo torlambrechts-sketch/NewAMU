@@ -19,6 +19,7 @@ import {
   Kanban,
   LayoutGrid,
   Library,
+  ListChecks,
   Megaphone,
   PanelLeft,
   PanelRight,
@@ -477,6 +478,15 @@ const navGroups: NavGroup[] = [
         subs: [],
         perm: 'module.view.hse',
         moduleSlug: 'ros',
+      },
+      {
+        to: '/survey',
+        label: 'Undersøkelser',
+        end: false,
+        icon: ListChecks,
+        subs: [],
+        perm: 'module.view.survey',
+        moduleSlug: 'survey',
       },
       {
         to: '/internkontroll',
