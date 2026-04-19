@@ -30,11 +30,12 @@ import type { ChecklistItem, ChecklistResponse } from '../../src/components/chec
 import { DeviationPanel } from '../../src/components/hse/DeviationPanel'
 import { HseAuditLogViewer } from '../../src/components/hse/HseAuditLogViewer'
 import { RiskMatrix, riskColorClass, riskLabel, riskScoreFromProbCons } from '../../src/components/hse/RiskMatrix'
+import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 
 type PanelTab = 'checklist' | 'findings' | 'summary' | 'signatures' | 'history'
 
 const FIELD_INPUT =
-  'w-full border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25'
+  'w-full border border-neutral-300 rounded-md bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25'
 
 const TAB_LABELS: Record<PanelTab, string> = {
   checklist: 'Sjekkliste',
@@ -166,7 +167,7 @@ function ChecklistTab({
               <button
                 type="button"
                 onClick={() => void inspection.stampRoundGps(round.id)}
-                className="shrink-0 border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-800 transition-colors hover:bg-neutral-50"
+                className="shrink-0 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-800 transition-colors hover:bg-neutral-50"
               >
                 📍 Stempel GPS-posisjon
               </button>
@@ -201,7 +202,7 @@ function ChecklistTab({
           onSaveResponse={handleSaveResponse}
           activationBanner={
             isDraft ? (
-              <div className="mx-5 mt-4 flex flex-wrap items-center justify-between gap-4 border border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="mx-5 mt-4 flex flex-wrap items-center justify-between gap-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
                 <div>
                   <p className="text-sm font-medium text-amber-800">Runden er i kladd-modus</p>
                   <p className="mt-0.5 text-xs text-amber-700">Aktiver runden for å begynne gjennomføringen.</p>
@@ -211,7 +212,7 @@ function ChecklistTab({
                   onClick={() =>
                     void inspection.updateRoundSchedule({ roundId: round.id, status: 'active' })
                   }
-                  className="shrink-0 bg-[#1a3d32] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#14312a]"
+                  className="shrink-0 rounded-md bg-[#1a3d32] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#14312a]"
                 >
                   Aktiver runden
                 </button>
@@ -345,40 +346,31 @@ function FindingsTab({
             <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-severity">
               Alvorlighetsgrad
             </label>
-            <select
-              id="finding-severity"
+            <SearchableSelect
               value={severity}
-              onChange={(e) => setSeverity(e.target.value as typeof severity)}
-              className={FIELD_INPUT}
-            >
-              {(Object.keys(SEVERITY_LABELS) as (keyof typeof SEVERITY_LABELS)[]).map((s) => (
-                <option key={s} value={s}>
-                  {SEVERITY_LABELS[s]}
-                </option>
-              ))}
-            </select>
+              options={(Object.keys(SEVERITY_LABELS) as (keyof typeof SEVERITY_LABELS)[]).map((s) => ({
+                value: s,
+                label: SEVERITY_LABELS[s],
+              }))}
+              onChange={(v) => setSeverity(v as typeof severity)}
+            />
           </div>
           <div className={WPSTD_FORM_ROW_GRID}>
             <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-item">
               Tilknyttet sjekklistepunkt (valgfri)
             </label>
-            <select
-              id="finding-item"
+            <SearchableSelect
               value={linkedItemKey}
-              onChange={(e) => setLinkedItemKey(e.target.value)}
-              className={FIELD_INPUT}
-            >
-              <option value="">(Ingen)</option>
-              {checklistItems.map((ci) => (
-                <option key={ci.key} value={ci.key}>
-                  {ci.label}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: '(Ingen)' },
+                ...checklistItems.map((ci) => ({ value: ci.key, label: ci.label })),
+              ]}
+              onChange={(v) => setLinkedItemKey(v)}
+            />
           </div>
           <div className={WPSTD_FORM_ROW_GRID}>
             <span className={WPSTD_FORM_FIELD_LABEL}>Risiko (sannsynlighet × konsekvens)</span>
-            <div className="border border-neutral-200 bg-white p-3">
+            <div className="rounded-md border border-neutral-200 bg-white p-3">
               <RiskMatrix
                 probability={findingProb}
                 consequence={findingCons}
@@ -395,7 +387,7 @@ function FindingsTab({
               type="button"
               disabled={!description.trim() || saving}
               onClick={() => void handleSave()}
-              className="bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#14312a] disabled:opacity-50"
+              className="rounded-md bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#14312a] disabled:opacity-50"
             >
               {saving ? 'Lagrer…' : editingFindingId ? 'Lagre endringer' : 'Registrer avvik'}
             </button>
@@ -404,7 +396,7 @@ function FindingsTab({
                 type="button"
                 disabled={saving}
                 onClick={() => resetForm()}
-                className="border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+                className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
               >
                 Avbryt
               </button>
@@ -432,12 +424,12 @@ function FindingsTab({
                 'border-l-blue-300'
               }`}>
                 {showLegacyLinkBanner && (
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
                     <span>Risikoskår {riskScore} — koble til avvik i systemet</span>
                     <button
                       type="button"
                       disabled={linkingDeviationId === f.id}
-                      className="shrink-0 bg-[#1a3d32] px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-[#14312a] disabled:opacity-50"
+                      className="shrink-0 rounded-md bg-[#1a3d32] px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-[#14312a] disabled:opacity-50"
                       onClick={async () => {
                         setLinkingDeviationId(f.id)
                         const id = await inspection.createDeviationFromFinding(f.id)
@@ -453,13 +445,13 @@ function FindingsTab({
                   <p className="min-w-0 flex-1 text-sm text-neutral-900">{f.description}</p>
                   <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                     <span
-                      className={`px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_COLORS[f.severity]}`}
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_COLORS[f.severity]}`}
                     >
                       {SEVERITY_LABELS[f.severity]}
                     </span>
                     {riskScore != null && (
                       <span
-                        className={`px-2 py-0.5 text-[11px] font-semibold ${riskColorClass(riskScore)}`}
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${riskColorClass(riskScore)}`}
                       >
                         Risiko {riskScore} — {riskLabel(riskScore)}
                       </span>
@@ -470,7 +462,7 @@ function FindingsTab({
                           <button
                             type="button"
                             onClick={() => onOpenDeviation(f.deviation_id!)}
-                            className="border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-[#1a3d32] transition-colors hover:bg-neutral-50"
+                            className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-[#1a3d32] transition-colors hover:bg-neutral-50"
                           >
                             Åpne avvik
                           </button>
@@ -478,7 +470,7 @@ function FindingsTab({
                         <button
                           type="button"
                           onClick={() => startEdit(f)}
-                          className="p-1 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                          className="rounded-md p-1 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                           aria-label="Rediger avvik"
                           title="Rediger"
                         >
@@ -491,7 +483,7 @@ function FindingsTab({
                             void inspection.deleteFinding(f.id)
                             if (editingFindingId === f.id) resetForm()
                           }}
-                          className="p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-red-600"
+                          className="rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-red-600"
                           aria-label="Slett avvik"
                           title="Slett"
                         >
@@ -571,20 +563,25 @@ function SummaryTab({
         <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="conducted-by">
           Gjennomført av
         </label>
-        <select
-          id="conducted-by"
-          value={conductedBy}
-          disabled={readOnly}
-          onChange={(e) => setConductedBy(e.target.value)}
-          className={FIELD_INPUT}
-        >
-          <option value="">(Valgfri)</option>
-          {inspection.assignableUsers.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.displayName}
-            </option>
-          ))}
-        </select>
+        {readOnly ? (
+          <select id="conducted-by" value={conductedBy} disabled className={FIELD_INPUT}>
+            <option value="">(Valgfri)</option>
+            {inspection.assignableUsers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.displayName}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <SearchableSelect
+            value={conductedBy}
+            options={[
+              { value: '', label: '(Valgfri)' },
+              ...inspection.assignableUsers.map((u) => ({ value: u.id, label: u.displayName })),
+            ]}
+            onChange={(v) => setConductedBy(v)}
+          />
+        )}
       </div>
       <div className={WPSTD_FORM_ROW_GRID}>
         <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="conducted-at">
@@ -606,7 +603,7 @@ function SummaryTab({
             type="button"
             onClick={() => void handleSave()}
             disabled={saving}
-            className="bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#14312a] disabled:opacity-50"
+            className="rounded-md bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#14312a] disabled:opacity-50"
           >
             {saving ? 'Lagrer…' : saved ? 'Lagret ✓' : 'Lagre sammendrag'}
           </button>
@@ -672,7 +669,7 @@ function SignaturesTab({
     <div className="space-y-5 px-5 py-5">
       {location && (
         <div
-          className={`border px-4 py-3 text-xs font-medium ${
+          className={`rounded-md border px-4 py-3 text-xs font-medium ${
             isManager
               ? 'border-green-200 bg-green-50 text-green-800'
               : isDeputy
@@ -688,7 +685,7 @@ function SignaturesTab({
         </div>
       )}
 
-      <div className="border border-[#1a3d32]/20 bg-[#f4f1ea] p-4">
+      <div className="rounded-md border border-[#1a3d32]/20 bg-[#f4f1ea] p-4">
         <p className="text-xs font-semibold text-[#1a3d32]">IK-forskriften § 5 — dobbel signering</p>
         <p className="mt-1 text-xs text-neutral-500">
           Vernerunden krever signatur fra både leder (AML § 2-1) og verneombud (AML § 6-2) for å være gyldig
@@ -721,7 +718,7 @@ function SignaturesTab({
       )}
 
       {/* Manager */}
-      <div className={`border-2 p-5 transition-all ${
+      <div className={`rounded-md border-2 p-5 transition-all ${
         round.manager_signed_at
           ? 'border-green-300 bg-green-50'
           : canSign && (!hasRoleRestriction || isManager)
@@ -755,7 +752,7 @@ function SignaturesTab({
               disabled={managerButtonDisabled}
               title={unauthorizedTooltip}
               onClick={() => void handleSign('manager')}
-              className={`shrink-0 px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40 ${
+              className={`shrink-0 rounded-md px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40 ${
                 managerButtonSolid
                   ? 'bg-[#1a3d32] text-white hover:bg-[#14312a]'
                   : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
@@ -768,7 +765,7 @@ function SignaturesTab({
       </div>
 
       {/* Deputy */}
-      <div className={`border-2 p-5 transition-all ${
+      <div className={`rounded-md border-2 p-5 transition-all ${
         round.deputy_signed_at
           ? 'border-green-300 bg-green-50'
           : canSign && (!hasRoleRestriction || isDeputy)
@@ -802,7 +799,7 @@ function SignaturesTab({
               disabled={deputyButtonDisabled}
               title={unauthorizedTooltip}
               onClick={() => void handleSign('deputy')}
-              className={`shrink-0 px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40 ${
+              className={`shrink-0 rounded-md px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40 ${
                 deputyButtonSolid
                   ? 'bg-[#1a3d32] text-white hover:bg-[#14312a]'
                   : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
@@ -815,7 +812,7 @@ function SignaturesTab({
       </div>
 
       {isSigned && (
-        <div className="border border-green-200 bg-green-50 p-4 text-center">
+        <div className="rounded-md border border-green-200 bg-green-50 p-4 text-center">
           <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-green-600" />
           <p className="text-sm font-semibold text-green-800">Runden er fullstendig signert</p>
           <p className="mt-1 text-xs text-green-600">
@@ -860,6 +857,22 @@ function RoundBasicsForm({
     await Promise.resolve(onUpdated())
   }
 
+  const statusOptions = [
+    { value: 'draft', label: 'Kladd' },
+    { value: 'active', label: 'Aktiv' },
+    { value: 'signed', label: 'Signert' },
+  ]
+
+  const locationOptions = [
+    { value: '', label: '(Ingen)' },
+    ...locations.map((loc) => ({ value: loc.id, label: loc.name })),
+  ]
+
+  const assignedOptions = [
+    { value: '', label: '(Ingen)' },
+    ...assignableUsers.map((u) => ({ value: u.id, label: u.displayName })),
+  ]
+
   return (
     <div className="border-y border-neutral-200 bg-white">
       <p className={`${WPSTD_FORM_LEAD} border-b border-neutral-200 px-4 py-3 md:px-5`}>
@@ -882,59 +895,63 @@ function RoundBasicsForm({
         <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-status">
           Status
         </label>
-        <select
-          id="round-basics-status"
-          value={round.status}
-          disabled={readOnly}
-          onChange={(e) => void handleUpdate({ status: e.target.value as InspectionRoundRow['status'] })}
-          className={FIELD_INPUT}
-        >
-          <option value="draft">Kladd</option>
-          <option value="active">Aktiv</option>
-          <option value="signed">Signert</option>
-        </select>
+        {readOnly ? (
+          <select value={round.status} disabled className={FIELD_INPUT}>
+            <option value="draft">Kladd</option>
+            <option value="active">Aktiv</option>
+            <option value="signed">Signert</option>
+          </select>
+        ) : (
+          <SearchableSelect
+            value={round.status}
+            options={statusOptions}
+            onChange={(v) => void handleUpdate({ status: v as InspectionRoundRow['status'] })}
+          />
+        )}
       </div>
       <div className={WPSTD_FORM_ROW_GRID}>
         <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-location">
           Lokasjon
         </label>
-        <select
-          id="round-basics-location"
-          value={round.location_id ?? ''}
-          disabled={readOnly}
-          onChange={(e) =>
-            void handleUpdate({ location_id: e.target.value ? e.target.value : null })
-          }
-          className={FIELD_INPUT}
-        >
-          <option value="">(Ingen)</option>
-          {locations.map((loc) => (
-            <option key={loc.id} value={loc.id}>
-              {loc.name}
-            </option>
-          ))}
-        </select>
+        {readOnly ? (
+          <select value={round.location_id ?? ''} disabled className={FIELD_INPUT}>
+            <option value="">(Ingen)</option>
+            {locations.map((loc) => (
+              <option key={loc.id} value={loc.id}>
+                {loc.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <SearchableSelect
+            value={round.location_id ?? ''}
+            options={locationOptions}
+            placeholder="Velg lokasjon"
+            onChange={(v) => void handleUpdate({ location_id: v ? v : null })}
+          />
+        )}
       </div>
       <div className={WPSTD_FORM_ROW_GRID}>
         <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-assigned">
           Ansvarlig
         </label>
-        <select
-          id="round-basics-assigned"
-          value={round.assigned_to ?? ''}
-          disabled={readOnly}
-          onChange={(e) =>
-            void handleUpdate({ assigned_to: e.target.value ? e.target.value : null })
-          }
-          className={FIELD_INPUT}
-        >
-          <option value="">(Ingen)</option>
-          {assignableUsers.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.displayName}
-            </option>
-          ))}
-        </select>
+        {readOnly ? (
+          <select value={round.assigned_to ?? ''} disabled className={FIELD_INPUT}>
+            <option value="">(Ingen)</option>
+            {assignableUsers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.displayName}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <SearchableSelect
+            value={round.assigned_to ?? ''}
+            options={assignedOptions}
+            placeholder="Velg ansvarlig"
+            onChange={(v) => void handleUpdate({ assigned_to: v ? v : null })}
+          />
+        )}
       </div>
       <div className={WPSTD_FORM_ROW_GRID}>
         <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-scheduled">
