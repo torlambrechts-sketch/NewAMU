@@ -618,8 +618,6 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         description: desc,
         severity: payload.severity,
         status: 'rapportert',
-        risk_probability: payload.riskProbability ?? null,
-        risk_consequence: payload.riskConsequence ?? null,
       }
       const { data: devRow, error: devErr } = await supabase
         .from('deviations')
@@ -734,8 +732,6 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
             title: `Avvik: ${titleBase}`,
             description: desc,
             severity: payload.severity,
-            risk_probability: payload.riskProbability ?? null,
-            risk_consequence: payload.riskConsequence ?? null,
           })
           .eq('id', finding.deviation_id)
         if (devUpErr) setError(devUpErr.message)

@@ -587,25 +587,15 @@ function SummaryTab({
         <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="conducted-by">
           Gjennomført av
         </label>
-        {readOnly ? (
-          <select id="conducted-by" value={conductedBy} disabled className={standardFieldClassName}>
-            <option value="">(Valgfri)</option>
-            {inspection.assignableUsers.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.displayName}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <SearchableSelect
-            value={conductedBy}
-            options={[
-              { value: '', label: '(Valgfri)' },
-              ...inspection.assignableUsers.map((u) => ({ value: u.id, label: u.displayName })),
-            ]}
-            onChange={(v) => setConductedBy(v)}
-          />
-        )}
+        <SearchableSelect
+          value={conductedBy}
+          options={[
+            { value: '', label: '(Valgfri)' },
+            ...inspection.assignableUsers.map((u) => ({ value: u.id, label: u.displayName })),
+          ]}
+          onChange={(v) => setConductedBy(v)}
+          disabled={readOnly}
+        />
       </div>
       <div className={WPSTD_FORM_ROW_GRID}>
         <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="conducted-at">
@@ -907,63 +897,36 @@ function RoundBasicsForm({
         <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-status">
           Status
         </label>
-        {readOnly ? (
-          <select value={round.status} disabled className={standardFieldClassName}>
-            <option value="draft">Kladd</option>
-            <option value="active">Aktiv</option>
-            <option value="signed">Signert</option>
-          </select>
-        ) : (
-          <SearchableSelect
-            value={round.status}
-            options={statusOptions}
-            onChange={(v) => void handleUpdate({ status: v as InspectionRoundRow['status'] })}
-          />
-        )}
+        <SearchableSelect
+          value={round.status}
+          options={statusOptions}
+          onChange={(v) => void handleUpdate({ status: v as InspectionRoundRow['status'] })}
+          disabled={readOnly}
+        />
       </div>
       <div className={WPSTD_FORM_ROW_GRID}>
         <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-location">
           Lokasjon
         </label>
-        {readOnly ? (
-          <select value={round.location_id ?? ''} disabled className={standardFieldClassName}>
-            <option value="">(Ingen)</option>
-            {locations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {loc.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <SearchableSelect
-            value={round.location_id ?? ''}
-            options={locationOptions}
-            placeholder="Velg lokasjon"
-            onChange={(v) => void handleUpdate({ location_id: v ? v : null })}
-          />
-        )}
+        <SearchableSelect
+          value={round.location_id ?? ''}
+          options={locationOptions}
+          placeholder="Velg lokasjon"
+          onChange={(v) => void handleUpdate({ location_id: v || null })}
+          disabled={readOnly}
+        />
       </div>
       <div className={WPSTD_FORM_ROW_GRID}>
         <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-assigned">
           Ansvarlig
         </label>
-        {readOnly ? (
-          <select value={round.assigned_to ?? ''} disabled className={standardFieldClassName}>
-            <option value="">(Ingen)</option>
-            {assignableUsers.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.displayName}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <SearchableSelect
-            value={round.assigned_to ?? ''}
-            options={assignedOptions}
-            placeholder="Velg ansvarlig"
-            onChange={(v) => void handleUpdate({ assigned_to: v ? v : null })}
-          />
-        )}
+        <SearchableSelect
+          value={round.assigned_to ?? ''}
+          options={assignedOptions}
+          placeholder="Velg ansvarlig"
+          onChange={(v) => void handleUpdate({ assigned_to: v || null })}
+          disabled={readOnly}
+        />
       </div>
       <div className={WPSTD_FORM_ROW_GRID}>
         <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-scheduled">

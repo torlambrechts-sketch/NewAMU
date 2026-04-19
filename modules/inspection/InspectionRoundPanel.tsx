@@ -8,6 +8,7 @@ import {
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { fetchAssignableUsers, type AssignableUser } from '../../src/hooks/useAssignableUsers'
+import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import type { InspectionLocationRow, InspectionRoundRow, InspectionRoundStatus } from './types'
 
 const FIELD_INPUT =
@@ -158,61 +159,40 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
               </div>
 
               <div className={WPSTD_FORM_ROW_GRID}>
-                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="panel-round-status">
-                  Status
-                </label>
-                <select
-                  id="panel-round-status"
+                <span className={WPSTD_FORM_FIELD_LABEL}>Status</span>
+                <SearchableSelect
                   value={round.status}
-                  onChange={(e) => void handleUpdate({ status: e.target.value as InspectionRoundStatus })}
-                  className={FIELD_INPUT}
-                >
-                  <option value="draft">Kladd</option>
-                  <option value="active">Aktiv</option>
-                  <option value="signed">Signert</option>
-                </select>
+                  options={[
+                    { value: 'draft', label: 'Kladd' },
+                    { value: 'active', label: 'Aktiv' },
+                    { value: 'signed', label: 'Signert' },
+                  ]}
+                  onChange={(v) => void handleUpdate({ status: v as InspectionRoundStatus })}
+                />
               </div>
 
               <div className={WPSTD_FORM_ROW_GRID}>
-                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="panel-round-location">
-                  Lokasjon
-                </label>
-                <select
-                  id="panel-round-location"
+                <span className={WPSTD_FORM_FIELD_LABEL}>Lokasjon</span>
+                <SearchableSelect
                   value={round.location_id ?? ''}
-                  onChange={(e) =>
-                    void handleUpdate({ location_id: e.target.value ? e.target.value : null })
-                  }
-                  className={FIELD_INPUT}
-                >
-                  <option value="">(Ingen)</option>
-                  {locations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: '', label: '(Ingen)' },
+                    ...locations.map((loc) => ({ value: loc.id, label: loc.name })),
+                  ]}
+                  onChange={(v) => void handleUpdate({ location_id: v || null })}
+                />
               </div>
 
               <div className={WPSTD_FORM_ROW_GRID}>
-                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="panel-round-assigned">
-                  Ansvarlig
-                </label>
-                <select
-                  id="panel-round-assigned"
+                <span className={WPSTD_FORM_FIELD_LABEL}>Ansvarlig</span>
+                <SearchableSelect
                   value={round.assigned_to ?? ''}
-                  onChange={(e) =>
-                    void handleUpdate({ assigned_to: e.target.value ? e.target.value : null })
-                  }
-                  className={FIELD_INPUT}
-                >
-                  <option value="">(Ingen)</option>
-                  {assignableUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.displayName}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: '', label: '(Ingen)' },
+                    ...assignableUsers.map((u) => ({ value: u.id, label: u.displayName })),
+                  ]}
+                  onChange={(v) => void handleUpdate({ assigned_to: v || null })}
+                />
               </div>
 
               <div className={WPSTD_FORM_ROW_GRID}>

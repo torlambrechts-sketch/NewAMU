@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SearchableSelect } from '../ui/SearchableSelect'
 
 export type RecurrenceFreq = 'none' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
 
@@ -66,43 +67,34 @@ export function RecurrencePicker({ value, onChange }: { value: string; onChange:
   const needsDay = state.freq === 'weekly' || state.freq === 'biweekly'
   const preview = state.freq === 'none' ? '' : recurrenceLabel(toCron(state))
 
+  const freqOptions = (Object.keys(FREQ_LABELS) as RecurrenceFreq[]).map((f) => ({ value: f, label: FREQ_LABELS[f] }))
+  const weekdayOptions = WEEKDAYS.map((d, i) => ({ value: String(i), label: d }))
+
   return (
     <div className="space-y-2">
       <div className="grid gap-2 sm:grid-cols-2">
-        <label className="flex flex-col gap-1 text-sm">
+        <div className="flex flex-col gap-1 text-sm">
           <span className="text-xs text-neutral-500">Frekvens</span>
-          <select
+          <SearchableSelect
             value={state.freq}
-            onChange={(e) => update({ ...state, freq: e.target.value as RecurrenceFreq })}
-            className="border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
-          >
-            {(Object.keys(FREQ_LABELS) as RecurrenceFreq[]).map((f) => (
-              <option key={f} value={f}>
-                {FREQ_LABELS[f]}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={freqOptions}
+            onChange={(v) => update({ ...state, freq: v as RecurrenceFreq })}
+          />
+        </div>
 
         {needsDay && (
-          <label className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-1 text-sm">
             <span className="text-xs text-neutral-500">Ukedag</span>
-            <select
-              value={state.weekday}
-              onChange={(e) => update({ ...state, weekday: Number(e.target.value) })}
-              className="border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
-            >
-              {WEEKDAYS.map((d, i) => (
-                <option key={d} value={i}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </label>
+            <SearchableSelect
+              value={String(state.weekday)}
+              options={weekdayOptions}
+              onChange={(v) => update({ ...state, weekday: Number(v) })}
+            />
+          </div>
         )}
 
         {state.freq !== 'none' && (
-          <label className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-1 text-sm">
             <span className="text-xs text-neutral-500">Klokkeslett</span>
             <input
               type="time"
@@ -113,7 +105,7 @@ export function RecurrencePicker({ value, onChange }: { value: string; onChange:
               }}
               className="border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
             />
-          </label>
+          </div>
         )}
       </div>
       {preview && (
