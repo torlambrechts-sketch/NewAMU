@@ -1,16 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../../firebase'; 
+import { supabase } from '../../src/lib/supabaseClient';
 
-// Utilizing the centralized design system layout tokens
 import { 
   WPSTD_FORM_ROW_GRID, 
   WPSTD_FORM_FIELD_LABEL, 
   WPSTD_FORM_LEAD 
 } from '../../src/components/layout/WorkplaceStandardFormPanel';
 
-// Reusable standard input class to match the create form's visual identity
 const WPSTD_FORM_INPUT = "w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-[#1a3d32] focus:border-transparent outline-none";
 
 export const InspectionRoundPage = () => {
@@ -24,17 +21,22 @@ export const InspectionRoundPage = () => {
     const loadInspection = async () => {
       if (!id) return;
       try {
-        const docRef = doc(db, 'inspection_rounds', id);
-        const docSnap = await getDoc(docRef);
+        const { data, error: fetchError } = await supabase
+          .from('inspection_rounds')
+          .select('*')
+          .eq('id', id)
+          .single();
         
-        if (docSnap.exists()) {
-          setInspectionData(docSnap.data());
+        if (fetchError) throw fetchError;
+        
+        if (data) {
+          setInspectionData(data);
         } else {
           setError("Inspection round not found.");
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        setError("Failed to load data from the database.");
+        setError(err.message || "Failed to load data from the database.");
       } finally {
         setLoading(false);
       }
@@ -46,11 +48,15 @@ export const InspectionRoundPage = () => {
   const handleUpdate = async (field: string, value: string) => {
     if (!id) return;
     try {
-      const docRef = doc(db, 'inspection_rounds', id);
-      await updateDoc(docRef, { [field]: value });
+      const { error: updateError } = await supabase
+        .from('inspection_rounds')
+        .update({ [field]: value })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
       setInspectionData((prev: any) => ({ ...prev, [field]: value }));
-    } catch (err) {
-      console.error("Error updating document: ", err);
+    } catch (err: any) {
+      console.error("Error updating document: ", err.message);
     }
   };
 
@@ -73,12 +79,11 @@ export const InspectionRoundPage = () => {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">{inspectionData.title || "Inspeksjonsrunde"}</h1>
         <p className={WPSTD_FORM_LEAD}>
-          Administrer detaljer for denne inspeksjonsrunden. Endringer lagres automatisk.
+          Administrer detaljer for denne inspeksjonsrunden. Endringer lagres automatisk til Supabase.
         </p>
       </div>
 
       <div className="space-y-6">
-        {/* Status Field */}
         <div className={WPSTD_FORM_ROW_GRID}>
           <label className={WPSTD_FORM_FIELD_LABEL}>Status</label>
           <select 
@@ -92,7 +97,6 @@ export const InspectionRoundPage = () => {
           </select>
         </div>
 
-        {/* Assigned To Field */}
         <div className={WPSTD_FORM_ROW_GRID}>
           <label className={WPSTD_FORM_FIELD_LABEL}>Ansvarlig</label>
           <input 
@@ -104,7 +108,6 @@ export const InspectionRoundPage = () => {
           />
         </div>
 
-        {/* Location Field */}
         <div className={WPSTD_FORM_ROW_GRID}>
           <label className={WPSTD_FORM_FIELD_LABEL}>Lokasjon / Avdeling</label>
           <input 
@@ -116,7 +119,6 @@ export const InspectionRoundPage = () => {
           />
         </div>
 
-        {/* Scheduled Date Field */}
         <div className={WPSTD_FORM_ROW_GRID}>
           <label className={WPSTD_FORM_FIELD_LABEL}>Dato</label>
           <input 
@@ -139,5 +141,3 @@ export const InspectionRoundPage = () => {
     </div>
   );
 };
-
-export default InspectionRoundPage;
