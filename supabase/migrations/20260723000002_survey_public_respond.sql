@@ -1,14 +1,7 @@
--- Anonymous survey response: read questions + open campaign; insert responses (no auth)
--- Requires 20260723000000_survey_module_core.sql (creates survey_* tables). Apply migrations
--- in filename order, or run the core migration before this file in the SQL editor.
-do $survey_public_prereq$
-begin
-  if to_regclass('public.survey_questions') is null then
-    raise exception
-      'public.survey_questions does not exist. Run migration 20260723000000_survey_module_core.sql first (survey tables must exist before anonymous policies).';
-  end if;
-end
-$survey_public_prereq$;
+-- Anonymous survey RLS + grants for `anon` are defined in
+-- 20260723000000_survey_module_core.sql (same transaction as table DDL).
+-- This file remains as an idempotent re-apply for databases that ran older
+-- 00000 without anon policies; safe no-op when 00000 already included them.
 
 grant usage on schema public to anon;
 
