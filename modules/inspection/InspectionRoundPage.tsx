@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { supabase } from '../../src/lib/supabaseClient'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -15,13 +15,14 @@ import {
   Trash2,
 } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../../src/components/layout/HubMenu1Bar'
-import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
 import {
-  WORKPLACE_MODULE_CANVAS_BG,
-  WORKPLACE_MODULE_CARD,
-  WORKPLACE_MODULE_CARD_SHADOW,
-} from '../../src/components/layout/workplaceModuleSurface'
-import type { HmsCategory, InspectionChecklistItem, InspectionRoundRow } from './types'
+  WPSTD_FORM_FIELD_LABEL,
+  WPSTD_FORM_LEAD,
+  WPSTD_FORM_ROW_GRID,
+} from '../../src/components/layout/WorkplaceStandardFormPanel'
+import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
+import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
+import type { HmsCategory, InspectionChecklistItem, InspectionLocationRow, InspectionRoundRow } from './types'
 import { parseChecklistItems } from './schema'
 import { useInspectionModule, type InspectionModuleState } from './useInspectionModule'
 import { ChecklistExecutionTab } from '../../src/components/checklist/ChecklistExecutionTab'
@@ -31,6 +32,9 @@ import { HseAuditLogViewer } from '../../src/components/hse/HseAuditLogViewer'
 import { RiskMatrix, riskColorClass, riskLabel, riskScoreFromProbCons } from '../../src/components/hse/RiskMatrix'
 
 type PanelTab = 'checklist' | 'findings' | 'summary' | 'signatures' | 'history'
+
+const WPSTD_FORM_INPUT =
+  'w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-[#1a3d32] focus:border-transparent outline-none transition-all'
 
 const TAB_LABELS: Record<PanelTab, string> = {
   checklist: 'Sjekkliste',
@@ -70,10 +74,6 @@ const SEVERITY_COLORS = {
   high: 'bg-orange-100 text-orange-800',
   critical: 'bg-red-100 text-red-700',
 }
-
-const PANEL_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-800'
-const PANEL_INPUT =
-  'mt-1.5 w-full border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25'
 
 // ── Checklist tab ─────────────────────────────────────────────────────────────
 
@@ -211,8 +211,7 @@ function ChecklistTab({
                   onClick={() =>
                     void inspection.updateRoundSchedule({ roundId: round.id, status: 'active' })
                   }
-                  className="shrink-0 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
-                  style={{ backgroundColor: '#1a3d32' }}
+                  className="shrink-0 bg-[#1a3d32] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#14312a]"
                 >
                   Aktiver runden
                 </button>
@@ -325,15 +324,12 @@ function FindingsTab({
   return (
     <div className="divide-y divide-neutral-100">
       {!readOnly && (
-        <div className="space-y-3 px-5 py-5">
-          <p className={PANEL_FIELD_LABEL}>
-            {editingFindingId ? 'Rediger avvik' : 'Registrer nytt avvik'}
+        <div className="border-b border-neutral-100 bg-white px-0 py-0">
+          <p className={`${WPSTD_FORM_LEAD} border-b border-neutral-200 px-4 py-3 md:px-5`}>
+            {editingFindingId ? 'Rediger avvik' : 'Registrer nytt avvik'} — hvert avvik lagres i avviksmodulen.
           </p>
-          <p className="text-xs text-neutral-500">
-            Hvert avvik lagres i avviksmodulen og kan åpnes for full behandling, handlingsplan og historikk.
-          </p>
-          <div>
-            <label className={PANEL_FIELD_LABEL} htmlFor="finding-desc">
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-desc">
               Beskrivelse
             </label>
             <textarea
@@ -342,49 +338,47 @@ function FindingsTab({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Beskriv avviket…"
-              className={`${PANEL_INPUT} resize-none`}
+              className={`${WPSTD_FORM_INPUT} resize-none`}
             />
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className={PANEL_FIELD_LABEL} htmlFor="finding-severity">
-                Alvorlighetsgrad
-              </label>
-              <select
-                id="finding-severity"
-                value={severity}
-                onChange={(e) => setSeverity(e.target.value as typeof severity)}
-                className={PANEL_INPUT}
-              >
-                {(Object.keys(SEVERITY_LABELS) as (keyof typeof SEVERITY_LABELS)[]).map((s) => (
-                  <option key={s} value={s}>
-                    {SEVERITY_LABELS[s]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={PANEL_FIELD_LABEL} htmlFor="finding-item">
-                Tilknyttet sjekklistepunkt (valgfri)
-              </label>
-              <select
-                id="finding-item"
-                value={linkedItemKey}
-                onChange={(e) => setLinkedItemKey(e.target.value)}
-                className={PANEL_INPUT}
-              >
-                <option value="">(Ingen)</option>
-                {checklistItems.map((ci) => (
-                  <option key={ci.key} value={ci.key}>
-                    {ci.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-severity">
+              Alvorlighetsgrad
+            </label>
+            <select
+              id="finding-severity"
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value as typeof severity)}
+              className={WPSTD_FORM_INPUT}
+            >
+              {(Object.keys(SEVERITY_LABELS) as (keyof typeof SEVERITY_LABELS)[]).map((s) => (
+                <option key={s} value={s}>
+                  {SEVERITY_LABELS[s]}
+                </option>
+              ))}
+            </select>
           </div>
-          <div>
-            <p className={PANEL_FIELD_LABEL}>Risiko (sannsynlighet × konsekvens)</p>
-            <div className="mt-2 border border-neutral-200 bg-white p-3">
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-item">
+              Tilknyttet sjekklistepunkt (valgfri)
+            </label>
+            <select
+              id="finding-item"
+              value={linkedItemKey}
+              onChange={(e) => setLinkedItemKey(e.target.value)}
+              className={WPSTD_FORM_INPUT}
+            >
+              <option value="">(Ingen)</option>
+              {checklistItems.map((ci) => (
+                <option key={ci.key} value={ci.key}>
+                  {ci.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <span className={WPSTD_FORM_FIELD_LABEL}>Risiko (sannsynlighet × konsekvens)</span>
+            <div className="border border-neutral-200 bg-white p-3">
               <RiskMatrix
                 probability={findingProb}
                 consequence={findingCons}
@@ -396,13 +390,12 @@ function FindingsTab({
               />
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 border-t border-neutral-200 px-4 py-4 md:px-5">
             <button
               type="button"
               disabled={!description.trim() || saving}
               onClick={() => void handleSave()}
-              className="px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50"
-              style={{ backgroundColor: '#1a3d32' }}
+              className="bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#14312a] disabled:opacity-50"
             >
               {saving ? 'Lagrer…' : editingFindingId ? 'Lagre endringer' : 'Registrer avvik'}
             </button>
@@ -444,7 +437,7 @@ function FindingsTab({
                     <button
                       type="button"
                       disabled={linkingDeviationId === f.id}
-                      className="shrink-0 bg-[#1a3d32] px-3 py-1 text-xs font-semibold text-white transition-colors disabled:opacity-50"
+                      className="shrink-0 bg-[#1a3d32] px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-[#14312a] disabled:opacity-50"
                       onClick={async () => {
                         setLinkingDeviationId(f.id)
                         const id = await inspection.createDeviationFromFinding(f.id)
@@ -551,16 +544,16 @@ function SummaryTab({
   }
 
   return (
-    <div className="space-y-5 px-5 py-5">
-      <div className="border border-[#1a3d32]/20 bg-[#f4f1ea] p-4">
+    <div className="border-b border-neutral-100 bg-white">
+      <div className="border-b border-[#1a3d32]/20 bg-[#f4f1ea] px-4 py-4 md:px-5">
         <p className="text-xs font-semibold text-[#1a3d32]">IK-forskriften § 5 — skriftlig protokoll</p>
-        <p className="mt-1 text-xs text-neutral-500">
+        <p className={`${WPSTD_FORM_LEAD} mt-1`}>
           Vernerunden skal dokumenteres skriftlig. Sammendraget arkiveres som del av HMS-protokollen.
         </p>
       </div>
 
-      <div>
-        <label className={PANEL_FIELD_LABEL} htmlFor="round-summary">
+      <div className={WPSTD_FORM_ROW_GRID}>
+        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-summary">
           Sammendrag <span className="text-red-500">*</span>
         </label>
         <textarea
@@ -570,49 +563,54 @@ function SummaryTab({
           readOnly={readOnly}
           onChange={(e) => setSummary(e.target.value)}
           placeholder="Beskriv gjennomføringen, observasjoner og tiltak…"
-          className={`${PANEL_INPUT} resize-none`}
+          className={`${WPSTD_FORM_INPUT} resize-none`}
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className={PANEL_FIELD_LABEL} htmlFor="conducted-by">Gjennomført av</label>
-          <select
-            id="conducted-by"
-            value={conductedBy}
-            disabled={readOnly}
-            onChange={(e) => setConductedBy(e.target.value)}
-            className={PANEL_INPUT}
-          >
-            <option value="">(Valgfri)</option>
-            {inspection.assignableUsers.map((u) => (
-              <option key={u.id} value={u.id}>{u.displayName}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className={PANEL_FIELD_LABEL} htmlFor="conducted-at">Dato gjennomført</label>
-          <input
-            id="conducted-at"
-            type="datetime-local"
-            value={conductedAt}
-            readOnly={readOnly}
-            onChange={(e) => setConductedAt(e.target.value)}
-            className={PANEL_INPUT}
-          />
-        </div>
+      <div className={WPSTD_FORM_ROW_GRID}>
+        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="conducted-by">
+          Gjennomført av
+        </label>
+        <select
+          id="conducted-by"
+          value={conductedBy}
+          disabled={readOnly}
+          onChange={(e) => setConductedBy(e.target.value)}
+          className={WPSTD_FORM_INPUT}
+        >
+          <option value="">(Valgfri)</option>
+          {inspection.assignableUsers.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.displayName}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className={WPSTD_FORM_ROW_GRID}>
+        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="conducted-at">
+          Dato gjennomført
+        </label>
+        <input
+          id="conducted-at"
+          type="datetime-local"
+          value={conductedAt}
+          readOnly={readOnly}
+          onChange={(e) => setConductedAt(e.target.value)}
+          className={WPSTD_FORM_INPUT}
+        />
       </div>
 
       {!readOnly && (
-        <button
-          type="button"
-          onClick={() => void handleSave()}
-          disabled={saving}
-          className="px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50"
-          style={{ backgroundColor: '#1a3d32' }}
-        >
-          {saving ? 'Lagrer…' : saved ? 'Lagret ✓' : 'Lagre sammendrag'}
-        </button>
+        <div className="border-t border-neutral-200 px-4 py-4 md:px-5">
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={saving}
+            className="bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#14312a] disabled:opacity-50"
+          >
+            {saving ? 'Lagrer…' : saved ? 'Lagret ✓' : 'Lagre sammendrag'}
+          </button>
+        </div>
       )}
     </div>
   )
@@ -701,7 +699,7 @@ function SignaturesTab({
       {/* Pre-flight checks */}
       {!isSigned && (
         <div className="space-y-1.5">
-          <p className={PANEL_FIELD_LABEL}>Sjekkliste før signering</p>
+          <p className={WPSTD_FORM_FIELD_LABEL}>Sjekkliste før signering</p>
           {[
             { ok: isActive, label: 'Runden er aktiv (ikke kladd)' },
             {
@@ -829,9 +827,140 @@ function SignaturesTab({
   )
 }
 
+// ── Round core fields (Workplace Standard single column) ─────────────────────
+
+function RoundBasicsForm({
+  round,
+  locations,
+  assignableUsers,
+  readOnly,
+  onUpdated,
+}: {
+  round: InspectionRoundRow
+  locations: InspectionLocationRow[]
+  assignableUsers: { id: string; displayName: string }[]
+  readOnly: boolean
+  onUpdated: () => void | Promise<void>
+}) {
+  const scheduledLocal = useMemo(() => {
+    if (!round.scheduled_for) return ''
+    const d = new Date(round.scheduled_for)
+    if (Number.isNaN(d.getTime())) return ''
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }, [round.scheduled_for])
+
+  const handleUpdate = async (patch: Partial<InspectionRoundRow>) => {
+    if (!supabase) return
+    const { error: upErr } = await supabase.from('inspection_rounds').update(patch).eq('id', round.id)
+    if (upErr) {
+      console.error(upErr.message)
+      return
+    }
+    await Promise.resolve(onUpdated())
+  }
+
+  return (
+    <div className="border-y border-neutral-200 bg-white">
+      <p className={`${WPSTD_FORM_LEAD} border-b border-neutral-200 px-4 py-3 md:px-5`}>
+        Grunnleggende opplysninger om runden. Endringer lagres til databasen ved hver endring.
+      </p>
+      <div className={WPSTD_FORM_ROW_GRID}>
+        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-title">
+          Tittel
+        </label>
+        <input
+          id="round-basics-title"
+          type="text"
+          value={round.title}
+          readOnly={readOnly}
+          onChange={(e) => void handleUpdate({ title: e.target.value })}
+          className={WPSTD_FORM_INPUT}
+        />
+      </div>
+      <div className={WPSTD_FORM_ROW_GRID}>
+        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-status">
+          Status
+        </label>
+        <select
+          id="round-basics-status"
+          value={round.status}
+          disabled={readOnly}
+          onChange={(e) => void handleUpdate({ status: e.target.value as InspectionRoundRow['status'] })}
+          className={WPSTD_FORM_INPUT}
+        >
+          <option value="draft">Kladd</option>
+          <option value="active">Aktiv</option>
+          <option value="signed">Signert</option>
+        </select>
+      </div>
+      <div className={WPSTD_FORM_ROW_GRID}>
+        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-location">
+          Lokasjon
+        </label>
+        <select
+          id="round-basics-location"
+          value={round.location_id ?? ''}
+          disabled={readOnly}
+          onChange={(e) =>
+            void handleUpdate({ location_id: e.target.value ? e.target.value : null })
+          }
+          className={WPSTD_FORM_INPUT}
+        >
+          <option value="">(Ingen)</option>
+          {locations.map((loc) => (
+            <option key={loc.id} value={loc.id}>
+              {loc.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className={WPSTD_FORM_ROW_GRID}>
+        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-assigned">
+          Ansvarlig
+        </label>
+        <select
+          id="round-basics-assigned"
+          value={round.assigned_to ?? ''}
+          disabled={readOnly}
+          onChange={(e) =>
+            void handleUpdate({ assigned_to: e.target.value ? e.target.value : null })
+          }
+          className={WPSTD_FORM_INPUT}
+        >
+          <option value="">(Ingen)</option>
+          {assignableUsers.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.displayName}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className={WPSTD_FORM_ROW_GRID}>
+        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-scheduled">
+          Planlagt tidspunkt
+        </label>
+        <input
+          id="round-basics-scheduled"
+          type="datetime-local"
+          value={scheduledLocal}
+          readOnly={readOnly}
+          onChange={(e) => {
+            const v = e.target.value
+            void handleUpdate({
+              scheduled_for: v ? new Date(v).toISOString() : null,
+            })
+          }}
+          className={WPSTD_FORM_INPUT}
+        />
+      </div>
+    </div>
+  )
+}
+
 // ── Full-page round execution ─────────────────────────────────────────────────
 
-export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | null }) {
+export function InspectionRoundPage() {
   const { roundId } = useParams<{ roundId: string }>()
   const navigate = useNavigate()
   const inspection = useInspectionModule({ supabase })
@@ -947,10 +1076,7 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
 
   if (!roundId) {
     return (
-      <div
-        className="flex min-h-screen items-center justify-center text-sm text-neutral-600"
-        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
-      >
+      <div className="flex min-h-screen items-center justify-center bg-[#F9F7F2] text-sm text-neutral-600">
         Mangler runde-ID.
       </div>
     )
@@ -958,10 +1084,7 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
 
   if (showSpinner) {
     return (
-      <div
-        className="flex min-h-screen flex-col items-center justify-center gap-3"
-        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
-      >
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#F9F7F2]">
         <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden />
         <p className="text-sm text-neutral-600">Laster runde…</p>
       </div>
@@ -970,10 +1093,7 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
 
   if (showNotFound) {
     return (
-      <div
-        className="flex min-h-screen flex-col items-center justify-center gap-4 px-4"
-        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
-      >
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#F9F7F2] px-4">
         <p className="text-lg font-semibold text-neutral-900">Runde ikke funnet</p>
         <button
           type="button"
@@ -988,10 +1108,7 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
 
   if (!round) {
     return (
-      <div
-        className="flex min-h-screen flex-col items-center justify-center gap-3"
-        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
-      >
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#F9F7F2]">
         <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden />
         <p className="text-sm text-neutral-600">Laster runde…</p>
       </div>
@@ -999,7 +1116,7 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}>
+    <div className="min-h-screen bg-[#F9F7F2]">
       <header className="sticky top-0 z-30 border-b border-neutral-200/80 bg-[#F9F7F2]/95 backdrop-blur-sm">
         <div className="mx-auto max-w-[1400px] px-4 pb-4 pt-4 md:px-8">
           <WorkplacePageHeading1
@@ -1043,6 +1160,13 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
                 <span className="text-xs font-semibold text-red-700">⚠ {critCount} kritiske funn registrert</span>
               </div>
             )}
+            <RoundBasicsForm
+              round={round}
+              locations={inspection.locations}
+              assignableUsers={inspection.assignableUsers}
+              readOnly={round.status === 'signed'}
+              onUpdated={() => void inspection.loadRoundDetail(round.id)}
+            />
             <ChecklistTab
               round={round}
               checklistItems={checklistItems}
@@ -1088,7 +1212,7 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
           </div>
         )}
 
-        {activeTab === 'history' && supabase && (
+        {activeTab === 'history' && (
           <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
             <div className="border-b border-neutral-100 bg-neutral-50 px-5 py-2">
               <span className="text-xs text-neutral-500">Revisjonsspor — alle endringer loggført for denne runden</span>
@@ -1098,7 +1222,7 @@ export function InspectionRoundPage({ supabase }: { supabase: SupabaseClient | n
         )}
       </div>
 
-      {selectedDeviationId && supabase ? (
+      {selectedDeviationId ? (
         <DeviationPanel
           deviationId={selectedDeviationId}
           supabase={supabase}

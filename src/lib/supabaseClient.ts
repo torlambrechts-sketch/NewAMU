@@ -48,6 +48,12 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
   return browserClient
 }
 
+/**
+ * Named export for modules that require `import { supabase } from '.../supabaseClient'`.
+ * Same singleton instance as {@link getSupabaseBrowserClient()}.
+ */
+export const supabase: SupabaseClient | null = getSupabaseBrowserClient()
+
 /** Clears singleton (e.g. after tests). */
 export function resetSupabaseBrowserClientForTests() {
   browserClient = undefined
