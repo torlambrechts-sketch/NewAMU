@@ -14,7 +14,6 @@ import {
   Settings,
   Trash2,
 } from 'lucide-react'
-import { HubMenu1Bar, type HubMenu1Item } from '../../src/components/layout/HubMenu1Bar'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_LEAD,
@@ -36,6 +35,7 @@ import { ComplianceBanner } from '../../src/components/ui/ComplianceBanner'
 import { StandardInput } from '../../src/components/ui/Input'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { StandardTextarea } from '../../src/components/ui/Textarea'
+import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 
 type PanelTab = 'checklist' | 'findings' | 'summary' | 'signatures' | 'history'
 
@@ -1016,7 +1016,7 @@ export function InspectionRoundPage() {
     return parts.join(' · ')
   }, [round, template, locationName, assignedName, scheduledLabel, itemsAnswered, checklistItems.length, critCount])
 
-  const hubMenuItems: HubMenu1Item[] = useMemo(() => {
+  const tabItems: TabItem[] = useMemo(() => {
     if (!round) return []
     const f = inspection.findingsByRoundId[round.id] ?? []
     const answered = (inspection.itemsByRoundId[round.id] ?? []).filter((i) => i.status === 'completed').length
@@ -1024,43 +1024,33 @@ export function InspectionRoundPage() {
     const nItems = tmpl ? parseChecklistItems(tmpl.checklist_definition).length : 0
     return [
       {
-        key: 'checklist',
+        id: 'checklist',
         label: nItems > 0 ? `${TAB_LABELS.checklist} (${answered}/${nItems})` : TAB_LABELS.checklist,
         icon: ClipboardList,
-        active: activeTab === 'checklist',
-        onClick: () => setActiveTab('checklist'),
       },
       {
-        key: 'findings',
+        id: 'findings',
         label: TAB_LABELS.findings,
         icon: AlertTriangle,
-        active: activeTab === 'findings',
         badgeCount: f.length > 0 ? f.length : undefined,
-        onClick: () => setActiveTab('findings'),
       },
       {
-        key: 'summary',
+        id: 'summary',
         label: TAB_LABELS.summary,
         icon: FileText,
-        active: activeTab === 'summary',
-        onClick: () => setActiveTab('summary'),
       },
       {
-        key: 'signatures',
+        id: 'signatures',
         label: TAB_LABELS.signatures,
         icon: PenLine,
-        active: activeTab === 'signatures',
-        onClick: () => setActiveTab('signatures'),
       },
       {
-        key: 'history',
+        id: 'history',
         label: TAB_LABELS.history,
         icon: History,
-        active: activeTab === 'history',
-        onClick: () => setActiveTab('history'),
       },
     ]
-  }, [round, inspection.findingsByRoundId, inspection.itemsByRoundId, inspection.templates, activeTab])
+  }, [round, inspection.findingsByRoundId, inspection.itemsByRoundId, inspection.templates])
 
   const showSpinner = !round && (!detailStarted || inspection.loading)
   const showNotFound = detailStarted && !inspection.loading && roundId && !round
@@ -1140,7 +1130,13 @@ export function InspectionRoundPage() {
                 </Button>
               </div>
             }
-            menu={<HubMenu1Bar ariaLabel="Runde-seksjoner" items={hubMenuItems} />}
+            menu={
+              <Tabs
+                items={tabItems}
+                activeId={activeTab}
+                onChange={(id) => setActiveTab(id as PanelTab)}
+              />
+            }
           />
         </div>
       </header>
