@@ -4,7 +4,7 @@ import { X } from 'lucide-react'
 import { supabase } from '../../src/lib/supabaseClient'
 import {
   WPSTD_FORM_FIELD_LABEL,
-  WPSTD_FORM_INPUT_GRAY,
+  WPSTD_FORM_INPUT,
   WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
@@ -146,7 +146,7 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                   type="text"
                   value={round.title}
                   onChange={(e) => void handleUpdate({ title: e.target.value })}
-                  className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
+                  className={`${WPSTD_FORM_INPUT} mt-1.5`}
                   placeholder="F.eks. Månedlig vernerunde"
                 />
               </div>
@@ -160,7 +160,7 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                   id="panel-round-status"
                   value={round.status}
                   onChange={(e) => void handleUpdate({ status: e.target.value as InspectionRoundStatus })}
-                  className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
+                  className={`${WPSTD_FORM_INPUT} mt-1.5`}
                 >
                   <option value="draft">Kladd</option>
                   <option value="active">Aktiv</option>
@@ -179,7 +179,7 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                   onChange={(e) =>
                     void handleUpdate({ location_id: e.target.value ? e.target.value : null })
                   }
-                  className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
+                  className={`${WPSTD_FORM_INPUT} mt-1.5`}
                 >
                   <option value="">(Ingen)</option>
                   {locations.map((loc) => (
@@ -201,7 +201,7 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                   onChange={(e) =>
                     void handleUpdate({ assigned_to: e.target.value ? e.target.value : null })
                   }
-                  className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
+                  className={`${WPSTD_FORM_INPUT} mt-1.5`}
                 >
                   <option value="">(Ingen)</option>
                   {assignableUsers.map((u) => (
@@ -227,7 +227,7 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                       scheduled_for: v ? new Date(v).toISOString() : null,
                     })
                   }}
-                  className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
+                  className={`${WPSTD_FORM_INPUT} mt-1.5`}
                 />
               </div>
             </div>

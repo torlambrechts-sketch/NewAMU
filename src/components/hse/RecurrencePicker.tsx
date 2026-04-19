@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_INPUT_GRAY } from '../layout/WorkplaceStandardFormPanel'
+import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_INPUT } from '../layout/WorkplaceStandardFormPanel'
 
 export type RecurrenceFreq = 'none' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
 
@@ -59,7 +59,7 @@ export function recurrenceLabel(cron: string): string {
 export function RecurrencePicker({
   value,
   onChange,
-  inputClassName = WPSTD_FORM_INPUT_GRAY,
+  inputClassName = WPSTD_FORM_INPUT,
 }: {
   value: string
   onChange: (cron: string) => void

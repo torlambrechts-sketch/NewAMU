@@ -13,14 +13,15 @@ export const WPSTD_FORM_LEAD = 'text-sm leading-relaxed text-neutral-600'
 
 export const WPSTD_FORM_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-800'
 
+/** Standard text/select/datetime styling (inspection module + shared forms). */
 export const WPSTD_FORM_INPUT =
+  'w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-[#1a3d32] focus:border-transparent outline-none transition-all'
+
+/** Neutral dense inputs (legacy slide-overs / org settings). */
+export const WPSTD_FORM_INPUT_NEUTRAL =
   'mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900'
 
-export const WPSTD_FORM_INPUT_ON_WHITE = `${WPSTD_FORM_INPUT} bg-white`
-
-/** Rounded-md + gray border + brand focus ring — matches inspection create/edit forms. */
-export const WPSTD_FORM_INPUT_GRAY =
-  'w-full border border-gray-300 rounded-md bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-all focus:border-transparent focus:ring-2 focus:ring-[#1a3d32]'
+export const WPSTD_FORM_INPUT_ON_WHITE = `${WPSTD_FORM_INPUT_NEUTRAL} bg-white`
 
 export type WorkplaceStandardFormPanelProps = {
   open: boolean

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Circle, Info, Search } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
-  WPSTD_FORM_INPUT_GRAY,
+  WPSTD_FORM_INPUT,
   WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
@@ -336,7 +336,7 @@ export function InspeksjonsrunderCreateForm({
             value={form.title}
             onChange={(e) => onChange({ ...form, title: e.target.value })}
             placeholder="F.eks. Q1 vernerunde produksjonshall"
-            className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
+            className={`${WPSTD_FORM_INPUT} mt-1.5`}
           />
         </div>
       </div>
@@ -407,7 +407,7 @@ export function InspeksjonsrunderCreateForm({
             type="datetime-local"
             value={form.scheduledFor}
             onChange={(e) => onChange({ ...form, scheduledFor: e.target.value })}
-            className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
+            className={`${WPSTD_FORM_INPUT} mt-1.5`}
           />
         </div>
       </div>

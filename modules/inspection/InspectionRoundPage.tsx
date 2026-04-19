@@ -17,7 +17,7 @@ import {
 import { HubMenu1Bar, type HubMenu1Item } from '../../src/components/layout/HubMenu1Bar'
 import {
   WPSTD_FORM_FIELD_LABEL,
-  WPSTD_FORM_INPUT_GRAY,
+  WPSTD_FORM_INPUT,
   WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
@@ -324,69 +324,74 @@ function FindingsTab({
     <div className="divide-y divide-neutral-100">
       {!readOnly && (
         <div className="border-b border-neutral-100 bg-white px-0 py-0">
-          <p className={`${WPSTD_FORM_LEAD} border-b border-neutral-200 px-4 py-3 md:px-5`}>
-            {editingFindingId ? 'Rediger avvik' : 'Registrer nytt avvik'} — hvert avvik lagres i avviksmodulen.
-          </p>
           <div className={WPSTD_FORM_ROW_GRID}>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-desc">
-              Beskrivelse
-            </label>
-            <textarea
-              id="finding-desc"
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Beskriv avviket…"
-              className={`${WPSTD_FORM_INPUT_GRAY} resize-none`}
-            />
-          </div>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-severity">
-              Alvorlighetsgrad
-            </label>
-            <select
-              id="finding-severity"
-              value={severity}
-              onChange={(e) => setSeverity(e.target.value as typeof severity)}
-              className={WPSTD_FORM_INPUT_GRAY}
-            >
-              {(Object.keys(SEVERITY_LABELS) as (keyof typeof SEVERITY_LABELS)[]).map((s) => (
-                <option key={s} value={s}>
-                  {SEVERITY_LABELS[s]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-item">
-              Tilknyttet sjekklistepunkt (valgfri)
-            </label>
-            <select
-              id="finding-item"
-              value={linkedItemKey}
-              onChange={(e) => setLinkedItemKey(e.target.value)}
-              className={WPSTD_FORM_INPUT_GRAY}
-            >
-              <option value="">(Ingen)</option>
-              {checklistItems.map((ci) => (
-                <option key={ci.key} value={ci.key}>
-                  {ci.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <span className={WPSTD_FORM_FIELD_LABEL}>Risiko (sannsynlighet × konsekvens)</span>
-            <div className="border border-neutral-200 bg-white p-3">
-              <RiskMatrix
-                probability={findingProb}
-                consequence={findingCons}
-                onChange={(p, c) => {
-                  setFindingProb(p)
-                  setFindingCons(c)
-                }}
-                size="sm"
+            <p className={WPSTD_FORM_LEAD}>
+              {editingFindingId ? 'Rediger avvik' : 'Registrer nytt avvik'}. Hvert avvik lagres i avviksmodulen.
+            </p>
+            <div>
+              <p className={WPSTD_FORM_FIELD_LABEL}>Beskrivelse</p>
+              <textarea
+                id="finding-desc"
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Beskriv avviket…"
+                className={`${WPSTD_FORM_INPUT} mt-1.5 resize-none`}
               />
+            </div>
+          </div>
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <p className={WPSTD_FORM_LEAD}>Velg alvorlighetsgrad for avviket.</p>
+            <div>
+              <p className={WPSTD_FORM_FIELD_LABEL}>Alvorlighetsgrad</p>
+              <select
+                id="finding-severity"
+                value={severity}
+                onChange={(e) => setSeverity(e.target.value as typeof severity)}
+                className={`${WPSTD_FORM_INPUT} mt-1.5`}
+              >
+                {(Object.keys(SEVERITY_LABELS) as (keyof typeof SEVERITY_LABELS)[]).map((s) => (
+                  <option key={s} value={s}>
+                    {SEVERITY_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <p className={WPSTD_FORM_LEAD}>Koble til et sjekklistepunkt hvis det er relevant.</p>
+            <div>
+              <p className={WPSTD_FORM_FIELD_LABEL}>Tilknyttet sjekklistepunkt</p>
+              <select
+                id="finding-item"
+                value={linkedItemKey}
+                onChange={(e) => setLinkedItemKey(e.target.value)}
+                className={`${WPSTD_FORM_INPUT} mt-1.5`}
+              >
+                <option value="">(Ingen)</option>
+                {checklistItems.map((ci) => (
+                  <option key={ci.key} value={ci.key}>
+                    {ci.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <p className={WPSTD_FORM_LEAD}>Vurder sannsynlighet og konsekvens for risiko.</p>
+            <div>
+              <p className={WPSTD_FORM_FIELD_LABEL}>Risiko (sannsynlighet × konsekvens)</p>
+              <div className="mt-1.5 border border-neutral-200 bg-white p-3">
+                <RiskMatrix
+                  probability={findingProb}
+                  consequence={findingCons}
+                  onChange={(p, c) => {
+                    setFindingProb(p)
+                    setFindingCons(c)
+                  }}
+                  size="sm"
+                />
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2 border-t border-neutral-200 px-4 py-4 md:px-5">
@@ -552,51 +557,58 @@ function SummaryTab({
       </div>
 
       <div className={WPSTD_FORM_ROW_GRID}>
-        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-summary">
-          Sammendrag <span className="text-red-500">*</span>
-        </label>
-        <textarea
-          id="round-summary"
-          rows={6}
-          value={summary}
-          readOnly={readOnly}
-          onChange={(e) => setSummary(e.target.value)}
-          placeholder="Beskriv gjennomføringen, observasjoner og tiltak…"
-          className={`${WPSTD_FORM_INPUT_GRAY} resize-none`}
-        />
+        <p className={WPSTD_FORM_LEAD}>
+          Skriv sammendrag av gjennomføringen. Feltet er påkrevd før signering.
+        </p>
+        <div>
+          <p className={WPSTD_FORM_FIELD_LABEL}>
+            Sammendrag <span className="text-red-500">*</span>
+          </p>
+          <textarea
+            id="round-summary"
+            rows={6}
+            value={summary}
+            readOnly={readOnly}
+            onChange={(e) => setSummary(e.target.value)}
+            placeholder="Beskriv gjennomføringen, observasjoner og tiltak…"
+            className={`${WPSTD_FORM_INPUT} mt-1.5 resize-none`}
+          />
+        </div>
       </div>
 
       <div className={WPSTD_FORM_ROW_GRID}>
-        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="conducted-by">
-          Gjennomført av
-        </label>
-        <select
-          id="conducted-by"
-          value={conductedBy}
-          disabled={readOnly}
-          onChange={(e) => setConductedBy(e.target.value)}
-          className={WPSTD_FORM_INPUT_GRAY}
-        >
-          <option value="">(Valgfri)</option>
-          {inspection.assignableUsers.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.displayName}
-            </option>
-          ))}
-        </select>
+        <p className={WPSTD_FORM_LEAD}>Hvem gjennomførte runden?</p>
+        <div>
+          <p className={WPSTD_FORM_FIELD_LABEL}>Gjennomført av</p>
+          <select
+            id="conducted-by"
+            value={conductedBy}
+            disabled={readOnly}
+            onChange={(e) => setConductedBy(e.target.value)}
+            className={`${WPSTD_FORM_INPUT} mt-1.5`}
+          >
+            <option value="">(Valgfri)</option>
+            {inspection.assignableUsers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.displayName}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
       <div className={WPSTD_FORM_ROW_GRID}>
-        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="conducted-at">
-          Dato gjennomført
-        </label>
-        <input
-          id="conducted-at"
-          type="datetime-local"
-          value={conductedAt}
-          readOnly={readOnly}
-          onChange={(e) => setConductedAt(e.target.value)}
-          className={WPSTD_FORM_INPUT_GRAY}
-        />
+        <p className={WPSTD_FORM_LEAD}>Når ble runden gjennomført?</p>
+        <div>
+          <p className={WPSTD_FORM_FIELD_LABEL}>Dato gjennomført</p>
+          <input
+            id="conducted-at"
+            type="datetime-local"
+            value={conductedAt}
+            readOnly={readOnly}
+            onChange={(e) => setConductedAt(e.target.value)}
+            className={`${WPSTD_FORM_INPUT} mt-1.5`}
+          />
+        </div>
       </div>
 
       {!readOnly && (
@@ -873,7 +885,7 @@ function RoundBasicsForm({
             value={round.title}
             readOnly={readOnly}
             onChange={(e) => void handleUpdate({ title: e.target.value })}
-            className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
+            className={`${WPSTD_FORM_INPUT} mt-1.5`}
           />
         </div>
       </div>
@@ -886,7 +898,7 @@ function RoundBasicsForm({
             value={round.status}
             disabled={readOnly}
             onChange={(e) => void handleUpdate({ status: e.target.value as InspectionRoundRow['status'] })}
-            className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
+            className={`${WPSTD_FORM_INPUT} mt-1.5`}
           >
             <option value="draft">Kladd</option>
             <option value="active">Aktiv</option>
@@ -905,7 +917,7 @@ function RoundBasicsForm({
             onChange={(e) =>
               void handleUpdate({ location_id: e.target.value ? e.target.value : null })
             }
-            className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
+            className={`${WPSTD_FORM_INPUT} mt-1.5`}
           >
             <option value="">(Ingen)</option>
             {locations.map((loc) => (
@@ -927,7 +939,7 @@ function RoundBasicsForm({
             onChange={(e) =>
               void handleUpdate({ assigned_to: e.target.value ? e.target.value : null })
             }
-            className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
+            className={`${WPSTD_FORM_INPUT} mt-1.5`}
           >
             <option value="">(Ingen)</option>
             {assignableUsers.map((u) => (
@@ -953,7 +965,7 @@ function RoundBasicsForm({
                 scheduled_for: v ? new Date(v).toISOString() : null,
               })
             }}
-            className={`${WPSTD_FORM_INPUT_GRAY} mt-1.5`}
+            className={`${WPSTD_FORM_INPUT} mt-1.5`}
           />
         </div>
       </div>
