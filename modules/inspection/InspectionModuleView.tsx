@@ -15,6 +15,9 @@ import { RecurrencePicker, toDateTimeLocalValue } from '../../src/components/hse
 import type { InspectionRoundRow } from './types'
 import { useInspectionModule } from './useInspectionModule'
 import { InspeksjonsrunderCreateForm } from './InspeksjonsrunderCreateForm'
+
+const GRN = '#1a3d32'
+
 type Props = { supabase: SupabaseClient | null }
 
 const STATUS_LABEL: Record<InspectionRoundRow['status'], string> = {
@@ -151,21 +154,21 @@ export function InspectionModuleView({ supabase }: Props) {
             <button
               type="button"
               onClick={() => setScheduleOpen(true)}
-              className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              className="border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
             >
               Planlegging
             </button>
             <button
               type="button"
               onClick={() => setCreateOpen(true)}
-              className="rounded-lg px-4 py-2 text-sm font-bold uppercase tracking-wide text-white"
-              style={{ backgroundColor: '#2D403A' }}
+              className="px-4 py-2 text-sm font-bold uppercase tracking-wide text-white transition-colors"
+              style={{ backgroundColor: GRN }}
             >
               Ny runde
             </button>
             <Link
               to="/inspection-module/admin"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
+              className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-50"
             >
               <Settings className="h-4 w-4" />
             </Link>
@@ -386,7 +389,7 @@ export function InspectionModuleView({ supabase }: Props) {
           <div className="flex justify-end">
             <button
               type="button"
-              className="rounded-lg border border-neutral-300 px-4 py-2 text-sm"
+              className="border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
               onClick={() => setScheduleOpen(false)}
             >
               Lukk
@@ -445,7 +448,7 @@ export function InspectionModuleView({ supabase }: Props) {
                 </div>
                 <button
                   type="button"
-                  className="mt-2 rounded-lg border border-neutral-300 px-3 py-1 text-xs font-medium"
+                  className="mt-2 border border-neutral-300 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-neutral-50"
                   onClick={() =>
                     void inspection.updateRoundSchedule({
                       roundId: round.id,
