@@ -124,73 +124,80 @@ export function RosMeasuresTab({
   }, [hazards, hazardPickForAdd])
 
   return (
-    <div className="flex flex-col">
-      <div className="space-y-6 p-5 md:p-6">
-      {!readOnly && hazards.length > 1 && (
-        <div className="-mx-5 md:-mx-6 border-b border-neutral-200 bg-white px-5 py-3 md:px-6">
-          <p className="mb-2 text-xs font-medium text-neutral-600">Velg farekilde før du legger til tiltak</p>
-          <div className="max-w-md">
-            <SearchableSelect
-              value={hazardPickForAdd}
-              options={hazardOptionsForAdd}
-              placeholder="Velg farekilde…"
-              onChange={(v) => setHazardPickForAdd(v)}
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="-mx-5 md:-mx-6 flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-5 py-3">
-        <span className="text-sm font-medium text-neutral-700">Registrerte tiltak ({measures.length})</span>
-        {!readOnly && (
-          <Button
-            type="button"
-            variant="primary"
-            icon={<Plus className="h-4 w-4" />}
-            disabled={hazards.length === 0 || !targetHazardIdForAdd}
-            onClick={() => {
-              if (targetHazardIdForAdd) setAddingForHazard(targetHazardIdForAdd)
-            }}
-          >
-            Legg til tiltak
-          </Button>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-4 rounded-lg border border-neutral-200 bg-neutral-50 px-5 py-3">
-        <div className="text-center">
-          <p className="text-lg font-bold text-neutral-900">{measures.length}</p>
-          <p className="text-xs text-neutral-500">Totalt tiltak</p>
-        </div>
-        <div className="text-center">
-          <p className="text-lg font-bold text-amber-700">{open}</p>
-          <p className="text-xs text-neutral-500">Åpne</p>
-        </div>
-        {overdue > 0 && (
+    <div className="flex flex-col space-y-6 p-5 md:p-6">
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-4 rounded-lg border border-neutral-200 bg-neutral-50 px-5 py-3">
           <div className="text-center">
-            <p className="text-lg font-bold text-red-600">{overdue}</p>
-            <p className="text-xs text-neutral-500">Forfalt</p>
+            <p className="text-lg font-bold text-neutral-900">{measures.length}</p>
+            <p className="text-xs text-neutral-500">Totalt tiltak</p>
           </div>
-        )}
-        <div className="text-center">
-          <p className="text-lg font-bold text-green-700">{completed}</p>
-          <p className="text-xs text-neutral-500">Fullført</p>
+          <div className="text-center">
+            <p className="text-lg font-bold text-amber-700">{open}</p>
+            <p className="text-xs text-neutral-500">Åpne</p>
+          </div>
+          {overdue > 0 && (
+            <div className="text-center">
+              <p className="text-lg font-bold text-red-600">{overdue}</p>
+              <p className="text-xs text-neutral-500">Forfalt</p>
+            </div>
+          )}
+          <div className="text-center">
+            <p className="text-lg font-bold text-green-700">{completed}</p>
+            <p className="text-xs text-neutral-500">Fullført</p>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">
+            Hierarki av barrierer (mest effektivt → minst effektivt)
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {ALL_CONTROL_TYPES.map((ct, i) => (
+              <div key={ct} className="flex items-center gap-1.5">
+                <span className={`rounded px-2 py-0.5 text-xs font-semibold ${CONTROL_TYPE_COLOR[ct]}`}>
+                  {i + 1}. {CONTROL_TYPE_LABEL[ct]}
+                </span>
+                {i < 4 && <span className="text-neutral-300">›</span>}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">
-          Hierarki av barrierer (mest effektivt → minst effektivt)
-        </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {ALL_CONTROL_TYPES.map((ct, i) => (
-            <div key={ct} className="flex items-center gap-1.5">
-              <span className={`rounded px-2 py-0.5 text-xs font-semibold ${CONTROL_TYPE_COLOR[ct]}`}>
-                {i + 1}. {CONTROL_TYPE_LABEL[ct]}
-              </span>
-              {i < 4 && <span className="text-neutral-300">›</span>}
+      <hr className="border-neutral-200" />
+
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-semibold text-neutral-900">
+            Tiltak <span className="text-neutral-500 font-normal">({measures.length})</span>
+          </h3>
+          <p className="text-sm text-neutral-500 mt-1">Oversikt over alle barrierer og tiltak.</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {!readOnly && hazards.length > 1 && (
+            <div className="min-w-[12rem] max-w-xs flex-1 sm:flex-initial">
+              <SearchableSelect
+                value={hazardPickForAdd}
+                options={hazardOptionsForAdd}
+                placeholder="Velg farekilde…"
+                onChange={(v) => setHazardPickForAdd(v)}
+              />
             </div>
-          ))}
+          )}
+          {!readOnly && (
+            <Button
+              type="button"
+              variant="primary"
+              icon={<Plus className="h-4 w-4" />}
+              disabled={hazards.length === 0 || !targetHazardIdForAdd}
+              onClick={() => {
+                if (targetHazardIdForAdd) setAddingForHazard(targetHazardIdForAdd)
+              }}
+            >
+              Legg til tiltak
+            </Button>
+          )}
         </div>
       </div>
 
@@ -315,7 +322,6 @@ export function RosMeasuresTab({
             Legg til farekilder i fanen Farekilder før du registrerer tiltak.
           </p>
         )}
-      </div>
       </div>
     </div>
   )

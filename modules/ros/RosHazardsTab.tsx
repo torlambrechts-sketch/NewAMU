@@ -162,46 +162,76 @@ export function RosHazardsTab({
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 border-b border-neutral-100 px-5 py-3">
-            <Button
-              type="button"
-              variant={!lawFilter ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={() => setLawFilter(null)}
-            >
-              Alle
-            </Button>
-            {analysis.law_domains.map((d) => (
-              <Button
-                key={d}
-                type="button"
-                size="sm"
-                variant={lawFilter === d ? 'primary' : 'secondary'}
-                onClick={() => setLawFilter(lawFilter === d ? null : d)}
-                className={lawFilter === d ? `${LAW_DOMAIN_CHIP_ACTIVE[d]} border-transparent` : ''}
-              >
-                {d}
-              </Button>
-            ))}
-            <span className="ml-auto text-xs text-neutral-400">{filtered.length} farekilder</span>
-          </div>
+          <div className="flex flex-col space-y-6 p-5 md:p-6">
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-4 rounded-lg border border-neutral-200 bg-neutral-50 px-5 py-3">
+                <div className="text-center">
+                  <p className="text-lg font-bold text-neutral-900">{hazards.length}</p>
+                  <p className="text-xs text-neutral-500">Totalt farekilder</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold text-neutral-800">{filtered.length}</p>
+                  <p className="text-xs text-neutral-500">I filter</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold text-red-600">{criticalHazards.length}</p>
+                  <p className="text-xs text-neutral-500">Kritiske (≥15)</p>
+                </div>
+              </div>
 
-          <div className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-5 py-3">
-            <span className="text-sm font-medium text-neutral-700">Registrerte farekilder ({hazards.length})</span>
-            {!readOnly && (
-              <Button
-                type="button"
-                variant="primary"
-                icon={<Plus className="h-4 w-4" />}
-                disabled={editingId === '__new__'}
-                onClick={startNew}
-              >
-                Legg til farekilde
-              </Button>
-            )}
-          </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Filter på lovdomene</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant={!lawFilter ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => setLawFilter(null)}
+                  >
+                    Alle
+                  </Button>
+                  {analysis.law_domains.map((d) => (
+                    <Button
+                      key={d}
+                      type="button"
+                      size="sm"
+                      variant={lawFilter === d ? 'primary' : 'secondary'}
+                      onClick={() => setLawFilter(lawFilter === d ? null : d)}
+                      className={lawFilter === d ? `${LAW_DOMAIN_CHIP_ACTIVE[d]} border-transparent` : ''}
+                    >
+                      {d}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
 
-          <div className="divide-y divide-neutral-100">
+            <hr className="border-neutral-200" />
+
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-neutral-900">
+                  Farekilder <span className="text-neutral-500 font-normal">({hazards.length})</span>
+                </h3>
+                <p className="text-sm text-neutral-500 mt-1">Oversikt over alle farekilder som er kartlagt i analysen.</p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {!readOnly && (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    icon={<Plus className="h-4 w-4" />}
+                    disabled={editingId === '__new__'}
+                    onClick={startNew}
+                  >
+                    Legg til farekilde
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="divide-y divide-neutral-100">
             {filtered.map((h) => {
               const initScore = riskScore(h.initial_probability, h.initial_consequence)
               const resScore = riskScore(h.residual_probability, h.residual_consequence)
@@ -263,8 +293,9 @@ export function RosHazardsTab({
               )
             })}
             {filtered.length === 0 && (
-              <p className="px-5 py-10 text-center text-sm text-neutral-400">Ingen farekilder ennå.</p>
+              <p className="py-10 text-center text-sm text-neutral-400">Ingen farekilder ennå.</p>
             )}
+            </div>
           </div>
         </div>
 
