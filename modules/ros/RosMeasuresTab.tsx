@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Plus } from 'lucide-react'
 import type { RosAnalysisRow, RosHazardRow, RosMeasureRow, RosControlType } from './types'
 import {
   CONTROL_TYPE_LABEL,
@@ -78,6 +79,12 @@ export function RosMeasuresTab({
     due_date: '',
   })
   const [saving, setSaving] = useState(false)
+  const [hazardPickForAdd, setHazardPickForAdd] = useState('')
+
+  const hazardOptionsForAdd: SelectOption[] = useMemo(
+    () => hazards.map((h) => ({ value: h.id, label: h.description })),
+    [hazards],
+  )
 
   const controlTypeOptions: SelectOption[] = useMemo(
     () => ALL_CONTROL_TYPES.map((ct) => ({ value: ct, label: CONTROL_TYPE_LABEL[ct] })),
@@ -109,8 +116,45 @@ export function RosMeasuresTab({
     setForm({ description: '', control_type: 'administrative', assigned_to_name: '', due_date: '' })
   }
 
+  const targetHazardIdForAdd = useMemo(() => {
+    if (hazards.length === 0) return ''
+    if (hazards.length === 1) return hazards[0]!.id
+    if (hazardPickForAdd && hazards.some((h) => h.id === hazardPickForAdd)) return hazardPickForAdd
+    return ''
+  }, [hazards, hazardPickForAdd])
+
   return (
-    <div className="space-y-6 px-5 py-5 md:px-8">
+    <div className="flex flex-col">
+      <div className="space-y-6 p-5 md:p-6">
+      <div className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-5 py-3">
+        <span className="text-sm font-medium text-neutral-700">Registrerte tiltak ({measures.length})</span>
+        {!readOnly && (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {hazards.length > 1 && (
+              <div className="min-w-[12rem] max-w-[20rem] flex-1 sm:flex-initial">
+                <SearchableSelect
+                  value={hazardPickForAdd}
+                  options={hazardOptionsForAdd}
+                  placeholder="Velg farekilde…"
+                  onChange={(v) => setHazardPickForAdd(v)}
+                />
+              </div>
+            )}
+            <Button
+              type="button"
+              variant="primary"
+              icon={<Plus className="h-4 w-4" />}
+              disabled={hazards.length === 0 || !targetHazardIdForAdd}
+              onClick={() => {
+                if (targetHazardIdForAdd) setAddingForHazard(targetHazardIdForAdd)
+              }}
+            >
+              Legg til tiltak
+            </Button>
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-wrap gap-4 rounded-lg border border-neutral-200 bg-neutral-50 px-5 py-3">
         <div className="text-center">
           <p className="text-lg font-bold text-neutral-900">{measures.length}</p>
@@ -167,11 +211,6 @@ export function RosMeasuresTab({
                     </Badge>
                   )}
                 </div>
-                {!readOnly && (
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setAddingForHazard(h.id)}>
-                    + Tiltak
-                  </Button>
-                )}
               </div>
 
               {hMeasures.length === 0 && addingForHazard !== h.id && (
@@ -274,6 +313,7 @@ export function RosMeasuresTab({
             Legg til farekilder i fanen Farekilder før du registrerer tiltak.
           </p>
         )}
+      </div>
       </div>
     </div>
   )

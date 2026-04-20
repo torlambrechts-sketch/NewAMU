@@ -47,8 +47,11 @@ export function RosScopeTab({ analysis, ros }: { analysis: RosAnalysisRow; ros: 
   }
 
   return (
-    <div className="space-y-6 px-0 py-5 md:px-0">
-      <ComplianceBanner title="IK-forskriften § 5 nr. 6 — kartlegging av farer og problemer">
+    <div className="flex flex-col">
+      <ComplianceBanner
+        title="IK-forskriften § 5 nr. 6 — kartlegging av farer og problemer"
+        className="border-b border-[#1a3d32]/20"
+      >
         <p>
           Virksomheten skal kartlegge farer og problemer, vurdere risiko og utarbeide tilhørende planer og tiltak for å
           redusere risikoforholdene. Gjelder på tvers av arbeidsmiljøloven (AML), brann- og eksplosjonsvernloven (BVL),
@@ -56,7 +59,7 @@ export function RosScopeTab({ analysis, ros }: { analysis: RosAnalysisRow; ros: 
         </p>
       </ComplianceBanner>
 
-      <div className="space-y-5 px-5 md:px-8">
+      <div className="space-y-6 p-5 md:p-6">
         <div className={WPSTD_FORM_ROW_GRID}>
           <label className="md:col-span-2">
             <span className={WPSTD_FORM_FIELD_LABEL}>Tittel *</span>

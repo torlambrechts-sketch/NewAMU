@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { RiskMatrix, riskScoreFromProbCons } from '../../src/components/hse/RiskMatrix'
 import { RosRiskScatter } from './RosRiskScatter'
 import type { RosAnalysisRow, RosHazardRow, RosMeasureRow, RosLawDomain } from './types'
@@ -135,17 +135,19 @@ export function RosHazardsTab({
   }
 
   return (
-    <div>
+    <div className="flex flex-col">
       {criticalHazards.length > 0 && (
-        <WarningBox>
-          <p className="font-semibold">
-            {criticalHazards.length} farekilder med kritisk residual risiko (≥ 15) — tiltak er lovpålagt
-          </p>
-          <p className="mt-1 text-sm">
-            IK-forskriften § 5 nr. 6: Risikoer med score ≥ 15 krever skriftlig tiltaksplan. Disse kan kobles til
-            tiltaksplan i internkontrollen.
-          </p>
-        </WarningBox>
+        <div className="border-b border-neutral-200 px-5 py-3 md:px-6">
+          <WarningBox>
+            <p className="font-semibold">
+              {criticalHazards.length} farekilder med kritisk residual risiko (≥ 15) — tiltak er lovpålagt
+            </p>
+            <p className="mt-1 text-sm">
+              IK-forskriften § 5 nr. 6: Risikoer med score ≥ 15 krever skriftlig tiltaksplan. Disse kan kobles til
+              tiltaksplan i internkontrollen.
+            </p>
+          </WarningBox>
+        </div>
       )}
 
       <div className="flex flex-col gap-0 md:flex-row md:min-h-[600px]">
@@ -183,6 +185,21 @@ export function RosHazardsTab({
             ))}
             <span className="ml-auto text-xs text-neutral-400">{filtered.length} farekilder</span>
           </div>
+
+          {!readOnly && (
+            <div className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-5 py-3">
+              <span className="text-sm font-medium text-neutral-700">Registrerte farekilder ({hazards.length})</span>
+              <Button
+                type="button"
+                variant="primary"
+                icon={<Plus className="h-4 w-4" />}
+                disabled={editingId === '__new__'}
+                onClick={startNew}
+              >
+                Legg til farekilde
+              </Button>
+            </div>
+          )}
 
           <div className="divide-y divide-neutral-100">
             {filtered.map((h) => {
@@ -249,14 +266,6 @@ export function RosHazardsTab({
               <p className="px-5 py-10 text-center text-sm text-neutral-400">Ingen farekilder ennå.</p>
             )}
           </div>
-
-          {!readOnly && editingId !== '__new__' && (
-            <div className="border-t border-neutral-100 px-5 py-3">
-              <Button type="button" variant="ghost" className="text-sm font-medium text-[#1a3d32]" onClick={startNew}>
-                + Legg til farekilde
-              </Button>
-            </div>
-          )}
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
