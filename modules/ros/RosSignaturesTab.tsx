@@ -56,15 +56,18 @@ export function RosSignaturesTab({
   }
 
   return (
-    <div className="space-y-5 px-0 py-5 md:px-0">
-      <ComplianceBanner title="IK-forskriften § 5 — dokumentasjon og medvirkning">
+    <div className="flex flex-col">
+      <ComplianceBanner
+        title="IK-forskriften § 5 — dokumentasjon og medvirkning"
+        className="border-b border-[#1a3d32]/20"
+      >
         <p>
           ROS-analysen skal signeres av ansvarlig leder (AML § 2-1) og verneombud (AML § 6-2). Etter at begge har
           signert, settes status til godkjent og dokumentet låses — videre endringer krever ny revisjon eller kopi.
         </p>
       </ComplianceBanner>
 
-      <div className="space-y-5 px-5 md:px-8">
+      <div className="space-y-6 p-5 md:p-6">
         {!blockNewSignatures && (
           <div className="space-y-2">
             <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Klar for signering?</p>
