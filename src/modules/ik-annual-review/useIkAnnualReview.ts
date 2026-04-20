@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
-import { fetchOrgModulePayload, type OrgModulePayloadKey } from '../../src/lib/orgModulePayload'
-import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { fetchOrgModulePayload, type OrgModulePayloadKey } from '../../lib/orgModulePayload'
+import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 import {
   AnnualReviewSchema,
   IkAnnualReviewEvaluationSchema,

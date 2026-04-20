@@ -40,7 +40,7 @@ import {
 } from '../lib/icOverviewLayoutFromPreset'
 import { resolveRosTabLayoutFromPublishedRows, type RosTabLayoutResolved } from '../lib/rosLayoutFromPreset'
 import { renderLayoutComposerBlock } from './platform/PlatformLayoutComposerPage'
-import { IkAnnualReviewView } from '../../modules/internkontroll/IkAnnualReviewView'
+import { IkAnnualReviewView } from '../modules/ik-annual-review'
 
 const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: LayoutDashboard, iconOnly: false as const },

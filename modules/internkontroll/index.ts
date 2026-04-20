@@ -6,8 +6,6 @@ export { IkMalView } from './IkMalView'
 export { IkRosView } from './IkRosView'
 export { IkTiltaksplanView } from './IkTiltaksplanView'
 export { useInternkontroll } from './useInternkontroll'
-export { useIkAnnualReview } from './useIkAnnualReview'
-export { IkAnnualReviewView } from './IkAnnualReviewView'
 export type {
   IkLawCode,
   IkStatus,

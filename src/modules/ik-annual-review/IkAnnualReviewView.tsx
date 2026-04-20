@@ -4,24 +4,24 @@ import { ClipboardList, Loader2, Plus, Search, ShieldCheck } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
-} from '../../src/components/layout/WorkplaceStandardFormPanel'
-import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
+} from '../../components/layout/WorkplaceStandardFormPanel'
+import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
 import {
   LAYOUT_TABLE1_POSTINGS_BODY_ROW,
   LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
   LAYOUT_TABLE1_POSTINGS_TH,
-} from '../../src/components/layout/layoutTable1PostingsKit'
-import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
-import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
-import { fetchAssignableUsers } from '../../src/hooks/useAssignableUsers'
-import { Badge, type BadgeVariant } from '../../src/components/ui/Badge'
-import { Button } from '../../src/components/ui/Button'
-import { ComplianceBanner } from '../../src/components/ui/ComplianceBanner'
-import { StandardInput } from '../../src/components/ui/Input'
-import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
-import { StandardTextarea } from '../../src/components/ui/Textarea'
-import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
-import { WarningBox } from '../../src/components/ui/AlertBox'
+} from '../../components/layout/layoutTable1PostingsKit'
+import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../components/layout/workplaceModuleSurface'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { fetchAssignableUsers } from '../../hooks/useAssignableUsers'
+import { Badge, type BadgeVariant } from '../../components/ui/Badge'
+import { Button } from '../../components/ui/Button'
+import { ComplianceBanner } from '../../components/ui/ComplianceBanner'
+import { StandardInput } from '../../components/ui/Input'
+import { SearchableSelect } from '../../components/ui/SearchableSelect'
+import { StandardTextarea } from '../../components/ui/Textarea'
+import { Tabs, type TabItem } from '../../components/ui/Tabs'
+import { WarningBox } from '../../components/ui/AlertBox'
 import { fetchIkAnnualReviewYearStats, type IkAnnualReviewYearStats } from './annualReviewYearStats'
 import {
   IkAnnualReviewEvaluationSchema,

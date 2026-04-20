@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
-import type { InspectionRoundRow } from '../inspection/types'
+import { getSupabaseErrorMessage } from '../../lib/supabaseError'
+import type { InspectionRoundRow } from '../../../modules/inspection/types'
 
 export type IkAnnualReviewYearStats = {
   deviationCount: number
@@ -53,7 +53,6 @@ export async function fetchIkAnnualReviewYearStats(
   }
 }
 
-/** Typet liste for enkel visning (valgfritt brukt av hooks) */
 export async function fetchSignedInspectionRoundsInYear(
   supabase: SupabaseClient,
   organizationId: string,

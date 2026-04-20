@@ -96,6 +96,7 @@ import { IkKompetansePage } from './pages/IkKompetansePage'
 import { IkMedvirkningPage } from './pages/IkMedvirkningPage'
 import { IkMalPage } from './pages/IkMalPage'
 import { IkTiltaksplanPage } from './pages/IkTiltaksplanPage'
+import { IkAnnualReviewPage } from './pages/IkAnnualReviewPage'
 import { InternalControlAdminPage } from './pages/InternalControlAdminPage'
 import { RosModulePage }         from './pages/RosModulePage'
 import { RosModuleAdminPage }    from './pages/RosModuleAdminPage'
@@ -178,6 +179,7 @@ function App() {
                       <Route path="internkontroll/medvirkning" element={<IkMedvirkningPage />} />
                       <Route path="internkontroll/mal" element={<IkMalPage />} />
                       <Route path="internkontroll/tiltaksplan" element={<IkTiltaksplanPage />} />
+                      <Route path="internkontroll/arsgjenomgang" element={<IkAnnualReviewPage />} />
                       <Route path="internkontroll/admin" element={<InternalControlAdminPage />} />
                       <Route path="modules/aarskontroll" element={<YearskontrollModule />} />
                       <Route path="hse" element={<HseModule />} />

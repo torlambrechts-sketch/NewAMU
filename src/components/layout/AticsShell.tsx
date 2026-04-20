@@ -125,8 +125,8 @@ const internkontrollSubs: SubItem[] = [
   },
   {
     label: 'Årsgjennomgang',
-    path: '/internal-control?tab=annual',
-    match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'annual',
+    path: '/internkontroll/arsgjenomgang',
+    match: ({ pathname }) => pathname === '/internkontroll/arsgjenomgang',
   },
 ]
 
