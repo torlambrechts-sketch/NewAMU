@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { AlertTriangle, CheckCircle2, ChevronRight, Plus, Search, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ListTree, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
 import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
-import {
-  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
-  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
-  LAYOUT_TABLE1_POSTINGS_TH,
-} from '../../src/components/layout/layoutTable1PostingsKit'
+import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
+import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
+import { Button } from '../../src/components/ui/Button'
+import { StandardInput } from '../../src/components/ui/Input'
+import { SearchableSelect, type SelectOption } from '../../src/components/ui/SearchableSelect'
+import { Badge } from '../../src/components/ui/Badge'
+import type { BadgeVariant } from '../../src/components/ui/Badge'
 import { useAvvik } from './useAvvik'
 import type { AvvikRow, AvvikSeverity, AvvikStatus } from './types'
 
@@ -46,6 +48,48 @@ const STATUS_COLOR: Record<AvvikStatus, string> = {
   under_behandling: 'bg-yellow-50 text-yellow-700',
   tiltak_iverksatt: 'bg-blue-50 text-blue-800',
   lukket: 'bg-green-50 text-green-700',
+}
+function severityBadgeVariant(s: AvvikSeverity): BadgeVariant {
+  switch (s) {
+    case 'critical':
+      return 'critical'
+    case 'high':
+      return 'high'
+    case 'medium':
+      return 'medium'
+    case 'low':
+      return 'info'
+    default:
+      return 'neutral'
+  }
+}
+function statusBadgeVariant(s: AvvikStatus): BadgeVariant {
+  switch (s) {
+    case 'open':
+    case 'rapportert':
+      return 'warning'
+    case 'in_progress':
+    case 'under_behandling':
+      return 'info'
+    case 'tiltak_iverksatt':
+      return 'active'
+    case 'closed':
+    case 'lukket':
+      return 'success'
+    default:
+      return 'neutral'
+  }
+}
+const SOURCE_CATEGORY_LABEL: Record<string, string> = {
+  manual: 'Manuelt',
+  inspection: 'Inspeksjon',
+  internal: 'Internt',
+  ros: 'ROS',
+  sja: 'SJA',
+}
+function categoryLabel(source: string): string {
+  const k = source.trim().toLowerCase()
+  return SOURCE_CATEGORY_LABEL[k] ?? (source.trim() || '—')
 }
 const STATUS_NEXT: Partial<Record<AvvikStatus, AvvikStatus>> = {
   open: 'in_progress',
@@ -85,7 +129,7 @@ function HistorikkTab({
 
   useEffect(() => {
     if (!supabase) return
-    setLoading(true)
+    queueMicrotask(() => setLoading(true))
     void supabase
       .from('hse_audit_log')
       .select('id, action, changed_at, changed_by, changed_fields')
@@ -414,101 +458,6 @@ function AvvikPanel({
   )
 }
 
-// ── Create avvik modal ────────────────────────────────────────────────────────
-
-function CreateAvvikModal({
-  module,
-  onClose,
-  onCreated,
-}: {
-  module: ReturnType<typeof useAvvik>
-  onClose: () => void
-  onCreated: (avvik: AvvikRow) => void
-}) {
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [severity, setSeverity] = useState<AvvikSeverity>('high')
-  const [dueAt, setDueAt] = useState('')
-  const [assignedTo, setAssignedTo] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  async function handleCreate() {
-    if (!title.trim()) return
-    setSaving(true)
-    const result = await module.createAvvik({
-      title, description, severity,
-      dueAt: dueAt || undefined,
-      assignedTo: assignedTo || undefined,
-      source: 'manual',
-    })
-    setSaving(false)
-    if (result) onCreated(result)
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-lg rounded-none bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-4">
-          <h2 className="text-base font-semibold text-neutral-900">Nytt avvik</h2>
-          <button type="button" onClick={onClose} className="text-neutral-400 hover:text-neutral-700">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="space-y-4 px-6 py-5">
-          <div>
-            <label className={PANEL_FIELD_LABEL} htmlFor="new-avvik-title">Tittel *</label>
-            <input id="new-avvik-title" value={title} onChange={(e) => setTitle(e.target.value)}
-              placeholder="Kort beskrivelse av avviket…" className={PANEL_INPUT} />
-          </div>
-          <div>
-            <label className={PANEL_FIELD_LABEL} htmlFor="new-avvik-desc">Beskrivelse</label>
-            <textarea id="new-avvik-desc" rows={3} value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Detaljert beskrivelse…" className={`${PANEL_INPUT} resize-none`} />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className={PANEL_FIELD_LABEL} htmlFor="new-avvik-sev">Alvorlighet</label>
-              <select id="new-avvik-sev" value={severity}
-                onChange={(e) => setSeverity(e.target.value as AvvikSeverity)} className={PANEL_INPUT}>
-                {(Object.keys(SEVERITY_LABEL) as AvvikSeverity[]).map((s) => (
-                  <option key={s} value={s}>{SEVERITY_LABEL[s]}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={PANEL_FIELD_LABEL} htmlFor="new-avvik-due">Frist</label>
-              <input id="new-avvik-due" type="date" value={dueAt}
-                onChange={(e) => setDueAt(e.target.value)} className={PANEL_INPUT} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className={PANEL_FIELD_LABEL} htmlFor="new-avvik-assigned">Ansvarlig</label>
-              <select id="new-avvik-assigned" value={assignedTo}
-                onChange={(e) => setAssignedTo(e.target.value)} className={PANEL_INPUT}>
-                <option value="">(Ingen)</option>
-                {module.assignableUsers.map((u) => (
-                  <option key={u.id} value={u.id}>{u.displayName}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          {module.error && <p className="text-xs text-red-600">{module.error}</p>}
-        </div>
-        <div className="flex justify-end gap-2 border-t border-neutral-200 px-6 py-4">
-          <button type="button" onClick={onClose}
-            className="rounded border border-neutral-300 px-4 py-2 text-sm">Avbryt</button>
-          <button type="button" disabled={!title.trim() || saving}
-            onClick={() => void handleCreate()}
-            className="rounded px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            style={{ backgroundColor: '#1a3d32' }}>
-            {saving ? 'Oppretter…' : 'Opprett avvik'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Main view ─────────────────────────────────────────────────────────────────
 
 const STATUS_FILTER_OPTIONS: { value: 'all' | AvvikStatus; label: string }[] = [
@@ -540,6 +489,22 @@ const SEVERITY_FILTER_OPTIONS: { value: 'all' | AvvikSeverity; label: string }[]
   { value: 'low', label: 'Lav' },
 ]
 
+const TH =
+  'border-b border-neutral-200 bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500'
+
+const TR_BODY = 'border-b border-neutral-100 last:border-b-0 transition-colors hover:bg-neutral-50'
+
+function emptyAvvikForm() {
+  return {
+    title: '',
+    description: '',
+    severity: 'high' as AvvikSeverity,
+    dueAt: '',
+    assignedTo: '',
+    rootCause: '',
+  }
+}
+
 export function AvvikView({ supabase }: Props) {
   const module = useAvvik({ supabase })
   const { load } = module
@@ -549,7 +514,10 @@ export function AvvikView({ supabase }: Props) {
   const [statusFilter, setStatusFilter] = useState<'all' | AvvikStatus>('all')
   const [severityFilter, setSeverityFilter] = useState<'all' | AvvikSeverity>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [createOpen, setCreateOpen] = useState(false)
+  const [editingAvvikId, setEditingAvvikId] = useState<string | null>(null)
+  const [createMode, setCreateMode] = useState(false)
+  const [form, setForm] = useState(emptyAvvikForm)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => { void load() }, [load])
 
@@ -557,6 +525,25 @@ export function AvvikView({ supabase }: Props) {
     () => module.avvik.find((a) => a.id === selectedId) ?? null,
     [module.avvik, selectedId],
   )
+
+  const severitySelectOptions: SelectOption[] = useMemo(
+    () => (Object.keys(SEVERITY_LABEL) as AvvikSeverity[]).map((s) => ({ value: s, label: SEVERITY_LABEL[s] })),
+    [],
+  )
+
+  const assignSelectOptions: SelectOption[] = useMemo(
+    () => [
+      { value: '', label: '(Ingen)' },
+      ...module.assignableUsers.map((u) => ({ value: u.id, label: u.displayName })),
+    ],
+    [module.assignableUsers],
+  )
+
+  const assignableUserById = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const u of module.assignableUsers) m[u.id] = u.displayName
+    return m
+  }, [module.assignableUsers])
 
   const filtered = useMemo(() => {
     let list = [...module.avvik].sort(
@@ -572,18 +559,168 @@ export function AvvikView({ supabase }: Props) {
     return list
   }, [module.avvik, sourceIdFilter, statusFilter, severityFilter, search])
 
-  const stats = useMemo(() => {
-    const open = module.avvik.filter((a) => a.status === 'open' || a.status === 'rapportert').length
-    const inProgress = module.avvik.filter(
-      (a) => a.status === 'in_progress' || a.status === 'under_behandling' || a.status === 'tiltak_iverksatt',
-    ).length
-    const critical = module.avvik.filter((a) => a.severity === 'critical' && isOpenAvvikStatus(a.status)).length
-    return { open, inProgress, critical }
-  }, [module.avvik])
+  const openCount = useMemo(
+    () =>
+      module.avvik.filter(
+        (a) =>
+          a.status === 'open' ||
+          a.status === 'rapportert' ||
+          a.status === 'in_progress' ||
+          a.status === 'under_behandling' ||
+          a.status === 'tiltak_iverksatt',
+      ).length,
+    [module.avvik],
+  )
+
+  const overdueCount = useMemo(
+    () =>
+      module.avvik.filter(
+        (a) => a.due_at && isOpenAvvikStatus(a.status) && new Date(a.due_at) < new Date(),
+      ).length,
+    [module.avvik],
+  )
+
+  const criticalOpenCount = useMemo(
+    () => module.avvik.filter((a) => a.severity === 'critical' && isOpenAvvikStatus(a.status)).length,
+    [module.avvik],
+  )
+
+  const kpiItems = useMemo(
+    () => [
+      { big: String(module.avvik.length), title: 'Totalt antall', sub: 'Registrerte avvik' },
+      { big: String(openCount), title: 'Åpne avvik', sub: 'Ikke lukket' },
+      { big: String(overdueCount), title: 'Forfalte', sub: 'Åpne med passert frist' },
+      { big: String(criticalOpenCount), title: 'Kritiske', sub: 'Åpne med kritisk alvor' },
+    ],
+    [module.avvik.length, openCount, overdueCount, criticalOpenCount],
+  )
 
   const overdue = useCallback(
     (a: AvvikRow) => a.due_at && isOpenAvvikStatus(a.status) && new Date(a.due_at) < new Date(),
     [],
+  )
+
+  function assignDisplayName(userId: string | null): string {
+    if (!userId) return '—'
+    return assignableUserById[userId]?.trim() || '—'
+  }
+
+  function openDetailPanel(a: AvvikRow) {
+    setCreateMode(false)
+    setEditingAvvikId(null)
+    setForm(emptyAvvikForm())
+    setSelectedId(a.id)
+  }
+
+  function beginAddAvvik() {
+    setSelectedId(null)
+    setEditingAvvikId(null)
+    setCreateMode(true)
+    setForm(emptyAvvikForm())
+  }
+
+  function beginEditAvvik(a: AvvikRow) {
+    setSelectedId(null)
+    setCreateMode(false)
+    setEditingAvvikId(a.id)
+    setForm({
+      title: a.title,
+      description: a.description,
+      severity: a.severity,
+      dueAt: a.due_at ? a.due_at.slice(0, 10) : '',
+      assignedTo: a.assigned_to ?? '',
+      rootCause: a.root_cause_analysis ?? '',
+    })
+  }
+
+  function cancelBottomForm() {
+    setCreateMode(false)
+    setEditingAvvikId(null)
+    setForm(emptyAvvikForm())
+  }
+
+  const editingRow = useMemo(
+    () => (editingAvvikId ? module.avvik.find((a) => a.id === editingAvvikId) ?? null : null),
+    [editingAvvikId, module.avvik],
+  )
+
+  const showBottomForm = createMode || editingAvvikId !== null
+
+  async function handleCreateSubmit() {
+    if (!form.title.trim()) return
+    setSaving(true)
+    const result = await module.createAvvik({
+      title: form.title,
+      description: form.description,
+      severity: form.severity,
+      dueAt: form.dueAt || undefined,
+      assignedTo: form.assignedTo || undefined,
+      source: 'manual',
+    })
+    setSaving(false)
+    if (result) cancelBottomForm()
+  }
+
+  async function handleSaveEdit() {
+    if (!editingAvvikId || !form.title.trim()) return
+    setSaving(true)
+    const ok = await module.updateDeviation({
+      avvikId: editingAvvikId,
+      title: form.title,
+      description: form.description,
+      severity: form.severity,
+      dueAt: form.dueAt || null,
+      assignedTo: form.assignedTo || null,
+      rootCauseAnalysis: form.rootCause || null,
+    })
+    setSaving(false)
+    if (ok) cancelBottomForm()
+  }
+
+  const headerActions = (
+    <>
+      <Button type="button" variant="primary" icon={<Plus className="h-4 w-4" />} onClick={beginAddAvvik}>
+        Nytt avvik
+      </Button>
+      {module.error ? <span className="max-w-xs text-xs text-red-600">{module.error}</span> : null}
+    </>
+  )
+
+  const toolbar = (
+    <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+      <div className="relative min-w-[180px] flex-1">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+        <StandardInput
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Søk i tittel, beskrivelse…"
+          className="pl-10"
+        />
+      </div>
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+        className="rounded-md border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
+      >
+        {STATUS_FILTER_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <select
+        value={severityFilter}
+        onChange={(e) => setSeverityFilter(e.target.value as typeof severityFilter)}
+        className="rounded-md border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
+      >
+        {SEVERITY_FILTER_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
   )
 
   return (
@@ -600,17 +737,6 @@ export function AvvikView({ supabase }: Props) {
         }
         title="Avviksregister"
         description="Alle avvik på tvers av inspeksjoner og meldinger — IK-forskriften § 5 nr. 7."
-        headerActions={
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-bold uppercase tracking-wide text-white"
-            style={{ backgroundColor: '#2D403A' }}
-          >
-            <Plus className="h-4 w-4" />
-            Nytt avvik
-          </button>
-        }
       />
 
       {sourceIdFilter ? (
@@ -624,110 +750,201 @@ export function AvvikView({ supabase }: Props) {
         </div>
       ) : null}
 
-      <LayoutScoreStatRow
-        items={[
-          { big: String(stats.open), title: 'Åpne avvik', sub: 'Krever handling' },
-          { big: String(stats.inProgress), title: 'Under behandling', sub: 'Tiltak pågår' },
-          { big: String(stats.critical), title: 'Kritiske (åpne)', sub: 'Høyeste prioritet' },
-        ]}
-      />
+      <LayoutScoreStatRow items={kpiItems} />
 
-      <LayoutTable1PostingsShell
-        wrap
-        title="Avvik"
-        description="Sortert etter alvorlighetsgrad — kritiske øverst."
-        headerActions={
-          module.error ? <span className="text-xs text-red-600">{module.error}</span> : undefined
-        }
-        toolbar={
-          <div className="flex flex-wrap gap-2">
-            <div className="relative min-w-[180px] flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Søk i tittel, beskrivelse…"
-                className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
-              />
-            </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-              className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
-            >
-              {STATUS_FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-            <select
-              value={severityFilter}
-              onChange={(e) => setSeverityFilter(e.target.value as typeof severityFilter)}
-              className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
-            >
-              {SEVERITY_FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
-        }
-        footer={
-          <span className="text-neutral-500">
-            {search.trim() || statusFilter !== 'all' || severityFilter !== 'all'
-              ? `${filtered.length} treff`
-              : `${module.avvik.length} avvik totalt`}
-          </span>
-        }
-      >
-        <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-          <thead>
-            <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Alvorlighet</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Kilde</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Frist</th>
-              <th className={`w-8 ${LAYOUT_TABLE1_POSTINGS_TH}`} />
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((a) => (
-              <tr
-                key={a.id}
-                className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer hover:bg-neutral-50`}
-                onClick={() => setSelectedId(a.id)}
-              >
-                <td className="px-5 py-3">
-                  <span className="font-medium text-neutral-900">{a.title}</span>
-                  {overdue(a) && (
-                    <span className="ml-2 inline-flex items-center gap-0.5 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
-                      <AlertTriangle className="h-3 w-3" /> Forfalt
-                    </span>
-                  )}
-                </td>
-                <td className="px-5 py-3">
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${SEVERITY_COLOR[a.severity]}`}>
-                    {SEVERITY_LABEL[a.severity]}
-                  </span>
-                </td>
-                <td className="px-5 py-3">
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLOR[a.status]}`}>
-                    {STATUS_LABEL[a.status]}
-                  </span>
-                </td>
-                <td className="px-5 py-3 text-neutral-500 text-xs">{a.source}</td>
-                <td className="px-5 py-3 text-neutral-600">{formatDate(a.due_at)}</td>
-                <td className="px-3 py-3 text-neutral-300">
-                  <ChevronRight className="h-4 w-4" />
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
+      <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
+        <LayoutTable1PostingsShell
+          wrap={false}
+          titleTypography="sans"
+          title="Avvik"
+          description="Sortert etter alvorlighetsgrad — kritiske øverst."
+          headerActions={headerActions}
+          toolbar={toolbar}
+          footer={
+            <span className="text-neutral-500">
+              {search.trim() || statusFilter !== 'all' || severityFilter !== 'all'
+                ? `${filtered.length} treff`
+                : `${module.avvik.length} avvik totalt`}
+            </span>
+          }
+        >
+          <table className="w-full border-collapse text-left text-sm whitespace-nowrap">
+            <thead>
               <tr>
-                <td colSpan={6} className="px-5 py-10 text-center text-sm text-neutral-400">
-                  {module.loading ? 'Laster avvik…' : 'Ingen avvik matcher filteret.'}
-                </td>
+                <th className={TH}>Tittel</th>
+                <th className={TH}>Kategori</th>
+                <th className={TH}>Alvorlighetsgrad</th>
+                <th className={TH}>Status</th>
+                <th className={TH}>Ansvarlig</th>
+                <th className={`${TH} text-right`}>Handlinger</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </LayoutTable1PostingsShell>
+            </thead>
+            <tbody>
+              {filtered.map((a) => {
+                const isOverdue = overdue(a)
+                const locked = a.status === 'closed' || a.status === 'lukket'
+                return (
+                  <tr key={a.id} className={TR_BODY}>
+                    <td className="max-w-[min(28rem,40vw)] px-5 py-4 align-middle">
+                      <p className="whitespace-normal font-medium text-neutral-900">{a.title}</p>
+                      <p className="mt-0.5 whitespace-normal font-mono text-xs text-neutral-500">
+                        {a.id.slice(0, 8)}… · {formatDate(a.created_at)}
+                      </p>
+                      {isOverdue && (
+                        <p className="mt-0.5 flex items-center gap-1 whitespace-normal text-xs font-semibold text-red-600">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          Forfalt frist
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 align-middle text-neutral-700">
+                      <span className="whitespace-normal">{categoryLabel(a.source)}</span>
+                    </td>
+                    <td className="px-5 py-4 align-middle">
+                      <Badge variant={severityBadgeVariant(a.severity)}>{SEVERITY_LABEL[a.severity]}</Badge>
+                    </td>
+                    <td className="px-5 py-4 align-middle">
+                      <Badge variant={statusBadgeVariant(a.status)}>{STATUS_LABEL[a.status]}</Badge>
+                    </td>
+                    <td className="px-5 py-4 align-middle text-neutral-700">
+                      <span className="whitespace-normal">{assignDisplayName(a.assigned_to)}</span>
+                    </td>
+                    <td className="px-5 py-4 text-right align-middle">
+                      <div className="inline-flex justify-end gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          icon={<ListTree className="h-4 w-4" />}
+                          aria-label="Åpne detaljer"
+                          onClick={() => openDetailPanel(a)}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          icon={<Pencil className="h-4 w-4" />}
+                          aria-label="Rediger avvik"
+                          disabled={locked}
+                          onClick={() => beginEditAvvik(a)}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Slett avvik"
+                          disabled={locked}
+                          onClick={() => {
+                            if (window.confirm('Slette dette avviket?')) void module.deleteAvvik(a.id)
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-5 py-12 text-center text-sm whitespace-normal text-neutral-400">
+                    {module.loading ? 'Laster avvik…' : 'Ingen avvik matcher filteret.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          {showBottomForm && (
+            <div className="border-t border-neutral-100 bg-neutral-50/80 px-5 py-4 md:px-6">
+              <p className="mb-3 text-sm font-semibold text-neutral-900">
+                {editingAvvikId ? 'Rediger avvik' : 'Nytt avvik'}
+              </p>
+              {editingAvvikId && editingRow ? (
+                <p className="mb-3 text-xs text-neutral-600">
+                  {editingRow.title}
+                  {overdue(editingRow) ? ' · FORFALT' : ''}
+                </p>
+              ) : null}
+              <div className="space-y-3">
+                <label>
+                  <span className={WPSTD_FORM_FIELD_LABEL}>Tittel *</span>
+                  <StandardInput
+                    value={form.title}
+                    onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+                    placeholder="Kort beskrivelse av avviket…"
+                  />
+                </label>
+                <label>
+                  <span className={WPSTD_FORM_FIELD_LABEL}>Beskrivelse</span>
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                    placeholder="Detaljert beskrivelse…"
+                    rows={3}
+                    className="mt-1.5 w-full rounded-md border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
+                  />
+                </label>
+                <div className={WPSTD_FORM_ROW_GRID}>
+                  <label>
+                    <span className={WPSTD_FORM_FIELD_LABEL}>Alvorlighetsgrad</span>
+                    <SearchableSelect
+                      value={form.severity}
+                      options={severitySelectOptions}
+                      onChange={(v) => setForm((p) => ({ ...p, severity: v as AvvikSeverity }))}
+                    />
+                  </label>
+                  <label>
+                    <span className={WPSTD_FORM_FIELD_LABEL}>Frist</span>
+                    <StandardInput type="date" value={form.dueAt} onChange={(e) => setForm((p) => ({ ...p, dueAt: e.target.value }))} />
+                  </label>
+                  <label className="sm:col-span-2">
+                    <span className={WPSTD_FORM_FIELD_LABEL}>Ansvarlig</span>
+                    <SearchableSelect
+                      value={form.assignedTo}
+                      options={assignSelectOptions}
+                      onChange={(v) => setForm((p) => ({ ...p, assignedTo: v }))}
+                    />
+                  </label>
+                  {editingAvvikId ? (
+                    <label className="sm:col-span-2">
+                      <span className={WPSTD_FORM_FIELD_LABEL}>Rotårsaksanalyse</span>
+                      <textarea
+                        value={form.rootCause}
+                        onChange={(e) => setForm((p) => ({ ...p, rootCause: e.target.value }))}
+                        placeholder="Beskriv rotårsak for gjentakende avvik (IK-f krav)…"
+                        rows={3}
+                        className="mt-1.5 w-full rounded-md border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
+                      />
+                    </label>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {!editingAvvikId ? (
+                    <>
+                      <Button type="button" variant="primary" onClick={() => void handleCreateSubmit()} disabled={saving || !form.title.trim()}>
+                        {saving ? 'Oppretter…' : 'Opprett avvik'}
+                      </Button>
+                      <Button type="button" variant="secondary" onClick={cancelBottomForm}>
+                        Avbryt
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button type="button" variant="secondary" onClick={cancelBottomForm}>
+                        Avbryt
+                      </Button>
+                      <Button type="button" variant="primary" onClick={() => void handleSaveEdit()} disabled={saving || !form.title.trim()}>
+                        {saving ? 'Lagrer…' : 'Lagre endringer'}
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </LayoutTable1PostingsShell>
+      </div>
 
       {selectedAvvik && (
         <AvvikPanel
@@ -736,14 +953,6 @@ export function AvvikView({ supabase }: Props) {
           supabase={supabase}
           onClose={() => setSelectedId(null)}
           onDeleted={() => setSelectedId(null)}
-        />
-      )}
-
-      {createOpen && (
-        <CreateAvvikModal
-          module={module}
-          onClose={() => setCreateOpen(false)}
-          onCreated={(a) => { setCreateOpen(false); setSelectedId(a.id) }}
         />
       )}
     </div>
