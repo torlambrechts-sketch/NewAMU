@@ -17,6 +17,8 @@ import { SearchableSelect, type SelectOption } from '../../src/components/ui/Sea
 import { Badge } from '../../src/components/ui/Badge'
 import type { BadgeVariant } from '../../src/components/ui/Badge'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
+import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
+import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
 
 const ALL_CONTROL_TYPES: RosControlType[] = ['eliminate', 'substitute', 'engineering', 'administrative', 'ppe']
 
@@ -102,6 +104,16 @@ export function RosMeasuresTab({
   const overdue = measures.filter((m) => m.status !== 'completed' && m.due_date && new Date(m.due_date) < new Date()).length
   const completed = measures.filter((m) => m.status === 'completed').length
 
+  const kpiItems = useMemo(
+    () => [
+      { big: String(measures.length), title: 'Totalt tiltak', sub: 'Registrert' },
+      { big: String(open), title: 'Åpne', sub: 'Status åpen' },
+      { big: String(overdue), title: 'Forfalt', sub: 'Ikke fullført, frist passert' },
+      { big: String(completed), title: 'Fullført', sub: 'Avsluttede tiltak' },
+    ],
+    [measures.length, open, overdue, completed],
+  )
+
   async function handleAddMeasure(hazardId: string) {
     if (!form.description.trim()) return
     setSaving(true)
@@ -124,204 +136,189 @@ export function RosMeasuresTab({
   }, [hazards, hazardPickForAdd])
 
   return (
-    <div className="flex flex-col space-y-6 p-5 md:p-6">
-      <div className="space-y-4">
-        <div className="flex flex-wrap gap-4 rounded-lg border border-neutral-200 bg-neutral-50 px-5 py-3">
-          <div className="text-center">
-            <p className="text-lg font-bold text-neutral-900">{measures.length}</p>
-            <p className="text-xs text-neutral-500">Totalt tiltak</p>
-          </div>
-          <div className="text-center">
-            <p className="text-lg font-bold text-amber-700">{open}</p>
-            <p className="text-xs text-neutral-500">Åpne</p>
-          </div>
-          {overdue > 0 && (
-            <div className="text-center">
-              <p className="text-lg font-bold text-red-600">{overdue}</p>
-              <p className="text-xs text-neutral-500">Forfalt</p>
-            </div>
-          )}
-          <div className="text-center">
-            <p className="text-lg font-bold text-green-700">{completed}</p>
-            <p className="text-xs text-neutral-500">Fullført</p>
-          </div>
-        </div>
+    <div className="space-y-6">
+      <LayoutScoreStatRow items={kpiItems} />
 
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">
-            Hierarki av barrierer (mest effektivt → minst effektivt)
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {ALL_CONTROL_TYPES.map((ct, i) => (
-              <div key={ct} className="flex items-center gap-1.5">
-                <span className={`rounded px-2 py-0.5 text-xs font-semibold ${CONTROL_TYPE_COLOR[ct]}`}>
-                  {i + 1}. {CONTROL_TYPE_LABEL[ct]}
-                </span>
-                {i < 4 && <span className="text-neutral-300">›</span>}
+      <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
+        <div className="flex flex-col gap-4 border-b border-neutral-200 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
+          <div>
+            <h3 className="text-lg font-semibold text-neutral-900">Registrerte tiltak</h3>
+            <p className="mt-1 text-sm text-neutral-500">
+              Oversikt over alle barrierer og tiltak knyttet til farekildene.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {!readOnly && hazards.length > 1 && (
+              <div className="min-w-[12rem] max-w-xs flex-1 sm:max-w-[280px] sm:flex-initial">
+                <SearchableSelect
+                  value={hazardPickForAdd}
+                  options={hazardOptionsForAdd}
+                  placeholder="Velg farekilde…"
+                  onChange={(v) => setHazardPickForAdd(v)}
+                />
               </div>
-            ))}
+            )}
+            {!readOnly && (
+              <Button
+                type="button"
+                variant="primary"
+                icon={<Plus className="h-4 w-4" />}
+                disabled={hazards.length === 0 || !targetHazardIdForAdd}
+                onClick={() => {
+                  if (targetHazardIdForAdd) setAddingForHazard(targetHazardIdForAdd)
+                }}
+              >
+                Legg til tiltak
+              </Button>
+            )}
           </div>
         </div>
-      </div>
 
-      <hr className="border-neutral-200" />
-
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <h3 className="text-lg font-semibold text-neutral-900">
-            Tiltak <span className="text-neutral-500 font-normal">({measures.length})</span>
-          </h3>
-          <p className="text-sm text-neutral-500 mt-1">Oversikt over alle barrierer og tiltak.</p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          {!readOnly && hazards.length > 1 && (
-            <div className="min-w-[12rem] max-w-xs flex-1 sm:flex-initial">
-              <SearchableSelect
-                value={hazardPickForAdd}
-                options={hazardOptionsForAdd}
-                placeholder="Velg farekilde…"
-                onChange={(v) => setHazardPickForAdd(v)}
-              />
-            </div>
-          )}
-          {!readOnly && (
-            <Button
-              type="button"
-              variant="primary"
-              icon={<Plus className="h-4 w-4" />}
-              disabled={hazards.length === 0 || !targetHazardIdForAdd}
-              onClick={() => {
-                if (targetHazardIdForAdd) setAddingForHazard(targetHazardIdForAdd)
-              }}
-            >
-              Legg til tiltak
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {hazards.map((h) => {
-          const hMeasures = measuresByHazard[h.id] ?? []
-          const resScore = riskScore(h.residual_probability, h.residual_consequence)
-          const band = riskBand(resScore)
-          return (
-            <div key={h.id} className={`overflow-hidden rounded-xl border border-neutral-200 ${hazardRiskBorderClass(h)}`}>
-              <div className="flex items-center justify-between gap-3 border-b border-neutral-100 bg-white/80 px-4 py-2.5">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold text-white ${LAW_DOMAIN_BG[h.law_domain]}`}>
-                    {h.law_domain}
+        <div className="space-y-4 p-5 md:p-6">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">
+              Hierarki av barrierer (mest effektivt → minst effektivt)
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {ALL_CONTROL_TYPES.map((ct, i) => (
+                <div key={ct} className="flex items-center gap-1.5">
+                  <span className={`rounded px-2 py-0.5 text-xs font-semibold ${CONTROL_TYPE_COLOR[ct]}`}>
+                    {i + 1}. {CONTROL_TYPE_LABEL[ct]}
                   </span>
-                  <p className="truncate text-sm font-semibold text-neutral-900">{h.description}</p>
-                  {resScore != null && (
-                    <Badge variant={band === 'critical' ? 'critical' : band === 'high' ? 'high' : band === 'medium' ? 'medium' : 'success'}>
-                      {resScore} — {RISK_BAND_LABEL[band]}
-                    </Badge>
+                  {i < 4 && <span className="text-neutral-300">›</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {hazards.map((h) => {
+              const hMeasures = measuresByHazard[h.id] ?? []
+              const resScore = riskScore(h.residual_probability, h.residual_consequence)
+              const band = riskBand(resScore)
+              return (
+                <div key={h.id} className={`overflow-hidden rounded-xl border border-neutral-200 ${hazardRiskBorderClass(h)}`}>
+                  <div className="flex items-center justify-between gap-3 border-b border-neutral-100 bg-white/80 px-4 py-2.5">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold text-white ${LAW_DOMAIN_BG[h.law_domain]}`}>
+                        {h.law_domain}
+                      </span>
+                      <p className="truncate text-sm font-semibold text-neutral-900">{h.description}</p>
+                      {resScore != null && (
+                        <Badge variant={band === 'critical' ? 'critical' : band === 'high' ? 'high' : band === 'medium' ? 'medium' : 'success'}>
+                          {resScore} — {RISK_BAND_LABEL[band]}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {hMeasures.length === 0 && addingForHazard !== h.id && (
+                    <p className="px-4 py-3 text-xs italic text-neutral-400">Ingen tiltak registrert.</p>
+                  )}
+                  {hMeasures.map((m) => {
+                    const isOverdue = m.status !== 'completed' && m.due_date && new Date(m.due_date) < new Date()
+                    return (
+                      <div
+                        key={m.id}
+                        className="flex items-center gap-3 border-b border-neutral-50 bg-white/60 px-4 py-2.5 last:border-b-0"
+                      >
+                        <span className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-semibold ${CONTROL_TYPE_COLOR[m.control_type]}`}>
+                          {CONTROL_TYPE_LABEL[m.control_type]}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-neutral-900">{m.description}</p>
+                          <p className="text-xs text-neutral-500">
+                            {m.assigned_to_name ? `Ansvarlig: ${m.assigned_to_name}` : 'Ingen ansvarlig'}
+                            {m.due_date && ` · Frist: ${new Date(m.due_date).toLocaleDateString('nb-NO')}`}
+                            {isOverdue && <span className="ml-1 font-semibold text-red-600">FORFALT</span>}
+                          </p>
+                        </div>
+                        {!readOnly && (
+                          <div className="w-44 shrink-0">
+                            <SearchableSelect
+                              value={m.status}
+                              options={MEASURE_STATUS_OPTIONS}
+                              onChange={(v) =>
+                                void ros.upsertMeasure(analysis.id, h.id, {
+                                  id: m.id,
+                                  description: m.description,
+                                  status: v as RosMeasureRow['status'],
+                                })
+                              }
+                            />
+                          </div>
+                        )}
+                        {readOnly && (
+                          <Badge variant={measureStatusBadge(m.status)}>
+                            {MEASURE_STATUS_OPTIONS.find((o) => o.value === m.status)?.label}
+                          </Badge>
+                        )}
+                      </div>
+                    )
+                  })}
+
+                  {addingForHazard === h.id && (
+                    <div className="space-y-3 border-t border-neutral-100 bg-neutral-50/60 px-4 py-4">
+                      <label>
+                        <span className={WPSTD_FORM_FIELD_LABEL}>Beskrivelse av tiltak *</span>
+                        <StandardInput
+                          value={form.description}
+                          onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                          placeholder="Hva skal gjøres?"
+                        />
+                      </label>
+                      <div className={WPSTD_FORM_ROW_GRID}>
+                        <label>
+                          <span className={WPSTD_FORM_FIELD_LABEL}>Barrieretype</span>
+                          <SearchableSelect
+                            value={form.control_type}
+                            options={controlTypeOptions}
+                            onChange={(v) => setForm((p) => ({ ...p, control_type: v as RosControlType }))}
+                          />
+                        </label>
+                        <label>
+                          <span className={WPSTD_FORM_FIELD_LABEL}>Ansvarlig</span>
+                          <StandardInput
+                            value={form.assigned_to_name}
+                            onChange={(e) => setForm((p) => ({ ...p, assigned_to_name: e.target.value }))}
+                            placeholder="Navn…"
+                          />
+                        </label>
+                        <label>
+                          <span className={WPSTD_FORM_FIELD_LABEL}>Frist</span>
+                          <StandardInput
+                            type="date"
+                            value={form.due_date}
+                            onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
+                          />
+                        </label>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="primary"
+                          onClick={() => void handleAddMeasure(h.id)}
+                          disabled={saving || !form.description.trim() || readOnly}
+                        >
+                          {saving ? 'Lagrer…' : 'Legg til tiltak'}
+                        </Button>
+                        <Button type="button" variant="secondary" onClick={() => setAddingForHazard(null)}>
+                          Avbryt
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
-
-              {hMeasures.length === 0 && addingForHazard !== h.id && (
-                <p className="px-4 py-3 text-xs italic text-neutral-400">Ingen tiltak registrert.</p>
-              )}
-              {hMeasures.map((m) => {
-                const isOverdue = m.status !== 'completed' && m.due_date && new Date(m.due_date) < new Date()
-                return (
-                  <div
-                    key={m.id}
-                    className="flex items-center gap-3 border-b border-neutral-50 bg-white/60 px-4 py-2.5 last:border-b-0"
-                  >
-                    <span className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-semibold ${CONTROL_TYPE_COLOR[m.control_type]}`}>
-                      {CONTROL_TYPE_LABEL[m.control_type]}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-neutral-900">{m.description}</p>
-                      <p className="text-xs text-neutral-500">
-                        {m.assigned_to_name ? `Ansvarlig: ${m.assigned_to_name}` : 'Ingen ansvarlig'}
-                        {m.due_date && ` · Frist: ${new Date(m.due_date).toLocaleDateString('nb-NO')}`}
-                        {isOverdue && <span className="ml-1 font-semibold text-red-600">FORFALT</span>}
-                      </p>
-                    </div>
-                    {!readOnly && (
-                      <div className="w-44 shrink-0">
-                        <SearchableSelect
-                          value={m.status}
-                          options={MEASURE_STATUS_OPTIONS}
-                          onChange={(v) =>
-                            void ros.upsertMeasure(analysis.id, h.id, {
-                              id: m.id,
-                              description: m.description,
-                              status: v as RosMeasureRow['status'],
-                            })
-                          }
-                        />
-                      </div>
-                    )}
-                    {readOnly && <Badge variant={measureStatusBadge(m.status)}>{MEASURE_STATUS_OPTIONS.find((o) => o.value === m.status)?.label}</Badge>}
-                  </div>
-                )
-              })}
-
-              {addingForHazard === h.id && (
-                <div className="space-y-3 border-t border-neutral-100 bg-neutral-50/60 px-4 py-4">
-                  <label>
-                    <span className={WPSTD_FORM_FIELD_LABEL}>Beskrivelse av tiltak *</span>
-                    <StandardInput
-                      value={form.description}
-                      onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                      placeholder="Hva skal gjøres?"
-                    />
-                  </label>
-                  <div className={WPSTD_FORM_ROW_GRID}>
-                    <label>
-                      <span className={WPSTD_FORM_FIELD_LABEL}>Barrieretype</span>
-                      <SearchableSelect
-                        value={form.control_type}
-                        options={controlTypeOptions}
-                        onChange={(v) => setForm((p) => ({ ...p, control_type: v as RosControlType }))}
-                      />
-                    </label>
-                    <label>
-                      <span className={WPSTD_FORM_FIELD_LABEL}>Ansvarlig</span>
-                      <StandardInput
-                        value={form.assigned_to_name}
-                        onChange={(e) => setForm((p) => ({ ...p, assigned_to_name: e.target.value }))}
-                        placeholder="Navn…"
-                      />
-                    </label>
-                    <label>
-                      <span className={WPSTD_FORM_FIELD_LABEL}>Frist</span>
-                      <StandardInput
-                        type="date"
-                        value={form.due_date}
-                        onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
-                      />
-                    </label>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="primary"
-                      onClick={() => void handleAddMeasure(h.id)}
-                      disabled={saving || !form.description.trim() || readOnly}
-                    >
-                      {saving ? 'Lagrer…' : 'Legg til tiltak'}
-                    </Button>
-                    <Button type="button" variant="secondary" onClick={() => setAddingForHazard(null)}>
-                      Avbryt
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })}
-        {hazards.length === 0 && (
-          <p className="py-8 text-center text-sm text-neutral-400">
-            Legg til farekilder i fanen Farekilder før du registrerer tiltak.
-          </p>
-        )}
+              )
+            })}
+            {hazards.length === 0 && (
+              <p className="py-8 text-center text-sm text-neutral-400">
+                Legg til farekilder i fanen Farekilder før du registrerer tiltak.
+              </p>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

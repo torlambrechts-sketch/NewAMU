@@ -16,6 +16,7 @@ import { RosMeasuresTab } from './RosMeasuresTab'
 import { RosSignaturesTab } from './RosSignaturesTab'
 import { ROS_STATUS_LABEL, riskScore, ROS_TYPE_LABEL } from './types'
 import type { RosStatus } from './types'
+import { HseAuditLogViewer } from '../../src/components/hse/HseAuditLogViewer'
 
 type Tab = 'scope' | 'hazards' | 'measures' | 'signatures' | 'history'
 
@@ -126,28 +127,30 @@ export function RosAnalysisPage({ supabase }: { supabase: SupabaseClient | null 
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
+      <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
         {ros.error ? <WarningBox>{ros.error}</WarningBox> : null}
 
-        <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-          {activeTab === 'scope' && (
+        {activeTab === 'scope' && (
+          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
             <RosScopeTab key={`${analysis.id}-${analysis.updated_at}`} analysis={analysis} ros={ros} />
-          )}
-          {activeTab === 'hazards' && (
-            <RosHazardsTab analysis={analysis} hazards={hazards} measures={measures} ros={ros} />
-          )}
-          {activeTab === 'measures' && (
-            <RosMeasuresTab analysis={analysis} hazards={hazards} measures={measures} ros={ros} />
-          )}
-          {activeTab === 'signatures' && (
+          </div>
+        )}
+        {activeTab === 'hazards' && (
+          <RosHazardsTab analysis={analysis} hazards={hazards} measures={measures} ros={ros} />
+        )}
+        {activeTab === 'measures' && (
+          <RosMeasuresTab analysis={analysis} hazards={hazards} measures={measures} ros={ros} />
+        )}
+        {activeTab === 'signatures' && (
+          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
             <RosSignaturesTab analysis={analysis} hazards={hazards} measures={measures} signatures={sigs} ros={ros} />
-          )}
-          {activeTab === 'history' && (
-            <div className="px-5 py-5 text-sm text-neutral-400">
-              Historikk — koble til HseAuditLogViewer med recordId=rosId og tableName=&quot;ros_analyses&quot;.
-            </div>
-          )}
-        </div>
+          </div>
+        )}
+        {activeTab === 'history' && (
+          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
+            <HseAuditLogViewer supabase={supabase} recordId={analysis.id} tableName="ros_analyses" />
+          </div>
+        )}
       </div>
     </div>
   )

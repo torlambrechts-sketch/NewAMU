@@ -12,6 +12,8 @@ import { Badge } from '../../src/components/ui/Badge'
 import type { BadgeVariant } from '../../src/components/ui/Badge'
 import { WarningBox } from '../../src/components/ui/AlertBox'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
+import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
+import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
 
 function riskBandBadgeVariant(band: ReturnType<typeof riskBand>): BadgeVariant {
   switch (band) {
@@ -134,51 +136,65 @@ export function RosHazardsTab({
     if (result?.id) setSelectedId(result.id)
   }
 
+  const hazardKpiItems = useMemo(
+    () => [
+      { big: String(hazards.length), title: 'Totalt farekilder', sub: 'Registrert' },
+      { big: String(filtered.length), title: 'Synlige i filter', sub: lawFilter ? `Domene: ${lawFilter}` : 'Alle domener' },
+      { big: String(criticalHazards.length), title: 'Kritiske (≥15)', sub: 'Residual risiko' },
+    ],
+    [hazards.length, filtered.length, criticalHazards.length, lawFilter],
+  )
+
   return (
-    <div className="flex flex-col">
+    <div className="space-y-6">
+      <LayoutScoreStatRow items={hazardKpiItems} />
+
       {criticalHazards.length > 0 && (
-        <div className="border-b border-neutral-200 px-5 py-3 md:px-6">
-          <WarningBox>
-            <p className="font-semibold">
-              {criticalHazards.length} farekilder med kritisk residual risiko (≥ 15) — tiltak er lovpålagt
-            </p>
-            <p className="mt-1 text-sm">
-              IK-forskriften § 5 nr. 6: Risikoer med score ≥ 15 krever skriftlig tiltaksplan. Disse kan kobles til
-              tiltaksplan i internkontrollen.
-            </p>
-          </WarningBox>
-        </div>
+        <WarningBox>
+          <p className="font-semibold">
+            {criticalHazards.length} farekilder med kritisk residual risiko (≥ 15) — tiltak er lovpålagt
+          </p>
+          <p className="mt-1 text-sm">
+            IK-forskriften § 5 nr. 6: Risikoer med score ≥ 15 krever skriftlig tiltaksplan. Disse kan kobles til tiltaksplan
+            i internkontrollen.
+          </p>
+        </WarningBox>
       )}
 
-      <div className="flex flex-col gap-0 md:flex-row md:min-h-[600px]">
-        <div className="w-full border-b border-neutral-200 md:w-[55%] md:border-b-0 md:border-r">
-          <div className="border-b border-neutral-100 bg-neutral-50/60 px-5 py-4">
-            <RosRiskScatter
-              hazards={hazards}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              probabilityLabels={probLabels}
-              consequenceLabels={consLabels}
-            />
-          </div>
+      <div className="flex min-h-[600px] flex-col gap-6 md:flex-row">
+        <div className="w-full min-w-0 md:w-[55%]">
+          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
+            <div className="border-b border-neutral-100 bg-neutral-50/60 px-5 py-4">
+              <RosRiskScatter
+                hazards={hazards}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                probabilityLabels={probLabels}
+                consequenceLabels={consLabels}
+              />
+            </div>
 
-          <div className="flex flex-col space-y-6 p-5 md:p-6">
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-4 rounded-lg border border-neutral-200 bg-neutral-50 px-5 py-3">
-                <div className="text-center">
-                  <p className="text-lg font-bold text-neutral-900">{hazards.length}</p>
-                  <p className="text-xs text-neutral-500">Totalt farekilder</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-neutral-800">{filtered.length}</p>
-                  <p className="text-xs text-neutral-500">I filter</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-red-600">{criticalHazards.length}</p>
-                  <p className="text-xs text-neutral-500">Kritiske (≥15)</p>
-                </div>
+            <div className="flex flex-col gap-4 border-b border-neutral-200 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
+              <div>
+                <h3 className="text-lg font-semibold text-neutral-900">Registrerte farekilder</h3>
+                <p className="mt-1 text-sm text-neutral-500">Oversikt over alle farekilder som er kartlagt i analysen.</p>
               </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {!readOnly && (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    icon={<Plus className="h-4 w-4" />}
+                    disabled={editingId === '__new__'}
+                    onClick={startNew}
+                  >
+                    Legg til farekilde
+                  </Button>
+                )}
+              </div>
+            </div>
 
+            <div className="space-y-4 p-5 md:p-6">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Filter på lovdomene</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -204,35 +220,9 @@ export function RosHazardsTab({
                   ))}
                 </div>
               </div>
-            </div>
 
-            <hr className="border-neutral-200" />
-
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold text-neutral-900">
-                  Farekilder <span className="text-neutral-500 font-normal">({hazards.length})</span>
-                </h3>
-                <p className="text-sm text-neutral-500 mt-1">Oversikt over alle farekilder som er kartlagt i analysen.</p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {!readOnly && (
-                  <Button
-                    type="button"
-                    variant="primary"
-                    icon={<Plus className="h-4 w-4" />}
-                    disabled={editingId === '__new__'}
-                    onClick={startNew}
-                  >
-                    Legg til farekilde
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <div className="divide-y divide-neutral-100">
-            {filtered.map((h) => {
+              <div className="divide-y divide-neutral-100 rounded-lg border border-neutral-100">
+                {filtered.map((h) => {
               const initScore = riskScore(h.initial_probability, h.initial_consequence)
               const resScore = riskScore(h.residual_probability, h.residual_consequence)
               const band = riskBand(resScore ?? initScore)
@@ -291,15 +281,17 @@ export function RosHazardsTab({
                   </div>
                 </div>
               )
-            })}
-            {filtered.length === 0 && (
-              <p className="py-10 text-center text-sm text-neutral-400">Ingen farekilder ennå.</p>
-            )}
+                })}
+                {filtered.length === 0 && (
+                  <p className="py-10 text-center text-sm text-neutral-400">Ingen farekilder ennå.</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5">
+        <div className={`min-w-0 flex-1 overflow-hidden ${WORKPLACE_MODULE_CARD}`} style={WORKPLACE_MODULE_CARD_SHADOW}>
+          <div className="max-h-[min(80vh,900px)] overflow-y-auto p-5 md:p-6">
           {editingId ? (
             <div className="space-y-4">
               <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">
@@ -425,6 +417,7 @@ export function RosHazardsTab({
           ) : (
             <p className="text-sm text-neutral-400">Velg en farekilde til venstre for å se detaljer.</p>
           )}
+          </div>
         </div>
       </div>
     </div>
