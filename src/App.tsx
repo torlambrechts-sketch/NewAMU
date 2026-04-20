@@ -85,6 +85,8 @@ import { ModuleSlugPage } from './pages/ModuleSlugPage'
 import { InspectionModulePage } from './pages/InspectionModulePage'
 import { InspectionModuleAdminPage } from './pages/InspectionModuleAdminPage'
 import { InspectionRoundDetailPage } from './pages/InspectionRoundDetailPage'
+import { VernerunderPageRoute } from './pages/VernerunderPage'
+import { VernerundeDetailPage } from './pages/VernerundeDetailPage'
 import { SjaDetailPage } from './pages/SjaDetailPage'
 import { SjaModulePage } from './pages/SjaModulePage'
 import { SjaModuleAdminPage } from './pages/SjaModuleAdminPage'
@@ -192,6 +194,8 @@ function App() {
                       {/* Avvik / funn — dedicated deviation management */}
                       <Route path="avvik" element={<AvvikPage />} />
                       <Route path="inspection-module/:roundId" element={<InspectionRoundDetailPage />} />
+                      <Route path="vernerunder" element={<VernerunderPageRoute />} />
+                      <Route path="vernerunder/:vernerundeId" element={<VernerundeDetailPage />} />
                       <Route path="sja" element={<SjaModulePage />} />
                       <Route path="sja/admin" element={<SjaModuleAdminPage />} />
                       <Route path="sja/:sjaId" element={<SjaDetailPage />} />

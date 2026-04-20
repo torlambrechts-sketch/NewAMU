@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { fetchAssignableUsers, type AssignableUser } from '../../src/hooks/useAssignableUsers'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import type {
@@ -45,6 +46,7 @@ export function useVernerunde() {
   const [checkpointsByRunde, setCheckpointsByRunde] = useState<Record<string, VernerundeCheckpointRow[]>>({})
   const [participantsByRunde, setParticipantsByRunde] = useState<Record<string, VernerundeParticipantRow[]>>({})
   const [findingsByRunde, setFindingsByRunde] = useState<Record<string, VernerundeFindingRow[]>>({})
+  const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -119,9 +121,12 @@ export function useVernerunde() {
   }, [assertOrg, supabase, setErr])
 
   const load = useCallback(async () => {
+    if (supabase) {
+      void fetchAssignableUsers(supabase).then(setAssignableUsers)
+    }
     await loadRounds()
     await loadCatalog()
-  }, [loadRounds, loadCatalog])
+  }, [loadRounds, loadCatalog, supabase])
 
   useEffect(() => {
     void load()
@@ -164,9 +169,9 @@ export function useVernerunde() {
   )
 
   const loadTemplateItems = useCallback(
-    async (templateId: string) => {
+    async (templateId: string): Promise<VernerundeTemplateItemRow[] | null> => {
       const o = assertOrg()
-      if (!supabase || !o) return
+      if (!supabase || !o) return null
       setError(null)
       try {
         const { data, error: qErr } = await supabase
@@ -176,12 +181,12 @@ export function useVernerunde() {
           .eq('template_id', templateId)
           .order('position', { ascending: true })
         if (qErr) throw qErr
-        setTemplateItemsByTemplateId((prev) => ({
-          ...prev,
-          [templateId]: parseTemplateItemList((data as unknown[]) ?? []),
-        }))
+        const rows = parseTemplateItemList((data as unknown[]) ?? [])
+        setTemplateItemsByTemplateId((prev) => ({ ...prev, [templateId]: rows }))
+        return rows
       } catch (e) {
         setErr(e)
+        return null
       }
     },
     [assertOrg, supabase, setErr],
@@ -409,6 +414,38 @@ export function useVernerunde() {
     [assertOrg, assertCanManage, supabase, assertNotLocked, setErr],
   )
 
+  const updateCheckpoint = useCallback(
+    async (vernerundeId: string, checkpointId: string, patch: Partial<Pick<VernerundeCheckpointRow, 'status' | 'question_text'>>) => {
+      const o = assertOrg()
+      if (!supabase || !o || !assertCanManage()) return
+      const m = await assertNotLocked(vernerundeId)
+      if (!m.ok) return
+      setError(null)
+      try {
+        const { data, error: e } = await supabase
+          .from('vernerunde_checkpoints')
+          .update(patch)
+          .eq('id', checkpointId)
+          .eq('vernerunde_id', vernerundeId)
+          .eq('organization_id', o)
+          .select('*')
+          .single()
+        if (e) throw e
+        const list = parseCheckpointList([data])
+        const row = list[0]
+        if (row) {
+          setCheckpointsByRunde((prev) => {
+            const cur = prev[vernerundeId] ?? []
+            return { ...prev, [vernerundeId]: cur.map((c) => (c.id === row.id ? row : c)) }
+          })
+        }
+      } catch (err) {
+        setErr(err)
+      }
+    },
+    [assertOrg, assertCanManage, supabase, assertNotLocked, setErr],
+  )
+
   const addFinding = useCallback(
     async (
       vernerundeId: string,
@@ -452,6 +489,42 @@ export function useVernerunde() {
     [assertOrg, assertCanManage, supabase, assertNotLocked, setErr],
   )
 
+  const updateFinding = useCallback(
+    async (
+      vernerundeId: string,
+      findingId: string,
+      patch: Partial<Pick<VernerundeFindingRow, 'description' | 'severity' | 'checkpoint_id' | 'category_id'>>,
+    ) => {
+      const o = assertOrg()
+      if (!supabase || !o || !assertCanManage()) return
+      const m = await assertNotLocked(vernerundeId)
+      if (!m.ok) return
+      setError(null)
+      try {
+        const { data, error: e } = await supabase
+          .from('vernerunde_findings')
+          .update(patch)
+          .eq('id', findingId)
+          .eq('vernerunde_id', vernerundeId)
+          .eq('organization_id', o)
+          .select('*')
+          .single()
+        if (e) throw e
+        const list = parseFindingList([data])
+        const row = list[0]
+        if (row) {
+          setFindingsByRunde((prev) => {
+            const cur = prev[vernerundeId] ?? []
+            return { ...prev, [vernerundeId]: cur.map((f) => (f.id === row.id ? row : f)) }
+          })
+        }
+      } catch (err) {
+        setErr(err)
+      }
+    },
+    [assertOrg, assertCanManage, supabase, assertNotLocked, setErr],
+  )
+
   const addParticipant = useCallback(
     async (vernerundeId: string, input: { user_id: string; role: VernerundeParticipantRow['role'] }) => {
       const o = assertOrg()
@@ -480,6 +553,32 @@ export function useVernerunde() {
       } catch (err) {
         setErr(err)
         return null
+      }
+    },
+    [assertOrg, assertCanManage, supabase, assertNotLocked, setErr],
+  )
+
+  const deleteParticipant = useCallback(
+    async (participantId: string, vernerundeId: string) => {
+      const o = assertOrg()
+      if (!supabase || !o || !assertCanManage()) return
+      const m = await assertNotLocked(vernerundeId)
+      if (!m.ok) return
+      setError(null)
+      try {
+        const { error: e } = await supabase
+          .from('vernerunde_participants')
+          .delete()
+          .eq('id', participantId)
+          .eq('organization_id', o)
+          .eq('vernerunde_id', vernerundeId)
+        if (e) throw e
+        setParticipantsByRunde((prev) => {
+          const cur = prev[vernerundeId] ?? []
+          return { ...prev, [vernerundeId]: cur.filter((p) => p.id !== participantId) }
+        })
+      } catch (err) {
+        setErr(err)
       }
     },
     [assertOrg, assertCanManage, supabase, assertNotLocked, setErr],
@@ -558,6 +657,7 @@ export function useVernerunde() {
   return {
     organizationId: orgId,
     canManage,
+    assignableUsers,
     vernerunder,
     categories,
     templates,
@@ -580,8 +680,11 @@ export function useVernerunde() {
     addTemplate,
     addTemplateItem,
     addCheckpoint,
+    updateCheckpoint,
     addFinding,
+    updateFinding,
     addParticipant,
+    deleteParticipant,
     signParticipant,
     fetchParentStatus,
     isLockedByStatus: isLockedStatus,
