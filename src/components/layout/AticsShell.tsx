@@ -21,6 +21,7 @@ import {
   LayoutGrid,
   Library,
   ListChecks,
+  ListTodo,
   Megaphone,
   PanelLeft,
   PanelRight,
@@ -465,6 +466,27 @@ const navGroups: NavGroup[] = [
         end: false,
         icon: AlertTriangle,
         subs: [],
+      },
+      {
+        to: '/tiltak',
+        label: 'Handlingsplan',
+        end: false,
+        icon: ListTodo,
+        perm: 'module.view.hse',
+        subs: [
+          {
+            label: 'Oversikt',
+            path: '/tiltak',
+            match: ({ pathname }) => pathname === '/tiltak' || pathname === '/action-plan',
+          },
+          {
+            label: 'Innstillinger',
+            path: '/tiltak/admin',
+            match: ({ pathname }) =>
+              pathname.startsWith('/tiltak/admin') || pathname.startsWith('/action-plan/admin'),
+            requirePerm: 'action_plan.manage',
+          },
+        ],
       },
       {
         to: '/ros',

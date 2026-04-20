@@ -19,6 +19,8 @@ export const PERMISSION_KEYS = [
   'ik.manage',
   /** Redigere ROS (risikovurderinger) */
   'ros.manage',
+  /** Redigere tiltaksplan, kategorier og arbeidsflyt (IK) */
+  'action_plan.manage',
   /** Varslingsmottak — full innsyn i whistleblowing_cases (AML kap. 2A) */
   'whistleblowing.committee',
   'module.view.tasks',
@@ -65,6 +67,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'internkontroll.manage': 'Internkontroll — redigere data',
   'ik.manage': 'Internkontroll — redigere data (alias)',
   'ros.manage': 'ROS — redigere risikovurderinger',
+  'action_plan.manage': 'Tiltaksplan — kategorier og arbeidsflyt',
   'whistleblowing.committee': 'Varslingsmottak',
   'module.view.tasks': 'Tasks',
   'module.view.learning': 'E-learning',
@@ -92,6 +95,7 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/hse', permission: 'module.view.hse' },
   { pathPrefix: '/sja', permission: 'module.view.hse' },
   { pathPrefix: '/ros', permission: 'module.view.hse' },
+  { pathPrefix: '/tiltak', permission: 'module.view.hse' },
   { pathPrefix: '/survey', permission: 'module.view.survey' },
   { pathPrefix: '/inspection-module', permission: 'module.view.inspection' },
   { pathPrefix: '/internal-control', permission: 'module.view.internal_control' },

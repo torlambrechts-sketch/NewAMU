@@ -18,6 +18,12 @@ export const ROS_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_ROS_APPROVED', label: 'ROS godkjent' },
 ] as const
 
+export const ACTION_PLAN_WORKFLOW_TRIGGER_EVENTS = [
+  { value: 'ON_MEASURE_CREATED', label: 'Tiltak opprettet' },
+  { value: 'ON_MEASURE_RESOLVED', label: 'Tiltak løst eller verifisert' },
+  { value: 'ON_MEASURE_OVERDUE', label: 'Tiltak forfalt' },
+] as const
+
 export const INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_ANNUAL_REVIEW_SIGNED', label: 'Årlig gjennomgang signert' },
 ] as const
@@ -25,6 +31,7 @@ export const INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS = [
 const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   inspection: INSPECTION_WORKFLOW_TRIGGER_EVENTS,
   ros: ROS_WORKFLOW_TRIGGER_EVENTS,
+  action_plan: ACTION_PLAN_WORKFLOW_TRIGGER_EVENTS,
   internkontroll: INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS,
 }
 
