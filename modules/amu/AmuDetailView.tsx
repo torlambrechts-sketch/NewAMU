@@ -934,7 +934,7 @@ export function AmuDetailView({
                 disabled={saving}
                 onClick={() => void createTiltakAndLink()}
               >
-                Opprett tiltak i handlingsplan
+                Opprett tiltak i Handlingsplan
               </Button>
             </div>
           </div>
