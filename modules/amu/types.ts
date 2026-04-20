@@ -66,6 +66,8 @@ export interface AmuDefaultAgendaItem {
   description: string
   order_index: number
   source_module: string | null
+  /** Polymorf lenke til kildepost (f.eks. avvik-id) når kilde er satt */
+  source_id: string | null
   created_at: string
   updated_at: string
 }

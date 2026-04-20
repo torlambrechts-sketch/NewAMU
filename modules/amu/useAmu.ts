@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import {
+  ActionPlanItemIdOnlySchema,
   AmuAgendaItemSchema,
   AmuDefaultAgendaItemSchema,
   AmuDecisionSchema,
@@ -217,7 +218,7 @@ export function useAmu() {
   }, [supabase, orgId])
 
   const createDefaultAgendaTemplateRow = useCallback(
-    async (row: Pick<AmuDefaultAgendaItem, 'title' | 'description' | 'order_index' | 'source_module'>) => {
+    async (row: Pick<AmuDefaultAgendaItem, 'title' | 'description' | 'order_index' | 'source_module' | 'source_id'>) => {
       if (!supabase || !orgId) {
         setError('Organisasjon er ikke valgt.')
         return null
@@ -236,6 +237,7 @@ export function useAmu() {
             description: row.description,
             order_index: row.order_index,
             source_module: row.source_module,
+            source_id: row.source_id,
           })
           .select('*')
           .single()
@@ -250,7 +252,10 @@ export function useAmu() {
   )
 
   const updateDefaultAgendaTemplateRow = useCallback(
-    async (id: string, patch: Partial<Pick<AmuDefaultAgendaItem, 'title' | 'description' | 'order_index' | 'source_module'>>) => {
+    async (
+      id: string,
+      patch: Partial<Pick<AmuDefaultAgendaItem, 'title' | 'description' | 'order_index' | 'source_module' | 'source_id'>>,
+    ) => {
       if (!supabase || !orgId) {
         setError('Organisasjon er ikke valgt.')
         return null
@@ -339,7 +344,7 @@ export function useAmu() {
           description: s.description,
           order_index: s.order_index,
           source_module: s.source_module,
-          source_id: null as string | null,
+          source_id: s.source_id ?? null,
         }))
 
         const { data, error: insErr } = await supabase.from('amu_agenda_items').insert(rows).select('*')
@@ -532,7 +537,7 @@ export function useAmu() {
           .select('id')
           .single()
         if (insErr) throw insErr
-        return (data as { id: string }).id
+        return ActionPlanItemIdOnlySchema.parse(data).id
       } catch (err) {
         setError(getSupabaseErrorMessage(err))
         return null

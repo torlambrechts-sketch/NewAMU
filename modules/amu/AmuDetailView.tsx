@@ -15,6 +15,7 @@ import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
 import { fetchAssignableUsers, type AssignableUser } from '../../src/hooks/useAssignableUsers'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
+import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import { WarningBox, InfoBox } from '../../src/components/ui/AlertBox'
 import { Badge, type BadgeVariant } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
@@ -110,6 +111,8 @@ export function AmuDetailView({
     description: '',
     order_index: 0,
     source_module: '' as string,
+    /** Rå tekst for kilde-ID (UUID); tom = ingen spesifikk post */
+    source_id_raw: '' as string,
   })
 
   const [decisionPanel, setDecisionPanel] = useState<{
@@ -174,10 +177,14 @@ export function AmuDetailView({
   useEffect(() => {
     if (!supabase) return
     void (async () => {
-      const u = await fetchAssignableUsers(supabase)
-      setAssignable(u)
+      try {
+        const u = await fetchAssignableUsers(supabase)
+        setAssignable(u)
+      } catch (err) {
+        amu.setError(getSupabaseErrorMessage(err))
+      }
     })()
-  }, [supabase])
+  }, [supabase, amu])
 
   useEffect(() => {
     void (async () => {
@@ -252,6 +259,7 @@ export function AmuDetailView({
       description: '',
       order_index: agenda.length,
       source_module: '',
+      source_id_raw: '',
     })
     setAgendaPanel({ mode: 'new' })
   }, [agenda.length])
@@ -262,6 +270,7 @@ export function AmuDetailView({
       description: item.description,
       order_index: item.order_index,
       source_module: item.source_module ?? '',
+      source_id_raw: item.source_id ?? '',
     })
     setAgendaPanel({ mode: 'edit', item })
   }, [])
@@ -269,13 +278,23 @@ export function AmuDetailView({
   const saveAgendaFromPanel = useCallback(async () => {
     if (!agendaPanel) return
     const sm = agendaForm.source_module.trim()
+    const idTrim = agendaForm.source_id_raw.trim()
+    let sourceId: string | null = null
+    if (idTrim) {
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      if (!uuidRe.test(idTrim)) {
+        amu.setError('Kilde-ID må være en gyldig UUID når den er fylt ut.')
+        return
+      }
+      sourceId = idTrim
+    }
     if (agendaPanel.mode === 'new') {
       const row = await amu.insertAgendaItem(meetingId, {
         title: agendaForm.title.trim() || 'Uten tittel',
         description: agendaForm.description,
         order_index: agendaForm.order_index,
         source_module: sm ? sm : null,
-        source_id: null,
+        source_id: sourceId,
       })
       if (row) {
         setAgenda((a) => [...a, row].sort((p, q) => p.order_index - q.order_index))
@@ -286,7 +305,7 @@ export function AmuDetailView({
         description: agendaForm.description,
         order_index: agendaForm.order_index,
         source_module: sm ? sm : null,
-        source_id: agendaPanel.item.source_id,
+        source_id: sourceId,
       })
       if (u) {
         setAgenda((a) => a.map((x) => (x.id === u.id ? u : x)).sort((p, q) => p.order_index - q.order_index))
@@ -744,7 +763,18 @@ export function AmuDetailView({
             toolbar={<span className="sr-only">Møterom</span>}
           >
             {agenda.length === 0 ? (
-              <p className="px-5 py-10 text-sm text-neutral-600">Ingen saker i sakslisten. Gå til Planlegging for å opprette agenda.</p>
+              <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+                <ListOrdered className="h-10 w-10 text-neutral-300" />
+                <div>
+                  <p className="text-sm font-medium text-neutral-800">Ingen saker i møterom</p>
+                  <p className="mt-1 max-w-md text-sm text-neutral-600">
+                    Legg inn saksliste under Planlegging, eller generer standard saksliste der.
+                  </p>
+                </div>
+                <Button type="button" variant="primary" onClick={() => setActiveTab('planlegging')}>
+                  Gå til planlegging
+                </Button>
+              </div>
             ) : (
               <table className="w-full text-left text-sm">
                 <thead>
@@ -910,6 +940,21 @@ export function AmuDetailView({
                 value={agendaForm.source_module}
                 options={SOURCE_MODULE_OPTIONS}
                 onChange={(v) => setAgendaForm((f) => ({ ...f, source_module: v }))}
+              />
+            </div>
+          </div>
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <div>
+              <div className={WPSTD_FORM_FIELD_LABEL}>Kilde-ID (valgfri)</div>
+              <p className="text-sm text-neutral-600">UUID til konkret avvik, sak osv. La stå tom for kun kategorisering.</p>
+            </div>
+            <div>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-agg-sid">Kilde-ID (UUID)</label>
+              <StandardInput
+                id="amu-agg-sid"
+                value={agendaForm.source_id_raw}
+                onChange={(e) => setAgendaForm((f) => ({ ...f, source_id_raw: e.target.value }))}
+                placeholder="00000000-0000-0000-0000-000000000000"
               />
             </div>
           </div>

@@ -64,8 +64,17 @@ export const AmuDefaultAgendaItemSchema = z.object({
   description: z.string(),
   order_index: z.number().int(),
   source_module: z.string().min(1).nullable(),
+  source_id: z.preprocess(
+    (v) => (v === undefined || v === '' || v === null ? null : v),
+    z.string().uuid().nullable(),
+  ),
   created_at: z.string(),
   updated_at: z.string(),
+})
+
+/** Én rad fra .select('id').single() etter insert i action_plan_items */
+export const ActionPlanItemIdOnlySchema = z.object({
+  id: z.string().uuid(),
 })
 
 export const AmuWhistleblowingPrivacyStatsSchema = z.object({
