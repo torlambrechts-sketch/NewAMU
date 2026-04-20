@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { fetchAssignableUsers, type AssignableUser } from '../../src/hooks/useAssignableUsers'
+import { fetchAssignableUsersStrict, type AssignableUser } from '../../src/hooks/useAssignableUsers'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import type {
@@ -21,6 +21,7 @@ import {
   parseParticipantList,
   parseTemplateItemList,
   parseTemplateList,
+  parseParentStatusRow,
   parseVernerunderList,
   parseVernerunderRow,
   VernerunderWorkflowDispatchPayloadSchema,
@@ -32,7 +33,12 @@ function isLockedStatus(s: VernerunderStatus) {
 
 type ParentStatus = Pick<VernerunderRow, 'id' | 'status' | 'organization_id'>
 
-export function useVernerunde() {
+export type UseVernerundeOptions = {
+  /** Unngå dobbel load når siden også kaller `load()` i useEffect (f.eks. admin). */
+  skipInitialLoad?: boolean
+}
+
+export function useVernerunde(opts?: UseVernerundeOptions) {
   const { supabase, organization, can, isAdmin } = useOrgSetupContext()
   const orgId = organization?.id
   const canManage = isAdmin || can('vernerunder.manage')
@@ -120,17 +126,27 @@ export function useVernerunde() {
     }
   }, [assertOrg, supabase, setErr])
 
-  const load = useCallback(async () => {
-    if (supabase) {
-      void fetchAssignableUsers(supabase).then(setAssignableUsers)
-    }
-    await loadRounds()
-    await loadCatalog()
-  }, [loadRounds, loadCatalog, supabase])
+  const load = useCallback(
+    async (opts?: { skipAssignableUsers?: boolean }) => {
+      if (supabase && !opts?.skipAssignableUsers) {
+        try {
+          const users = await fetchAssignableUsersStrict(supabase)
+          setAssignableUsers(users)
+        } catch (e) {
+          setErr(e)
+        }
+      }
+      await loadRounds()
+      await loadCatalog()
+    },
+    [loadRounds, loadCatalog, supabase, setErr],
+  )
 
   useEffect(() => {
-    void load()
-  }, [load])
+    if (!opts?.skipInitialLoad) {
+      void load()
+    }
+  }, [load, opts?.skipInitialLoad])
 
   const fetchParentStatus = useCallback(
     async (vernerundeId: string): Promise<ParentStatus | null> => {
@@ -150,7 +166,12 @@ export function useVernerunde() {
         setError('Fant ikke vernerunden.')
         return null
       }
-      return data as ParentStatus
+      const parsed = parseParentStatusRow(data)
+      if (!parsed.success) {
+        setError(getSupabaseErrorMessage(new Error('Ugyldig svar ved låssjekk for vernerunde.')))
+        return null
+      }
+      return parsed.data as ParentStatus
     },
     [assertOrg, supabase, setErr],
   )
@@ -251,7 +272,7 @@ export function useVernerunde() {
         if (ins) throw ins
         const p = parseVernerunderRow(data)
         if (!p.success) {
-          setError('Ugyldig svar fra server ved opprettelse av vernerunde.')
+          setError(getSupabaseErrorMessage(new Error('Ugyldig svar fra server ved opprettelse av vernerunde.')))
           return null
         }
         setVernerunder((prev) => [p.data, ...prev])
@@ -284,7 +305,7 @@ export function useVernerunde() {
         if (p.success) {
           setVernerunder((prev) => prev.map((r) => (r.id === p.data.id ? p.data : r)))
         } else {
-          setError('Ugyldig svar ved oppdatering.')
+          setError(getSupabaseErrorMessage(new Error('Ugyldig svar ved oppdatering av vernerunde.')))
         }
       } catch (e) {
         setErr(e)

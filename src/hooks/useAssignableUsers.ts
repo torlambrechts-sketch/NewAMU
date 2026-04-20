@@ -2,18 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type AssignableUser = { id: string; displayName: string }
 
-/**
- * Loads org profiles for user pickers (inspection, SJA, avvik, etc.).
- */
-export async function fetchAssignableUsers(supabase: SupabaseClient): Promise<AssignableUser[]> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, display_name')
-    .order('display_name', { ascending: true })
-  if (error) {
-    console.warn('fetchAssignableUsers', error.message)
-    return []
-  }
+function mapProfileRows(data: { id: unknown; display_name: unknown }[] | null): AssignableUser[] {
   return (data ?? [])
     .map((row) => {
       const id = typeof row.id === 'string' ? row.id : ''
@@ -25,4 +14,30 @@ export async function fetchAssignableUsers(supabase: SupabaseClient): Promise<As
       return { id, displayName }
     })
     .filter((row): row is AssignableUser => row !== null)
+}
+
+/**
+ * Loads org profiles for user pickers (inspection, SJA, avvik, etc.).
+ * På feil: logg + tom liste (bakoverkompatibelt for moduler som allerede håndterer tom liste).
+ */
+export async function fetchAssignableUsers(supabase: SupabaseClient): Promise<AssignableUser[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, display_name')
+    .order('display_name', { ascending: true })
+  if (error) {
+    console.warn('fetchAssignableUsers', error.message)
+    return []
+  }
+  return mapProfileRows(data as { id: unknown; display_name: unknown }[] | null)
+}
+
+/** Samme spørring som `fetchAssignableUsers`, men kaster feil (for kallere som bruker getSupabaseErrorMessage). */
+export async function fetchAssignableUsersStrict(supabase: SupabaseClient): Promise<AssignableUser[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, display_name')
+    .order('display_name', { ascending: true })
+  if (error) throw error
+  return mapProfileRows(data as { id: unknown; display_name: unknown }[] | null)
 }

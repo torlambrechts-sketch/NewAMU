@@ -11,7 +11,7 @@ import {
 } from '../../src/components/layout/layoutTable1PostingsKit'
 import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
 import { WorkplaceStandardFormPanel } from '../../src/components/layout/WorkplaceStandardFormPanel'
-import { Badge, type BadgeVariant } from '../../src/components/ui/Badge'
+import { Badge } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
 import { ComplianceBanner } from '../../src/components/ui/ComplianceBanner'
 import { StandardInput } from '../../src/components/ui/Input'
@@ -20,6 +20,7 @@ import { StandardTextarea } from '../../src/components/ui/Textarea'
 import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { WarningBox } from '../../src/components/ui/AlertBox'
 import type { VernerundeCheckpointRow, VernerundeFindingRow, VernerundeParticipantRow, VernerunderRow } from './types'
+import { SEVERITY_OPTIONS, SEVERITY_LABEL, findingBadgeVariant, findingSeverityClass } from './findingPresentation'
 import { useVernerunde } from './useVernerunde'
 
 const STATUS_LABEL: Record<VernerunderRow['status'], string> = {
@@ -47,39 +48,6 @@ function statusBadgeVariant(s: VernerunderRow['status']): 'draft' | 'active' | '
   if (s === 'active') return 'active'
   return 'draft'
 }
-
-function findingSeverityClass(sev: VernerundeFindingRow['severity']): string {
-  switch (sev) {
-    case 'critical':
-      return 'border-l-4 border-l-red-500 bg-red-50/30'
-    case 'high':
-      return 'border-l-4 border-l-orange-500 bg-orange-50/30'
-    case 'medium':
-      return 'border-l-4 border-l-amber-500 bg-amber-50/30'
-    case 'low':
-    default:
-      return 'border-l-4 border-l-sky-500 bg-sky-50/30'
-  }
-}
-
-function findingBadgeVariant(sev: VernerundeFindingRow['severity']): BadgeVariant {
-  if (sev === 'low') return 'info'
-  if (sev === 'medium') return 'medium'
-  if (sev === 'high') return 'high'
-  return 'critical'
-}
-
-const SEVERITY_LABEL: Record<VernerundeFindingRow['severity'], string> = {
-  low: 'Lav',
-  medium: 'Middels',
-  high: 'Høy',
-  critical: 'Kritisk',
-}
-
-const SEVERITY_OPTIONS: SelectOption[] = (Object.keys(SEVERITY_LABEL) as VernerundeFindingRow['severity'][]).map((k) => ({
-  value: k,
-  label: SEVERITY_LABEL[k],
-}))
 
 const STATUS_OPTIONS: SelectOption[] = [
   { value: 'draft', label: STATUS_LABEL.draft },

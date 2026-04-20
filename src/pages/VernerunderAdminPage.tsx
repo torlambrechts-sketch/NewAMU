@@ -47,7 +47,7 @@ export function VernerunderAdminPage() {
   const navigate = useNavigate()
   const { supabase, can, isAdmin } = useOrgSetupContext()
   const canManage = isAdmin || can('vernerunder.manage')
-  const v = useVernerunde()
+  const v = useVernerunde({ skipInitialLoad: true })
   const [tab, setTab] = useState<AdminTab>('generelt')
 
   useEffect(() => {

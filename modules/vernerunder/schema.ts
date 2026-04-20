@@ -18,7 +18,7 @@ const VernerundeCheckpointStatusEnum = z.enum(['ok', 'deviation', 'not_applicabl
 const VernerundeParticipantRoleEnum = z.enum(['manager', 'safety_deputy', 'employee'])
 const VernerundeFindingSeverityEnum = z.enum(['low', 'medium', 'high', 'critical'])
 
-export const VernerunderRowSchema: z.ZodType<VernerunderRow> = z.object({
+const VernerunderRowBaseSchema = z.object({
   id: UuidSchema,
   organization_id: UuidSchema,
   title: z.string(),
@@ -27,6 +27,15 @@ export const VernerunderRowSchema: z.ZodType<VernerunderRow> = z.object({
   template_id: UuidSchema.nullable().default(null),
   created_at: TimestamptzSchema,
   updated_at: TimestamptzSchema,
+})
+
+export const VernerunderRowSchema: z.ZodType<VernerunderRow> = VernerunderRowBaseSchema
+
+/** RLS-lås-sjekk: tilstrekkelig å hente disse tre feltene. */
+export const VernerunderParentStatusSchema = VernerunderRowBaseSchema.pick({
+  id: true,
+  status: true,
+  organization_id: true,
 })
 
 export const VernerundeCheckpointRowSchema: z.ZodType<VernerundeCheckpointRow> = z.object({
@@ -95,6 +104,10 @@ function parseList<T>(rows: unknown[], schema: { safeParse: (v: unknown) => { su
 
 export function parseVernerunderRow(row: unknown) {
   return VernerunderRowSchema.safeParse(row)
+}
+
+export function parseParentStatusRow(row: unknown) {
+  return VernerunderParentStatusSchema.safeParse(row)
 }
 
 export function parseVernerunderList(rows: unknown[]) {
