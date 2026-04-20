@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   AlertTriangle,
@@ -15,6 +15,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { WF_FIELD_INPUT, WF_FIELD_LABEL } from './workflowPanelStyles'
+import { getWorkflowTriggerEventsForModule } from './workflowTriggerRegistry'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -53,8 +54,11 @@ interface WorkflowRule {
 
 export interface WorkflowRulesTabProps {
   supabase: SupabaseClient | null
-  triggerModule: string
-  triggerEvents: { value: string; label: string }[]
+  /** @deprecated Prefer `module` — same value as `source_module` in workflow_rules */
+  triggerModule?: string
+  /** Module slug for workflow rules (e.g. `ros`, `inspection`). */
+  module?: string
+  triggerEvents?: { value: string; label: string }[]
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -362,10 +366,6 @@ function RuleEditor({
 }) {
   const [draft, setDraft] = useState<WorkflowRule>({ ...rule, steps: rule.steps ? [...rule.steps] : [] })
 
-  useEffect(() => {
-    setDraft({ ...rule, steps: rule.steps ? [...rule.steps] : [] })
-  }, [rule.id])  // reset when switching rule
-
   const patch = (p: Partial<WorkflowRule>) => setDraft((d) => ({ ...d, ...p }))
 
   const addStep = () => {
@@ -503,7 +503,13 @@ function StepIcon({ type }: { type: StepType }) {
 
 // ── Main tab component ─────────────────────────────────────────────────────────
 
-export function WorkflowRulesTab({ supabase, triggerModule, triggerEvents }: WorkflowRulesTabProps) {
+export function WorkflowRulesTab({ supabase, triggerModule, module, triggerEvents }: WorkflowRulesTabProps) {
+  const moduleSlug = module ?? triggerModule ?? 'inspection'
+  const resolvedTriggerEvents = useMemo(
+    () => triggerEvents ?? getWorkflowTriggerEventsForModule(moduleSlug),
+    [triggerEvents, moduleSlug],
+  )
+
   const [rules, setRules] = useState<WorkflowRule[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -518,14 +524,14 @@ export function WorkflowRulesTab({ supabase, triggerModule, triggerEvents }: Wor
       const { data: ruleRows, error: rErr } = await supabase
         .from('workflow_rules')
         .select('id, name, description, trigger_event_name, is_active, condition_json')
-        .eq('source_module', triggerModule)
+        .eq('source_module', moduleSlug)
         .eq('trigger_type', 'db_event')
         .order('created_at', { ascending: true })
 
       if (rErr) throw rErr
 
       const ruleIds = (ruleRows ?? []).map((r) => r.id as string)
-      let stepsByRule: Record<string, WorkflowStep[]> = {}
+      const stepsByRule: Record<string, WorkflowStep[]> = {}
 
       if (ruleIds.length > 0) {
         const { data: stepRows, error: sErr } = await supabase
@@ -566,7 +572,7 @@ export function WorkflowRulesTab({ supabase, triggerModule, triggerEvents }: Wor
     } finally {
       setLoading(false)
     }
-  }, [supabase, triggerModule, selectedId])
+  }, [supabase, moduleSlug, selectedId])
 
   useEffect(() => { void load() }, [load])
 
@@ -577,13 +583,13 @@ export function WorkflowRulesTab({ supabase, triggerModule, triggerEvents }: Wor
       .insert({
         name: 'Ny regel',
         description: '',
-        source_module: triggerModule,
+        source_module: moduleSlug,
         trigger_type: 'db_event',
-        trigger_event_name: triggerEvents[0]?.value ?? null,
+        trigger_event_name: resolvedTriggerEvents[0]?.value ?? null,
         is_active: false,
         condition_json: { match: 'always' },
         actions_json: [],
-        slug: `db_event_${triggerModule}_${Date.now()}`,
+        slug: `db_event_${moduleSlug}_${Date.now()}`,
         trigger_on: 'insert',
       })
       .select('id')
@@ -674,7 +680,10 @@ export function WorkflowRulesTab({ supabase, triggerModule, triggerEvents }: Wor
         <ul className="space-y-1">
           {rules.map((rule) => {
             const active = selectedId === rule.id
-            const eventLabel = triggerEvents.find((e) => e.value === rule.trigger_event_name)?.label ?? rule.trigger_event_name ?? '—'
+            const eventLabel =
+              resolvedTriggerEvents.find((e) => e.value === rule.trigger_event_name)?.label ??
+              rule.trigger_event_name ??
+              '—'
             return (
               <li key={rule.id}>
                 <button
@@ -739,7 +748,7 @@ export function WorkflowRulesTab({ supabase, triggerModule, triggerEvents }: Wor
           <RuleEditor
             key={selectedRule.id}
             rule={selectedRule}
-            triggerEvents={triggerEvents}
+            triggerEvents={resolvedTriggerEvents}
             onSave={(r) => void saveRule(r)}
             onDelete={(id) => void deleteRule(id)}
             saving={saving}

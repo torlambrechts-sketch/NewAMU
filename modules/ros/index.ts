@@ -17,6 +17,7 @@ export type {
   RosConsequenceCategoryRow,
   RosHazardCategoryRow,
   RosTemplateRow,
+  RosModuleSettingsRow,
 } from './types'
 export {
   LAW_DOMAIN_COLOR,

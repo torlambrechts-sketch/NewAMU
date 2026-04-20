@@ -8,6 +8,7 @@ import type {
   RosHazardCategoryRow,
   RosHazardRow,
   RosMeasureRow,
+  RosModuleSettingsRow,
   RosParticipantRow,
   RosProbabilityScaleLevelRow,
   RosSignatureRow,
@@ -24,6 +25,7 @@ import {
   parseRosParticipantRow,
   parseRosProbabilityScaleLevelRow,
   parseRosSignatureRow,
+  parseRosModuleSettingsRow,
   parseRosTemplateRow,
 } from './schema'
 import type { ParsedRosTemplateRow } from './schema'
@@ -58,6 +60,7 @@ export function useRos({ supabase }: { supabase: SupabaseClient | null }) {
   const [consequenceCategories, setConsequenceCategories] = useState<RosConsequenceCategoryRow[]>([])
   const [hazardCategories, setHazardCategories] = useState<RosHazardCategoryRow[]>([])
   const [templates, setTemplates] = useState<ParsedRosTemplateRow[]>([])
+  const [moduleSettings, setModuleSettings] = useState<RosModuleSettingsRow | null>(null)
 
   const [loading, setLoading] = useState(false)
   const [settingsLoading, setSettingsLoading] = useState(false)
@@ -74,7 +77,7 @@ export function useRos({ supabase }: { supabase: SupabaseClient | null }) {
     setSettingsLoading(true)
     setError(null)
     try {
-      const [pRes, cRes, hRes, tRes] = await Promise.all([
+      const [pRes, cRes, hRes, tRes, mRes] = await Promise.all([
         supabase
           .from('ros_probability_scale_levels')
           .select('*')
@@ -99,11 +102,16 @@ export function useRos({ supabase }: { supabase: SupabaseClient | null }) {
           .eq('organization_id', orgId)
           .is('deleted_at', null)
           .order('updated_at', { ascending: false }),
+        supabase.from('ros_module_settings').select('*').eq('organization_id', orgId).maybeSingle(),
       ])
       if (pRes.error) throw pRes.error
       if (cRes.error) throw cRes.error
       if (hRes.error) throw hRes.error
       if (tRes.error) throw tRes.error
+      if (mRes.error) throw mRes.error
+
+      const parsedSettings = mRes.data ? parseRosModuleSettingsRow(mRes.data) : null
+      setModuleSettings(parsedSettings?.success ? parsedSettings.data : null)
 
       setProbabilityScale(collectParsed(pRes.data, parseRosProbabilityScaleLevelRow))
       setConsequenceCategories(collectParsed(cRes.data, parseRosConsequenceCategoryRow))
@@ -580,6 +588,26 @@ export function useRos({ supabase }: { supabase: SupabaseClient | null }) {
     [supabase, orgId, canManage, templates, assertMutable, loadDetail],
   )
 
+  const updateRosModuleSettings = useCallback(
+    async (patch: Partial<Pick<RosModuleSettingsRow, 'require_dual_signature' | 'default_matrix_size'>>) => {
+      if (!supabase || !orgId || !canManage) return
+      setError(null)
+      try {
+        const { error: e } = await supabase
+          .from('ros_module_settings')
+          .upsert(
+            { organization_id: orgId, ...patch, updated_at: new Date().toISOString() },
+            { onConflict: 'organization_id' },
+          )
+        if (e) throw e
+        await loadRosSettings()
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+      }
+    },
+    [supabase, orgId, canManage, loadRosSettings],
+  )
+
   const softDeleteTemplate = useCallback(
     async (id: string) => {
       if (!supabase || !orgId || !canManage) return
@@ -609,6 +637,7 @@ export function useRos({ supabase }: { supabase: SupabaseClient | null }) {
     probabilityScale,
     consequenceCategories,
     hazardCategories,
+    moduleSettings,
     templates,
     loading,
     settingsLoading,
@@ -633,5 +662,13 @@ export function useRos({ supabase }: { supabase: SupabaseClient | null }) {
     upsertTemplate,
     softDeleteTemplate,
     applyTemplateToAnalysis,
+    updateRosModuleSettings,
+    /** Admin aliases (same backing as upsert/softDelete*) */
+    addHazardCategory: upsertHazardCategory,
+    deleteHazardCategory: softDeleteHazardCategory,
+    addConsequenceCategory: upsertConsequenceCategory,
+    deleteConsequenceCategory: softDeleteConsequenceCategory,
+    addTemplate: upsertTemplate,
+    deleteTemplate: softDeleteTemplate,
   }
 }

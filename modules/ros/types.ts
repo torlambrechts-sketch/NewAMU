@@ -223,6 +223,14 @@ export type RosTemplateRow = {
   updated_at: string
 }
 
+/** Én rad per organisasjon — grunnleggende ROS-modulflagg */
+export type RosModuleSettingsRow = {
+  organization_id: string
+  require_dual_signature: boolean
+  default_matrix_size: 3 | 5
+  updated_at: string
+}
+
 /** JSONB payload for ros_templates.definition */
 export type RosTemplateDefinition = {
   version: 1

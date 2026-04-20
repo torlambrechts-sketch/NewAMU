@@ -25,6 +25,7 @@ import {
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useInspectionModule } from '../../modules/inspection/useInspectionModule'
 import { WorkflowRulesTab } from '../components/workflow/WorkflowRulesTab'
+import { INSPECTION_WORKFLOW_TRIGGER_EVENTS } from '../components/workflow/workflowTriggerRegistry'
 import { parseChecklistItems } from '../../modules/inspection/schema'
 import { HseStatsPanel } from '../components/hse/HseStatsPanel'
 import { LocationsCrudTab } from '../components/hse/LocationsCrudTab'
@@ -72,16 +73,6 @@ function newItem(index: number): InspectionChecklistItem {
 }
 
 type Tab = 'templates' | 'locations' | 'signoff' | 'workflow' | 'stats'
-
-const INSPECTION_TRIGGER_EVENTS = [
-  { value: 'round_created', label: 'Runde opprettet' },
-  { value: 'round_activated', label: 'Runde aktivert' },
-  { value: 'round_signed', label: 'Runde signert' },
-  { value: 'finding_critical', label: 'Kritisk funn registrert' },
-  { value: 'finding_high', label: 'Høy-alvorlighet funn' },
-  { value: 'finding_medium', label: 'Middels-alvorlighet funn' },
-  { value: 'finding_low', label: 'Lav-alvorlighet funn' },
-]
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -146,8 +137,8 @@ export function InspectionModuleAdminPage() {
         {tab === 'workflow' && (
           <WorkflowRulesTab
             supabase={supabase}
-            triggerModule="inspection"
-            triggerEvents={INSPECTION_TRIGGER_EVENTS}
+            module="inspection"
+            triggerEvents={[...INSPECTION_WORKFLOW_TRIGGER_EVENTS]}
           />
         )}
         {tab === 'stats' && <HseStatsPanel supabase={supabase} />}

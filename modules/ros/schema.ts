@@ -171,6 +171,13 @@ const RosTemplateHazardStubSchema = z.object({
   existing_controls: z.string().nullable().optional(),
 })
 
+export const RosModuleSettingsRowSchema = z.object({
+  organization_id: z.string().uuid(),
+  require_dual_signature: z.boolean(),
+  default_matrix_size: z.union([z.literal(3), z.literal(5)]),
+  updated_at: z.string(),
+})
+
 export const RosTemplateDefinitionSchema = z.object({
   version: z.literal(1).default(1),
   hazard_stubs: z.array(RosTemplateHazardStubSchema).optional(),
@@ -230,4 +237,8 @@ export function parseRosConsequenceCategoryRow(raw: unknown) {
 
 export function parseRosHazardCategoryRow(raw: unknown) {
   return RosHazardCategoryRowSchema.safeParse(raw)
+}
+
+export function parseRosModuleSettingsRow(raw: unknown) {
+  return RosModuleSettingsRowSchema.safeParse(raw)
 }
