@@ -142,6 +142,10 @@ alter table public.org_module_payloads add constraint org_module_payloads_key_ch
     'organisation',
     'cost_settings',
     'workspace',
+    'report_builder',
+    'workplace_reporting',
+    'workplace_dashboard',
+    'inspection',
     'internkontroll_settings'
   )
 );
