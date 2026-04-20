@@ -58,7 +58,24 @@ const WorkflowConfigSchema = z
         },
       ]),
   })
-  .default({})
+  .default(() => ({
+    rules: [
+      {
+        id: 'wf-critical-finding',
+        trigger: 'inspection.finding.severity=critical',
+        action: 'create_deviation + create_task',
+        module: 'inspection',
+        status: 'active' as const,
+      },
+      {
+        id: 'wf-overdue-task',
+        trigger: 'tasks.overdue=true',
+        action: 'notify_owner',
+        module: 'tasks',
+        status: 'active' as const,
+      },
+    ],
+  }))
 
 const TasksConfigSchema = z
   .object({
@@ -90,14 +107,35 @@ const TasksConfigSchema = z
         },
       ]),
   })
-  .default({})
+  .default(() => ({
+    queueName: 'Compliance tasks',
+    tasks: [
+      {
+        id: 'task-101',
+        title: 'Verify corrective action for finding #872',
+        assignee: 'Safety Coordinator',
+        due_date: '2026-04-20',
+        status: 'todo',
+      },
+      {
+        id: 'task-102',
+        title: 'Sign off Q2 inspection round',
+        assignee: 'Operations Lead',
+        due_date: '2026-04-18',
+        status: 'in_progress',
+      },
+    ],
+  }))
 
 const InspectionModuleConfigSchema = z
   .object({
     enablePhotos: z.boolean().default(true),
     defaultCronExpression: z.string().default('0 7 * * 1'),
   })
-  .default({})
+  .default(() => ({
+    enablePhotos: true,
+    defaultCronExpression: '0 7 * * 1',
+  }))
 
 export const moduleRegistry: Record<string, ModuleRegistryEntry> = {
   workflow: {

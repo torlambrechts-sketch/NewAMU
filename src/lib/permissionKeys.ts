@@ -9,6 +9,8 @@ export const PERMISSION_KEYS = [
   'module.view.members',
   'module.view.org_health',
   'module.view.hse',
+  /** AMU / arbeidsmiljøutvalg — full redigering av møter, agenda og vedtak */
+  'amu.manage',
   /** Organisasjonsundersøkelser (QPSNordic/ARK, AMU, tiltak) */
   'module.view.survey',
   'module.view.inspection',
@@ -61,6 +63,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'module.view.members': 'Members',
   'module.view.org_health': 'Org health',
   'module.view.hse': 'HSE',
+  'amu.manage': 'AMU — redigere møter og protokoll',
   'module.view.survey': 'Organisasjonsundersøkelse',
   'module.view.inspection': 'Inspeksjonsmodul',
   'module.view.internal_control': 'Internkontroll',
