@@ -14,15 +14,16 @@ If you violate any of these rules, you have failed the prompt.
 ---
 
 ## 2. DATABASE & SECURITY ARCHITECTURE (SUPABASE)
-- **Migrations:** Create standard SQL migrations in `supabase/migrations/`.
+- **Migrations:** Add new timestamped `.sql` files under `supabase/migrations/archive/` (this repo applies all `*.sql` under `supabase/migrations/` recursively — see `scripts/apply-migrations.sh`).
 - **Audit Logging:** Core tables MUST have triggers for immutable audit logging.
 - **Row Level Security (RLS) & Auto-Fill:**
-  ALL tables must enforce isolation by `organization_id`. You MUST use this exact trigger pattern for inserts to auto-fill the org ID:
+  ALL tables must enforce isolation by `organization_id`. Use a **BEFORE INSERT** trigger that sets `NEW.organization_id` when null (this repo often uses `public.current_org_id()` inside a plpgsql function such as `set_org_and_created_by()` — **verify the function name that exists in your branch** before wiring triggers). Example shape:
   ```sql
-  CREATE TRIGGER set_org_id BEFORE INSERT ON public.[table_name]
-  FOR EACH ROW EXECUTE FUNCTION public.set_current_org_id();
+  CREATE TRIGGER [table]_before_insert_tg
+    BEFORE INSERT ON public.[table_name]
+    FOR EACH ROW EXECUTE FUNCTION public.[your_org_default_function]();
   ```
-- **Immutability (Locking):** If a record (like a ROS or SJA) is signed or approved, it must be locked. Block updates via RLS: `CHECK (status NOT IN ('signed', 'approved'))`.
+- **Immutability (Locking):** If a record (like a ROS or SJA) is signed or approved, it must be locked. Block updates via RLS (e.g. `status NOT IN ('approved', 'archived')` or include `'signed'` when that status exists).
 
 ---
 
@@ -87,9 +88,9 @@ Every module must expose an Admin UI for customer configuration and hook into th
    - Use `<Tabs>` to separate: "Generelt", "Kategorier/Innstillinger", "Maler", and "Arbeidsflyt".
    - Build CRUD forms (Create, Read, Update, Delete) using `<StandardInput>` and `<Button>` so users can manage dropdown categories and templates dynamically.
 2. **Workflow Engine Integration:**
-   - The Admin page MUST render `<WorkflowRulesTab module="[module_name]" />`.
-   - Register module triggers (e.g., `ON_[MODULE]_CREATED`, `ON_[MODULE]_CRITICAL_RISK`) in `src/components/workflow/workflowRuleFactory.ts`.
-   - Ensure the hook (`use[ModuleName].ts`) dispatches these workflow events upon successful mutations (like signing a document).
+   - The Admin page MUST render `<WorkflowRulesTab module="[module_name]" />` (or equivalent `triggerModule` + events from `workflowTriggerRegistry.ts`).
+   - Register module `db_event` trigger names in `src/components/workflow/workflowTriggerRegistry.ts` and re-export from `workflowRuleFactory.ts` where needed.
+   - Prefer **database triggers** that call `workflow_dispatch_db_event` for reliable dispatch; the hook may still perform follow-up loads after mutations.
 
 ---
 

@@ -47,11 +47,11 @@ function hazardRiskBorderClass(h: RosHazardRow): string {
   const band = riskBand(resScore)
   switch (band) {
     case 'low':
-      return 'border-l-4 border-l-green-400 bg-green-50/15'
+      return 'border-l-4 border-l-blue-300'
     case 'medium':
-      return 'border-l-4 border-l-yellow-400 bg-yellow-50/15'
+      return 'border-l-4 border-l-yellow-400'
     case 'high':
-      return 'border-l-4 border-l-orange-500 bg-orange-50/25'
+      return 'border-l-4 border-l-orange-400 bg-orange-50/20'
     case 'critical':
       return 'border-l-4 border-l-red-500 bg-red-50/30'
     default:
@@ -126,40 +126,34 @@ export function RosMeasuresTab({
   return (
     <div className="flex flex-col">
       <div className="space-y-6 p-5 md:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h2 className="text-lg font-semibold text-neutral-900">
-            Registrerte tiltak{' '}
-            <span className="text-neutral-500 font-normal">({measures.length})</span>
-          </h2>
-          <p className="text-sm text-neutral-500 mt-1">
-            Oversikt over alle barrierer og tiltak for denne analysen.
-          </p>
-        </div>
-        {!readOnly && (
-          <div className="flex w-full flex-col gap-3 sm:w-auto sm:min-w-[12rem] sm:items-end">
-            {hazards.length > 1 && (
-              <div className="w-full min-w-0 sm:max-w-xs">
-                <SearchableSelect
-                  value={hazardPickForAdd}
-                  options={hazardOptionsForAdd}
-                  placeholder="Velg farekilde…"
-                  onChange={(v) => setHazardPickForAdd(v)}
-                />
-              </div>
-            )}
-            <Button
-              type="button"
-              variant="primary"
-              icon={<Plus className="h-4 w-4" />}
-              disabled={hazards.length === 0 || !targetHazardIdForAdd}
-              onClick={() => {
-                if (targetHazardIdForAdd) setAddingForHazard(targetHazardIdForAdd)
-              }}
-            >
-              Legg til tiltak
-            </Button>
+      {!readOnly && hazards.length > 1 && (
+        <div className="-mx-5 md:-mx-6 border-b border-neutral-200 bg-white px-5 py-3 md:px-6">
+          <p className="mb-2 text-xs font-medium text-neutral-600">Velg farekilde før du legger til tiltak</p>
+          <div className="max-w-md">
+            <SearchableSelect
+              value={hazardPickForAdd}
+              options={hazardOptionsForAdd}
+              placeholder="Velg farekilde…"
+              onChange={(v) => setHazardPickForAdd(v)}
+            />
           </div>
+        </div>
+      )}
+
+      <div className="-mx-5 md:-mx-6 flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-5 py-3">
+        <span className="text-sm font-medium text-neutral-700">Registrerte tiltak ({measures.length})</span>
+        {!readOnly && (
+          <Button
+            type="button"
+            variant="primary"
+            icon={<Plus className="h-4 w-4" />}
+            disabled={hazards.length === 0 || !targetHazardIdForAdd}
+            onClick={() => {
+              if (targetHazardIdForAdd) setAddingForHazard(targetHazardIdForAdd)
+            }}
+          >
+            Legg til tiltak
+          </Button>
         )}
       </div>
 

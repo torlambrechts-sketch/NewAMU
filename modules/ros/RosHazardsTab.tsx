@@ -186,29 +186,19 @@ export function RosHazardsTab({
             <span className="ml-auto text-xs text-neutral-400">{filtered.length} farekilder</span>
           </div>
 
-          <div className="px-5 md:px-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-lg font-semibold text-neutral-900">
-                  Registrerte farekilder{' '}
-                  <span className="text-neutral-500 font-normal">({hazards.length})</span>
-                </h2>
-                <p className="text-sm text-neutral-500 mt-1">
-                  Oversikt over alle farekilder som er kartlagt i denne analysen.
-                </p>
-              </div>
-              {!readOnly && (
-                <Button
-                  type="button"
-                  variant="primary"
-                  icon={<Plus className="h-4 w-4" />}
-                  disabled={editingId === '__new__'}
-                  onClick={startNew}
-                >
-                  Legg til farekilde
-                </Button>
-              )}
-            </div>
+          <div className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-5 py-3">
+            <span className="text-sm font-medium text-neutral-700">Registrerte farekilder ({hazards.length})</span>
+            {!readOnly && (
+              <Button
+                type="button"
+                variant="primary"
+                icon={<Plus className="h-4 w-4" />}
+                disabled={editingId === '__new__'}
+                onClick={startNew}
+              >
+                Legg til farekilde
+              </Button>
+            )}
           </div>
 
           <div className="divide-y divide-neutral-100">
@@ -218,9 +208,9 @@ export function RosHazardsTab({
               const band = riskBand(resScore ?? initScore)
               const mCount = (measures ?? []).filter((m) => m.hazard_id === h.id).length
               const border = {
-                low: 'border-l-green-400 bg-green-50/20',
-                medium: 'border-l-yellow-400 bg-yellow-50/20',
-                high: 'border-l-orange-500 bg-orange-50/30',
+                low: 'border-l-blue-300',
+                medium: 'border-l-yellow-400',
+                high: 'border-l-orange-400 bg-orange-50/20',
                 critical: 'border-l-red-500 bg-red-50/30',
               }[band]
               return (
