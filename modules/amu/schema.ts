@@ -57,6 +57,17 @@ export const AmuDecisionSchema = z.object({
   updated_at: z.string(),
 })
 
+export const AmuDefaultAgendaItemSchema = z.object({
+  id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  title: z.string().min(1),
+  description: z.string(),
+  order_index: z.number().int(),
+  source_module: z.string().min(1).nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
 export const AmuWhistleblowingPrivacyStatsSchema = z.object({
   open: z.number().int().nonnegative(),
   closed: z.number().int().nonnegative(),

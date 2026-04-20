@@ -28,11 +28,17 @@ export const INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_ANNUAL_REVIEW_SIGNED', label: 'Årlig gjennomgang signert' },
 ] as const
 
+export const AMU_WORKFLOW_TRIGGER_EVENTS = [
+  { value: 'ON_AMU_MEETING_SCHEDULED', label: 'AMU-møte planlagt (kalenderinnkalling til deltakere)' },
+  { value: 'ON_AMU_MEETING_SIGNED', label: 'AMU-møte signert (distribuer referat)' },
+] as const
+
 const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   inspection: INSPECTION_WORKFLOW_TRIGGER_EVENTS,
   ros: ROS_WORKFLOW_TRIGGER_EVENTS,
   action_plan: ACTION_PLAN_WORKFLOW_TRIGGER_EVENTS,
   internkontroll: INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS,
+  amu: AMU_WORKFLOW_TRIGGER_EVENTS,
 }
 
 export function getWorkflowTriggerEventsForModule(triggerModule: string): { value: string; label: string }[] {

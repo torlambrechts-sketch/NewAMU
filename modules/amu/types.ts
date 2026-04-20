@@ -58,6 +58,18 @@ export interface AmuDecision {
   updated_at: string
 }
 
+/** Virksomhetens standard saksliste (admin) — kopieres til `amu_agenda_items` ved generering */
+export interface AmuDefaultAgendaItem {
+  id: string
+  organization_id: string
+  title: string
+  description: string
+  order_index: number
+  source_module: string | null
+  created_at: string
+  updated_at: string
+}
+
 /** Aggregert teller — ingen PII (RPC `amu_privacy_whistleblowing_stats`) */
 export interface AmuWhistleblowingPrivacyStats {
   open: number

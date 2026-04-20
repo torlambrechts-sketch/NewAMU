@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, Settings } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
@@ -17,6 +17,7 @@ import { WarningBox } from '../../src/components/ui/AlertBox'
 import type { AmuMeeting } from './types'
 
 const LIST_PATH = '/council/amu'
+const AMU_ADMIN_PATH = '/council/amu/admin'
 
 function statusBadgeVariant(status: AmuMeeting['status']): BadgeVariant {
   if (status === 'scheduled') return 'info'
@@ -83,11 +84,20 @@ export function AmuPage() {
         title="Arbeidsmiljøutvalg (AMU)"
         description="Møter, saksbehandling og signert referat etter arbeidsmiljøloven kapittel 7. Velg et møte eller opprett et nytt."
         headerActions={
-          amu.canManage ? (
-            <Button type="button" variant="primary" onClick={() => void onCreate()} icon={<Plus className="h-4 w-4" />}>
-              Nytt møte
-            </Button>
-          ) : null
+          <div className="flex flex-wrap items-center gap-2">
+            {amu.canManage ? (
+              <Link to={AMU_ADMIN_PATH}>
+                <Button type="button" variant="secondary" icon={<Settings className="h-4 w-4" />}>
+                  Innstillinger
+                </Button>
+              </Link>
+            ) : null}
+            {amu.canManage ? (
+              <Button type="button" variant="primary" onClick={() => void onCreate()} icon={<Plus className="h-4 w-4" />}>
+                Nytt møte
+              </Button>
+            ) : null}
+          </div>
         }
       />
 

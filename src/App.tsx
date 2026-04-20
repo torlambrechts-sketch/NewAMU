@@ -27,6 +27,7 @@ import { HrmSalary } from './pages/HrmSalary'
 import { NotFound } from './pages/NotFound'
 import { CouncilModule } from './pages/CouncilModule'
 import { AmuPage } from '../modules/amu/AmuPage'
+import { AmuModuleAdminPage } from './pages/AmuModuleAdminPage'
 import { MembersModule } from './pages/MembersModule'
 import { HseModule } from './pages/HseModule'
 import { HseInspectionSettings } from './pages/HseInspectionSettings'
@@ -172,6 +173,7 @@ function App() {
                       <Route path="action-board" element={<ActionBoardPage />} />
                       <Route path="council" element={<CouncilModule />} />
                       <Route path="council/amu" element={<AmuPage />} />
+                      <Route path="council/amu/admin" element={<AmuModuleAdminPage />} />
                       <Route path="council/amu/:meetingId" element={<AmuPage />} />
                       <Route path="members" element={<MembersModule />} />
                       <Route path="org-health" element={<OrgHealthModule />} />

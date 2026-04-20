@@ -3,6 +3,7 @@ import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import {
   AmuAgendaItemSchema,
+  AmuDefaultAgendaItemSchema,
   AmuDecisionSchema,
   AmuMeetingSchema,
   AmuParticipantSchema,
@@ -12,6 +13,7 @@ import {
 } from './schema'
 import type {
   AmuAgendaItem,
+  AmuDefaultAgendaItem,
   AmuDecision,
   AmuMeeting,
   AmuParticipant,
@@ -25,32 +27,6 @@ type AmuPrivacyRpcSick = { active?: number; partial?: number; other?: number }
 function isSignedMeeting(status: AmuMeeting['status']): boolean {
   return status === 'signed'
 }
-
-const DEFAULT_AGENDA_SEED: ReadonlyArray<{
-  order_index: number
-  title: string
-  description: string
-  source_module: string | null
-}> = [
-  {
-    order_index: 0,
-    title: 'Godkjenning av innkalling',
-    description: 'Fastsettelse av innkalling og saksliste.',
-    source_module: null,
-  },
-  {
-    order_index: 1,
-    title: 'Gjennomgang av avvik',
-    description: 'Oversikt over registrerte avvik i perioden (detaljer iht. tilganger).',
-    source_module: 'avvik',
-  },
-  {
-    order_index: 2,
-    title: 'Sykefravær',
-    description: 'Sammendrag av sykefravær (kun aggregerte tall i AMU-visning).',
-    source_module: 'sick_leave',
-  },
-]
 
 export function useAmu() {
   const { supabase, organization, can, isAdmin } = useOrgSetupContext()
@@ -224,6 +200,111 @@ export function useAmu() {
     }
   }, [supabase])
 
+  const loadDefaultAgendaTemplate = useCallback(async (): Promise<AmuDefaultAgendaItem[]> => {
+    if (!supabase || !orgId) return []
+    try {
+      const { data, error: qErr } = await supabase
+        .from('amu_default_agenda_items')
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('order_index', { ascending: true })
+      if (qErr) throw qErr
+      return (data ?? []).map((raw) => AmuDefaultAgendaItemSchema.parse(raw))
+    } catch (err) {
+      setError(getSupabaseErrorMessage(err))
+      return []
+    }
+  }, [supabase, orgId])
+
+  const createDefaultAgendaTemplateRow = useCallback(
+    async (row: Pick<AmuDefaultAgendaItem, 'title' | 'description' | 'order_index' | 'source_module'>) => {
+      if (!supabase || !orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return null
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang.')
+        return null
+      }
+      setError(null)
+      try {
+        const { data, error: insErr } = await supabase
+          .from('amu_default_agenda_items')
+          .insert({
+            organization_id: orgId,
+            title: row.title,
+            description: row.description,
+            order_index: row.order_index,
+            source_module: row.source_module,
+          })
+          .select('*')
+          .single()
+        if (insErr) throw insErr
+        return AmuDefaultAgendaItemSchema.parse(data)
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return null
+      }
+    },
+    [supabase, orgId, canManage],
+  )
+
+  const updateDefaultAgendaTemplateRow = useCallback(
+    async (id: string, patch: Partial<Pick<AmuDefaultAgendaItem, 'title' | 'description' | 'order_index' | 'source_module'>>) => {
+      if (!supabase || !orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return null
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang.')
+        return null
+      }
+      setError(null)
+      try {
+        const { data, error: upErr } = await supabase
+          .from('amu_default_agenda_items')
+          .update(patch)
+          .eq('organization_id', orgId)
+          .eq('id', id)
+          .select('*')
+          .single()
+        if (upErr) throw upErr
+        return AmuDefaultAgendaItemSchema.parse(data)
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return null
+      }
+    },
+    [supabase, orgId, canManage],
+  )
+
+  const deleteDefaultAgendaTemplateRow = useCallback(
+    async (id: string) => {
+      if (!supabase || !orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return false
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang.')
+        return false
+      }
+      setError(null)
+      try {
+        const { error: dErr } = await supabase
+          .from('amu_default_agenda_items')
+          .delete()
+          .eq('organization_id', orgId)
+          .eq('id', id)
+        if (dErr) throw dErr
+        return true
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return false
+      }
+    },
+    [supabase, orgId, canManage],
+  )
+
   const generateDefaultAgenda = useCallback(
     async (meetingId: string): Promise<AmuAgendaItem[] | null> => {
       if (!supabase || !orgId) {
@@ -245,7 +326,13 @@ export function useAmu() {
           return null
         }
 
-        const rows = DEFAULT_AGENDA_SEED.map((s) => ({
+        const template = await loadDefaultAgendaTemplate()
+        if (template.length === 0) {
+          setError('Ingen standard saksliste er definert. Gå til AMU — administrasjon og opprett punkter under «Standard saksliste».')
+          return null
+        }
+
+        const rows = template.map((s) => ({
           meeting_id: meetingId,
           organization_id: orgId,
           title: s.title,
@@ -268,7 +355,7 @@ export function useAmu() {
         return null
       }
     },
-    [supabase, orgId, canManage, getMeeting, loadAgendaItems, assertCanMutateSigned],
+    [supabase, orgId, canManage, getMeeting, loadAgendaItems, assertCanMutateSigned, loadDefaultAgendaTemplate],
   )
 
   const loadParticipants = useCallback(
@@ -789,6 +876,10 @@ export function useAmu() {
       insertAgendaItem,
       createActionPlanItemFromAgenda,
       signMeetingAsChair,
+      loadDefaultAgendaTemplate,
+      createDefaultAgendaTemplateRow,
+      updateDefaultAgendaTemplateRow,
+      deleteDefaultAgendaTemplateRow,
       generateDefaultAgenda,
       fetchWhistleblowingAgendaStats,
       fetchSickLeaveAgendaStats,
@@ -815,6 +906,10 @@ export function useAmu() {
       insertAgendaItem,
       createActionPlanItemFromAgenda,
       signMeetingAsChair,
+      loadDefaultAgendaTemplate,
+      createDefaultAgendaTemplateRow,
+      updateDefaultAgendaTemplateRow,
+      deleteDefaultAgendaTemplateRow,
       generateDefaultAgenda,
       fetchWhistleblowingAgendaStats,
       fetchSickLeaveAgendaStats,
