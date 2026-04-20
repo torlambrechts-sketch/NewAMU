@@ -106,28 +106,23 @@ export function HseStatsPanel({ supabase, year: yearProp }: HseStatsPanelProps) 
         supabase
           .from('deviations')
           .select('id', { count: 'exact', head: true })
-          .is('deleted_at', null)
           .eq('status', 'rapportert'),
         supabase
           .from('deviations')
           .select('id', { count: 'exact', head: true })
-          .is('deleted_at', null)
           .eq('status', 'under_behandling'),
         supabase
           .from('deviations')
           .select('id', { count: 'exact', head: true })
-          .is('deleted_at', null)
           .eq('status', 'tiltak_iverksatt'),
         supabase
           .from('deviations')
           .select('id', { count: 'exact', head: true })
-          .is('deleted_at', null)
           .eq('status', 'lukket'),
         supabase
           .from('deviations')
           .select('id, created_at, closed_at')
           .eq('status', 'lukket')
-          .is('deleted_at', null)
           .not('closed_at', 'is', null),
         supabase
           .from('inspection_findings')
@@ -161,7 +156,6 @@ export function HseStatsPanel({ supabase, year: yearProp }: HseStatsPanelProps) 
         const { data: devStatusRows, error: devErr } = await supabase
           .from('deviations')
           .select('id, status')
-          .is('deleted_at', null)
           .in('id', devIds)
         if (devErr) throw devErr
         const notClosed = new Set(

@@ -23,7 +23,6 @@ export const AvvikRowSchema: z.ZodType<AvvikRow> = z.object({
   root_cause_analysis: z.string().nullable().default(null),
   closed_at: z.string().nullable().default(null),
   closed_by: z.string().nullable().default(null),
-  deleted_at: z.string().nullable().default(null),
   created_by: z.string().nullable().default(null),
   created_at: z.string().default(''),
   updated_at: z.string().default(''),

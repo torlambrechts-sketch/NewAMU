@@ -46,7 +46,6 @@ function parseRow(row: unknown): AvvikRow | null {
     root_cause_analysis: r.root_cause_analysis == null ? null : String(r.root_cause_analysis),
     closed_at: r.closed_at == null ? null : String(r.closed_at),
     closed_by: r.closed_by == null ? null : String(r.closed_by),
-    deleted_at: r.deleted_at == null ? null : String(r.deleted_at),
     created_by: r.created_by == null ? null : String(r.created_by),
     created_at: String(r.created_at ?? ''),
     updated_at: String(r.updated_at ?? ''),
@@ -83,7 +82,6 @@ export function useAvvik({ supabase }: Input): AvvikModuleState {
         supabase
           .from('deviations')
           .select('*')
-          .is('deleted_at', null)
           .order('severity', { ascending: false })
           .order('created_at', { ascending: false }),
         fetchAssignableUsers(supabase),
@@ -164,7 +162,7 @@ export function useAvvik({ supabase }: Input): AvvikModuleState {
       setError(null)
       const { error: err } = await supabase
         .from('deviations')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', avvikId)
       if (err) { setError(err.message); return }
       setAvvik((prev) => prev.filter((a) => a.id !== avvikId))

@@ -69,7 +69,6 @@ export function InspectionModuleView({ supabase }: Props) {
         .from('deviations')
         .select('source_id')
         .in('source_id', ids)
-        .is('deleted_at', null)
       if (cancelled || error) {
         if (!cancelled) setDeviationCountByRoundId({})
         return
