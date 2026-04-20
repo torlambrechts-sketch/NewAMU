@@ -132,20 +132,7 @@ on conflict (role_id, permission_key) do nothing;
 -- ── 7. org_module_payloads: settings key for IK admin ───────────────────────
 alter table public.org_module_payloads drop constraint if exists org_module_payloads_key_chk;
 
-alter table public.org_module_payloads add constraint org_module_payloads_key_chk check (
-  module_key in (
-    'internal_control',
-    'hse',
-    'org_health',
-    'representatives',
-    'tasks',
-    'organisation',
-    'cost_settings',
-    'workspace',
-    'report_builder',
-    'workplace_reporting',
-    'workplace_dashboard',
-    'inspection',
-    'internkontroll_settings'
-  )
-);
+-- Allow any snake_case key so existing org rows and future module keys are not
+-- broken when this CHECK is (re)applied. Module semantics stay enforced in app
+-- and through typed OrgModulePayloadKey in the client.
+alter table public.org_module_payloads add constraint org_module_payloads_key_chk check (module_key ~ '^[a-z][a-z0-9_]*$');
