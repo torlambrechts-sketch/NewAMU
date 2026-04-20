@@ -126,12 +126,20 @@ export function RosMeasuresTab({
   return (
     <div className="flex flex-col">
       <div className="space-y-6 p-5 md:p-6">
-      <div className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-5 py-3">
-        <span className="text-sm font-medium text-neutral-700">Registrerte tiltak ({measures.length})</span>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-lg font-semibold text-neutral-900">
+            Registrerte tiltak{' '}
+            <span className="text-neutral-500 font-normal">({measures.length})</span>
+          </h2>
+          <p className="text-sm text-neutral-500 mt-1">
+            Oversikt over alle barrierer og tiltak for denne analysen.
+          </p>
+        </div>
         {!readOnly && (
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:min-w-[12rem] sm:items-end">
             {hazards.length > 1 && (
-              <div className="min-w-[12rem] max-w-[20rem] flex-1 sm:flex-initial">
+              <div className="w-full min-w-0 sm:max-w-xs">
                 <SearchableSelect
                   value={hazardPickForAdd}
                   options={hazardOptionsForAdd}
