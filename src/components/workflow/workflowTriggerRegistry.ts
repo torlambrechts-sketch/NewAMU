@@ -30,6 +30,8 @@ export const INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS = [
 
 export const VERNERUNDER_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_VERNERUNDE_CREATED', label: 'Vernerunde opprettet' },
+  { value: 'ON_VERNERUNDE_PLANNED', label: 'Vernerunde planlagt' },
+  { value: 'ON_VERNERUNDE_COMPLETED', label: 'Vernerunde fullført' },
   { value: 'ON_STATUS_CHANGED', label: 'Statusendring vernerunde' },
   { value: 'ON_FINDING_REGISTERED', label: 'Funn registrert' },
   { value: 'ON_FINDING_UPDATED', label: 'Funn oppdatert' },

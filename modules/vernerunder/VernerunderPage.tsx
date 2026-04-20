@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ClipboardList, Loader2, Plus, Sparkles } from 'lucide-react'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
@@ -93,17 +93,27 @@ export function VernerunderPage() {
             description="Planlegg, gjennomfør og dokumenter vernerunder med sjekkliste, funn og signaturer."
             menu={null}
             headerActions={
-              v.canManage ? (
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="default"
-                  icon={<Plus className="h-4 w-4" aria-hidden />}
-                  onClick={() => setCreateOpen(true)}
-                >
-                  Ny vernerunde
-                </Button>
-              ) : null
+              <div className="flex flex-wrap items-center gap-2">
+                {v.canManage ? (
+                  <Link
+                    to="/vernerunder/admin"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+                  >
+                    Innstillinger
+                  </Link>
+                ) : null}
+                {v.canManage ? (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="default"
+                    icon={<Plus className="h-4 w-4" aria-hidden />}
+                    onClick={() => setCreateOpen(true)}
+                  >
+                    Ny vernerunde
+                  </Button>
+                ) : null}
+              </div>
             }
           />
         </div>

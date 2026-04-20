@@ -5,6 +5,7 @@ export {
   INSPECTION_WORKFLOW_TRIGGER_EVENTS,
   INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS,
   ROS_WORKFLOW_TRIGGER_EVENTS,
+  VERNERUNDER_WORKFLOW_TRIGGER_EVENTS,
   getWorkflowTriggerEventsForModule,
 } from './workflowTriggerRegistry'
 
@@ -29,3 +30,14 @@ export function createNewWorkflowRule(existingRuleCount: number): WorkflowRule {
     ],
   }
 }
+
+/**
+ * Kritiske `db_event`-navn for vernerunder (Postgres: `workflow_dispatch_db_event(…, 'vernerunder', '<navn>', …)`).
+ * Full liste for UI: `VERNERUNDER_WORKFLOW_TRIGGER_EVENTS` (eksportert over).
+ * Fase 3 database-triggere: `ON_VERNERUNDE_PLANNED`, `ON_VERNERUNDE_COMPLETED`, `ON_FINDING_REGISTERED`.
+ */
+export const VERNERUNDER_DB_EVENT_CORE = [
+  'ON_VERNERUNDE_PLANNED',
+  'ON_VERNERUNDE_COMPLETED',
+  'ON_FINDING_REGISTERED',
+] as const

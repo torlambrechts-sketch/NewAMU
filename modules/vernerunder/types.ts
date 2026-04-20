@@ -75,6 +75,8 @@ export type VernerundeTemplateItemRow = {
 
 export type VernerunderWorkflowEventName =
   | 'ON_VERNERUNDE_CREATED'
+  | 'ON_VERNERUNDE_PLANNED'
+  | 'ON_VERNERUNDE_COMPLETED'
   | 'ON_STATUS_CHANGED'
   | 'ON_FINDING_REGISTERED'
   | 'ON_FINDING_UPDATED'

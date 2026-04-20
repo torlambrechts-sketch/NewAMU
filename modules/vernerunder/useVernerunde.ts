@@ -293,6 +293,50 @@ export function useVernerunde() {
     [assertOrg, assertCanManage, supabase, assertNotLocked, setErr],
   )
 
+  const updateCategory = useCallback(
+    async (id: string, name: string) => {
+      const o = assertOrg()
+      if (!supabase || !o || !assertCanManage()) return
+      setError(null)
+      try {
+        const { data, error: e } = await supabase
+          .from('vernerunde_categories')
+          .update({ name: name.trim() })
+          .eq('id', id)
+          .eq('organization_id', o)
+          .select('*')
+          .single()
+        if (e) throw e
+        const list = parseCategoryList([data])
+        const row = list[0]
+        if (row) setCategories((c) => c.map((x) => (x.id === row.id ? row : x)).sort((a, b) => a.name.localeCompare(b.name, 'nb')))
+      } catch (err) {
+        setErr(err)
+      }
+    },
+    [assertOrg, assertCanManage, supabase, setErr],
+  )
+
+  const deleteCategory = useCallback(
+    async (id: string) => {
+      const o = assertOrg()
+      if (!supabase || !o || !assertCanManage()) return
+      setError(null)
+      try {
+        const { error: e } = await supabase
+          .from('vernerunde_categories')
+          .delete()
+          .eq('id', id)
+          .eq('organization_id', o)
+        if (e) throw e
+        setCategories((c) => c.filter((x) => x.id !== id))
+      } catch (err) {
+        setErr(err)
+      }
+    },
+    [assertOrg, assertCanManage, supabase, setErr],
+  )
+
   const addCategory = useCallback(
     async (name: string) => {
       const o = assertOrg()
@@ -317,6 +361,59 @@ export function useVernerunde() {
     [assertOrg, assertCanManage, supabase, setErr],
   )
 
+  const updateTemplate = useCallback(
+    async (templateId: string, patch: { name?: string; description?: string | null }) => {
+      const o = assertOrg()
+      if (!supabase || !o || !assertCanManage()) return
+      setError(null)
+      const row: Record<string, unknown> = {}
+      if (patch.name != null) row.name = patch.name.trim()
+      if (patch.description !== undefined) row.description = patch.description === null || patch.description === '' ? null : patch.description.trim()
+      if (Object.keys(row).length === 0) return
+      try {
+        const { data, error: e } = await supabase
+          .from('vernerunde_templates')
+          .update(row)
+          .eq('id', templateId)
+          .eq('organization_id', o)
+          .select('*')
+          .single()
+        if (e) throw e
+        const list = parseTemplateList([data])
+        const t = list[0]
+        if (t) setTemplates((prev) => prev.map((x) => (x.id === t.id ? t : x)).sort((a, b) => a.name.localeCompare(b.name, 'nb')))
+      } catch (err) {
+        setErr(err)
+      }
+    },
+    [assertOrg, assertCanManage, supabase, setErr],
+  )
+
+  const deleteTemplate = useCallback(
+    async (templateId: string) => {
+      const o = assertOrg()
+      if (!supabase || !o || !assertCanManage()) return
+      setError(null)
+      try {
+        const { error: e } = await supabase
+          .from('vernerunde_templates')
+          .delete()
+          .eq('id', templateId)
+          .eq('organization_id', o)
+        if (e) throw e
+        setTemplates((p) => p.filter((t) => t.id !== templateId))
+        setTemplateItemsByTemplateId((prev) => {
+          const next = { ...prev }
+          delete next[templateId]
+          return next
+        })
+      } catch (err) {
+        setErr(err)
+      }
+    },
+    [assertOrg, assertCanManage, supabase, setErr],
+  )
+
   const addTemplate = useCallback(
     async (input: { name: string; description?: string | null }) => {
       const o = assertOrg()
@@ -336,6 +433,69 @@ export function useVernerunde() {
       } catch (err) {
         setErr(err)
         return null
+      }
+    },
+    [assertOrg, assertCanManage, supabase, setErr],
+  )
+
+  const updateTemplateItem = useCallback(
+    async (
+      templateId: string,
+      itemId: string,
+      patch: Partial<Pick<VernerundeTemplateItemRow, 'question_text' | 'category_id' | 'position'>>,
+    ) => {
+      const o = assertOrg()
+      if (!supabase || !o || !assertCanManage()) return
+      setError(null)
+      const u: Record<string, unknown> = {}
+      if (patch.question_text != null) u.question_text = patch.question_text.trim()
+      if (patch.category_id !== undefined) u.category_id = patch.category_id
+      if (patch.position != null) u.position = patch.position
+      if (Object.keys(u).length === 0) return
+      try {
+        const { data, error: e } = await supabase
+          .from('vernerunde_template_items')
+          .update(u)
+          .eq('id', itemId)
+          .eq('template_id', templateId)
+          .eq('organization_id', o)
+          .select('*')
+          .single()
+        if (e) throw e
+        const list = parseTemplateItemList([data])
+        const row = list[0]
+        if (row) {
+          setTemplateItemsByTemplateId((prev) => {
+            const cur = (prev[templateId] ?? []).map((r) => (r.id === row.id ? row : r)).sort((a, b) => a.position - b.position)
+            return { ...prev, [templateId]: cur }
+          })
+        }
+      } catch (err) {
+        setErr(err)
+      }
+    },
+    [assertOrg, assertCanManage, supabase, setErr],
+  )
+
+  const deleteTemplateItem = useCallback(
+    async (templateId: string, itemId: string) => {
+      const o = assertOrg()
+      if (!supabase || !o || !assertCanManage()) return
+      setError(null)
+      try {
+        const { error: e } = await supabase
+          .from('vernerunde_template_items')
+          .delete()
+          .eq('id', itemId)
+          .eq('template_id', templateId)
+          .eq('organization_id', o)
+        if (e) throw e
+        setTemplateItemsByTemplateId((prev) => ({
+          ...prev,
+          [templateId]: (prev[templateId] ?? []).filter((r) => r.id !== itemId),
+        }))
+      } catch (err) {
+        setErr(err)
       }
     },
     [assertOrg, assertCanManage, supabase, setErr],
@@ -677,8 +837,14 @@ export function useVernerunde() {
     createVernerunde,
     updateVernerunde,
     addCategory,
+    updateCategory,
+    deleteCategory,
     addTemplate,
+    updateTemplate,
+    deleteTemplate,
     addTemplateItem,
+    updateTemplateItem,
+    deleteTemplateItem,
     addCheckpoint,
     updateCheckpoint,
     addFinding,
