@@ -5,6 +5,7 @@ import {
   AmuAgendaItemSchema,
   AmuDecisionSchema,
   AmuMeetingSchema,
+  AmuParticipantSchema,
   AmuSickLeavePrivacyStatsSchema,
   AmuWhistleblowingPrivacyStatsSchema,
   parseAmuMeetingFromDb,
@@ -13,6 +14,7 @@ import type {
   AmuAgendaItem,
   AmuDecision,
   AmuMeeting,
+  AmuParticipant,
   AmuSickLeavePrivacyStats,
   AmuWhistleblowingPrivacyStats,
 } from './types'
@@ -269,6 +271,225 @@ export function useAmu() {
     [supabase, orgId, canManage, getMeeting, loadAgendaItems, assertCanMutateSigned],
   )
 
+  const loadParticipants = useCallback(
+    async (meetingId: string): Promise<AmuParticipant[]> => {
+      if (!supabase || !orgId) return []
+      try {
+        const { data, error: qErr } = await supabase
+          .from('amu_participants')
+          .select('*')
+          .eq('organization_id', orgId)
+          .eq('meeting_id', meetingId)
+          .order('role', { ascending: true })
+        if (qErr) throw qErr
+        return (data ?? []).map((raw) => AmuParticipantSchema.parse(raw))
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return []
+      }
+    },
+    [supabase, orgId],
+  )
+
+  const upsertParticipant = useCallback(
+    async (
+      meetingId: string,
+      userId: string,
+      patch: Partial<Pick<AmuParticipant, 'role' | 'present' | 'signed_at'>>,
+    ): Promise<AmuParticipant | null> => {
+      if (!supabase || !orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return null
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å administrere deltakere.')
+        return null
+      }
+      setError(null)
+      try {
+        const meeting = await getMeeting(meetingId)
+        if (!assertCanMutateSigned(meeting, 'oppdatere deltakere for')) return null
+
+        const { data, error: upErr } = await supabase
+          .from('amu_participants')
+          .upsert(
+            {
+              meeting_id: meetingId,
+              user_id: userId,
+              organization_id: orgId,
+              role: patch.role ?? 'employer_rep',
+              present: patch.present ?? false,
+              signed_at: patch.signed_at ?? null,
+            },
+            { onConflict: 'meeting_id,user_id' },
+          )
+          .select('*')
+          .single()
+        if (upErr) throw upErr
+        return AmuParticipantSchema.parse(data)
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return null
+      }
+    },
+    [supabase, orgId, canManage, getMeeting, assertCanMutateSigned],
+  )
+
+  const removeParticipant = useCallback(
+    async (meetingId: string, userId: string) => {
+      if (!supabase || !orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return false
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å fjerne deltakere.')
+        return false
+      }
+      setError(null)
+      try {
+        const meeting = await getMeeting(meetingId)
+        if (!assertCanMutateSigned(meeting, 'fjerne deltakere fra')) return false
+
+        const { error: dErr } = await supabase
+          .from('amu_participants')
+          .delete()
+          .eq('organization_id', orgId)
+          .eq('meeting_id', meetingId)
+          .eq('user_id', userId)
+        if (dErr) throw dErr
+        return true
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return false
+      }
+    },
+    [supabase, orgId, canManage, getMeeting, assertCanMutateSigned],
+  )
+
+  const insertAgendaItem = useCallback(
+    async (meetingId: string, row: Pick<AmuAgendaItem, 'title' | 'description' | 'order_index' | 'source_module' | 'source_id'>) => {
+      if (!supabase || !orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return null
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å legge til agendapunkter.')
+        return null
+      }
+      setError(null)
+      try {
+        const meeting = await getMeeting(meetingId)
+        if (!assertCanMutateSigned(meeting, 'legge til agendapunkter for')) return null
+
+        const { data, error: insErr } = await supabase
+          .from('amu_agenda_items')
+          .insert({
+            meeting_id: meetingId,
+            organization_id: orgId,
+            title: row.title,
+            description: row.description,
+            order_index: row.order_index,
+            source_module: row.source_module,
+            source_id: row.source_id,
+          })
+          .select('*')
+          .single()
+        if (insErr) throw insErr
+        return AmuAgendaItemSchema.parse(data)
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return null
+      }
+    },
+    [supabase, orgId, canManage, getMeeting, assertCanMutateSigned],
+  )
+
+  const createActionPlanItemFromAgenda = useCallback(
+    async (agendaItemId: string, input: { title: string; description: string; dueAtIso: string; responsibleUserId: string | null }) => {
+      if (!supabase || !orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return null
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å opprette tiltak.')
+        return null
+      }
+      setError(null)
+      try {
+        const { data: arow, error: aErr } = await supabase
+          .from('amu_agenda_items')
+          .select('meeting_id')
+          .eq('organization_id', orgId)
+          .eq('id', agendaItemId)
+          .single()
+        if (aErr) throw aErr
+        const meeting = await getMeeting((arow as { meeting_id: string }).meeting_id)
+        if (!assertCanMutateSigned(meeting, 'opprette tiltak for')) return null
+
+        const dueAt = input.dueAtIso
+        const { data, error: insErr } = await supabase
+          .from('action_plan_items')
+          .insert({
+            organization_id: orgId,
+            source_table: 'amu_agenda_items',
+            source_id: agendaItemId,
+            source_module: 'amu',
+            title: input.title.trim(),
+            description: input.description.trim(),
+            due_at: dueAt,
+            deadline: dueAt,
+            responsible_id: input.responsibleUserId,
+            assigned_to: input.responsibleUserId,
+            status: 'open',
+          })
+          .select('id')
+          .single()
+        if (insErr) throw insErr
+        return (data as { id: string }).id
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return null
+      }
+    },
+    [supabase, orgId, canManage, getMeeting, assertCanMutateSigned],
+  )
+
+  const signMeetingAsChair = useCallback(
+    async (meetingId: string, chairUserId: string) => {
+      if (!supabase || !orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return null
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å signere møte.')
+        return null
+      }
+      setError(null)
+      try {
+        const nowIso = new Date().toISOString()
+        const { data, error: upErr } = await supabase
+          .from('amu_meetings')
+          .update({
+            status: 'signed',
+            meeting_chair_user_id: chairUserId,
+            chair_signed_at: nowIso,
+          })
+          .eq('organization_id', orgId)
+          .eq('id', meetingId)
+          .select('*')
+          .single()
+        if (upErr) throw upErr
+        const m = parseAmuMeetingFromDb(data)
+        setMeetings((prev) => prev.map((x) => (x.id === m.id ? m : x)))
+        return m
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return null
+      }
+    },
+    [supabase, orgId, canManage],
+  )
+
   const createMeeting = useCallback(
     async (input: Pick<AmuMeeting, 'title' | 'date' | 'location' | 'status'>) => {
       if (!supabase || !orgId) {
@@ -303,7 +524,21 @@ export function useAmu() {
   )
 
   const updateMeeting = useCallback(
-    async (meetingId: string, patch: Partial<Pick<AmuMeeting, 'title' | 'date' | 'location' | 'status'>>) => {
+    async (
+      meetingId: string,
+      patch: Partial<
+        Pick<
+          AmuMeeting,
+          | 'title'
+          | 'date'
+          | 'location'
+          | 'status'
+          | 'minutes_draft'
+          | 'meeting_chair_user_id'
+          | 'chair_signed_at'
+        >
+      >,
+    ) => {
       if (!supabase || !orgId) {
         setError('Organisasjon er ikke valgt.')
         return null
@@ -322,6 +557,9 @@ export function useAmu() {
         if (patch.date !== undefined) dbPatch.meeting_date = patch.date
         if (patch.location !== undefined) dbPatch.location = patch.location
         if (patch.status !== undefined) dbPatch.status = patch.status
+        if (patch.minutes_draft !== undefined) dbPatch.minutes_draft = patch.minutes_draft
+        if (patch.meeting_chair_user_id !== undefined) dbPatch.meeting_chair_user_id = patch.meeting_chair_user_id
+        if (patch.chair_signed_at !== undefined) dbPatch.chair_signed_at = patch.chair_signed_at
 
         const { data, error: upErr } = await supabase
           .from('amu_meetings')
@@ -545,6 +783,12 @@ export function useAmu() {
       getMeeting,
       loadAgendaItems,
       loadDecisionsForMeeting,
+      loadParticipants,
+      upsertParticipant,
+      removeParticipant,
+      insertAgendaItem,
+      createActionPlanItemFromAgenda,
+      signMeetingAsChair,
       generateDefaultAgenda,
       fetchWhistleblowingAgendaStats,
       fetchSickLeaveAgendaStats,
@@ -565,6 +809,12 @@ export function useAmu() {
       getMeeting,
       loadAgendaItems,
       loadDecisionsForMeeting,
+      loadParticipants,
+      upsertParticipant,
+      removeParticipant,
+      insertAgendaItem,
+      createActionPlanItemFromAgenda,
+      signMeetingAsChair,
       generateDefaultAgenda,
       fetchWhistleblowingAgendaStats,
       fetchSickLeaveAgendaStats,

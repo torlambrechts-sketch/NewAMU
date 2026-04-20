@@ -16,6 +16,12 @@ export interface AmuMeeting {
   date: string
   location: string
   status: AmuMeetingStatus
+  /** Utkast til referat (markdown/ren tekst) */
+  minutes_draft: string | null
+  /** Valgt møteleder (referat / signatur) */
+  meeting_chair_user_id: string | null
+  /** Møteleders signaturtidspunkt */
+  chair_signed_at: string | null
   created_at: string
   updated_at: string
 }
@@ -66,4 +72,9 @@ export interface AmuSickLeavePrivacyStats {
 }
 
 /** Rå rad fra `amu_meetings` (brukes til mapping mot `AmuMeeting`) */
-export type AmuMeetingDbRow = Omit<AmuMeeting, 'date'> & { meeting_date: string }
+export type AmuMeetingDbRow = Omit<AmuMeeting, 'date' | 'minutes_draft' | 'meeting_chair_user_id' | 'chair_signed_at'> & {
+  meeting_date: string
+  minutes_draft: string | null
+  meeting_chair_user_id: string | null
+  chair_signed_at: string | null
+}
