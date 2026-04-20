@@ -28,11 +28,19 @@ export const INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_ANNUAL_REVIEW_SIGNED', label: 'Årlig gjennomgang signert' },
 ] as const
 
+export const VERNERUNDER_WORKFLOW_TRIGGER_EVENTS = [
+  { value: 'ON_VERNERUNDE_CREATED', label: 'Vernerunde opprettet' },
+  { value: 'ON_STATUS_CHANGED', label: 'Statusendring vernerunde' },
+  { value: 'ON_FINDING_REGISTERED', label: 'Funn registrert' },
+  { value: 'ON_FINDING_UPDATED', label: 'Funn oppdatert' },
+] as const
+
 const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   inspection: INSPECTION_WORKFLOW_TRIGGER_EVENTS,
   ros: ROS_WORKFLOW_TRIGGER_EVENTS,
   action_plan: ACTION_PLAN_WORKFLOW_TRIGGER_EVENTS,
   internkontroll: INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS,
+  vernerunder: VERNERUNDER_WORKFLOW_TRIGGER_EVENTS,
 }
 
 export function getWorkflowTriggerEventsForModule(triggerModule: string): { value: string; label: string }[] {
