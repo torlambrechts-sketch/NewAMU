@@ -15,18 +15,29 @@ import {
   Trash2,
   Users,
 } from 'lucide-react'
-import { HubMenu1Bar, type HubMenu1Item } from '../../src/components/layout/HubMenu1Bar'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
+import {
+  WPSTD_FORM_FIELD_LABEL,
+  WPSTD_FORM_ROW_GRID,
+} from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { WorkplacePageHeading1, WorkplaceSerifSectionTitle } from '../../src/components/layout/WorkplacePageHeading1'
 import {
   WORKPLACE_MODULE_CANVAS_BG,
+  WORKPLACE_MODULE_CARD,
   WORKPLACE_MODULE_CARD_SHADOW,
-  WORKPLACE_MODULE_FIELD,
   WORKPLACE_MODULE_SUBTLE_PANEL,
   WORKPLACE_MODULE_SUBTLE_PANEL_STYLE,
 } from '../../src/components/layout/workplaceModuleSurface'
+import { Badge, type BadgeVariant } from '../../src/components/ui/Badge'
+import { Button } from '../../src/components/ui/Button'
+import { ComplianceBanner } from '../../src/components/ui/ComplianceBanner'
+import { InfoBox, WarningBox } from '../../src/components/ui/AlertBox'
+import { StandardInput, standardFieldClassName } from '../../src/components/ui/Input'
+import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
+import { StandardTextarea } from '../../src/components/ui/Textarea'
+import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { HseAuditLogViewer } from '../../src/components/hse/HseAuditLogViewer'
-import { RiskMatrix, riskColorClass, riskLabel, riskScoreFromProbCons } from '../../src/components/hse/RiskMatrix'
+import { RiskMatrix, riskLabel, riskScoreFromProbCons } from '../../src/components/hse/RiskMatrix'
 import type {
   SjaAnalysis,
   SjaControlType,
@@ -87,14 +98,6 @@ export const CONTROL_TYPE_LABEL: Record<SjaControlType, string> = {
   ppe: '5. Personlig verneutstyr',
 }
 
-export const CONTROL_TYPE_COLOR: Record<SjaControlType, string> = {
-  eliminate: 'bg-green-100 text-green-800',
-  substitute: 'bg-teal-100 text-teal-800',
-  engineering: 'bg-blue-100 text-blue-800',
-  administrative: 'bg-amber-100 text-amber-800',
-  ppe: 'bg-neutral-100 text-neutral-600',
-}
-
 const CONTROL_TYPE_LETTER: Record<SjaControlType, string> = {
   eliminate: 'E',
   substitute: 'S',
@@ -112,17 +115,6 @@ export const HAZARD_CATEGORY_LABEL: Record<SjaHazardCategory, string> = {
   ergonomic: 'Ergonomi / belastning',
   dropped_object: 'Fallende gjenstander',
   other: 'Annet',
-}
-
-const HAZARD_CATEGORY_COLOR: Record<SjaHazardCategory, string> = {
-  fall: 'bg-orange-100 text-orange-900',
-  chemical: 'bg-purple-100 text-purple-900',
-  electrical: 'bg-yellow-100 text-yellow-900',
-  mechanical: 'bg-slate-200 text-slate-800',
-  fire: 'bg-red-100 text-red-900',
-  ergonomic: 'bg-cyan-100 text-cyan-900',
-  dropped_object: 'bg-indigo-100 text-indigo-900',
-  other: 'bg-neutral-200 text-neutral-800',
 }
 
 type SjaTab =
@@ -160,19 +152,12 @@ function fromDatetimeLocalToIso(local: string): string | null {
   return d.toISOString()
 }
 
-function roleBadgeClass(role: SjaParticipantRole): string {
-  switch (role) {
-    case 'responsible':
-      return 'bg-purple-100 text-purple-800'
-    case 'worker':
-      return 'bg-blue-100 text-blue-800'
-    case 'contractor':
-      return 'bg-amber-100 text-amber-800'
-    case 'observer':
-      return 'bg-neutral-100 text-neutral-600'
-    default:
-      return 'bg-neutral-100 text-neutral-600'
-  }
+function riskScoreBadgeVariant(score: number | null): BadgeVariant {
+  if (score == null) return 'neutral'
+  if (score <= 4) return 'success'
+  if (score <= 9) return 'medium'
+  if (score <= 14) return 'high'
+  return 'critical'
 }
 
 const ROLE_LABEL: Record<SjaParticipantRole, string> = {
@@ -183,7 +168,73 @@ const ROLE_LABEL: Record<SjaParticipantRole, string> = {
 }
 
 const PANEL_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-700'
-const PANEL_INPUT = WORKPLACE_MODULE_FIELD
+
+function sjaStatusBadgeVariant(status: SjaAnalysis['status']): BadgeVariant {
+  switch (status) {
+    case 'draft':
+    case 'archived':
+      return 'neutral'
+    case 'active':
+    case 'approved':
+    case 'in_execution':
+      return 'info'
+    case 'completed':
+      return 'success'
+    case 'stopped':
+      return 'critical'
+    default:
+      return 'neutral'
+  }
+}
+
+function participantRoleBadgeVariant(role: SjaParticipantRole): BadgeVariant {
+  switch (role) {
+    case 'responsible':
+      return 'high'
+    case 'worker':
+      return 'info'
+    case 'contractor':
+      return 'medium'
+    case 'observer':
+      return 'neutral'
+    default:
+      return 'neutral'
+  }
+}
+
+function hazardCategoryBadgeVariant(cat: SjaHazardCategory): BadgeVariant {
+  switch (cat) {
+    case 'fall':
+    case 'fire':
+      return 'high'
+    case 'chemical':
+    case 'electrical':
+    case 'dropped_object':
+      return 'warning'
+    case 'mechanical':
+    case 'ergonomic':
+      return 'medium'
+    case 'other':
+    default:
+      return 'neutral'
+  }
+}
+
+function controlTypeBadgeVariant(ct: SjaControlType): BadgeVariant {
+  switch (ct) {
+    case 'eliminate':
+      return 'success'
+    case 'substitute':
+      return 'info'
+    case 'engineering':
+      return 'info'
+    case 'administrative':
+      return 'medium'
+    case 'ppe':
+    default:
+      return 'neutral'
+  }
+}
 
 function StatusStepIndicator({ status }: { status: SjaAnalysis['status'] }) {
   const stopped = status === 'stopped'
@@ -205,24 +256,27 @@ function StatusStepIndicator({ status }: { status: SjaAnalysis['status'] }) {
         return (
           <div key={st} className="flex items-center gap-1">
             {i > 0 ? <span className="text-neutral-300">→</span> : null}
-            <span
-              className={`rounded px-2 py-1 font-medium ${
+            <Badge
+              variant={isCurrent ? 'info' : 'neutral'}
+              className={
                 completed
-                  ? 'bg-[#1a3d32] text-white'
+                  ? 'rounded-md border-[#1a3d32] bg-[#1a3d32] px-2 py-1 text-xs font-medium text-white shadow-none'
                   : isCurrent
-                    ? 'border-2 border-[#1a3d32] bg-white text-[#1a3d32]'
-                    : 'border border-transparent bg-neutral-100 text-neutral-500'
-              }`}
+                    ? 'rounded-md border-2 border-[#1a3d32] bg-white px-2 py-1 text-xs font-medium text-[#1a3d32] shadow-none'
+                    : 'rounded-md border border-transparent bg-neutral-100 px-2 py-1 text-xs font-medium text-neutral-500 shadow-none'
+              }
             >
               {STATUS_LABEL[st]}
-            </span>
+            </Badge>
           </div>
         )
       })}
       {stopped ? (
         <>
           <span className="text-neutral-300">→</span>
-          <span className="rounded bg-red-600 px-2 py-1 font-medium text-white">{STATUS_LABEL.stopped}</span>
+          <Badge variant="critical" className="rounded bg-red-600 px-2 py-1 font-medium text-white shadow-none border-red-600">
+            {STATUS_LABEL.stopped}
+          </Badge>
         </>
       ) : null}
     </div>
@@ -297,68 +351,35 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
   const signedCount = detail?.participants.filter((p) => p.signed_at != null && String(p.signed_at).trim() !== '').length ?? 0
   const participantTotal = detail?.participants.length ?? 0
 
-  const hubMenuItems: HubMenu1Item[] = useMemo(() => {
+  const tabItems: TabItem[] = useMemo(() => {
     if (!detail) return []
     const pCount = detail.participants.length
     return [
+      { id: 'grunnlag', label: 'Grunnlag', icon: FileText },
       {
-        key: 'grunnlag',
-        label: 'Grunnlag',
-        icon: FileText,
-        active: activeTab === 'grunnlag',
-        onClick: () => setActiveTab('grunnlag'),
-      },
-      {
-        key: 'deltakere',
+        id: 'deltakere',
         label: pCount > 0 ? `Deltakere (${pCount})` : 'Deltakere',
         icon: Users,
-        active: activeTab === 'deltakere',
         badgeCount: pCount > 0 ? pCount : undefined,
-        onClick: () => setActiveTab('deltakere'),
       },
+      { id: 'oppgaver', label: 'Oppgaver', icon: ClipboardList },
       {
-        key: 'oppgaver',
-        label: 'Oppgaver',
-        icon: ClipboardList,
-        active: activeTab === 'oppgaver',
-        onClick: () => setActiveTab('oppgaver'),
-      },
-      {
-        key: 'risikovurdering',
+        id: 'risikovurdering',
         label: 'Risikovurdering',
         icon: AlertTriangle,
-        active: activeTab === 'risikovurdering',
         badgeCount: highRisk > 0 ? highRisk : undefined,
         badgeVariant: highRisk > 0 ? 'danger' : undefined,
-        onClick: () => setActiveTab('risikovurdering'),
       },
       {
-        key: 'signaturer',
+        id: 'signaturer',
         label: `Signaturer (${signedCount}/${participantTotal})`,
         icon: PenLine,
-        active: activeTab === 'signaturer',
         disabled: highRisk > 0,
-        onClick: () => {
-          if (highRisk > 0) return
-          setActiveTab('signaturer')
-        },
       },
-      {
-        key: 'etterarbeid',
-        label: 'Etterarbeid',
-        icon: CheckCircle2,
-        active: activeTab === 'etterarbeid',
-        onClick: () => setActiveTab('etterarbeid'),
-      },
-      {
-        key: 'historikk',
-        label: 'Historikk',
-        icon: History,
-        active: activeTab === 'historikk',
-        onClick: () => setActiveTab('historikk'),
-      },
+      { id: 'etterarbeid', label: 'Etterarbeid', icon: CheckCircle2 },
+      { id: 'historikk', label: 'Historikk', icon: History },
     ]
-  }, [detail, activeTab, highRisk, signedCount, participantTotal])
+  }, [detail, highRisk, signedCount, participantTotal])
 
   const locationName =
     analysis?.location_id != null ? sja.locations.find((l) => l.id === analysis.location_id)?.name ?? null : null
@@ -465,13 +486,9 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
         style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
       >
         <p className="text-lg font-semibold text-neutral-900">SJA ikke funnet</p>
-        <button
-          type="button"
-          onClick={() => navigate('/sja')}
-          className="rounded border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
-        >
+        <Button type="button" variant="secondary" onClick={() => navigate('/sja')} className="font-medium text-neutral-800">
           ← Tilbake
-        </button>
+        </Button>
       </div>
     )
   }
@@ -493,7 +510,7 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
 
   return (
     <div className="min-h-full pb-10" style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}>
-      <header className="sticky top-0 z-30 border-b border-neutral-200/80 bg-[#F9F7F2]/95 backdrop-blur-sm">
+      <header className="sticky top-0 z-30 bg-[#F9F7F2]/95 backdrop-blur-sm">
         <div className="mx-auto max-w-[1400px] px-4 pb-4 pt-4 md:px-8">
           <WorkplacePageHeading1
             breadcrumb={[
@@ -504,13 +521,14 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
             title={draft.title || 'Uten tittel'}
             description={
               <p className="max-w-3xl text-sm text-neutral-600">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={() => navigate('/sja')}
-                  className="mr-2 font-medium text-[#1a3d32] underline decoration-neutral-300 underline-offset-2 hover:text-neutral-900"
+                  className="mr-2 h-auto min-h-0 p-0 font-medium text-[#1a3d32] underline decoration-neutral-300 underline-offset-2 hover:bg-transparent hover:text-neutral-900"
                 >
                   ← Tilbake til oversikt
-                </button>
+                </Button>
                 <span className="text-neutral-400">·</span>{' '}
                 {JOB_TYPE_LABEL[draft.job_type]} · {locationName ?? (draft.location_text.trim() || '—')} ·{' '}
                 {responsibleName ?? 'Ingen ansvarlig'} · Planlagt start:{' '}
@@ -521,34 +539,38 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
             }
             headerActions={
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-semibold text-neutral-800 shadow-sm">
+                <Badge variant={sjaStatusBadgeVariant(analysis.status)} className="px-3 py-1 text-xs">
                   {STATUS_LABEL[analysis.status]}
-                </span>
+                </Badge>
                 {analysis.status === 'stopped' ? (
-                  <span className="rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-sm">STOPPET</span>
+                  <Badge variant="critical" className="px-3 py-1 text-xs font-bold">
+                    STOPPET
+                  </Badge>
                 ) : null}
               </div>
             }
-            menu={<HubMenu1Bar ariaLabel="SJA-faner" items={hubMenuItems} />}
+            menu={
+              <Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as SjaTab)} />
+            }
           />
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-        <div
-          className="space-y-6 overflow-hidden rounded-xl border border-neutral-200/80 bg-white p-5 shadow-sm md:p-6"
-          style={WORKPLACE_MODULE_CARD_SHADOW}
-        >
+      <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
+        <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
+        <div className="space-y-6 p-5 md:p-6">
         {sja.error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{sja.error}</div>
         ) : null}
 
         {highRisk > 0 ? (
-          <div className="w-full rounded-xl border border-red-800 bg-red-600 px-4 py-4 text-white shadow-sm">
-            <p className="text-sm font-bold">⛔ STOPPET — {highRisk} farekilder har gjenværende risiko i rød sone.</p>
-            <p className="mt-2 text-sm font-medium">
-              Arbeidet kan IKKE igangsettes. Revider tiltak.
-            </p>
+          <div className="border-b border-red-200 bg-red-50 px-4 py-3 md:px-5">
+            <WarningBox>
+              <span className="font-bold">⛔ STOPPET — {highRisk} farekilder har gjenværende risiko i rød sone.</span>
+              <span className="mt-2 block text-sm font-medium">
+                Arbeidet kan IKKE igangsettes. Revider tiltak.
+              </span>
+            </WarningBox>
           </div>
         ) : null}
 
@@ -618,6 +640,7 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
           </LayoutTable1PostingsShell>
         )}
         </div>
+        </div>
       </div>
     </div>
   )
@@ -677,30 +700,27 @@ function SignaturerTab({
   return (
     <div className="space-y-6">
       {removedMandatory.length > 0 ? (
-        <div className="mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-3">
-          <p className="text-sm font-semibold text-amber-800">
-            ⚠ {removedMandatory.length} obligatorisk tiltak fjernet
-          </p>
-          <ul className="mt-2 space-y-1">
-            {removedMandatory.map((m) => (
-              <li key={m.id} className="text-xs text-amber-700">
-                <strong>{m.description}</strong>
-                {m.deletion_justification ? ` — «${m.deletion_justification}»` : null}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-xs text-amber-600">
-            Ved å signere bekrefter du at du har lest og akseptert disse avvikene.
-          </p>
+        <div className="mb-4">
+          <WarningBox>
+            <span className="font-semibold">⚠ {removedMandatory.length} obligatorisk tiltak fjernet</span>
+            <ul className="mt-2 list-inside space-y-1 text-xs">
+              {removedMandatory.map((m) => (
+                <li key={m.id} className="text-amber-900">
+                  <strong>{m.description}</strong>
+                  {m.deletion_justification ? ` — «${m.deletion_justification}»` : null}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-amber-800">
+              Ved å signere bekrefter du at du har lest og akseptert disse avvikene.
+            </p>
+          </WarningBox>
         </div>
       ) : null}
 
-      <div className={WORKPLACE_MODULE_SUBTLE_PANEL} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
-        <p className="text-xs font-semibold text-neutral-700">AML § 4-2 — felles forståelse</p>
-        <p className="mt-1 text-xs text-neutral-600">
-          Alle deltakere skal ha lest og forstått SJA-en og bekreftet at de er kjent med risikoene og tiltakene (AML § 4-2).
-        </p>
-      </div>
+      <ComplianceBanner title="AML § 4-2 — felles forståelse" className="rounded-md">
+        Alle deltakere skal ha lest og forstått SJA-en og bekreftet at de er kjent med risikoene og tiltakene (AML § 4-2).
+      </ComplianceBanner>
 
       <div className={`space-y-1.5 ${WORKPLACE_MODULE_SUBTLE_PANEL}`} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
         <p className={PANEL_LABEL}>Sjekkliste før signering</p>
@@ -719,13 +739,9 @@ function SignaturerTab({
       </div>
 
       {showApproveButton ? (
-        <button
-          type="button"
-          onClick={() => onApproved()}
-          className="rounded border border-[#1a3d32] bg-[#1a3d32] px-4 py-2.5 text-sm font-semibold text-white"
-        >
+        <Button type="button" variant="primary" onClick={() => onApproved()}>
           Godkjenn SJA
-        </button>
+        </Button>
       ) : null}
 
       <div className="space-y-3">
@@ -735,9 +751,9 @@ function SignaturerTab({
               <div>
                 <p className="font-semibold text-neutral-900">{p.name}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <span className={`rounded px-2 py-0.5 text-xs font-semibold ${roleBadgeClass(p.role)}`}>
+                  <Badge variant={participantRoleBadgeVariant(p.role)} className="text-xs">
                     {ROLE_LABEL[p.role]}
-                  </span>
+                  </Badge>
                   {p.company ? <span className="text-xs text-neutral-500">{p.company}</span> : null}
                 </div>
                 <div className="mt-2">
@@ -762,15 +778,16 @@ function SignaturerTab({
                     </span>
                   </div>
                 ) : p.user_id && currentUserId && p.user_id === currentUserId ? (
-                  <button
+                  <Button
                     type="button"
+                    variant="primary"
+                    size="sm"
                     disabled={signingId !== null}
                     onClick={async () => {
                       setSigningId(p.id)
                       await sja.signParticipant(p.id)
                       setSigningId(null)
                     }}
-                    className="rounded border border-[#1a3d32] bg-[#1a3d32] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                   >
                     {signingId === p.id ? (
                       <span className="inline-flex items-center gap-1">
@@ -779,7 +796,7 @@ function SignaturerTab({
                     ) : (
                       'Signer'
                     )}
-                  </button>
+                  </Button>
                 ) : (
                   <p className="text-xs text-neutral-400">Venter på signatur</p>
                 )}
@@ -808,10 +825,12 @@ function DebriefAvvikBanner({ sjaId, sja }: { sjaId: string; sja: ReturnType<typ
   return (
     <div className="rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
       <p className="font-semibold">Uventede hendelser ble rapportert. Opprett avvik for videre oppfølging.</p>
-      <button
+      <Button
         type="button"
+        variant="primary"
+        size="sm"
         disabled={busy}
-        className="mt-3 rounded bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+        className="mt-3 bg-amber-700 hover:bg-amber-800"
         onClick={async () => {
           setBusy(true)
           const id = await sja.createAvvikFromDebrief(sjaId)
@@ -820,7 +839,7 @@ function DebriefAvvikBanner({ sjaId, sja }: { sjaId: string; sja: ReturnType<typ
         }}
       >
         {busy ? 'Oppretter…' : 'Opprett avvik'}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -848,10 +867,10 @@ function EtterarbeidTab({
   if (!interactive && !debriefDone) {
     return (
       <div className="space-y-4">
-        <div className="rounded border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+        <InfoBox>
           Etterarbeid (debrief) låses opp når SJA er merket som <strong>fullført</strong>. Gå til Grunnlag og fullfør
           utførelsen først.
-        </div>
+        </InfoBox>
         <p className="text-xs text-neutral-500">Forhåndsvisning — feltene er skrivebeskyttet.</p>
         <DebriefFormFields unexpected={unexpected} setUnexpected={setUnexpected} notes={notes} setNotes={setNotes} disabled />
       </div>
@@ -861,13 +880,10 @@ function EtterarbeidTab({
   if (debriefDone) {
     return (
       <div className="space-y-4">
-        <div className={WORKPLACE_MODULE_SUBTLE_PANEL} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
-          <p className="text-xs font-semibold text-neutral-700">IK-forskriften § 5</p>
-          <p className="mt-1 text-xs text-neutral-600">
-            Erfaringsoverføring er obligatorisk etter gjennomføring (IK-forskriften § 5). Uventede hendelser skal
-            registreres som avvik.
-          </p>
-        </div>
+        <ComplianceBanner title="IK-forskriften § 5" className="rounded-md">
+          Erfaringsoverføring er obligatorisk etter gjennomføring (IK-forskriften § 5). Uventede hendelser skal
+          registreres som avvik.
+        </ComplianceBanner>
         <p className="text-sm text-neutral-800">
           <span className="font-semibold">Uventede farekilder:</span>{' '}
           {analysis.unexpected_hazards === true ? 'Ja' : analysis.unexpected_hazards === false ? 'Nei' : '—'}
@@ -899,20 +915,18 @@ function EtterarbeidTab({
 
   return (
     <div className="space-y-6">
-      <div className={WORKPLACE_MODULE_SUBTLE_PANEL} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
-        <p className="text-xs font-semibold text-neutral-700">IK-forskriften § 5</p>
-        <p className="mt-1 text-xs text-neutral-600">
-          Erfaringsoverføring er obligatorisk etter gjennomføring (IK-forskriften § 5). Uventede hendelser skal
-          registreres som avvik.
-        </p>
-      </div>
+      <ComplianceBanner title="IK-forskriften § 5" className="rounded-md">
+        Erfaringsoverføring er obligatorisk etter gjennomføring (IK-forskriften § 5). Uventede hendelser skal
+        registreres som avvik.
+      </ComplianceBanner>
 
       <DebriefFormFields unexpected={unexpected} setUnexpected={setUnexpected} notes={notes} setNotes={setNotes} disabled={false} />
 
       {unexpected === true && avvikBanner && !analysis.avvik_created ? <DebriefAvvikBanner sjaId={analysis.id} sja={sja} /> : null}
 
-      <button
+      <Button
         type="button"
+        variant="primary"
         disabled={submitting || unexpected === null}
         onClick={async () => {
           if (unexpected === null) return
@@ -926,10 +940,9 @@ function EtterarbeidTab({
           if (unexpected) setAvvikBanner(true)
           await sja.loadDetail(analysis.id)
         }}
-        className="rounded border border-[#1a3d32] bg-[#1a3d32] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
       >
         {submitting ? 'Lagrer…' : 'Fullfør etterarbeid og arkiver'}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -956,33 +969,33 @@ function DebriefFormFields({
             { v: false as const, label: 'Nei' },
             { v: true as const, label: 'Ja' },
           ].map(({ v, label }) => (
-            <label
+            <Button
               key={String(v)}
-              className={`flex min-h-[3rem] flex-1 cursor-pointer items-center justify-center rounded-lg border-2 px-4 py-3 text-base font-semibold transition ${
-                unexpected === v ? 'border-[#1a3d32] bg-[#1a3d32]/10 text-[#1a3d32]' : 'border-neutral-200 bg-neutral-50 text-neutral-600'
-              } ${disabled ? 'pointer-events-none opacity-60' : ''}`}
+              type="button"
+              variant={unexpected === v ? 'primary' : 'secondary'}
+              disabled={disabled}
+              className={`min-h-[3rem] flex-1 border-2 py-3 text-base font-semibold ${
+                unexpected === v ? 'border-[#1a3d32]' : 'border-neutral-200'
+              }`}
+              onClick={() => setUnexpected(v)}
             >
-              <input
-                type="radio"
-                className="sr-only"
-                checked={unexpected === v}
-                disabled={disabled}
-                onChange={() => setUnexpected(v)}
-              />
               {label}
-            </label>
+            </Button>
           ))}
         </div>
       </div>
       <div>
-        <label className={PANEL_LABEL}>Beskriv erfaringer og avvik</label>
-        <textarea
-          className={`${PANEL_INPUT} min-h-[8rem]`}
+        <label className={PANEL_LABEL} htmlFor="sja-debrief-notes">
+          Beskriv erfaringer og avvik
+        </label>
+        <StandardTextarea
+          id="sja-debrief-notes"
           rows={6}
           disabled={disabled}
           placeholder="Hva fungerte? Hva gikk galt? Hva bør forbedres?"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
+          className="min-h-[8rem]"
         />
       </div>
     </div>
@@ -1033,144 +1046,181 @@ function GrunnlagTab({
   stopReasonDraft: string
   setStopReasonDraft: (v: string) => void
 }) {
+  const jobTypeOptions = (Object.keys(JOB_TYPE_LABEL) as SjaJobType[]).map((k) => ({ value: k, label: JOB_TYPE_LABEL[k] }))
+
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div>
-          <label className={PANEL_LABEL}>Tittel</label>
-          <input
-            className={PANEL_INPUT}
+      <div className="space-y-0">
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sja-grunnlag-title">
+            Tittel
+          </label>
+          <StandardInput
+            id="sja-grunnlag-title"
             disabled={readOnly}
             value={draft.title}
             onChange={(e) => setDraft((d) => (d ? { ...d, title: e.target.value } : d))}
           />
         </div>
-        <div>
-          <label className={PANEL_LABEL}>Jobb-type</label>
-          <select
-            className={PANEL_INPUT}
-            disabled={readOnly || jobTypeLocked}
-            value={draft.job_type}
-            onChange={(e) =>
-              setDraft((d) => (d ? { ...d, job_type: e.target.value as SjaJobType } : d))
-            }
-          >
-            {(Object.keys(JOB_TYPE_LABEL) as SjaJobType[]).map((k) => (
-              <option key={k} value={k}>
-                {JOB_TYPE_LABEL[k]}
-              </option>
-            ))}
-          </select>
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sja-grunnlag-jobtype">
+            Jobb-type
+          </label>
+          {readOnly || jobTypeLocked ? (
+            <select
+              id="sja-grunnlag-jobtype"
+              disabled
+              value={draft.job_type}
+              className={standardFieldClassName}
+            >
+              {jobTypeOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <SearchableSelect
+              value={draft.job_type}
+              options={jobTypeOptions}
+              onChange={(v) => setDraft((d) => (d ? { ...d, job_type: v as SjaJobType } : d))}
+            />
+          )}
         </div>
-        <div className="md:col-span-2">
-          <label className={PANEL_LABEL}>Beskrivelse av jobben</label>
-          <textarea
-            className={`${PANEL_INPUT} min-h-[6rem]`}
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sja-grunnlag-desc">
+            Beskrivelse av jobben
+          </label>
+          <StandardTextarea
+            id="sja-grunnlag-desc"
             rows={4}
             disabled={readOnly}
             value={draft.job_description}
             onChange={(e) => setDraft((d) => (d ? { ...d, job_description: e.target.value } : d))}
+            className="min-h-[6rem]"
           />
         </div>
-        <div className="md:col-span-2">
-          <label className={PANEL_LABEL}>Årsak til SJA</label>
-          <select
-            className={PANEL_INPUT}
-            disabled={readOnly}
-            value={
-              TRIGGER_REASON_OPTIONS.some((o) => o.value === draft.trigger_reason)
-                ? draft.trigger_reason
-                : 'other'
-            }
-            onChange={(e) => setDraft((d) => (d ? { ...d, trigger_reason: e.target.value } : d))}
-          >
-            {TRIGGER_REASON_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="md:col-span-2">
-          <label className={PANEL_LABEL}>Arbeidssted</label>
-          {draft.location_id ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="text-sm text-neutral-800">
-                {locations.find((l) => l.id === draft.location_id)?.name ?? 'Lokasjon'}
-              </span>
-              {!readOnly ? (
-                <button
-                  type="button"
-                  className="text-xs font-semibold text-[#1a3d32] underline"
-                  onClick={() => setDraft((d) => (d ? { ...d, location_id: null } : d))}
-                >
-                  Endre (tekst)
-                </button>
-              ) : null}
-            </div>
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sja-grunnlag-trigger">
+            Årsak til SJA
+          </label>
+          {readOnly ? (
+            <select
+              id="sja-grunnlag-trigger"
+              disabled
+              value={
+                TRIGGER_REASON_OPTIONS.some((o) => o.value === draft.trigger_reason)
+                  ? draft.trigger_reason
+                  : 'other'
+              }
+              className={standardFieldClassName}
+            >
+              {TRIGGER_REASON_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           ) : (
-            <div className="mt-2 space-y-2">
-              <input
-                className={PANEL_INPUT}
-                disabled={readOnly}
-                placeholder="Adresse / sted (fritekst)"
-                value={draft.location_text}
-                onChange={(e) => setDraft((d) => (d ? { ...d, location_text: e.target.value } : d))}
-              />
-              {!readOnly ? (
-                <select
-                  className={PANEL_INPUT}
-                  value=""
-                  onChange={(e) => {
-                    const id = e.target.value
-                    if (!id) return
-                    setDraft((d) => (d ? { ...d, location_id: id, location_text: '' } : d))
-                  }}
-                >
-                  <option value="">Velg lokasjon fra register…</option>
-                  {locations.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-            </div>
+            <SearchableSelect
+              value={
+                TRIGGER_REASON_OPTIONS.some((o) => o.value === draft.trigger_reason)
+                  ? draft.trigger_reason
+                  : 'other'
+              }
+              options={TRIGGER_REASON_OPTIONS}
+              onChange={(v) => setDraft((d) => (d ? { ...d, trigger_reason: v } : d))}
+            />
           )}
         </div>
-        <div className="md:col-span-2">
-          <label className={PANEL_LABEL}>Ansvarlig</label>
-          <select
-            className={PANEL_INPUT}
-            disabled={readOnly}
-            value={draft.responsible_id ?? ''}
-            onChange={(e) =>
-              setDraft((d) => (d ? { ...d, responsible_id: e.target.value || null } : d))
-            }
-          >
-            <option value="">—</option>
-            {assignableUsers.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.displayName}
-              </option>
-            ))}
-          </select>
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <span className={WPSTD_FORM_FIELD_LABEL}>Arbeidssted</span>
+          <div>
+            {draft.location_id ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-neutral-800">
+                  {locations.find((l) => l.id === draft.location_id)?.name ?? 'Lokasjon'}
+                </span>
+                {!readOnly ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto min-h-0 p-0 text-xs font-semibold text-[#1a3d32] underline"
+                    onClick={() => setDraft((d) => (d ? { ...d, location_id: null } : d))}
+                  >
+                    Endre (tekst)
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <StandardInput
+                  disabled={readOnly}
+                  placeholder="Adresse / sted (fritekst)"
+                  value={draft.location_text}
+                  onChange={(e) => setDraft((d) => (d ? { ...d, location_text: e.target.value } : d))}
+                />
+                {!readOnly ? (
+                  <SearchableSelect
+                    value=""
+                    options={[{ value: '', label: 'Velg lokasjon fra register…' }, ...locations.map((l) => ({ value: l.id, label: l.name }))]}
+                    placeholder="Velg lokasjon fra register…"
+                    onChange={(v) => {
+                      if (!v) return
+                      setDraft((d) => (d ? { ...d, location_id: v, location_text: '' } : d))
+                    }}
+                  />
+                ) : null}
+              </div>
+            )}
+          </div>
         </div>
-        <div>
-          <label className={PANEL_LABEL}>Planlagt start</label>
-          <input
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sja-grunnlag-responsible">
+            Ansvarlig
+          </label>
+          {readOnly ? (
+            <select
+              id="sja-grunnlag-responsible"
+              disabled
+              value={draft.responsible_id ?? ''}
+              className={standardFieldClassName}
+            >
+              <option value="">—</option>
+              {assignableUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.displayName}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <SearchableSelect
+              value={draft.responsible_id ?? ''}
+              options={[{ value: '', label: '—' }, ...assignableUsers.map((u) => ({ value: u.id, label: u.displayName }))]}
+              onChange={(v) => setDraft((d) => (d ? { ...d, responsible_id: v || null } : d))}
+            />
+          )}
+        </div>
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sja-grunnlag-start">
+            Planlagt start
+          </label>
+          <StandardInput
+            id="sja-grunnlag-start"
             type="datetime-local"
-            className={PANEL_INPUT}
             disabled={readOnly}
             value={draft.scheduled_start}
             onChange={(e) => setDraft((d) => (d ? { ...d, scheduled_start: e.target.value } : d))}
           />
         </div>
-        <div>
-          <label className={PANEL_LABEL}>Planlagt slutt</label>
-          <input
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sja-grunnlag-end">
+            Planlagt slutt
+          </label>
+          <StandardInput
+            id="sja-grunnlag-end"
             type="datetime-local"
-            className={PANEL_INPUT}
             disabled={readOnly}
             value={draft.scheduled_end}
             onChange={(e) => setDraft((d) => (d ? { ...d, scheduled_end: e.target.value } : d))}
@@ -1179,14 +1229,9 @@ function GrunnlagTab({
       </div>
 
       <div className="flex flex-wrap items-center gap-3 border-t border-neutral-200 pt-6">
-        <button
-          type="button"
-          disabled={readOnly}
-          onClick={() => onSave()}
-          className="rounded border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-40"
-        >
+        <Button type="button" variant="primary" disabled={readOnly} onClick={() => onSave()} className="bg-neutral-900 hover:bg-neutral-800">
           Lagre
-        </button>
+        </Button>
         {savedAt ? <span className="text-xs text-neutral-500">Lagret {savedAt}</span> : null}
       </div>
 
@@ -1240,13 +1285,9 @@ function WorkflowActions({
 
   if (analysis.status === 'draft') {
     return (
-      <button
-        type="button"
-        onClick={() => onAdvance('active')}
-        className="w-fit rounded border border-[#1a3d32] bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white"
-      >
+      <Button type="button" variant="primary" onClick={() => onAdvance('active')} className="w-fit">
         Aktiver SJA
-      </button>
+      </Button>
     )
   }
 
@@ -1254,13 +1295,14 @@ function WorkflowActions({
     if (!canRequestApproval) {
       return (
         <div className="space-y-2">
-          <button
+          <Button
             type="button"
+            variant="secondary"
             disabled
-            className="w-full max-w-xl cursor-not-allowed rounded border border-neutral-200 bg-neutral-100 px-3 py-2 text-left text-sm font-medium text-neutral-500"
+            className="h-auto w-full max-w-xl cursor-not-allowed justify-start py-2 text-left font-medium text-neutral-500"
           >
             Venter på deltakere og risikovurdering
-          </button>
+          </Button>
           <p className="text-xs text-neutral-500">
             Krever minst to deltakere, minst én farekilde per oppgave med utfylt restrisiko, og ingen rød restrisiko (P×C ≥ 15).
           </p>
@@ -1268,71 +1310,69 @@ function WorkflowActions({
       )
     }
     return (
-      <div className="max-w-xl rounded border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-950">
-        <p className="font-medium">Forutsetningene for godkjenning er oppfylt.</p>
-        <p className="mt-1 text-xs text-emerald-900/90">
+      <InfoBox>
+        <span className="font-medium text-amber-900">Forutsetningene for godkjenning er oppfylt.</span>
+        <p className="mt-1 text-xs text-amber-900/90">
           Gå til fanen <span className="font-semibold">Signaturer</span> for å gjennomføre sjekklisten og trykke «Godkjenn SJA».
         </p>
-      </div>
+      </InfoBox>
     )
   }
 
   if (analysis.status === 'approved') {
     return (
-      <button
-        type="button"
-        onClick={() => onAdvance('in_execution')}
-        className="w-fit rounded border border-[#1a3d32] bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white"
-      >
+      <Button type="button" variant="primary" onClick={() => onAdvance('in_execution')} className="w-fit">
         Start arbeidet
-      </button>
+      </Button>
     )
   }
 
   if (analysis.status === 'in_execution') {
     return (
       <div className="space-y-4">
-        <button
-          type="button"
-          onClick={() => onAdvance('completed')}
-          className="w-fit rounded border border-neutral-900 bg-white px-4 py-2 text-sm font-semibold text-neutral-900"
-        >
+        <Button type="button" variant="secondary" onClick={() => onAdvance('completed')} className="w-fit border-neutral-900 font-semibold text-neutral-900">
           Merk som fullført
-        </button>
+        </Button>
         {!stopFormOpen ? (
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setStopFormOpen(true)}
-              className="rounded border border-red-700 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
-            >
+            <Button type="button" variant="danger" onClick={() => setStopFormOpen(true)} className="border-red-700 bg-white text-red-700 hover:bg-red-50">
               STOPP ARBEIDET
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="max-w-lg space-y-2 rounded border border-red-200 bg-red-50 p-4">
-            <label className="text-xs font-semibold text-red-900">Årsak til stopp</label>
-            <textarea
-              className="w-full border border-red-300 bg-white px-2 py-2 text-sm"
+            <label className="text-xs font-semibold text-red-900" htmlFor="sja-stop-reason">
+              Årsak til stopp
+            </label>
+            <StandardTextarea
+              id="sja-stop-reason"
               rows={2}
               value={stopReasonDraft}
               onChange={(e) => setStopReasonDraft(e.target.value)}
+              className="border-red-300"
             />
-            <div className="flex gap-2">
-              <button
+            <div className="flex flex-wrap gap-2">
+              <Button
                 type="button"
+                variant="danger"
+                size="sm"
                 onClick={() => {
                   void onAdvance('stopped', { stop_reason: stopReasonDraft })
                   setStopFormOpen(false)
                   setStopReasonDraft('')
                 }}
-                className="rounded bg-red-700 px-3 py-1.5 text-xs font-bold text-white"
               >
                 Bekreft stopp
-              </button>
-              <button type="button" onClick={() => setStopFormOpen(false)} className="text-xs text-neutral-600 underline">
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-auto min-h-0 p-0 text-xs text-neutral-600 underline"
+                onClick={() => setStopFormOpen(false)}
+              >
                 Avbryt
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -1342,21 +1382,22 @@ function WorkflowActions({
 
   if (analysis.status === 'completed') {
     return (
-      <button type="button" onClick={onGoEtterarbeid} className="text-sm font-semibold text-[#1a3d32] underline">
+      <Button
+        type="button"
+        variant="ghost"
+        className="h-auto min-h-0 p-0 text-sm font-semibold text-[#1a3d32] underline"
+        onClick={onGoEtterarbeid}
+      >
         Gå til Etterarbeid-fanen for debrief
-      </button>
+      </Button>
     )
   }
 
   if (analysis.status === 'stopped') {
     return (
-      <button
-        type="button"
-        onClick={() => onAdvance('active')}
-        className="w-fit rounded border border-neutral-900 bg-white px-4 py-2 text-sm font-semibold text-neutral-900"
-      >
+      <Button type="button" variant="secondary" onClick={() => onAdvance('active')} className="w-fit border-neutral-900 font-semibold text-neutral-900">
         Oppdater og gjenstart
-      </button>
+      </Button>
     )
   }
 
@@ -1419,10 +1460,10 @@ function DeltakereTab({
 
   return (
     <div className="space-y-6">
-      <div className="rounded border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+      <ComplianceBanner title="AML § 4-2 og § 7-2 — deltakelse" className="rounded-md">
         Arbeidstakerne og deres representanter skal involveres og delta aktivt i kartleggingen og risikovurderingen (AML §
         4-2 og § 7-2).
-      </div>
+      </ComplianceBanner>
 
       <div className="overflow-x-auto rounded-lg border border-neutral-200/80">
         <table className="min-w-full text-left text-sm">
@@ -1450,9 +1491,9 @@ function DeltakereTab({
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`rounded px-2 py-0.5 text-xs font-semibold ${roleBadgeClass(p.role)}`}>
+                  <Badge variant={participantRoleBadgeVariant(p.role)} className="text-xs">
                     {ROLE_LABEL[p.role]}
-                  </span>
+                  </Badge>
                 </td>
                 <td className="px-4 py-3 text-neutral-600">{p.company ?? '—'}</td>
                 <td className="px-4 py-3">
@@ -1479,14 +1520,15 @@ function DeltakereTab({
                 </td>
                 <td className="px-2 py-3">
                   {canDelete && !readOnly ? (
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
                       aria-label="Slett"
                       onClick={() => void sja.deleteParticipant(p.id)}
                       className="text-neutral-400 hover:text-red-600"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                      icon={<Trash2 className="h-4 w-4" />}
+                    />
                   ) : null}
                 </td>
               </tr>
@@ -1497,105 +1539,104 @@ function DeltakereTab({
 
       {!readOnly ? (
         <div>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            className="h-auto min-h-0 p-0 text-sm font-semibold text-[#1a3d32] underline"
             onClick={() => setExpanded((e) => !e)}
-            className="text-sm font-semibold text-[#1a3d32] underline"
           >
             {expanded ? 'Skjul' : '+ Legg til deltaker'}
-          </button>
+          </Button>
           {expanded ? (
             <div className="mt-4 space-y-3 rounded border border-neutral-200 bg-neutral-50/80 p-4">
               <div>
-                <label className={PANEL_LABEL}>Navn</label>
-                <input className={PANEL_INPUT} value={name} onChange={(e) => setName(e.target.value)} required />
+                <label className={PANEL_LABEL} htmlFor="sja-new-participant-name">
+                  Navn
+                </label>
+                <StandardInput id="sja-new-participant-name" value={name} onChange={(e) => setName(e.target.value)} required />
               </div>
               <div>
-                <label className={PANEL_LABEL}>Rolle</label>
-                <select
-                  className={PANEL_INPUT}
+                <label className={PANEL_LABEL} htmlFor="sja-new-participant-role">
+                  Rolle
+                </label>
+                <SearchableSelect
                   value={role}
-                  onChange={(e) => setRole(e.target.value as SjaParticipantRole)}
-                >
-                  {(Object.keys(ROLE_LABEL) as SjaParticipantRole[]).map((r) => (
-                    <option key={r} value={r}>
-                      {ROLE_LABEL[r]}
-                    </option>
-                  ))}
-                </select>
+                  options={(Object.keys(ROLE_LABEL) as SjaParticipantRole[]).map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
+                  onChange={(v) => setRole(v as SjaParticipantRole)}
+                />
               </div>
               <div>
-                <label className={PANEL_LABEL}>Bruker (valgfritt)</label>
-                <select
-                  className={PANEL_INPUT}
+                <label className={PANEL_LABEL} htmlFor="sja-new-participant-user">
+                  Bruker (valgfritt)
+                </label>
+                <SearchableSelect
                   value={userId ?? ''}
-                  onChange={(e) => {
-                    const v = e.target.value || null
-                    setUserId(v)
-                    const u = sja.assignableUsers.find((x) => x.id === v)
+                  options={[{ value: '', label: '—' }, ...sja.assignableUsers.map((u) => ({ value: u.id, label: u.displayName }))]}
+                  onChange={(v) => {
+                    const val = v || null
+                    setUserId(val)
+                    const u = sja.assignableUsers.find((x) => x.id === val)
                     if (u) setName(u.displayName)
                   }}
-                >
-                  <option value="">—</option>
-                  {sja.assignableUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.displayName}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               {role === 'contractor' ? (
                 <div>
-                  <label className={PANEL_LABEL}>Selskap</label>
-                  <input className={PANEL_INPUT} value={company} onChange={(e) => setCompany(e.target.value)} />
+                  <label className={PANEL_LABEL} htmlFor="sja-new-participant-company">
+                    Selskap
+                  </label>
+                  <StandardInput id="sja-new-participant-company" value={company} onChange={(e) => setCompany(e.target.value)} />
                 </div>
               ) : null}
               {requiredCerts.length > 0 ? (
                 <div>
                   <p className={PANEL_LABEL}>Påkrevde sertifikater (kryss av når kontrollert)</p>
                   <div className="mt-2 space-y-2">
-                    {requiredCerts.map((c) => (
-                      <label key={c} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={certChecks[c] ?? false}
-                          onChange={(e) => setCertChecks((prev) => ({ ...prev, [c]: e.target.checked }))}
-                        />
-                        <span>{c}</span>
-                      </label>
-                    ))}
+                    {requiredCerts.map((c) => {
+                      const checked = certChecks[c] ?? false
+                      return (
+                        <div key={c} className="flex flex-wrap items-center gap-2 text-sm">
+                          <Button
+                            type="button"
+                            variant={checked ? 'primary' : 'secondary'}
+                            size="sm"
+                            onClick={() => setCertChecks((prev) => ({ ...prev, [c]: !checked }))}
+                          >
+                            {checked ? '✓' : '○'} {c}
+                          </Button>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               ) : null}
               <div>
-                <label className={PANEL_LABEL}>Notat sertifikater</label>
-                <textarea className={PANEL_INPUT} rows={2} value={certsNotes} onChange={(e) => setCertsNotes(e.target.value)} />
+                <label className={PANEL_LABEL} htmlFor="sja-new-participant-certs-notes">
+                  Notat sertifikater
+                </label>
+                <StandardTextarea id="sja-new-participant-certs-notes" rows={2} value={certsNotes} onChange={(e) => setCertsNotes(e.target.value)} />
               </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={certsVerified}
-                  onChange={(e) => setCertsVerified(e.target.checked)}
-                />
-                Sertifikater verifisert
-              </label>
-              <button
+              <Button
                 type="button"
-                onClick={() => void onSubmit()}
-                className="rounded bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white"
+                variant={certsVerified ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => setCertsVerified((v) => !v)}
               >
+                Sertifikater verifisert
+              </Button>
+              <Button type="button" variant="primary" onClick={() => void onSubmit()}>
                 Legg til
-              </button>
+              </Button>
             </div>
           ) : null}
         </div>
       ) : null}
 
       {requiredCerts.length > 0 && unverifiedWithTemplateCerts > 0 ? (
-        <div className="rounded border border-amber-300 bg-amber-100 px-4 py-3 text-sm text-amber-950">
+        <WarningBox>
           ⚠ {unverifiedWithTemplateCerts} deltakere mangler verifiserte sertifikater. Kontroller dokumentasjon før arbeidet
           starter.
-        </div>
+        </WarningBox>
       ) : null}
     </div>
   )
@@ -1657,10 +1698,12 @@ function OppgaverTab({
               dragOverId === task.id ? 'ring-2 ring-[#1a3d32]/40' : ''
             }`}
           >
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               disabled={readOnly}
-              className="mt-1 cursor-grab text-neutral-400 hover:text-neutral-700 disabled:cursor-not-allowed"
+              className="mt-1 cursor-grab text-neutral-400 hover:bg-transparent hover:text-neutral-700 disabled:cursor-not-allowed"
               aria-label="Flytt"
               onMouseDown={(e) => {
                 e.preventDefault()
@@ -1673,13 +1716,12 @@ function OppgaverTab({
                 }
                 window.addEventListener('mouseup', up)
               }}
-            >
-              <GripVertical className="h-5 w-5" />
-            </button>
+              icon={<GripVertical className="h-5 w-5" />}
+            />
             <div className="text-3xl font-light text-neutral-300">{task.position + 1}</div>
             <div className="min-w-0 flex-1 space-y-2">
-              <input
-                className="w-full border-b border-transparent text-base font-semibold text-neutral-900 outline-none focus:border-neutral-400"
+              <StandardInput
+                className="border-0 border-b border-transparent px-0 text-base font-semibold text-neutral-900 shadow-none focus:border-neutral-400 focus:ring-0"
                 disabled={readOnly}
                 defaultValue={task.title}
                 key={task.id + task.title}
@@ -1687,8 +1729,8 @@ function OppgaverTab({
                   if (e.target.value !== task.title) void sja.updateTask(task.id, { title: e.target.value })
                 }}
               />
-              <textarea
-                className="w-full resize-none border border-transparent bg-neutral-50/50 px-2 py-1 text-sm text-neutral-700 outline-none focus:border-neutral-300"
+              <StandardTextarea
+                className="resize-none border border-transparent bg-neutral-50/50 px-2 py-1 text-sm text-neutral-700 shadow-none focus:border-neutral-300 focus:ring-0"
                 rows={2}
                 disabled={readOnly}
                 placeholder="Valgfri beskrivelse…"
@@ -1700,18 +1742,19 @@ function OppgaverTab({
                 }}
               />
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                <Badge variant="neutral" className="text-xs font-medium">
                   {hazardCount(task.id)} farekilder
-                </span>
+                </Badge>
                 {hazardCount(task.id) === 0 && !readOnly ? (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => void sja.deleteTask(task.id)}
                     className="text-neutral-400 hover:text-red-600"
                     aria-label="Slett oppgave"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                    icon={<Trash2 className="h-4 w-4" />}
+                  />
                 ) : null}
               </div>
             </div>
@@ -1730,15 +1773,15 @@ function OppgaverTab({
             })()
           }}
         >
-          <input
-            className={PANEL_INPUT + ' max-w-md flex-1'}
+          <StandardInput
+            className="max-w-md flex-1"
             placeholder="Ny deloppgave…"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
           />
-          <button type="submit" className="rounded bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white">
+          <Button type="submit" variant="primary">
             Legg til
-          </button>
+          </Button>
         </form>
       ) : null}
     </div>
@@ -1793,10 +1836,10 @@ function RisikovurderingTab({
       ) : null}
 
       {chemicalMissing.length > 0 ? (
-        <div className="rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        <WarningBox>
           ⚠ {chemicalMissing.length} farekilder med kjemikalier mangler HMS-datablad referanse. Fyll inn referanse per
           farekilde (Stoffkartotekforskriften).
-        </div>
+        </WarningBox>
       ) : null}
 
       {sortedTasks.map((task) => (
@@ -1835,16 +1878,15 @@ function TaskRiskAccordion({
 
   return (
     <div className="rounded border border-neutral-200 bg-white shadow-sm">
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3 text-left"
+        className="h-auto w-full justify-between rounded-none border-0 border-b border-neutral-100 px-4 py-3 text-left font-normal hover:bg-neutral-50"
       >
-        <span className="font-semibold text-neutral-900">
-          {task.title}
-        </span>
+        <span className="font-semibold text-neutral-900">{task.title}</span>
         <span className="text-xs text-neutral-500">{open ? 'Skjul ▲' : 'Vis ▼'}</span>
-      </button>
+      </Button>
       {open ? (
         <div className="space-y-4 p-4">
           {taskHazards.map((h) => (
@@ -1885,29 +1927,27 @@ function MandatoryMeasureDeleteDialog({
 
   if (!open) {
     return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="text-xs text-red-500 hover:text-red-700"
-      >
+      <Button type="button" variant="ghost" size="sm" className="h-auto min-h-0 p-0 text-xs text-red-500 hover:text-red-700" onClick={() => setOpen(true)}>
         Fjern
-      </button>
+      </Button>
     )
   }
 
   return (
     <div className="mt-2 space-y-2 rounded border border-red-200 bg-red-50 p-3">
       <p className="text-xs font-semibold text-red-800">⚠ Obligatorisk tiltak — oppgi begrunnelse for fjerning</p>
-      <textarea
+      <StandardTextarea
         rows={2}
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         placeholder="Begrunn hvorfor dette tiltaket ikke gjelder her…"
-        className="w-full rounded border border-red-300 bg-white px-2 py-1.5 text-xs"
+        className="border-red-300 text-xs"
       />
-      <div className="flex gap-2">
-        <button
+      <div className="flex flex-wrap gap-2">
+        <Button
           type="button"
+          variant="danger"
+          size="sm"
           disabled={reason.trim().length < 10 || saving}
           onClick={async () => {
             setSaving(true)
@@ -1916,20 +1956,20 @@ function MandatoryMeasureDeleteDialog({
             setSaving(false)
             setReason('')
           }}
-          className="rounded bg-red-700 px-3 py-1 text-xs font-semibold text-white disabled:opacity-40"
         >
           Bekreft fjerning
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="secondary"
+          size="sm"
           onClick={() => {
             setOpen(false)
             setReason('')
           }}
-          className="rounded border border-neutral-300 px-3 py-1 text-xs"
         >
           Avbryt
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -1970,12 +2010,12 @@ function HazardCard({
       <div className="flex flex-wrap items-start justify-between gap-2 border-b border-neutral-100 pb-3">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           {hazard.category ? (
-            <span className={`shrink-0 rounded px-2 py-0.5 text-xs font-semibold ${HAZARD_CATEGORY_COLOR[hazard.category]}`}>
+            <Badge variant={hazardCategoryBadgeVariant(hazard.category)} className="shrink-0 text-xs">
               {HAZARD_CATEGORY_LABEL[hazard.category]}
-            </span>
+            </Badge>
           ) : null}
-          <input
-            className="min-w-0 flex-1 border-b border-transparent font-medium text-neutral-900 outline-none focus:border-neutral-400"
+          <StandardInput
+            className="min-w-0 flex-1 border-0 border-b border-transparent px-0 font-medium shadow-none focus:border-neutral-400 focus:ring-0"
             disabled={readOnly}
             value={descDraft}
             onChange={(e) => setDescDraft(e.target.value)}
@@ -1985,9 +2025,14 @@ function HazardCard({
           />
         </div>
         {!readOnly ? (
-          <button type="button" className="text-neutral-400 hover:text-red-600" onClick={() => void sja.deleteHazard(hazard.id)}>
-            <Trash2 className="h-4 w-4" />
-          </button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="text-neutral-400 hover:text-red-600"
+            onClick={() => void sja.deleteHazard(hazard.id)}
+            icon={<Trash2 className="h-4 w-4" />}
+          />
         ) : null}
       </div>
 
@@ -2005,11 +2050,13 @@ function HazardCard({
                 : (p, c) => void sja.updateHazard(hazard.id, { initial_probability: p, initial_consequence: c })
             }
           />
-          <p className={`mt-2 text-center text-xs font-semibold ${riskColorClass(riskScoreFromProbCons(hazard.initial_probability, hazard.initial_consequence))} rounded px-2 py-1`}>
-            P[{hazard.initial_probability ?? '—'}] × C[{hazard.initial_consequence ?? '—'}] ={' '}
-            {riskScoreFromProbCons(hazard.initial_probability, hazard.initial_consequence) ?? '—'}{' '}
-            {riskLabel(riskScoreFromProbCons(hazard.initial_probability, hazard.initial_consequence))}
-          </p>
+          <div className="mt-2 flex justify-center">
+            <Badge variant={riskScoreBadgeVariant(riskScoreFromProbCons(hazard.initial_probability, hazard.initial_consequence))} className="text-xs">
+              P[{hazard.initial_probability ?? '—'}] × C[{hazard.initial_consequence ?? '—'}] ={' '}
+              {riskScoreFromProbCons(hazard.initial_probability, hazard.initial_consequence) ?? '—'}{' '}
+              {riskLabel(riskScoreFromProbCons(hazard.initial_probability, hazard.initial_consequence))}
+            </Badge>
+          </div>
         </div>
 
         <div className="rounded border border-neutral-200 p-3">
@@ -2021,31 +2068,33 @@ function HazardCard({
             {measures.map((m) => (
               <li key={m.id} className="flex flex-col gap-1 border-b border-neutral-100 pb-2 last:border-0">
                 <div className="flex flex-wrap items-start gap-2 text-sm">
-                  <span
-                    className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-bold ${CONTROL_TYPE_COLOR[m.control_type]}`}
+                  <Badge
+                    variant={controlTypeBadgeVariant(m.control_type)}
+                    className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded p-0 text-[10px] font-bold shadow-none"
                   >
                     {CONTROL_TYPE_LETTER[m.control_type]}
-                  </span>
+                  </Badge>
                   <span className="flex-1 text-neutral-800">
                     {m.description}
                     {m.is_mandatory ? (
-                      <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
+                      <Badge variant="medium" className="ml-1.5 text-[10px] shadow-none">
                         Obligatorisk
-                      </span>
+                      </Badge>
                     ) : null}
                   </span>
                   <span className="text-xs text-neutral-500">
                     {m.assigned_to_name ?? assignableUsers.find((u) => u.id === m.assigned_to_id)?.displayName ?? '—'}
                   </span>
-                  <label className="flex items-center gap-1 text-xs">
-                    <input
-                      type="checkbox"
-                      disabled={readOnly}
-                      checked={m.completed}
-                      onChange={(e) => void sja.updateMeasure(m.id, { completed: e.target.checked })}
-                    />
+                  <Button
+                    type="button"
+                    variant={m.completed ? 'primary' : 'secondary'}
+                    size="sm"
+                    disabled={readOnly}
+                    className="text-xs"
+                    onClick={() => void sja.updateMeasure(m.id, { completed: !m.completed })}
+                  >
                     Utført
-                  </label>
+                  </Button>
                   {!readOnly ? (
                     m.is_mandatory ? (
                       <MandatoryMeasureDeleteDialog
@@ -2055,13 +2104,15 @@ function HazardCard({
                         }}
                       />
                     ) : (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto min-h-0 p-0 text-xs text-red-500 hover:text-red-700"
                         onClick={() => void sja.hardDeleteMeasure(m.id).then(() => onAfterMeasureChange())}
-                        className="text-xs text-red-500 hover:text-red-700"
                       >
                         ×
-                      </button>
+                      </Button>
                     )
                   ) : null}
                 </div>
@@ -2091,10 +2142,12 @@ function HazardCard({
                 : (p, c) => void sja.updateHazard(hazard.id, { residual_probability: p, residual_consequence: c })
             }
           />
-          <p className={`mt-2 text-center text-xs font-semibold ${riskColorClass(resScore)} rounded px-2 py-1`}>
-            P[{hazard.residual_probability ?? '—'}] × C[{hazard.residual_consequence ?? '—'}] = {resScore ?? '—'}{' '}
-            {riskLabel(resScore)}
-          </p>
+          <div className="mt-2 flex justify-center">
+            <Badge variant={riskScoreBadgeVariant(resScore)} className="text-xs">
+              P[{hazard.residual_probability ?? '—'}] × C[{hazard.residual_consequence ?? '—'}] = {resScore ?? '—'}{' '}
+              {riskLabel(resScore)}
+            </Badge>
+          </div>
         </div>
       </div>
     </div>
@@ -2118,31 +2171,22 @@ function AddMeasureInline({
 
   return (
     <div className="mt-3 space-y-2 border-t border-neutral-100 pt-3">
-      <textarea
-        className={PANEL_INPUT}
-        rows={2}
-        placeholder="Beskriv tiltaket…"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
+      <StandardTextarea rows={2} placeholder="Beskriv tiltaket…" value={description} onChange={(e) => setDescription(e.target.value)} />
+      <SearchableSelect
+        value={controlType}
+        options={(Object.keys(CONTROL_TYPE_LABEL) as SjaControlType[]).map((k) => ({ value: k, label: CONTROL_TYPE_LABEL[k] }))}
+        onChange={(v) => setControlType(v as SjaControlType)}
       />
-      <select className={PANEL_INPUT} value={controlType} onChange={(e) => setControlType(e.target.value as SjaControlType)}>
-        {(Object.keys(CONTROL_TYPE_LABEL) as SjaControlType[]).map((k) => (
-          <option key={k} value={k}>
-            {CONTROL_TYPE_LABEL[k]}
-          </option>
-        ))}
-      </select>
-      <select className={PANEL_INPUT} value={assignId} onChange={(e) => setAssignId(e.target.value)}>
-        <option value="">Ingen tildelt</option>
-        {assignableUsers.map((u) => (
-          <option key={u.id} value={u.id}>
-            {u.displayName}
-          </option>
-        ))}
-      </select>
-      <button
+      <SearchableSelect
+        value={assignId}
+        options={[{ value: '', label: 'Ingen tildelt' }, ...assignableUsers.map((u) => ({ value: u.id, label: u.displayName }))]}
+        onChange={(v) => setAssignId(v)}
+      />
+      <Button
         type="button"
-        className="rounded bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white"
+        variant="primary"
+        size="sm"
+        className="bg-neutral-900 hover:bg-neutral-800"
         onClick={() => {
           if (!description.trim()) return
           const u = assignableUsers.find((x) => x.id === assignId)
@@ -2159,7 +2203,7 @@ function AddMeasureInline({
         }}
       >
         + Legg til tiltak
-      </button>
+      </Button>
     </div>
   )
 }
@@ -2183,42 +2227,38 @@ function AddHazardInline({
 
   if (!open) {
     return (
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        className="h-auto min-h-0 p-0 text-sm font-semibold text-[#1a3d32] underline"
         onClick={() => onOpenChange(true)}
-        className="text-sm font-semibold text-[#1a3d32] underline"
       >
         + Legg til farekilde
-      </button>
+      </Button>
     )
   }
 
   return (
     <div className="rounded border border-dashed border-neutral-300 bg-neutral-50/80 p-4">
-      <textarea
-        className={PANEL_INPUT}
-        rows={2}
-        placeholder="Beskriv farekilden…"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
+      <StandardTextarea rows={2} placeholder="Beskriv farekilden…" value={description} onChange={(e) => setDescription(e.target.value)} />
+      <SearchableSelect
+        value={category}
+        options={(Object.keys(HAZARD_CATEGORY_LABEL) as SjaHazardCategory[]).map((k) => ({ value: k, label: HAZARD_CATEGORY_LABEL[k] }))}
+        onChange={(v) => setCategory(v as SjaHazardCategory)}
       />
-      <select className={PANEL_INPUT} value={category} onChange={(e) => setCategory(e.target.value as SjaHazardCategory)}>
-        {(Object.keys(HAZARD_CATEGORY_LABEL) as SjaHazardCategory[]).map((k) => (
-          <option key={k} value={k}>
-            {HAZARD_CATEGORY_LABEL[k]}
-          </option>
-        ))}
-      </select>
       {category === 'chemical' ? (
         <div>
-          <label className={PANEL_LABEL}>HMS-datablad referanse</label>
-          <input className={PANEL_INPUT} value={chem} onChange={(e) => setChem(e.target.value)} />
+          <label className={PANEL_LABEL} htmlFor="sja-add-hazard-chem">
+            HMS-datablad referanse
+          </label>
+          <StandardInput id="sja-add-hazard-chem" value={chem} onChange={(e) => setChem(e.target.value)} />
         </div>
       ) : null}
-      <div className="flex gap-2">
-        <button
+      <div className="flex flex-wrap gap-2">
+        <Button
           type="button"
-          className="rounded bg-[#1a3d32] px-3 py-1.5 text-xs font-semibold text-white"
+          variant="primary"
+          size="sm"
           onClick={() => {
             if (!description.trim()) return
             void sja.addHazard(sjaId, taskId, description.trim(), category, category === 'chemical' ? chem : null)
@@ -2228,10 +2268,10 @@ function AddHazardInline({
           }}
         >
           Lagre farekilde
-        </button>
-        <button type="button" className="text-xs text-neutral-600 underline" onClick={() => onOpenChange(false)}>
+        </Button>
+        <Button type="button" variant="ghost" size="sm" className="h-auto min-h-0 p-0 text-xs text-neutral-600 underline" onClick={() => onOpenChange(false)}>
           Avbryt
-        </button>
+        </Button>
       </div>
     </div>
   )

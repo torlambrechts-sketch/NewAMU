@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ArrowLeft, ClipboardList, MapPin, Plus, Save, Shield, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Check, ClipboardList, MapPin, Plus, Save, Shield, Trash2, X } from 'lucide-react'
 import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
-import { ModuleAdminShell } from '../../src/components/layout/ModuleAdminShell'
+import {
+  WORKPLACE_MODULE_CARD,
+  WORKPLACE_MODULE_CARD_SHADOW,
+} from '../../src/components/layout/workplaceModuleSurface'
+import { Button } from '../../src/components/ui/Button'
+import { StandardInput } from '../../src/components/ui/Input'
+import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
+import { StandardTextarea } from '../../src/components/ui/Textarea'
+import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { LocationsCrudTab } from '../../src/components/hse/LocationsCrudTab'
 import { useInspectionModule } from '../inspection/useInspectionModule'
 import type { SjaControlType, SjaHazardCategory, SjaJobType, SjaPpeKey, SjaTemplate } from './types'
@@ -136,6 +144,7 @@ export function SjaModuleAdminView({
   canManageRbac: boolean
   organizationId: string | null
 }) {
+  const navigate = useNavigate()
   const sja = useSja({ supabase })
   const inspection = useInspectionModule({ supabase })
   const [tab, setTab] = useState<Tab>('templates')
@@ -148,11 +157,11 @@ export function SjaModuleAdminView({
     if (tab === 'locations') void inspection.load()
   }, [tab, inspection.load])
 
-  const tabs = useMemo(
+  const adminTabItems: TabItem[] = useMemo(
     () => [
-      { key: 'templates', label: 'Maler', icon: <ClipboardList className="h-4 w-4" /> },
-      { key: 'locations', label: 'Lokasjoner', icon: <MapPin className="h-4 w-4" /> },
-      { key: 'access', label: 'Tilgang', icon: <Shield className="h-4 w-4" /> },
+      { id: 'templates', label: 'Maler', icon: ClipboardList },
+      { id: 'locations', label: 'Lokasjoner', icon: MapPin },
+      { id: 'access', label: 'Tilgang', icon: Shield },
     ],
     [],
   )
@@ -164,27 +173,24 @@ export function SjaModuleAdminView({
         title="SJA-innstillinger"
         description="Maler for sikker jobbanalyse, delte lokasjoner og tilganger."
         headerActions={
-          <Link
-            to="/sja"
-            className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+          <Button
+            type="button"
+            variant="secondary"
+            className="font-medium"
+            icon={<ArrowLeft className="w-4 h-4" />}
+            onClick={() => navigate('/sja')}
           >
-            <ArrowLeft className="h-4 w-4" />
             Tilbake til SJA
-          </Link>
+          </Button>
         }
+        menu={<Tabs items={adminTabItems} activeId={tab} onChange={(id) => setTab(id as Tab)} />}
       />
 
       {sja.error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{sja.error}</div>
       ) : null}
 
-      <ModuleAdminShell
-        title="SJA-innstillinger"
-        description="Administrer maler og tilganger."
-        tabs={tabs}
-        activeTab={tab}
-        onTabChange={(k) => setTab(k as Tab)}
-      >
+      <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden p-5 md:p-6`} style={WORKPLACE_MODULE_CARD_SHADOW}>
         {tab === 'templates' && <SjaTemplatesAdmin sja={sja} />}
         {tab === 'locations' && (
           <div className="space-y-4">
@@ -203,7 +209,7 @@ export function SjaModuleAdminView({
         {tab === 'access' && (
           <SjaAccessTab supabase={supabase} canManageRbac={canManageRbac} organizationId={organizationId} />
         )}
-      </ModuleAdminShell>
+      </div>
     </div>
   )
 }
@@ -288,17 +294,17 @@ function SjaTemplatesAdmin({ sja }: { sja: ReturnType<typeof useSja> }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <button
+        <Button
           type="button"
+          variant="secondary"
+          icon={<Plus className="w-4 h-4" />}
           onClick={() => {
             resetModal()
             setModalOpen(true)
           }}
-          className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
         >
-          <Plus className="h-4 w-4" />
           Ny mal
-        </button>
+        </Button>
       </div>
 
       <div className={`${CARD} overflow-hidden`} style={CARD_SHADOW}>
@@ -331,13 +337,9 @@ function SjaTemplatesAdmin({ sja }: { sja: ReturnType<typeof useSja> }) {
                   <td className="px-4 py-3 text-xs">{tasks.length}</td>
                   <td className="px-4 py-3">{t.is_active ? 'Ja' : 'Nei'}</td>
                   <td className="px-2 py-3">
-                    <button
-                      type="button"
-                      className="text-[#1a3d32] hover:underline"
-                      onClick={() => openEdit(t)}
-                    >
+                    <Button type="button" variant="ghost" size="sm" className="h-auto min-h-0 p-0 text-[#1a3d32] hover:underline" onClick={() => openEdit(t)}>
                       →
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               )
@@ -354,16 +356,14 @@ function SjaTemplatesAdmin({ sja }: { sja: ReturnType<typeof useSja> }) {
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-neutral-900">Ny mal</h2>
-              <button type="button" onClick={() => setModalOpen(false)} className="text-neutral-400 hover:text-neutral-700">
-                <X className="h-5 w-5" />
-              </button>
+              <Button type="button" variant="ghost" size="icon" onClick={() => setModalOpen(false)} className="text-neutral-400 hover:text-neutral-700" icon={<X className="h-5 w-5" />} />
             </div>
             <label className="mb-4 flex flex-col gap-1 text-xs">
               <span className="font-semibold text-neutral-600">Malnavn</span>
-              <input
+              <StandardInput
                 value={draftName}
                 onChange={(e) => setDraftName(e.target.value)}
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                className="rounded-lg"
                 placeholder="F.eks. Varmt arbeid — standard"
               />
             </label>
@@ -384,17 +384,12 @@ function SjaTemplatesAdmin({ sja }: { sja: ReturnType<typeof useSja> }) {
               setDraftTasks={setDraftTasks}
             />
             <div className="mt-6 flex justify-end gap-2">
-              <button type="button" onClick={() => setModalOpen(false)} className="rounded border px-3 py-2 text-sm">
+              <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>
                 Avbryt
-              </button>
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => void createNew()}
-                className="rounded bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              >
+              </Button>
+              <Button type="button" variant="primary" disabled={saving} onClick={() => void createNew()}>
                 {saving ? 'Oppretter…' : 'Opprett'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -405,18 +400,12 @@ function SjaTemplatesAdmin({ sja }: { sja: ReturnType<typeof useSja> }) {
           <div className="h-full w-full max-w-lg overflow-y-auto border-l border-neutral-200 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4">
               <h2 className="text-lg font-semibold text-neutral-900">Rediger mal</h2>
-              <button type="button" onClick={() => setPanelOpen(false)} className="text-neutral-400 hover:text-neutral-700">
-                <X className="h-5 w-5" />
-              </button>
+              <Button type="button" variant="ghost" size="icon" onClick={() => setPanelOpen(false)} className="text-neutral-400 hover:text-neutral-700" icon={<X className="h-5 w-5" />} />
             </div>
             <div className="space-y-4 p-5">
               <label className="flex flex-col gap-1 text-xs">
                 <span className="font-semibold text-neutral-600">Malnavn</span>
-                <input
-                  value={draftName}
-                  onChange={(e) => setDraftName(e.target.value)}
-                  className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-                />
+                <StandardInput value={draftName} onChange={(e) => setDraftName(e.target.value)} className="rounded-lg" />
               </label>
               <TemplateFormBody
                 draftName={draftName}
@@ -434,24 +423,24 @@ function SjaTemplatesAdmin({ sja }: { sja: ReturnType<typeof useSja> }) {
                 draftTasks={draftTasks}
                 setDraftTasks={setDraftTasks}
               />
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selected.is_active}
-                  onChange={(e) => void sja.updateTemplate(selected.id, { is_active: e.target.checked })}
-                />
-                Aktiv
-              </label>
-              <button
+              <Button
                 type="button"
+                variant={selected.is_active ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => void sja.updateTemplate(selected.id, { is_active: !selected.is_active })}
+              >
+                {selected.is_active ? 'Mal aktiv' : 'Mal inaktiv'}
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
                 disabled={saving}
                 onClick={() => void saveSelected()}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-                style={{ backgroundColor: '#1a3d32' }}
+                className="w-full"
+                icon={<Save className="w-4 h-4" />}
               >
-                <Save className="h-4 w-4" />
                 {saving ? 'Lagrer…' : 'Lagre'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -535,45 +524,36 @@ function TemplateFormBody({
     <div className="space-y-4">
       <label className="flex flex-col gap-1 text-xs">
         <span className="font-semibold text-neutral-600">Jobbtype</span>
-        <select
+        <SearchableSelect
           value={draftJobType}
-          onChange={(e) => setDraftJobType(e.target.value as SjaJobType)}
-          className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-        >
-          {JOB_TYPES.map((j) => (
-            <option key={j} value={j}>
-              {JOB_TYPE_LABEL[j]}
-            </option>
-          ))}
-        </select>
+          options={JOB_TYPES.map((j) => ({ value: j, label: JOB_TYPE_LABEL[j] }))}
+          onChange={(v) => setDraftJobType(v as SjaJobType)}
+        />
       </label>
       <label className="flex flex-col gap-1 text-xs">
         <span className="font-semibold text-neutral-600">Beskrivelse</span>
-        <textarea
-          value={draftDesc}
-          onChange={(e) => setDraftDesc(e.target.value)}
-          rows={3}
-          className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-        />
+        <StandardTextarea value={draftDesc} onChange={(e) => setDraftDesc(e.target.value)} rows={3} className="rounded-lg" />
       </label>
       <div>
         <p className="text-xs font-semibold text-neutral-600">Påkrevde sertifikater (tags)</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {CERT_PRESETS.map((c) => (
-            <button
+            <Button
               key={c}
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={() => {
                 if (!draftCerts.includes(c)) setDraftCerts([...draftCerts, c])
               }}
-              className="rounded-full border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs hover:bg-neutral-100"
+              className="rounded-full font-normal"
             >
               + {c}
-            </button>
+            </Button>
           ))}
         </div>
         <div className="mt-2 flex gap-2">
-          <input
+          <StandardInput
             value={certInput}
             onChange={(e) => setCertInput(e.target.value)}
             onKeyDown={(e) => {
@@ -585,16 +565,16 @@ function TemplateFormBody({
               }
             }}
             placeholder="Fritekst-tag, Enter for å legge til"
-            className="flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+            className="flex-1 rounded-lg"
           />
         </div>
         <ul className="mt-2 flex flex-wrap gap-2">
           {draftCerts.map((c) => (
             <li key={c} className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-xs">
               {c}
-              <button type="button" onClick={() => setDraftCerts(draftCerts.filter((x) => x !== c))} className="text-red-600">
+              <Button type="button" variant="ghost" size="sm" className="h-auto min-h-0 p-0 text-red-600" onClick={() => setDraftCerts(draftCerts.filter((x) => x !== c))}>
                 ×
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
@@ -609,22 +589,20 @@ function TemplateFormBody({
           {SJA_PPE_OPTIONS.map((opt) => {
             const active = draftRequiredPpe.includes(opt.key)
             return (
-              <button
+              <Button
                 key={opt.key}
                 type="button"
+                variant={active ? 'primary' : 'secondary'}
+                size="sm"
                 onClick={() =>
                   setDraftRequiredPpe((prev) =>
                     active ? prev.filter((k) => k !== opt.key) : [...prev, opt.key],
                   )
                 }
-                className={`rounded border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  active
-                    ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                    : 'border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50'
-                }`}
+                className="text-xs font-semibold"
               >
                 {opt.label}
-              </button>
+              </Button>
             )
           })}
         </div>
@@ -635,7 +613,7 @@ function TemplateFormBody({
         <div className="mt-2 space-y-4">
           {draftTasks.map((task, ti) => (
             <div key={ti} className="rounded-lg border border-neutral-200 p-3">
-              <input
+              <StandardInput
                 value={task.title}
                 onChange={(e) =>
                   setDraftTasks((prev) => {
@@ -645,9 +623,9 @@ function TemplateFormBody({
                   })
                 }
                 placeholder="Deloppgavetittel"
-                className="mb-2 w-full rounded border px-2 py-1.5 text-sm"
+                className="mb-2 rounded-lg text-sm"
               />
-              <textarea
+              <StandardTextarea
                 value={task.description}
                 onChange={(e) =>
                   setDraftTasks((prev) => {
@@ -658,13 +636,13 @@ function TemplateFormBody({
                 }
                 placeholder="Valgfri beskrivelse av deloppgaven…"
                 rows={2}
-                className="mb-2 w-full rounded border px-2 py-1.5 text-xs"
+                className="mb-2 text-xs"
               />
               <ul className="space-y-3">
                 {task.hazards.map((hz, hi) => (
                   <li key={hi} className="rounded border border-neutral-100 bg-neutral-50/80 p-2">
                     <div className="flex flex-wrap gap-2">
-                      <input
+                      <StandardInput
                         value={hz.description}
                         onChange={(e) =>
                           setDraftTasks((prev) => {
@@ -676,29 +654,28 @@ function TemplateFormBody({
                           })
                         }
                         placeholder="Farekilde"
-                        className="min-w-[8rem] flex-1 rounded border bg-white px-2 py-1 text-xs"
+                        className="min-w-[8rem] flex-1 text-xs"
                       />
-                      <select
+                      <SearchableSelect
                         value={hz.category}
-                        onChange={(e) =>
+                        options={(Object.keys(HAZARD_CATEGORY_LABEL) as SjaHazardCategory[]).map((k) => ({
+                          value: k,
+                          label: HAZARD_CATEGORY_LABEL[k],
+                        }))}
+                        onChange={(v) =>
                           setDraftTasks((prev) => {
                             const next = [...prev]
                             const th = [...next[ti].hazards]
-                            th[hi] = { ...th[hi], category: e.target.value as SjaHazardCategory }
+                            th[hi] = { ...th[hi], category: v as SjaHazardCategory }
                             next[ti] = { ...next[ti], hazards: th }
                             return next
                           })
                         }
-                        className="rounded border bg-white px-2 py-1 text-xs"
-                      >
-                        {(Object.keys(HAZARD_CATEGORY_LABEL) as SjaHazardCategory[]).map((k) => (
-                          <option key={k} value={k}>
-                            {HAZARD_CATEGORY_LABEL[k]}
-                          </option>
-                        ))}
-                      </select>
-                      <button
+                      />
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         className="text-neutral-400 hover:text-red-600"
                         onClick={() =>
                           setDraftTasks((prev) => {
@@ -710,63 +687,56 @@ function TemplateFormBody({
                             return next
                           })
                         }
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                        icon={<Trash2 className="h-3.5 w-3.5" />}
+                      />
                     </div>
                     <div className="ml-4 mt-2 space-y-1">
                       {hz.measures.map((m, mi) => (
                         <div key={mi} className="flex items-center gap-2">
-                          <select
+                          <SearchableSelect
                             value={m.control_type}
-                            onChange={(e) => updateMeasure(ti, hi, mi, 'control_type', e.target.value)}
-                            className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs"
-                          >
-                            <option value="eliminate">Eliminering</option>
-                            <option value="substitute">Substitusjon</option>
-                            <option value="engineering">Teknisk tiltak</option>
-                            <option value="administrative">Administrativt</option>
-                            <option value="ppe">Verneutstyr</option>
-                          </select>
-                          <input
+                            options={[
+                              { value: 'eliminate', label: 'Eliminering' },
+                              { value: 'substitute', label: 'Substitusjon' },
+                              { value: 'engineering', label: 'Teknisk tiltak' },
+                              { value: 'administrative', label: 'Administrativt' },
+                              { value: 'ppe', label: 'Verneutstyr' },
+                            ]}
+                            onChange={(v) => updateMeasure(ti, hi, mi, 'control_type', v)}
+                          />
+                          <StandardInput
                             type="text"
                             value={m.description}
                             onChange={(e) => updateMeasure(ti, hi, mi, 'description', e.target.value)}
                             placeholder="Beskriv tiltaket…"
-                            className="flex-1 rounded border border-neutral-300 px-2 py-1 text-xs"
+                            className="flex-1 text-xs"
                           />
-                          <label className="flex cursor-pointer items-center gap-1 text-xs text-neutral-600">
-                            <input
-                              type="checkbox"
-                              checked={m.is_mandatory}
-                              onChange={(e) => updateMeasure(ti, hi, mi, 'is_mandatory', e.target.checked)}
-                              className="rounded"
-                            />
-                            Obligatorisk
-                          </label>
-                          <button
+                          <Button
                             type="button"
-                            onClick={() => removeMeasure(ti, hi, mi)}
-                            className="text-xs text-red-500 hover:text-red-700"
+                            variant={m.is_mandatory ? 'primary' : 'secondary'}
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => updateMeasure(ti, hi, mi, 'is_mandatory', !m.is_mandatory)}
                           >
+                            {m.is_mandatory ? 'Obligatorisk' : 'Valgfritt'}
+                          </Button>
+                          <Button type="button" variant="ghost" size="sm" className="h-auto min-h-0 p-0 text-xs text-red-500 hover:text-red-700" onClick={() => removeMeasure(ti, hi, mi)}>
                             ×
-                          </button>
+                          </Button>
                         </div>
                       ))}
-                      <button
-                        type="button"
-                        onClick={() => addMeasure(ti, hi)}
-                        className="mt-1 text-xs text-[#1a3d32] hover:underline"
-                      >
+                      <Button type="button" variant="ghost" size="sm" className="mt-1 h-auto min-h-0 p-0 text-xs text-[#1a3d32] hover:underline" onClick={() => addMeasure(ti, hi)}>
                         + Legg til standard tiltak
-                      </button>
+                      </Button>
                     </div>
                   </li>
                 ))}
               </ul>
-              <button
+              <Button
                 type="button"
-                className="mt-2 text-xs font-semibold text-[#1a3d32] underline"
+                variant="ghost"
+                size="sm"
+                className="mt-2 h-auto min-h-0 p-0 text-xs font-semibold text-[#1a3d32] underline"
                 onClick={() =>
                   setDraftTasks((prev) => {
                     const next = [...prev]
@@ -782,17 +752,13 @@ function TemplateFormBody({
                 }
               >
                 + Legg til farekilder
-              </button>
+              </Button>
             </div>
           ))}
         </div>
-        <button
-          type="button"
-          className="mt-2 text-sm font-medium text-[#1a3d32] underline"
-          onClick={() => setDraftTasks((p) => [...p, emptyTask(p.length)])}
-        >
+        <Button type="button" variant="ghost" className="mt-2 h-auto min-h-0 p-0 text-sm font-medium text-[#1a3d32] underline" onClick={() => setDraftTasks((p) => [...p, emptyTask(p.length)])}>
           + Deloppgave
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -914,13 +880,17 @@ function SjaAccessTab({
                     const on = matrix[r.id]?.has(p.key) ?? false
                     return (
                       <td key={p.key} className="px-2 py-2 text-center">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 accent-[#1a3d32]"
-                          checked={on}
-                          onChange={(e) => void toggle(r.id, p.key, e.target.checked)}
+                        <Button
+                          type="button"
+                          variant={on ? 'primary' : 'secondary'}
+                          size="icon"
+                          className="mx-auto h-8 w-8"
+                          onClick={() => void toggle(r.id, p.key, !on)}
                           aria-label={`${r.name}: ${p.label}`}
-                        />
+                          aria-pressed={on}
+                        >
+                          {on ? <Check className="h-4 w-4" /> : <span className="text-xs text-neutral-400">—</span>}
+                        </Button>
                       </td>
                     )
                   })}

@@ -3,6 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { CheckCircle2, ChevronRight, Circle, Search, Settings } from 'lucide-react'
 import { FormModal } from '../../src/template'
+import { Badge, type BadgeVariant } from '../../src/components/ui/Badge'
+import { Button } from '../../src/components/ui/Button'
+import { StandardInput } from '../../src/components/ui/Input'
+import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
 import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
@@ -23,6 +27,24 @@ const JOB_TYPE_LABEL: Record<SjaJobType, string> = {
   lifting: 'Løft / rigging',
   excavation: 'Graving',
   custom: 'Annet',
+}
+
+function sjaListStatusBadgeVariant(status: SjaAnalysis['status']): BadgeVariant {
+  switch (status) {
+    case 'draft':
+    case 'archived':
+      return 'neutral'
+    case 'active':
+    case 'approved':
+    case 'in_execution':
+      return 'info'
+    case 'completed':
+      return 'success'
+    case 'stopped':
+      return 'critical'
+    default:
+      return 'neutral'
+  }
 }
 
 const STATUS_LABEL: Record<SjaAnalysis['status'], string> = {
@@ -212,15 +234,12 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
         description="Planlegg, gjennomfør og signer sikker jobbanalyse i henhold til arbeidsmiljøloven og internkontroll."
         headerActions={
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setScheduleOpen(true)}
-              className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-            >
+            <Button type="button" variant="secondary" onClick={() => setScheduleOpen(true)} className="font-medium">
               Planlegging
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="primary"
               onClick={() => {
                 const tid = defaultTemplateId
                 setNewSjaForm({
@@ -235,17 +254,18 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
                 })
                 setCreateOpen(true)
               }}
-              className="rounded-lg px-4 py-2 text-sm font-bold uppercase tracking-wide text-white"
-              style={{ backgroundColor: '#2D403A' }}
+              className="bg-[#2D403A] font-bold uppercase tracking-wide hover:bg-[#243830]"
             >
               Ny analyse
-            </button>
-            <Link
-              to="/sja/admin"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
-            >
-              <Settings className="h-4 w-4" aria-hidden />
-            </Link>
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="px-3 py-2 font-normal text-neutral-600"
+              icon={<Settings className="w-4 h-4" aria-hidden />}
+              onClick={() => navigate('/sja/admin')}
+              aria-label="SJA-innstillinger"
+            />
           </div>
         }
       />
@@ -281,13 +301,13 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
               Søk
             </label>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <input
+            <StandardInput
               id="sja-search"
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Søk i tittel, lokasjon, ansvarlig …"
-              className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/25"
+              className="rounded-lg py-2 pl-10 pr-3 shadow-sm focus:ring-2 focus:ring-[#1a3d32]/25"
             />
           </div>
         }
@@ -331,19 +351,9 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
                     {a.responsible_id ? userNameById.get(a.responsible_id) ?? '—' : '—'}
                   </td>
                   <td className="px-5 py-3">
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                        a.status === 'archived' || a.status === 'completed'
-                          ? 'bg-green-100 text-green-800'
-                          : a.status === 'stopped'
-                            ? 'bg-red-100 text-red-800'
-                            : a.status === 'active' || a.status === 'approved' || a.status === 'in_execution'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-neutral-100 text-neutral-700'
-                      }`}
-                    >
+                    <Badge variant={sjaListStatusBadgeVariant(a.status)} className="text-xs">
                       {STATUS_LABEL[a.status]}
-                    </span>
+                    </Badge>
                   </td>
                   <td className="px-5 py-3 text-neutral-600">{formatDateTimeShort(a.scheduled_start)}</td>
                   <td className="px-5 py-3">
@@ -362,12 +372,10 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
                   </td>
                   <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                     {nAvvik > 0 ? (
-                      <Link
-                        to={`/avvik?sourceId=${encodeURIComponent(a.id)}`}
-                        className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900 hover:bg-amber-200"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {nAvvik} avvik
+                      <Link to={`/avvik?sourceId=${encodeURIComponent(a.id)}`} onClick={(e) => e.stopPropagation()}>
+                        <Badge variant="medium" className="cursor-pointer text-[11px] hover:opacity-90">
+                          {nAvvik} avvik
+                        </Badge>
                       </Link>
                     ) : (
                       <span className="text-xs text-neutral-300">—</span>
@@ -397,17 +405,12 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
         title="Ny sikker jobbanalyse"
         footer={
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="rounded-lg border border-neutral-300 px-4 py-2 text-sm"
-              onClick={() => setCreateOpen(false)}
-            >
+            <Button type="button" variant="secondary" onClick={() => setCreateOpen(false)}>
               Avbryt
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
-              style={{ backgroundColor: '#1a3d32' }}
+              variant="primary"
               onClick={() =>
                 void (async () => {
                   if (!newSjaForm.title.trim()) return
@@ -440,107 +443,82 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
               }
             >
               Opprett
-            </button>
+            </Button>
           </div>
         }
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-xs text-neutral-500">Tittel</span>
-            <input
+            <StandardInput
               value={newSjaForm.title}
               onChange={(e) => setNewSjaForm((p) => ({ ...p, title: e.target.value }))}
-              className="rounded-lg border border-neutral-300 px-3 py-2"
+              className="rounded-lg"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-xs text-neutral-500">Mal</span>
-            <select
-              value={newSjaForm.templateId || defaultTemplateId}
-              onChange={(e) => {
-                const id = e.target.value
-                setNewSjaForm((p) => ({
-                  ...p,
-                  templateId: id,
-                  jobType: templateJobTypeById.get(id) ?? p.jobType,
-                }))
-              }}
-              className="rounded-lg border border-neutral-300 px-3 py-2"
-            >
-              {sja.templates.length === 0 ? (
+            {sja.templates.length === 0 ? (
+              <select disabled className="rounded-lg border border-neutral-300 px-3 py-2 text-sm opacity-70">
                 <option value="">Ingen maler (bruk jobbtype under)</option>
-              ) : (
-                sja.templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))
-              )}
-            </select>
+              </select>
+            ) : (
+              <SearchableSelect
+                value={newSjaForm.templateId || defaultTemplateId}
+                options={sja.templates.map((t) => ({ value: t.id, label: t.name }))}
+                onChange={(id) =>
+                  setNewSjaForm((p) => ({
+                    ...p,
+                    templateId: id,
+                    jobType: templateJobTypeById.get(id) ?? p.jobType,
+                  }))
+                }
+              />
+            )}
           </label>
           {sja.templates.length === 0 ? (
             <label className="flex flex-col gap-1 text-sm">
               <span className="text-xs text-neutral-500">Jobbtype</span>
-              <select
+              <SearchableSelect
                 value={newSjaForm.jobType}
-                onChange={(e) => setNewSjaForm((p) => ({ ...p, jobType: e.target.value as SjaJobType }))}
-                className="rounded-lg border border-neutral-300 px-3 py-2"
-              >
-                {(Object.keys(JOB_TYPE_LABEL) as SjaJobType[]).map((k) => (
-                  <option key={k} value={k}>
-                    {JOB_TYPE_LABEL[k]}
-                  </option>
-                ))}
-              </select>
+                options={(Object.keys(JOB_TYPE_LABEL) as SjaJobType[]).map((k) => ({ value: k, label: JOB_TYPE_LABEL[k] }))}
+                onChange={(v) => setNewSjaForm((p) => ({ ...p, jobType: v as SjaJobType }))}
+              />
             </label>
           ) : null}
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-xs text-neutral-500">Lokasjon</span>
-            <select
+            <SearchableSelect
               value={newSjaForm.locationId}
-              onChange={(e) => setNewSjaForm((p) => ({ ...p, locationId: e.target.value }))}
-              className="rounded-lg border border-neutral-300 px-3 py-2"
-            >
-              <option value="">(Valgfri)</option>
-              {sja.locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name}
-                </option>
-              ))}
-            </select>
+              options={[{ value: '', label: '(Valgfri)' }, ...sja.locations.map((loc) => ({ value: loc.id, label: loc.name }))]}
+              onChange={(v) => setNewSjaForm((p) => ({ ...p, locationId: v }))}
+            />
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-xs text-neutral-500">Planlagt start</span>
-            <input
+            <StandardInput
               type="datetime-local"
               value={newSjaForm.scheduledStart}
               onChange={(e) => setNewSjaForm((p) => ({ ...p, scheduledStart: e.target.value }))}
-              className="rounded-lg border border-neutral-300 px-3 py-2"
+              className="rounded-lg"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-xs text-neutral-500">Planlagt slutt</span>
-            <input
+            <StandardInput
               type="datetime-local"
               value={newSjaForm.scheduledEnd}
               onChange={(e) => setNewSjaForm((p) => ({ ...p, scheduledEnd: e.target.value }))}
-              className="rounded-lg border border-neutral-300 px-3 py-2"
+              className="rounded-lg"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="text-xs text-neutral-500">Ansvarlig</span>
-            <select
+            <SearchableSelect
               value={newSjaForm.responsibleId}
-              onChange={(e) => setNewSjaForm((p) => ({ ...p, responsibleId: e.target.value }))}
-              className="rounded-lg border border-neutral-300 px-3 py-2"
-            >
-              <option value="">(Valgfri)</option>
-              {sja.assignableUsers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.displayName}
-                </option>
-              ))}
-            </select>
+              options={[{ value: '', label: '(Valgfri)' }, ...sja.assignableUsers.map((u) => ({ value: u.id, label: u.displayName }))]}
+              onChange={(v) => setNewSjaForm((p) => ({ ...p, responsibleId: v }))}
+            />
           </label>
           <div className="flex flex-col gap-1 sm:col-span-2">
             <span className="text-xs text-neutral-500">Påminnelse / gjentakelse (valgfri)</span>
@@ -562,13 +540,9 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
         title="Planlegging av analyser"
         footer={
           <div className="flex justify-end">
-            <button
-              type="button"
-              className="rounded-lg border border-neutral-300 px-4 py-2 text-sm"
-              onClick={() => setScheduleOpen(false)}
-            >
+            <Button type="button" variant="secondary" onClick={() => setScheduleOpen(false)}>
               Lukk
-            </button>
+            </Button>
           </div>
         }
       >
@@ -588,7 +562,7 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
                   <div className="grid gap-2 sm:grid-cols-2">
                     <label className="flex flex-col gap-1 text-xs">
                       <span className="text-neutral-500">Planlagt start</span>
-                      <input
+                      <StandardInput
                         type="datetime-local"
                         value={toDateTimeLocalValue(draft.scheduledStart || null)}
                         onChange={(e) =>
@@ -597,12 +571,12 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
                             [analysis.id]: { ...draft, scheduledStart: e.target.value },
                           }))
                         }
-                        className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs"
+                        className="rounded-lg py-1.5 text-xs"
                       />
                     </label>
                     <label className="flex flex-col gap-1 text-xs">
                       <span className="text-neutral-500">Planlagt slutt</span>
-                      <input
+                      <StandardInput
                         type="datetime-local"
                         value={toDateTimeLocalValue(draft.scheduledEnd || null)}
                         onChange={(e) =>
@@ -611,28 +585,24 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
                             [analysis.id]: { ...draft, scheduledEnd: e.target.value },
                           }))
                         }
-                        className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs"
+                        className="rounded-lg py-1.5 text-xs"
                       />
                     </label>
                     <label className="flex flex-col gap-1 text-xs sm:col-span-2">
                       <span className="text-neutral-500">Ansvarlig</span>
-                      <select
+                      <SearchableSelect
                         value={draft.responsibleId}
-                        onChange={(e) =>
+                        options={[
+                          { value: '', label: '(Ingen)' },
+                          ...sja.assignableUsers.map((u) => ({ value: u.id, label: u.displayName })),
+                        ]}
+                        onChange={(v) =>
                           setScheduleDraft((p) => ({
                             ...p,
-                            [analysis.id]: { ...draft, responsibleId: e.target.value },
+                            [analysis.id]: { ...draft, responsibleId: v },
                           }))
                         }
-                        className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs"
-                      >
-                        <option value="">(Ingen)</option>
-                        {sja.assignableUsers.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.displayName}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </label>
                   </div>
                   <div className="flex flex-col gap-1">
@@ -648,9 +618,11 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
                     />
                   </div>
                 </div>
-                <button
+                <Button
                   type="button"
-                  className="mt-2 rounded-lg border border-neutral-300 px-3 py-1 text-xs font-medium"
+                  variant="secondary"
+                  size="sm"
+                  className="mt-2 font-medium"
                   onClick={() =>
                     void (async () => {
                       const startIso =
@@ -673,7 +645,7 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
                   }
                 >
                   Lagre
-                </button>
+                </Button>
               </div>
             )
           })}
