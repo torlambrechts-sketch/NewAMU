@@ -96,6 +96,8 @@ import { IkKompetansePage } from './pages/IkKompetansePage'
 import { IkMedvirkningPage } from './pages/IkMedvirkningPage'
 import { IkMalPage } from './pages/IkMalPage'
 import { IkTiltaksplanPage } from './pages/IkTiltaksplanPage'
+import { ActionPlanPage }        from './pages/ActionPlanPage'
+import { ActionPlanAdminPage }  from './pages/ActionPlanAdminPage'
 import { RosModulePage }         from './pages/RosModulePage'
 import { RosModuleAdminPage }    from './pages/RosModuleAdminPage'
 import { RosAnalysisDetailPage } from './pages/RosAnalysisDetailPage'
@@ -189,6 +191,10 @@ function App() {
                       <Route path="sja" element={<SjaModulePage />} />
                       <Route path="sja/admin" element={<SjaModuleAdminPage />} />
                       <Route path="sja/:sjaId" element={<SjaDetailPage />} />
+                      <Route path="tiltak" element={<ActionPlanPage />} />
+                      <Route path="tiltak/admin" element={<ActionPlanAdminPage />} />
+                      <Route path="action-plan" element={<ActionPlanPage />} />
+                      <Route path="action-plan/admin" element={<ActionPlanAdminPage />} />
                       <Route path="ros"         element={<RosModulePage />} />
                       <Route path="ros/admin"   element={<RosModuleAdminPage />} />
                       <Route path="ros/:rosId"  element={<RosAnalysisDetailPage />} />
