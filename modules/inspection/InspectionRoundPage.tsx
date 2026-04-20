@@ -15,18 +15,9 @@ import {
   Settings,
   Trash2,
 } from 'lucide-react'
-import {
-  WPSTD_FORM_FIELD_LABEL,
-  WPSTD_FORM_LEAD,
-  WPSTD_FORM_ROW_GRID,
-} from '../../src/components/layout/WorkplaceStandardFormPanel'
+import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
-import {
-  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
-  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
-  LAYOUT_TABLE1_POSTINGS_TH,
-} from '../../src/components/layout/layoutTable1PostingsKit'
 import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
 import type { HmsCategory, InspectionChecklistItem, InspectionLocationRow, InspectionRoundRow } from './types'
 import { parseChecklistItems } from './schema'
@@ -35,7 +26,7 @@ import { ChecklistExecutionTab } from '../../src/components/checklist/ChecklistE
 import type { ChecklistItem, ChecklistResponse } from '../../src/components/checklist/types'
 import { DeviationPanel } from '../../src/components/hse/DeviationPanel'
 import { HseAuditLogViewer } from '../../src/components/hse/HseAuditLogViewer'
-import { RiskMatrix, riskLabel, riskScoreFromProbCons } from '../../src/components/hse/RiskMatrix'
+import { RiskMatrix, riskScoreFromProbCons } from '../../src/components/hse/RiskMatrix'
 import { Badge, type BadgeVariant } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
 import { ComplianceBanner } from '../../src/components/ui/ComplianceBanner'
@@ -43,6 +34,7 @@ import { StandardInput } from '../../src/components/ui/Input'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { StandardTextarea } from '../../src/components/ui/Textarea'
 import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
+import type { AvvikStatus } from '../avvik/types'
 
 type PanelTab = 'checklist' | 'findings' | 'summary' | 'signatures' | 'history'
 
@@ -79,6 +71,62 @@ const HMS_LAW: Partial<Record<HmsCategory, string>> = {
 }
 const SEVERITY_LABELS = { low: 'Lav', medium: 'Middels', high: 'Høy', critical: 'Kritisk' }
 
+const SEVERITY_ORDER: Record<keyof typeof SEVERITY_LABELS, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+}
+
+const DEVIATION_STATUS_LABEL: Record<AvvikStatus, string> = {
+  open: 'Åpent',
+  in_progress: 'Under behandling',
+  closed: 'Lukket',
+  rapportert: 'Rapportert',
+  under_behandling: 'Under behandling',
+  tiltak_iverksatt: 'Tiltak iverksatt',
+  lukket: 'Lukket',
+}
+
+const VALID_AVIKK_STATUS = new Set<string>([
+  'open',
+  'in_progress',
+  'closed',
+  'rapportert',
+  'under_behandling',
+  'tiltak_iverksatt',
+  'lukket',
+])
+
+function formatFindingDate(v: string | null) {
+  if (!v) return '—'
+  try {
+    return new Date(v).toLocaleDateString('nb-NO', { dateStyle: 'short' })
+  } catch {
+    return v
+  }
+}
+
+function deviationStatusBadgeVariant(s: string | null | undefined): BadgeVariant {
+  if (!s || !VALID_AVIKK_STATUS.has(s)) return 'neutral'
+  const st = s as AvvikStatus
+  switch (st) {
+    case 'open':
+    case 'rapportert':
+      return 'warning'
+    case 'in_progress':
+    case 'under_behandling':
+      return 'info'
+    case 'tiltak_iverksatt':
+      return 'active'
+    case 'closed':
+    case 'lukket':
+      return 'success'
+    default:
+      return 'neutral'
+  }
+}
+
 function severityBadgeVariant(severity: keyof typeof SEVERITY_LABELS): BadgeVariant {
   switch (severity) {
     case 'low':
@@ -92,13 +140,6 @@ function severityBadgeVariant(severity: keyof typeof SEVERITY_LABELS): BadgeVari
     default:
       return 'neutral'
   }
-}
-
-function riskScoreBadgeVariant(score: number): BadgeVariant {
-  if (score <= 4) return 'success'
-  if (score <= 9) return 'medium'
-  if (score <= 14) return 'high'
-  return 'critical'
 }
 
 // ── Checklist tab ─────────────────────────────────────────────────────────────
@@ -275,48 +316,109 @@ function FindingsTab({
   prefillItemKey,
   checklistItems,
   onOpenDeviation,
+  onPrefillConsumed,
 }: {
   round: InspectionRoundRow
   inspection: InspectionModuleState
   prefillItemKey: string | null
   checklistItems: InspectionChecklistItem[]
   onOpenDeviation: (deviationId: string) => void
+  onPrefillConsumed?: () => void
 }) {
-  const findings = inspection.findingsByRoundId[round.id] ?? []
+  const findings = useMemo(
+    () => inspection.findingsByRoundId[round.id] ?? [],
+    [inspection.findingsByRoundId, round.id],
+  )
   const items = useMemo(() => inspection.itemsByRoundId[round.id] ?? [], [inspection.itemsByRoundId, round.id])
   const [editingFindingId, setEditingFindingId] = useState<string | null>(null)
+  const [createMode, setCreateMode] = useState(false)
   const [description, setDescription] = useState('')
   const [severity, setSeverity] = useState<'low' | 'medium' | 'high' | 'critical'>('high')
   const [findingProb, setFindingProb] = useState<number | null>(null)
   const [findingCons, setFindingCons] = useState<number | null>(null)
   const [linkedItemKey, setLinkedItemKey] = useState(prefillItemKey ?? '')
+  const [assignedTo, setAssignedTo] = useState('')
   const [saving, setSaving] = useState(false)
   const [linkingDeviationId, setLinkingDeviationId] = useState<string | null>(null)
-  const newFindingFormRef = useRef<HTMLDivElement | null>(null)
+  const bottomFormRef = useRef<HTMLDivElement | null>(null)
 
-  const TH = `${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`
+  const TH =
+    'border-b border-neutral-200 bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500'
+  const TR_BODY = 'border-b border-neutral-100 last:border-b-0 transition-colors hover:bg-neutral-50'
+
+  const readOnly = round.status === 'signed'
+
+  const scrollToBottomForm = useCallback(() => {
+    queueMicrotask(() => {
+      bottomFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [])
 
   useEffect(() => {
+    if (readOnly || !prefillItemKey) return
     queueMicrotask(() => {
-      if (prefillItemKey) setLinkedItemKey(prefillItemKey)
+      setEditingFindingId(null)
+      setCreateMode(true)
+      setDescription('')
+      setSeverity('high')
+      setFindingProb(null)
+      setFindingCons(null)
+      setAssignedTo('')
+      setLinkedItemKey(prefillItemKey)
+      scrollToBottomForm()
+      onPrefillConsumed?.()
     })
-  }, [prefillItemKey])
+  }, [prefillItemKey, readOnly, onPrefillConsumed, scrollToBottomForm])
 
   const linkedItemId = useMemo(() => {
     if (!linkedItemKey) return undefined
     return items.find((i) => i.checklist_item_key === linkedItemKey)?.id
   }, [linkedItemKey, items])
 
+  const assignSelectOptions = useMemo(
+    () => [
+      { value: '', label: '(Ingen)' },
+      ...inspection.assignableUsers.map((u) => ({ value: u.id, label: u.displayName })),
+    ],
+    [inspection.assignableUsers],
+  )
+
+  const assignableUserById = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const u of inspection.assignableUsers) m[u.id] = u.displayName
+    return m
+  }, [inspection.assignableUsers])
+
+  const sortedFindings = useMemo(
+    () => [...findings].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]),
+    [findings],
+  )
+
   function resetForm() {
     setEditingFindingId(null)
+    setCreateMode(false)
     setDescription('')
     setSeverity('high')
     setFindingProb(null)
     setFindingCons(null)
     setLinkedItemKey('')
+    setAssignedTo('')
+  }
+
+  function beginNewFinding() {
+    setEditingFindingId(null)
+    setCreateMode(true)
+    setDescription('')
+    setSeverity('high')
+    setFindingProb(null)
+    setFindingCons(null)
+    setLinkedItemKey(prefillItemKey ?? '')
+    setAssignedTo('')
+    scrollToBottomForm()
   }
 
   function startEdit(f: (typeof findings)[0]) {
+    setCreateMode(false)
     setEditingFindingId(f.id)
     setDescription(f.description)
     setSeverity(f.severity)
@@ -324,125 +426,62 @@ function FindingsTab({
     setFindingCons(f.risk_consequence)
     const key = f.item_id ? items.find((i) => i.id === f.item_id)?.checklist_item_key ?? '' : ''
     setLinkedItemKey(key)
+    setAssignedTo(f.deviation_assigned_to ?? '')
+    scrollToBottomForm()
   }
 
   async function handleSave() {
     if (!description.trim()) return
     setSaving(true)
-    if (editingFindingId) {
-      await inspection.updateFinding({
-        findingId: editingFindingId,
-        description,
-        severity,
-        itemId: linkedItemId ?? null,
-        riskProbability: findingProb,
-        riskConsequence: findingCons,
-      })
-    } else {
-      await inspection.addFinding({
-        roundId: round.id,
-        description,
-        severity,
-        itemId: linkedItemId,
-        riskProbability: findingProb ?? undefined,
-        riskConsequence: findingCons ?? undefined,
-      })
-    }
-    resetForm()
+    const ok = editingFindingId
+      ? await inspection.updateFinding({
+          findingId: editingFindingId,
+          description,
+          severity,
+          itemId: linkedItemId ?? null,
+          riskProbability: findingProb,
+          riskConsequence: findingCons,
+          assignedTo: assignedTo || null,
+        })
+      : await inspection.addFinding({
+          roundId: round.id,
+          description,
+          severity,
+          itemId: linkedItemId,
+          riskProbability: findingProb ?? undefined,
+          riskConsequence: findingCons ?? undefined,
+          assignedTo: assignedTo || null,
+        })
     setSaving(false)
+    if (ok) resetForm()
   }
 
-  const readOnly = round.status === 'signed'
+  const showBottomForm = !readOnly && (createMode || editingFindingId !== null)
+
+  function findingStatusLabel(f: (typeof findings)[0]): string {
+    const s = f.deviation_status
+    if (s && VALID_AVIKK_STATUS.has(s)) return DEVIATION_STATUS_LABEL[s as AvvikStatus]
+    return f.deviation_id ? 'Koblet' : 'Ukoblet'
+  }
+
+  function findingStatusBadgeVariantForRow(f: (typeof findings)[0]): BadgeVariant {
+    const s = f.deviation_status
+    if (s && VALID_AVIKK_STATUS.has(s)) return deviationStatusBadgeVariant(s)
+    return f.deviation_id ? 'info' : 'neutral'
+  }
+
+  function assignDisplayName(userId: string | null | undefined): string {
+    if (!userId) return '—'
+    return assignableUserById[userId]?.trim() || '—'
+  }
 
   return (
     <div className="flex flex-col space-y-6">
-      {!readOnly && (
-        <div ref={newFindingFormRef} id="inspection-new-finding-form" className="border border-neutral-200 bg-white px-0 py-0">
-          <p className={`${WPSTD_FORM_LEAD} border-b border-neutral-200 px-4 py-3 md:px-5`}>
-            {editingFindingId ? 'Rediger avvik' : 'Registrer nytt avvik'} — hvert avvik lagres i avviksmodulen.
-          </p>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-desc">
-              Beskrivelse
-            </label>
-            <StandardTextarea
-              id="finding-desc"
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Beskriv avviket…"
-              className="resize-none"
-            />
-          </div>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-severity">
-              Alvorlighetsgrad
-            </label>
-            <SearchableSelect
-              value={severity}
-              options={(Object.keys(SEVERITY_LABELS) as (keyof typeof SEVERITY_LABELS)[]).map((s) => ({
-                value: s,
-                label: SEVERITY_LABELS[s],
-              }))}
-              onChange={(v) => setSeverity(v as typeof severity)}
-            />
-          </div>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-item">
-              Tilknyttet sjekklistepunkt (valgfri)
-            </label>
-            <SearchableSelect
-              value={linkedItemKey}
-              options={[
-                { value: '', label: '(Ingen)' },
-                ...checklistItems.map((ci) => ({ value: ci.key, label: ci.label })),
-              ]}
-              onChange={(v) => setLinkedItemKey(v)}
-            />
-          </div>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <span className={WPSTD_FORM_FIELD_LABEL}>Risiko (sannsynlighet × konsekvens)</span>
-            <div className="rounded-md border border-neutral-200 bg-white p-3">
-              <RiskMatrix
-                probability={findingProb}
-                consequence={findingCons}
-                onChange={(p, c) => {
-                  setFindingProb(p)
-                  setFindingCons(c)
-                }}
-                size="sm"
-              />
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2 border-t border-neutral-200 px-4 py-4 md:px-5">
-            <Button
-              type="button"
-              variant="primary"
-              disabled={!description.trim() || saving}
-              onClick={() => void handleSave()}
-            >
-              {saving ? 'Lagrer…' : editingFindingId ? 'Lagre endringer' : 'Registrer avvik'}
-            </Button>
-            {(editingFindingId || description.trim()) && (
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={saving}
-                onClick={() => resetForm()}
-                className="font-medium"
-              >
-                Avbryt
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-
       <LayoutTable1PostingsShell
         wrap={false}
         titleTypography="sans"
         title="Registrerte avvik"
-        description="Avvik knyttet til denne inspeksjonsrunden."
+        description="Avvik knyttet til denne inspeksjonsrunden — samme kolonner som i avviksregisteret."
         toolbar={<div className="min-w-0 flex-1" aria-hidden />}
         headerActions={
           !readOnly ? (
@@ -450,39 +489,40 @@ function FindingsTab({
               type="button"
               variant="primary"
               icon={<Plus className="h-4 w-4" />}
-              onClick={() => {
-                resetForm()
-                newFindingFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }}
+              onClick={beginNewFinding}
             >
               Nytt avvik
             </Button>
           ) : null
         }
       >
-        <table className="w-full border-collapse text-left text-sm">
+        <table className="w-full border-collapse text-left text-sm whitespace-nowrap">
           <thead>
-            <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-              <th className={TH}>Beskrivelse</th>
-              <th className={TH}>Alvor</th>
-              <th className={TH}>Risiko</th>
-              <th className={TH}>Sjekkliste</th>
+            <tr>
+              <th className={TH}>Tittel</th>
+              <th className={TH}>Kategori</th>
+              <th className={TH}>Alvorlighetsgrad</th>
+              <th className={TH}>Status</th>
+              <th className={TH}>Ansvarlig</th>
               <th className={`${TH} text-right`}>Handlinger</th>
             </tr>
           </thead>
           <tbody>
-            {findings.map((f) => {
+            {sortedFindings.map((f) => {
               const linkedLabel = f.item_id
                 ? items.find((i) => i.id === f.item_id)?.checklist_item_label ?? null
                 : null
               const riskScore = f.risk_score ?? riskScoreFromProbCons(f.risk_probability, f.risk_consequence)
               const showLegacyLinkBanner = !f.deviation_id && riskScore != null && riskScore >= 10
               return (
-                <tr key={f.id} className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50`}>
-                  <td className="max-w-md px-5 py-4 align-top">
-                    <p className="text-sm text-neutral-900">{f.description}</p>
+                <tr key={f.id} className={TR_BODY}>
+                  <td className="max-w-[min(28rem,40vw)] px-5 py-4 align-middle">
+                    <p className="whitespace-normal font-medium text-neutral-900">{f.description}</p>
+                    <p className="mt-0.5 whitespace-normal font-mono text-xs text-neutral-500">
+                      {f.id.slice(0, 8)}… · {formatFindingDate(f.created_at)}
+                    </p>
                     {showLegacyLinkBanner && (
-                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 whitespace-normal">
                         <span>Risikoskår {riskScore} — koble til avvik</span>
                         <Button
                           type="button"
@@ -501,19 +541,18 @@ function FindingsTab({
                       </div>
                     )}
                   </td>
-                  <td className="px-5 py-4 align-middle whitespace-nowrap">
+                  <td className="px-5 py-4 align-middle text-neutral-700">
+                    <span className="whitespace-normal">{linkedLabel ?? 'Inspeksjon'}</span>
+                  </td>
+                  <td className="px-5 py-4 align-middle">
                     <Badge variant={severityBadgeVariant(f.severity)}>{SEVERITY_LABELS[f.severity]}</Badge>
                   </td>
-                  <td className="px-5 py-4 align-middle whitespace-nowrap">
-                    {riskScore != null ? (
-                      <Badge variant={riskScoreBadgeVariant(riskScore)}>
-                        {riskScore} — {riskLabel(riskScore)}
-                      </Badge>
-                    ) : (
-                      <span className="text-xs text-neutral-400">—</span>
-                    )}
+                  <td className="px-5 py-4 align-middle">
+                    <Badge variant={findingStatusBadgeVariantForRow(f)}>{findingStatusLabel(f)}</Badge>
                   </td>
-                  <td className="max-w-[12rem] px-5 py-4 align-middle text-xs text-neutral-600">{linkedLabel ?? '—'}</td>
+                  <td className="px-5 py-4 align-middle text-neutral-700">
+                    <span className="whitespace-normal">{assignDisplayName(f.deviation_assigned_to)}</span>
+                  </td>
                   <td className="px-5 py-4 text-right align-middle">
                     {!readOnly && (
                       <div className="inline-flex justify-end gap-1">
@@ -555,7 +594,7 @@ function FindingsTab({
             })}
             {findings.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-5 py-10 text-center text-sm text-neutral-400">
+                <td colSpan={6} className="px-5 py-12 text-center text-sm whitespace-normal text-neutral-400">
                   Ingen avvik registrert ennå.
                 </td>
               </tr>
@@ -563,6 +602,93 @@ function FindingsTab({
           </tbody>
         </table>
       </LayoutTable1PostingsShell>
+
+      {showBottomForm && (
+        <div ref={bottomFormRef} id="inspection-finding-form-bottom" className="mt-8">
+          <div className="border-t border-neutral-100 bg-neutral-50/80 px-5 py-4 md:px-6">
+            <p className="mb-3 text-sm font-semibold text-neutral-900">
+              {editingFindingId ? 'Rediger avvik' : 'Nytt avvik'}
+            </p>
+            <p className="mb-3 text-xs text-neutral-600">Hvert avvik lagres i avviksmodulen (koblet funn).</p>
+            <div className="space-y-3">
+              <label>
+                <span className={WPSTD_FORM_FIELD_LABEL}>Tittel / beskrivelse *</span>
+                <StandardTextarea
+                  id="finding-desc-bottom"
+                  rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Beskriv avviket…"
+                  className="resize-none"
+                />
+              </label>
+              <div className={WPSTD_FORM_ROW_GRID}>
+                <label>
+                  <span className={WPSTD_FORM_FIELD_LABEL}>Alvorlighetsgrad</span>
+                  <SearchableSelect
+                    value={severity}
+                    options={(Object.keys(SEVERITY_LABELS) as (keyof typeof SEVERITY_LABELS)[]).map((s) => ({
+                      value: s,
+                      label: SEVERITY_LABELS[s],
+                    }))}
+                    onChange={(v) => setSeverity(v as typeof severity)}
+                  />
+                </label>
+                <label>
+                  <span className={WPSTD_FORM_FIELD_LABEL}>Ansvarlig</span>
+                  <SearchableSelect value={assignedTo} options={assignSelectOptions} onChange={(v) => setAssignedTo(v)} />
+                </label>
+                <label className="sm:col-span-2">
+                  <span className={WPSTD_FORM_FIELD_LABEL}>Tilknyttet sjekklistepunkt (valgfri)</span>
+                  <SearchableSelect
+                    value={linkedItemKey}
+                    options={[
+                      { value: '', label: '(Ingen)' },
+                      ...checklistItems.map((ci) => ({ value: ci.key, label: ci.label })),
+                    ]}
+                    onChange={(v) => setLinkedItemKey(v)}
+                  />
+                </label>
+                <div className="sm:col-span-2">
+                  <span className={WPSTD_FORM_FIELD_LABEL}>Risiko (sannsynlighet × konsekvens)</span>
+                  <div className="mt-1.5 rounded-md border border-neutral-200 bg-white p-3">
+                    <RiskMatrix
+                      probability={findingProb}
+                      consequence={findingCons}
+                      onChange={(p, c) => {
+                        setFindingProb(p)
+                        setFindingCons(c)
+                      }}
+                      size="sm"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {!editingFindingId ? (
+                  <>
+                    <Button type="button" variant="primary" disabled={!description.trim() || saving} onClick={() => void handleSave()}>
+                      {saving ? 'Lagrer…' : 'Opprett avvik'}
+                    </Button>
+                    <Button type="button" variant="secondary" disabled={saving} onClick={() => resetForm()}>
+                      Avbryt
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button type="button" variant="secondary" disabled={saving} onClick={() => resetForm()}>
+                      Avbryt
+                    </Button>
+                    <Button type="button" variant="primary" disabled={!description.trim() || saving} onClick={() => void handleSave()}>
+                      {saving ? 'Lagrer…' : 'Lagre endringer'}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -999,6 +1125,7 @@ export function InspectionRoundPage() {
 
   const [activeTab, setActiveTab] = useState<PanelTab>('checklist')
   const [findingPrefillKey, setFindingPrefillKey] = useState<string | null>(null)
+  const clearFindingPrefill = useCallback(() => setFindingPrefillKey(null), [])
   const [selectedDeviationId, setSelectedDeviationId] = useState<string | null>(null)
   const [detailStarted, setDetailStarted] = useState(false)
 
@@ -1227,12 +1354,12 @@ export function InspectionRoundPage() {
               </div>
             )}
             <FindingsTab
-              key={`${round.id}-${findingPrefillKey ?? ''}`}
               round={round}
               inspection={inspection}
               prefillItemKey={findingPrefillKey}
               checklistItems={checklistItems}
               onOpenDeviation={(id) => setSelectedDeviationId(id)}
+              onPrefillConsumed={clearFindingPrefill}
             />
           </div>
         )}
