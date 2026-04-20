@@ -4,12 +4,17 @@ export type AssignableUser = { id: string; displayName: string }
 
 /**
  * Loads org profiles for user pickers (inspection, SJA, avvik, etc.).
+ * When `organizationId` is set, results are restricted to that tenant.
  */
-export async function fetchAssignableUsers(supabase: SupabaseClient): Promise<AssignableUser[]> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, display_name')
-    .order('display_name', { ascending: true })
+export async function fetchAssignableUsers(
+  supabase: SupabaseClient,
+  organizationId?: string | null,
+): Promise<AssignableUser[]> {
+  let q = supabase.from('profiles').select('id, display_name')
+  if (organizationId) {
+    q = q.eq('organization_id', organizationId)
+  }
+  const { data, error } = await q.order('display_name', { ascending: true })
   if (error) {
     console.warn('fetchAssignableUsers', error.message)
     return []

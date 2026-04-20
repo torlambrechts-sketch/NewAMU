@@ -19,6 +19,10 @@ export const PERMISSION_KEYS = [
   'ik.manage',
   /** Redigere ROS (risikovurderinger) */
   'ros.manage',
+  /** Redigere SJA (sikker jobbanalyse) */
+  'sja.manage',
+  /** Redigere inspeksjonsmodul (maler, lokasjoner, runder) */
+  'inspection.manage',
   /** Redigere tiltaksplan, kategorier og arbeidsflyt (IK) */
   'action_plan.manage',
   /** Varslingsmottak — full innsyn i whistleblowing_cases (AML kap. 2A) */
@@ -67,6 +71,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'internkontroll.manage': 'Internkontroll — redigere data',
   'ik.manage': 'Internkontroll — redigere data (alias)',
   'ros.manage': 'ROS — redigere risikovurderinger',
+  'sja.manage': 'SJA — redigere analyser og maler',
+  'inspection.manage': 'Inspeksjonsmodul — redigere runder og innstillinger',
   'action_plan.manage': 'Tiltaksplan — kategorier og arbeidsflyt',
   'whistleblowing.committee': 'Varslingsmottak',
   'module.view.tasks': 'Tasks',
