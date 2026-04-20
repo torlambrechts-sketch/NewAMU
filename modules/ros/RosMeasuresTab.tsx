@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
-import type { RosAnalysisRow, RosHazardRow, RosMeasureRow, RosControlType } from './types'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
+import type { RosAnalysisRow, RosHazardRow, RosMeasureRow, RosControlType, RosMeasureStatus } from './types'
 import { CONTROL_TYPE_LABEL, CONTROL_TYPE_COLOR, CONTROL_TYPE_RANK } from './types'
 import type { RosState } from './useRos'
 import { Button } from '../../src/components/ui/Button'
@@ -26,6 +26,16 @@ const TH =
   'border-b border-neutral-200 bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500'
 
 const TR_BODY = 'border-b border-neutral-100 last:border-b-0 transition-colors hover:bg-neutral-50'
+
+function emptyMeasureForm() {
+  return {
+    description: '',
+    control_type: 'administrative' as RosControlType,
+    assigned_to_name: '',
+    due_date: '',
+    status: 'open' as RosMeasureStatus,
+  }
+}
 
 function measureStatusBadge(status: RosMeasureRow['status']): BadgeVariant {
   switch (status) {
@@ -59,12 +69,8 @@ export function RosMeasuresTab({
 }) {
   const readOnly = analysis.status === 'approved' || analysis.status === 'archived'
   const [addingForHazard, setAddingForHazard] = useState<string | null>(null)
-  const [form, setForm] = useState({
-    description: '',
-    control_type: 'administrative' as RosControlType,
-    assigned_to_name: '',
-    due_date: '',
-  })
+  const [editingMeasureId, setEditingMeasureId] = useState<string | null>(null)
+  const [form, setForm] = useState(emptyMeasureForm)
   const [saving, setSaving] = useState(false)
   const [hazardPickForAdd, setHazardPickForAdd] = useState('')
 
@@ -95,6 +101,30 @@ export function RosMeasuresTab({
     return rows
   }, [hazards, measures])
 
+  function beginEditMeasure(m: RosMeasureRow) {
+    setAddingForHazard(null)
+    setEditingMeasureId(m.id)
+    setForm({
+      description: m.description,
+      control_type: m.control_type,
+      assigned_to_name: m.assigned_to_name ?? '',
+      due_date: m.due_date ?? '',
+      status: m.status,
+    })
+  }
+
+  function beginAddMeasure(hazardId: string) {
+    setEditingMeasureId(null)
+    setForm(emptyMeasureForm())
+    setAddingForHazard(hazardId)
+  }
+
+  function cancelBottomForm() {
+    setAddingForHazard(null)
+    setEditingMeasureId(null)
+    setForm(emptyMeasureForm())
+  }
+
   const open = measures.filter((m) => m.status === 'open').length
   const overdue = measures.filter((m) => m.status !== 'completed' && m.due_date && new Date(m.due_date) < new Date()).length
   const completed = measures.filter((m) => m.status === 'completed').length
@@ -109,18 +139,31 @@ export function RosMeasuresTab({
     [measures.length, open, overdue, completed],
   )
 
-  async function handleAddMeasure(hazardId: string) {
-    if (!form.description.trim()) return
+  async function handleCreate() {
+    if (!addingForHazard || !form.description.trim()) return
     setSaving(true)
-    await ros.upsertMeasure(analysis.id, hazardId, {
+    await ros.upsertMeasure(analysis.id, addingForHazard, {
       description: form.description,
       control_type: form.control_type,
       assigned_to_name: form.assigned_to_name || null,
       due_date: form.due_date || null,
     })
     setSaving(false)
-    setAddingForHazard(null)
-    setForm({ description: '', control_type: 'administrative', assigned_to_name: '', due_date: '' })
+    cancelBottomForm()
+  }
+
+  async function handleSaveEdit() {
+    if (!editingMeasureId || !form.description.trim()) return
+    setSaving(true)
+    await ros.updateMeasure(analysis.id, editingMeasureId, {
+      description: form.description.trim(),
+      control_type: form.control_type,
+      assigned_to_name: form.assigned_to_name || null,
+      due_date: form.due_date || null,
+      status: form.status,
+    })
+    setSaving(false)
+    cancelBottomForm()
   }
 
   const targetHazardIdForAdd = useMemo(() => {
@@ -129,6 +172,11 @@ export function RosMeasuresTab({
     if (hazardPickForAdd && hazards.some((h) => h.id === hazardPickForAdd)) return hazardPickForAdd
     return ''
   }, [hazards, hazardPickForAdd])
+
+  const editingMeasure = useMemo(
+    () => (editingMeasureId ? measures.find((m) => m.id === editingMeasureId) ?? null : null),
+    [editingMeasureId, measures],
+  )
 
   const headerActions = (
     <>
@@ -149,7 +197,7 @@ export function RosMeasuresTab({
           icon={<Plus className="h-4 w-4" />}
           disabled={hazards.length === 0 || !targetHazardIdForAdd}
           onClick={() => {
-            if (targetHazardIdForAdd) setAddingForHazard(targetHazardIdForAdd)
+            if (targetHazardIdForAdd) beginAddMeasure(targetHazardIdForAdd)
           }}
         >
           Legg til tiltak
@@ -175,6 +223,8 @@ export function RosMeasuresTab({
       </div>
     </div>
   )
+
+  const showBottomForm = !readOnly && (addingForHazard !== null || editingMeasureId !== null)
 
   return (
     <div className="space-y-6">
@@ -202,6 +252,7 @@ export function RosMeasuresTab({
             <tbody>
               {measureRows.map(({ hazard: h, measure: m }) => {
                 const isOverdue = m.status !== 'completed' && m.due_date && new Date(m.due_date) < new Date()
+                const rowIsBeingEdited = editingMeasureId === m.id
                 return (
                   <tr key={m.id} className={TR_BODY}>
                     <td className="max-w-[min(28rem,40vw)] px-5 py-4 align-middle">
@@ -220,7 +271,7 @@ export function RosMeasuresTab({
                       </span>
                     </td>
                     <td className="px-5 py-4 align-middle">
-                      {!readOnly ? (
+                      {!readOnly && !rowIsBeingEdited ? (
                         <div className="w-44">
                           <SearchableSelect
                             value={m.status}
@@ -243,17 +294,27 @@ export function RosMeasuresTab({
                     </td>
                     <td className="px-5 py-4 text-right align-middle">
                       {!readOnly && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Slett tiltak"
-                          onClick={() => {
-                            if (window.confirm('Slette dette tiltaket?')) void ros.deleteMeasure(analysis.id, m.id)
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
+                        <div className="inline-flex justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            icon={<Pencil className="h-4 w-4" />}
+                            aria-label="Rediger tiltak"
+                            onClick={() => beginEditMeasure(m)}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Slett tiltak"
+                            onClick={() => {
+                              if (window.confirm('Slette dette tiltaket?')) void ros.deleteMeasure(analysis.id, m.id)
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -276,10 +337,15 @@ export function RosMeasuresTab({
             </tbody>
           </table>
 
-          {addingForHazard && !readOnly && (
+          {showBottomForm && (
             <div className="border-t border-neutral-100 bg-neutral-50/80 px-5 py-4 md:px-6">
-              <p className="mb-3 text-xs font-medium text-neutral-700">
-                Nytt tiltak · {hazardById[addingForHazard]?.description ?? 'Farekilde'}
+              <p className="mb-3 text-sm font-semibold text-neutral-900">{editingMeasureId ? 'Rediger tiltak' : 'Legg til tiltak'}</p>
+              <p className="mb-3 text-xs text-neutral-600">
+                {editingMeasureId && editingMeasure
+                  ? hazardById[editingMeasure.hazard_id]?.description ?? 'Farekilde'
+                  : addingForHazard
+                    ? `Nytt tiltak · ${hazardById[addingForHazard]?.description ?? 'Farekilde'}`
+                    : null}
               </p>
               <div className="space-y-3">
                 <label>
@@ -299,6 +365,16 @@ export function RosMeasuresTab({
                       onChange={(v) => setForm((p) => ({ ...p, control_type: v as RosControlType }))}
                     />
                   </label>
+                  {editingMeasureId ? (
+                    <label>
+                      <span className={WPSTD_FORM_FIELD_LABEL}>Status</span>
+                      <SearchableSelect
+                        value={form.status}
+                        options={MEASURE_STATUS_OPTIONS}
+                        onChange={(v) => setForm((p) => ({ ...p, status: v as RosMeasureStatus }))}
+                      />
+                    </label>
+                  ) : null}
                   <label>
                     <span className={WPSTD_FORM_FIELD_LABEL}>Ansvarlig</span>
                     <StandardInput
@@ -312,18 +388,36 @@ export function RosMeasuresTab({
                     <StandardInput type="date" value={form.due_date} onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))} />
                   </label>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="primary"
-                    onClick={() => void handleAddMeasure(addingForHazard)}
-                    disabled={saving || !form.description.trim()}
-                  >
-                    {saving ? 'Lagrer…' : 'Lagre tiltak'}
-                  </Button>
-                  <Button type="button" variant="secondary" onClick={() => setAddingForHazard(null)}>
-                    Avbryt
-                  </Button>
+                <div className="flex flex-wrap gap-2">
+                  {!editingMeasureId ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="primary"
+                        onClick={() => void handleCreate()}
+                        disabled={saving || !form.description.trim() || !addingForHazard}
+                      >
+                        {saving ? 'Lagrer…' : 'Legg til tiltak'}
+                      </Button>
+                      <Button type="button" variant="secondary" onClick={cancelBottomForm}>
+                        Avbryt
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button type="button" variant="secondary" onClick={cancelBottomForm}>
+                        Avbryt
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="primary"
+                        onClick={() => void handleSaveEdit()}
+                        disabled={saving || !form.description.trim()}
+                      >
+                        {saving ? 'Lagrer…' : 'Lagre endringer'}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

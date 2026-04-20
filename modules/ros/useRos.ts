@@ -396,6 +396,42 @@ export function useRos({ supabase }: { supabase: SupabaseClient | null }) {
     [supabase, orgId, canManage, assertMutable, loadDetail],
   )
 
+  const updateMeasure = useCallback(
+    async (rosId: string, measureId: string, updates: Partial<RosMeasureRow>) => {
+      if (!supabase || !orgId || !canManage) return
+      setError(null)
+      try {
+        const analysisRow = analyses.find((a) => a.id === rosId)
+        if (!analysisRow) throw new Error('Fant ikke analysen')
+        const status = analysisRow.status as string
+        if (status === 'signed' || status === 'approved') {
+          throw new Error('Analysen er signert eller godkjent og kan ikke endres.')
+        }
+        assertMutable(rosId)
+
+        const patch: Record<string, unknown> = {}
+        const skip = new Set(['id', 'ros_id', 'organization_id', 'created_at', 'updated_at'])
+        for (const [key, val] of Object.entries(updates)) {
+          if (skip.has(key)) continue
+          if (val === undefined) continue
+          patch[key] = val
+        }
+        if (Object.keys(patch).length === 0) return
+
+        const { error: e } = await supabase
+          .from('ros_measures')
+          .update(patch)
+          .eq('id', measureId)
+          .eq('organization_id', orgId)
+        if (e) throw e
+        await loadDetail(rosId)
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+      }
+    },
+    [supabase, orgId, canManage, analyses, assertMutable, loadDetail],
+  )
+
   const signAnalysis = useCallback(
     async (rosId: string, role: 'responsible' | 'verneombud', signerName: string) => {
       if (!supabase || !orgId) return false
@@ -668,6 +704,7 @@ export function useRos({ supabase }: { supabase: SupabaseClient | null }) {
     upsertHazard,
     deleteHazard,
     upsertMeasure,
+    updateMeasure,
     deleteMeasure,
     signAnalysis,
     upsertProbabilityLevel,
