@@ -21,6 +21,8 @@ export const PERMISSION_KEYS = [
   'ros.manage',
   /** Redigere tiltaksplan, kategorier og arbeidsflyt (IK) */
   'action_plan.manage',
+  /** Konfigurere/kjøre organisasjonsundersøkelser (ny modul) */
+  'survey.manage',
   /** Varslingsmottak — full innsyn i whistleblowing_cases (AML kap. 2A) */
   'whistleblowing.committee',
   'module.view.tasks',
@@ -68,6 +70,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'ik.manage': 'Internkontroll — redigere data (alias)',
   'ros.manage': 'ROS — redigere risikovurderinger',
   'action_plan.manage': 'Tiltaksplan — kategorier og arbeidsflyt',
+  'survey.manage': 'Undersøkelse — administrasjon',
   'whistleblowing.committee': 'Varslingsmottak',
   'module.view.tasks': 'Tasks',
   'module.view.learning': 'E-learning',

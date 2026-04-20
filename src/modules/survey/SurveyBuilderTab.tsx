@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus, Trash2, Download, Shield, GripVertical } from 'lucide-react'
-import type { SurveyModuleState } from './useSurvey'
+import type { SurveyModuleState } from './useSurveyLegacy'
 import type { SurveyCampaignRow, SurveyPillar, SurveyQuestionType } from './types'
 import { PILLAR_LABEL } from './types'
 

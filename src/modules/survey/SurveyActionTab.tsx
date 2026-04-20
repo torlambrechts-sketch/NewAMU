@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CheckSquare } from 'lucide-react'
-import type { SurveyModuleState } from './useSurvey'
+import type { SurveyModuleState } from './useSurveyLegacy'
 import type { SurveyCampaignRow, SurveyActionPlanRow, SurveyActionStatus } from './types'
 import { ACTION_STATUS_LABEL, ACTION_STATUS_COLOR, PILLAR_LABEL, scoreColor } from './types'
 

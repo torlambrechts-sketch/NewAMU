@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ClipboardList, Plus, Calendar, ChevronRight, AlertTriangle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useSurvey } from './useSurvey'
+import { useSurveyLegacy } from './useSurveyLegacy'
 import type { SurveyCampaignRow, SurveyPillar } from './types'
 import { PILLAR_LABEL, PILLAR_COLOR, STATUS_LABEL, STATUS_COLOR } from './types'
 
@@ -15,7 +15,7 @@ const FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral
 type Props = { supabase: SupabaseClient | null }
 
 export function SurveyModuleView({ supabase }: Props) {
-  const survey = useSurvey({ supabase })
+  const survey = useSurveyLegacy({ supabase })
   const navigate = useNavigate()
   const [showNew, setShowNew] = useState(false)
   const [form, setForm] = useState({ title: '', pillar: 'psychosocial' as SurveyPillar, closesAt: '' })

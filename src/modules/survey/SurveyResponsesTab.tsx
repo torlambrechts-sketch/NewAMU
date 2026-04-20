@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { Copy, CheckCircle, Lock } from 'lucide-react'
-import type { SurveyModuleState } from './useSurvey'
+import type { SurveyModuleState } from './useSurveyLegacy'
 import type { SurveyCampaignRow, SurveyQuestionRow } from './types'
 
 const BTN_PRIMARY =
