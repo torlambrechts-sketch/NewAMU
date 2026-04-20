@@ -51,7 +51,14 @@ function rosStatusBadgeVariant(status: RosStatus) {
   }
 }
 
-export function RosModuleView({ supabase }: { supabase: SupabaseClient | null }) {
+export function RosModuleView({
+  supabase,
+  hideAdminNav = false,
+}: {
+  supabase: SupabaseClient | null
+  /** When module root uses tabs to admin, hide duplicate «Innstillinger» button */
+  hideAdminNav?: boolean
+}) {
   const navigate = useNavigate()
   const ros = useRos({ supabase })
   const [search, setSearch] = useState('')
@@ -95,10 +102,12 @@ export function RosModuleView({ supabase }: { supabase: SupabaseClient | null })
         description="Kartlegg og dokumenter risikoer i henhold til IK-forskriften § 5 nr. 6 på tvers av AML, BVL, ETL, FL og PKL."
         headerActions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" type="button" onClick={() => navigate('/ros/admin')}>
-              <Settings className="h-4 w-4" />
-              Innstillinger
-            </Button>
+            {!hideAdminNav && (
+              <Button variant="secondary" type="button" onClick={() => navigate('/ros/admin')}>
+                <Settings className="h-4 w-4" />
+                Innstillinger
+              </Button>
+            )}
             <Button variant="primary" type="button" onClick={() => setCreateOpen(true)}>
               + Ny analyse
             </Button>

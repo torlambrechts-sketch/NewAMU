@@ -52,7 +52,9 @@ const TAB_ICONS: Record<AdminTab, ElementType> = {
   arbeidsflyt: GitBranch,
 }
 
-export function RosModuleAdminPage() {
+type RosModuleAdminPageProps = { embedded?: boolean }
+
+export function RosModuleAdminPage({ embedded = false }: RosModuleAdminPageProps) {
   const navigate = useNavigate()
   const { supabase, organization } = useOrgSetupContext()
   const ros = useRos({ supabase })
@@ -84,17 +86,25 @@ export function RosModuleAdminPage() {
     [shellTabs],
   )
 
+  const shellClass = embedded ? 'space-y-6' : 'mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8'
+
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
+    <div className={shellClass}>
       <WorkplacePageHeading1
-        breadcrumb={[{ label: 'HMS' }, { label: 'ROS-analyser', to: '/ros' }, { label: 'Administrasjon' }]}
-        title="ROS Administrasjon"
+        breadcrumb={
+          embedded
+            ? [{ label: 'HMS' }, { label: 'ROS-analyser' }]
+            : [{ label: 'HMS' }, { label: 'ROS-analyser', to: '/ros' }, { label: 'Administrasjon' }]
+        }
+        title={embedded ? 'Innstillinger' : 'ROS Administrasjon'}
         description="Konfigurer modulen, fare- og konsekvenskategorier, standardmaler og automatiserte arbeidsflyter — samme mønster som inspeksjonsmodulen."
         headerActions={
-          <Button variant="secondary" type="button" onClick={() => navigate('/ros')}>
-            <ArrowLeft className="h-4 w-4" />
-            Tilbake til analyser
-          </Button>
+          embedded ? null : (
+            <Button variant="secondary" type="button" onClick={() => navigate('/ros')}>
+              <ArrowLeft className="h-4 w-4" />
+              Tilbake til analyser
+            </Button>
+          )
         }
       />
 

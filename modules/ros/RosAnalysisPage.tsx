@@ -105,7 +105,7 @@ export function RosAnalysisPage({ supabase }: { supabase: SupabaseClient | null 
 
   return (
     <div className="min-h-screen bg-[#F9F7F2]">
-      <header className="sticky top-0 z-30 bg-[#F9F7F2]/95 backdrop-blur-sm">
+      <header className="bg-[#F9F7F2]">
         <div className="mx-auto max-w-[1400px] px-4 pb-4 pt-4 md:px-8">
           <WorkplacePageHeading1
             breadcrumb={[{ label: 'HMS' }, { label: 'ROS-analyser', to: '/ros' }, { label: analysis.title }]}

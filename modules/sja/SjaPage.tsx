@@ -510,7 +510,7 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
 
   return (
     <div className="min-h-full pb-10" style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}>
-      <header className="sticky top-0 z-30 bg-[#F9F7F2]/95 backdrop-blur-sm">
+      <header className="bg-[#F9F7F2]">
         <div className="mx-auto max-w-[1400px] px-4 pb-4 pt-4 md:px-8">
           <WorkplacePageHeading1
             breadcrumb={[
