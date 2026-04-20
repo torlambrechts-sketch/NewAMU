@@ -7,6 +7,7 @@ import {
   BookMarked,
   BookOpen,
   Building2,
+  Calendar,
   CalendarRange,
   CalendarCheck,
   ClipboardList,
@@ -122,11 +123,6 @@ const internkontrollSubs: SubItem[] = [
     label: 'ROS-analyse',
     path: '/internal-control?tab=ros',
     match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'ros',
-  },
-  {
-    label: 'Årsgjennomgang',
-    path: '/internkontroll/arsgjenomgang',
-    match: ({ pathname }) => pathname === '/internkontroll/arsgjenomgang',
   },
 ]
 
@@ -495,6 +491,26 @@ const navGroups: NavGroup[] = [
         icon: BookMarked,
         subs: internkontrollSubs,
         perm: 'module.view.internal_control',
+      },
+      {
+        to: '/internkontroll/arsgjenomgang',
+        label: 'Årsgjennomgang',
+        end: false,
+        icon: Calendar,
+        subs: [
+          {
+            label: 'Dokument',
+            path: '/internkontroll/arsgjenomgang',
+            match: ({ pathname }) => pathname === '/internkontroll/arsgjenomgang',
+          },
+          {
+            label: 'Innstillinger',
+            path: '/internkontroll/admin',
+            match: ({ pathname }) => pathname === '/internkontroll/admin',
+          },
+        ],
+        perm: 'module.view.internal_control',
+        moduleSlug: 'ik-annual-review',
       },
       {
         to: '/sja',
