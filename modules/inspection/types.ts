@@ -125,6 +125,9 @@ export type InspectionFindingRow = {
   photo_path: string | null
   created_by: string | null
   deviation_id: string | null
+  /** Populated when loading with embedded `deviations` join (Ansvarlig / status in list). */
+  deviation_assigned_to?: string | null
+  deviation_status?: string | null
   workflow_processed_at: string | null
   /** Soft-delete — null means active */
   deleted_at?: string | null

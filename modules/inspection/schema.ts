@@ -121,6 +121,8 @@ export const InspectionFindingRowSchema: z.ZodType<InspectionFindingRow> = z.obj
   photo_path: z.string().nullable(),
   created_by: z.string().uuid().nullable(),
   deviation_id: z.string().uuid().nullable(),
+  deviation_assigned_to: z.string().uuid().nullable().optional(),
+  deviation_status: z.string().nullable().optional(),
   workflow_processed_at: z.string().nullable(),
   deleted_at: z.string().nullable().optional(),
   created_at: TimestampSchema,

@@ -89,7 +89,8 @@ export type InspectionModuleState = {
     photoPath?: string
     riskProbability?: number
     riskConsequence?: number
-  }) => Promise<void>
+    assignedTo?: string | null
+  }) => Promise<boolean>
   updateFinding: (payload: {
     findingId: string
     description: string
@@ -97,7 +98,8 @@ export type InspectionModuleState = {
     itemId?: string | null
     riskProbability?: number | null
     riskConsequence?: number | null
-  }) => Promise<void>
+    assignedTo?: string | null
+  }) => Promise<boolean>
   deleteFinding: (findingId: string) => Promise<void>
   createDeviationFromFinding: (findingId: string) => Promise<string | null>
 }
@@ -236,7 +238,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         // Load findings separately so a failures here never blocks checklist items above.
         const findingsRes = await supabase
           .from('inspection_findings')
-          .select('*')
+          .select('*, deviations(assigned_to, status)')
           .eq('round_id', roundId)
           .order('created_at', { ascending: false })
         let nextFindings: InspectionFindingRow[] = []
@@ -244,7 +246,22 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
           setError(findingsRes.error.message)
         } else {
           nextFindings = parseRows<InspectionFindingRow>(findingsRes.data ?? [], (row) => {
-            const parsed = InspectionFindingRowSchema.safeParse(row)
+            const r = row as Record<string, unknown>
+            const dev = r.deviations
+            let deviation_assigned_to: string | null | undefined
+            let deviation_status: string | null | undefined
+            if (dev && typeof dev === 'object') {
+              const d = Array.isArray(dev) ? dev[0] : dev
+              if (d && typeof d === 'object') {
+                const o = d as Record<string, unknown>
+                deviation_assigned_to = o.assigned_to == null ? null : String(o.assigned_to)
+                deviation_status = o.status == null ? null : String(o.status)
+              }
+            }
+            const { deviations, ...rest } = r
+            void deviations
+            const merged = { ...rest, deviation_assigned_to, deviation_status }
+            const parsed = InspectionFindingRowSchema.safeParse(merged)
             if (!parsed.success) return null
             const del = parsed.data.deleted_at
             if (del != null && String(del).trim() !== '') return null
@@ -582,10 +599,11 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       photoPath?: string
       riskProbability?: number
       riskConsequence?: number
-    }) => {
+      assignedTo?: string | null
+    }): Promise<boolean> => {
       if (!supabase) {
         setError('Supabase is not configured.')
-        return
+        return false
       }
       setError(null)
       const desc = payload.description.trim()
@@ -601,13 +619,13 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
           .maybeSingle()
         if (rErr || !rRow) {
           setError(rErr?.message ?? 'Fant ikke runden.')
-          return
+          return false
         }
         organizationId = String((rRow as { organization_id: string }).organization_id)
       }
       if (!organizationId) {
         setError('Mangler organisasjon for runden.')
-        return
+        return false
       }
 
       const titleBase = desc.slice(0, 80)
@@ -618,6 +636,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         description: desc,
         severity: payload.severity,
         status: 'rapportert',
+        assigned_to: payload.assignedTo?.trim() ? payload.assignedTo : null,
       }
       const { data: devRow, error: devErr } = await supabase
         .from('deviations')
@@ -645,18 +664,29 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
           deviation_id: deviationId,
           workflow_processed_at: new Date().toISOString(),
         }
-        const ins = await supabase.from('inspection_findings').insert(findingInsert).select('*').single()
+        const ins = await supabase
+          .from('inspection_findings')
+          .insert(findingInsert)
+          .select('*, deviations(assigned_to, status)')
+          .single()
         data = ins.data
         insertError = ins.error
         if (!insertError && ins.data) {
           const fid = String((ins.data as { id: string }).id)
           const { error: linkErr } = await supabase.from('deviations').update({ source_id: fid }).eq('id', deviationId)
-          if (linkErr) setError(linkErr.message)
+          if (linkErr) {
+            setError(linkErr.message)
+            return false
+          }
         } else if (insertError) {
           await supabase.from('deviations').delete().eq('id', deviationId)
         }
       } else {
-        const ins = await supabase.from('inspection_findings').insert(findingBase).select('*').single()
+        const ins = await supabase
+          .from('inspection_findings')
+          .insert(findingBase)
+          .select('*, deviations(assigned_to, status)')
+          .single()
         data = ins.data
         insertError = ins.error
         if (devErr && !insertError) {
@@ -668,15 +698,33 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
 
       if (insertError) {
         setError(insertError.message)
-        return
+        return false
       }
 
-      const parsed = InspectionFindingRowSchema.safeParse(data)
+      const rowNorm = (() => {
+        const r = data as Record<string, unknown>
+        const dev = r.deviations
+        let deviation_assigned_to: string | null | undefined
+        let deviation_status: string | null | undefined
+        if (dev && typeof dev === 'object') {
+          const d = Array.isArray(dev) ? dev[0] : dev
+          if (d && typeof d === 'object') {
+            const o = d as Record<string, unknown>
+            deviation_assigned_to = o.assigned_to == null ? null : String(o.assigned_to)
+            deviation_status = o.status == null ? null : String(o.status)
+          }
+        }
+        const { deviations, ...rest } = r
+        void deviations
+        return { ...rest, deviation_assigned_to, deviation_status }
+      })()
+      const parsed = InspectionFindingRowSchema.safeParse(rowNorm)
       if (!parsed.success) {
         setError('Kunne ikke lese opprettet avvik/funn.')
-        return
+        return false
       }
       setFindings((previous) => [parsed.data, ...previous])
+      return true
     },
     [supabase, rounds],
   )
@@ -689,15 +737,16 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       itemId?: string | null
       riskProbability?: number | null
       riskConsequence?: number | null
-    }) => {
+      assignedTo?: string | null
+    }): Promise<boolean> => {
       if (!supabase) {
         setError('Supabase is not configured.')
-        return
+        return false
       }
       const finding = findings.find((f) => f.id === payload.findingId)
       if (!finding) {
         setError('Fant ikke avviket.')
-        return
+        return false
       }
       setError(null)
       const desc = payload.description.trim()
@@ -712,32 +761,62 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .from('inspection_findings')
         .update(row)
         .eq('id', payload.findingId)
-        .select('*')
+        .select('*, deviations(assigned_to, status)')
         .single()
       if (upErr) {
         setError(upErr.message)
-        return
+        return false
       }
-      const parsed = InspectionFindingRowSchema.safeParse(data)
+      const rowNorm = (() => {
+        const r = data as Record<string, unknown>
+        const dev = r.deviations
+        let deviation_assigned_to: string | null | undefined
+        let deviation_status: string | null | undefined
+        if (dev && typeof dev === 'object') {
+          const d = Array.isArray(dev) ? dev[0] : dev
+          if (d && typeof d === 'object') {
+            const o = d as Record<string, unknown>
+            deviation_assigned_to = o.assigned_to == null ? null : String(o.assigned_to)
+            deviation_status = o.status == null ? null : String(o.status)
+          }
+        }
+        const { deviations, ...rest } = r
+        void deviations
+        return { ...rest, deviation_assigned_to, deviation_status }
+      })()
+      const parsed = InspectionFindingRowSchema.safeParse(rowNorm)
       if (!parsed.success) {
         setError('Kunne ikke lese oppdatert avvik.')
-        return
+        return false
       }
 
       if (finding.deviation_id) {
         const titleBase = desc.slice(0, 80)
-        const { error: devUpErr } = await supabase
-          .from('deviations')
-          .update({
-            title: `Avvik: ${titleBase}`,
-            description: desc,
-            severity: payload.severity,
-          })
-          .eq('id', finding.deviation_id)
-        if (devUpErr) setError(devUpErr.message)
+        const devPatch: Record<string, unknown> = {
+          title: `Avvik: ${titleBase}`,
+          description: desc,
+          severity: payload.severity,
+        }
+        if (payload.assignedTo !== undefined) {
+          devPatch.assigned_to = payload.assignedTo?.trim() ? payload.assignedTo : null
+        }
+        const { error: devUpErr } = await supabase.from('deviations').update(devPatch).eq('id', finding.deviation_id)
+        if (devUpErr) {
+          setError(devUpErr.message)
+          return false
+        }
       }
 
-      setFindings((previous) => previous.map((f) => (f.id === payload.findingId ? parsed.data : f)))
+      let mergedFinding = parsed.data
+      if (finding.deviation_id && payload.assignedTo !== undefined) {
+        mergedFinding = {
+          ...parsed.data,
+          deviation_assigned_to: payload.assignedTo?.trim() ? payload.assignedTo : null,
+        }
+      }
+
+      setFindings((previous) => previous.map((f) => (f.id === payload.findingId ? mergedFinding : f)))
+      return true
     },
     [supabase, findings],
   )
@@ -825,13 +904,30 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .from('inspection_findings')
         .update({ deviation_id: newDeviationId })
         .eq('id', findingId)
-        .select('*')
+        .select('*, deviations(assigned_to, status)')
         .single()
       if (linkErr || !updatedFinding) {
         setError(linkErr?.message ?? 'Avvik opprettet, men kunne ikke koble til funn.')
         return newDeviationId
       }
-      const parsed = InspectionFindingRowSchema.safeParse(updatedFinding)
+      const rowNorm = (() => {
+        const r = updatedFinding as Record<string, unknown>
+        const dev = r.deviations
+        let deviation_assigned_to: string | null | undefined
+        let deviation_status: string | null | undefined
+        if (dev && typeof dev === 'object') {
+          const d = Array.isArray(dev) ? dev[0] : dev
+          if (d && typeof d === 'object') {
+            const o = d as Record<string, unknown>
+            deviation_assigned_to = o.assigned_to == null ? null : String(o.assigned_to)
+            deviation_status = o.status == null ? null : String(o.status)
+          }
+        }
+        const { deviations, ...rest } = r
+        void deviations
+        return { ...rest, deviation_assigned_to, deviation_status }
+      })()
+      const parsed = InspectionFindingRowSchema.safeParse(rowNorm)
       if (!parsed.success) {
         setError('Kunne ikke lese oppdatert funn.')
         return newDeviationId
