@@ -90,7 +90,13 @@ export function RosModuleView({
   )
 
   const templateOptions: SelectOption[] = useMemo(() => {
-    const rows = ros.templates.filter((t) => t.is_active).map((t) => ({ value: t.id, label: t.name }))
+    const rows = ros.templates
+      .filter((t) => t.is_active)
+      .map((t) => ({
+        value: t.id,
+        label: t.name,
+        suffix: t.organization_id == null ? <Badge variant="info">System</Badge> : undefined,
+      }))
     return [{ value: '', label: '(ingen mal)' }, ...rows]
   }, [ros.templates])
 

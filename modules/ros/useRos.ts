@@ -93,13 +93,11 @@ export function useRos({ supabase }: { supabase: SupabaseClient | null }) {
         supabase
           .from('ros_hazard_categories')
           .select('*')
-          .eq('organization_id', orgId)
           .is('deleted_at', null)
           .order('sort_order', { ascending: true }),
         supabase
           .from('ros_templates')
           .select('*')
-          .eq('organization_id', orgId)
           .is('deleted_at', null)
           .order('updated_at', { ascending: false }),
         supabase.from('ros_module_settings').select('*').eq('organization_id', orgId).maybeSingle(),
@@ -115,12 +113,25 @@ export function useRos({ supabase }: { supabase: SupabaseClient | null }) {
 
       setProbabilityScale(collectParsed(pRes.data, parseRosProbabilityScaleLevelRow))
       setConsequenceCategories(collectParsed(cRes.data, parseRosConsequenceCategoryRow))
-      setHazardCategories(collectParsed(hRes.data, parseRosHazardCategoryRow))
+      const hazRows = collectParsed(hRes.data, parseRosHazardCategoryRow).sort((a, b) => {
+        const ag = a.organization_id == null ? 0 : 1
+        const bg = b.organization_id == null ? 0 : 1
+        if (ag !== bg) return ag - bg
+        if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
+        return a.label.localeCompare(b.label, 'nb')
+      })
+      setHazardCategories(hazRows)
       const tplRows: ParsedRosTemplateRow[] = []
       for (const raw of tRes.data ?? []) {
         const parsed = parseRosTemplateRow(raw)
         if (parsed) tplRows.push(parsed)
       }
+      tplRows.sort((a, b) => {
+        const ag = a.organization_id == null ? 0 : 1
+        const bg = b.organization_id == null ? 0 : 1
+        if (ag !== bg) return ag - bg
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      })
       setTemplates(tplRows)
     } catch (err) {
       setError(getSupabaseErrorMessage(err))

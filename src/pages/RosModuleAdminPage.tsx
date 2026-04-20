@@ -29,6 +29,7 @@ import { Button } from '../components/ui/Button'
 import { Tabs } from '../components/ui/Tabs'
 import { WarningBox } from '../components/ui/AlertBox'
 import { SearchableSelect, type SelectOption } from '../components/ui/SearchableSelect'
+import { Badge } from '../components/ui/Badge'
 import { ToggleSwitch } from '../components/ui/FormToggles'
 import type { ParsedRosTemplateRow } from '../../modules/ros/schema'
 import { RosTemplateDefinitionSchema } from '../../modules/ros/schema'
@@ -37,6 +38,14 @@ import { ALL_LAW_DOMAINS } from '../../modules/ros/types'
 
 const CARD = 'rounded-xl border border-neutral-200/80 bg-white shadow-sm'
 const CARD_SHADOW = { boxShadow: '0 1px 2px rgba(0,0,0,0.04)' } as const
+
+function isRosSystemEntity(organizationId: string | null | undefined): boolean {
+  return organizationId == null
+}
+
+function SystemBadge() {
+  return <Badge variant="info">System</Badge>
+}
 
 const MATRIX_SIZE_OPTIONS: SelectOption[] = [
   { value: '5', label: '5×5 (standard)' },
@@ -457,6 +466,22 @@ function HazardCategoryListRow({
   const [code, setCode] = useState(row.code)
   const [label, setLabel] = useState(row.label)
   const [description, setDescription] = useState(row.description ?? '')
+  const isSystem = isRosSystemEntity(row.organization_id)
+
+  if (isSystem) {
+    return (
+      <li className="flex flex-col gap-2 border-b border-neutral-100 px-4 py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-mono text-xs text-neutral-500">{row.code}</p>
+            <SystemBadge />
+          </div>
+          <p className="mt-1 text-sm font-medium text-neutral-900">{row.label}</p>
+          {row.description ? <p className="mt-1 text-xs text-neutral-600">{row.description}</p> : null}
+        </div>
+      </li>
+    )
+  }
 
   return (
     <li className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-end sm:justify-between">
@@ -518,6 +543,7 @@ function RosAdminMalerTab({ ros }: { ros: ReturnType<typeof useRos> }) {
           {ros.templates.map((t) => {
             const count = t.definition.hazard_stubs?.length ?? 0
             const active = activeTemplateId === t.id
+            const sys = isRosSystemEntity(t.organization_id)
             return (
               <li key={t.id}>
                 <Button
@@ -529,7 +555,10 @@ function RosAdminMalerTab({ ros }: { ros: ReturnType<typeof useRos> }) {
                   }`}
                   style={active ? undefined : CARD_SHADOW}
                 >
-                  <p className="truncate text-sm font-semibold text-neutral-900">{t.name}</p>
+                  <div className="flex min-w-0 w-full items-start justify-between gap-2">
+                    <p className="min-w-0 truncate text-sm font-semibold text-neutral-900">{t.name}</p>
+                    {sys ? <SystemBadge /> : null}
+                  </div>
                   <p className="mt-0.5 text-xs text-neutral-500">{count} farekilder i mal</p>
                 </Button>
               </li>
@@ -561,6 +590,7 @@ function TemplateEditorPanel({
   template: ParsedRosTemplateRow
   ros: ReturnType<typeof useRos>
 }) {
+  const isSystemTemplate = isRosSystemEntity(template.organization_id)
   const [name, setName] = useState(template.name)
   const [jsonDraft, setJsonDraft] = useState(JSON.stringify(template.definition, null, 2))
 
@@ -585,10 +615,15 @@ function TemplateEditorPanel({
   const lawOptions: SelectOption[] = ALL_LAW_DOMAINS.map((d) => ({ value: d, label: d }))
   const categoryOptions: SelectOption[] = [
     { value: '', label: '(ingen)' },
-    ...ros.hazardCategories.map((c) => ({ value: c.code, label: c.label })),
+    ...ros.hazardCategories.map((c) => ({
+      value: c.code,
+      label: c.label,
+      suffix: isRosSystemEntity(c.organization_id) ? <SystemBadge /> : undefined,
+    })),
   ]
 
   const patchStubs = (next: NonNullable<ParsedRosTemplateRow['definition']['hazard_stubs']>) => {
+    if (isSystemTemplate) return
     const merged: ParsedRosTemplateRow['definition'] = {
       ...template.definition,
       version: 1,
@@ -599,14 +634,17 @@ function TemplateEditorPanel({
   }
 
   const addStub = () => {
+    if (isSystemTemplate) return
     patchStubs([...stubs, { description: '', category_code: null, law_domain: 'AML', existing_controls: null }])
   }
 
   const removeStub = (index: number) => {
+    if (isSystemTemplate) return
     patchStubs(stubs.filter((_, i) => i !== index))
   }
 
   const patchStub = (index: number, patch: Partial<(typeof stubs)[0]>) => {
+    if (isSystemTemplate) return
     const next = stubs.map((s, i) => (i === index ? { ...s, ...patch } : s))
     patchStubs(next)
   }
@@ -614,16 +652,22 @@ function TemplateEditorPanel({
   return (
     <div className="space-y-4">
       <div className={`${CARD} p-4`} style={CARD_SHADOW}>
+        {isSystemTemplate ? (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <SystemBadge />
+            <span className="text-xs text-neutral-600">Systemmal kan ikke redigeres eller slettes.</span>
+          </div>
+        ) : null}
         <label className="flex flex-col gap-1">
           <span className={WPSTD_FORM_FIELD_LABEL}>Malnavn</span>
-          <StandardInput value={name} onChange={(e) => setName(e.target.value)} />
+          <StandardInput value={name} onChange={(e) => setName(e.target.value)} disabled={isSystemTemplate} />
         </label>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button variant="primary" size="sm" type="button" onClick={saveMeta}>
+          <Button variant="primary" size="sm" type="button" onClick={saveMeta} disabled={isSystemTemplate}>
             <Save className="h-3.5 w-3.5" />
             Lagre mal
           </Button>
-          <Button variant="danger" size="sm" type="button" onClick={() => void ros.deleteTemplate(template.id)}>
+          <Button variant="danger" size="sm" type="button" onClick={() => void ros.deleteTemplate(template.id)} disabled={isSystemTemplate}>
             Slett mal
           </Button>
         </div>
@@ -635,7 +679,7 @@ function TemplateEditorPanel({
             <h2 className="text-base font-semibold text-neutral-900">Farekilder i mal</h2>
             <p className="mt-0.5 text-xs text-neutral-500">Legg til forhåndsdefinerte farekilder (kobles til kategorier fra databasen).</p>
           </div>
-          <Button variant="secondary" size="sm" type="button" onClick={addStub}>
+          <Button variant="secondary" size="sm" type="button" onClick={addStub} disabled={isSystemTemplate}>
             <Plus className="h-3.5 w-3.5" />
             Legg til rad
           </Button>
@@ -650,6 +694,7 @@ function TemplateEditorPanel({
                     value={stub.description}
                     onChange={(e) => patchStub(index, { description: e.target.value })}
                     placeholder="Farekilde…"
+                    disabled={isSystemTemplate}
                   />
                 </label>
                 <div className={WPSTD_FORM_ROW_GRID}>
@@ -659,6 +704,7 @@ function TemplateEditorPanel({
                       value={stub.law_domain}
                       options={lawOptions}
                       onChange={(v) => patchStub(index, { law_domain: v as RosLawDomain })}
+                      disabled={isSystemTemplate}
                     />
                   </label>
                   <label>
@@ -667,6 +713,7 @@ function TemplateEditorPanel({
                       value={stub.category_code ?? ''}
                       options={categoryOptions}
                       onChange={(v) => patchStub(index, { category_code: v || null })}
+                      disabled={isSystemTemplate}
                     />
                   </label>
                 </div>
@@ -676,6 +723,7 @@ function TemplateEditorPanel({
                     rows={2}
                     value={stub.existing_controls ?? ''}
                     onChange={(e) => patchStub(index, { existing_controls: e.target.value || null })}
+                    disabled={isSystemTemplate}
                   />
                 </label>
               </div>
@@ -685,6 +733,7 @@ function TemplateEditorPanel({
                 icon={<Trash2 className="h-4 w-4 text-red-600" />}
                 aria-label="Fjern rad"
                 onClick={() => removeStub(index)}
+                disabled={isSystemTemplate}
               />
             </li>
           ))}
@@ -696,8 +745,14 @@ function TemplateEditorPanel({
 
       <div className={`${CARD} p-4`} style={CARD_SHADOW}>
         <p className={WPSTD_FORM_FIELD_LABEL}>Rå JSON (avansert)</p>
-        <StandardTextarea rows={10} value={jsonDraft} onChange={(e) => setJsonDraft(e.target.value)} className="mt-2 font-mono text-xs" />
-        <Button variant="secondary" size="sm" className="mt-2" type="button" onClick={saveMeta}>
+        <StandardTextarea
+          rows={10}
+          value={jsonDraft}
+          onChange={(e) => setJsonDraft(e.target.value)}
+          className="mt-2 font-mono text-xs"
+          disabled={isSystemTemplate}
+        />
+        <Button variant="secondary" size="sm" className="mt-2" type="button" onClick={saveMeta} disabled={isSystemTemplate}>
           Valider og lagre fra JSON
         </Button>
       </div>

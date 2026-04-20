@@ -154,7 +154,7 @@ export const RosConsequenceCategoryRowSchema = z.object({
 
 export const RosHazardCategoryRowSchema = z.object({
   id: z.string().uuid(),
-  organization_id: z.string().uuid(),
+  organization_id: z.string().uuid().nullable(),
   code: z.string(),
   label: z.string(),
   description: z.string().nullable(),
@@ -185,7 +185,7 @@ export const RosTemplateDefinitionSchema = z.object({
 
 export const RosTemplateRowSchema = z.object({
   id: z.string().uuid(),
-  organization_id: z.string().uuid(),
+  organization_id: z.string().uuid().nullable(),
   name: z.string(),
   definition: z.unknown(),
   is_active: z.boolean(),

@@ -200,7 +200,7 @@ export type RosConsequenceCategoryRow = {
 
 export type RosHazardCategoryRow = {
   id: string
-  organization_id: string
+  organization_id: string | null
   code: string
   label: string
   description: string | null
@@ -212,7 +212,7 @@ export type RosHazardCategoryRow = {
 
 export type RosTemplateRow = {
   id: string
-  organization_id: string
+  organization_id: string | null
   name: string
   /** Parsed with RosTemplateDefinitionSchema in schema.ts */
   definition: RosTemplateDefinition

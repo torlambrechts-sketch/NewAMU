@@ -1,7 +1,8 @@
+import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Search } from 'lucide-react'
 
-export type SelectOption = { value: string; label: string }
+export type SelectOption = { value: string; label: string; suffix?: ReactNode }
 
 export function SearchableSelect({
   value,
@@ -49,8 +50,9 @@ export function SearchableSelect({
             : 'border-neutral-300 hover:border-neutral-400',
         ].join(' ')}
       >
-        <span className={selected ? 'text-neutral-900' : 'text-neutral-400'}>
-          {selected?.label ?? placeholder}
+        <span className={`flex min-w-0 items-center gap-2 ${selected ? 'text-neutral-900' : 'text-neutral-400'}`}>
+          <span className="min-w-0 truncate">{selected?.label ?? placeholder}</span>
+          {selected?.suffix ?? null}
         </span>
         <ChevronDown
           className={[
@@ -81,13 +83,14 @@ export function SearchableSelect({
                 type="button"
                 onClick={() => { onChange(o.value); setOpen(false) }}
                 className={[
-                  'w-full px-3 py-2.5 text-left text-sm transition-colors hover:bg-neutral-50',
+                  'flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm transition-colors hover:bg-neutral-50',
                   o.value === value
                     ? 'bg-neutral-100 font-medium text-neutral-900 border-l-2 border-[#1a3d32]'
                     : 'text-neutral-800 border-l-2 border-transparent',
                 ].join(' ')}
               >
-                {o.label}
+                <span className="min-w-0 truncate">{o.label}</span>
+                {o.suffix ? <span className="shrink-0">{o.suffix}</span> : null}
               </button>
             ))}
             {filtered.length === 0 && (
