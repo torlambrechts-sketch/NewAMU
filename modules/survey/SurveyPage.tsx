@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ClipboardList, Ghost, Loader2, Plus } from 'lucide-react'
+import { ClipboardList, Ghost, Loader2, Plus, Settings } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
@@ -64,6 +64,14 @@ export function SurveyPage({ supabase }: Props) {
         breadcrumb={[{ label: 'Arbeidsplass', to: '/workspace' }, { label: 'Undersøkelser' }]}
         title="Organisasjonsundersøkelser"
         description="Kartlegging av psykososialt arbeidsmiljø — opprett, publiser og analyser svar innenfor virksomheten."
+        headerActions={
+          survey.canManage ? (
+            <Button type="button" variant="secondary" size="sm" onClick={() => navigate('/survey/admin')}>
+              <Settings className="h-4 w-4" aria-hidden />
+              Modulinnstillinger
+            </Button>
+          ) : null
+        }
       />
 
       <div className={WORKPLACE_MODULE_CARD} style={WORKPLACE_MODULE_CARD_SHADOW}>

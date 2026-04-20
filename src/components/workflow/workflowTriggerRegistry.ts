@@ -28,11 +28,19 @@ export const INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_ANNUAL_REVIEW_SIGNED', label: 'Årlig gjennomgang signert' },
 ] as const
 
+/** Match `workflow_dispatch_db_event` in survey enterprise migration (module `survey`). */
+export const SURVEY_WORKFLOW_TRIGGER_EVENTS = [
+  { value: 'ON_SURVEY_PUBLISHED', label: 'Undersøkelse publisert' },
+  { value: 'ON_SURVEY_CLOSED', label: 'Undersøkelse lukket' },
+  { value: 'ON_SURVEY_RESPONSE_SUBMITTED', label: 'Svar innsendt' },
+] as const
+
 const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   inspection: INSPECTION_WORKFLOW_TRIGGER_EVENTS,
   ros: ROS_WORKFLOW_TRIGGER_EVENTS,
   action_plan: ACTION_PLAN_WORKFLOW_TRIGGER_EVENTS,
   internkontroll: INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS,
+  survey: SURVEY_WORKFLOW_TRIGGER_EVENTS,
 }
 
 export function getWorkflowTriggerEventsForModule(triggerModule: string): { value: string; label: string }[] {

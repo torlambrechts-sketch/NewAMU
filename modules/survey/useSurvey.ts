@@ -2,6 +2,8 @@ import { useCallback, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
+import { fetchOrgModulePayload } from '../../src/lib/orgModulePayload'
+import { parseSurveyModuleSettings } from './surveyAdminSettingsSchema'
 import type {
   SurveyRow,
   SurveyStatus,
@@ -84,6 +86,8 @@ export type UseSurveyState = {
   dispatchOnSurveyClosed: (surveyId: string) => Promise<void>
   clearError: () => void
   refresh: () => Promise<void>
+  loadQuestionBank: () => Promise<void>
+  dispatchOnSurveyResponseSubmitted: (surveyId: string) => Promise<void>
 }
 
 type UseSurveyInput = { supabase: Supabase | null }
@@ -243,13 +247,19 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
       if (!oid) return null
       setError(null)
       try {
+        let anonymous = input.is_anonymous
+        if (anonymous === undefined) {
+          const raw = await fetchOrgModulePayload<Record<string, unknown>>(supabase, oid, 'survey_settings')
+          const st = parseSurveyModuleSettings(raw)
+          if (st.default_anonymous != null) anonymous = st.default_anonymous
+        }
         const { data, error: e } = await supabase
           .from('surveys')
           .insert({
             organization_id: oid,
             title: input.title,
             description: input.description ?? null,
-            is_anonymous: input.is_anonymous ?? false,
+            is_anonymous: anonymous ?? false,
             status: 'draft',
           })
           .select()
@@ -630,6 +640,27 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     [supabase, assertOrg, requireManage],
   )
 
+  const dispatchOnSurveyResponseSubmitted = useCallback(
+    async (surveyId: string) => {
+      if (!supabase) return
+      if (!requireManage()) return
+      const oid = assertOrg()
+      if (!oid) return
+      setError(null)
+      try {
+        const { error: e } = await supabase.rpc('workflow_dispatch_survey_event', {
+          p_organization_id: oid,
+          p_event: 'ON_SURVEY_RESPONSE_SUBMITTED',
+          p_survey_id: surveyId,
+        })
+        if (e) throw e
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+      }
+    },
+    [supabase, assertOrg, requireManage],
+  )
+
   return {
     loading,
     error,
@@ -657,7 +688,9 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     submitResponse,
     dispatchOnSurveyPublished,
     dispatchOnSurveyClosed,
+    dispatchOnSurveyResponseSubmitted,
     clearError,
     refresh,
+    loadQuestionBank,
   }
 }
