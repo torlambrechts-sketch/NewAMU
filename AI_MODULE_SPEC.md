@@ -1,12 +1,26 @@
-# AI module specification
+# AI INSTRUCTION SET: NEWAMU MODULE GENERATION & REFACTORING
+**Version:** 3.0 (Enterprise Architecture & Strict UI Enforcement)
+**Role:** Expert Enterprise React, TypeScript, Tailwind CSS, and Supabase Architect.
+**Mission:** Build and refactor feature modules for the NewAMU platform following STRICT database-first architecture, workflow integration, and a rigid UI component design system. 
 
-This repository’s authoritative module patterns live in **`MODULE_SPEC.md`**.
+---
 
-When building or refactoring modules (including ROS), follow **`MODULE_SPEC.md`** for:
+## 1. ZERO-TOLERANCE RULES (CRITICAL)
+If you violate any of these rules, you have failed the prompt.
+1. **NO RAW HTML CONTROLS:** You are strictly forbidden from using `<button>`, `<input>`, `<textarea>`, or `<select>`. You MUST use the `src/components/ui/` library.
+2. **NO HARDCODED CONFIGURATION:** Settings such as risk matrices, hazard categories, dropdown options, and templates MUST be managed via the database and Admin UI. Do NOT use hardcoded `const CATEGORIES = [...]` arrays in the frontend.
+3. **NO BYPASSING RLS:** Every Supabase query MUST explicitly isolate data by appending `.eq('organization_id', orgId)`.
 
-- Database-first migrations, RLS, `organization_id`, soft deletes  
-- One hook per module, Zod validation on fetch, central error handling  
-- Admin pages (`ModuleAdminShell`), workflow integration (`WorkflowRulesTab`)  
-- UI primitives from `src/components/ui/`  
+---
 
-For ROS-specific requirements in this codebase, see the implementation under `modules/ros/` and `src/pages/RosModuleAdminPage.tsx`.
+## 2. DATABASE & SECURITY ARCHITECTURE (SUPABASE)
+- **Migrations:** Create standard SQL migrations in `supabase/migrations/`.
+- **Audit Logging:** Core tables MUST have triggers for immutable audit logging.
+- **Row Level Security (RLS) & Auto-Fill:**
+  ALL tables must enforce isolation by `organization_id`. You MUST use this exact trigger pattern for inserts to auto-fill the org ID:
+  ```sql
+  CREATE TRIGGER set_org_id BEFORE INSERT ON public.[table_name]
+  FOR EACH ROW EXECUTE FUNCTION public.set_current_org_id();
+Immutability (Locking): If a record (like a ROS or SJA) is signed or approved, it must be locked. Block updates via RLS: CHECK (status NOT IN ('signed', 'approved')).3. DATA LAYER & STATE MANAGEMENT (use[ModuleName].ts)ALL data fetching, mutations, and business logic MUST reside in a single custom hook.Strict Authorization: You MUST check isAdmin alongside module permissions to prevent locking out system admins.TypeScriptconst { organization, can, isAdmin } = useOrgSetupContext()
+const canManage = isAdmin || can('[module].manage') // MANDATORY
+Local Immutability Checks: Before sending an update mutation, the hook MUST locally verify the status is not locked (signed/approved). If it is, reject the mutation.Zod Validation (schema.ts): Any complex data stored as JSONB in Supabase (e.g., lists of hazards, measures, participants) MUST be strictly typed and parsed through z.object() schemas upon fetching.Error Handling: Route ALL Supabase errors through getSupabaseErrorMessage(error). Expose a central error state string from the hook. NEVER rely solely on console.error().4. STRICT UI COMPONENT LIBRARYYou MUST import and use these atomic components. Do not invent inline Tailwind strings for them.Element NeededComponent to UseImport PathProps / NotesButtons<Button>../../src/components/ui/Button`variant="primaryText Inputs<StandardInput>../../src/components/ui/InputReplaces <input type="text">.Text Areas<StandardTextarea>../../src/components/ui/TextareaReplaces <textarea>.Dropdowns<SearchableSelect>../../src/components/ui/SearchableSelectUse for all selections. Takes options={[{value, label}]}.Status Pills<Badge>../../src/components/ui/Badge`variant="neutralIn-Page Tabs<Tabs>../../src/components/ui/TabsReplaces HubMenu1Bar and custom flex menus. Takes items and activeId.Legal/Info<ComplianceBanner>../../src/components/ui/ComplianceBannerMUST be used for IK-forskriften / AML references.Alerts<InfoBox>/<WarningBox>../../src/components/ui/AlertBoxForm warnings or displaying the hook's error state.TogglesYesNoToggle../../src/components/ui/FormTogglesBoolean states (replaces checkboxes).5. ADMIN SETTINGS & WORKFLOW ENGINEEvery module must expose an Admin UI for customer configuration and hook into the global Workflow Engine.Admin Page Shell ([ModuleName]AdminPage.tsx):MUST be wrapped in ModuleAdminShell or WorkplaceSplit7030Layout.Use <Tabs> to separate: "Generelt", "Kategorier/Innstillinger", "Maler", and "Arbeidsflyt".Build CRUD forms (Create, Read, Update, Delete) using <StandardInput> and <Button> so users can manage dropdown categories and templates dynamically.Workflow Engine Integration:The Admin page MUST render <WorkflowRulesTab module="[module_name]" />.Register module triggers (e.g., ON_[MODULE]_CREATED, ON_[MODULE]_CRITICAL_RISK) in src/components/workflow/workflowRuleFactory.ts.Ensure the hook (use[ModuleName].ts) dispatches these workflow events upon successful mutations (like signing a document).6. LAYOUT & VISUAL PATTERNSBackgrounds: Page background bg-[#F9F7F2]. Main content in white cards.Page Shell: Use WorkplacePageHeading1 at the top. The sticky header should NOT have a border-b if <Tabs> is used directly below it.Card Containers: Use WORKPLACE_MODULE_CARD and WORKPLACE_MODULE_CARD_SHADOW from src/components/layout/workplaceModuleSurface.Forms: Wrap rows in WPSTD_FORM_ROW_GRID and labels in WPSTD_FORM_FIELD_LABEL.Severity Borders: For list rows indicating risk or deviations, use border-l-4:Critical: border-l-red-500 bg-red-50/30High: border-l-orange-400 bg-orange-50/20Medium: border-l-yellow-400Low: border-l-blue-3007. PRE-FLIGHT VERIFICATION CHECKLISTBefore finalizing any code generation, you MUST self-audit against this checklist:[ ] Is every UI string in Norwegian (Bokmål)?[ ] Did I use <button> or <input> anywhere? (If yes, rewrite using src/components/ui/).[ ] Did I hardcode any configuration arrays that should be fetched from Supabase?[ ] Does the canManage permission check include isAdmin?[ ] Are JSONB fields parsed through Zod?[ ] Is the <WorkflowRulesTab> implemented in the Admin page?
