@@ -1,8 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchAssignableUsers } from '../../src/hooks/useAssignableUsers'
-import type { AvvikRow, AvvikCreatePayload, AvvikUpdatePayload } from './types'
-import { AvvikRowSchema } from './schema'
+import type { AvvikRow, AvvikSeverity, AvvikStatus, AvvikCreatePayload, AvvikUpdatePayload } from './types'
 
 type Input = { supabase: SupabaseClient | null }
 
@@ -20,9 +19,47 @@ export type AvvikModuleState = {
   clearError: () => void
 }
 
+const VALID_SEVERITIES: AvvikSeverity[] = ['low', 'medium', 'high', 'critical']
+const VALID_STATUSES: AvvikStatus[] = [
+  'open', 'in_progress', 'closed',
+  'rapportert', 'under_behandling', 'tiltak_iverksatt', 'lukket',
+]
+
 function parseRow(row: unknown): AvvikRow | null {
-  const parsed = AvvikRowSchema.safeParse(row)
-  return parsed.success ? parsed.data : null
+  if (!row || typeof row !== 'object') return null
+  const r = row as Record<string, unknown>
+  if (!r.id || !r.organization_id) return null
+  const sev = VALID_SEVERITIES.includes(r.severity as AvvikSeverity) ? (r.severity as AvvikSeverity) : null
+  const sts = VALID_STATUSES.includes(r.status as AvvikStatus) ? (r.status as AvvikStatus) : null
+  if (!sev || !sts) return null
+  return {
+    id: String(r.id),
+    organization_id: String(r.organization_id),
+    source: r.source == null ? '' : String(r.source),
+    source_id: r.source_id == null ? null : String(r.source_id),
+    title: r.title == null ? '' : String(r.title),
+    description: r.description == null ? '' : String(r.description),
+    severity: sev,
+    status: sts,
+    due_at: r.due_at == null ? null : String(r.due_at),
+    assigned_to: r.assigned_to == null ? null : String(r.assigned_to),
+    root_cause_analysis: r.root_cause_analysis == null ? null : String(r.root_cause_analysis),
+    closed_at: r.closed_at == null ? null : String(r.closed_at),
+    closed_by: r.closed_by == null ? null : String(r.closed_by),
+    deleted_at: r.deleted_at == null ? null : String(r.deleted_at),
+    created_by: r.created_by == null ? null : String(r.created_by),
+    created_at: String(r.created_at ?? ''),
+    updated_at: String(r.updated_at ?? ''),
+  }
+}
+
+function extractErrorMessage(e: unknown): string {
+  if (!e) return 'Ukjent feil'
+  if (typeof e === 'object' && 'message' in e && typeof (e as { message: unknown }).message === 'string') {
+    return (e as { message: string }).message
+  }
+  if (e instanceof Error) return e.message
+  return String(e)
 }
 
 function normalizeDate(input: string | undefined | null): string | null {
@@ -60,7 +97,7 @@ export function useAvvik({ supabase }: Input): AvvikModuleState {
       )
       setAssignableUsers(assignableUsersList)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Kunne ikke laste avvik.')
+      setError(extractErrorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -87,7 +124,7 @@ export function useAvvik({ supabase }: Input): AvvikModuleState {
         .single()
       if (err) { setError(err.message); return null }
       const parsed = parseRow(data)
-      if (!parsed) { setError('Kunne ikke parse opprettet avvik.'); return null }
+      if (!parsed) { setError('Kunne ikke lese opprettet avvik fra databasen.'); return null }
       setAvvik((prev) => [parsed, ...prev])
       return parsed
     },
@@ -115,7 +152,7 @@ export function useAvvik({ supabase }: Input): AvvikModuleState {
         .single()
       if (err) { setError(err.message); return }
       const parsed = parseRow(data)
-      if (!parsed) { setError('Kunne ikke parse oppdatert avvik.'); return }
+      if (!parsed) { setError('Kunne ikke lese oppdatert avvik fra databasen.'); return }
       setAvvik((prev) => prev.map((a) => (a.id === payload.avvikId ? parsed : a)))
     },
     [supabase],
