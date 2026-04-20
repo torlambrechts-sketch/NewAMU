@@ -459,9 +459,12 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-xs text-neutral-500">Mal</span>
             {sja.templates.length === 0 ? (
-              <select disabled className="rounded-lg border border-neutral-300 px-3 py-2 text-sm opacity-70">
-                <option value="">Ingen maler (bruk jobbtype under)</option>
-              </select>
+              <StandardInput
+                disabled
+                readOnly
+                value="Ingen maler (bruk jobbtype under)"
+                className="rounded-lg opacity-70"
+              />
             ) : (
               <SearchableSelect
                 value={newSjaForm.templateId || defaultTemplateId}

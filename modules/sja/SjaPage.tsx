@@ -1067,18 +1067,9 @@ function GrunnlagTab({
             Jobb-type
           </label>
           {readOnly || jobTypeLocked ? (
-            <select
-              id="sja-grunnlag-jobtype"
-              disabled
-              value={draft.job_type}
-              className={standardFieldClassName}
-            >
-              {jobTypeOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+            <div id="sja-grunnlag-jobtype" className={standardFieldClassName}>
+              {jobTypeOptions.find((o) => o.value === draft.job_type)?.label ?? draft.job_type}
+            </div>
           ) : (
             <SearchableSelect
               value={draft.job_type}
@@ -1105,22 +1096,11 @@ function GrunnlagTab({
             Årsak til SJA
           </label>
           {readOnly ? (
-            <select
-              id="sja-grunnlag-trigger"
-              disabled
-              value={
-                TRIGGER_REASON_OPTIONS.some((o) => o.value === draft.trigger_reason)
-                  ? draft.trigger_reason
-                  : 'other'
-              }
-              className={standardFieldClassName}
-            >
-              {TRIGGER_REASON_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+            <div id="sja-grunnlag-trigger" className={standardFieldClassName}>
+              {TRIGGER_REASON_OPTIONS.find((o) => o.value === draft.trigger_reason)?.label ??
+                TRIGGER_REASON_OPTIONS.find((o) => o.value === 'other')?.label ??
+                draft.trigger_reason}
+            </div>
           ) : (
             <SearchableSelect
               value={
@@ -1181,19 +1161,11 @@ function GrunnlagTab({
             Ansvarlig
           </label>
           {readOnly ? (
-            <select
-              id="sja-grunnlag-responsible"
-              disabled
-              value={draft.responsible_id ?? ''}
-              className={standardFieldClassName}
-            >
-              <option value="">—</option>
-              {assignableUsers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.displayName}
-                </option>
-              ))}
-            </select>
+            <div id="sja-grunnlag-responsible" className={standardFieldClassName}>
+              {draft.responsible_id
+                ? assignableUsers.find((u) => u.id === draft.responsible_id)?.displayName ?? '—'
+                : '—'}
+            </div>
           ) : (
             <SearchableSelect
               value={draft.responsible_id ?? ''}
