@@ -2,6 +2,7 @@ import type { WorkflowRule } from '../../types/moduleTemplate'
 
 export {
   INSPECTION_WORKFLOW_TRIGGER_EVENTS,
+  INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS,
   ROS_WORKFLOW_TRIGGER_EVENTS,
   getWorkflowTriggerEventsForModule,
 } from './workflowTriggerRegistry'

@@ -18,9 +18,14 @@ export const ROS_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_ROS_APPROVED', label: 'ROS godkjent' },
 ] as const
 
+export const INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS = [
+  { value: 'ON_ANNUAL_REVIEW_SIGNED', label: 'Årlig gjennomgang signert' },
+] as const
+
 const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   inspection: INSPECTION_WORKFLOW_TRIGGER_EVENTS,
   ros: ROS_WORKFLOW_TRIGGER_EVENTS,
+  internkontroll: INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS,
 }
 
 export function getWorkflowTriggerEventsForModule(triggerModule: string): { value: string; label: string }[] {
