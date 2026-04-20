@@ -380,6 +380,22 @@ export function useRos({ supabase }: { supabase: SupabaseClient | null }) {
     [supabase, orgId, canManage, assertMutable, loadDetail],
   )
 
+  const deleteMeasure = useCallback(
+    async (rosId: string, measureId: string) => {
+      if (!supabase || !orgId || !canManage) return
+      setError(null)
+      try {
+        assertMutable(rosId)
+        const { error: e } = await supabase.from('ros_measures').delete().eq('id', measureId).eq('organization_id', orgId)
+        if (e) throw e
+        await loadDetail(rosId)
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+      }
+    },
+    [supabase, orgId, canManage, assertMutable, loadDetail],
+  )
+
   const signAnalysis = useCallback(
     async (rosId: string, role: 'responsible' | 'verneombud', signerName: string) => {
       if (!supabase || !orgId) return false
@@ -652,6 +668,7 @@ export function useRos({ supabase }: { supabase: SupabaseClient | null }) {
     upsertHazard,
     deleteHazard,
     upsertMeasure,
+    deleteMeasure,
     signAnalysis,
     upsertProbabilityLevel,
     softDeleteProbabilityLevel,

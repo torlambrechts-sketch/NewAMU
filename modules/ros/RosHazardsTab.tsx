@@ -14,6 +14,12 @@ import { WarningBox } from '../../src/components/ui/AlertBox'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
 import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
+import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
+
+const TH =
+  'border-b border-neutral-200 bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500'
+
+const TR_BODY = 'cursor-pointer border-b border-neutral-100 last:border-b-0 transition-colors hover:bg-neutral-50'
 
 function riskBandBadgeVariant(band: ReturnType<typeof riskBand>): BadgeVariant {
   switch (band) {
@@ -145,6 +151,26 @@ export function RosHazardsTab({
     [hazards.length, filtered.length, criticalHazards.length, lawFilter],
   )
 
+  const hazardToolbar = (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button type="button" variant={!lawFilter ? 'primary' : 'secondary'} size="sm" onClick={() => setLawFilter(null)}>
+        Alle
+      </Button>
+      {analysis.law_domains.map((d) => (
+        <Button
+          key={d}
+          type="button"
+          size="sm"
+          variant={lawFilter === d ? 'primary' : 'secondary'}
+          onClick={() => setLawFilter(lawFilter === d ? null : d)}
+          className={lawFilter === d ? `${LAW_DOMAIN_CHIP_ACTIVE[d]} border-transparent` : ''}
+        >
+          {d}
+        </Button>
+      ))}
+    </div>
+  )
+
   return (
     <div className="space-y-6">
       <LayoutScoreStatRow items={hazardKpiItems} />
@@ -174,13 +200,13 @@ export function RosHazardsTab({
               />
             </div>
 
-            <div className="flex flex-col gap-4 border-b border-neutral-200 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
-              <div>
-                <h3 className="text-lg font-semibold text-neutral-900">Registrerte farekilder</h3>
-                <p className="mt-1 text-sm text-neutral-500">Oversikt over alle farekilder som er kartlagt i analysen.</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                {!readOnly && (
+            <LayoutTable1PostingsShell
+              wrap={false}
+              titleTypography="sans"
+              title="Registrerte farekilder"
+              description="Oversikt over alle farekilder som er kartlagt i analysen."
+              headerActions={
+                !readOnly ? (
                   <Button
                     type="button"
                     variant="primary"
@@ -190,103 +216,93 @@ export function RosHazardsTab({
                   >
                     Legg til farekilde
                   </Button>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-4 p-5 md:p-6">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Filter på lovdomene</p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant={!lawFilter ? 'primary' : 'secondary'}
-                    size="sm"
-                    onClick={() => setLawFilter(null)}
-                  >
-                    Alle
-                  </Button>
-                  {analysis.law_domains.map((d) => (
-                    <Button
-                      key={d}
-                      type="button"
-                      size="sm"
-                      variant={lawFilter === d ? 'primary' : 'secondary'}
-                      onClick={() => setLawFilter(lawFilter === d ? null : d)}
-                      className={lawFilter === d ? `${LAW_DOMAIN_CHIP_ACTIVE[d]} border-transparent` : ''}
-                    >
-                      {d}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="divide-y divide-neutral-100 rounded-lg border border-neutral-100">
-                {filtered.map((h) => {
-              const initScore = riskScore(h.initial_probability, h.initial_consequence)
-              const resScore = riskScore(h.residual_probability, h.residual_consequence)
-              const band = riskBand(resScore ?? initScore)
-              const mCount = (measures ?? []).filter((m) => m.hazard_id === h.id).length
-              const border = {
-                low: 'border-l-blue-300',
-                medium: 'border-l-yellow-400',
-                high: 'border-l-orange-400 bg-orange-50/20',
-                critical: 'border-l-red-500 bg-red-50/30',
-              }[band]
-              return (
-                <div
-                  key={h.id}
-                  className={`cursor-pointer border-l-4 px-5 py-3 transition-colors ${border} ${
-                    selectedId === h.id ? 'ring-1 ring-neutral-300' : 'hover:bg-neutral-50'
-                  }`}
-                  onClick={() => {
-                    setSelectedId(h.id)
-                    setEditingId(null)
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-sm font-medium text-neutral-900">{h.description}</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold text-white ${LAW_DOMAIN_BG[h.law_domain]}`}>
-                          {h.law_domain}
-                        </span>
-                        {initScore != null && <span className="text-[10px] text-neutral-400">Initial: {initScore}</span>}
-                        {resScore != null && (
-                          <Badge variant={riskBandBadgeVariant(band)}>
-                            Residual: {resScore} — {RISK_BAND_LABEL[band]}
-                          </Badge>
-                        )}
-                        {mCount > 0 && <span className="text-[10px] text-neutral-500">{mCount} tiltak</span>}
-                      </div>
-                    </div>
-                    {!readOnly && (
-                      <div className="flex shrink-0 gap-1" onClick={(e) => e.stopPropagation()}>
-                        <Button type="button" variant="ghost" size="icon" onClick={() => startEdit(h)} aria-label="Rediger">
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            if (window.confirm('Slette denne farekilden?')) void ros.deleteHazard(analysis.id, h.id)
-                          }}
-                          aria-label="Slett"
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-red-600" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-                })}
-                {filtered.length === 0 && (
-                  <p className="py-10 text-center text-sm text-neutral-400">Ingen farekilder ennå.</p>
-                )}
-              </div>
-            </div>
+                ) : null
+              }
+              toolbar={hazardToolbar}
+            >
+              <table className="w-full border-collapse text-left text-sm whitespace-nowrap">
+                <thead>
+                  <tr>
+                    <th className={TH}>Tittel</th>
+                    <th className={TH}>Risiko</th>
+                    <th className={TH}>Status</th>
+                    <th className={`${TH} text-right`}>Handlinger</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((h) => {
+                    const initScore = riskScore(h.initial_probability, h.initial_consequence)
+                    const resScore = riskScore(h.residual_probability, h.residual_consequence)
+                    const band = riskBand(resScore ?? initScore)
+                    const isCriticalResidual = resScore != null && resScore >= 15
+                    const statusLabel = isCriticalResidual ? 'Kritisk' : RISK_BAND_LABEL[band]
+                    const statusVariant = isCriticalResidual ? ('critical' as const) : riskBandBadgeVariant(band)
+                    const selected = selectedId === h.id
+                    return (
+                      <tr
+                        key={h.id}
+                        className={`${TR_BODY} ${selected ? 'bg-neutral-50 ring-1 ring-inset ring-neutral-200' : ''}`}
+                        onClick={() => {
+                          setSelectedId(h.id)
+                          setEditingId(null)
+                        }}
+                      >
+                        <td className="max-w-[min(22rem,35vw)] px-5 py-4 align-middle">
+                          <p className="whitespace-normal font-medium text-neutral-900">{h.description}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 whitespace-normal">
+                            <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold text-white ${LAW_DOMAIN_BG[h.law_domain]}`}>
+                              {h.law_domain}
+                            </span>
+                            {h.category ? <span className="text-xs text-neutral-500">{h.category}</span> : null}
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 align-middle">
+                          {resScore != null ? (
+                            <Badge variant={riskBandBadgeVariant(band)}>
+                              {resScore} — {RISK_BAND_LABEL[band]}
+                            </Badge>
+                          ) : initScore != null ? (
+                            <span className="text-xs text-neutral-500">Initial: {initScore}</span>
+                          ) : (
+                            <span className="text-xs text-neutral-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4 align-middle">
+                          <Badge variant={statusVariant}>{statusLabel}</Badge>
+                        </td>
+                        <td className="px-5 py-4 text-right align-middle" onClick={(e) => e.stopPropagation()}>
+                          {!readOnly && (
+                            <div className="inline-flex justify-end gap-1">
+                              <Button type="button" variant="ghost" size="icon" onClick={() => startEdit(h)} aria-label="Rediger">
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  if (window.confirm('Slette denne farekilden?')) void ros.deleteHazard(analysis.id, h.id)
+                                }}
+                                aria-label="Slett"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                              </Button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-5 py-12 text-center text-sm whitespace-normal text-neutral-400">
+                        Ingen farekilder ennå.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </LayoutTable1PostingsShell>
           </div>
         </div>
 
