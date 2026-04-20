@@ -1,18 +1,32 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { RiskMatrix, riskScoreFromProbCons } from '../../src/components/hse/RiskMatrix'
 import { RosRiskScatter } from './RosRiskScatter'
 import type { RosAnalysisRow, RosHazardRow, RosMeasureRow, RosLawDomain } from './types'
-import {
-  LAW_DOMAIN_BG, ALL_LAW_DOMAINS, LAW_DOMAIN_CHIP_ACTIVE, riskScore, riskBand,
-  RISK_BAND_COLOR, RISK_BAND_LABEL,
-} from './types'
+import { LAW_DOMAIN_BG, ALL_LAW_DOMAINS, LAW_DOMAIN_CHIP_ACTIVE, riskScore, riskBand, RISK_BAND_LABEL } from './types'
 import type { RosState } from './useRos'
+import { Button } from '../../src/components/ui/Button'
+import { StandardTextarea } from '../../src/components/ui/Textarea'
+import { SearchableSelect, type SelectOption } from '../../src/components/ui/SearchableSelect'
+import { Badge } from '../../src/components/ui/Badge'
+import type { BadgeVariant } from '../../src/components/ui/Badge'
+import { WarningBox } from '../../src/components/ui/AlertBox'
+import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
 
-const FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-600'
-const INPUT = 'mt-1.5 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]/30'
-const BTN_PRIMARY = 'rounded-lg bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white hover:bg-[#14312a] transition-colors disabled:opacity-40'
-const BTN_SECONDARY = 'rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50'
+function riskBandBadgeVariant(band: ReturnType<typeof riskBand>): BadgeVariant {
+  switch (band) {
+    case 'low':
+      return 'success'
+    case 'medium':
+      return 'medium'
+    case 'high':
+      return 'high'
+    case 'critical':
+      return 'critical'
+    default:
+      return 'neutral'
+  }
+}
 
 type HazardFormState = {
   description: string
@@ -26,14 +40,23 @@ type HazardFormState = {
 }
 
 function emptyHazard(): HazardFormState {
-  return { description: '', category: '', law_domain: 'AML',
-    existing_controls: '', initial_probability: null,
-    initial_consequence: null, residual_probability: null,
-    residual_consequence: null }
+  return {
+    description: '',
+    category: '',
+    law_domain: 'AML',
+    existing_controls: '',
+    initial_probability: null,
+    initial_consequence: null,
+    residual_probability: null,
+    residual_consequence: null,
+  }
 }
 
 export function RosHazardsTab({
-  analysis, hazards, measures, ros,
+  analysis,
+  hazards,
+  measures,
+  ros,
 }: {
   analysis: RosAnalysisRow
   hazards: RosHazardRow[]
@@ -47,24 +70,50 @@ export function RosHazardsTab({
   const [form, setForm] = useState<HazardFormState>(emptyHazard)
   const [saving, setSaving] = useState(false)
 
+  const probLabels = useMemo(() => {
+    const m: Record<number, string> = {}
+    for (const p of ros.probabilityScale) m[p.level] = p.label
+    return m
+  }, [ros.probabilityScale])
+
+  const consLabels = useMemo(() => {
+    const m: Record<number, string> = {}
+    for (const c of ros.consequenceCategories) m[c.matrix_column] = c.label
+    return m
+  }, [ros.consequenceCategories])
+
+  const hazardCategoryOptions: SelectOption[] = useMemo(() => {
+    const rows = ros.hazardCategories.map((c) => ({ value: c.code, label: c.label }))
+    return [{ value: '', label: '(ingen kategori)' }, ...rows]
+  }, [ros.hazardCategories])
+
+  const lawDomainOptions: SelectOption[] = useMemo(
+    () => ALL_LAW_DOMAINS.map((d) => ({ value: d, label: d })),
+    [],
+  )
+
   const selectedHazard = hazards.find((h) => h.id === selectedId) ?? null
   const measuresForSelected = (measures ?? []).filter((m) => m.hazard_id === selectedId)
 
   const filtered = lawFilter ? hazards.filter((h) => h.law_domain === lawFilter) : hazards
 
-  // STOPP check
   const criticalHazards = hazards.filter((h) => {
     const s = riskScore(h.residual_probability, h.residual_consequence)
     return s != null && s >= 15
   })
 
   function startEdit(h: RosHazardRow) {
-    setEditingId(h.id); setSelectedId(h.id)
+    setEditingId(h.id)
+    setSelectedId(h.id)
     setForm({
-      description: h.description, category: h.category ?? '',
-      law_domain: h.law_domain, existing_controls: h.existing_controls ?? '',
-      initial_probability: h.initial_probability, initial_consequence: h.initial_consequence,
-      residual_probability: h.residual_probability, residual_consequence: h.residual_consequence,
+      description: h.description,
+      category: h.category ?? '',
+      law_domain: h.law_domain,
+      existing_controls: h.existing_controls ?? '',
+      initial_probability: h.initial_probability,
+      initial_consequence: h.initial_consequence,
+      residual_probability: h.residual_probability,
+      residual_consequence: h.residual_consequence,
     })
   }
 
@@ -87,97 +136,109 @@ export function RosHazardsTab({
 
   return (
     <div>
-      {/* STOPP banner */}
       {criticalHazards.length > 0 && (
-        <div className="flex items-start gap-3 border-b border-red-200 bg-red-50 px-5 py-3">
-          <span className="text-lg leading-none">⛔</span>
-          <div>
-            <p className="text-sm font-semibold text-red-800">
-              {criticalHazards.length} farekilder med kritisk residual risiko (≥ 15) — tiltak er lovpålagt
-            </p>
-            <p className="text-xs text-red-700 mt-0.5">
-              IK-forskriften § 5 nr. 6: Risikoer med score ≥ 15 krever skriftlig tiltaksplan.
-              Disse er automatisk lagt til tiltaksplanen.
-            </p>
-          </div>
-        </div>
+        <WarningBox>
+          <p className="font-semibold">
+            {criticalHazards.length} farekilder med kritisk residual risiko (≥ 15) — tiltak er lovpålagt
+          </p>
+          <p className="mt-1 text-sm">
+            IK-forskriften § 5 nr. 6: Risikoer med score ≥ 15 krever skriftlig tiltaksplan. Disse kan kobles til
+            tiltaksplan i internkontrollen.
+          </p>
+        </WarningBox>
       )}
 
       <div className="flex flex-col gap-0 md:flex-row md:min-h-[600px]">
-        {/* ── LEFT: hazard list + scatter ── */}
         <div className="w-full border-b border-neutral-200 md:w-[55%] md:border-b-0 md:border-r">
-          {/* Scatter plot */}
           <div className="border-b border-neutral-100 bg-neutral-50/60 px-5 py-4">
-            <RosRiskScatter hazards={hazards} selectedId={selectedId} onSelect={setSelectedId} />
+            <RosRiskScatter
+              hazards={hazards}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              probabilityLabels={probLabels}
+              consequenceLabels={consLabels}
+            />
           </div>
 
-          {/* Law filter */}
-          <div className="flex items-center gap-2 border-b border-neutral-100 px-5 py-3">
-            <button type="button" onClick={() => setLawFilter(null)}
-              className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold transition-colors ${
-                !lawFilter ? 'bg-neutral-900 text-white border-neutral-900' : 'border-neutral-300 text-neutral-600'
-              }`}>
+          <div className="flex flex-wrap items-center gap-2 border-b border-neutral-100 px-5 py-3">
+            <Button
+              type="button"
+              variant={!lawFilter ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => setLawFilter(null)}
+            >
               Alle
-            </button>
+            </Button>
             {analysis.law_domains.map((d) => (
-              <button key={d} type="button" onClick={() => setLawFilter(lawFilter === d ? null : d)}
-                className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold transition-colors ${
-                  lawFilter === d
-                    ? `${LAW_DOMAIN_CHIP_ACTIVE[d]} border-transparent`
-                    : 'border-neutral-300 text-neutral-500'
-                }`}>
+              <Button
+                key={d}
+                type="button"
+                size="sm"
+                variant={lawFilter === d ? 'primary' : 'secondary'}
+                onClick={() => setLawFilter(lawFilter === d ? null : d)}
+                className={lawFilter === d ? `${LAW_DOMAIN_CHIP_ACTIVE[d]} border-transparent` : ''}
+              >
                 {d}
-              </button>
+              </Button>
             ))}
             <span className="ml-auto text-xs text-neutral-400">{filtered.length} farekilder</span>
           </div>
 
-          {/* Hazard rows */}
           <div className="divide-y divide-neutral-100">
             {filtered.map((h) => {
               const initScore = riskScore(h.initial_probability, h.initial_consequence)
-              const resScore  = riskScore(h.residual_probability, h.residual_consequence)
-              const band      = riskBand(resScore ?? initScore)
-              const mCount    = (measures ?? []).filter((m) => m.hazard_id === h.id).length
-              const BORDER = { low: 'border-l-green-400', medium: 'border-l-yellow-400', high: 'border-l-orange-400', critical: 'border-l-red-500' }
+              const resScore = riskScore(h.residual_probability, h.residual_consequence)
+              const band = riskBand(resScore ?? initScore)
+              const mCount = (measures ?? []).filter((m) => m.hazard_id === h.id).length
+              const border = {
+                low: 'border-l-green-400 bg-green-50/20',
+                medium: 'border-l-yellow-400 bg-yellow-50/20',
+                high: 'border-l-orange-500 bg-orange-50/30',
+                critical: 'border-l-red-500 bg-red-50/30',
+              }[band]
               return (
-                <div key={h.id}
-                  className={`cursor-pointer border-l-4 px-5 py-3 transition-colors ${BORDER[band]} ${
-                    selectedId === h.id ? 'bg-[#f4f1ea]' : 'hover:bg-neutral-50'
+                <div
+                  key={h.id}
+                  className={`cursor-pointer border-l-4 px-5 py-3 transition-colors ${border} ${
+                    selectedId === h.id ? 'ring-1 ring-neutral-300' : 'hover:bg-neutral-50'
                   }`}
-                  onClick={() => { setSelectedId(h.id); setEditingId(null) }}
+                  onClick={() => {
+                    setSelectedId(h.id)
+                    setEditingId(null)
+                  }}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-neutral-900 line-clamp-2">{h.description}</p>
+                      <p className="line-clamp-2 text-sm font-medium text-neutral-900">{h.description}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-2">
                         <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold text-white ${LAW_DOMAIN_BG[h.law_domain]}`}>
                           {h.law_domain}
                         </span>
-                        {initScore != null && (
-                          <span className="text-[10px] text-neutral-400">Initial: {initScore}</span>
-                        )}
+                        {initScore != null && <span className="text-[10px] text-neutral-400">Initial: {initScore}</span>}
                         {resScore != null && (
-                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${RISK_BAND_COLOR[band]}`}>
+                          <Badge variant={riskBandBadgeVariant(band)}>
                             Residual: {resScore} — {RISK_BAND_LABEL[band]}
-                          </span>
+                          </Badge>
                         )}
-                        {mCount > 0 && (
-                          <span className="text-[10px] text-neutral-500">{mCount} tiltak</span>
-                        )}
+                        {mCount > 0 && <span className="text-[10px] text-neutral-500">{mCount} tiltak</span>}
                       </div>
                     </div>
                     {!readOnly && (
-                      <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <button type="button" onClick={() => startEdit(h)}
-                          className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-[#1a3d32]">
+                      <div className="flex shrink-0 gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => startEdit(h)} aria-label="Rediger">
                           <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button type="button"
-                          onClick={() => { if (window.confirm('Slette?')) void ros.deleteHazard(analysis.id, h.id) }}
-                          className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-red-600">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (window.confirm('Slette denne farekilden?')) void ros.deleteHazard(analysis.id, h.id)
+                          }}
+                          aria-label="Slett"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -189,59 +250,65 @@ export function RosHazardsTab({
             )}
           </div>
 
-          {/* Add button */}
           {!readOnly && editingId !== '__new__' && (
             <div className="border-t border-neutral-100 px-5 py-3">
-              <button type="button" onClick={startNew} className="text-sm font-medium text-[#1a3d32] hover:underline">
+              <Button type="button" variant="ghost" className="text-sm font-medium text-[#1a3d32]" onClick={startNew}>
                 + Legg til farekilde
-              </button>
+              </Button>
             </div>
           )}
         </div>
 
-        {/* ── RIGHT: hazard detail / edit form ── */}
         <div className="flex-1 overflow-y-auto px-5 py-5">
           {editingId ? (
             <div className="space-y-4">
-              <p className={FIELD_LABEL}>{editingId === '__new__' ? 'Ny farekilde' : 'Rediger farekilde'}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">
+                {editingId === '__new__' ? 'Ny farekilde' : 'Rediger farekilde'}
+              </p>
 
-              <div>
-                <label className={FIELD_LABEL}>Beskrivelse *</label>
-                <textarea rows={2} value={form.description}
-                  onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                  placeholder="Hva er faren? Vær spesifikk…"
-                  className={`${INPUT} resize-none`} />
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className={FIELD_LABEL}>Lovdomene</label>
-                  <select value={form.law_domain}
-                    onChange={(e) => setForm((p) => ({ ...p, law_domain: e.target.value as RosLawDomain }))}
-                    className={INPUT}>
-                    {ALL_LAW_DOMAINS.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={FIELD_LABEL}>Kategori</label>
-                  <input value={form.category}
-                    onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
-                    placeholder="fysisk, kjemisk, ergonomisk…"
-                    className={INPUT} />
-                </div>
-              </div>
-
-              <div>
-                <label className={FIELD_LABEL}>Eksisterende barrierer</label>
-                <textarea rows={2} value={form.existing_controls}
-                  onChange={(e) => setForm((p) => ({ ...p, existing_controls: e.target.value }))}
-                  placeholder="Hva er allerede på plass?"
-                  className={`${INPUT} resize-none`} />
+              <div className={WPSTD_FORM_ROW_GRID}>
+                <label className="md:col-span-2">
+                  <span className={WPSTD_FORM_FIELD_LABEL}>Beskrivelse *</span>
+                  <StandardTextarea
+                    rows={2}
+                    value={form.description}
+                    onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                    placeholder="Hva er faren? Vær spesifikk…"
+                  />
+                </label>
+                <label>
+                  <span className={WPSTD_FORM_FIELD_LABEL}>Lovdomene</span>
+                  <SearchableSelect
+                    value={form.law_domain}
+                    options={lawDomainOptions}
+                    disabled={readOnly}
+                    onChange={(v) => setForm((p) => ({ ...p, law_domain: v as RosLawDomain }))}
+                  />
+                </label>
+                <label>
+                  <span className={WPSTD_FORM_FIELD_LABEL}>Farekategori</span>
+                  <SearchableSelect
+                    value={form.category}
+                    options={hazardCategoryOptions}
+                    placeholder="Velg kategori…"
+                    disabled={readOnly}
+                    onChange={(v) => setForm((p) => ({ ...p, category: v }))}
+                  />
+                </label>
+                <label className="md:col-span-2">
+                  <span className={WPSTD_FORM_FIELD_LABEL}>Eksisterende barrierer</span>
+                  <StandardTextarea
+                    rows={2}
+                    value={form.existing_controls}
+                    onChange={(e) => setForm((p) => ({ ...p, existing_controls: e.target.value }))}
+                    placeholder="Hva er allerede på plass?"
+                  />
+                </label>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <p className={FIELD_LABEL + ' mb-2'}>Initial risiko (uten tiltak)</p>
+                  <p className={`${WPSTD_FORM_FIELD_LABEL} mb-2`}>Initial risiko (uten tiltak)</p>
                   <div className="rounded-lg border border-neutral-200 bg-white p-3">
                     <RiskMatrix
                       probability={form.initial_probability}
@@ -249,25 +316,31 @@ export function RosHazardsTab({
                       onChange={(p, c) => setForm((prev) => ({ ...prev, initial_probability: p, initial_consequence: c }))}
                       size="sm"
                       readOnly={readOnly}
+                      probabilityLabels={probLabels}
+                      consequenceLabels={consLabels}
                     />
                   </div>
                 </div>
                 <div>
-                  <p className={FIELD_LABEL + ' mb-2'}>Residual risiko (med tiltak)</p>
+                  <p className={`${WPSTD_FORM_FIELD_LABEL} mb-2`}>Residual risiko (med tiltak)</p>
                   <div className="rounded-lg border border-neutral-200 bg-white p-3">
                     <RiskMatrix
                       probability={form.residual_probability}
                       consequence={form.residual_consequence}
-                      onChange={(p, c) => setForm((prev) => ({ ...prev, residual_probability: p, residual_consequence: c }))}
+                      onChange={(p, c) =>
+                        setForm((prev) => ({ ...prev, residual_probability: p, residual_consequence: c }))
+                      }
                       size="sm"
                       readOnly={readOnly}
+                      probabilityLabels={probLabels}
+                      consequenceLabels={consLabels}
                     />
                   </div>
                   {(() => {
                     const s = riskScoreFromProbCons(form.residual_probability, form.residual_consequence)
                     return s != null && s >= 15 ? (
                       <p className="mt-2 text-xs font-semibold text-red-600">
-                        ⛔ Residual risiko {s} ≥ 15 — tiltaksplan opprettes automatisk
+                        Residual risiko {s} ≥ 15 — kritisk nivå (tiltaksplan kan kobles automatisk)
                       </p>
                     ) : null
                   })()}
@@ -275,16 +348,23 @@ export function RosHazardsTab({
               </div>
 
               <div className="flex gap-2">
-                <button type="button" onClick={() => void handleSave()} disabled={saving || !form.description.trim() || readOnly} className={BTN_PRIMARY}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => void handleSave()}
+                  disabled={saving || !form.description.trim() || readOnly}
+                >
                   {saving ? 'Lagrer…' : 'Lagre farekilde'}
-                </button>
-                <button type="button" onClick={() => setEditingId(null)} className={BTN_SECONDARY}>Avbryt</button>
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => setEditingId(null)}>
+                  Avbryt
+                </Button>
               </div>
             </div>
           ) : selectedHazard ? (
             <div className="space-y-4">
               <div>
-                <p className={FIELD_LABEL + ' mb-1'}>Valgt farekilde</p>
+                <p className={`${WPSTD_FORM_FIELD_LABEL} mb-1`}>Valgt farekilde</p>
                 <p className="text-base font-semibold text-neutral-900">{selectedHazard.description}</p>
                 {selectedHazard.existing_controls && (
                   <p className="mt-1 text-xs text-neutral-500">
@@ -297,9 +377,9 @@ export function RosHazardsTab({
                 <p className="mt-1">Antall tiltak: {measuresForSelected.length}</p>
               </div>
               {!readOnly && (
-                <button type="button" onClick={() => startEdit(selectedHazard)} className={BTN_SECONDARY}>
+                <Button type="button" variant="secondary" onClick={() => startEdit(selectedHazard)}>
                   Rediger farekilde
-                </button>
+                </Button>
               )}
             </div>
           ) : (

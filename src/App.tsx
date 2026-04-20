@@ -97,6 +97,7 @@ import { IkMedvirkningPage } from './pages/IkMedvirkningPage'
 import { IkMalPage } from './pages/IkMalPage'
 import { IkTiltaksplanPage } from './pages/IkTiltaksplanPage'
 import { RosModulePage }         from './pages/RosModulePage'
+import { RosModuleAdminPage }    from './pages/RosModuleAdminPage'
 import { RosAnalysisDetailPage } from './pages/RosAnalysisDetailPage'
 import { SurveyModulePage } from './pages/SurveyModulePage'
 import { SurveyDetailPage } from './pages/SurveyDetailPage'
@@ -189,6 +190,7 @@ function App() {
                       <Route path="sja/admin" element={<SjaModuleAdminPage />} />
                       <Route path="sja/:sjaId" element={<SjaDetailPage />} />
                       <Route path="ros"         element={<RosModulePage />} />
+                      <Route path="ros/admin"   element={<RosModuleAdminPage />} />
                       <Route path="ros/:rosId"  element={<RosAnalysisDetailPage />} />
                       <Route path="survey" element={<SurveyModulePage />} />
                       <Route path="survey/:surveyId" element={<SurveyDetailPage />} />

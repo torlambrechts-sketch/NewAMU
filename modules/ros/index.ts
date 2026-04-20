@@ -13,6 +13,10 @@ export type {
   RosStatus,
   RosType,
   RosControlType,
+  RosProbabilityScaleLevelRow,
+  RosConsequenceCategoryRow,
+  RosHazardCategoryRow,
+  RosTemplateRow,
 } from './types'
 export {
   LAW_DOMAIN_COLOR,

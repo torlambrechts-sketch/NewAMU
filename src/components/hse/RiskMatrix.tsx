@@ -1,3 +1,7 @@
+import { Button } from '../ui/Button'
+
+/* eslint-disable react-refresh/only-export-components -- utility exports shared by ROS/inspection */
+
 /**
  * Reusable 5×5 probability × consequence matrix (no domain imports).
  *
@@ -35,6 +39,10 @@ export interface RiskMatrixProps {
   onChange?: (p: number, c: number) => void
   readOnly?: boolean
   size?: 'sm' | 'md'
+  /** Valgfrie etiketter for sannsynlighetsnivå 1–5 (f.eks. fra `ros_probability_scale_levels`) */
+  probabilityLabels?: Record<number, string>
+  /** Valgfrie etiketter for konsekvensnivå 1–5 (f.eks. fra `ros_consequence_categories` via matrix_column) */
+  consequenceLabels?: Record<number, string>
 }
 
 export function riskScoreFromProbCons(p: number | null, c: number | null): number | null {
@@ -59,14 +67,23 @@ export function riskColorClass(score: number | null): string {
   return 'bg-red-100 text-red-800'
 }
 
-function formatAxis(value: number | null): string {
-  return value == null ? '—' : String(value)
-}
-
-function summaryLine(probability: number | null, consequence: number | null): string {
+function summaryLine(
+  probability: number | null,
+  consequence: number | null,
+  probabilityLabels?: Record<number, string>,
+  consequenceLabels?: Record<number, string>,
+): string {
   const z = riskScoreFromProbCons(probability, consequence)
   const label = riskLabel(z)
-  return `Sannsynlighet: ${formatAxis(probability)} — Konsekvens: ${formatAxis(consequence)} — Risikoskår: ${z == null ? '—' : String(z)} (${label === '—' ? '—' : label + ' risiko'})`
+  const pTxt =
+    probability == null
+      ? '—'
+      : [String(probability), probabilityLabels?.[probability]].filter(Boolean).join(' · ')
+  const cTxt =
+    consequence == null
+      ? '—'
+      : [String(consequence), consequenceLabels?.[consequence]].filter(Boolean).join(' · ')
+  return `Sannsynlighet: ${pTxt} — Konsekvens: ${cTxt} — Risikoskår: ${z == null ? '—' : String(z)} (${label === '—' ? '—' : label + ' risiko'})`
 }
 
 const PROB_ORDER = [5, 4, 3, 2, 1] as const
@@ -78,13 +95,15 @@ export function RiskMatrix({
   onChange,
   readOnly = false,
   size = 'md',
+  probabilityLabels,
+  consequenceLabels,
 }: RiskMatrixProps) {
   const gridGap = size === 'sm' ? 'gap-0.5' : 'gap-1'
   const cellPad = size === 'sm' ? 'p-1.5 min-h-[2rem]' : 'p-2 min-h-[2.75rem]'
   const cellText = size === 'sm' ? 'text-xs' : 'text-sm'
   const summaryText = size === 'sm' ? 'text-xs text-neutral-600' : 'text-sm text-neutral-600'
 
-  const line = summaryLine(probability, consequence)
+  const line = summaryLine(probability, consequence, probabilityLabels, consequenceLabels)
 
   return (
     <div className="flex flex-col gap-2">
@@ -119,17 +138,18 @@ export function RiskMatrix({
             }
 
             return (
-              <button
+              <Button
                 key={`${p}-${c}`}
-                type="button"
+                variant="ghost"
+                size="sm"
                 role="gridcell"
                 aria-pressed={selected}
                 aria-label={`Sannsynlighet ${p}, konsekvens ${c}, risikoskår ${score}`}
-                className={`${baseCell}${selectedRing} cursor-pointer hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900`}
+                className={`${baseCell}${selectedRing} h-auto min-h-0 w-full cursor-pointer rounded-md hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900`}
                 onClick={() => onChange(p, c)}
               >
                 {score}
-              </button>
+              </Button>
             )
           }),
         )}
@@ -141,3 +161,5 @@ export function RiskMatrix({
     </div>
   )
 }
+
+/* eslint-enable react-refresh/only-export-components */

@@ -172,6 +172,69 @@ export type RosSignatureRow = {
   signed_at: string
 }
 
+// ── Organization settings (Supabase) ─────────────────────────────────────────
+export type RosProbabilityScaleLevelRow = {
+  id: string
+  organization_id: string
+  level: number
+  label: string
+  description: string | null
+  sort_order: number
+  deleted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type RosConsequenceCategoryRow = {
+  id: string
+  organization_id: string
+  code: string
+  label: string
+  description: string | null
+  matrix_column: number
+  sort_order: number
+  deleted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type RosHazardCategoryRow = {
+  id: string
+  organization_id: string
+  code: string
+  label: string
+  description: string | null
+  sort_order: number
+  deleted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type RosTemplateRow = {
+  id: string
+  organization_id: string
+  name: string
+  /** Parsed with RosTemplateDefinitionSchema in schema.ts */
+  definition: RosTemplateDefinition
+  is_active: boolean
+  deleted_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** JSONB payload for ros_templates.definition */
+export type RosTemplateDefinition = {
+  version: 1
+  /** Optional checklist of hazard stubs applied when creating from template */
+  hazard_stubs?: {
+    description: string
+    category_code: string | null
+    law_domain: RosLawDomain
+    existing_controls?: string | null
+  }[]
+}
+
 // ── Computed helpers ──────────────────────────────────────────────────────────
 export function riskScore(p: number | null, c: number | null): number | null {
   if (p == null || c == null) return null
