@@ -15,6 +15,8 @@ export const PERMISSION_KEYS = [
   'module.view.internal_control',
   /** Redigere IK-tabeller (lovregister, roller, kompetanse, mål, tiltak) */
   'internkontroll.manage',
+  /** Alias for internkontroll.manage (årsgjennomgang / IK-oppfølging) */
+  'ik.manage',
   /** Redigere ROS (risikovurderinger) */
   'ros.manage',
   /** Redigere tiltaksplan, kategorier og arbeidsflyt (IK) */
@@ -63,6 +65,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'module.view.inspection': 'Inspeksjonsmodul',
   'module.view.internal_control': 'Internkontroll',
   'internkontroll.manage': 'Internkontroll — redigere data',
+  'ik.manage': 'Internkontroll — redigere data (alias)',
   'ros.manage': 'ROS — redigere risikovurderinger',
   'action_plan.manage': 'Tiltaksplan — kategorier og arbeidsflyt',
   'whistleblowing.committee': 'Varslingsmottak',
@@ -98,6 +101,8 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/internal-control', permission: 'module.view.internal_control' },
   { pathPrefix: '/internkontroll', permission: 'module.view.internal_control' },
   { pathPrefix: '/modules/aarskontroll', permission: 'module.view.internal_control' },
+  { pathPrefix: '/modules/ik-annual-review', permission: 'module.view.internal_control' },
+  { pathPrefix: '/internkontroll/arsgjenomgang', permission: 'module.view.internal_control' },
   { pathPrefix: '/tasks', permission: 'module.view.tasks' },
   { pathPrefix: '/learning', permission: 'module.view.learning' },
   /** Same gate as workspace — report data is still scoped per org in RPCs */

@@ -221,6 +221,15 @@ const REGISTRY: Record<string, ModuleRegistryEntry> = {
     ),
     configSchema: surveyConfig,
   },
+
+  'ik-annual-review': {
+    slug: 'ik-annual-review',
+    displayName: 'Årlig gjennomgang (IK § 5.8)',
+    component: lazy(() =>
+      import('../pages/IkAnnualReviewPage').then((m) => ({ default: m.IkAnnualReviewPage })),
+    ),
+    configSchema: baseConfig,
+  },
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────

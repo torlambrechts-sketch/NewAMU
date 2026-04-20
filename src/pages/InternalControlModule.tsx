@@ -6,8 +6,6 @@ import {
   ClipboardList,
   LayoutDashboard,
   Lock,
-  Plus,
-  Search,
   ShieldCheck,
   Trash2,
   X,
@@ -19,28 +17,11 @@ import { RISK_COLOUR_CLASSES, riskColour } from '../data/rosTemplate'
 import { useInternalControl } from '../hooks/useInternalControl'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useWorkplacePublishedComposerStacks } from '../hooks/useWorkplacePublishedComposerStacks'
-import type {
-  AnnualReview,
-  AnnualReviewActionDraft,
-  AnnualReviewSections,
-  InternalControlAuditEntry,
-  RosAssessment,
-  RosCategory,
-  RosWorkspaceCategory,
-} from '../types/internalControl'
+import type { InternalControlAuditEntry, RosAssessment, RosCategory, RosWorkspaceCategory } from '../types/internalControl'
 import { isRosDocumentDraft, isRosRiskRowDraft, isRosRowDoneForTracking } from '../types/internalControl'
-import { EMPTY_ANNUAL_REVIEW_SECTIONS, isLegacyAnnualReview } from '../types/internalControl'
 import { useHrCompliance } from '../hooks/useHrCompliance'
-import { useHse } from '../hooks/useHse'
 import { useTasks } from '../hooks/useTasks'
-import {
-  mergeLayoutPayload,
-  table1BodyRowClass,
-  table1CellPadding,
-  table1HeaderRowClass,
-} from '../lib/layoutLabTokens'
 import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
-import { useUiTheme } from '../hooks/useUiTheme'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
 import {
   INSIGHT_CARD,
@@ -50,8 +31,6 @@ import {
 } from '../components/insights/ModuleInsightCharts'
 import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { LayoutScoreStatRow } from '../components/layout/LayoutScoreStatRow'
-import { Table1Shell } from '../components/layout/Table1Shell'
-import { Table1Toolbar } from '../components/layout/Table1Toolbar'
 import { RosWorkplaceLayoutRiskMatrixSection, RosWorkplaceLayoutRiskTableSection } from './platform/rosRiskLayoutBlocks'
 import { InternalControlTabShell } from './internalControl/InternalControlTabShell'
 import { RosAssessmentsList2 } from './internalControl/RosAssessmentsList2'
@@ -61,6 +40,7 @@ import {
 } from '../lib/icOverviewLayoutFromPreset'
 import { resolveRosTabLayoutFromPublishedRows, type RosTabLayoutResolved } from '../lib/rosLayoutFromPreset'
 import { renderLayoutComposerBlock } from './platform/PlatformLayoutComposerPage'
+import { IkAnnualReviewView } from '../modules/ik-annual-review'
 
 const tabs = [
   { id: 'overview' as const, label: 'Oversikt', icon: LayoutDashboard, iconOnly: false as const },
@@ -68,14 +48,12 @@ const tabs = [
   { id: 'annual' as const, label: 'Årsgjennomgang', icon: Calendar, iconOnly: false as const },
 ] as const
 
-const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
 const TASK_PANEL_ROW_GRID =
   'grid grid-cols-1 gap-4 border-b border-neutral-200 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-5 md:py-5'
 const SETTINGS_LEAD = 'text-sm leading-relaxed text-neutral-600'
 const SETTINGS_FIELD_LABEL = 'text-[10px] font-bold uppercase tracking-wider text-neutral-800'
 const SETTINGS_INPUT =
   'mt-1.5 w-full rounded-none border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900'
-const TASK_PANEL_INSET = 'rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6'
 const SETTINGS_FIELD_LABEL_ON_DARK = 'text-[10px] font-bold uppercase tracking-wider text-white/90'
 const SETTINGS_INPUT_ON_DARK =
   'mt-1.5 w-full rounded-none border border-white/25 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/50 focus:border-white focus:outline-none focus:ring-1 focus:ring-white'
@@ -95,14 +73,6 @@ const ROS_WORKSPACE_LABELS: Record<RosWorkspaceCategory, string> = {
   construction: 'Bygg / anlegg',
   healthcare: 'Helse / omsorg',
 }
-function formatWhen(iso: string) {
-  try {
-    return new Date(iso).toLocaleString('no-NO', { dateStyle: 'short', timeStyle: 'short' })
-  } catch {
-    return iso
-  }
-}
-
 function auditLogSegment(a: InternalControlAuditEntry): 'init' | 'ros' | 'annual' | 'other' {
   const act = a.action
   if (act === 'init') return 'init'
@@ -113,16 +83,10 @@ function auditLogSegment(a: InternalControlAuditEntry): 'init' | 'ros' | 'annual
 
 export function InternalControlModule() {
   const { barStyle: kpiStripStyle } = useWorkplaceKpiStripStyle()
-  const { payload: layoutPayload } = useUiTheme()
-  const layout = mergeLayoutPayload(layoutPayload)
-  const tableCell = `${table1CellPadding(layout)} ${TABLE_CELL_BASE}`
-  const theadRow = table1HeaderRowClass(layout)
-
   const ic = useInternalControl()
   const hr = useHrCompliance()
-  const hse = useHse()
   const { addTask } = useTasks()
-  const { supabaseConfigured, profile, user } = useOrgSetupContext()
+  const { supabase, supabaseConfigured, organization } = useOrgSetupContext()
   const { publishedStackTemplates } = useWorkplacePublishedComposerStacks()
   const [searchParams, setSearchParams] = useSearchParams()
   type TabId = (typeof tabs)[number]['id']
@@ -137,23 +101,6 @@ export function InternalControlModule() {
       queueMicrotask(() => navigate('/workspace/revisjonslogg?source=internal_control', { replace: true }))
     }
   }, [tabParam, navigate])
-
-  const annualFocus = searchParams.get('focus')
-  useEffect(() => {
-    if (tab !== 'annual' || annualFocus !== 'yearskontroll') return
-    const t = window.setTimeout(() => {
-      document.getElementById('ic-annual-yearskontroll')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      setSearchParams(
-        (prev) => {
-          const p = new URLSearchParams(prev)
-          p.delete('focus')
-          return p
-        },
-        { replace: true },
-      )
-    }, 250)
-    return () => window.clearTimeout(t)
-  }, [tab, annualFocus, setSearchParams])
 
   const [overviewTimeAnchor] = useState(() => Date.now())
 
@@ -170,32 +117,6 @@ export function InternalControlModule() {
   const [rosViewId, setRosViewId] = useState<string | null>(null)
   const [rosHighlightRowId, setRosHighlightRowId] = useState<string | null>(null)
   const [rosListSearch, setRosListSearch] = useState('')
-  const [annualListSearch, setAnnualListSearch] = useState('')
-  const [annualPanelOpen, setAnnualPanelOpen] = useState(false)
-  type AnnualFormState = {
-    id: string
-    year: number
-    reviewedAt: string
-    nextReviewDue: string
-    reviewerDisplay: string
-    sections: AnnualReviewSections
-    actionRows: AnnualReviewActionDraft[]
-    status: AnnualReview['status']
-    /** Eldre årsgjennomgang — vises read-only */
-    legacySummary?: string | null
-  }
-  const [annualForm, setAnnualForm] = useState<AnnualFormState | null>(null)
-
-  const annualFormFieldsLocked = useMemo(
-    () =>
-      annualForm
-        ? Boolean(annualForm.legacySummary) ||
-          annualForm.status === 'locked' ||
-          annualForm.status === 'pending_safety_rep'
-        : false,
-    [annualForm],
-  )
-
   const resetRosPanelForm = useCallback(() => {
     setRosTitle('')
     setRosDescription('')
@@ -284,15 +205,62 @@ export function InternalControlModule() {
     return { total: list.length, locked, drafts }
   }, [ic.rosAssessments])
 
+  const [dbAnnualStats, setDbAnnualStats] = useState<{ total: number; draft: number; pendingSignatures: number; signed: number } | null>(
+    null,
+  )
+
+  useEffect(() => {
+    if (!supabase || !organization?.id) {
+      setDbAnnualStats(null)
+      return
+    }
+    const oid = organization.id
+    let cancelled = false
+    void (async () => {
+      const { data, error } = await supabase
+        .from('ik_annual_reviews')
+        .select('status, manager_signed_at, deputy_signed_at')
+        .eq('organization_id', oid)
+      if (cancelled) return
+      if (error) {
+        const legacy = ic.annualReviews
+        setDbAnnualStats({
+          total: legacy.length,
+          draft: legacy.filter((a) => (a.status ?? 'draft') === 'draft' && !a.locked).length,
+          pendingSignatures: legacy.filter((a) => a.status === 'pending_safety_rep').length,
+          signed: legacy.filter((a) => a.locked || a.status === 'locked').length,
+        })
+        return
+      }
+      const rows = (data ?? []) as {
+        status: string
+        manager_signed_at: string | null
+        deputy_signed_at: string | null
+      }[]
+      setDbAnnualStats({
+        total: rows.length,
+        draft: rows.filter((r) => r.status === 'draft').length,
+        pendingSignatures: rows.filter(
+          (r) => r.status === 'draft' && (r.manager_signed_at != null) !== (r.deputy_signed_at != null),
+        ).length,
+        signed: rows.filter((r) => r.status === 'signed' || r.status === 'archived').length,
+      })
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, organization?.id, ic.annualReviews])
+
   const annualStats = useMemo(() => {
+    if (dbAnnualStats) return dbAnnualStats
     const list = ic.annualReviews
     return {
       total: list.length,
       draft: list.filter((a) => (a.status ?? 'draft') === 'draft' && !a.locked).length,
-      pending: list.filter((a) => a.status === 'pending_safety_rep').length,
-      locked: list.filter((a) => a.locked || a.status === 'locked').length,
+      pendingSignatures: list.filter((a) => a.status === 'pending_safety_rep').length,
+      signed: list.filter((a) => a.locked || a.status === 'locked').length,
     }
-  }, [ic.annualReviews])
+  }, [dbAnnualStats, ic.annualReviews])
 
   const icOverviewKpis = useMemo(
     () => [
@@ -303,8 +271,8 @@ export function InternalControlModule() {
       },
       {
         title: 'Årsgjennomgang',
-        sub: 'Låst / pågår',
-        value: `${annualStats.locked} / ${annualStats.draft + annualStats.pending}`,
+        sub: 'Signert / pågår',
+        value: `${annualStats.signed} / ${annualStats.draft + annualStats.pendingSignatures}`,
       },
       {
         title: 'Logg (90 d.)',
@@ -366,9 +334,9 @@ export function InternalControlModule() {
   const icAnnualStatusSegments = useMemo(() => {
     const palette = ['#94a3b8', '#0284c7', '#059669']
     const entries: InsightSeg[] = [
-      { label: 'Utkast', value: annualStats.draft, color: palette[0] },
-      { label: 'Venter VO', value: annualStats.pending, color: palette[1] },
-      { label: 'Låst', value: annualStats.locked, color: palette[2] },
+      { label: 'Kladd', value: annualStats.draft, color: palette[0] },
+      { label: 'Venter signatur', value: annualStats.pendingSignatures, color: palette[1] },
+      { label: 'Signert', value: annualStats.signed, color: palette[2] },
     ].filter((x) => x.value > 0)
     const total = entries.reduce((s, x) => s + x.value, 0)
     return { entries, total }
@@ -406,219 +374,6 @@ export function InternalControlModule() {
     const total = entries.reduce((s, x) => s + x.value, 0)
     return { entries, total }
   }, [auditStats])
-
-  const sortedAnnuals = useMemo(
-    () => [...ic.annualReviews].sort((a, b) => b.year - a.year || b.reviewedAt.localeCompare(a.reviewedAt)),
-    [ic.annualReviews],
-  )
-
-  const annualReviewsFiltered = useMemo(() => {
-    const q = annualListSearch.trim().toLowerCase()
-    if (!q) return sortedAnnuals
-    return sortedAnnuals.filter((a) => {
-      const y = String(a.year)
-      const rev = (a.reviewer ?? '').toLowerCase()
-      const dt = (a.reviewedAt ?? '').toLowerCase()
-      const legacy = isLegacyAnnualReview(a)
-      const st = a.status ?? (a.locked ? 'locked' : legacy ? 'locked' : 'draft')
-      const statusText =
-        st === 'locked' ? 'låst' : st === 'pending_safety_rep' ? 'venter verneombud' : 'utkast'
-      return y.includes(q) || rev.includes(q) || dt.includes(q) || statusText.includes(q)
-    })
-  }, [sortedAnnuals, annualListSearch])
-
-  const tbodyRow = useCallback((ri: number) => table1BodyRowClass(layout, ri), [layout])
-
-  const canSignAsSafetyRep = Boolean(
-    user?.id &&
-      (profile?.is_org_admin === true ||
-        (profile?.learning_metadata &&
-          (profile.learning_metadata as { is_safety_rep?: boolean }).is_safety_rep === true)),
-  )
-
-  const annualDashboardYear = annualForm?.year ?? new Date().getFullYear()
-  const annualDashboard = useMemo(() => {
-    const year = annualDashboardYear
-    const incidents = hse.incidents.filter((i) => {
-      try {
-        return new Date(i.occurredAt).getFullYear() === year
-      } catch {
-        return false
-      }
-    })
-    const openIncidents = incidents.filter((i) => i.status !== 'closed')
-    const safetyRounds = hse.safetyRounds.filter((sr) => {
-      try {
-        return new Date(sr.conductedAt).getFullYear() === year
-      } catch {
-        return false
-      }
-    })
-    const approvedRounds = safetyRounds.filter((sr) => sr.status === 'approved')
-    const sickCases = hse.sickLeaveCases.filter((c) => {
-      try {
-        return new Date(c.sickFrom).getFullYear() === year
-      } catch {
-        return false
-      }
-    })
-    const rosInYear = ic.rosAssessments.filter((r) => {
-      try {
-        return new Date(r.assessedAt).getFullYear() === year
-      } catch {
-        return false
-      }
-    })
-    const rosLocked = rosInYear.filter((r) => r.locked).length
-    let sickNote = '—'
-    if (sickCases.length > 0) {
-      const avgDeg = sickCases.reduce((s, c) => s + (c.sicknessDegree ?? 0), 0) / sickCases.length
-      sickNote = `${sickCases.length} sykefraværssaker · snitt sykdomsgrad ${avgDeg.toFixed(0)} % (ikke samme som fraværsprosent)`
-    }
-    return {
-      incidentCount: incidents.length,
-      openIncidents: openIncidents.length,
-      safetyTotal: safetyRounds.length,
-      safetyApproved: approvedRounds.length,
-      sickCases: sickCases.length,
-      sickNote,
-      rosTotal: rosInYear.length,
-      rosLocked,
-    }
-  }, [annualDashboardYear, hse.incidents, hse.safetyRounds, hse.sickLeaveCases, ic.rosAssessments])
-
-  const closeAnnualPanel = useCallback(() => {
-    setAnnualPanelOpen(false)
-    setAnnualForm(null)
-  }, [])
-
-  useEffect(() => {
-    if (!annualPanelOpen) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prev
-    }
-  }, [annualPanelOpen])
-
-  useEffect(() => {
-    if (!annualPanelOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeAnnualPanel()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [annualPanelOpen, closeAnnualPanel])
-
-  const openNewAnnualPanel = useCallback(() => {
-    const y = new Date().getFullYear()
-    const id = crypto.randomUUID()
-    const today = new Date().toISOString().slice(0, 10)
-    const nextDue = `${y + 1}-12-31`
-    const reviewerDisplay = profile?.display_name?.trim() || user?.email || ''
-    setAnnualForm({
-      id,
-      year: y,
-      reviewedAt: today,
-      nextReviewDue: nextDue,
-      reviewerDisplay,
-      sections: { ...EMPTY_ANNUAL_REVIEW_SECTIONS },
-      actionRows: [],
-      status: 'draft',
-    })
-    ic.upsertAnnualReview({
-      id,
-      year: y,
-      reviewedAt: today,
-      reviewer: reviewerDisplay,
-      summary: '',
-      nextReviewDue: nextDue,
-      sections: { ...EMPTY_ANNUAL_REVIEW_SECTIONS },
-      actionPlanDrafts: [],
-      signatures: [],
-      status: 'draft',
-      locked: false,
-    })
-    setAnnualPanelOpen(true)
-  }, [ic, profile?.display_name, user?.email])
-
-  const openAnnualPanelFor = useCallback(
-    (a: AnnualReview) => {
-      if (isLegacyAnnualReview(a)) {
-        setAnnualForm({
-          id: a.id,
-          year: a.year,
-          reviewedAt: a.reviewedAt,
-          nextReviewDue: a.nextReviewDue,
-          reviewerDisplay: a.reviewer,
-          sections: { ...EMPTY_ANNUAL_REVIEW_SECTIONS },
-          actionRows: [],
-          status: 'locked',
-          legacySummary: a.summary,
-        })
-        setAnnualPanelOpen(true)
-        return
-      }
-      setAnnualForm({
-        id: a.id,
-        year: a.year,
-        reviewedAt: a.reviewedAt,
-        nextReviewDue: a.nextReviewDue,
-        reviewerDisplay: a.reviewer,
-        sections: a.sections ? { ...a.sections } : { ...EMPTY_ANNUAL_REVIEW_SECTIONS },
-        actionRows: [...(a.actionPlanDrafts ?? [])],
-        status: a.status ?? (a.locked ? 'locked' : 'draft'),
-        legacySummary: null,
-      })
-      setAnnualPanelOpen(true)
-    },
-    [],
-  )
-
-  const persistAnnualDraftFromForm = useCallback(() => {
-    if (!annualForm) return
-    const cur = ic.annualReviews.find((x) => x.id === annualForm.id)
-    const prevSec = cur?.sections
-    const nextSec = annualForm.sections
-    const labels: Partial<Record<keyof typeof nextSec, string>> = {
-      goalsLastYearComment: 'Kommentar fjorårets mål',
-      deviationsReview: 'Avvik',
-      rosReview: 'ROS',
-      sickLeaveReview: 'Sykefravær',
-      goalsNextYear: 'HMS-mål',
-      actionPlanStatusReview: 'Tiltaksplan (årskontroll)',
-      effectEvaluation: 'Effektevaluering',
-      incidentsRealityCheck: 'Hendelser/avvik',
-      threatLandscapeChanges: 'Trusselbilde',
-      pdcaCheckActNotes: 'PDCA Check/Act',
-    }
-    let changeLog = [...(cur?.changeLog ?? [])]
-    if (prevSec && cur && !cur.locked) {
-      const at = new Date().toISOString()
-      for (const k of Object.keys(labels) as (keyof typeof nextSec)[]) {
-        const a = (prevSec[k] ?? '').trim()
-        const b = (nextSec[k] ?? '').trim()
-        if (a !== b && labels[k]) {
-          changeLog = [...changeLog, { at, message: `Oppdatert: ${labels[k]}` }].slice(-80)
-        }
-      }
-    }
-    ic.upsertAnnualReview({
-      id: annualForm.id,
-      year: annualForm.year,
-      reviewedAt: annualForm.reviewedAt,
-      reviewer: annualForm.reviewerDisplay,
-      summary: cur?.summary ?? '',
-      nextReviewDue: annualForm.nextReviewDue,
-      sections: annualForm.sections,
-      actionPlanDrafts: annualForm.actionRows,
-      status: annualForm.status ?? cur?.status ?? 'draft',
-      locked: cur?.locked ?? false,
-      signatures: cur?.signatures ?? [],
-      createdAt: cur?.createdAt,
-      changeLog,
-    })
-  }, [annualForm, ic])
 
   const handleRosLockTasks = useCallback(
     (ros: RosAssessment) => {
@@ -860,9 +615,9 @@ export function InternalControlModule() {
                     <p className="mt-1 text-sm text-neutral-600">ROS-utkast (åpne)</p>
                     <div className="mt-4 space-y-2 border-t border-neutral-100 pt-4 text-sm text-neutral-700">
                       <div className="flex justify-between gap-2">
-                        <span className="text-neutral-500">Årsgj. utkast / venter VO</span>
+                        <span className="text-neutral-500">Årsgj. kladd / venter signatur</span>
                         <span className="font-semibold tabular-nums">
-                          {annualStats.draft} / {annualStats.pending}
+                          {annualStats.draft} / {annualStats.pendingSignatures}
                         </span>
                       </div>
                       <div className="flex justify-between gap-2">
@@ -1254,14 +1009,22 @@ export function InternalControlModule() {
           hubItems={icHubItems}
           description={
             <p>
-              Strukturert årsgjennomgang (IK-f § 5 nr. 8), data fra HMS-modulen og dobbeltsignatur (leder → verneombud).
-              Varsling:{' '}
+              Årlig gjennomgang etter internkontrollforskriften § 5.8. Data lagres i databasen med revisjonsspor og
+              signatur. Varsling:{' '}
               <Link to="/tasks?view=whistle" className="font-medium text-[#1a3d32] underline">
                 Oppgaver → Varslingssaker
               </Link>
-              .{' '}
+              . Handlingsplan:{' '}
+              <Link to="/internkontroll/tiltaksplan" className="font-medium text-[#1a3d32] underline">
+                Internkontroll → Tiltaksplan
+              </Link>{' '}
+              eller{' '}
               <Link to="/action-board" className="font-medium text-[#1a3d32] underline">
-                Handlingsplan på tavle
+                tavle
+              </Link>
+              . Administrasjon:{' '}
+              <Link to="/internkontroll/admin" className="font-medium text-[#1a3d32] underline">
+                Innstillinger for signatur
               </Link>
               .
             </p>
@@ -1278,813 +1041,22 @@ export function InternalControlModule() {
             <LayoutScoreStatRow
               items={[
                 { big: String(annualStats.total), title: 'Totalt', sub: 'Registrerte år' },
-                { big: String(annualStats.draft), title: 'Utkast', sub: 'Ikke sendt til VO' },
-                { big: String(annualStats.pending), title: 'Venter VO', sub: 'Leder signert' },
+                { big: String(annualStats.draft), title: 'Kladd', sub: 'Under arbeid' },
+                { big: String(annualStats.pendingSignatures), title: 'Venter signatur', sub: 'Én signatur mangler' },
               ]}
               childrenByIndex={{
                 2: (
                   <p className="mt-2 text-xs text-neutral-600">
-                    <span className="font-semibold text-neutral-800">{annualStats.locked}</span> låst
+                    <span className="font-semibold text-neutral-800">{annualStats.signed}</span> signert eller arkivert
                   </p>
                 ),
               }}
             />
           </div>
 
-          <section className="mt-8" aria-label="Tidligere årsgjennomganger">
-            <Table1Shell
-              variant="pinpoint"
-              toolbar={
-                <Table1Toolbar
-                  searchSlot={
-                    <div className="relative min-w-[200px] flex-1">
-                      <label htmlFor="annual-list-search" className="sr-only">
-                        Søk i årsgjennomganger
-                      </label>
-                      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-                      <input
-                        id="annual-list-search"
-                        type="search"
-                        value={annualListSearch}
-                        onChange={(e) => setAnnualListSearch(e.target.value)}
-                        placeholder="Søk etter år, status, dato, leder …"
-                        className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/25"
-                      />
-                    </div>
-                  }
-                  segmentSlot={<span className="sr-only">Verktøylinje</span>}
-                  endSlot={
-                    <button
-                      type="button"
-                      onClick={openNewAnnualPanel}
-                      className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#1a3d32] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#142e26]"
-                    >
-                      <Plus className="size-4 shrink-0" aria-hidden />
-                      Ny årsgjennomgang
-                    </button>
-                  }
-                />
-              }
-            >
-              <div className="border-b border-neutral-100 px-4 py-3 md:px-5">
-                <h2 className="font-semibold text-neutral-900">Tidligere årsgjennomganger</h2>
-                <p className="mt-1 text-xs text-neutral-500">
-                  Nye skjemaer krever obligatoriske felt og dobbeltsignatur (leder → verneombud). Eldre rader viser fri tekst.
-                </p>
-              </div>
-              <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-                <thead>
-                  <tr className={theadRow}>
-                    <th className={`${tableCell} font-medium`}>År</th>
-                    <th className={`${tableCell} font-medium`}>Status</th>
-                    <th className={`${tableCell} font-medium`}>Dato</th>
-                    <th className={`${tableCell} font-medium`}>Leder / ansvarlig</th>
-                    <th className={`${tableCell} text-right font-medium`}>Handling</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {annualReviewsFiltered.map((a, ri) => {
-                    const legacy = isLegacyAnnualReview(a)
-                    const st = a.status ?? (a.locked ? 'locked' : legacy ? 'locked' : 'draft')
-                    const statusLabel =
-                      st === 'locked'
-                        ? 'Låst'
-                        : st === 'pending_safety_rep'
-                          ? 'Venter verneombud'
-                          : 'Utkast'
-                    return (
-                      <tr key={a.id} className={tbodyRow(ri)}>
-                        <td className={`${tableCell} font-medium`}>{a.year}</td>
-                        <td className={tableCell}>
-                          <span
-                            className={`rounded-none border px-2 py-0.5 text-xs font-medium ${
-                              st === 'locked'
-                                ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
-                                : st === 'pending_safety_rep'
-                                  ? 'border-sky-300 bg-sky-50 text-sky-900'
-                                  : 'border-amber-300 bg-amber-50 text-amber-950'
-                            }`}
-                          >
-                            {statusLabel}
-                          </span>
-                          {legacy ? (
-                            <span className="ml-2 text-[10px] text-neutral-400">(eldre format)</span>
-                          ) : null}
-                        </td>
-                        <td className={`${tableCell} text-neutral-600`}>{a.reviewedAt}</td>
-                        <td className={tableCell}>{a.reviewer || '—'}</td>
-                        <td className={`${tableCell} text-right`}>
-                          <button
-                            type="button"
-                            onClick={() => openAnnualPanelFor(a)}
-                            className="rounded-none border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-800 hover:bg-neutral-50"
-                          >
-                            {st === 'locked' ? 'Vis' : st === 'pending_safety_rep' ? 'Godkjenn / vis' : 'Fortsett'}
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-              {annualReviewsFiltered.length === 0 ? (
-                <p className="px-4 py-10 text-center text-sm text-neutral-500">
-                  {annualListSearch.trim() ? 'Ingen årsgjennomganger matcher søket.' : 'Ingen årsgjennomganger ennå.'}
-                </p>
-              ) : null}
-            </Table1Shell>
-          </section>
-
-          {annualPanelOpen && annualForm ? (
-            <div
-              className="fixed inset-0 z-[100] flex justify-end bg-black/45 backdrop-blur-[2px]"
-              role="presentation"
-              onMouseDown={(e) => {
-                if (e.target === e.currentTarget) closeAnnualPanel()
-              }}
-            >
-              <div
-                className="flex h-full w-full max-w-[min(100vw,960px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="annual-panel-title"
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <header className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 bg-[#f7f6f2] px-6 py-5 sm:px-8 sm:py-6">
-                  <div>
-                    <h2
-                      id="annual-panel-title"
-                      className="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl"
-                      style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-                    >
-                      Årsgjennomgang {annualForm.year}
-                    </h2>
-                    <p className="mt-1 text-xs text-neutral-500">
-                      {annualForm.legacySummary
-                        ? 'Eldre registrering (fri tekst). Opprett ny årsgjennomgang for strukturert flyt og signatur.'
-                        : annualForm.status === 'locked'
-                          ? 'Dokumentet er låst etter verneombudets signatur.'
-                          : annualForm.status === 'pending_safety_rep'
-                            ? 'Venter signatur fra verneombud / AMU-representant (AML § 3-1).'
-                            : 'Utfyll strukturerte felt, legg inn tiltak og signer som leder.'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={closeAnnualPanel}
-                    className="rounded-none p-2 text-neutral-500 transition hover:bg-neutral-200/60 hover:text-neutral-800"
-                    aria-label="Lukk"
-                  >
-                    <X className="size-6" />
-                  </button>
-                </header>
-
-                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
-                  <div className="rounded-none border border-neutral-200 bg-white p-4 text-sm text-neutral-800">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Datagrunnlag ({annualForm.year})</p>
-                    <p className="mt-2 leading-relaxed">
-                      I {annualForm.year} er det registrert{' '}
-                      <strong>{annualDashboard.incidentCount}</strong> hendelser/avvik ({annualDashboard.openIncidents} åpne),{' '}
-                      <strong>{annualDashboard.safetyApproved}</strong> godkjente vernerunder (av {annualDashboard.safetyTotal} registrerte), og{' '}
-                      <strong>{annualDashboard.rosTotal}</strong> ROS-vurderinger ({annualDashboard.rosLocked} låst). Sykefravær:{' '}
-                      {annualDashboard.sickNote}.
-                    </p>
-                    <p className="mt-2 text-xs text-neutral-500">
-                      Tallene hentes fra HMS-modulen og internkontroll (ROS). Bruk dem som utgangspunkt i vurderingene under.
-                    </p>
-                  </div>
-
-                  {annualForm.legacySummary ? (
-                    <div className="mt-6 rounded-none border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-                      <p className="font-semibold">Oppsummering (historisk)</p>
-                      <p className="mt-2 whitespace-pre-wrap">{annualForm.legacySummary}</p>
-                    </div>
-                  ) : null}
-
-                  {!annualForm.legacySummary ? (
-                    <>
-                      <div className={`${TASK_PANEL_ROW_GRID} mt-6`}>
-                        <div>
-                          <h3 className="text-base font-semibold text-neutral-900">Grunninfo</h3>
-                          <p className={`${SETTINGS_LEAD} mt-2`}>
-                            År for gjennomgang, dato og neste planlagte revisjon. Ansvarlig leder fylles fra profil (kan justeres).
-                          </p>
-                        </div>
-                        <div className={TASK_PANEL_INSET}>
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <div>
-                              <label className={SETTINGS_FIELD_LABEL}>År</label>
-                              <input
-                                type="number"
-                                disabled={annualFormFieldsLocked}
-                                value={annualForm.year}
-                                onChange={(e) =>
-                                  setAnnualForm((f) => (f ? { ...f, year: Number(e.target.value) || f.year } : f))
-                                }
-                                className={SETTINGS_INPUT}
-                              />
-                            </div>
-                            <div>
-                              <label className={SETTINGS_FIELD_LABEL}>Gjennomført (dato)</label>
-                              <input
-                                type="date"
-                                disabled={annualFormFieldsLocked}
-                                value={annualForm.reviewedAt}
-                                onChange={(e) =>
-                                  setAnnualForm((f) => (f ? { ...f, reviewedAt: e.target.value } : f))
-                                }
-                                className={SETTINGS_INPUT}
-                              />
-                            </div>
-                            <div className="sm:col-span-2">
-                              <label className={SETTINGS_FIELD_LABEL}>Neste planlagte gjennomgang</label>
-                              <input
-                                type="date"
-                                disabled={annualFormFieldsLocked}
-                                value={annualForm.nextReviewDue}
-                                onChange={(e) =>
-                                  setAnnualForm((f) => (f ? { ...f, nextReviewDue: e.target.value } : f))
-                                }
-                                className={SETTINGS_INPUT}
-                              />
-                            </div>
-                            <div className="sm:col-span-2">
-                              <label className={SETTINGS_FIELD_LABEL}>Ansvarlig leder (visning)</label>
-                              <input
-                                disabled={annualFormFieldsLocked}
-                                value={annualForm.reviewerDisplay}
-                                onChange={(e) =>
-                                  setAnnualForm((f) => (f ? { ...f, reviewerDisplay: e.target.value } : f))
-                                }
-                                className={SETTINGS_INPUT}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="my-6 border-t border-neutral-200/90" />
-
-                      <div className={TASK_PANEL_ROW_GRID}>
-                        <div>
-                          <h3 className="text-base font-semibold text-neutral-900">Obligatoriske vurderinger (IK-f § 5 nr. 8)</h3>
-                          <p className={`${SETTINGS_LEAD} mt-2`}>
-                            Alle felt må fylles ut før leder kan signere. «Ja/Nei» for fjorårets mål krever alltid en kort begrunnelse.
-                          </p>
-                        </div>
-                        <div className={`${TASK_PANEL_INSET} space-y-4`}>
-                          <div>
-                            <p className={SETTINGS_FIELD_LABEL}>Ble fjorårets HMS-mål nådd?</p>
-                            <div className="mt-2 flex flex-wrap gap-3">
-                              {(['yes', 'no'] as const).map((v) => (
-                                <label key={v} className="flex cursor-pointer items-center gap-2 text-sm">
-                                  <input
-                                    type="radio"
-                                    name="goalsLastYear"
-                                    disabled={annualFormFieldsLocked}
-                                    checked={annualForm.sections.goalsLastYearAchieved === v}
-                                    onChange={() =>
-                                      setAnnualForm((f) =>
-                                        f
-                                          ? {
-                                              ...f,
-                                              sections: { ...f.sections, goalsLastYearAchieved: v },
-                                            }
-                                          : f,
-                                      )
-                                    }
-                                  />
-                                  {v === 'yes' ? 'Ja' : 'Nei'}
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                          <div>
-                            <label className={SETTINGS_FIELD_LABEL}>Kommentar til fjorårets mål</label>
-                            <textarea
-                              disabled={annualFormFieldsLocked}
-                              rows={3}
-                              value={annualForm.sections.goalsLastYearComment}
-                              onChange={(e) =>
-                                setAnnualForm((f) =>
-                                  f
-                                    ? {
-                                        ...f,
-                                        sections: { ...f.sections, goalsLastYearComment: e.target.value },
-                                      }
-                                    : f,
-                                )
-                              }
-                              className={SETTINGS_INPUT}
-                            />
-                          </div>
-                          <div>
-                            <label className={SETTINGS_FIELD_LABEL}>Avvik og rapporteringskultur</label>
-                            <textarea
-                              disabled={annualFormFieldsLocked}
-                              rows={3}
-                              placeholder="Rapporteringskultur, korrigerende tiltak, åpne saker …"
-                              value={annualForm.sections.deviationsReview}
-                              onChange={(e) =>
-                                setAnnualForm((f) =>
-                                  f
-                                    ? {
-                                        ...f,
-                                        sections: { ...f.sections, deviationsReview: e.target.value },
-                                      }
-                                    : f,
-                                )
-                              }
-                              className={SETTINGS_INPUT}
-                            />
-                          </div>
-                          <div>
-                            <label className={SETTINGS_FIELD_LABEL}>ROS — årskontroll og oppdatering</label>
-                            <p className="mt-1 text-xs text-neutral-600">
-                              Kobling til{' '}
-                              <Link to="/internal-control?tab=ros" className="font-medium text-[#1a3d32] underline">
-                                ROS / risiko
-                              </Link>
-                              : vurder om analyser er oppdatert, om restrisiko og tiltak fra låste ROS stemmer med
-                              erfaring i perioden, og om matrisen må justeres etter hendelser.
-                            </p>
-                            <textarea
-                              disabled={annualFormFieldsLocked}
-                              rows={4}
-                              placeholder="F.eks. hvilke ROS er revidert, nye farer, avvik mot tidligere sannsynlighetsvurdering …"
-                              value={annualForm.sections.rosReview}
-                              onChange={(e) =>
-                                setAnnualForm((f) =>
-                                  f
-                                    ? {
-                                        ...f,
-                                        sections: { ...f.sections, rosReview: e.target.value },
-                                      }
-                                    : f,
-                                )
-                              }
-                              className={`${SETTINGS_INPUT} mt-2`}
-                            />
-                          </div>
-                          <div>
-                            <label className={SETTINGS_FIELD_LABEL}>Sykefravær — trender og oppfølging</label>
-                            <textarea
-                              disabled={annualFormFieldsLocked}
-                              rows={3}
-                              value={annualForm.sections.sickLeaveReview}
-                              onChange={(e) =>
-                                setAnnualForm((f) =>
-                                  f
-                                    ? {
-                                        ...f,
-                                        sections: { ...f.sections, sickLeaveReview: e.target.value },
-                                      }
-                                    : f,
-                                )
-                              }
-                              className={SETTINGS_INPUT}
-                            />
-                          </div>
-                          <div>
-                            <label className={SETTINGS_FIELD_LABEL}>Nye konkrete HMS-mål (neste 12 mnd)</label>
-                            <textarea
-                              disabled={annualFormFieldsLocked}
-                              rows={3}
-                              value={annualForm.sections.goalsNextYear}
-                              onChange={(e) =>
-                                setAnnualForm((f) =>
-                                  f
-                                    ? {
-                                        ...f,
-                                        sections: { ...f.sections, goalsNextYear: e.target.value },
-                                      }
-                                    : f,
-                                )
-                              }
-                              className={SETTINGS_INPUT}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div
-                        id="ic-annual-yearskontroll"
-                        className="my-8 scroll-mt-24 rounded-lg border border-[#1a3d32]/20 bg-[#f6f8f7] p-4 sm:p-5"
-                      >
-                        <h3 className="text-base font-semibold text-[#1a3d32]">Årskontroll (PDCA Check / Act)</h3>
-                        <p className={`${SETTINGS_LEAD} mt-2`}>
-                          Utfyllende gjennomgang av tiltak, effekt, hendelser og endret trusselbilde. Neste planlagte
-                          revisjon registreres i feltet «Neste gjennomgang» over.
-                        </p>
-                        <div className="mt-4 space-y-4">
-                          <div>
-                            <label className={SETTINGS_FIELD_LABEL}>1. Status på tiltaksplan (oppfølging)</label>
-                            <p className="text-xs text-neutral-500">
-                              Fremdrift: gjennomført i tide og av riktig ansvarlig? Ressursbruk vs. forventning?
-                            </p>
-                            <textarea
-                              disabled={annualFormFieldsLocked}
-                              rows={3}
-                              value={annualForm.sections.actionPlanStatusReview}
-                              onChange={(e) =>
-                                setAnnualForm((f) =>
-                                  f
-                                    ? {
-                                        ...f,
-                                        sections: { ...f.sections, actionPlanStatusReview: e.target.value },
-                                      }
-                                    : f,
-                                )
-                              }
-                              className={`${SETTINGS_INPUT} mt-1`}
-                            />
-                          </div>
-                          <div>
-                            <label className={SETTINGS_FIELD_LABEL}>2. Effektevaluering</label>
-                            <p className="text-xs text-neutral-500">
-                              Har tiltak redusert restrisikoen som antatt? (Teknikk uten opplæring kan f.eks. gi vedvarende
-                              menneskelig risiko.)
-                            </p>
-                            <textarea
-                              disabled={annualFormFieldsLocked}
-                              rows={3}
-                              value={annualForm.sections.effectEvaluation}
-                              onChange={(e) =>
-                                setAnnualForm((f) =>
-                                  f
-                                    ? {
-                                        ...f,
-                                        sections: { ...f.sections, effectEvaluation: e.target.value },
-                                      }
-                                    : f,
-                                )
-                              }
-                              className={`${SETTINGS_INPUT} mt-1`}
-                            />
-                          </div>
-                          <div>
-                            <label className={SETTINGS_FIELD_LABEL}>3. Hendelser og avvik (reality check)</label>
-                            <p className="text-xs text-neutral-500">
-                              Faktiske hendelser og nesten-ulykker. Juster ROS hvis virkeligheten ikke matcher vurderingen.
-                            </p>
-                            <textarea
-                              disabled={annualFormFieldsLocked}
-                              rows={3}
-                              value={annualForm.sections.incidentsRealityCheck}
-                              onChange={(e) =>
-                                setAnnualForm((f) =>
-                                  f
-                                    ? {
-                                        ...f,
-                                        sections: { ...f.sections, incidentsRealityCheck: e.target.value },
-                                      }
-                                    : f,
-                                )
-                              }
-                              className={`${SETTINGS_INPUT} mt-1`}
-                            />
-                          </div>
-                          <div>
-                            <label className={SETTINGS_FIELD_LABEL}>4. Endringer i trusselbildet og rammebetingelser</label>
-                            <p className="text-xs text-neutral-500">
-                              Ny teknologi, arbeidsmåter, omorganisering; lover, forskrifter, kundekrav.
-                            </p>
-                            <textarea
-                              disabled={annualFormFieldsLocked}
-                              rows={3}
-                              value={annualForm.sections.threatLandscapeChanges}
-                              onChange={(e) =>
-                                setAnnualForm((f) =>
-                                  f
-                                    ? {
-                                        ...f,
-                                        sections: { ...f.sections, threatLandscapeChanges: e.target.value },
-                                      }
-                                    : f,
-                                )
-                              }
-                              className={`${SETTINGS_INPUT} mt-1`}
-                            />
-                          </div>
-                          <div>
-                            <label className={SETTINGS_FIELD_LABEL}>5. PDCA — Check / Act (oppsummering)</label>
-                            <textarea
-                              disabled={annualFormFieldsLocked}
-                              rows={2}
-                              placeholder="Hva lærte vi, hva endres neste år …"
-                              value={annualForm.sections.pdcaCheckActNotes}
-                              onChange={(e) =>
-                                setAnnualForm((f) =>
-                                  f
-                                    ? {
-                                        ...f,
-                                        sections: { ...f.sections, pdcaCheckActNotes: e.target.value },
-                                      }
-                                    : f,
-                                )
-                              }
-                              className={`${SETTINGS_INPUT} mt-1`}
-                            />
-                          </div>
-                        </div>
-                        <p className="mt-3 text-xs text-neutral-500">
-                          Mer bakgrunn:{' '}
-                          <Link to="/modules/aarskontroll" className="font-medium text-[#1a3d32] underline">
-                            Modul Årskontroll
-                          </Link>
-                          .
-                        </p>
-                      </div>
-
-                      {(ic.annualReviews.find((x) => x.id === annualForm.id)?.changeLog?.length ?? 0) > 0 ? (
-                        <div className="rounded-lg border border-neutral-200 bg-neutral-50/80 p-4">
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
-                            Historikk (utkast — tekstendringer)
-                          </p>
-                          <ul className="mt-2 max-h-40 space-y-1.5 overflow-y-auto text-xs text-neutral-700">
-                            {(
-                              ic.annualReviews.find((x) => x.id === annualForm.id)?.changeLog ?? []
-                            )
-                              .slice()
-                              .reverse()
-                              .map((e) => (
-                                <li key={`${e.at}-${e.message}`}>
-                                  <span className="text-neutral-400">{formatWhen(e.at)}</span> — {e.message}
-                                </li>
-                              ))}
-                          </ul>
-                        </div>
-                      ) : null}
-
-                      <div className="my-6 border-t border-neutral-200/90" />
-
-                      <div className={TASK_PANEL_ROW_GRID}>
-                        <div>
-                          <h3 className="text-base font-semibold text-neutral-900">Handlingsplan (til Kanban)</h3>
-                          <p className={`${SETTINGS_LEAD} mt-2`}>
-                            Legg inn tiltak som skal følges opp. De opprettes som oppgaver når leder signerer.
-                          </p>
-                        </div>
-                        <div className={`${TASK_PANEL_INSET} space-y-3`}>
-                          {annualForm.actionRows.length === 0 && annualForm.status === 'draft' ? (
-                            <p className="text-xs text-neutral-500">Ingen tiltak ennå — bruk «Legg til tiltak» eller signer uten.</p>
-                          ) : null}
-                          {annualForm.actionRows.map((r) => (
-                            <div key={r.id} className="rounded-none border border-neutral-200 bg-white p-3">
-                              <div className="grid gap-2 sm:grid-cols-2">
-                                <input
-                                  disabled={annualFormFieldsLocked}
-                                  placeholder="Tiltak / tittel"
-                                  value={r.title}
-                                  onChange={(e) => {
-                                    const v = e.target.value
-                                    setAnnualForm((f) =>
-                                      f
-                                        ? {
-                                            ...f,
-                                            actionRows: f.actionRows.map((x) =>
-                                              x.id === r.id ? { ...x, title: v } : x,
-                                            ),
-                                          }
-                                        : f,
-                                    )
-                                  }}
-                                  className={SETTINGS_INPUT}
-                                />
-                                <input
-                                  disabled={annualFormFieldsLocked}
-                                  type="date"
-                                  value={r.dueDate}
-                                  onChange={(e) => {
-                                    const v = e.target.value
-                                    setAnnualForm((f) =>
-                                      f
-                                        ? {
-                                            ...f,
-                                            actionRows: f.actionRows.map((x) =>
-                                              x.id === r.id ? { ...x, dueDate: v } : x,
-                                            ),
-                                          }
-                                        : f,
-                                    )
-                                  }}
-                                  className={SETTINGS_INPUT}
-                                />
-                                <input
-                                  disabled={annualFormFieldsLocked}
-                                  placeholder="Ansvarlig (navn)"
-                                  value={r.assignee}
-                                  onChange={(e) => {
-                                    const v = e.target.value
-                                    setAnnualForm((f) =>
-                                      f
-                                        ? {
-                                            ...f,
-                                            actionRows: f.actionRows.map((x) =>
-                                              x.id === r.id ? { ...x, assignee: v } : x,
-                                            ),
-                                          }
-                                        : f,
-                                    )
-                                  }}
-                                  className={`${SETTINGS_INPUT} sm:col-span-2`}
-                                />
-                                <textarea
-                                  disabled={annualFormFieldsLocked}
-                                  placeholder="Beskrivelse"
-                                  rows={2}
-                                  value={r.description}
-                                  onChange={(e) => {
-                                    const v = e.target.value
-                                    setAnnualForm((f) =>
-                                      f
-                                        ? {
-                                            ...f,
-                                            actionRows: f.actionRows.map((x) =>
-                                              x.id === r.id ? { ...x, description: v } : x,
-                                            ),
-                                          }
-                                        : f,
-                                    )
-                                  }}
-                                  className={`${SETTINGS_INPUT} sm:col-span-2`}
-                                />
-                              </div>
-                              {!annualFormFieldsLocked ? (
-                                <button
-                                  type="button"
-                                  className="mt-2 text-xs font-medium text-red-700 underline"
-                                  onClick={() =>
-                                    setAnnualForm((f) =>
-                                      f
-                                        ? {
-                                            ...f,
-                                            actionRows: f.actionRows.filter((x) => x.id !== r.id),
-                                          }
-                                        : f,
-                                    )
-                                  }
-                                >
-                                  Fjern
-                                </button>
-                              ) : null}
-                            </div>
-                          ))}
-                          {!annualFormFieldsLocked ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAnnualForm((f) =>
-                                  f
-                                    ? {
-                                        ...f,
-                                        actionRows: [
-                                          ...f.actionRows,
-                                          {
-                                            id: crypto.randomUUID(),
-                                            title: '',
-                                            description: '',
-                                            assignee: '',
-                                            dueDate: '',
-                                          },
-                                        ],
-                                      }
-                                    : f,
-                                )
-                              }
-                              className="rounded-none border border-dashed border-neutral-400 px-3 py-2 text-xs font-medium text-neutral-700"
-                            >
-                              + Legg til tiltak
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      {(annualForm.status === 'pending_safety_rep' || annualForm.status === 'locked') &&
-                      (ic.annualReviews.find((x) => x.id === annualForm.id)?.signatures?.length ?? 0) > 0 ? (
-                        <div className="mt-6 rounded-none border border-emerald-200 bg-emerald-50/80 p-4 text-sm">
-                          <p className="font-semibold text-emerald-900">Signaturer (nivå 1)</p>
-                          <ul className="mt-2 space-y-1 text-emerald-900">
-                            {(ic.annualReviews.find((x) => x.id === annualForm.id)?.signatures ?? []).map((s) => (
-                              <li key={`${s.role}-${s.signedAt}`} className="whitespace-pre-line text-xs">
-                                {s.role === 'manager' ? 'Leder' : 'Verneombud'}: {s.signerName} —{' '}
-                                {formatWhen(s.signedAt)}
-                                {formatLevel1AuditLine(s.level1) ? `\n${formatLevel1AuditLine(s.level1)}` : ''}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
-                    </>
-                  ) : null}
-                </div>
-
-                <footer className="shrink-0 space-y-3 border-t border-neutral-200/90 bg-[#f0efe9] px-6 py-5 sm:px-8">
-                  {!annualForm.legacySummary && !annualFormFieldsLocked && annualForm.status === 'draft' ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          persistAnnualDraftFromForm()
-                        }}
-                        className="w-full rounded-none border border-neutral-400 bg-white px-5 py-3 text-sm font-semibold text-neutral-800"
-                      >
-                        Lagre utkast
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void (async () => {
-                            persistAnnualDraftFromForm()
-                            const name = profile?.display_name?.trim() || user?.email || 'Leder'
-                            const ok = await ic.signAnnualReviewManager(annualForm.id, {
-                              signerName: name,
-                              signerUserId: user?.id,
-                              reviewerDisplay: annualForm.reviewerDisplay,
-                              sections: annualForm.sections,
-                              nextReviewDue: annualForm.nextReviewDue,
-                              year: annualForm.year,
-                              reviewedAt: annualForm.reviewedAt,
-                              actionPlanDrafts: annualForm.actionRows.filter((x) => x.title.trim()),
-                              onCreateTasks: (drafts) => {
-                                for (const d of drafts) {
-                                  if (!d.title.trim()) continue
-                                  addTask({
-                                    title: `Årsgjennomgang ${annualForm.year}: ${d.title.trim().slice(0, 120)}`,
-                                    description:
-                                      d.description.trim() ||
-                                      `Tiltak fra årsgjennomgang ${annualForm.year} (IK-f § 5 nr. 8).`,
-                                    assignee: d.assignee.trim() || 'Unassigned',
-                                    ownerRole: 'Ansvarlig (årsgjennomgang)',
-                                    dueDate: d.dueDate.trim() || '—',
-                                    status: 'todo',
-                                    module: 'hse',
-                                    sourceType: 'annual_review_action',
-                                    sourceId: annualForm.id,
-                                    sourceLabel: d.title.trim().slice(0, 80),
-                                    requiresManagementSignOff: false,
-                                  })
-                                }
-                              },
-                            })
-                            if (ok) {
-                              setAnnualForm((f) =>
-                                f
-                                  ? { ...f, status: 'pending_safety_rep', actionRows: [] }
-                                  : f,
-                              )
-                            }
-                          })()
-                        }}
-                        className="w-full rounded-none bg-[#1a3d32] px-5 py-3 text-sm font-semibold text-white"
-                      >
-                        Signer som leder (send til verneombud)
-                      </button>
-                    </>
-                  ) : null}
-
-                  {!annualForm.legacySummary &&
-                  annualForm.status === 'pending_safety_rep' &&
-                  !ic.annualReviews.find((x) => x.id === annualForm.id)?.signatures?.some((s) => s.role === 'safety_rep') ? (
-                    <div className="rounded-none border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-950">
-                      {canSignAsSafetyRep ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            void (async () => {
-                              const name =
-                                profile?.display_name?.trim() || user?.email || 'Verneombud'
-                              const ok = await ic.signAnnualReviewSafetyRep(annualForm.id, {
-                                signerName: name,
-                                signerUserId: user?.id,
-                              })
-                              if (ok) closeAnnualPanel()
-                            })()
-                          }}
-                          className="w-full rounded-none bg-[#1a3d32] px-5 py-3 text-sm font-semibold text-white"
-                        >
-                          Signer og godkjenn (verneombud)
-                        </button>
-                      ) : (
-                        <p>
-                          Kun brukere merket som verneombud (profil) eller organisasjonsadministrator kan godkjenne.
-                          Kontakt administrator for tilgang.
-                        </p>
-                      )}
-                    </div>
-                  ) : null}
-
-                  <button
-                    type="button"
-                    onClick={closeAnnualPanel}
-                    className="w-full rounded-none border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700"
-                  >
-                    Lukk
-                  </button>
-                </footer>
-              </div>
-            </div>
-          ) : null}
+          <div className="mt-8">
+            <IkAnnualReviewView />
+          </div>
         </InternalControlTabShell>
       ) : null}
     </>
