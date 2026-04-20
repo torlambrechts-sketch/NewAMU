@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ArrowLeft, Ghost, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
@@ -27,6 +27,7 @@ import { StandardTextarea } from '../../src/components/ui/Textarea'
 import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useSurvey } from './useSurvey'
+import { buildAnalyticsByQuestionId } from './surveyAnalytics'
 import { QUESTION_TYPE_OPTIONS, questionTypeLabel, surveyStatusBadgeVariant, surveyStatusLabel } from './surveyLabels'
 import type { OrgSurveyQuestionRow, SurveyQuestionType, SurveyRow } from './types'
 
@@ -41,11 +42,12 @@ const TAB_ITEMS: TabItem[] = [
 
 type Props = { supabase: SupabaseClient | null }
 
-function TabEmpty({ message }: { message: string }) {
+function TabEmpty({ message, footer }: { message: string; footer?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
       <Ghost className="h-12 w-12 text-neutral-300" strokeWidth={1.25} aria-hidden />
       <p className="max-w-md text-sm text-neutral-500">{message}</p>
+      {footer}
     </div>
   )
 }
@@ -114,7 +116,10 @@ export function SurveyDetailView({ supabase }: Props) {
         .select('id, display_name')
         .eq('organization_id', orgId)
         .in('id', uids)
-      if (cancelled || error) return
+      if (cancelled) return
+      if (error) {
+        return
+      }
       const next: Record<string, string> = {}
       for (const row of data ?? []) {
         const p = row as { id: string; display_name: string }
@@ -132,34 +137,10 @@ export function SurveyDetailView({ supabase }: Props) {
     [],
   )
 
-  const analyticsByQuestion = useMemo(() => {
-    const byQ: Record<
-      string,
-      { type: SurveyQuestionType; label: string; numbers: number[]; textCount: number; choiceCounts: Record<string, number> }
-    > = {}
-    for (const q of survey.questions) {
-      byQ[q.id] = {
-        type: q.question_type,
-        label: q.question_text,
-        numbers: [],
-        textCount: 0,
-        choiceCounts: {},
-      }
-    }
-    for (const a of survey.answers) {
-      const bucket = byQ[a.question_id]
-      if (!bucket) continue
-      if (bucket.type === 'rating_1_to_5' && a.answer_value != null) {
-        bucket.numbers.push(Number(a.answer_value))
-      } else if (bucket.type === 'text' && a.answer_text && a.answer_text.trim()) {
-        bucket.textCount += 1
-      } else if (bucket.type === 'multiple_choice' && a.answer_text) {
-        const k = a.answer_text.trim() || '(tomt)'
-        bucket.choiceCounts[k] = (bucket.choiceCounts[k] ?? 0) + 1
-      }
-    }
-    return byQ
-  }, [survey.questions, survey.answers])
+  const analyticsByQuestion = useMemo(
+    () => buildAnalyticsByQuestionId(survey.questions, survey.answers),
+    [survey.questions, survey.answers],
+  )
 
   const openNewQuestion = useCallback(() => {
     if (!s || !surveyId) return
@@ -205,8 +186,9 @@ export function SurveyDetailView({ supabase }: Props) {
   const saveMetadata = useCallback(async () => {
     if (!s || !surveyId || !titleEdit.trim()) return
     setSavingMeta(true)
-    await survey.updateSurvey(surveyId, { title: titleEdit.trim(), description: descEdit.trim() || null })
+    const ok = await survey.updateSurvey(surveyId, { title: titleEdit.trim(), description: descEdit.trim() || null })
     setSavingMeta(false)
+    if (ok) void survey.loadSurveyDetail(surveyId)
   }, [s, surveyId, titleEdit, descEdit, survey])
 
   const isLocked = !!(s && (s.status === 'active' || s.status === 'closed'))
@@ -228,9 +210,10 @@ export function SurveyDetailView({ supabase }: Props) {
   if (!s) {
     return (
       <div className="space-y-4">
-        <Link to="/survey" className="text-sm text-[#1a3d32] hover:underline">
-          ← Tilbake til liste
-        </Link>
+        <Button type="button" variant="ghost" size="sm" onClick={() => navigate('/survey')}>
+          <ArrowLeft className="h-4 w-4" aria-hidden />
+          Tilbake til liste
+        </Button>
         <TabEmpty message="Undersøkelsen finnes ikke, eller du har ikke tilgang." />
       </div>
     )
@@ -385,21 +368,20 @@ export function SurveyDetailView({ supabase }: Props) {
           {tab === 'bygger' && (
             <div className="pt-2">
               {survey.questions.length === 0 && !isLocked ? (
-                <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                  <Ghost className="h-12 w-12 text-neutral-300" strokeWidth={1.25} aria-hidden />
-                  <p className="max-w-md text-sm text-neutral-500">
-                    Ingen spørsmål lagt til enda. Legg til spørsmål for å bygge undersøkelsen.
-                  </p>
-                  {survey.canManage ? (
-                    <Button type="button" variant="primary" onClick={openNewQuestion}>
-                      <Plus className="h-4 w-4" aria-hidden />
-                      Legg til spørsmål
-                    </Button>
-                  ) : null}
-                </div>
+                <TabEmpty
+                  message="Ingen spørsmål lagt til enda. Legg til spørsmål for å bygge undersøkelsen."
+                  footer={
+                    survey.canManage ? (
+                      <Button type="button" variant="primary" onClick={openNewQuestion}>
+                        <Plus className="h-4 w-4" aria-hidden />
+                        Legg til spørsmål
+                      </Button>
+                    ) : null
+                  }
+                />
               ) : null}
               {survey.questions.length === 0 && isLocked ? (
-                <TabEmpty message="Ingen spørsmål ble registrert før publisering." />
+                <TabEmpty message="Ingen spørsmål i denne undersøkelsen. Kontakt administrator for å få lagt inn spørsmål (gjelder særlig eldre utkast)." />
               ) : null}
 
               {survey.questions.length > 0 || survey.canManage ? (

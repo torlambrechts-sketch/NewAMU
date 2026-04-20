@@ -68,7 +68,7 @@ export type UseSurveyState = {
   loadSurveyDetail: (surveyId: string) => Promise<void>
   setSelectedSurveyId: (id: string | null) => void
   createSurvey: (input: CreateSurveyInput) => Promise<SurveyRow | null>
-  updateSurvey: (surveyId: string, patch: Partial<Pick<SurveyRow, 'title' | 'description' | 'is_anonymous' | 'status' | 'published_at' | 'closed_at'>>) => Promise<void>
+  updateSurvey: (surveyId: string, patch: Partial<Pick<SurveyRow, 'title' | 'description' | 'is_anonymous' | 'status' | 'published_at' | 'closed_at'>>) => Promise<boolean>
   publishSurvey: (surveyId: string) => Promise<void>
   closeSurvey: (surveyId: string) => Promise<void>
   upsertQuestion: (input: UpsertQuestionInput) => Promise<OrgSurveyQuestionRow | null>
@@ -249,9 +249,14 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
       try {
         let anonymous = input.is_anonymous
         if (anonymous === undefined) {
-          const raw = await fetchOrgModulePayload<Record<string, unknown>>(supabase, oid, 'survey_settings')
-          const st = parseSurveyModuleSettings(raw)
-          if (st.default_anonymous != null) anonymous = st.default_anonymous
+          try {
+            const raw = await fetchOrgModulePayload<Record<string, unknown>>(supabase, oid, 'survey_settings')
+            const st = parseSurveyModuleSettings(raw)
+            if (st.default_anonymous != null) anonymous = st.default_anonymous
+          } catch (fetchErr) {
+            setError(getSupabaseErrorMessage(fetchErr))
+            return null
+          }
         }
         const { data, error: e } = await supabase
           .from('surveys')
@@ -279,10 +284,10 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
 
   const updateSurvey = useCallback(
     async (surveyId: string, patch: Partial<Pick<SurveyRow, 'title' | 'description' | 'is_anonymous' | 'status' | 'published_at' | 'closed_at'>>) => {
-      if (!supabase) return
-      if (!requireManage()) return
+      if (!supabase) return false
+      if (!requireManage()) return false
       const oid = assertOrg()
-      if (!oid) return
+      if (!oid) return false
       setError(null)
       try {
         const { error: e } = await supabase
@@ -293,8 +298,10 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
         if (e) throw e
         setSurveys((prev) => prev.map((s) => (s.id === surveyId ? { ...s, ...patch } : s)))
         setSelectedSurvey((prev) => (prev?.id === surveyId ? { ...prev, ...patch } : prev))
+        return true
       } catch (err) {
         setError(getSupabaseErrorMessage(err))
+        return false
       }
     },
     [supabase, assertOrg, requireManage],
@@ -302,20 +309,20 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
 
   const publishSurvey = useCallback(
     async (surveyId: string) => {
-      await updateSurvey(surveyId, {
+      void (await updateSurvey(surveyId, {
         status: 'active',
         published_at: new Date().toISOString(),
-      })
+      }))
     },
     [updateSurvey],
   )
 
   const closeSurvey = useCallback(
     async (surveyId: string) => {
-      await updateSurvey(surveyId, {
+      void (await updateSurvey(surveyId, {
         status: 'closed',
         closed_at: new Date().toISOString(),
-      })
+      }))
     },
     [updateSurvey],
   )
@@ -564,12 +571,14 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           return null
         }
 
+        const effectiveUserId = survey.data.is_anonymous ? null : args.userId
+
         const { data: resp, error: re } = await supabase
           .from('org_survey_responses')
           .insert({
             survey_id: args.surveyId,
             organization_id: oid,
-            user_id: args.userId,
+            user_id: effectiveUserId,
           })
           .select()
           .single()
