@@ -1,6 +1,8 @@
 # NewAMU Module Specification
 > **Vibe/Cursor/Composer prompt:** "Follow MODULE_SPEC.md exactly. Every new module inherits all patterns defined here — database schema, file structure, hook API, admin page, workflow engine, and UI component styles."
 
+**Kanonisk tillegg for KI og refaktorering (v3.1 — Enterprise Layout Precision):** Les og følg også [`AI_MODULE_SPEC.md`](./AI_MODULE_SPEC.md). Den utvider denne spesifikasjonen med null-toleranse-regler for UI-primitiver, faner og verktøylinjer, full-bleed `ComplianceBanner`, arbeidsflyt-registrering og sjekklister for modulgenerering.
+
 ---
 
 ## 1. Core Philosophy
