@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { CheckCircle2, ChevronRight, Circle, Search, Settings } from 'lucide-react'
+import { CheckCircle2, ChevronRight, Circle, Plus, Search, Settings } from 'lucide-react'
 import { FormModal } from '../../src/template'
 import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
 import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
@@ -15,8 +15,9 @@ import { RecurrencePicker, toDateTimeLocalValue } from '../../src/components/hse
 import type { InspectionRoundRow } from './types'
 import { useInspectionModule } from './useInspectionModule'
 import { InspeksjonsrunderCreateForm } from './InspeksjonsrunderCreateForm'
-
-const GRN = '#1a3d32'
+import { Button } from '../../src/components/ui/Button'
+import { Badge } from '../../src/components/ui/Badge'
+import { StandardInput } from '../../src/components/ui/Input'
 
 type Props = { supabase: SupabaseClient | null }
 
@@ -33,6 +34,12 @@ function formatDate(input: string | null) {
   } catch {
     return input
   }
+}
+
+function roundStatusBadgeVariant(status: InspectionRoundRow['status']): 'draft' | 'active' | 'signed' {
+  if (status === 'signed') return 'signed'
+  if (status === 'active') return 'active'
+  return 'draft'
 }
 
 export function InspectionModuleView({ supabase }: Props) {
@@ -55,20 +62,19 @@ export function InspectionModuleView({ supabase }: Props) {
   >({})
   const [deviationCountByRoundId, setDeviationCountByRoundId] = useState<Record<string, number>>({})
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   useEffect(() => {
     if (!supabase || inspection.rounds.length === 0) {
-      setDeviationCountByRoundId({})
+      queueMicrotask(() => setDeviationCountByRoundId({}))
       return
     }
     let cancelled = false
     void (async () => {
       const ids = inspection.rounds.map((r) => r.id)
-      const { data, error } = await supabase
-        .from('deviations')
-        .select('source_id')
-        .in('source_id', ids)
+      const { data, error } = await supabase.from('deviations').select('source_id').in('source_id', ids)
       if (cancelled || error) {
         if (!cancelled) setDeviationCountByRoundId({})
         return
@@ -85,19 +91,22 @@ export function InspectionModuleView({ supabase }: Props) {
     }
   }, [supabase, inspection.rounds])
 
-  // ── Stats ────────────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
-    let active = 0, signed = 0, criticalFindings = 0
+    let draft = 0
+    let active = 0
+    let signed = 0
+    let criticalFindings = 0
     for (const round of inspection.rounds) {
+      if (round.status === 'draft') draft++
       if (round.status === 'active') active++
       if (round.status === 'signed') signed++
       const findings = inspection.findingsByRoundId[round.id] ?? []
       criticalFindings += findings.filter((f) => f.severity === 'critical').length
     }
-    return { active, signed, criticalFindings }
+    const open = draft + active
+    return { total: inspection.rounds.length, open, signed, criticalFindings }
   }, [inspection.rounds, inspection.findingsByRoundId])
 
-  // ── Derived data ──────────────────────────────────────────────────────────────
   const locationNameById = useMemo(() => {
     const map = new Map<string, string>()
     for (const loc of inspection.locations) map.set(loc.id, loc.name)
@@ -141,82 +150,66 @@ export function InspectionModuleView({ supabase }: Props) {
     [inspection.rounds],
   )
 
+  const TH = `${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`
+
   return (
-    <div className="space-y-6">
-      {/* ── Head ─────────────────────────────────────────────────────────────── */}
+    <div className="flex flex-col space-y-6">
+      <LayoutScoreStatRow
+        items={[
+          { big: String(stats.total), title: 'Totalt runder', sub: 'Alle inspeksjonsrunder' },
+          { big: String(stats.open), title: 'Åpne', sub: 'Kladd og aktiv' },
+          { big: String(stats.signed), title: 'Fullført', sub: 'Signert og arkivert' },
+          { big: String(stats.criticalFindings), title: 'Kritiske funn', sub: 'Krever oppfølging' },
+        ]}
+      />
+
       <WorkplacePageHeading1
         breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder' }]}
         title="Inspeksjonsrunder"
         description="Planlegg, gjennomfør og signer vernerunder i henhold til Internkontrollforskriften § 5."
         headerActions={
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setScheduleOpen(true)}
-              className="border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
-            >
+            <Button type="button" variant="secondary" onClick={() => setScheduleOpen(true)}>
               Planlegging
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              onClick={() => setCreateOpen(true)}
-              className="px-4 py-2 text-sm font-bold uppercase tracking-wide text-white transition-colors"
-              style={{ backgroundColor: GRN }}
+              variant="secondary"
+              icon={<Settings className="h-4 w-4" />}
+              onClick={() => navigate('/inspection-module/admin')}
             >
-              Ny runde
-            </button>
-            <Link
-              to="/inspection-module/admin"
-              className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-50"
-            >
-              <Settings className="h-4 w-4" />
-            </Link>
+              <span className="hidden sm:inline">Admin</span>
+            </Button>
           </div>
         }
       />
 
-      {/* ── Box 3 (KPI) ──────────────────────────────────────────────────────── */}
-      <LayoutScoreStatRow
-        items={[
-          {
-            big: String(stats.active),
-            title: 'Aktive runder',
-            sub: 'Under gjennomføring',
-          },
-          {
-            big: String(stats.criticalFindings),
-            title: 'Kritiske funn',
-            sub: 'Krever oppfølging',
-          },
-          {
-            big: String(stats.signed),
-            title: 'Signert',
-            sub: 'Dobbelt-signert og arkivert',
-          },
-        ]}
-      />
-
-      {/* ── Table 1 ──────────────────────────────────────────────────────────── */}
       <LayoutTable1PostingsShell
         wrap
+        titleTypography="sans"
         title="Runder"
         description="Alle inspeksjonsrunder — sortert etter siste aktivitet."
         headerActions={
-          inspection.error ? (
-            <span className="text-xs text-red-600">{inspection.error}</span>
-          ) : undefined
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {inspection.error ? <span className="text-xs text-red-600">{inspection.error}</span> : null}
+            <Button type="button" variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>
+              Ny inspeksjonsrunde
+            </Button>
+          </div>
         }
         toolbar={
           <div className="relative min-w-[200px] flex-1">
-            <label className="sr-only" htmlFor="inspection-search">Søk</label>
+            <label className="sr-only" htmlFor="inspection-search">
+              Søk
+            </label>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <input
+            <StandardInput
               id="inspection-search"
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Søk i tittel, lokasjon, ansvarlig …"
-              className="w-full border border-neutral-300 bg-white py-2 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
+              className="py-2 pl-10"
             />
           </div>
         }
@@ -226,18 +219,18 @@ export function InspectionModuleView({ supabase }: Props) {
           </span>
         }
       >
-        <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[640px] border-collapse text-left text-sm whitespace-nowrap">
           <thead>
             <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Mal</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Lokasjon</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Ansvarlig</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Planlagt</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Signaturer</th>
-              <th className={`w-24 ${LAYOUT_TABLE1_POSTINGS_TH}`} />
-              <th className={`w-8 ${LAYOUT_TABLE1_POSTINGS_TH}`}></th>
+              <th className={TH}>Tittel</th>
+              <th className={TH}>Mal</th>
+              <th className={TH}>Lokasjon</th>
+              <th className={TH}>Ansvarlig</th>
+              <th className={TH}>Status</th>
+              <th className={TH}>Planlagt</th>
+              <th className={TH}>Signaturer</th>
+              <th className={`w-24 ${TH}`}>Avvik</th>
+              <th className={`w-8 ${TH}`} aria-hidden />
             </tr>
           </thead>
           <tbody>
@@ -248,41 +241,29 @@ export function InspectionModuleView({ supabase }: Props) {
               return (
                 <tr
                   key={round.id}
-                  className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer hover:bg-neutral-50`}
+                  className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer border-b border-neutral-100 transition-colors last:border-b-0 hover:bg-neutral-50`}
                   onClick={() => navigate(`/inspection-module/${round.id}`)}
                 >
-                  <td className="px-5 py-3 font-medium text-neutral-900">
+                  <td className="max-w-[14rem] px-5 py-4 align-middle whitespace-normal font-medium text-neutral-900">
                     {round.title}
                     {critCount > 0 && (
-                      <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                      <Badge variant="critical" className="ml-2 align-middle">
                         {critCount} kritisk
-                      </span>
+                      </Badge>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-neutral-600">
-                    {templateById.get(round.template_id) ?? '—'}
+                  <td className="px-5 py-4 align-middle text-neutral-600">{templateById.get(round.template_id) ?? '—'}</td>
+                  <td className="px-5 py-4 align-middle text-neutral-600">
+                    {round.location_id ? (locationNameById.get(round.location_id) ?? '—') : '—'}
                   </td>
-                  <td className="px-5 py-3 text-neutral-600">
-                    {round.location_id ? locationNameById.get(round.location_id) ?? '—' : '—'}
+                  <td className="px-5 py-4 align-middle text-neutral-600">
+                    {round.assigned_to ? (userNameById.get(round.assigned_to) ?? '—') : '—'}
                   </td>
-                  <td className="px-5 py-3 text-neutral-600">
-                    {round.assigned_to ? userNameById.get(round.assigned_to) ?? '—' : '—'}
+                  <td className="px-5 py-4 align-middle">
+                    <Badge variant={roundStatusBadgeVariant(round.status)}>{STATUS_LABEL[round.status]}</Badge>
                   </td>
-                  <td className="px-5 py-3">
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                        round.status === 'signed'
-                          ? 'bg-green-100 text-green-800'
-                          : round.status === 'active'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-neutral-100 text-neutral-700'
-                      }`}
-                    >
-                      {STATUS_LABEL[round.status]}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-neutral-600">{formatDate(round.scheduled_for)}</td>
-                  <td className="px-5 py-3">
+                  <td className="px-5 py-4 align-middle text-neutral-600">{formatDate(round.scheduled_for)}</td>
+                  <td className="px-5 py-4 align-middle">
                     <div className="flex items-center gap-2">
                       <span title="Leder">
                         {round.manager_signed_at ? (
@@ -300,7 +281,7 @@ export function InspectionModuleView({ supabase }: Props) {
                       </span>
                     </div>
                   </td>
-                  <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-5 py-4 text-right align-middle" onClick={(e) => e.stopPropagation()}>
                     {nAvvik > 0 ? (
                       <Link
                         to={`/avvik?sourceId=${encodeURIComponent(round.id)}`}
@@ -313,7 +294,7 @@ export function InspectionModuleView({ supabase }: Props) {
                       <span className="text-xs text-neutral-300">—</span>
                     )}
                   </td>
-                  <td className="w-8 px-3 py-3 text-neutral-300">
+                  <td className="w-8 px-3 py-4 align-middle text-neutral-300">
                     <ChevronRight className="h-4 w-4" aria-hidden />
                   </td>
                 </tr>
@@ -321,7 +302,7 @@ export function InspectionModuleView({ supabase }: Props) {
             })}
             {roundsFiltered.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-5 py-10 text-center text-sm text-neutral-500">
+                <td colSpan={9} className="px-5 py-10 text-center text-sm whitespace-normal text-neutral-500">
                   {inspection.loading ? 'Laster runder…' : 'Ingen runder matcher søket.'}
                 </td>
               </tr>
@@ -330,7 +311,6 @@ export function InspectionModuleView({ supabase }: Props) {
         </table>
       </LayoutTable1PostingsShell>
 
-      {/* ── Create round modal ──────────────────────────────────────────────── */}
       <FormModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
@@ -338,17 +318,12 @@ export function InspectionModuleView({ supabase }: Props) {
         title="Ny inspeksjonsrunde"
         footer={
           <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              className="border border-neutral-300 bg-white px-5 py-2.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
-              onClick={() => setCreateOpen(false)}
-            >
+            <Button type="button" variant="secondary" onClick={() => setCreateOpen(false)}>
               Avbryt
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-colors"
-              style={{ backgroundColor: '#1a3d32' }}
+              variant="primary"
               onClick={async () => {
                 const templateId = newRoundForm.templateId || inspection.templates[0]?.id || ''
                 if (!templateId || !newRoundForm.title.trim()) return
@@ -361,11 +336,18 @@ export function InspectionModuleView({ supabase }: Props) {
                   assignedTo: newRoundForm.assignedTo || undefined,
                 })
                 setCreateOpen(false)
-                setNewRoundForm({ title: '', templateId: '', locationId: '', cronExpression: '', scheduledFor: '', assignedTo: '' })
+                setNewRoundForm({
+                  title: '',
+                  templateId: '',
+                  locationId: '',
+                  cronExpression: '',
+                  scheduledFor: '',
+                  assignedTo: '',
+                })
               }}
             >
               Opprett runde
-            </button>
+            </Button>
           </div>
         }
       >
@@ -378,7 +360,6 @@ export function InspectionModuleView({ supabase }: Props) {
         />
       </FormModal>
 
-      {/* ── Scheduling modal ─────────────────────────────────────────────────── */}
       <FormModal
         open={scheduleOpen}
         onClose={() => setScheduleOpen(false)}
@@ -386,13 +367,9 @@ export function InspectionModuleView({ supabase }: Props) {
         title="Planlegging av runder"
         footer={
           <div className="flex justify-end">
-            <button
-              type="button"
-              className="border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
-              onClick={() => setScheduleOpen(false)}
-            >
+            <Button type="button" variant="secondary" onClick={() => setScheduleOpen(false)}>
               Lukk
-            </button>
+            </Button>
           </div>
         }
       >
@@ -430,7 +407,9 @@ export function InspectionModuleView({ supabase }: Props) {
                       >
                         <option value="">(Ingen)</option>
                         {inspection.assignableUsers.map((u) => (
-                          <option key={u.id} value={u.id}>{u.displayName}</option>
+                          <option key={u.id} value={u.id}>
+                            {u.displayName}
+                          </option>
                         ))}
                       </select>
                     </label>
@@ -445,9 +424,11 @@ export function InspectionModuleView({ supabase }: Props) {
                     />
                   </div>
                 </div>
-                <button
+                <Button
                   type="button"
-                  className="mt-2 border border-neutral-300 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-neutral-50"
+                  variant="secondary"
+                  size="sm"
+                  className="mt-2"
                   onClick={() =>
                     void inspection.updateRoundSchedule({
                       roundId: round.id,
@@ -459,13 +440,11 @@ export function InspectionModuleView({ supabase }: Props) {
                   }
                 >
                   Lagre
-                </button>
+                </Button>
               </div>
             )
           })}
-          {roundsForSchedule.length === 0 && (
-            <p className="text-sm text-neutral-500">Ingen runder. Opprett en runde først.</p>
-          )}
+          {roundsForSchedule.length === 0 && <p className="text-sm text-neutral-500">Ingen runder. Opprett en runde først.</p>}
         </div>
       </FormModal>
     </div>

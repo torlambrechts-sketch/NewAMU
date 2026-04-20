@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { X } from 'lucide-react'
+import { Button } from '../../src/components/ui/Button'
+import { StandardInput } from '../../src/components/ui/Input'
 import { supabase } from '../../src/lib/supabaseClient'
 import {
   WPSTD_FORM_FIELD_LABEL,
@@ -10,9 +12,6 @@ import {
 import { fetchAssignableUsers, type AssignableUser } from '../../src/hooks/useAssignableUsers'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import type { InspectionLocationRow, InspectionRoundRow, InspectionRoundStatus } from './types'
-
-const FIELD_INPUT =
-  'w-full border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25'
 
 type InspectionRoundPanelProps = {
   inspectionId: string
@@ -120,14 +119,7 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
     <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-neutral-200 bg-[#f7f6f2] shadow-2xl">
       <div className="flex shrink-0 items-center justify-between border-b border-neutral-200 bg-[#f7f6f2] px-6 py-4">
         <h2 className="text-lg font-semibold text-neutral-900">Rediger inspeksjon</h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-1 text-neutral-500 transition-colors hover:bg-neutral-200/60 hover:text-neutral-800"
-          aria-label="Lukk"
-        >
-          <X className="h-5 w-5" />
-        </button>
+        <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Lukk" icon={<X className="h-5 w-5" />} />
       </div>
 
       {error ? (
@@ -148,12 +140,11 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                 <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="panel-round-title">
                   Tittel
                 </label>
-                <input
+                <StandardInput
                   id="panel-round-title"
                   type="text"
                   value={round.title}
                   onChange={(e) => void handleUpdate({ title: e.target.value })}
-                  className={FIELD_INPUT}
                   placeholder="F.eks. Månedlig vernerunde"
                 />
               </div>
@@ -199,7 +190,7 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                 <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="panel-round-scheduled">
                   Planlagt tidspunkt
                 </label>
-                <input
+                <StandardInput
                   id="panel-round-scheduled"
                   type="datetime-local"
                   value={scheduledLocal}
@@ -209,7 +200,6 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
                       scheduled_for: v ? new Date(v).toISOString() : null,
                     })
                   }}
-                  className={FIELD_INPUT}
                 />
               </div>
             </div>
@@ -218,13 +208,9 @@ export function InspectionRoundPanel({ inspectionId, onClose }: InspectionRoundP
       </div>
 
       <div className="shrink-0 border-t border-neutral-200 bg-white p-6">
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-full bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#14312a] focus:outline-none focus:ring-2 focus:ring-[#1a3d32] focus:ring-offset-2"
-        >
+        <Button type="button" variant="primary" className="w-full" onClick={onClose}>
           Lukk panel
-        </button>
+        </Button>
       </div>
     </div>
   )

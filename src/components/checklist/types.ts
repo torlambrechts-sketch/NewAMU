@@ -28,4 +28,6 @@ export type ChecklistExecutionTabProps = {
   onSaveResponse: (key: string, value: string, notes: string | null) => Promise<void>
   activationBanner?: ReactNode
   onReportIssue?: (itemKey: string, itemLabel: string) => void
+  /** Primary actions (e.g. shortcuts) in table shell header — right-aligned */
+  tableHeaderActions?: ReactNode
 }
