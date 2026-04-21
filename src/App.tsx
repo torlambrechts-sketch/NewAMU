@@ -108,6 +108,7 @@ import { AmuElectionListPage } from './pages/AmuElectionListPage'
 import { AmuElectionDetailPage } from './pages/AmuElectionDetailPage'
 import { AmuElectionAdminPage } from './pages/AmuElectionAdminPage'
 import { InternalControlAdminPage } from './pages/InternalControlAdminPage'
+import { RisikoSikkerhetFrontpage } from './pages/RisikoSikkerhetFrontpage'
 import { RosModulePage }         from './pages/RosModulePage'
 import { RosModuleAdminPage }    from './pages/RosModuleAdminPage'
 import { RosAnalysisDetailPage } from './pages/RosAnalysisDetailPage'
@@ -217,6 +218,7 @@ function App() {
                       <Route path="tiltak/admin" element={<ActionPlanAdminPage />} />
                       <Route path="action-plan" element={<ActionPlanPage />} />
                       <Route path="action-plan/admin" element={<ActionPlanAdminPage />} />
+                      <Route path="risiko-sikkerhet" element={<RisikoSikkerhetFrontpage />} />
                       <Route path="ros"         element={<RosModulePage />} />
                       <Route path="ros/admin"   element={<RosModuleAdminPage />} />
                       <Route path="ros/:rosId"  element={<RosAnalysisDetailPage />} />
