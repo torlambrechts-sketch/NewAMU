@@ -7,6 +7,7 @@ import {
   ClipboardList,
   FileText,
   History,
+  Info,
   PenLine,
   Settings,
   Trash2,
@@ -21,6 +22,7 @@ import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
 import { ModulePreflightChecklist } from '../../src/components/module/ModulePreflightChecklist'
 import { ModuleSignatureCard } from '../../src/components/module/ModuleSignatureCard'
+import { ModuleInformationCard } from '../../src/components/module/ModuleInformationCard'
 import type { InspectionChecklistItem, InspectionLocationRow, InspectionRoundRow } from './types'
 import { parseChecklistItems } from './schema'
 import { useInspectionModule, type InspectionModuleState } from './useInspectionModule'
@@ -37,9 +39,10 @@ import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { StandardTextarea } from '../../src/components/ui/Textarea'
 import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 
-type PanelTab = 'checklist' | 'findings' | 'summary' | 'signatures' | 'history'
+type PanelTab = 'information' | 'checklist' | 'findings' | 'summary' | 'signatures' | 'history'
 
 const TAB_LABELS: Record<PanelTab, string> = {
+  information: 'Informasjon',
   checklist: 'Sjekkliste',
   findings: 'Avvik',
   summary: 'Sammendrag',
@@ -97,85 +100,57 @@ function ChecklistTab({
     [checklistItems, inspection, positionByKey, round.id],
   )
 
-  return (
-    <div>
-      {isRoundDetailLoading && (
-        <div className="flex items-center justify-center gap-2 px-5 py-8 text-sm text-neutral-500">
-          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-700" />
-          Laster sjekkliste…
-        </div>
-      )}
+  const gpsExtras =
+    round.status === 'active' ? (
+      round.gps_stamped_at == null ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => void inspection.stampRoundGps(round.id)}
+          className="shrink-0 text-neutral-800"
+        >
+          📍 Stempel GPS
+        </Button>
+      ) : (
+        <p className="text-xs text-neutral-600">
+          GPS:{' '}
+          {round.gps_lat != null && round.gps_lon != null
+            ? `${round.gps_lat.toFixed(4)}, ${round.gps_lon.toFixed(4)}`
+            : '—'}
+          {round.gps_accuracy_m != null && <> · ±{Math.round(round.gps_accuracy_m)}m</>}
+        </p>
+      )
+    ) : null
 
-      {!isRoundDetailLoading && round.status === 'active' && (
-        <div className="border-b border-neutral-200 bg-neutral-50/80 px-5 py-3">
-          {round.gps_stamped_at == null ? (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-neutral-600">
-                Registrer posisjon for vernerunden (valgfritt, krever nettlesertilgang til posisjon).
-              </p>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => void inspection.stampRoundGps(round.id)}
-                className="shrink-0 text-neutral-800"
-              >
-                📍 Stempel GPS-posisjon
-              </Button>
-            </div>
-          ) : (
-            <p className="text-xs text-neutral-700">
-              GPS:{' '}
-              {round.gps_lat != null && round.gps_lon != null
-                ? `${round.gps_lat.toFixed(4)}, ${round.gps_lon.toFixed(4)}`
-                : '—'}
-              {round.gps_accuracy_m != null && (
-                <> — nøyaktighet {Math.round(round.gps_accuracy_m)}m</>
-              )}
-              {round.gps_stamped_at && (
-                <>
-                  {' '}
-                  <span className="text-neutral-500">
-                    ({new Date(round.gps_stamped_at).toLocaleString('nb-NO')})
-                  </span>
-                </>
-              )}
-            </p>
-          )}
-        </div>
-      )}
-
-      {!isRoundDetailLoading && (
-        <InspectionChecklistTable
-          checklistItems={checklistItems}
-          roundItems={roundItems}
-          readOnly={readOnly}
-          onSaveResponse={handleSaveResponse}
-          onRegisterFinding={(key) => onSwitchToFindings(key)}
-          activationBanner={
-            isDraft ? (
-              <div className="mx-5 mt-4 flex flex-wrap items-center justify-between gap-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium text-amber-800">Runden er i kladd-modus</p>
-                  <p className="mt-0.5 text-xs text-amber-700">Aktiver runden for å begynne gjennomføringen.</p>
-                </div>
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={() =>
-                    void inspection.updateRoundSchedule({ roundId: round.id, status: 'active' })
-                  }
-                  className="shrink-0"
-                >
-                  Aktiver runden
-                </Button>
-              </div>
-            ) : null
-          }
-        />
-      )}
+  const activationBanner = isDraft ? (
+    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-amber-200 bg-amber-50 px-5 py-3">
+      <div>
+        <p className="text-sm font-medium text-amber-800">Runden er i kladd-modus</p>
+        <p className="mt-0.5 text-xs text-amber-700">Aktiver runden for å begynne gjennomføringen.</p>
+      </div>
+      <Button
+        type="button"
+        variant="primary"
+        size="sm"
+        onClick={() => void inspection.updateRoundSchedule({ roundId: round.id, status: 'active' })}
+        className="shrink-0"
+      >
+        Aktiver runden
+      </Button>
     </div>
+  ) : null
+
+  return (
+    <InspectionChecklistTable
+      checklistItems={checklistItems}
+      roundItems={isRoundDetailLoading ? undefined : roundItems}
+      readOnly={readOnly}
+      onSaveResponse={handleSaveResponse}
+      onRegisterFinding={(key) => onSwitchToFindings(key)}
+      activationBanner={activationBanner}
+      toolbarExtras={gpsExtras}
+    />
   )
 }
 
@@ -664,9 +639,9 @@ function SignaturesTab({
   )
 }
 
-// ── Round core fields (Workplace Standard single column) ─────────────────────
+// ── Informasjon-kort (generell info om runden) ────────────────────────────────
 
-function RoundBasicsForm({
+function RoundInformationCard({
   round,
   locations,
   assignableUsers,
@@ -714,72 +689,92 @@ function RoundBasicsForm({
   ]
 
   return (
-    <div className="border-y border-neutral-200 bg-white">
-      <div className={WPSTD_FORM_ROW_GRID}>
-        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-title">
-          Tittel
-        </label>
-        <StandardInput
-          id="round-basics-title"
-          type="text"
-          value={round.title}
-          readOnly={readOnly}
-          onChange={(e) => void handleUpdate({ title: e.target.value })}
-        />
-      </div>
-      <div className={WPSTD_FORM_ROW_GRID}>
-        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-status">
-          Status
-        </label>
-        <SearchableSelect
-          value={round.status}
-          options={statusOptions}
-          onChange={(v) => void handleUpdate({ status: v as InspectionRoundRow['status'] })}
-          disabled={readOnly}
-        />
-      </div>
-      <div className={WPSTD_FORM_ROW_GRID}>
-        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-location">
-          Lokasjon
-        </label>
-        <SearchableSelect
-          value={round.location_id ?? ''}
-          options={locationOptions}
-          placeholder="Velg lokasjon"
-          onChange={(v) => void handleUpdate({ location_id: v || null })}
-          disabled={readOnly}
-        />
-      </div>
-      <div className={WPSTD_FORM_ROW_GRID}>
-        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-assigned">
-          Ansvarlig
-        </label>
-        <SearchableSelect
-          value={round.assigned_to ?? ''}
-          options={assignedOptions}
-          placeholder="Velg ansvarlig"
-          onChange={(v) => void handleUpdate({ assigned_to: v || null })}
-          disabled={readOnly}
-        />
-      </div>
-      <div className={WPSTD_FORM_ROW_GRID}>
-        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-scheduled">
-          Planlagt tidspunkt
-        </label>
-        <StandardInput
-          id="round-basics-scheduled"
-          type="datetime-local"
-          value={scheduledLocal}
-          readOnly={readOnly}
-          onChange={(e) => {
-            const v = e.target.value
-            void handleUpdate({
-              scheduled_for: v ? new Date(v).toISOString() : null,
-            })
-          }}
-        />
-      </div>
-    </div>
+    <ModuleInformationCard
+      title="Informasjon om vernerunden"
+      description={
+        <p>
+          Generell informasjon om denne inspeksjonsrunden — kan redigeres så lenge runden er i
+          kladd- eller aktiv-status.
+        </p>
+      }
+      rows={[
+        {
+          id: 'title',
+          label: 'Tittel',
+          htmlFor: 'round-basics-title',
+          required: true,
+          value: (
+            <StandardInput
+              id="round-basics-title"
+              type="text"
+              value={round.title}
+              readOnly={readOnly}
+              onChange={(e) => void handleUpdate({ title: e.target.value })}
+            />
+          ),
+        },
+        {
+          id: 'status',
+          label: 'Status',
+          htmlFor: 'round-basics-status',
+          value: (
+            <SearchableSelect
+              value={round.status}
+              options={statusOptions}
+              onChange={(v) => void handleUpdate({ status: v as InspectionRoundRow['status'] })}
+              disabled={readOnly}
+            />
+          ),
+        },
+        {
+          id: 'location',
+          label: 'Lokasjon',
+          htmlFor: 'round-basics-location',
+          value: (
+            <SearchableSelect
+              value={round.location_id ?? ''}
+              options={locationOptions}
+              placeholder="Velg lokasjon"
+              onChange={(v) => void handleUpdate({ location_id: v || null })}
+              disabled={readOnly}
+            />
+          ),
+        },
+        {
+          id: 'assigned',
+          label: 'Ansvarlig',
+          htmlFor: 'round-basics-assigned',
+          value: (
+            <SearchableSelect
+              value={round.assigned_to ?? ''}
+              options={assignedOptions}
+              placeholder="Velg ansvarlig"
+              onChange={(v) => void handleUpdate({ assigned_to: v || null })}
+              disabled={readOnly}
+            />
+          ),
+        },
+        {
+          id: 'scheduled',
+          label: 'Planlagt tidspunkt',
+          htmlFor: 'round-basics-scheduled',
+          value: (
+            <StandardInput
+              id="round-basics-scheduled"
+              type="datetime-local"
+              value={scheduledLocal}
+              readOnly={readOnly}
+              onChange={(e) => {
+                const v = e.target.value
+                void handleUpdate({
+                  scheduled_for: v ? new Date(v).toISOString() : null,
+                })
+              }}
+            />
+          ),
+        },
+      ]}
+    />
   )
 }
 
@@ -791,7 +786,7 @@ export function InspectionRoundPage() {
   const inspection = useInspectionModule({ supabase })
   const { load, loadRoundDetail } = inspection
 
-  const [activeTab, setActiveTab] = useState<PanelTab>('checklist')
+  const [activeTab, setActiveTab] = useState<PanelTab>('information')
   const [findingPrefillKey, setFindingPrefillKey] = useState<string | null>(null)
   const [selectedDeviationId, setSelectedDeviationId] = useState<string | null>(null)
   const [detailStarted, setDetailStarted] = useState(false)
@@ -857,6 +852,11 @@ export function InspectionRoundPage() {
     const tmpl = inspection.templates.find((t) => t.id === round.template_id)
     const nItems = tmpl ? parseChecklistItems(tmpl.checklist_definition).length : 0
     return [
+      {
+        id: 'information',
+        label: TAB_LABELS.information,
+        icon: Info,
+      },
       {
         id: 'checklist',
         label: nItems > 0 ? `${TAB_LABELS.checklist} (${answered}/${nItems})` : TAB_LABELS.checklist,
@@ -973,6 +973,16 @@ export function InspectionRoundPage() {
       }
       tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as PanelTab)} />}
     >
+      {activeTab === 'information' && (
+        <RoundInformationCard
+          round={round}
+          locations={inspection.locations}
+          assignableUsers={inspection.assignableUsers}
+          readOnly={round.status === 'signed'}
+          onUpdated={() => void inspection.loadRoundDetail(round.id)}
+        />
+      )}
+
       {activeTab === 'checklist' && (
         <div className="flex flex-col space-y-6">
           {critCount > 0 && (
@@ -982,26 +992,15 @@ export function InspectionRoundPage() {
               </Badge>
             </div>
           )}
-          <ModuleSectionCard>
-            <RoundBasicsForm
-              round={round}
-              locations={inspection.locations}
-              assignableUsers={inspection.assignableUsers}
-              readOnly={round.status === 'signed'}
-              onUpdated={() => void inspection.loadRoundDetail(round.id)}
-            />
-          </ModuleSectionCard>
-          <ModuleSectionCard>
-            <ChecklistTab
-              round={round}
-              checklistItems={checklistItems}
-              inspection={inspection}
-              onSwitchToFindings={(key) => {
-                setFindingPrefillKey(key)
-                setActiveTab('findings')
-              }}
-            />
-          </ModuleSectionCard>
+          <ChecklistTab
+            round={round}
+            checklistItems={checklistItems}
+            inspection={inspection}
+            onSwitchToFindings={(key) => {
+              setFindingPrefillKey(key)
+              setActiveTab('findings')
+            }}
+          />
         </div>
       )}
 
