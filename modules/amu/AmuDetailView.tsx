@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useId, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
-  WPSTD_FORM_FIELD_LABEL,
-  WPSTD_FORM_ROW_GRID,
-} from '../../src/components/layout/WorkplaceStandardFormPanel'
+  CalendarCheck,
+  CheckCircle2,
+  ClipboardList,
+  FileText,
+  Info,
+  PenLine,
+} from 'lucide-react'
+import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
-import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
+import { ModulePageShell } from '../../src/components/module/ModulePageShell'
+import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
+import { ModuleInformationCard } from '../../src/components/module/ModuleInformationCard'
+import { ModuleSignatureCard } from '../../src/components/module/ModuleSignatureCard'
+import { ModulePreflightChecklist } from '../../src/components/module/ModulePreflightChecklist'
 import { fetchAssignableUsers, type AssignableUser } from '../../src/hooks/useAssignableUsers'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
@@ -23,10 +32,14 @@ import { AmuParticipantsTable } from './AmuParticipantsTable'
 import type { AmuAgendaItem, AmuDecision, AmuMeeting, AmuParticipant } from './types'
 import type { AmuHookState } from './useAmu'
 
+type AmuTab = 'information' | 'planlegging' | 'meeting_room' | 'minutes' | 'signature'
+
 const TAB_ITEMS: TabItem[] = [
-  { id: 'planlegging', label: 'Planlegging' },
-  { id: 'møterom', label: 'Møterom' },
-  { id: 'referat_signatur', label: 'Referat & signatur' },
+  { id: 'information', label: 'Informasjon', icon: Info },
+  { id: 'planlegging', label: 'Planlegging', icon: CalendarCheck },
+  { id: 'meeting_room', label: 'Møterom', icon: ClipboardList },
+  { id: 'minutes', label: 'Referat', icon: FileText },
+  { id: 'signature', label: 'Signering', icon: PenLine },
 ]
 
 const SOURCE_MODULE_OPTIONS: { value: string; label: string }[] = [
@@ -79,7 +92,7 @@ export function AmuDetailView({
   const [decisionByAgenda, setDecisionByAgenda] = useState<Record<string, AmuDecision | null>>({})
   const [participants, setParticipants] = useState<AmuParticipant[]>([])
   const [assignable, setAssignable] = useState<AssignableUser[]>([])
-  const [activeTab, setActiveTab] = useState('planlegging')
+  const [activeTab, setActiveTab] = useState<AmuTab>('information')
   const [loadTick, setLoadTick] = useState(0)
   const [saving, setSaving] = useState(false)
   const [wStats, setWStats] = useState<{ open: number; closed: number } | null>(null)
@@ -98,7 +111,6 @@ export function AmuDetailView({
     description: '',
     order_index: 0,
     source_module: '' as string,
-    /** Rå tekst for kilde-ID (UUID); tom = ingen spesifikk post */
     source_id_raw: '' as string,
   })
 
@@ -298,7 +310,9 @@ export function AmuDetailView({
         source_id: sourceId,
       })
       if (u) {
-        setAgenda((a) => a.map((x) => (x.id === u.id ? u : x)).sort((p, q) => p.order_index - q.order_index))
+        setAgenda((a) =>
+          a.map((x) => (x.id === u.id ? u : x)).sort((p, q) => p.order_index - q.order_index),
+        )
       }
     }
     setAgendaPanel(null)
@@ -316,15 +330,18 @@ export function AmuDetailView({
     [amu],
   )
 
-  const fixOpenDecision = useCallback((item: AmuAgendaItem) => {
-    const d = decisionByAgenda[item.id] ?? null
-    setDecisionText(d?.decision_text ?? '')
-    setApTitle(`Tiltak: ${item.title}`.slice(0, 200))
-    setApDescription(d?.decision_text || item.description)
-    setApDue(new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString().slice(0, 10))
-    setApResponsible('')
-    setDecisionPanel({ item, decision: d })
-  }, [decisionByAgenda])
+  const fixOpenDecision = useCallback(
+    (item: AmuAgendaItem) => {
+      const d = decisionByAgenda[item.id] ?? null
+      setDecisionText(d?.decision_text ?? '')
+      setApTitle(`Tiltak: ${item.title}`.slice(0, 200))
+      setApDescription(d?.decision_text || item.description)
+      setApDue(new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString().slice(0, 10))
+      setApResponsible('')
+      setDecisionPanel({ item, decision: d })
+    },
+    [decisionByAgenda],
+  )
 
   const saveDecisionOnly = useCallback(async () => {
     if (!decisionPanel) return
@@ -399,146 +416,169 @@ export function AmuDetailView({
     setSaving(false)
   }, [amu, chairUserId, meeting])
 
+  // ── Pre-flight checks for signing ──
+  const hasAgenda = agenda.length > 0
+  const decidedCount = agenda.filter((it) => !!decisionByAgenda[it.id]?.decision_text?.trim()).length
+  const allDecided = hasAgenda && decidedCount === agenda.length
+  const hasMinutes = (meeting?.minutes_draft ?? '').trim().length > 0
+  const hasChair = !!chairUserId
+  const preflight = [
+    { ok: hasAgenda, label: 'Minst én sak er registrert' },
+    { ok: allDecided, label: `Alle saker har vedtak (${decidedCount}/${agenda.length})` },
+    { ok: hasMinutes, label: 'Referat er fylt ut' },
+    { ok: hasChair, label: 'Møteleder er valgt' },
+  ]
+
+  // ── Page shell guards ──
   if (detailState === 'loading') {
     return (
-      <div className="space-y-4">
-        <p className="text-sm text-neutral-600">Laster møte…</p>
-        <Button type="button" variant="secondary" onClick={() => navigate(listPath)}>
-          Tilbake til listen
-        </Button>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'Samarbeid' }, { label: 'AMU', to: listPath }]}
+        title="Laster møte…"
+        loading
+        loadingLabel="Laster møte…"
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   if (detailState === 'missing' || !meeting) {
     return (
-      <div className="space-y-4">
-        <p className="text-sm text-neutral-600">Fant ikke møtet.</p>
-        <Button type="button" variant="secondary" onClick={() => navigate(listPath)}>
-          Tilbake til listen
-        </Button>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'Samarbeid' }, { label: 'AMU', to: listPath }]}
+        title="Møtet finnes ikke"
+        notFound={{
+          title: 'Møtet finnes ikke',
+          backLabel: '← Tilbake til AMU-møter',
+          onBack: () => navigate(listPath),
+        }}
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
+  const meetingDateLabel = new Date(`${meeting.date}T12:00:00`).toLocaleDateString('nb-NO', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+
   return (
-    <div className="flex flex-col space-y-6">
-      <ComplianceBanner title="Arbeidsmiljøloven Kap. 7 — Arbeidsmiljøutvalg (AMU)" className="border-b border-[#1a3d32]/20">
-        Møter, saksbehandling og referat følger arbeidsmiljøloven. Persondata i andre moduler (f.eks. varsling) vises kun i aggregert form.
-      </ComplianceBanner>
+    <ModulePageShell
+      breadcrumb={[
+        { label: 'Samarbeid' },
+        { label: 'AMU', to: listPath },
+        { label: meeting.title },
+      ]}
+      title={meeting.title}
+      description={
+        <p className="max-w-4xl text-xs leading-relaxed text-neutral-600">
+          {meetingDateLabel}
+          {meeting.location ? ` · ${meeting.location}` : ''}
+          {' · '}
+          {agenda.length} saker · {participants.length} deltakere
+        </p>
+      }
+      headerActions={
+        <Badge variant={statusBadgeVariant(meeting.status)}>{statusLabel(meeting.status)}</Badge>
+      }
+      tabs={<Tabs items={TAB_ITEMS} activeId={activeTab} onChange={(id) => setActiveTab(id as AmuTab)} />}
+    >
       {amu.error ? <WarningBox>{amu.error}</WarningBox> : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="mb-1">
-            <Link to={listPath} className="text-xs text-neutral-500 hover:text-neutral-800">
-              ← AMU-møter
-            </Link>
-          </div>
-          <h2 className="text-lg font-semibold text-neutral-900 md:text-xl">{meeting.title}</h2>
-          <p className="mt-1 text-sm text-neutral-600">
-            {new Date(`${meeting.date}T12:00:00`).toLocaleDateString('nb-NO', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-            })}{' '}
-            {meeting.location ? `· ${meeting.location}` : ''}
-          </p>
-        </div>
-        <Badge variant={statusBadgeVariant(meeting.status)}>{statusLabel(meeting.status)}</Badge>
-      </div>
-
-      <Tabs items={TAB_ITEMS} activeId={activeTab} onChange={setActiveTab} className="border-b border-neutral-200 pb-1" />
-
-      {activeTab === 'planlegging' && (
+      {activeTab === 'information' && (
         <div className="flex flex-col space-y-6">
           {wStats && sStats && (
             <InfoBox>
-              {`Varsling: ${wStats.open} åpne, ${wStats.closed} lukkede. Sykefravær (HSE-modul, aggregert): ${sStats.active} aktive, ${sStats.partial} delvise, ${sStats.other} øvrige. `}
+              {`Varsling: ${wStats.open} åpne, ${wStats.closed} lukkede. Sykefravær (HSE-modul, aggregert): ${sStats.active} aktive, ${sStats.partial} delvise, ${sStats.other} øvrige.`}
             </InfoBox>
           )}
 
-          <div className={`${WORKPLACE_MODULE_CARD} p-5 md:p-6`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <h3 className="text-sm font-semibold text-neutral-900">Møtedata</h3>
-            <div className="mt-4 space-y-4">
-              <div className={WPSTD_FORM_ROW_GRID}>
-                <div>
-                  <div className={WPSTD_FORM_FIELD_LABEL}>Overskrift / navn</div>
-                  <p className="text-sm text-neutral-600">Beskriv møtet. Lagres med knappen nedenfor.</p>
-                </div>
-                <div>
-                  <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-m-title">
-                    Tittel
-                  </label>
+          <ModuleInformationCard
+            title="Arbeidsmiljøloven Kap. 7 — Arbeidsmiljøutvalg"
+            description={
+              <p>
+                Generell informasjon om dette AMU-møtet. Møter, saksbehandling og referat følger arbeidsmiljøloven.
+                Persondata fra andre moduler (f.eks. varsling) vises kun i aggregert form.
+              </p>
+            }
+            rows={[
+              {
+                id: 'title',
+                label: 'Tittel',
+                htmlFor: 'amu-m-title',
+                required: true,
+                value: (
                   <StandardInput
                     id="amu-m-title"
                     value={titleDraft}
                     onChange={(e) => setTitleDraft(e.target.value)}
                     disabled={readOnly || !amu.canManage}
                   />
-                </div>
-              </div>
-              <div className={WPSTD_FORM_ROW_GRID}>
-                <div>
-                  <div className={WPSTD_FORM_FIELD_LABEL}>Dato og sted</div>
-                  <p className="text-sm text-neutral-600">Planlagt møtedato og lokasjon (eller Teams).</p>
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-m-date">
-                      Dato
-                    </label>
-                    <StandardInput
-                      id="amu-m-date"
-                      type="date"
-                      value={dateDraft}
-                      onChange={(e) => setDateDraft(e.target.value)}
-                      disabled={readOnly || !amu.canManage}
-                    />
-                  </div>
-                  <div>
-                    <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-m-loc">
-                      Sted
-                    </label>
-                    <StandardInput
-                      id="amu-m-loc"
-                      value={locationDraft}
-                      onChange={(e) => setLocationDraft(e.target.value)}
-                      disabled={readOnly || !amu.canManage}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className={WPSTD_FORM_ROW_GRID}>
-                <div>
-                  <div className={WPSTD_FORM_FIELD_LABEL}>Status</div>
-                  <p className="text-sm text-neutral-600">Aktivt møte brukes når saksbehandling pågår i møterom-fanen.</p>
-                </div>
-                <div>
-                  <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-m-status">
-                    Møtestatus
-                  </label>
+                ),
+              },
+              {
+                id: 'date',
+                label: 'Dato',
+                htmlFor: 'amu-m-date',
+                value: (
+                  <StandardInput
+                    id="amu-m-date"
+                    type="date"
+                    value={dateDraft}
+                    onChange={(e) => setDateDraft(e.target.value)}
+                    disabled={readOnly || !amu.canManage}
+                  />
+                ),
+              },
+              {
+                id: 'location',
+                label: 'Sted',
+                htmlFor: 'amu-m-loc',
+                value: (
+                  <StandardInput
+                    id="amu-m-loc"
+                    value={locationDraft}
+                    onChange={(e) => setLocationDraft(e.target.value)}
+                    disabled={readOnly || !amu.canManage}
+                    placeholder="Møterom / Teams"
+                  />
+                ),
+              },
+              {
+                id: 'status',
+                label: 'Status',
+                htmlFor: 'amu-m-status',
+                value: (
                   <SearchableSelect
                     value={statusDraft}
                     options={MEETING_STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
                     onChange={(v) => setStatusDraft(v as AmuMeeting['status'])}
                     disabled={readOnly || !amu.canManage || meeting.status === 'signed'}
                   />
-                </div>
+                ),
+              },
+            ]}
+            footer={
+              <div className="flex flex-wrap justify-end">
+                <Button
+                  type="button"
+                  variant="primary"
+                  disabled={readOnly || !amu.canManage || saving}
+                  onClick={() => void onSaveMeta()}
+                >
+                  {saving ? 'Lagrer…' : 'Lagre møtedata'}
+                </Button>
               </div>
-            </div>
-            <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <Button
-                type="button"
-                variant="primary"
-                disabled={readOnly || !amu.canManage || saving}
-                onClick={() => void onSaveMeta()}
-              >
-                Lagre møtedata
-              </Button>
-            </div>
-          </div>
+            }
+          />
+        </div>
+      )}
 
+      {activeTab === 'planlegging' && (
+        <div className="flex flex-col space-y-6">
           <AmuParticipantsTable
             participants={participants}
             userLabel={userLabel}
@@ -587,7 +627,7 @@ export function AmuDetailView({
         </div>
       )}
 
-      {activeTab === 'møterom' && (
+      {activeTab === 'meeting_room' && (
         <AmuMeetingRoomTab
           agenda={agenda}
           decisionByAgenda={decisionByAgenda}
@@ -597,144 +637,190 @@ export function AmuDetailView({
         />
       )}
 
-      {activeTab === 'referat_signatur' && (
-        <div className="flex flex-col space-y-4">
-          <div className={`${WORKPLACE_MODULE_CARD} p-5 md:p-6`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <h3 className="text-sm font-semibold text-neutral-900">Utkast til referat</h3>
-            <p className="mt-1 text-sm text-neutral-600">
-              Referat bør samsvare med saksbehandlingen. Lagres separat; signert møte kan ikke omskrives.
-            </p>
-            <div className="mt-4">
-              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-minutes">
-                Tekst
-              </label>
-              <StandardTextarea
-                id="amu-minutes"
-                className="min-h-[200px] mt-1.5 w-full"
-                value={minutesDraft}
-                onChange={(e) => setMinutesDraft(e.target.value)}
-                readOnly={readOnly || !amu.canManage}
-              />
-            </div>
-            <div className="mt-4 flex justify-end">
-              <Button type="button" variant="secondary" disabled={readOnly || !amu.canManage} onClick={() => void onSaveMinutes()}>
-                Lagre referat
-              </Button>
-            </div>
+      {activeTab === 'minutes' && (
+        <ModuleSectionCard>
+          <ComplianceBanner
+            title="Arbeidsmiljøloven § 7-2 — referat"
+            className="border-b border-[#1a3d32]/20"
+          >
+            Referatet skal dokumentere saksbehandling og vedtak. Lagres separat; signert møte kan ikke omskrives.
+          </ComplianceBanner>
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-minutes">
+              Referat-tekst
+            </label>
+            <StandardTextarea
+              id="amu-minutes"
+              rows={12}
+              value={minutesDraft}
+              onChange={(e) => setMinutesDraft(e.target.value)}
+              readOnly={readOnly || !amu.canManage}
+              placeholder="Skriv referatet her…"
+              className="resize-none"
+            />
           </div>
-          <div className={`${WORKPLACE_MODULE_CARD} p-5 md:p-6`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <h3 className="text-sm font-semibold text-neutral-900">Signering av referat (møteleder)</h3>
-            <p className="mt-1 text-sm text-neutral-600">
-              Signering låser møtet. Velg møteleder og klikk for å ferdigstille status og signaturtid.
-            </p>
-            {meeting.chair_signed_at ? (
-              <p className="mt-2 text-sm text-emerald-800">Signert {new Date(meeting.chair_signed_at).toLocaleString('nb-NO')}</p>
-            ) : null}
-            <div className="mt-4 max-w-md">
-              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-chair">
-                Møteleder
-              </label>
-              <SearchableSelect
-                value={chairUserId}
-                options={[{ value: '', label: 'Velg' }, ...chairSelectOptions]}
-                onChange={setChairUserId}
-                disabled={readOnly || !amu.canManage}
-              />
-            </div>
-            <div className="mt-4">
+          {!readOnly && amu.canManage && (
+            <div className="border-t border-neutral-200 px-4 py-4 md:px-5">
               <Button
                 type="button"
                 variant="primary"
-                disabled={readOnly || !amu.canManage || !chairUserId || meeting.status === 'signed'}
-                onClick={() => void onSignMeeting()}
+                disabled={saving}
+                onClick={() => void onSaveMinutes()}
               >
-                Signer og lukk møtet
+                {saving ? 'Lagrer…' : 'Lagre referat'}
               </Button>
             </div>
-          </div>
-        </div>
+          )}
+        </ModuleSectionCard>
       )}
 
+      {activeTab === 'signature' && (
+        <ModuleSectionCard>
+          <ComplianceBanner
+            title="Arbeidsmiljøloven § 7-2 — signering av referat"
+            className="border-b border-[#1a3d32]/20"
+          >
+            Møteleder signerer og låser referatet. Signering markerer møtet som gjennomført og arkivert.
+          </ComplianceBanner>
+
+          <div className="space-y-6 p-5 md:p-6">
+            {meeting.status !== 'signed' && <ModulePreflightChecklist items={preflight} />}
+
+            {!readOnly && (
+              <div className={WPSTD_FORM_ROW_GRID}>
+                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-chair">
+                  Møteleder
+                </label>
+                <SearchableSelect
+                  value={chairUserId}
+                  options={[{ value: '', label: 'Velg møteleder' }, ...chairSelectOptions]}
+                  onChange={setChairUserId}
+                  disabled={!amu.canManage}
+                />
+              </div>
+            )}
+
+            <ModuleSignatureCard
+              title="Møteleder"
+              lawReference="AML § 7-2 — ansvar for referat"
+              signed={
+                meeting.chair_signed_at
+                  ? {
+                      at: meeting.chair_signed_at,
+                      byName: meeting.meeting_chair_user_id
+                        ? userLabel(meeting.meeting_chair_user_id)
+                        : null,
+                    }
+                  : null
+              }
+              buttonLabel="Signer som møteleder"
+              variant="primary"
+              disabled={
+                !amu.canManage ||
+                readOnly ||
+                !hasAgenda ||
+                !allDecided ||
+                !hasMinutes ||
+                !hasChair ||
+                saving
+              }
+              busy={saving}
+              hideButton={meeting.status === 'signed'}
+              onSign={() => void onSignMeeting()}
+            />
+
+            {meeting.status === 'signed' && (
+              <div className="rounded-xl border border-green-200 bg-green-50 p-5 text-center">
+                <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-green-600" />
+                <p className="text-sm font-semibold text-green-800">Møtet er signert og låst</p>
+                <p className="mt-1 text-xs text-green-600">
+                  Arkivert etter arbeidsmiljøloven § 7-2. Videre endringer krever nytt møte eller korrigering i
+                  egen sak.
+                </p>
+              </div>
+            )}
+          </div>
+        </ModuleSectionCard>
+      )}
+
+      {/* ── Slide-over: Agenda-sak ────────────────────────────────────────── */}
       <SlidePanel
         open={agendaPanel !== null}
         onClose={() => setAgendaPanel(null)}
         titleId={agendaFormTitleId}
-        title={agendaPanel?.mode === 'new' ? 'Ny saks' : 'Rediger sak'}
+        title={agendaPanel?.mode === 'new' ? 'Ny sak' : 'Rediger sak'}
         footer={
           <div className="flex w-full flex-wrap justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setAgendaPanel(null)}>Avbryt</Button>
+            <Button type="button" variant="secondary" onClick={() => setAgendaPanel(null)}>
+              Avbryt
+            </Button>
             <Button
               type="button"
               variant="primary"
               onClick={() => void saveAgendaFromPanel()}
               disabled={!amu.canManage}
-            >Lagre</Button>
+            >
+              Lagre
+            </Button>
           </div>
         }
       >
         <div className="space-y-0">
           <div className={WPSTD_FORM_ROW_GRID}>
-            <div>
-              <div className={WPSTD_FORM_FIELD_LABEL}>Sakstittel</div>
-            </div>
-            <div>
-              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-agg-title">Tittel</label>
-              <StandardInput id="amu-agg-title" value={agendaForm.title} onChange={(e) => setAgendaForm((f) => ({ ...f, title: e.target.value }))} />
-            </div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-agg-title">
+              Tittel
+            </label>
+            <StandardInput
+              id="amu-agg-title"
+              value={agendaForm.title}
+              onChange={(e) => setAgendaForm((f) => ({ ...f, title: e.target.value }))}
+            />
           </div>
           <div className={WPSTD_FORM_ROW_GRID}>
-            <div>
-              <div className={WPSTD_FORM_FIELD_LABEL}>Beskrivelse</div>
-            </div>
-            <div>
-              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-agg-body">Beskrivelse</label>
-              <StandardTextarea id="amu-agg-body" className="min-h-[100px] mt-1.5 w-full" value={agendaForm.description} onChange={(e) => setAgendaForm((f) => ({ ...f, description: e.target.value }))} />
-            </div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-agg-body">
+              Beskrivelse
+            </label>
+            <StandardTextarea
+              id="amu-agg-body"
+              rows={4}
+              value={agendaForm.description}
+              onChange={(e) => setAgendaForm((f) => ({ ...f, description: e.target.value }))}
+            />
           </div>
           <div className={WPSTD_FORM_ROW_GRID}>
-            <div>
-              <div className={WPSTD_FORM_FIELD_LABEL}>Saksordner</div>
-            </div>
-            <div>
-              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-agg-ord">Rekkefølge (0 = først)</label>
-              <StandardInput
-                id="amu-agg-ord"
-                type="number"
-                value={agendaForm.order_index}
-                onChange={(e) => setAgendaForm((f) => ({ ...f, order_index: Number(e.target.value) }))}
-              />
-            </div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-agg-ord">
+              Rekkefølge (0 = først)
+            </label>
+            <StandardInput
+              id="amu-agg-ord"
+              type="number"
+              value={agendaForm.order_index}
+              onChange={(e) => setAgendaForm((f) => ({ ...f, order_index: Number(e.target.value) }))}
+            />
           </div>
           <div className={WPSTD_FORM_ROW_GRID}>
-            <div>
-              <div className={WPSTD_FORM_FIELD_LABEL}>Kildepunkt (polymorf lenke)</div>
-            </div>
-            <div>
-              <SearchableSelect
-                value={agendaForm.source_module}
-                options={SOURCE_MODULE_OPTIONS}
-                onChange={(v) => setAgendaForm((f) => ({ ...f, source_module: v }))}
-              />
-            </div>
+            <span className={WPSTD_FORM_FIELD_LABEL}>Kildemodul</span>
+            <SearchableSelect
+              value={agendaForm.source_module}
+              options={SOURCE_MODULE_OPTIONS}
+              onChange={(v) => setAgendaForm((f) => ({ ...f, source_module: v }))}
+            />
           </div>
           <div className={WPSTD_FORM_ROW_GRID}>
-            <div>
-              <div className={WPSTD_FORM_FIELD_LABEL}>Kilde-ID (valgfri)</div>
-              <p className="text-sm text-neutral-600">UUID til konkret avvik, sak osv. La stå tom for kun kategorisering.</p>
-            </div>
-            <div>
-              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-agg-sid">Kilde-ID (UUID)</label>
-              <StandardInput
-                id="amu-agg-sid"
-                value={agendaForm.source_id_raw}
-                onChange={(e) => setAgendaForm((f) => ({ ...f, source_id_raw: e.target.value }))}
-                placeholder="00000000-0000-0000-0000-000000000000"
-              />
-            </div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-agg-sid">
+              Kilde-ID (UUID, valgfri)
+            </label>
+            <StandardInput
+              id="amu-agg-sid"
+              value={agendaForm.source_id_raw}
+              onChange={(e) => setAgendaForm((f) => ({ ...f, source_id_raw: e.target.value }))}
+              placeholder="00000000-0000-0000-0000-000000000000"
+            />
           </div>
         </div>
       </SlidePanel>
 
+      {/* ── Slide-over: Vedtak + Tiltak ──────────────────────────────────── */}
       <SlidePanel
         open={decisionPanel !== null}
         onClose={() => setDecisionPanel(null)}
@@ -742,9 +828,16 @@ export function AmuDetailView({
         title={decisionPanel ? decisionPanel.item.title : 'Sak'}
         footer={
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <Button type="button" variant="secondary" onClick={() => setDecisionPanel(null)}>Lukk</Button>
+            <Button type="button" variant="secondary" onClick={() => setDecisionPanel(null)}>
+              Lukk
+            </Button>
             <div className="flex flex-wrap justify-end gap-2">
-              <Button type="button" variant="secondary" disabled={saving} onClick={() => void saveDecisionOnly()}>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={saving}
+                onClick={() => void saveDecisionOnly()}
+              >
                 Lagre vedtak
               </Button>
               <Button
@@ -762,59 +855,66 @@ export function AmuDetailView({
         {decisionPanel ? (
           <div className="space-y-0">
             <div className={WPSTD_FORM_ROW_GRID}>
-              <div>
-                <div className={WPSTD_FORM_FIELD_LABEL}>Kortvedtak</div>
-                <p className="text-sm text-neutral-600">Formuler vedtak som AMU forstår. Detaljer følger ofte i tiltaket.</p>
-              </div>
-              <div>
-                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-d-text">Vedtakstekst</label>
-                <StandardTextarea id="amu-d-text" className="min-h-[140px] w-full" value={decisionText} onChange={(e) => setDecisionText(e.target.value)} readOnly={readOnly || !amu.canManage} />
-              </div>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-d-text">
+                Vedtakstekst
+              </label>
+              <StandardTextarea
+                id="amu-d-text"
+                rows={5}
+                value={decisionText}
+                onChange={(e) => setDecisionText(e.target.value)}
+                readOnly={readOnly || !amu.canManage}
+              />
             </div>
             <div className="border-b border-dashed border-neutral-200" />
-            <h3 className="px-4 py-2 text-sm font-semibold text-neutral-900 sm:px-5">Tiltak (valgfri)</h3>
+            <h3 className="px-4 py-2 text-sm font-semibold text-neutral-900 md:px-5">
+              Tiltak i Handlingsplan (valgfri)
+            </h3>
             <div className={WPSTD_FORM_ROW_GRID}>
-              <div>
-                <div className={WPSTD_FORM_FIELD_LABEL}>Tittel for tiltak</div>
-              </div>
-              <div>
-                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-d-ap-title">Oppgave</label>
-                <StandardInput id="amu-d-ap-title" value={apTitle} onChange={(e) => setApTitle(e.target.value)} disabled={readOnly || !amu.canManage} />
-              </div>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-d-ap-title">
+                Tittel
+              </label>
+              <StandardInput
+                id="amu-d-ap-title"
+                value={apTitle}
+                onChange={(e) => setApTitle(e.target.value)}
+                disabled={readOnly || !amu.canManage}
+              />
             </div>
             <div className={WPSTD_FORM_ROW_GRID}>
-              <div>
-                <div className={WPSTD_FORM_FIELD_LABEL}>Beskrivelse</div>
-              </div>
-              <div>
-                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-d-ap-d">Beskrivelse</label>
-                <StandardTextarea id="amu-d-ap-d" className="min-h-[100px] w-full" value={apDescription} onChange={(e) => setApDescription(e.target.value)} />
-              </div>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-d-ap-d">
+                Beskrivelse
+              </label>
+              <StandardTextarea
+                id="amu-d-ap-d"
+                rows={3}
+                value={apDescription}
+                onChange={(e) => setApDescription(e.target.value)}
+              />
             </div>
             <div className={WPSTD_FORM_ROW_GRID}>
-              <div>
-                <div className={WPSTD_FORM_FIELD_LABEL}>Frist</div>
-              </div>
-              <div>
-                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-d-ap-f">Dato frist</label>
-                <StandardInput id="amu-d-ap-f" type="date" value={apDue} onChange={(e) => setApDue(e.target.value)} />
-              </div>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-d-ap-f">
+                Dato frist
+              </label>
+              <StandardInput
+                id="amu-d-ap-f"
+                type="date"
+                value={apDue}
+                onChange={(e) => setApDue(e.target.value)}
+              />
             </div>
             <div className={WPSTD_FORM_ROW_GRID}>
-              <div>
-                <div className={WPSTD_FORM_FIELD_LABEL}>Ansvarlig</div>
-              </div>
-              <div>
-                <SearchableSelect
-                  value={apResponsible}
-                  options={[{ value: '', label: 'Ikke tildelt' }, ...participantOptions]}
-                  onChange={setApResponsible}
-                />
-              </div>
+              <span className={WPSTD_FORM_FIELD_LABEL}>Ansvarlig</span>
+              <SearchableSelect
+                value={apResponsible}
+                options={[{ value: '', label: 'Ikke tildelt' }, ...participantOptions]}
+                onChange={setApResponsible}
+              />
             </div>
           </div>
         ) : null}
       </SlidePanel>
-    </div>
+
+    </ModulePageShell>
   )
 }
