@@ -23,6 +23,7 @@ import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard
 import { ModulePreflightChecklist } from '../../src/components/module/ModulePreflightChecklist'
 import { ModuleSignatureCard } from '../../src/components/module/ModuleSignatureCard'
 import { ModuleInformationCard } from '../../src/components/module/ModuleInformationCard'
+import { ModuleLegalBanner } from '../../src/components/module/ModuleLegalBanner'
 import type { InspectionChecklistItem, InspectionLocationRow, InspectionRoundRow } from './types'
 import { parseChecklistItems } from './schema'
 import { useInspectionModule, type InspectionModuleState } from './useInspectionModule'
@@ -973,6 +974,42 @@ export function InspectionRoundPage() {
       }
       tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as PanelTab)} />}
     >
+      <ModuleLegalBanner
+        collapsible
+        title="Inspeksjonsrunder"
+        intro={
+          <p>
+            Vernerunder og inspeksjonsrunder er dokumenterte gjennomganger av arbeidsmiljøet.
+            Dokumentasjonen skal arkiveres og gjøres tilgjengelig for tilsyn.
+          </p>
+        }
+        references={[
+          {
+            code: 'IK-forskriften § 5',
+            text: (
+              <>
+                Skriftlig dokumentasjon av systematisk HMS-arbeid — inkluderer kartlegging,
+                tiltak og gjennomgang. Dekker også dobbel signering (leder + verneombud) av
+                utførte runder.
+              </>
+            ),
+          },
+          {
+            code: 'AML § 2-1 og § 6-2',
+            text: (
+              <>
+                Arbeidsgivers ansvar for systematisk HMS-arbeid (AML § 2-1) og verneombudets
+                representasjon ved vernerunder (AML § 6-2).
+              </>
+            ),
+          },
+          {
+            code: 'Bokføringsloven § 13',
+            text: <>Oppbevaringsplikt minimum 5 år for signerte protokoller og HMS-dokumenter.</>,
+          },
+        ]}
+      />
+
       {activeTab === 'information' && (
         <RoundInformationCard
           round={round}

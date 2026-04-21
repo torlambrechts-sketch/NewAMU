@@ -18,6 +18,7 @@ import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTab
 import { WorkplaceSerifSectionTitle } from '../../src/components/layout/WorkplacePageHeading1'
 import {
   ModuleInformationCard,
+  ModuleLegalBanner,
   ModulePageShell,
   ModulePreflightChecklist,
   ModuleSectionCard,
@@ -539,6 +540,56 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
       }
       tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as SjaTab)} />}
     >
+      <ModuleLegalBanner
+        collapsible
+        title="Sikker jobbanalyse (SJA)"
+        intro={
+          <p>
+            Sikker jobbanalyse er en skriftlig risikovurdering før oppstart av arbeid som
+            innebærer særlig risiko. Analysen skal utarbeides i fellesskap av de som skal
+            utføre arbeidet og godkjennes før oppstart.
+          </p>
+        }
+        references={[
+          {
+            code: 'AML § 3-2',
+            text: (
+              <>
+                Krav om opplæring, instruksjon og gjennomgang før risikofylt arbeid utføres.
+                SJA dokumenterer at disse kravene er oppfylt.
+              </>
+            ),
+          },
+          {
+            code: 'AML § 4-2 — felles forståelse',
+            text: (
+              <>
+                Alle som deltar i arbeidet skal ha forstått farene og tiltakene og bekrefte
+                dette gjennom signatur.
+              </>
+            ),
+          },
+          {
+            code: 'IK-forskriften § 5',
+            text: (
+              <>
+                Skriftlig dokumentasjon av farekartlegging, tiltak og godkjenning. SJA
+                arkiveres som del av internkontrollen.
+              </>
+            ),
+          },
+          {
+            code: 'Stoffkartotekforskriften',
+            text: (
+              <>
+                Ved arbeid med kjemikalier skal HMS-datablad vurderes og referanser oppgis i
+                SJA-en.
+              </>
+            ),
+          },
+        ]}
+      />
+
       <ModuleSectionCard>
         <div className="space-y-6 p-5 md:p-6">
         {sja.error ? <WarningBox>{sja.error}</WarningBox> : null}

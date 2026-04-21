@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ClipboardList, FileText, History, PenLine, ShieldAlert } from 'lucide-react'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { ModuleLegalBanner } from '../../src/components/module/ModuleLegalBanner'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
 import { Tabs } from '../../src/components/ui/Tabs'
@@ -139,6 +140,47 @@ export function RosAnalysisPage({ supabase }: { supabase: SupabaseClient | null 
       }
       tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as Tab)} />}
     >
+      <ModuleLegalBanner
+        collapsible
+        title="ROS-analyser"
+        intro={
+          <p>
+            Risiko- og sårbarhetsanalyser kartlegger farer og vurderer risiko på tvers av AML,
+            Brann- og eksplosjonsvernloven (BVL), El-tilsynsloven (ETL), Forurensningsloven
+            (FL) og Produktkontrolloven (PKL).
+          </p>
+        }
+        references={[
+          {
+            code: 'IK-forskriften § 5 nr. 6',
+            text: (
+              <>
+                Virksomheten skal kartlegge farer og problemer, vurdere risiko og utarbeide
+                tilhørende planer og tiltak for å redusere risikoforholdene.
+              </>
+            ),
+          },
+          {
+            code: 'AML § 2-1 og § 6-2',
+            text: (
+              <>
+                Ansvarlig leder (arbeidsgiveransvar, AML § 2-1) og verneombud (AML § 6-2) må
+                signere analysen før den godkjennes og låses.
+              </>
+            ),
+          },
+          {
+            code: 'Arkivplikt',
+            text: (
+              <>
+                Signerte analyser arkiveres i henhold til Internkontrollforskriften. Minimum
+                ti års oppbevaringsplikt for HMS-dokumentasjon.
+              </>
+            ),
+          },
+        ]}
+      />
+
       {ros.error ? <WarningBox>{ros.error}</WarningBox> : null}
 
       {activeTab === 'scope' && (

@@ -10,6 +10,7 @@ import {
 } from '../../src/components/layout/layoutTable1PostingsKit'
 import {
   ModuleInformationCard,
+  ModuleLegalBanner,
   ModulePageShell,
   ModulePreflightChecklist,
   ModuleSectionCard,
@@ -267,6 +268,47 @@ export function VernerundeDetailView() {
         />
       }
     >
+      <ModuleLegalBanner
+        collapsible
+        title="Vernerunder"
+        intro={
+          <p>
+            Vernerunder er dokumenterte gjennomganger av arbeidsmiljøet med deltakelse fra
+            verneombud og arbeidstakerrepresentanter. Målet er å avdekke farer og iverksette
+            tiltak i samarbeid mellom arbeidsgiver og de ansatte.
+          </p>
+        }
+        references={[
+          {
+            code: 'AML Kap. 3 — Medvirkning',
+            text: (
+              <>
+                Ansatte skal medvirke ved gjennomføring og oppfølging av HMS-arbeidet,
+                herunder vernerunder.
+              </>
+            ),
+          },
+          {
+            code: 'AML § 6-2 — verneombudets representasjon',
+            text: (
+              <>
+                Verneombudet representerer de ansatte og skal delta i vernerunder og
+                oppfølging av tiltak.
+              </>
+            ),
+          },
+          {
+            code: 'IK-forskriften § 5',
+            text: (
+              <>
+                Skriftlig dokumentasjon av kartlegging, funn og tiltak. Runden arkiveres som
+                del av internkontrollen.
+              </>
+            ),
+          },
+        ]}
+      />
+
       <ModuleSectionCard>
         <ComplianceBanner title="Arbeidsmiljøloven Kap. 3 — Vernerunder og Medvirkning">
           <p>Plan, gjennomfør og dokumenter vernerunden slik at ansatte medvirker og forholdene vurderes systematisk.</p>
