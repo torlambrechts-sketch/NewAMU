@@ -194,7 +194,10 @@ function FindingsTab({
   checklistItems: InspectionChecklistItem[]
   onOpenDeviation: (deviationId: string) => void
 }) {
-  const findings = inspection.findingsByRoundId[round.id] ?? []
+  const findings = useMemo(
+    () => inspection.findingsByRoundId[round.id] ?? [],
+    [inspection.findingsByRoundId, round.id],
+  )
   const items = useMemo(() => inspection.itemsByRoundId[round.id] ?? [], [inspection.itemsByRoundId, round.id])
   const [editingFindingId, setEditingFindingId] = useState<string | null>(null)
   const [description, setDescription] = useState('')
@@ -219,6 +222,19 @@ function FindingsTab({
     if (!linkedItemKey) return undefined
     return items.find((i) => i.checklist_item_key === linkedItemKey)?.id
   }, [linkedItemKey, items])
+
+  const kpiItems = useMemo(() => {
+    const total = findings.length
+    const critical = findings.filter((f) => f.severity === 'critical').length
+    const high = findings.filter((f) => f.severity === 'high').length
+    const linked = findings.filter((f) => !!f.deviation_id).length
+    return [
+      { big: String(total), title: 'Totalt avvik', sub: 'Registrert i runden' },
+      { big: String(critical), title: 'Kritiske', sub: 'Krever umiddelbar oppfølging' },
+      { big: String(high), title: 'Høy alvorlighet', sub: 'Høy risiko — følg opp' },
+      { big: String(linked), title: 'Koblet til avvik', sub: 'Registrert i avviksmodulen' },
+    ]
+  }, [findings])
 
   function resetForm() {
     setEditingFindingId(null)
@@ -403,6 +419,7 @@ function FindingsTab({
         roundItems={items}
         readOnly={readOnly}
         linkingDeviationId={linkingDeviationId}
+        kpiItems={kpiItems}
         onEditFinding={startEdit}
         onOpenDeviation={onOpenDeviation}
         onCreateDeviationFromFinding={async (findingId) => {
@@ -989,28 +1006,14 @@ export function InspectionRoundPage() {
       )}
 
       {activeTab === 'findings' && (
-        <ModuleSectionCard>
-          {findings.length > 0 && (
-            <div className="flex items-center justify-between border-b border-neutral-100 bg-neutral-50 px-5 py-2">
-              <span className="text-xs text-neutral-500">
-                {findings.length} avvik registrert · tilknytt sjekklistepunkt ved behov
-              </span>
-              {critCount > 0 && (
-                <Badge variant="critical" className="border-transparent shadow-none">
-                  {critCount} kritisk
-                </Badge>
-              )}
-            </div>
-          )}
-          <FindingsTab
-            key={`${round.id}-${findingPrefillKey ?? ''}`}
-            round={round}
-            inspection={inspection}
-            prefillItemKey={findingPrefillKey}
-            checklistItems={checklistItems}
-            onOpenDeviation={(id) => setSelectedDeviationId(id)}
-          />
-        </ModuleSectionCard>
+        <FindingsTab
+          key={`${round.id}-${findingPrefillKey ?? ''}`}
+          round={round}
+          inspection={inspection}
+          prefillItemKey={findingPrefillKey}
+          checklistItems={checklistItems}
+          onOpenDeviation={(id) => setSelectedDeviationId(id)}
+        />
       )}
 
       {activeTab === 'summary' && (

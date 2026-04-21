@@ -1,13 +1,13 @@
 import { Edit2, Plus } from 'lucide-react'
 import { riskLabel, riskScoreFromProbCons } from '../../../src/components/hse/RiskMatrix'
-import { LayoutTable1PostingsShell } from '../../../src/components/layout/LayoutTable1PostingsShell'
+import { ModuleRecordsTableShell } from '../../../src/components/module/ModuleRecordsTableShell'
+import { MODULE_TABLE_TH } from '../../../src/components/module/moduleTableKit'
+import type { LayoutScoreStatItem } from '../../../src/components/layout/platformLayoutKit'
 import { Badge, type BadgeVariant } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
 import type { HmsCategory, InspectionChecklistItem, InspectionFindingRow, InspectionFindingSeverity, InspectionItemRow } from '../types'
 
-/** Matches ROS Measures tab (`RosMeasuresTab`) table headers. */
-const TH =
-  'border-b border-neutral-200 bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500'
+const TH = MODULE_TABLE_TH
 
 const SEVERITY_LABEL: Record<InspectionFindingSeverity, string> = {
   low: 'Lav',
@@ -101,6 +101,8 @@ export type InspectionFindingsTableProps = {
   onOpenDeviation: (deviationId: string) => void
   onCreateDeviationFromFinding: (findingId: string) => void | Promise<void>
   onAddNew: () => void
+  /** KPI tiles rendered above the table (same pattern as ROS tiltak). */
+  kpiItems?: LayoutScoreStatItem[]
 }
 
 export function InspectionFindingsTable({
@@ -113,6 +115,7 @@ export function InspectionFindingsTable({
   onOpenDeviation,
   onCreateDeviationFromFinding,
   onAddNew,
+  kpiItems,
 }: InspectionFindingsTableProps) {
   const colCount = 3
 
@@ -123,9 +126,8 @@ export function InspectionFindingsTable({
   ) : null
 
   return (
-    <LayoutTable1PostingsShell
-      wrap={false}
-      titleTypography="sans"
+    <ModuleRecordsTableShell
+      kpiItems={kpiItems}
       title="Registrerte avvik"
       description="Avvik knyttet til denne inspeksjonsrunden."
       headerActions={headerActions}
@@ -222,6 +224,6 @@ export function InspectionFindingsTable({
           </tbody>
         </table>
       </div>
-    </LayoutTable1PostingsShell>
+    </ModuleRecordsTableShell>
   )
 }
