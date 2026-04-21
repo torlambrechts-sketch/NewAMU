@@ -1,23 +1,14 @@
-import React from 'react'
 import { Edit2, Plus } from 'lucide-react'
-import { LayoutTable1PostingsShell } from '@/components/layout/LayoutTable1PostingsShell'
-import { LAYOUT_TABLE1_POSTINGS_TH } from '@/components/layout/layoutTable1PostingsKit'
-import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
-
-// Juster typene her hvis de heter noe annet i filen din
-interface FindingRow {
-  id: string
-  description: string
-  severity: 'low' | 'medium' | 'high' | 'critical'
-  categoryLabel?: string
-  checkpointLabel?: string
-}
+import { LayoutTable1PostingsShell } from '../../../src/components/layout/LayoutTable1PostingsShell'
+import { LAYOUT_TABLE1_POSTINGS_TH } from '../../../src/components/layout/layoutTable1PostingsKit'
+import { Badge } from '../../../src/components/ui/Badge'
+import { Button } from '../../../src/components/ui/Button'
+import { InspectionFindingRow } from '../types'
 
 interface InspectionFindingsTableProps {
-  findings: FindingRow[]
+  findings: InspectionFindingRow[]
   onAddNew: () => void
-  onEditFinding: (finding: FindingRow) => void
+  onEditFinding: (finding: InspectionFindingRow) => void
 }
 
 export function InspectionFindingsTable({
@@ -54,20 +45,26 @@ export function InspectionFindingsTable({
               </tr>
             ) : (
               findings.map((f) => {
-                // Dynamisk kantfarge basert på alvorlighetsgrad (Akkurat som ROS)
+                // Type-casting for utvidede felter (forhindrer TS-feil hvis parent sender inn ekstra data)
+                const extendedF = f as any
+                const checkpointLabel = extendedF.checkpointLabel || extendedF.checklist_item_label || 'Generelt avvik'
+                const categoryLabel = extendedF.categoryLabel
+                const severity = f.severity || 'low'
+                const description = extendedF.description || f.description || ''
+
                 let severityClass = 'border-l-4 border-l-transparent'
                 let severityLabel = 'Lav'
-                let badgeVariant: any = 'neutral'
+                let badgeVariant: 'neutral' | 'info' | 'success' | 'warning' | 'high' | 'critical' = 'neutral'
                 
-                if (f.severity === 'critical') {
+                if (severity === 'critical') {
                   severityClass = 'border-l-4 border-l-red-500 bg-red-50/30 hover:bg-red-50/50'
                   severityLabel = 'Kritisk'
                   badgeVariant = 'critical'
-                } else if (f.severity === 'high') {
+                } else if (severity === 'high') {
                   severityClass = 'border-l-4 border-l-orange-400 bg-orange-50/20 hover:bg-orange-50/40'
                   severityLabel = 'Høy'
                   badgeVariant = 'high'
-                } else if (f.severity === 'medium') {
+                } else if (severity === 'medium') {
                   severityClass = 'border-l-4 border-l-yellow-400 hover:bg-yellow-50'
                   severityLabel = 'Middels'
                   badgeVariant = 'warning'
@@ -82,17 +79,17 @@ export function InspectionFindingsTable({
                     <td className="px-5 py-4 whitespace-normal min-w-[300px]">
                       <div className="flex flex-col space-y-1">
                         <span className="font-medium text-sm text-neutral-900">
-                          {f.checkpointLabel || 'Generelt avvik'}
+                          {checkpointLabel}
                         </span>
                         <span className="text-sm text-neutral-500 line-clamp-2">
-                          {f.description}
+                          {description}
                         </span>
                       </div>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex flex-wrap gap-2 items-center">
                         <Badge variant={badgeVariant}>{severityLabel}</Badge>
-                        {f.categoryLabel && <Badge variant="neutral">{f.categoryLabel}</Badge>}
+                        {categoryLabel && <Badge variant="neutral">{categoryLabel}</Badge>}
                       </div>
                     </td>
                     <td className="px-5 py-4 text-right">
