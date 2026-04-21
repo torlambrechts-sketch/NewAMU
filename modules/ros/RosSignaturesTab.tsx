@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
-import { CheckCircle2, Circle } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
 import type { RosAnalysisRow, RosHazardRow, RosMeasureRow, RosSignatureRow } from './types'
 import { riskScore } from './types'
 import type { RosState } from './useRos'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
-import { Button } from '../../src/components/ui/Button'
 import { ComplianceBanner } from '../../src/components/ui/ComplianceBanner'
 import { Badge } from '../../src/components/ui/Badge'
+import { ModulePreflightChecklist } from '../../src/components/module/ModulePreflightChecklist'
+import { ModuleSignatureCard } from '../../src/components/module/ModuleSignatureCard'
 
 export function RosSignaturesTab({
   analysis,
@@ -55,6 +56,11 @@ export function RosSignaturesTab({
     setSigning(null)
   }
 
+  const roleOrder: { role: 'responsible' | 'verneombud'; title: string; lawReference: string }[] = [
+    { role: 'responsible', title: 'Ansvarlig for analysen', lawReference: 'AML § 2-1' },
+    { role: 'verneombud', title: 'Verneombud', lawReference: 'AML § 6-2' },
+  ]
+
   return (
     <div className="flex flex-col">
       <ComplianceBanner
@@ -68,69 +74,23 @@ export function RosSignaturesTab({
       </ComplianceBanner>
 
       <div className="space-y-6 p-5 md:p-6">
-        {!blockNewSignatures && (
-          <div className="space-y-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Klar for signering?</p>
-            {checks.map(({ ok, label }) => (
-              <div key={label} className="flex items-center gap-2 text-xs">
-                {ok ? (
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
-                ) : (
-                  <Circle className="h-4 w-4 shrink-0 text-neutral-300" />
-                )}
-                <span className={ok ? 'text-neutral-700' : 'text-neutral-400'}>{label}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        {!blockNewSignatures && <ModulePreflightChecklist items={checks} heading="Klar for signering?" />}
 
-        {(['responsible', 'verneombud'] as const).map((role) => {
-          const sig = sigByRole.get(role)
-          const roleLabel = role === 'responsible' ? 'Ansvarlig for analysen' : 'Verneombud'
-          const lawRef = role === 'responsible' ? 'AML § 2-1' : 'AML § 6-2'
+        {roleOrder.map(({ role, title, lawReference }) => {
+          const sig = sigByRole.get(role) ?? null
           return (
-            <div
+            <ModuleSignatureCard
               key={role}
-              className={`rounded-xl border-2 p-5 transition-all ${
-                sig
-                  ? 'border-green-300 bg-green-50'
-                  : canSign
-                    ? 'border-[#1a3d32]/40 bg-white shadow-sm'
-                    : 'border-neutral-200 bg-white'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  {sig ? (
-                    <CheckCircle2 className="h-7 w-7 shrink-0 text-green-500" />
-                  ) : (
-                    <Circle className="h-7 w-7 shrink-0 text-neutral-300" />
-                  )}
-                  <div>
-                    <p className="text-base font-semibold text-neutral-900">{roleLabel}</p>
-                    <p className="text-xs text-neutral-500">{lawRef}</p>
-                    {sig ? (
-                      <p className="mt-0.5 text-xs font-medium text-green-700">
-                        Signert av {sig.signer_name} —{' '}
-                        {new Date(sig.signed_at).toLocaleDateString('nb-NO', { dateStyle: 'medium' })}
-                      </p>
-                    ) : (
-                      <p className="mt-0.5 text-xs text-neutral-400">Venter på signatur</p>
-                    )}
-                  </div>
-                </div>
-                {!sig && !blockNewSignatures && (
-                  <Button
-                    variant="primary"
-                    type="button"
-                    disabled={!canSign || signing !== null}
-                    onClick={() => void handleSign(role)}
-                  >
-                    {signing === role ? 'Signerer…' : `Signer som ${roleLabel.toLowerCase()}`}
-                  </Button>
-                )}
-              </div>
-            </div>
+              title={title}
+              lawReference={lawReference}
+              signed={sig ? { at: sig.signed_at, byName: sig.signer_name } : null}
+              buttonLabel={`Signer som ${title.toLowerCase()}`}
+              variant="primary"
+              disabled={!canSign || signing !== null}
+              busy={signing === role}
+              hideButton={blockNewSignatures}
+              onSign={() => handleSign(role)}
+            />
           )
         })}
 
@@ -146,7 +106,7 @@ export function RosSignaturesTab({
 
         {!blockNewSignatures &&
           analysis.status !== 'approved' &&
-          (sigByRole.has('responsible') !== sigByRole.has('verneombud')) && (
+          sigByRole.has('responsible') !== sigByRole.has('verneombud') && (
             <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 text-center">
               <Badge variant="signed" className="mb-2">
                 Én signatur registrert

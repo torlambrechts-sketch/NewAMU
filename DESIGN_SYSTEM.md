@@ -33,4 +33,16 @@ Error Handling: Catch errors using getSupabaseErrorMessage(err). Errors MUST be 
     {/* Module Content / Cards */}
   </div>
 </div>
-Severity Borders (Lists): If listing risks or deviations, apply border-l-4 to the row.Critical: border-l-red-500 bg-red-50/30High: border-l-orange-400 bg-orange-50/20Medium: border-l-yellow-400Low: border-l-blue-3005. LANGUAGE & LOCALIZATIONAll user-facing text MUST be in Norwegian (Bokmål). No English in the UI.Required -> PåkrevdDraft / Active / Signed -> Kladd / Aktiv / SignertFinding / Deviation -> AvvikCancel / Save / Delete -> Avbryt / Lagre / Slett6. EXECUTION PROTOCOLWhen generating a new module, execute sequentially:Database: Migrations + RLS Policies + Triggers.Types & Schema: types.ts and Zod schemas.Hook: use[ModuleName].ts (Enforce canManage and error handling).UI Construction: Build the views using ONLY src/components/ui/ components.Self-Correction: Scan code before submitting. If you wrote <button className="..."> or <input className="...">, rewrite it using the UI library.
+Severity Borders (Lists): If listing risks or deviations, apply border-l-4 to the row.Critical: border-l-red-500 bg-red-50/30High: border-l-orange-400 bg-orange-50/20Medium: border-l-yellow-400Low: border-l-blue-300
+
+4a. MODULE LAYOUT PRIMITIVES (MANDATORY FOR NEW MODULES) — DO NOT hand-roll the page shell above. Use the shared primitives so every module inherits identical spacing, typography and chrome:
+
+Element | Component | Import Path | Notes
+Page Shell | `<ModulePageShell>` | `../../src/components/module` | Replaces `<div class="min-h-screen bg-[#F9F7F2]">…`. Takes `breadcrumb`, `title`, `description`, `headerActions`, `tabs`, and optional `loading` / `notFound` states.
+Section Card | `<ModuleSectionCard>` | `../../src/components/module` | Replaces manual `${WORKPLACE_MODULE_CARD} overflow-hidden` wrapper. Use for every tab panel surface.
+Signature Card | `<ModuleSignatureCard>` | `../../src/components/module` | Role-based signature card (Leder/Verneombud/Ansvarlig …). Do NOT duplicate JSX.
+Pre-flight Checklist | `<ModulePreflightChecklist>` | `../../src/components/module` | The “klar for signering” green-circle checklist that appears above `ModuleSignatureCard`s.
+
+Reference implementation: `modules/ros/*` and `modules/inspection/*`. New modules MUST match this structure. See `MODULE_LAYOUT_EVALUATION.md` for the full rationale.
+
+5. LANGUAGE & LOCALIZATIONAll user-facing text MUST be in Norwegian (Bokmål). No English in the UI.Required -> PåkrevdDraft / Active / Signed -> Kladd / Aktiv / SignertFinding / Deviation -> AvvikCancel / Save / Delete -> Avbryt / Lagre / Slett6. EXECUTION PROTOCOLWhen generating a new module, execute sequentially:Database: Migrations + RLS Policies + Triggers.Types & Schema: types.ts and Zod schemas.Hook: use[ModuleName].ts (Enforce canManage and error handling).UI Construction: Build the views using ONLY src/components/ui/ components.Self-Correction: Scan code before submitting. If you wrote <button className="..."> or <input className="...">, rewrite it using the UI library.

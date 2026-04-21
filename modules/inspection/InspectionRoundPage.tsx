@@ -4,13 +4,10 @@ import { supabase } from '../../src/lib/supabaseClient'
 import {
   AlertTriangle,
   CheckCircle2,
-  Circle,
   ClipboardList,
   FileText,
   History,
-  Loader2,
-  Plus,
-  Pencil,
+  Info,
   PenLine,
   Settings,
   Trash2,
@@ -20,24 +17,21 @@ import {
   WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
-import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
-import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
-import {
-  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
-  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
-  LAYOUT_TABLE1_POSTINGS_TH,
-} from '../../src/components/layout/layoutTable1PostingsKit'
-import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
-import type { HmsCategory, InspectionChecklistItem, InspectionLocationRow, InspectionRoundRow } from './types'
+import { ModulePageShell } from '../../src/components/module/ModulePageShell'
+import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
+import { ModulePreflightChecklist } from '../../src/components/module/ModulePreflightChecklist'
+import { ModuleSignatureCard } from '../../src/components/module/ModuleSignatureCard'
+import { ModuleInformationCard } from '../../src/components/module/ModuleInformationCard'
+import type { InspectionChecklistItem, InspectionLocationRow, InspectionRoundRow } from './types'
 import { parseChecklistItems } from './schema'
 import { useInspectionModule, type InspectionModuleState } from './useInspectionModule'
-import { ChecklistExecutionTab } from '../../src/components/checklist/ChecklistExecutionTab'
-import type { ChecklistItem, ChecklistResponse } from '../../src/components/checklist/types'
+import { InspectionChecklistTable } from './components/InspectionChecklistTable'
+import { InspectionFindingsTable } from './components/InspectionFindingsTable'
 import { DeviationPanel } from '../../src/components/hse/DeviationPanel'
 import { HseAuditLogViewer } from '../../src/components/hse/HseAuditLogViewer'
-import { RiskMatrix, riskLabel, riskScoreFromProbCons } from '../../src/components/hse/RiskMatrix'
-import { Badge, type BadgeVariant } from '../../src/components/ui/Badge'
+import { Badge } from '../../src/components/ui/Badge'
+import { RiskMatrix } from '../../src/components/hse/RiskMatrix'
 import { Button } from '../../src/components/ui/Button'
 import { ComplianceBanner } from '../../src/components/ui/ComplianceBanner'
 import { StandardInput } from '../../src/components/ui/Input'
@@ -45,9 +39,10 @@ import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { StandardTextarea } from '../../src/components/ui/Textarea'
 import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 
-type PanelTab = 'checklist' | 'findings' | 'summary' | 'signatures' | 'history'
+type PanelTab = 'information' | 'checklist' | 'findings' | 'summary' | 'signatures' | 'history'
 
 const TAB_LABELS: Record<PanelTab, string> = {
+  information: 'Informasjon',
   checklist: 'Sjekkliste',
   findings: 'Avvik',
   summary: 'Sammendrag',
@@ -61,46 +56,7 @@ const STATUS_LABEL: Record<InspectionRoundRow['status'], string> = {
   signed: 'Signert',
 }
 
-const HMS_LABELS: Record<HmsCategory, string> = {
-  fysisk: 'Fysisk arbeidsmiljø',
-  ergonomi: 'Ergonomi og tilrettelegging',
-  kjemikalier: 'Kjemikalier og farlige stoffer',
-  psykososialt: 'Psykososialt arbeidsmiljø',
-  brann: 'Brann og rømning',
-  maskiner: 'Maskiner og teknisk utstyr',
-  annet: 'Annet',
-}
-const HMS_LAW: Partial<Record<HmsCategory, string>> = {
-  fysisk: 'AML § 4-4',
-  ergonomi: 'AML § 4-4',
-  kjemikalier: 'Stoffkartotekforskriften',
-  psykososialt: 'AML § 4-3',
-  brann: 'IK-forskriften',
-  maskiner: 'Arbeidsutstyrsforskriften',
-}
 const SEVERITY_LABELS = { low: 'Lav', medium: 'Middels', high: 'Høy', critical: 'Kritisk' }
-
-function severityBadgeVariant(severity: keyof typeof SEVERITY_LABELS): BadgeVariant {
-  switch (severity) {
-    case 'low':
-      return 'info'
-    case 'medium':
-      return 'medium'
-    case 'high':
-      return 'high'
-    case 'critical':
-      return 'critical'
-    default:
-      return 'neutral'
-  }
-}
-
-function riskScoreBadgeVariant(score: number): BadgeVariant {
-  if (score <= 4) return 'success'
-  if (score <= 9) return 'medium'
-  if (score <= 14) return 'high'
-  return 'critical'
-}
 
 // ── Checklist tab ─────────────────────────────────────────────────────────────
 
@@ -120,36 +76,6 @@ function ChecklistTab({
 
   const readOnly = round.status === 'signed'
   const isDraft = round.status === 'draft'
-  const checklistTabItems = useMemo<ChecklistItem[]>(
-    () =>
-      checklistItems.map((item) => ({
-        key: item.key,
-        label: item.label,
-        required: item.required,
-        fieldType: (item.fieldType === 'photo_required' ? 'photo' : item.fieldType) as
-          | ChecklistItem['fieldType']
-          | undefined,
-        category: item.hmsCategory ?? '__none__',
-        categoryLabel: item.hmsCategory ? HMS_LABELS[item.hmsCategory] : 'Generelt',
-        categoryLawRef: item.hmsCategory ? HMS_LAW[item.hmsCategory] : undefined,
-        helpText: item.helpText,
-        lawRef: item.lawRef,
-      })),
-    [checklistItems],
-  )
-  const checklistTabResponses = useMemo<ChecklistResponse[]>(
-    () => (roundItems ?? []).map((item) => ({
-      key: item.checklist_item_key,
-      value: typeof item.response?.value === 'string' ? item.response.value : '',
-      notes: item.notes,
-      status:
-        item.status === 'completed' || (typeof item.response?.value === 'string' && item.response.value !== '')
-          ? 'completed'
-          : 'pending',
-    })),
-    [roundItems],
-  )
-
   const positionByKey = useMemo(() => {
     return checklistItems.reduce<Record<string, number>>((acc, item, index) => {
       acc[item.key] = index
@@ -174,97 +100,57 @@ function ChecklistTab({
     [checklistItems, inspection, positionByKey, round.id],
   )
 
-  return (
-    <div>
-      {isRoundDetailLoading && (
-        <div className="flex items-center justify-center gap-2 px-5 py-8 text-sm text-neutral-500">
-          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-700" />
-          Laster sjekkliste…
-        </div>
-      )}
-
-      {!isRoundDetailLoading && round.status === 'active' && (
-        <div className="border-b border-neutral-200 bg-neutral-50/80 px-5 py-3">
-          {round.gps_stamped_at == null ? (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-neutral-600">
-                Registrer posisjon for vernerunden (valgfritt, krever nettlesertilgang til posisjon).
-              </p>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => void inspection.stampRoundGps(round.id)}
-                className="shrink-0 text-neutral-800"
-              >
-                📍 Stempel GPS-posisjon
-              </Button>
-            </div>
-          ) : (
-            <p className="text-xs text-neutral-700">
-              GPS:{' '}
-              {round.gps_lat != null && round.gps_lon != null
-                ? `${round.gps_lat.toFixed(4)}, ${round.gps_lon.toFixed(4)}`
-                : '—'}
-              {round.gps_accuracy_m != null && (
-                <> — nøyaktighet {Math.round(round.gps_accuracy_m)}m</>
-              )}
-              {round.gps_stamped_at && (
-                <>
-                  {' '}
-                  <span className="text-neutral-500">
-                    ({new Date(round.gps_stamped_at).toLocaleString('nb-NO')})
-                  </span>
-                </>
-              )}
-            </p>
-          )}
-        </div>
-      )}
-
-      {!isRoundDetailLoading && checklistItems.length > 0 && (
-        <ChecklistExecutionTab
-          items={checklistTabItems}
-          responses={checklistTabResponses}
-          readOnly={readOnly}
-          onSaveResponse={handleSaveResponse}
-          activationBanner={
-            isDraft ? (
-              <div className="mx-5 mt-4 flex flex-wrap items-center justify-between gap-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium text-amber-800">Runden er i kladd-modus</p>
-                  <p className="mt-0.5 text-xs text-amber-700">Aktiver runden for å begynne gjennomføringen.</p>
-                </div>
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={() =>
-                    void inspection.updateRoundSchedule({ roundId: round.id, status: 'active' })
-                  }
-                  className="shrink-0"
-                >
-                  Aktiver runden
-                </Button>
-              </div>
-            ) : null
-          }
-          onReportIssue={
-            readOnly
-              ? undefined
-              : (key) => {
-                  onSwitchToFindings(key)
-                }
-          }
-        />
-      )}
-
-      {checklistItems.length === 0 && (
-        <p className="px-5 py-10 text-center text-sm text-neutral-400">
-          Ingen sjekklistepunkter i malen.
+  const gpsExtras =
+    round.status === 'active' ? (
+      round.gps_stamped_at == null ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => void inspection.stampRoundGps(round.id)}
+          className="shrink-0 text-neutral-800"
+        >
+          📍 Stempel GPS
+        </Button>
+      ) : (
+        <p className="text-xs text-neutral-600">
+          GPS:{' '}
+          {round.gps_lat != null && round.gps_lon != null
+            ? `${round.gps_lat.toFixed(4)}, ${round.gps_lon.toFixed(4)}`
+            : '—'}
+          {round.gps_accuracy_m != null && <> · ±{Math.round(round.gps_accuracy_m)}m</>}
         </p>
-      )}
+      )
+    ) : null
+
+  const activationBanner = isDraft ? (
+    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-amber-200 bg-amber-50 px-5 py-3">
+      <div>
+        <p className="text-sm font-medium text-amber-800">Runden er i kladd-modus</p>
+        <p className="mt-0.5 text-xs text-amber-700">Aktiver runden for å begynne gjennomføringen.</p>
+      </div>
+      <Button
+        type="button"
+        variant="primary"
+        size="sm"
+        onClick={() => void inspection.updateRoundSchedule({ roundId: round.id, status: 'active' })}
+        className="shrink-0"
+      >
+        Aktiver runden
+      </Button>
     </div>
+  ) : null
+
+  return (
+    <InspectionChecklistTable
+      checklistItems={checklistItems}
+      roundItems={isRoundDetailLoading ? undefined : roundItems}
+      readOnly={readOnly}
+      onSaveResponse={handleSaveResponse}
+      onRegisterFinding={(key) => onSwitchToFindings(key)}
+      activationBanner={activationBanner}
+      toolbarExtras={gpsExtras}
+    />
   )
 }
 
@@ -283,7 +169,10 @@ function FindingsTab({
   checklistItems: InspectionChecklistItem[]
   onOpenDeviation: (deviationId: string) => void
 }) {
-  const findings = inspection.findingsByRoundId[round.id] ?? []
+  const findings = useMemo(
+    () => inspection.findingsByRoundId[round.id] ?? [],
+    [inspection.findingsByRoundId, round.id],
+  )
   const items = useMemo(() => inspection.itemsByRoundId[round.id] ?? [], [inspection.itemsByRoundId, round.id])
   const [editingFindingId, setEditingFindingId] = useState<string | null>(null)
   const [description, setDescription] = useState('')
@@ -294,8 +183,6 @@ function FindingsTab({
   const [saving, setSaving] = useState(false)
   const [linkingDeviationId, setLinkingDeviationId] = useState<string | null>(null)
   const [findingPanelOpen, setFindingPanelOpen] = useState(false)
-
-  const TH = `${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -310,6 +197,19 @@ function FindingsTab({
     if (!linkedItemKey) return undefined
     return items.find((i) => i.checklist_item_key === linkedItemKey)?.id
   }, [linkedItemKey, items])
+
+  const kpiItems = useMemo(() => {
+    const total = findings.length
+    const critical = findings.filter((f) => f.severity === 'critical').length
+    const high = findings.filter((f) => f.severity === 'high').length
+    const linked = findings.filter((f) => !!f.deviation_id).length
+    return [
+      { big: String(total), title: 'Totalt avvik', sub: 'Registrert i runden' },
+      { big: String(critical), title: 'Kritiske', sub: 'Krever umiddelbar oppfølging' },
+      { big: String(high), title: 'Høy alvorlighet', sub: 'Høy risiko — følg opp' },
+      { big: String(linked), title: 'Koblet til avvik', sub: 'Registrert i avviksmodulen' },
+    ]
+  }, [findings])
 
   function resetForm() {
     setEditingFindingId(null)
@@ -453,135 +353,61 @@ function FindingsTab({
                 />
               </div>
             </div>
+            {editingFindingId ? (
+              <div className="flex flex-wrap items-center gap-2 border-t border-neutral-200 px-4 py-3">
+                {findings.find((x) => x.id === editingFindingId)?.deviation_id ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      const devId = findings.find((x) => x.id === editingFindingId)?.deviation_id
+                      if (devId) onOpenDeviation(devId)
+                    }}
+                  >
+                    Åpne avvik
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="danger"
+                  size="sm"
+                  icon={<Trash2 className="h-4 w-4" />}
+                  onClick={() => {
+                    if (!window.confirm('Slette dette avviket?')) return
+                    void inspection.deleteFinding(editingFindingId)
+                    resetForm()
+                    setFindingPanelOpen(false)
+                  }}
+                >
+                  Slett avvik
+                </Button>
+              </div>
+            ) : null}
           </div>
         </SlidePanel>
       )}
 
-      <LayoutTable1PostingsShell
-        wrap={false}
-        titleTypography="sans"
-        title="Registrerte avvik"
-        description="Avvik knyttet til denne inspeksjonsrunden."
-        toolbar={<div className="min-w-0 flex-1" aria-hidden />}
-        headerActions={
-          !readOnly ? (
-            <Button
-              type="button"
-              variant="primary"
-              icon={<Plus className="h-4 w-4" />}
-              onClick={() => {
-                resetForm()
-                setFindingPanelOpen(true)
-              }}
-            >
-              Nytt avvik
-            </Button>
-          ) : null
-        }
-      >
-        <table className="w-full border-collapse text-left text-sm">
-          <thead>
-            <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-              <th className={TH}>Beskrivelse</th>
-              <th className={TH}>Alvor</th>
-              <th className={TH}>Risiko</th>
-              <th className={TH}>Sjekkliste</th>
-              <th className={`${TH} text-right`}>Handlinger</th>
-            </tr>
-          </thead>
-          <tbody>
-            {findings.map((f) => {
-              const linkedLabel = f.item_id
-                ? items.find((i) => i.id === f.item_id)?.checklist_item_label ?? null
-                : null
-              const riskScore = f.risk_score ?? riskScoreFromProbCons(f.risk_probability, f.risk_consequence)
-              const showLegacyLinkBanner = !f.deviation_id && riskScore != null && riskScore >= 10
-              return (
-                <tr key={f.id} className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50`}>
-                  <td className="max-w-md px-5 py-4 align-top">
-                    <p className="text-sm text-neutral-900">{f.description}</p>
-                    {showLegacyLinkBanner && (
-                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-                        <span>Risikoskår {riskScore} — koble til avvik</span>
-                        <Button
-                          type="button"
-                          variant="primary"
-                          size="sm"
-                          disabled={linkingDeviationId === f.id}
-                          onClick={async () => {
-                            setLinkingDeviationId(f.id)
-                            const id = await inspection.createDeviationFromFinding(f.id)
-                            setLinkingDeviationId(null)
-                            if (id) onOpenDeviation(id)
-                          }}
-                        >
-                          {linkingDeviationId === f.id ? 'Oppretter…' : 'Opprett avvik'}
-                        </Button>
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-5 py-4 align-middle whitespace-nowrap">
-                    <Badge variant={severityBadgeVariant(f.severity)}>{SEVERITY_LABELS[f.severity]}</Badge>
-                  </td>
-                  <td className="px-5 py-4 align-middle whitespace-nowrap">
-                    {riskScore != null ? (
-                      <Badge variant={riskScoreBadgeVariant(riskScore)}>
-                        {riskScore} — {riskLabel(riskScore)}
-                      </Badge>
-                    ) : (
-                      <span className="text-xs text-neutral-400">—</span>
-                    )}
-                  </td>
-                  <td className="max-w-[12rem] px-5 py-4 align-middle text-xs text-neutral-600">{linkedLabel ?? '—'}</td>
-                  <td className="px-5 py-4 text-right align-middle">
-                    {!readOnly && (
-                      <div className="inline-flex justify-end gap-1">
-                        {f.deviation_id ? (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => onOpenDeviation(f.deviation_id!)}
-                          >
-                            Åpne
-                          </Button>
-                        ) : null}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => startEdit(f)}
-                          aria-label="Rediger avvik"
-                          icon={<Pencil className="h-4 w-4" />}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            if (!window.confirm('Slette dette avviket?')) return
-                            void inspection.deleteFinding(f.id)
-                            if (editingFindingId === f.id) resetForm()
-                          }}
-                          aria-label="Slett avvik"
-                          icon={<Trash2 className="h-4 w-4 text-red-600" />}
-                        />
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-            {findings.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-5 py-10 text-center text-sm text-neutral-400">
-                  Ingen avvik registrert ennå.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </LayoutTable1PostingsShell>
+      <InspectionFindingsTable
+        findings={findings}
+        checklistItems={checklistItems}
+        roundItems={items}
+        readOnly={readOnly}
+        linkingDeviationId={linkingDeviationId}
+        kpiItems={kpiItems}
+        onEditFinding={startEdit}
+        onOpenDeviation={onOpenDeviation}
+        onCreateDeviationFromFinding={async (findingId) => {
+          setLinkingDeviationId(findingId)
+          const id = await inspection.createDeviationFromFinding(findingId)
+          setLinkingDeviationId(null)
+          if (id) onOpenDeviation(id)
+        }}
+        onAddNew={() => {
+          resetForm()
+          setFindingPanelOpen(true)
+        }}
+      />
     </div>
   )
 }
@@ -732,10 +558,21 @@ function SignaturesTab({
   }
 
   const canSign = isActive && allRequiredAnswered && hasSummary
-  const managerButtonDisabled = !canSign || signing !== null || (hasRoleRestriction && !isManager)
-  const deputyButtonDisabled = !canSign || signing !== null || (hasRoleRestriction && !isDeputy)
-  const managerButtonSolid = !hasRoleRestriction || isManager
-  const deputyButtonSolid = !hasRoleRestriction || isDeputy
+
+  const preflightItems = [
+    { ok: isActive, label: 'Runden er aktiv (ikke kladd)' },
+    {
+      ok: allRequiredAnswered,
+      label: `Alle påkrevde punkter besvart (${answeredRequiredCount}/${requiredItems.length})`,
+    },
+    { ok: hasSummary, label: 'Sammendrag er fylt ut' },
+  ]
+
+  type Role = 'manager' | 'deputy'
+  const roles: { role: Role; title: string; lawReference: string; userIsRole: boolean }[] = [
+    { role: 'manager', title: 'Leder', lawReference: 'AML § 2-1 — arbeidsgiveransvar', userIsRole: isManager },
+    { role: 'deputy', title: 'Verneombud', lawReference: 'AML § 6-2 — verneombudets representasjon', userIsRole: isDeputy },
+  ]
 
   return (
     <div className="flex flex-col">
@@ -763,117 +600,30 @@ function SignaturesTab({
           </div>
         )}
 
-        {/* Pre-flight checks */}
-        {!isSigned && (
-          <div className="space-y-1.5">
-            <p className={WPSTD_FORM_FIELD_LABEL}>Sjekkliste før signering</p>
-            {[
-              { ok: isActive, label: 'Runden er aktiv (ikke kladd)' },
-              {
-                ok: allRequiredAnswered,
-                label: `Alle påkrevde punkter besvart (${answeredRequiredCount}/${requiredItems.length})`,
-              },
-              { ok: hasSummary, label: 'Sammendrag er fylt ut' },
-            ].map(({ ok, label }) => (
-              <div key={label} className="flex items-center gap-2 text-xs">
-                {ok ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                ) : (
-                  <Circle className="h-4 w-4 text-neutral-300" />
-                )}
-                <span className={ok ? 'text-neutral-700' : 'text-neutral-400'}>{label}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        {!isSigned && <ModulePreflightChecklist items={preflightItems} />}
 
-        {/* Manager */}
-        <div className={`rounded-md border-2 p-5 transition-all ${
-          round.manager_signed_at
-            ? 'border-green-300 bg-green-50'
-            : canSign && (!hasRoleRestriction || isManager)
-              ? 'border-[#1a3d32]/40 bg-white shadow-sm'
-              : 'border-neutral-200 bg-white'
-        }`}>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              {round.manager_signed_at
-                ? <CheckCircle2 className="h-7 w-7 shrink-0 text-green-500" />
-                : <Circle className="h-7 w-7 shrink-0 text-neutral-300" />
-              }
-              <div>
-                <p className="text-base font-semibold text-neutral-900">Leder</p>
-                <p className="text-xs text-neutral-500">AML § 2-1 — arbeidsgiveransvar</p>
-                {round.manager_signed_at ? (
-                  <p className="mt-0.5 text-xs font-medium text-green-700">
-                    ✓ Signert {new Date(round.manager_signed_at).toLocaleDateString('nb-NO', { dateStyle: 'medium' })}
-                    {round.manager_signed_by && userNameById.has(round.manager_signed_by)
-                      ? ` av ${userNameById.get(round.manager_signed_by)}`
-                      : ''}
-                  </p>
-                ) : (
-                  <p className="mt-0.5 text-xs text-neutral-400">Venter på signatur</p>
-                )}
-              </div>
-            </div>
-            {!round.manager_signed_at && !isSigned && (
-              <Button
-                type="button"
-                variant={managerButtonSolid ? 'primary' : 'secondary'}
-                disabled={managerButtonDisabled}
-                title={unauthorizedTooltip}
-                onClick={() => void handleSign('manager')}
-                className="shrink-0 disabled:opacity-40"
-              >
-                {signing === 'manager' ? 'Signerer…' : 'Signer som leder'}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Deputy */}
-        <div className={`rounded-md border-2 p-5 transition-all ${
-          round.deputy_signed_at
-            ? 'border-green-300 bg-green-50'
-            : canSign && (!hasRoleRestriction || isDeputy)
-              ? 'border-[#1a3d32]/40 bg-white shadow-sm'
-              : 'border-neutral-200 bg-white'
-        }`}>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              {round.deputy_signed_at
-                ? <CheckCircle2 className="h-7 w-7 shrink-0 text-green-500" />
-                : <Circle className="h-7 w-7 shrink-0 text-neutral-300" />
-              }
-              <div>
-                <p className="text-base font-semibold text-neutral-900">Verneombud</p>
-                <p className="text-xs text-neutral-500">AML § 6-2 — verneombudets representasjon</p>
-                {round.deputy_signed_at ? (
-                  <p className="mt-0.5 text-xs font-medium text-green-700">
-                    ✓ Signert {new Date(round.deputy_signed_at).toLocaleDateString('nb-NO', { dateStyle: 'medium' })}
-                    {round.deputy_signed_by && userNameById.has(round.deputy_signed_by)
-                      ? ` av ${userNameById.get(round.deputy_signed_by)}`
-                      : ''}
-                  </p>
-                ) : (
-                  <p className="mt-0.5 text-xs text-neutral-400">Venter på signatur</p>
-                )}
-              </div>
-            </div>
-            {!round.deputy_signed_at && !isSigned && (
-              <Button
-                type="button"
-                variant={deputyButtonSolid ? 'primary' : 'secondary'}
-                disabled={deputyButtonDisabled}
-                title={unauthorizedTooltip}
-                onClick={() => void handleSign('deputy')}
-                className="shrink-0 disabled:opacity-40"
-              >
-                {signing === 'deputy' ? 'Signerer…' : 'Signer som verneombud'}
-              </Button>
-            )}
-          </div>
-        </div>
+        {roles.map(({ role, title, lawReference, userIsRole }) => {
+          const signedAt = role === 'manager' ? round.manager_signed_at : round.deputy_signed_at
+          const signedBy = role === 'manager' ? round.manager_signed_by : round.deputy_signed_by
+          const byName = signedBy && userNameById.has(signedBy) ? userNameById.get(signedBy)! : null
+          const primary = !hasRoleRestriction || userIsRole
+          const disabled = !canSign || signing !== null || (hasRoleRestriction && !userIsRole)
+          return (
+            <ModuleSignatureCard
+              key={role}
+              title={title}
+              lawReference={lawReference}
+              signed={signedAt ? { at: signedAt, byName } : null}
+              buttonLabel={`Signer som ${title.toLowerCase()}`}
+              variant={primary ? 'primary' : 'secondary'}
+              disabled={disabled}
+              disabledTitle={unauthorizedTooltip}
+              busy={signing === role}
+              hideButton={isSigned}
+              onSign={() => handleSign(role)}
+            />
+          )
+        })}
 
         {isSigned && (
           <div className="rounded-md border border-green-200 bg-green-50 p-4 text-center">
@@ -889,9 +639,9 @@ function SignaturesTab({
   )
 }
 
-// ── Round core fields (Workplace Standard single column) ─────────────────────
+// ── Informasjon-kort (generell info om runden) ────────────────────────────────
 
-function RoundBasicsForm({
+function RoundInformationCard({
   round,
   locations,
   assignableUsers,
@@ -939,72 +689,92 @@ function RoundBasicsForm({
   ]
 
   return (
-    <div className="border-y border-neutral-200 bg-white">
-      <div className={WPSTD_FORM_ROW_GRID}>
-        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-title">
-          Tittel
-        </label>
-        <StandardInput
-          id="round-basics-title"
-          type="text"
-          value={round.title}
-          readOnly={readOnly}
-          onChange={(e) => void handleUpdate({ title: e.target.value })}
-        />
-      </div>
-      <div className={WPSTD_FORM_ROW_GRID}>
-        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-status">
-          Status
-        </label>
-        <SearchableSelect
-          value={round.status}
-          options={statusOptions}
-          onChange={(v) => void handleUpdate({ status: v as InspectionRoundRow['status'] })}
-          disabled={readOnly}
-        />
-      </div>
-      <div className={WPSTD_FORM_ROW_GRID}>
-        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-location">
-          Lokasjon
-        </label>
-        <SearchableSelect
-          value={round.location_id ?? ''}
-          options={locationOptions}
-          placeholder="Velg lokasjon"
-          onChange={(v) => void handleUpdate({ location_id: v || null })}
-          disabled={readOnly}
-        />
-      </div>
-      <div className={WPSTD_FORM_ROW_GRID}>
-        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-assigned">
-          Ansvarlig
-        </label>
-        <SearchableSelect
-          value={round.assigned_to ?? ''}
-          options={assignedOptions}
-          placeholder="Velg ansvarlig"
-          onChange={(v) => void handleUpdate({ assigned_to: v || null })}
-          disabled={readOnly}
-        />
-      </div>
-      <div className={WPSTD_FORM_ROW_GRID}>
-        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="round-basics-scheduled">
-          Planlagt tidspunkt
-        </label>
-        <StandardInput
-          id="round-basics-scheduled"
-          type="datetime-local"
-          value={scheduledLocal}
-          readOnly={readOnly}
-          onChange={(e) => {
-            const v = e.target.value
-            void handleUpdate({
-              scheduled_for: v ? new Date(v).toISOString() : null,
-            })
-          }}
-        />
-      </div>
-    </div>
+    <ModuleInformationCard
+      title="Informasjon om vernerunden"
+      description={
+        <p>
+          Generell informasjon om denne inspeksjonsrunden — kan redigeres så lenge runden er i
+          kladd- eller aktiv-status.
+        </p>
+      }
+      rows={[
+        {
+          id: 'title',
+          label: 'Tittel',
+          htmlFor: 'round-basics-title',
+          required: true,
+          value: (
+            <StandardInput
+              id="round-basics-title"
+              type="text"
+              value={round.title}
+              readOnly={readOnly}
+              onChange={(e) => void handleUpdate({ title: e.target.value })}
+            />
+          ),
+        },
+        {
+          id: 'status',
+          label: 'Status',
+          htmlFor: 'round-basics-status',
+          value: (
+            <SearchableSelect
+              value={round.status}
+              options={statusOptions}
+              onChange={(v) => void handleUpdate({ status: v as InspectionRoundRow['status'] })}
+              disabled={readOnly}
+            />
+          ),
+        },
+        {
+          id: 'location',
+          label: 'Lokasjon',
+          htmlFor: 'round-basics-location',
+          value: (
+            <SearchableSelect
+              value={round.location_id ?? ''}
+              options={locationOptions}
+              placeholder="Velg lokasjon"
+              onChange={(v) => void handleUpdate({ location_id: v || null })}
+              disabled={readOnly}
+            />
+          ),
+        },
+        {
+          id: 'assigned',
+          label: 'Ansvarlig',
+          htmlFor: 'round-basics-assigned',
+          value: (
+            <SearchableSelect
+              value={round.assigned_to ?? ''}
+              options={assignedOptions}
+              placeholder="Velg ansvarlig"
+              onChange={(v) => void handleUpdate({ assigned_to: v || null })}
+              disabled={readOnly}
+            />
+          ),
+        },
+        {
+          id: 'scheduled',
+          label: 'Planlagt tidspunkt',
+          htmlFor: 'round-basics-scheduled',
+          value: (
+            <StandardInput
+              id="round-basics-scheduled"
+              type="datetime-local"
+              value={scheduledLocal}
+              readOnly={readOnly}
+              onChange={(e) => {
+                const v = e.target.value
+                void handleUpdate({
+                  scheduled_for: v ? new Date(v).toISOString() : null,
+                })
+              }}
+            />
+          ),
+        },
+      ]}
+    />
   )
 }
 
@@ -1016,7 +786,7 @@ export function InspectionRoundPage() {
   const inspection = useInspectionModule({ supabase })
   const { load, loadRoundDetail } = inspection
 
-  const [activeTab, setActiveTab] = useState<PanelTab>('checklist')
+  const [activeTab, setActiveTab] = useState<PanelTab>('information')
   const [findingPrefillKey, setFindingPrefillKey] = useState<string | null>(null)
   const [selectedDeviationId, setSelectedDeviationId] = useState<string | null>(null)
   const [detailStarted, setDetailStarted] = useState(false)
@@ -1083,6 +853,11 @@ export function InspectionRoundPage() {
     const nItems = tmpl ? parseChecklistItems(tmpl.checklist_definition).length : 0
     return [
       {
+        id: 'information',
+        label: TAB_LABELS.information,
+        icon: Info,
+      },
+      {
         id: 'checklist',
         label: nItems > 0 ? `${TAB_LABELS.checklist} (${answered}/${nItems})` : TAB_LABELS.checklist,
         icon: ClipboardList,
@@ -1116,167 +891,150 @@ export function InspectionRoundPage() {
 
   if (!roundId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F9F7F2] text-sm text-neutral-600">
-        Mangler runde-ID.
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder', to: '/inspection-module' }]}
+        title="Inspeksjonsrunde"
+        notFound={{ title: 'Mangler runde-ID', onBack: () => navigate('/inspection-module') }}
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   if (showSpinner) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#F9F7F2]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden />
-        <p className="text-sm text-neutral-600">Laster runde…</p>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder', to: '/inspection-module' }]}
+        title="Laster runde…"
+        loading
+        loadingLabel="Laster runde…"
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   if (showNotFound) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#F9F7F2] px-4">
-        <p className="text-lg font-semibold text-neutral-900">Runde ikke funnet</p>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => navigate('/inspection-module')}
-          className="font-medium text-neutral-800"
-        >
-          ← Tilbake til inspeksjonsrunder
-        </Button>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder', to: '/inspection-module' }]}
+        title="Runde ikke funnet"
+        notFound={{
+          title: 'Runde ikke funnet',
+          backLabel: '← Tilbake til inspeksjonsrunder',
+          onBack: () => navigate('/inspection-module'),
+        }}
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   if (!round) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#F9F7F2]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden />
-        <p className="text-sm text-neutral-600">Laster runde…</p>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder', to: '/inspection-module' }]}
+        title="Laster runde…"
+        loading
+        loadingLabel="Laster runde…"
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F9F7F2]">
-      <header className="bg-[#F9F7F2]">
-        <div className="mx-auto max-w-[1400px] px-4 pb-4 pt-4 md:px-8">
-          <WorkplacePageHeading1
-            breadcrumb={[
-              { label: 'HMS' },
-              { label: 'Inspeksjonsrunder', to: '/inspection-module' },
-              { label: round.title },
-            ]}
-            title={round.title}
-            description={<p className="max-w-4xl text-xs leading-relaxed text-neutral-600">{headerSubtitle}</p>}
-            headerActions={
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge
-                  variant={
-                    round.status === 'signed' ? 'signed' : round.status === 'active' ? 'active' : 'draft'
-                  }
-                  className="px-3 py-1 text-xs"
-                >
-                  {STATUS_LABEL[round.status]}
-                </Badge>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="px-3 py-2 font-normal text-neutral-600"
-                  icon={<Settings className="w-4 h-4" aria-hidden />}
-                  onClick={() => navigate('/inspection-module/admin')}
-                >
-                  <span className="hidden sm:inline">Admin</span>
-                </Button>
-              </div>
-            }
-            menu={
-              <Tabs
-                items={tabItems}
-                activeId={activeTab}
-                onChange={(id) => setActiveTab(id as PanelTab)}
-              />
-            }
+    <ModulePageShell
+      breadcrumb={[
+        { label: 'HMS' },
+        { label: 'Inspeksjonsrunder', to: '/inspection-module' },
+        { label: round.title },
+      ]}
+      title={round.title}
+      description={<p className="max-w-4xl text-xs leading-relaxed text-neutral-600">{headerSubtitle}</p>}
+      headerActions={
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            variant={round.status === 'signed' ? 'signed' : round.status === 'active' ? 'active' : 'draft'}
+            className="px-3 py-1 text-xs"
+          >
+            {STATUS_LABEL[round.status]}
+          </Badge>
+          <Button
+            type="button"
+            variant="secondary"
+            className="px-3 py-2 font-normal text-neutral-600"
+            icon={<Settings className="w-4 h-4" aria-hidden />}
+            onClick={() => navigate('/inspection-module/admin')}
+          >
+            <span className="hidden sm:inline">Admin</span>
+          </Button>
+        </div>
+      }
+      tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as PanelTab)} />}
+    >
+      {activeTab === 'information' && (
+        <RoundInformationCard
+          round={round}
+          locations={inspection.locations}
+          assignableUsers={inspection.assignableUsers}
+          readOnly={round.status === 'signed'}
+          onUpdated={() => void inspection.loadRoundDetail(round.id)}
+        />
+      )}
+
+      {activeTab === 'checklist' && (
+        <div className="flex flex-col space-y-6">
+          {critCount > 0 && (
+            <div className="flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-5 py-3">
+              <Badge variant="critical" className="text-xs font-semibold shadow-none">
+                ⚠ {critCount} kritiske funn registrert
+              </Badge>
+            </div>
+          )}
+          <ChecklistTab
+            round={round}
+            checklistItems={checklistItems}
+            inspection={inspection}
+            onSwitchToFindings={(key) => {
+              setFindingPrefillKey(key)
+              setActiveTab('findings')
+            }}
           />
         </div>
-      </header>
+      )}
 
-      <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
-        {activeTab === 'checklist' && (
-          <div className="flex flex-col space-y-6">
-            {critCount > 0 && (
-              <div className="flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-5 py-3">
-                <Badge variant="critical" className="text-xs font-semibold shadow-none">
-                  ⚠ {critCount} kritiske funn registrert
-                </Badge>
-              </div>
-            )}
-            <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-              <RoundBasicsForm
-                round={round}
-                locations={inspection.locations}
-                assignableUsers={inspection.assignableUsers}
-                readOnly={round.status === 'signed'}
-                onUpdated={() => void inspection.loadRoundDetail(round.id)}
-              />
-            </div>
-            <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-              <ChecklistTab
-                round={round}
-                checklistItems={checklistItems}
-                inspection={inspection}
-                onSwitchToFindings={(key) => {
-                  setFindingPrefillKey(key)
-                  setActiveTab('findings')
-                }}
-              />
-            </div>
-          </div>
-        )}
+      {activeTab === 'findings' && (
+        <FindingsTab
+          key={`${round.id}-${findingPrefillKey ?? ''}`}
+          round={round}
+          inspection={inspection}
+          prefillItemKey={findingPrefillKey}
+          checklistItems={checklistItems}
+          onOpenDeviation={(id) => setSelectedDeviationId(id)}
+        />
+      )}
 
-        {activeTab === 'findings' && (
-          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            {findings.length > 0 && (
-              <div className="flex items-center justify-between border-b border-neutral-100 bg-neutral-50 px-5 py-2">
-                <span className="text-xs text-neutral-500">{findings.length} avvik registrert · tilknytt sjekklistepunkt ved behov</span>
-                {critCount > 0 && (
-                  <Badge variant="critical" className="border-transparent shadow-none">
-                    {critCount} kritisk
-                  </Badge>
-                )}
-              </div>
-            )}
-            <FindingsTab
-              key={`${round.id}-${findingPrefillKey ?? ''}`}
-              round={round}
-              inspection={inspection}
-              prefillItemKey={findingPrefillKey}
-              checklistItems={checklistItems}
-              onOpenDeviation={(id) => setSelectedDeviationId(id)}
-            />
-          </div>
-        )}
+      {activeTab === 'summary' && (
+        <ModuleSectionCard>
+          <SummaryTab key={`${round.id}-${round.updated_at}`} round={round} inspection={inspection} />
+        </ModuleSectionCard>
+      )}
 
-        {activeTab === 'summary' && (
-          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <SummaryTab key={`${round.id}-${round.updated_at}`} round={round} inspection={inspection} />
-          </div>
-        )}
+      {activeTab === 'signatures' && (
+        <ModuleSectionCard>
+          <SignaturesTab round={round} inspection={inspection} checklistItems={checklistItems} />
+        </ModuleSectionCard>
+      )}
 
-        {activeTab === 'signatures' && (
-          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <SignaturesTab round={round} inspection={inspection} checklistItems={checklistItems} />
+      {activeTab === 'history' && (
+        <ModuleSectionCard>
+          <div className="border-b border-neutral-100 bg-neutral-50 px-5 py-2">
+            <span className="text-xs text-neutral-500">Revisjonsspor — alle endringer loggført for denne runden</span>
           </div>
-        )}
-
-        {activeTab === 'history' && (
-          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <div className="border-b border-neutral-100 bg-neutral-50 px-5 py-2">
-              <span className="text-xs text-neutral-500">Revisjonsspor — alle endringer loggført for denne runden</span>
-            </div>
-            <HseAuditLogViewer supabase={supabase} recordId={round.id} tableName="inspection_rounds" />
-          </div>
-        )}
-      </div>
+          <HseAuditLogViewer supabase={supabase} recordId={round.id} tableName="inspection_rounds" />
+        </ModuleSectionCard>
+      )}
 
       {selectedDeviationId ? (
         <DeviationPanel
@@ -1288,6 +1046,6 @@ export function InspectionRoundPage() {
           }}
         />
       ) : null}
-    </div>
+    </ModulePageShell>
   )
 }

@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ClipboardList, FileText, History, Loader2, PenLine, ShieldAlert } from 'lucide-react'
+import { ClipboardList, FileText, History, PenLine, ShieldAlert } from 'lucide-react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
-import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
+import { ModulePageShell } from '../../src/components/module/ModulePageShell'
+import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
 import { Tabs } from '../../src/components/ui/Tabs'
-import { Button } from '../../src/components/ui/Button'
 import { Badge } from '../../src/components/ui/Badge'
 import { WarningBox } from '../../src/components/ui/AlertBox'
 import type { BadgeVariant } from '../../src/components/ui/Badge'
@@ -81,77 +80,88 @@ export function RosAnalysisPage({ supabase }: { supabase: SupabaseClient | null 
     [critCount, openMeasures],
   )
 
-  if (!rosId) return <div className="p-8 text-sm text-neutral-500">Mangler analyse-ID.</div>
+  if (!rosId) {
+    return (
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'ROS-analyser', to: '/ros' }]}
+        title="ROS-analyse"
+        notFound={{ title: 'Mangler analyse-ID', onBack: () => navigate('/ros') }}
+      >
+        {null}
+      </ModulePageShell>
+    )
+  }
 
   if (!analysis && ros.loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center gap-3 bg-[#F9F7F2]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" />
-        <p className="text-sm text-neutral-600">Laster analyse…</p>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'ROS-analyser', to: '/ros' }]}
+        title="Laster analyse…"
+        loading
+        loadingLabel="Laster analyse…"
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   if (!analysis) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#F9F7F2]">
-        <p className="font-semibold text-neutral-900">Analyse ikke funnet</p>
-        <Button variant="secondary" type="button" onClick={() => navigate('/ros')}>
-          Tilbake til ROS-analyser
-        </Button>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'ROS-analyser', to: '/ros' }]}
+        title="Analyse ikke funnet"
+        notFound={{
+          title: 'Analyse ikke funnet',
+          backLabel: 'Tilbake til ROS-analyser',
+          onBack: () => navigate('/ros'),
+        }}
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F9F7F2]">
-      <header className="bg-[#F9F7F2]">
-        <div className="mx-auto max-w-[1400px] px-4 pb-4 pt-4 md:px-8">
-          <WorkplacePageHeading1
-            breadcrumb={[{ label: 'HMS' }, { label: 'ROS-analyser', to: '/ros' }, { label: analysis.title }]}
-            title={analysis.title}
-            description={
-              <p className="max-w-4xl text-xs leading-relaxed text-neutral-600">
-                {ROS_TYPE_LABEL[analysis.ros_type]} · v{analysis.version}
-                {analysis.assessor_name ? ` · Ansvarlig: ${analysis.assessor_name}` : ''}
-                {analysis.assessed_at ? ` · ${new Date(analysis.assessed_at).toLocaleDateString('nb-NO')}` : ''}
-                {' · '}
-                {hazards.length} farekilder · {measures.length} tiltak
-              </p>
-            }
-            headerActions={
-              <Badge variant={rosStatusBadgeVariant(analysis.status)}>{ROS_STATUS_LABEL[analysis.status]}</Badge>
-            }
-            menu={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as Tab)} />}
-          />
-        </div>
-      </header>
+    <ModulePageShell
+      breadcrumb={[{ label: 'HMS' }, { label: 'ROS-analyser', to: '/ros' }, { label: analysis.title }]}
+      title={analysis.title}
+      description={
+        <p className="max-w-4xl text-xs leading-relaxed text-neutral-600">
+          {ROS_TYPE_LABEL[analysis.ros_type]} · v{analysis.version}
+          {analysis.assessor_name ? ` · Ansvarlig: ${analysis.assessor_name}` : ''}
+          {analysis.assessed_at ? ` · ${new Date(analysis.assessed_at).toLocaleDateString('nb-NO')}` : ''}
+          {' · '}
+          {hazards.length} farekilder · {measures.length} tiltak
+        </p>
+      }
+      headerActions={
+        <Badge variant={rosStatusBadgeVariant(analysis.status)}>{ROS_STATUS_LABEL[analysis.status]}</Badge>
+      }
+      tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as Tab)} />}
+    >
+      {ros.error ? <WarningBox>{ros.error}</WarningBox> : null}
 
-      <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
-        {ros.error ? <WarningBox>{ros.error}</WarningBox> : null}
-
-        {activeTab === 'scope' && (
-          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <RosScopeTab key={`${analysis.id}-${analysis.updated_at}`} analysis={analysis} ros={ros} />
-          </div>
-        )}
-        {activeTab === 'hazards' && (
-          <RosHazardsTab analysis={analysis} hazards={hazards} measures={measures} ros={ros} />
-        )}
-        {activeTab === 'measures' && (
-          <RosMeasuresTab analysis={analysis} hazards={hazards} measures={measures} ros={ros} />
-        )}
-        {activeTab === 'signatures' && (
-          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <RosSignaturesTab analysis={analysis} hazards={hazards} measures={measures} signatures={sigs} ros={ros} />
-          </div>
-        )}
-        {activeTab === 'history' && (
-          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <HseAuditLogViewer supabase={supabase} recordId={analysis.id} tableName="ros_analyses" />
-          </div>
-        )}
-      </div>
-    </div>
+      {activeTab === 'scope' && (
+        <ModuleSectionCard>
+          <RosScopeTab key={`${analysis.id}-${analysis.updated_at}`} analysis={analysis} ros={ros} />
+        </ModuleSectionCard>
+      )}
+      {activeTab === 'hazards' && (
+        <RosHazardsTab analysis={analysis} hazards={hazards} measures={measures} ros={ros} />
+      )}
+      {activeTab === 'measures' && (
+        <RosMeasuresTab analysis={analysis} hazards={hazards} measures={measures} ros={ros} />
+      )}
+      {activeTab === 'signatures' && (
+        <ModuleSectionCard>
+          <RosSignaturesTab analysis={analysis} hazards={hazards} measures={measures} signatures={sigs} ros={ros} />
+        </ModuleSectionCard>
+      )}
+      {activeTab === 'history' && (
+        <ModuleSectionCard>
+          <HseAuditLogViewer supabase={supabase} recordId={analysis.id} tableName="ros_analyses" />
+        </ModuleSectionCard>
+      )}
+    </ModulePageShell>
   )
 }

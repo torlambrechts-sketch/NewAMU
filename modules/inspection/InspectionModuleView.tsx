@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { CheckCircle2, ChevronRight, Circle, Plus, Search, Settings } from 'lucide-react'
 import { FormModal } from '../../src/template'
-import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
+import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import {
@@ -18,6 +18,8 @@ import { InspeksjonsrunderCreateForm } from './InspeksjonsrunderCreateForm'
 import { Button } from '../../src/components/ui/Button'
 import { Badge } from '../../src/components/ui/Badge'
 import { StandardInput } from '../../src/components/ui/Input'
+import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
+import { WPSTD_FORM_FIELD_LABEL } from '../../src/components/layout/WorkplaceStandardFormPanel'
 
 type Props = { supabase: SupabaseClient | null }
 
@@ -150,10 +152,35 @@ export function InspectionModuleView({ supabase }: Props) {
     [inspection.rounds],
   )
 
-  const TH = `${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`
+  const assignedToOptions = useMemo(
+    () => [
+      { value: '', label: '(Ingen)' },
+      ...inspection.assignableUsers.map((u) => ({ value: u.id, label: u.displayName })),
+    ],
+    [inspection.assignableUsers],
+  )
 
   return (
-    <div className="flex flex-col space-y-6">
+    <ModulePageShell
+      breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder' }]}
+      title="Inspeksjonsrunder"
+      description="Planlegg, gjennomfør og signer vernerunder i henhold til Internkontrollforskriften § 5."
+      headerActions={
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" onClick={() => setScheduleOpen(true)}>
+            Planlegging
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            icon={<Settings className="h-4 w-4" />}
+            onClick={() => navigate('/inspection-module/admin')}
+          >
+            <span className="hidden sm:inline">Admin</span>
+          </Button>
+        </div>
+      }
+    >
       <LayoutScoreStatRow
         items={[
           { big: String(stats.total), title: 'Totalt runder', sub: 'Alle inspeksjonsrunder' },
@@ -161,27 +188,6 @@ export function InspectionModuleView({ supabase }: Props) {
           { big: String(stats.signed), title: 'Fullført', sub: 'Signert og arkivert' },
           { big: String(stats.criticalFindings), title: 'Kritiske funn', sub: 'Krever oppfølging' },
         ]}
-      />
-
-      <WorkplacePageHeading1
-        breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder' }]}
-        title="Inspeksjonsrunder"
-        description="Planlegg, gjennomfør og signer vernerunder i henhold til Internkontrollforskriften § 5."
-        headerActions={
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" onClick={() => setScheduleOpen(true)}>
-              Planlegging
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              icon={<Settings className="h-4 w-4" />}
-              onClick={() => navigate('/inspection-module/admin')}
-            >
-              <span className="hidden sm:inline">Admin</span>
-            </Button>
-          </div>
-        }
       />
 
       <LayoutTable1PostingsShell
@@ -222,15 +228,15 @@ export function InspectionModuleView({ supabase }: Props) {
         <table className="w-full min-w-[640px] border-collapse text-left text-sm whitespace-nowrap">
           <thead>
             <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-              <th className={TH}>Tittel</th>
-              <th className={TH}>Mal</th>
-              <th className={TH}>Lokasjon</th>
-              <th className={TH}>Ansvarlig</th>
-              <th className={TH}>Status</th>
-              <th className={TH}>Planlagt</th>
-              <th className={TH}>Signaturer</th>
-              <th className={`w-24 ${TH}`}>Avvik</th>
-              <th className={`w-8 ${TH}`} aria-hidden />
+              <th className={`${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`}>Tittel</th>
+              <th className={`${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`}>Mal</th>
+              <th className={`${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`}>Lokasjon</th>
+              <th className={`${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`}>Ansvarlig</th>
+              <th className={`${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`}>Status</th>
+              <th className={`${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`}>Planlagt</th>
+              <th className={`${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`}>Signaturer</th>
+              <th className={`w-24 ${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`}>Avvik</th>
+              <th className={`w-8 ${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`} aria-hidden />
             </tr>
           </thead>
           <tbody>
@@ -381,41 +387,34 @@ export function InspectionModuleView({ supabase }: Props) {
               assignedTo: round.assigned_to ?? '',
             }
             return (
-              <div key={round.id} className="border border-neutral-200 p-3">
+              <div key={round.id} className="rounded-lg border border-neutral-200 p-3">
                 <p className="text-sm font-medium text-neutral-900">{round.title}</p>
-                <div className="mt-2 space-y-2">
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <label className="flex flex-col gap-1 text-xs">
-                      <span className="text-neutral-500">Planlagt dato</span>
-                      <input
+                <div className="mt-2 space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="flex flex-col gap-1">
+                      <span className={WPSTD_FORM_FIELD_LABEL}>Planlagt dato</span>
+                      <StandardInput
                         type="datetime-local"
                         value={toDateTimeLocalValue(draft.scheduledFor || null)}
                         onChange={(e) =>
                           setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, scheduledFor: e.target.value } }))
                         }
-                        className="border border-neutral-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
                       />
                     </label>
-                    <label className="flex flex-col gap-1 text-xs">
-                      <span className="text-neutral-500">Ansvarlig</span>
-                      <select
+                    <div className="flex flex-col gap-1">
+                      <span className={WPSTD_FORM_FIELD_LABEL}>Ansvarlig</span>
+                      <SearchableSelect
                         value={draft.assignedTo}
-                        onChange={(e) =>
-                          setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, assignedTo: e.target.value } }))
+                        options={assignedToOptions}
+                        placeholder="Velg ansvarlig"
+                        onChange={(v) =>
+                          setScheduleDraft((p) => ({ ...p, [round.id]: { ...draft, assignedTo: v } }))
                         }
-                        className="border border-neutral-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
-                      >
-                        <option value="">(Ingen)</option>
-                        {inspection.assignableUsers.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.displayName}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                      />
+                    </div>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <span className="text-xs text-neutral-500">Gjentakelse</span>
+                    <span className={WPSTD_FORM_FIELD_LABEL}>Gjentakelse</span>
                     <RecurrencePicker
                       value={draft.cronExpression}
                       onChange={(cron) =>
@@ -428,7 +427,7 @@ export function InspectionModuleView({ supabase }: Props) {
                   type="button"
                   variant="secondary"
                   size="sm"
-                  className="mt-2"
+                  className="mt-3"
                   onClick={() =>
                     void inspection.updateRoundSchedule({
                       roundId: round.id,
@@ -447,6 +446,6 @@ export function InspectionModuleView({ supabase }: Props) {
           {roundsForSchedule.length === 0 && <p className="text-sm text-neutral-500">Ingen runder. Opprett en runde først.</p>}
         </div>
       </FormModal>
-    </div>
+    </ModulePageShell>
   )
 }
