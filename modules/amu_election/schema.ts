@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type {
   AmuElectionCandidateRow,
+  AmuElectionModuleSettings,
   AmuElectionRow,
   AmuElectionVoteRow,
   AmuElectionVoterRow,
@@ -47,6 +48,24 @@ export const AmuElectionVoterRowSchema = z
     created_at: z.string(),
   })
   .strict()
+
+export const AmuElectionCommitteeMemberSchema = z
+  .object({
+    user_id: z.string().uuid(),
+    role_label: z.string().max(200),
+  })
+  .strict()
+
+export const AmuElectionModuleSettingsSchema = z
+  .object({
+    minimum_voting_days: z.number().int().min(1).max(365).default(3),
+    election_committee: z.array(AmuElectionCommitteeMemberSchema).default([]),
+  })
+  .strict()
+
+export function parseAmuElectionModuleSettings(raw: unknown): AmuElectionModuleSettings {
+  return AmuElectionModuleSettingsSchema.parse(raw ?? {})
+}
 
 export const AmuElectionVoteRowSchema = z
   .object({

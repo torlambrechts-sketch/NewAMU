@@ -3,15 +3,18 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { fetchAssignableUsers, type AssignableUser } from '../../src/hooks/useAssignableUsers'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
+import { fetchOrgModulePayload, upsertOrgModulePayload } from '../../src/lib/orgModulePayload'
 import {
   collectParsedAmuCandidates,
   collectParsedAmuElections,
   collectParsedAmuVoters,
   collectParsedAmuVotes,
+  parseAmuElectionModuleSettings,
 } from './schema'
 import type {
   AddAmuElectionCandidateInput,
   AmuElectionCandidateRow,
+  AmuElectionModuleSettings,
   AmuElectionRow,
   AmuElectionVoteRow,
   AmuElectionVoteTotalRow,
@@ -24,6 +27,19 @@ import type {
 /** Active for employees: visible elections they may participate in (not draft). */
 function isActiveElectionStatus(s: AmuElectionRow['status']): boolean {
   return s === 'nomination' || s === 'voting' || s === 'closed'
+}
+
+const DEFAULT_AMU_SETTINGS: AmuElectionModuleSettings = {
+  minimum_voting_days: 3,
+  election_committee: [],
+}
+
+function votingWindowTooShort(startIso: string, endIso: string, minDays: number): boolean {
+  const a = new Date(startIso).getTime()
+  const b = new Date(endIso).getTime()
+  if (Number.isNaN(a) || Number.isNaN(b) || b <= a) return true
+  const minMs = minDays * 24 * 60 * 60 * 1000
+  return b - a < minMs
 }
 
 export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }) {
@@ -42,6 +58,8 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
   const [votesByElection, setVotesByElection] = useState<Record<string, AmuElectionVoteRow[]>>({})
   const [voteTotalsByElection, setVoteTotalsByElection] = useState<Record<string, AmuElectionVoteTotalRow[]>>({})
   const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([])
+  const [moduleSettings, setModuleSettings] = useState<AmuElectionModuleSettings>(DEFAULT_AMU_SETTINGS)
+  const [settingsLoading, setSettingsLoading] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -136,6 +154,44 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
     }
   }, [orgId, supabase, setErr])
 
+  const loadModuleSettings = useCallback(async () => {
+    if (!supabase || !orgId) return
+    setSettingsLoading(true)
+    setError(null)
+    try {
+      const raw = await fetchOrgModulePayload<unknown>(supabase, orgId, 'amu_election')
+      setModuleSettings(parseAmuElectionModuleSettings(raw))
+    } catch (e) {
+      setErr(e)
+    } finally {
+      setSettingsLoading(false)
+    }
+  }, [orgId, supabase, setErr])
+
+  const saveModuleSettings = useCallback(
+    async (next: AmuElectionModuleSettings) => {
+      if (!supabase || !orgId) {
+        setError('Supabase er ikke konfigurert.')
+        return false
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang.')
+        return false
+      }
+      setError(null)
+      try {
+        const parsed = parseAmuElectionModuleSettings(next)
+        await upsertOrgModulePayload(supabase, orgId, 'amu_election', parsed)
+        setModuleSettings(parsed)
+        return true
+      } catch (e) {
+        setErr(e)
+        return false
+      }
+    },
+    [canManage, orgId, supabase, setErr],
+  )
+
   const loadElectionDetail = useCallback(
     async (electionId: string) => {
       if (!supabase || !orgId) return
@@ -226,12 +282,22 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
         setError('Tittel er påkrevd.')
         return null
       }
+      const status = input.status ?? 'draft'
+      if (
+        status === 'voting' &&
+        votingWindowTooShort(input.start_date, input.end_date, moduleSettings.minimum_voting_days)
+      ) {
+        setError(
+          `Stemmeperioden må vare minst ${moduleSettings.minimum_voting_days} døgn (juster i innstillinger eller utvid datoene).`,
+        )
+        return null
+      }
       setError(null)
       try {
         const row = {
           organization_id: orgId,
           title,
-          status: input.status ?? 'draft',
+          status,
           start_date: input.start_date,
           end_date: input.end_date,
         }
@@ -245,7 +311,7 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
         return null
       }
     },
-    [canManage, orgId, supabase, setErr],
+    [canManage, moduleSettings.minimum_voting_days, orgId, supabase, setErr],
   )
 
   const updateElection = useCallback(
@@ -268,6 +334,27 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
         setError('Ingen felter å oppdatere.')
         return false
       }
+
+      const prev = elections.find((e) => e.id === input.electionId)
+      if (prev) {
+        const merged: AmuElectionRow = {
+          ...prev,
+          ...(patch.title !== undefined ? { title: String(patch.title) } : {}),
+          ...(patch.status !== undefined ? { status: patch.status as AmuElectionRow['status'] } : {}),
+          ...(patch.start_date !== undefined ? { start_date: String(patch.start_date) } : {}),
+          ...(patch.end_date !== undefined ? { end_date: String(patch.end_date) } : {}),
+        }
+        if (
+          merged.status === 'voting' &&
+          votingWindowTooShort(merged.start_date, merged.end_date, moduleSettings.minimum_voting_days)
+        ) {
+          setError(
+            `Stemmeperioden må vare minst ${moduleSettings.minimum_voting_days} døgn (juster i innstillinger eller utvid datoene).`,
+          )
+          return false
+        }
+      }
+
       try {
         const res = await supabase
           .from('amu_elections')
@@ -287,7 +374,7 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
         return false
       }
     },
-    [canManage, orgId, supabase, setErr],
+    [canManage, elections, moduleSettings.minimum_voting_days, orgId, supabase, setErr],
   )
 
   /**
@@ -401,10 +488,14 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
     votesByElection,
     voteTotalsByElection,
     assignableUsers,
+    moduleSettings,
+    settingsLoading,
     myVoterRows,
     loading,
     error,
     setError,
+    loadModuleSettings,
+    saveModuleSettings,
     loadElections,
     loadActiveElections,
     loadElectionDetail,

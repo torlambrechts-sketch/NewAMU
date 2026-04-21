@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useNavigate } from 'react-router-dom'
+import { Settings } from 'lucide-react'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
@@ -18,6 +19,7 @@ import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { WarningBox } from '../../src/components/ui/AlertBox'
 import type { AmuElectionRow } from './types'
 import { useAmuElection } from './useAmuElection'
+import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 
 const TH = `${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`
 
@@ -53,6 +55,9 @@ function toIsoEnd(dateYmd: string) {
 
 export function AmuElectionPage({ supabase }: { supabase: SupabaseClient | null }) {
   const nav = useNavigate()
+  const { can, isAdmin } = useOrgSetupContext()
+  const canOpenAdmin =
+    isAdmin || can('amu_election.manage') || can('internkontroll.manage') || can('ik.manage')
   const {
     canManage,
     elections,
@@ -127,6 +132,14 @@ export function AmuElectionPage({ supabase }: { supabase: SupabaseClient | null 
           breadcrumb={[{ label: 'HMS' }, { label: 'Internkontroll', to: '/internkontroll' }, { label: 'AMU-valg' }]}
           title="AMU-valg"
           description="Gjennomfør valg av representanter i tråd med medvirkningsforskriften kapittel 3."
+          headerActions={
+            canOpenAdmin ? (
+              <Button type="button" variant="secondary" onClick={() => nav('/internkontroll/amu-valg/admin')}>
+                <Settings className="h-4 w-4" aria-hidden />
+                Innstillinger
+              </Button>
+            ) : null
+          }
         />
 
         <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>

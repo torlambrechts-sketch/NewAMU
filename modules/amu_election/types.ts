@@ -69,3 +69,15 @@ export type AddAmuElectionCandidateInput = {
   manifesto: string
   status?: AmuElectionCandidateStatus
 }
+
+/** Per-org settings in org_module_payloads (module_key = amu_election). */
+export type AmuElectionCommitteeMember = {
+  user_id: string
+  role_label: string
+}
+
+export type AmuElectionModuleSettings = {
+  /** Minimum varighet for stemmeperioden (dager), brukt som valideringsregel i admin. */
+  minimum_voting_days: number
+  election_committee: AmuElectionCommitteeMember[]
+}
