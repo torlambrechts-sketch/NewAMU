@@ -39,7 +39,10 @@ export function HseInspectionRunsPanel({ hse }: { hse: ReturnType<typeof useHse>
         <p>
           <strong>Konfigurerbare inspeksjoner:</strong> typer, maler med felt (ja/nei, tekst, tall, bilde),
           lokasjoner, roller, statusflyt, planer og avviksnivåer.{' '}
-          <Link to="/hse/inspection-settings" className="font-medium text-[#1a3d32] underline hover:text-[#142e26]">
+          <Link
+            to="/inspection-module/admin"
+            className="font-medium text-[#1a3d32] underline hover:text-[#142e26]"
+          >
             Åpne innstillinger
           </Link>
           .

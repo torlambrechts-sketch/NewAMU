@@ -169,8 +169,9 @@ const hseSubs: SubItem[] = [
   { label: 'Inspeksjoner', path: '/hse?tab=inspections', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'inspections' },
   {
     label: 'Inspeksjonsmodul',
-    path: '/hse/inspection-settings',
-    match: ({ pathname }) => pathname === '/hse/inspection-settings',
+    path: '/inspection-module/admin',
+    match: ({ pathname }) =>
+      pathname === '/inspection-module/admin' || pathname === '/hse/inspection-settings',
   },
   { label: 'SJA', path: '/hse?tab=sja', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'sja' },
   { label: 'Opplæring', path: '/hse?tab=training', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'training' },

@@ -30,7 +30,6 @@ import { AmuPage } from '../modules/amu/AmuPage'
 import { AmuModuleAdminPage } from './pages/AmuModuleAdminPage'
 import { MembersModule } from './pages/MembersModule'
 import { HseModule } from './pages/HseModule'
-import { HseInspectionSettings } from './pages/HseInspectionSettings'
 import { OrgHealthModule } from './pages/OrgHealthModule'
 import { OrgHealthSettings } from './pages/OrgHealthSettings'
 import { InternalControlModule } from './pages/InternalControlModule'
@@ -201,7 +200,12 @@ function App() {
                       <Route path="internkontroll/admin" element={<InternalControlAdminPage />} />
                       <Route path="modules/aarskontroll" element={<YearskontrollModule />} />
                       <Route path="hse" element={<HseModule />} />
-                      <Route path="hse/inspection-settings" element={<HseInspectionSettings />} />
+                      {/* Legacy HSE inspection settings → redirected to the canonical admin at
+                          /inspection-module/admin. Old deep-links continue to work. */}
+                      <Route
+                        path="hse/inspection-settings"
+                        element={<Navigate to="/inspection-module/admin" replace />}
+                      />
                       {/* Phase 3: inspection module */}
                       <Route path="inspection-module" element={<InspectionModulePage />} />
                       <Route path="inspection-module/admin" element={<InspectionModuleAdminPage />} />
