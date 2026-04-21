@@ -132,7 +132,7 @@ export function AarshjulPage() {
         month,
         year,
         status: st,
-        link: '/hse?tab=rounds',
+        link: '/vernerunder',
         detail: planned ? `Planlagt · ${r.location}` : r.location,
       })
     })

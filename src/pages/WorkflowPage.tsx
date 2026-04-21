@@ -27,7 +27,7 @@ import {
 const MODULES = [
   { key: 'hse.inspections', label: 'Inspeksjonsrunder', path: '/hse?tab=inspections', color: '#1a3d32' },
   { key: 'hse.sja', label: 'SJA', path: '/hse?tab=sja', color: '#0891b2' },
-  { key: 'hse.vernerunder', label: 'Vernerunder', path: '/hse?tab=rounds', color: '#7c3aed' },
+  { key: 'hse.vernerunder', label: 'Vernerunder', path: '/vernerunder', color: '#7c3aed' },
   { key: 'hse.incidents', label: 'Hendelser', path: '/workplace-reporting/incidents', color: '#dc2626' },
   { key: 'hse.training', label: 'Opplæring', path: '/hse?tab=training', color: '#d97706' },
 ]
