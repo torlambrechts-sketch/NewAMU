@@ -33,3 +33,11 @@ export {
   moduleRiskScoreLabel,
 } from './moduleRiskKit'
 export type { ModuleSeverity } from './moduleRiskKit'
+export { ModuleLegalBanner } from './ModuleLegalBanner'
+export type { ModuleLegalBannerProps, ModuleLegalReference } from './ModuleLegalBanner'
+export { ModuleShortcutGrid } from './ModuleShortcutGrid'
+export type { ModuleShortcutGridProps, ModuleShortcutItem } from './ModuleShortcutGrid'
+export { ModuleDashboardGrid } from './ModuleDashboardGrid'
+export type { ModuleDashboardGridProps } from './ModuleDashboardGrid'
+export { ModuleFrontpageShell } from './ModuleFrontpageShell'
+export type { ModuleFrontpageShellProps } from './ModuleFrontpageShell'
