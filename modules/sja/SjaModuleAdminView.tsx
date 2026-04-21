@@ -2,12 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ArrowLeft, Check, ClipboardList, MapPin, Plus, Save, Shield, Trash2, X } from 'lucide-react'
-import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
-import {
-  WORKPLACE_MODULE_CARD,
-  WORKPLACE_MODULE_CARD_SHADOW,
-} from '../../src/components/layout/workplaceModuleSurface'
+import { ModulePageShell, ModuleSectionCard } from '../../src/components/module'
 import { Button } from '../../src/components/ui/Button'
+import { WarningBox } from '../../src/components/ui/AlertBox'
 import { StandardInput } from '../../src/components/ui/Input'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { StandardTextarea } from '../../src/components/ui/Textarea'
@@ -167,30 +164,25 @@ export function SjaModuleAdminView({
   )
 
   return (
-    <div className="space-y-6">
-      <WorkplacePageHeading1
-        breadcrumb={[{ label: 'HMS' }, { label: 'Sikker jobbanalyse', to: '/sja' }, { label: 'Innstillinger' }]}
-        title="SJA-innstillinger"
-        description="Maler for sikker jobbanalyse, delte lokasjoner og tilganger."
-        headerActions={
-          <Button
-            type="button"
-            variant="secondary"
-            className="font-medium"
-            icon={<ArrowLeft className="w-4 h-4" />}
-            onClick={() => navigate('/sja')}
-          >
-            Tilbake til SJA
-          </Button>
-        }
-        menu={<Tabs items={adminTabItems} activeId={tab} onChange={(id) => setTab(id as Tab)} />}
-      />
+    <ModulePageShell
+      breadcrumb={[{ label: 'HMS' }, { label: 'Sikker jobbanalyse', to: '/sja' }, { label: 'Innstillinger' }]}
+      title="SJA-innstillinger"
+      description="Maler for sikker jobbanalyse, delte lokasjoner og tilganger."
+      headerActions={
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<ArrowLeft className="h-4 w-4" />}
+          onClick={() => navigate('/sja')}
+        >
+          Tilbake til SJA
+        </Button>
+      }
+      tabs={<Tabs items={adminTabItems} activeId={tab} onChange={(id) => setTab(id as Tab)} />}
+    >
+      {sja.error ? <WarningBox>{sja.error}</WarningBox> : null}
 
-      {sja.error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{sja.error}</div>
-      ) : null}
-
-      <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden p-5 md:p-6`} style={WORKPLACE_MODULE_CARD_SHADOW}>
+      <ModuleSectionCard className="p-5 md:p-6">
         {tab === 'templates' && <SjaTemplatesAdmin sja={sja} />}
         {tab === 'locations' && (
           <div className="space-y-4">
@@ -209,8 +201,8 @@ export function SjaModuleAdminView({
         {tab === 'access' && (
           <SjaAccessTab supabase={supabase} canManageRbac={canManageRbac} organizationId={organizationId} />
         )}
-      </div>
-    </div>
+      </ModuleSectionCard>
+    </ModulePageShell>
   )
 }
 
