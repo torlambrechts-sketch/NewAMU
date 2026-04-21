@@ -11,8 +11,8 @@ import {
   Tags,
   Trash2,
 } from 'lucide-react'
-import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import { ModuleAdminShell } from '../components/layout/ModuleAdminShell'
+import { ModulePageShell } from '../components/module/ModulePageShell'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../components/layout/WorkplaceStandardFormPanel'
 import {
   LAYOUT_TABLE1_POSTINGS_BODY_ROW,
@@ -77,28 +77,33 @@ export function VernerunderAdminPage() {
 
   if (!canManage) {
     return (
-      <div className="mx-auto max-w-[1400px] space-y-4 px-4 py-6 md:px-8">
-        <p className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Vernerunder', to: '/vernerunder' }, { label: 'Administrasjon' }]}
+        title="Vernerunder — administrasjon"
+      >
+        <WarningBox>
           Du har ikke tilgang til vernerunder-innstillinger. Krever rettigheten «vernerunder.manage» eller administrator.
-        </p>
-      </div>
+        </WarningBox>
+      </ModulePageShell>
     )
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
-      <WorkplacePageHeading1
-        breadcrumb={[{ label: 'HMS' }, { label: 'Vernerunder', to: '/vernerunder' }, { label: 'Administrasjon' }]}
-        title="Vernerunder — administrasjon"
-        description="Kategorier, maler og arbeidsflyt. Lister er fullt dynamiske (Supabase) — ingen forhåndsdefinerte rader i denne filen."
-        headerActions={
-          <Button type="button" variant="secondary" onClick={() => navigate('/vernerunder')} className="gap-1.5">
-            <ArrowLeft className="h-4 w-4" />
-            Tilbake til runder
-          </Button>
-        }
-      />
-
+    <ModulePageShell
+      breadcrumb={[{ label: 'HMS' }, { label: 'Vernerunder', to: '/vernerunder' }, { label: 'Administrasjon' }]}
+      title="Vernerunder — administrasjon"
+      description="Kategorier, maler og arbeidsflyt. Lister er fullt dynamiske (Supabase) — ingen forhåndsdefinerte rader i denne filen."
+      headerActions={
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<ArrowLeft className="h-4 w-4" />}
+          onClick={() => navigate('/vernerunder')}
+        >
+          Tilbake til runder
+        </Button>
+      }
+    >
       {v.error ? <WarningBox>{v.error}</WarningBox> : null}
 
       <ModuleAdminShell
@@ -121,7 +126,7 @@ export function VernerunderAdminPage() {
           />
         )}
       </ModuleAdminShell>
-    </div>
+    </ModulePageShell>
   )
 }
 
