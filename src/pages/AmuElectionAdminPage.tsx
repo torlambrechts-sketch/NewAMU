@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ElementType } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, GitBranch, Loader2, SlidersHorizontal, Users } from 'lucide-react'
-import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
-import { ModuleAdminShell } from '../components/layout/ModuleAdminShell'
+import { ModulePageShell } from '../components/module/ModulePageShell'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../components/layout/WorkplaceStandardFormPanel'
 import {
   LAYOUT_TABLE1_POSTINGS_BODY_ROW,
@@ -136,46 +135,52 @@ export function AmuElectionAdminPage() {
 
   if (!canManage) {
     return (
-      <div className="min-h-screen bg-[#F9F7F2] px-4 py-8 md:px-8">
-        <p className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Du har ikke tilgang til modulens innstillinger. Kontakt administrator.
-        </p>
-      </div>
+      <ModulePageShell
+        breadcrumb={[
+          { label: 'HMS' },
+          { label: 'Internkontroll', to: '/internkontroll' },
+          { label: 'AMU-valg', to: '/internkontroll/amu-valg' },
+          { label: 'Innstillinger' },
+        ]}
+        title="AMU-valg — innstillinger"
+      >
+        <WarningBox>Du har ikke tilgang til modulens innstillinger. Kontakt administrator.</WarningBox>
+      </ModulePageShell>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F9F7F2]">
-      <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
-        <WorkplacePageHeading1
-          breadcrumb={[
-            { label: 'HMS' },
-            { label: 'Internkontroll', to: '/internkontroll' },
-            { label: 'AMU-valg', to: '/internkontroll/amu-valg' },
-            { label: 'Innstillinger' },
-          ]}
-          title="AMU-valg — innstillinger"
-          description="Regler for stemmeperiode, valgstyre og arbeidsflyt (e-post til alle ved åpning av valglokale m.m.)."
-          headerActions={
-            <Button type="button" variant="secondary" onClick={() => navigate('/internkontroll/amu-valg')}>
-              <ArrowLeft className="h-4 w-4" aria-hidden />
-              Tilbake til valg
-            </Button>
-          }
-        />
-
-        {error ? <WarningBox>{error}</WarningBox> : null}
-
-        <ModuleAdminShell
-          title="Administrasjon"
-          description="Innstillinger lagres i org_module_payloads (modulnøkkel amu_election) og gjelder hele organisasjonen."
-          tabs={shellTabs}
-          activeTab={tab}
-          onTabChange={(k) => setTab(k as AdminTab)}
-          layout="tabsTop"
-          tabStrip={<Tabs items={tabsUiItems} activeId={tab} onChange={(id) => setTab(id as AdminTab)} />}
+    <ModulePageShell
+      breadcrumb={[
+        { label: 'HMS' },
+        { label: 'Internkontroll', to: '/internkontroll' },
+        { label: 'AMU-valg', to: '/internkontroll/amu-valg' },
+        { label: 'Innstillinger' },
+      ]}
+      title="AMU-valg — innstillinger"
+      description="Regler for stemmeperiode, valgstyre og arbeidsflyt (e-post til alle ved åpning av valglokale m.m.)."
+      headerActions={
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<ArrowLeft className="h-4 w-4" aria-hidden />}
+          onClick={() => navigate('/internkontroll/amu-valg')}
         >
-          {tab === 'generelt' && (
+          Tilbake til valg
+        </Button>
+      }
+      tabs={
+        <Tabs
+          items={tabsUiItems}
+          activeId={tab}
+          onChange={(id) => setTab(id as AdminTab)}
+          overflow="scroll"
+        />
+      }
+    >
+      {error ? <WarningBox>{error}</WarningBox> : null}
+
+      {tab === 'generelt' && (
             <div className="space-y-4">
               {settingsLoading ? (
                 <p className="flex items-center gap-2 text-sm text-neutral-500">
@@ -287,25 +292,23 @@ export function AmuElectionAdminPage() {
             </div>
           )}
 
-          {tab === 'arbeidsflyt' && (
-            <div className="space-y-3">
-              <p className="text-sm text-neutral-600">
-                Automatiser e-post til alle ansatte når valglokale åpner: opprett en regel med hendelsen «Stemmegivning
-                åpnet» og handlingen «Send e-post».
-              </p>
-              <div className="inline-flex flex-wrap items-center gap-1 text-xs text-neutral-500" aria-hidden>
-                <GitBranch className="h-3.5 w-3.5" />
-                <span>ON_ELECTION_NOMINATION_OPEN · ON_ELECTION_VOTING_OPEN · ON_ELECTION_CLOSED</span>
-              </div>
-              <WorkflowRulesTab
-                supabase={supabase}
-                module="amu_election"
-                triggerEvents={[...AMU_ELECTION_WORKFLOW_TRIGGER_EVENTS]}
-              />
-            </div>
-          )}
-        </ModuleAdminShell>
-      </div>
-    </div>
+      {tab === 'arbeidsflyt' && (
+        <div className="space-y-3">
+          <p className="text-sm text-neutral-600">
+            Automatiser e-post til alle ansatte når valglokale åpner: opprett en regel med hendelsen «Stemmegivning
+            åpnet» og handlingen «Send e-post».
+          </p>
+          <div className="inline-flex flex-wrap items-center gap-1 text-xs text-neutral-500" aria-hidden>
+            <GitBranch className="h-3.5 w-3.5" />
+            <span>ON_ELECTION_NOMINATION_OPEN · ON_ELECTION_VOTING_OPEN · ON_ELECTION_CLOSED</span>
+          </div>
+          <WorkflowRulesTab
+            supabase={supabase}
+            module="amu_election"
+            triggerEvents={[...AMU_ELECTION_WORKFLOW_TRIGGER_EVENTS]}
+          />
+        </div>
+      )}
+    </ModulePageShell>
   )
 }

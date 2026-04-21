@@ -23,8 +23,8 @@ interface TabsProps {
    * - `wrap` (default, back-compat): tabs wrap onto multiple lines once they
    *   run out of horizontal space. Good for detail-page tab rows (≤ 5 tabs).
    * - `scroll`: tabs stay on one line and the row scrolls horizontally.
-   *   Good for admin pages with many tabs on narrow screens — replaces the
-   *   legacy `ModuleAdminShell` mobile pill-strip.
+   *   Good for admin pages with many tabs on narrow screens. Standard for
+   *   admin-page tab strips that live inside `ModulePageShell.tabs`.
    */
   overflow?: 'wrap' | 'scroll'
 }

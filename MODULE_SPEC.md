@@ -274,37 +274,46 @@ Every module has a settings page at `/xxx/admin`. It always has these **5 tabs**
 
 ```tsx
 // XxxAdminPage.tsx skeleton
-import { ModuleAdminShell } from '../components/layout/ModuleAdminShell'
+import { ModulePageShell } from '../components/module/ModulePageShell'
+import { Tabs } from '../components/ui/Tabs'
 
-const TABS = [
-  { key: 'templates', label: 'Maler' },
-  { key: 'locations', label: 'Lokasjoner' },
-  { key: 'signoff',   label: 'Signering' },
-  { key: 'workflow',  label: 'Arbeidsflyt' },
-  { key: 'stats',     label: 'Statistikk' },
+const TAB_ITEMS = [
+  { id: 'templates', label: 'Maler', icon: ClipboardList },
+  { id: 'locations', label: 'Lokasjoner', icon: MapPin },
+  { id: 'signoff',   label: 'Signering', icon: UserCheck },
+  { id: 'workflow',  label: 'Arbeidsflyt', icon: GitBranch },
+  { id: 'stats',     label: 'Statistikk', icon: BarChart2 },
 ]
 
 export function XxxAdminPage({ supabase }: { supabase: SupabaseClient | null }) {
-  const [tab, setTab] = useState('templates')
+  const [tab, setTab] = useState<'templates' | 'locations' | 'signoff' | 'workflow' | 'stats'>('templates')
   const xxx = useXxxModule({ supabase })
 
   return (
-    <ModuleAdminShell
+    <ModulePageShell
+      breadcrumb={[{ label: 'HMS' }, { label: 'Xxx', to: '/xxx' }, { label: 'Innstillinger' }]}
       title="Xxx — Innstillinger"
       description="Konfigurer maler, lokasjoner og arbeidsflyt."
-      tabs={TABS}
-      activeTab={tab}
-      onTabChange={setTab}
+      tabs={
+        <Tabs
+          items={TAB_ITEMS}
+          activeId={tab}
+          onChange={(id) => setTab(id as typeof tab)}
+          overflow="scroll"
+        />
+      }
     >
       {tab === 'templates' && <TemplatesTab xxx={xxx} />}
       {tab === 'locations' && <LocationsCrudTab supabase={supabase} />}
       {tab === 'signoff'   && <SignoffTab records={xxx.records} />}
       {tab === 'workflow'  && <WorkflowRulesTab supabase={supabase} sourceModule="xxx" />}
       {tab === 'stats'     && <HseStatsPanel records={xxx.records} findings={xxx.findingsByRecordId} />}
-    </ModuleAdminShell>
+    </ModulePageShell>
   )
 }
 ```
+
+> **Note**: The legacy `ModuleAdminShell` component was retired in favour of `ModulePageShell + Tabs`. New modules should use the skeleton above.
 
 ### Templates tab — mandatory fields for each template item
 

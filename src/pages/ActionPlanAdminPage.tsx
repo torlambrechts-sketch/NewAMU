@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, FolderTree, GitBranch, Loader2 } from 'lucide-react'
-import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
-import { ModuleAdminShell } from '../components/layout/ModuleAdminShell'
+import { ModulePageShell } from '../components/module/ModulePageShell'
 import { useActionPlan } from '../../modules/action_plan/useActionPlan'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { WorkflowRulesTab } from '../components/workflow/WorkflowRulesTab'
@@ -45,33 +44,34 @@ export function ActionPlanAdminPage({ embedded = false }: ActionPlanAdminPagePro
   )
 
   if (!canManage) {
+    if (embedded) {
+      return (
+        <WarningBox>Du har ikke tilgang til modulens innstillinger. Kontakt administrator.</WarningBox>
+      )
+    }
     return (
-      <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        Du har ikke tilgang til modulens innstillinger. Kontakt administrator.
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Tiltaksplan', to: '/tiltak' }, { label: 'Innstillinger' }]}
+        title="Tiltaksplan – innstillinger"
+      >
+        <WarningBox>Du har ikke tilgang til modulens innstillinger. Kontakt administrator.</WarningBox>
+      </ModulePageShell>
     )
   }
 
-  const shell = (
+  const tabsNode = (
+    <Tabs
+      items={innerTabs as TabItem[]}
+      activeId={subTab}
+      onChange={(id) => setSubTab(id as SubTab)}
+      overflow="scroll"
+    />
+  )
+
+  const body = (
     <div className="max-w-4xl space-y-4">
       {error ? <WarningBox>{error}</WarningBox> : null}
-      <ModuleAdminShell
-        title="Tiltaksplan – innhold"
-        description="Kategorier brukes for å klassifisere tiltak. Arbeidsflyt reagerer på forfall og lukking (ON_MEASURE_* i databasen)."
-        layout="tabsTop"
-        tabStrip={
-          <Tabs
-            className="flex-wrap"
-            items={innerTabs as TabItem[]}
-            activeId={subTab}
-            onChange={(id) => setSubTab(id as SubTab)}
-          />
-        }
-        activeTab="x"
-        onTabChange={() => void 0}
-        tabs={[]}
-      >
-        {subTab === 'kategorier' && (
+      {subTab === 'kategorier' && (
           <div className="space-y-4">
             {loading && (
               <p className="flex items-center gap-2 text-sm text-neutral-500">
@@ -151,52 +151,53 @@ export function ActionPlanAdminPage({ embedded = false }: ActionPlanAdminPagePro
             </div>
           </div>
         )}
-        {subTab === 'arbeidsflyt' && (
-          <div className="space-y-2">
-            <p className="text-sm text-neutral-600">
-              Bruk forfall og lukking (hendelser fra database): opprettelse, løsning, forfall.
-            </p>
-            <div className="inline-flex items-center gap-1 text-xs text-neutral-500" aria-hidden>
-              <GitBranch className="h-3.5 w-3.5" />
-              <span>ON_MEASURE_CREATED / ON_MEASURE_RESOLVED / ON_MEASURE_OVERDUE</span>
-            </div>
-            <WorkflowRulesTab
-              supabase={supabase}
-              module="action_plan"
-              triggerEvents={[...ACTION_PLAN_WORKFLOW_TRIGGER_EVENTS]}
-            />
+      {subTab === 'arbeidsflyt' && (
+        <div className="space-y-2">
+          <p className="text-sm text-neutral-600">
+            Bruk forfall og lukking (hendelser fra database): opprettelse, løsning, forfall.
+          </p>
+          <div className="inline-flex items-center gap-1 text-xs text-neutral-500" aria-hidden>
+            <GitBranch className="h-3.5 w-3.5" />
+            <span>ON_MEASURE_CREATED / ON_MEASURE_RESOLVED / ON_MEASURE_OVERDUE</span>
           </div>
-        )}
-      </ModuleAdminShell>
+          <WorkflowRulesTab
+            supabase={supabase}
+            module="action_plan"
+            triggerEvents={[...ACTION_PLAN_WORKFLOW_TRIGGER_EVENTS]}
+          />
+        </div>
+      )}
     </div>
   )
 
   if (embedded) {
-    return shell
+    return (
+      <div className="space-y-4">
+        {tabsNode}
+        {body}
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-[#F9F7F2]">
-      <div className="mx-auto max-w-[1400px] space-y-4 px-4 py-6 md:px-8">
-        <WorkplacePageHeading1
-          breadcrumb={[{ label: 'HMS' }, { label: 'Tiltaksplan', to: '/tiltak' }, { label: 'Innstillinger' }]}
-          title="Tiltaksplan – innstillinger"
-          description="Kategorier og arbeidsflyt for oppfølgingstiltak (IK-f § 5.7 retninger)."
-          headerActions={
-            <Button
-              type="button"
-              variant="secondary"
-              className="px-3 py-2 font-normal text-neutral-600"
-              onClick={() => void navigate('/tiltak')}
-            >
-              <ArrowLeft className="h-4 w-4" aria-hidden />
-              Tilbake
-            </Button>
-          }
-        />
-        {shell}
-      </div>
-    </div>
+    <ModulePageShell
+      breadcrumb={[{ label: 'HMS' }, { label: 'Tiltaksplan', to: '/tiltak' }, { label: 'Innstillinger' }]}
+      title="Tiltaksplan – innstillinger"
+      description="Kategorier og arbeidsflyt for oppfølgingstiltak (IK-f § 5.7 retninger)."
+      headerActions={
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<ArrowLeft className="h-4 w-4" aria-hidden />}
+          onClick={() => void navigate('/tiltak')}
+        >
+          Tilbake
+        </Button>
+      }
+      tabs={tabsNode}
+    >
+      {body}
+    </ModulePageShell>
   )
 }
 

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, GitBranch, ListChecks, Settings } from 'lucide-react'
-import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
-import { ModuleAdminShell } from '../components/layout/ModuleAdminShell'
+import { ModulePageShell } from '../components/module/ModulePageShell'
+import { Tabs as UITabs } from '../components/ui/Tabs'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
@@ -120,57 +120,62 @@ export function SurveyModuleAdminPage() {
 
   if (!canManage) {
     return (
-      <div className="mx-auto max-w-[1400px] space-y-4 px-4 py-6 md:px-8">
-        <p className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Du har ikke tilgang til undersøkelsesmodulens innstillinger. Kontakt administrator.
-        </p>
-      </div>
-    )
-  }
-
-  const tabs = [
-    { key: 'generelt' as const, label: 'Generelt', icon: <Settings className="h-4 w-4" /> },
-    { key: 'sporsmalsbank' as const, label: 'Spørsmålsbank', icon: <ListChecks className="h-4 w-4" /> },
-    { key: 'arbeidsflyt' as const, label: 'Arbeidsflyt', icon: <GitBranch className="h-4 w-4" /> },
-  ]
-
-  const showHookError = survey.error
-  const showSettingsError = settingsError
-
-  return (
-    <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
-      <WorkplacePageHeading1
+      <ModulePageShell
         breadcrumb={[
           { label: 'HMS' },
           { label: 'Undersøkelser', to: '/survey' },
           { label: 'Innstillinger' },
         ]}
         title="Innstillinger: undersøkelser"
-        description="Globale valg, gjenbrukbare spørsmål og arbeidsflyt for modulen."
-        headerActions={
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => navigate('/survey')}
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Tilbake til modul
-          </Button>
-        }
-      />
+      >
+        <WarningBox>
+          Du har ikke tilgang til undersøkelsesmodulens innstillinger. Kontakt administrator.
+        </WarningBox>
+      </ModulePageShell>
+    )
+  }
 
+  const tabsUiItems = [
+    { id: 'generelt', label: 'Generelt', icon: Settings },
+    { id: 'sporsmalsbank', label: 'Spørsmålsbank', icon: ListChecks },
+    { id: 'arbeidsflyt', label: 'Arbeidsflyt', icon: GitBranch },
+  ]
+
+  const showHookError = survey.error
+  const showSettingsError = settingsError
+
+  return (
+    <ModulePageShell
+      breadcrumb={[
+        { label: 'HMS' },
+        { label: 'Undersøkelser', to: '/survey' },
+        { label: 'Innstillinger' },
+      ]}
+      title="Innstillinger: undersøkelser"
+      description="Globale valg, gjenbrukbare spørsmål og arbeidsflyt for modulen."
+      headerActions={
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<ArrowLeft className="h-4 w-4" />}
+          onClick={() => navigate('/survey')}
+        >
+          Tilbake til modul
+        </Button>
+      }
+      tabs={
+        <UITabs
+          items={tabsUiItems}
+          activeId={tab}
+          onChange={(id) => setTab(id as AdminTab)}
+          overflow="scroll"
+        />
+      }
+    >
       {showSettingsError ? <WarningBox>{showSettingsError}</WarningBox> : null}
       {showHookError ? <WarningBox>{showHookError}</WarningBox> : null}
 
-      <ModuleAdminShell
-        title="Undersøkelsesmodulen"
-        description="Innstillinger lagres per organisasjon. Spørsmålsbanken brukes når brukere legger inn spørsmål i en ny undersøkelse. Hendelser for arbeidsflyt sendes fra databasen når svar mottas eller når en undersøkelse publiseres eller lukkes."
-        tabs={tabs}
-        activeTab={tab}
-        onTabChange={(k) => setTab(k as AdminTab)}
-      >
-        {tab === 'generelt' && (
+      {tab === 'generelt' && (
           <div className="space-y-6">
             {settingsLoading ? <p className="text-sm text-neutral-500">Laster innstillinger…</p> : null}
             <div className={WPSTD_FORM_ROW_GRID}>
@@ -336,22 +341,21 @@ export function SurveyModuleAdminPage() {
           </div>
         )}
 
-        {tab === 'arbeidsflyt' && (
-          <div className="space-y-4">
-            <p className="text-sm text-neutral-600">
-              Hendelser: <code className="text-xs">ON_SURVEY_PUBLISHED</code>, <code className="text-xs">ON_SURVEY_CLOSED</code>,{' '}
-              <code className="text-xs">ON_SURVEY_RESPONSE_SUBMITTED</code> — kobles til databasetrigger og{' '}
-              <code className="text-xs">workflow_dispatch_db_event</code>. Manuell gjenkalling av de samme hendelsene kan gjøres fra undersøkelsens
-              detaljvisning når det trengs.
-            </p>
-            <WorkflowRulesTab
-              supabase={supabase}
-              module="survey"
-              triggerEvents={SURVEY_WORKFLOW_TRIGGER_EVENTS.map((e) => ({ value: e.value, label: e.label }))}
-            />
-          </div>
-        )}
-      </ModuleAdminShell>
-    </div>
+      {tab === 'arbeidsflyt' && (
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-600">
+            Hendelser: <code className="text-xs">ON_SURVEY_PUBLISHED</code>, <code className="text-xs">ON_SURVEY_CLOSED</code>,{' '}
+            <code className="text-xs">ON_SURVEY_RESPONSE_SUBMITTED</code> — kobles til databasetrigger og{' '}
+            <code className="text-xs">workflow_dispatch_db_event</code>. Manuell gjenkalling av de samme hendelsene kan gjøres fra undersøkelsens
+            detaljvisning når det trengs.
+          </p>
+          <WorkflowRulesTab
+            supabase={supabase}
+            module="survey"
+            triggerEvents={SURVEY_WORKFLOW_TRIGGER_EVENTS.map((e) => ({ value: e.value, label: e.label }))}
+          />
+        </div>
+      )}
+    </ModulePageShell>
   )
 }

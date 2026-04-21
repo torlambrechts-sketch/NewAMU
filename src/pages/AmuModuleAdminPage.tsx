@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, ClipboardList, GitBranch, Loader2, Plus, Save, SlidersHorizontal, Trash2 } from 'lucide-react'
-import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
-import { ModuleAdminShell } from '../components/layout/ModuleAdminShell'
+import { ModulePageShell } from '../components/module/ModulePageShell'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
@@ -155,43 +154,54 @@ export function AmuModuleAdminPage() {
 
   if (!canManage) {
     return (
-      <div className="mx-auto max-w-[1400px] space-y-4 px-4 py-6 md:px-8">
-        <p className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      <ModulePageShell
+        breadcrumb={[{ label: 'Council' }, { label: 'AMU', to: AMU_PATH }, { label: 'Administrasjon' }]}
+        title="AMU — administrasjon"
+        headerActions={
+          <Button
+            type="button"
+            variant="secondary"
+            icon={<ArrowLeft className="h-4 w-4" />}
+            onClick={() => navigate(AMU_PATH)}
+          >
+            Tilbake til AMU
+          </Button>
+        }
+      >
+        <WarningBox>
           Du har ikke tilgang til AMU-innstillinger. Krever rollen <strong>amu.manage</strong> eller administrator.
-        </p>
-        <Button type="button" variant="secondary" onClick={() => navigate(AMU_PATH)}>
-          Tilbake til AMU
-        </Button>
-      </div>
+        </WarningBox>
+      </ModulePageShell>
     )
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
-      <WorkplacePageHeading1
-        breadcrumb={[{ label: 'Council' }, { label: 'AMU', to: AMU_PATH }, { label: 'Administrasjon' }]}
-        title="AMU — administrasjon"
-        description="Standard saksliste gjelder hele virksomheten når brukere genererer agenda for nye møter. Arbeidsflyt utløses når møtet settes som planlagt (innkalling) og når referat signeres."
-        headerActions={
-          <Button type="button" variant="secondary" onClick={() => navigate(AMU_PATH)}>
-            <ArrowLeft className="h-4 w-4" />
-            Tilbake til møter
-          </Button>
-        }
-      />
-
+    <ModulePageShell
+      breadcrumb={[{ label: 'Council' }, { label: 'AMU', to: AMU_PATH }, { label: 'Administrasjon' }]}
+      title="AMU — administrasjon"
+      description="Standard saksliste gjelder hele virksomheten når brukere genererer agenda for nye møter. Arbeidsflyt utløses når møtet settes som planlagt (innkalling) og når referat signeres."
+      headerActions={
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<ArrowLeft className="h-4 w-4" />}
+          onClick={() => navigate(AMU_PATH)}
+        >
+          Tilbake til møter
+        </Button>
+      }
+      tabs={
+        <Tabs
+          items={tabStripItems}
+          activeId={tab}
+          onChange={(id) => setTab(id as AdminTab)}
+          overflow="scroll"
+        />
+      }
+    >
       {amu.error ? <WarningBox>{amu.error}</WarningBox> : null}
 
-      <ModuleAdminShell
-        title="AMU-innstillinger"
-        description="Tilpass standard saksliste og automatisering per organisasjon."
-        layout="tabsTop"
-        tabStrip={<Tabs items={tabStripItems} activeId={tab} onChange={(id) => setTab(id as AdminTab)} />}
-        activeTab="x"
-        onTabChange={() => void 0}
-        tabs={[]}
-      >
-        {tab === 'generelt' && (
+      {tab === 'generelt' && (
           <div className="space-y-4">
             <InfoBox>
               Under «Standard saksliste» definerer du hvilke punkter som fylles inn når bruker klikker «Generer standard
@@ -324,21 +334,20 @@ export function AmuModuleAdminPage() {
           </div>
         )}
 
-        {tab === 'arbeidsflyt' && (
-          <div className="max-w-4xl space-y-3">
-            <p className="text-sm text-neutral-600">
-              <strong>ON_AMU_MEETING_SCHEDULED</strong> utløses når møtet har status planlagt (f.eks. e-post/Teams til deltakere).{' '}
-              <strong>ON_AMU_MEETING_SIGNED</strong> utløses når referat er signert (f.eks. distribuere minutter).
-            </p>
-            <WorkflowRulesTab
-              supabase={supabase}
-              module="amu"
-              triggerEvents={AMU_WORKFLOW_TRIGGER_EVENTS.map((e) => ({ value: e.value, label: e.label }))}
-            />
-          </div>
-        )}
-      </ModuleAdminShell>
-    </div>
+      {tab === 'arbeidsflyt' && (
+        <div className="max-w-4xl space-y-3">
+          <p className="text-sm text-neutral-600">
+            <strong>ON_AMU_MEETING_SCHEDULED</strong> utløses når møtet har status planlagt (f.eks. e-post/Teams til deltakere).{' '}
+            <strong>ON_AMU_MEETING_SIGNED</strong> utløses når referat er signert (f.eks. distribuere minutter).
+          </p>
+          <WorkflowRulesTab
+            supabase={supabase}
+            module="amu"
+            triggerEvents={AMU_WORKFLOW_TRIGGER_EVENTS.map((e) => ({ value: e.value, label: e.label }))}
+          />
+        </div>
+      )}
+    </ModulePageShell>
   )
 }
 
