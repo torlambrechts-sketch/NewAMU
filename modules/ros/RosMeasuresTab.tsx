@@ -9,9 +9,8 @@ import { SearchableSelect, type SelectOption } from '../../src/components/ui/Sea
 import { Badge } from '../../src/components/ui/Badge'
 import type { BadgeVariant } from '../../src/components/ui/Badge'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
-import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
-import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
-import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
+import { ModuleRecordsTableShell } from '../../src/components/module/ModuleRecordsTableShell'
+import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../../src/components/module/moduleTableKit'
 
 const ALL_CONTROL_TYPES: RosControlType[] = ['eliminate', 'substitute', 'engineering', 'administrative', 'ppe']
 
@@ -22,10 +21,8 @@ const MEASURE_STATUS_OPTIONS: SelectOption[] = [
   { value: 'cancelled', label: 'Avlyst' },
 ]
 
-const TH =
-  'border-b border-neutral-200 bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500'
-
-const TR_BODY = 'border-b border-neutral-100 last:border-b-0 transition-colors hover:bg-neutral-50'
+const TH = MODULE_TABLE_TH
+const TR_BODY = MODULE_TABLE_TR_BODY
 
 function emptyMeasureForm() {
   return {
@@ -227,19 +224,14 @@ export function RosMeasuresTab({
   const showBottomForm = !readOnly && (addingForHazard !== null || editingMeasureId !== null)
 
   return (
-    <div className="space-y-6">
-      <LayoutScoreStatRow items={kpiItems} />
-
-      <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-        <LayoutTable1PostingsShell
-          wrap={false}
-          titleTypography="sans"
-          title="Registrerte tiltak"
-          description="Oversikt over alle barrierer og tiltak knyttet til farekildene."
-          headerActions={headerActions}
-          toolbar={toolbar}
-        >
-          <table className="w-full border-collapse text-left text-sm whitespace-nowrap">
+    <ModuleRecordsTableShell
+      kpiItems={kpiItems}
+      title="Registrerte tiltak"
+      description="Oversikt over alle barrierer og tiltak knyttet til farekildene."
+      headerActions={headerActions}
+      toolbar={toolbar}
+    >
+      <table className="w-full border-collapse text-left text-sm whitespace-nowrap">
             <thead>
               <tr>
                 <th className={TH}>Tittel</th>
@@ -337,8 +329,8 @@ export function RosMeasuresTab({
             </tbody>
           </table>
 
-          {showBottomForm && (
-            <div className="border-t border-neutral-100 bg-neutral-50/80 px-5 py-4 md:px-6">
+      {showBottomForm && (
+        <div className="border-t border-neutral-100 bg-neutral-50/80 px-5 py-4 md:px-6">
               <p className="mb-3 text-sm font-semibold text-neutral-900">{editingMeasureId ? 'Rediger tiltak' : 'Legg til tiltak'}</p>
               <p className="mb-3 text-xs text-neutral-600">
                 {editingMeasureId && editingMeasure
@@ -419,11 +411,9 @@ export function RosMeasuresTab({
                     </>
                   )}
                 </div>
-              </div>
-            </div>
-          )}
-        </LayoutTable1PostingsShell>
-      </div>
-    </div>
+          </div>
+        </div>
+      )}
+    </ModuleRecordsTableShell>
   )
 }

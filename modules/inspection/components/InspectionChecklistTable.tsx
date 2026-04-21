@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { AlertCircle, CheckCircle2, Circle, ClipboardList } from 'lucide-react'
 import { LayoutTable1PostingsShell } from '../../../src/components/layout/LayoutTable1PostingsShell'
 import { LAYOUT_TABLE1_POSTINGS_BODY_ROW } from '../../../src/components/layout/layoutTable1PostingsKit'
+import { MODULE_TABLE_TH } from '../../../src/components/module/moduleTableKit'
 import { Badge } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
 import { StandardInput } from '../../../src/components/ui/Input'
@@ -9,9 +10,7 @@ import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
 import { StandardTextarea } from '../../../src/components/ui/Textarea'
 import type { InspectionChecklistItem, InspectionFieldType, InspectionItemRow } from '../types'
 
-/** Matches ROS Measures tab (`RosMeasuresTab`) table headers. */
-const TH =
-  'border-b border-neutral-200 bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500'
+const TH = MODULE_TABLE_TH
 
 const TR_BODY = `${LAYOUT_TABLE1_POSTINGS_BODY_ROW} border-b border-neutral-100 last:border-b-0 transition-colors hover:bg-neutral-50`
 

@@ -16,8 +16,9 @@ import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatR
 import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 
-const TH =
-  'border-b border-neutral-200 bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500'
+import { MODULE_TABLE_TH } from '../../src/components/module/moduleTableKit'
+
+const TH = MODULE_TABLE_TH
 
 const TR_BODY = 'cursor-pointer border-b border-neutral-100 last:border-b-0 transition-colors hover:bg-neutral-50'
 
