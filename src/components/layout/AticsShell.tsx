@@ -29,7 +29,6 @@ import {
   PanelRight,
   Boxes,
   Layers,
-  Settings2,
   Shield,
   ShieldAlert,
   ShieldCheck,
@@ -315,159 +314,56 @@ type NavModule = {
   moduleSlug?: string
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Canonical 7-group information architecture (+ Gamle moduler staging group).
+// Each group maps to a legal basis:
+//
+//   1. Risiko & Sikkerhet         — IK-forskriften § 5 nr. 6
+//   2. Hendelser & Varsling       — AML § 5 og kap. 2A
+//   3. Internkontroll             — IK-forskriften § 5
+//   4. Arbeidsmiljø & AMU         — AML § 4 og § 7
+//   5. Dokumentasjon              — IK-forskriften § 5 nr. 3
+//   6. Opplæring & Kompetanse     — AML § 3-2
+//   7. Organisasjon & HR          — støttefunksjoner
+//
+// Anything that does not cleanly map to one of these seven groups is parked in
+// "Gamle moduler" so it stays reachable but is visibly quarantined. Move items
+// out of Gamle moduler by cutting the object and pasting it into the correct
+// group below.
+// ─────────────────────────────────────────────────────────────────────────────
 const navGroups: NavGroup[] = [
+  // ── 1. Risiko & Sikkerhet ────────────────────────────────────────────────
   {
-    id: 'workspace',
-    label: 'Workspace',
-    icon: Home,
-    modules: [
-      { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [], perm: 'module.view.dashboard' },
-      {
-        to: '/workspace/revisjonslogg',
-        label: 'Revisjonslogg',
-        end: true,
-        icon: History,
-        subs: [],
-        perm: 'module.view.dashboard',
-      },
-      { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, subs: tasksSubs, perm: 'module.view.tasks', moduleSlug: 'tasks' },
-      { to: '/action-board', label: 'Action Board', end: false, icon: Kanban, subs: [], perm: 'module.view.dashboard' },
-      { to: '/aarshjul', label: 'Årshjul', end: false, icon: CalendarRange, subs: [], perm: 'module.view.dashboard' },
-      { to: '/reports', label: 'Rapporter', end: false, icon: BarChart3, subs: [], perm: 'module.view.reports' },
-    ],
-  },
-  {
-    id: 'workplace_reporting',
-    label: 'Arbeidsplassrapportering',
-    icon: Megaphone,
+    id: 'risiko-sikkerhet',
+    label: 'Risiko & Sikkerhet',
+    icon: ShieldAlert,
     modules: [
       {
-        to: '/workplace-reporting',
-        label: 'Oversikt',
-        end: true,
-        icon: Megaphone,
-        subs: workplaceReportingSubs,
-        perm: 'module.view.workplace_reporting',
-        moduleSlug: 'workplace_reporting',
-      },
-    ],
-  },
-  {
-    id: 'compliance',
-    label: 'Compliance',
-    icon: ShieldCheck,
-    modules: [
-      {
-        to: '/compliance',
-        label: 'Samsvar',
-        end: true,
-        icon: ShieldCheck,
-        subs: [],
-      },
-      {
-        to: '/internal-control',
-        label: 'Internkontroll',
+        to: '/sja',
+        label: 'Sikker Jobbanalyse',
         end: false,
-        icon: ClipboardList,
-        subs: internalControlSubs,
-        perm: 'module.view.internal_control',
-        moduleSlug: 'internal-control',
-      },
-      {
-        to: '/modules/aarskontroll',
-        label: 'Årskontroll',
-        end: true,
-        icon: CalendarCheck,
-        subs: [],
-        perm: 'module.view.internal_control',
-      },
-      { to: '/hse', label: 'HSE / HMS', end: false, icon: HardHat, subs: hseSubs, perm: 'module.view.hse', moduleSlug: 'hse' },
-      { to: '/org-health', label: 'Org Health', end: false, icon: HeartPulse, subs: orgHealthSubs, perm: 'module.view.org_health', moduleSlug: 'org-health' },
-      {
-        to: '/hr',
-        label: 'HR & rettssikkerhet',
-        end: false,
-        icon: Briefcase,
-        subs: [
-          {
-            label: 'Samsvar — oversikt',
-            path: '/compliance',
-            match: ({ pathname }) => pathname === '/compliance',
-          },
-        ],
-        perm: 'module.view.hr_compliance',
-        moduleSlug: 'hr',
-      },
-    ],
-  },
-  {
-    id: 'council',
-    label: 'Worker Council',
-    icon: UsersRound,
-    modules: [
-      { to: '/council', label: 'Council Room', end: false, icon: UsersRound, subs: councilSubs, perm: 'module.view.council', moduleSlug: 'council' },
-      { to: '/council?tab=board', label: 'Members', end: false, icon: Users, subs: [], perm: 'module.view.members', moduleSlug: 'members' },
-    ],
-  },
-  {
-    id: 'library',
-    label: 'Library',
-    icon: Library,
-    modules: [
-      { to: '/documents', label: 'Documents', end: false, icon: FileText, subs: documentsSubs, perm: 'module.view.dashboard', moduleSlug: 'documents' },
-      { to: '/learning', label: 'E-learning', end: true, icon: GraduationCap, subs: learningSubs, perm: 'module.view.learning', moduleSlug: 'learning' },
-    ],
-  },
-  {
-    id: 'admin',
-    label: 'Admin',
-    icon: Shield,
-    modules: [
-      {
-        to: '/organisation',
-        label: 'Organisasjon',
-        end: false,
-        icon: Building2,
-        subs: [],
-        perm: 'module.view.dashboard',
-      },
-      {
-        to: '/organisation/admin',
-        label: 'Administrasjon',
-        end: true,
-        icon: Shield,
-        subs: organisationAdminSubs,
-        perm: 'module.view.admin',
-      },
-    ],
-  },
-  {
-    // ── Staging area: newly redesigned modules live here until moved ──────────
-    // To move a module to its final group: cut the object and paste it into the
-    // target group's `modules` array above.
-    id: 'nye-moduler',
-    label: 'Nye moduler',
-    icon: Layers,
-    modules: [
-      {
-        to: '/inspection-module',
-        label: 'Inspeksjonsrunder',
-        end: false,
-        icon: ClipboardList,
-        moduleSlug: 'inspection',
+        icon: ShieldAlert,
         subs: [
           {
             label: 'Oversikt',
-            path: '/inspection-module',
-            match: ({ pathname }: { pathname: string }) => pathname === '/inspection-module',
+            path: '/sja',
+            match: ({ pathname }) => pathname === '/sja',
           },
           {
             label: 'Innstillinger',
-            path: '/inspection-module/admin',
-            match: ({ pathname }: { pathname: string }) =>
-              pathname.startsWith('/inspection-module/admin'),
+            path: '/sja/admin',
+            match: ({ pathname }) => pathname.startsWith('/sja/admin'),
           },
         ],
+      },
+      {
+        to: '/ros',
+        label: 'ROS-analyser',
+        end: false,
+        icon: ShieldAlert,
+        subs: [],
+        perm: 'module.view.hse',
+        moduleSlug: 'ros',
       },
       {
         to: '/vernerunder',
@@ -491,6 +387,35 @@ const navGroups: NavGroup[] = [
         ],
       },
       {
+        to: '/inspection-module',
+        label: 'Inspeksjonsrunder',
+        end: false,
+        icon: ClipboardList,
+        moduleSlug: 'inspection',
+        subs: [
+          {
+            label: 'Oversikt',
+            path: '/inspection-module',
+            match: ({ pathname }: { pathname: string }) => pathname === '/inspection-module',
+          },
+          {
+            label: 'Innstillinger',
+            path: '/inspection-module/admin',
+            match: ({ pathname }: { pathname: string }) =>
+              pathname.startsWith('/inspection-module/admin'),
+          },
+        ],
+      },
+    ],
+  },
+
+  // ── 2. Hendelser & Varsling ──────────────────────────────────────────────
+  {
+    id: 'hendelser-varsling',
+    label: 'Hendelser & Varsling',
+    icon: AlertTriangle,
+    modules: [
+      {
         to: '/avvik',
         label: 'Avvik',
         end: false,
@@ -498,8 +423,43 @@ const navGroups: NavGroup[] = [
         subs: [],
       },
       {
+        to: '/workplace-reporting',
+        label: 'Varsling & hendelser',
+        end: true,
+        icon: Megaphone,
+        subs: workplaceReportingSubs,
+        perm: 'module.view.workplace_reporting',
+        moduleSlug: 'workplace_reporting',
+      },
+    ],
+  },
+
+  // ── 3. Internkontroll ────────────────────────────────────────────────────
+  {
+    id: 'internkontroll',
+    label: 'Internkontroll',
+    icon: ShieldCheck,
+    modules: [
+      {
+        to: '/internkontroll',
+        label: 'IK Hub',
+        end: false,
+        icon: BookMarked,
+        subs: internkontrollSubs,
+        perm: 'module.view.internal_control',
+      },
+      {
+        to: '/internal-control',
+        label: 'Internkontroll (legacy hub)',
+        end: false,
+        icon: ClipboardList,
+        subs: internalControlSubs,
+        perm: 'module.view.internal_control',
+        moduleSlug: 'internal-control',
+      },
+      {
         to: '/tiltak',
-        label: 'Handlingsplan',
+        label: 'Tiltaksplan',
         end: false,
         icon: ListTodo,
         perm: 'module.view.hse',
@@ -519,22 +479,12 @@ const navGroups: NavGroup[] = [
         ],
       },
       {
-        to: '/ros',
-        label: 'ROS-analyser',
+        to: '/aarshjul',
+        label: 'Årshjul',
         end: false,
-        icon: ShieldAlert,
+        icon: CalendarRange,
         subs: [],
-        perm: 'module.view.hse',
-        moduleSlug: 'ros',
-      },
-      {
-        to: '/survey',
-        label: 'Undersøkelser',
-        end: false,
-        icon: ListChecks,
-        subs: [],
-        perm: 'module.view.survey',
-        moduleSlug: 'survey',
+        perm: 'module.view.dashboard',
       },
       {
         to: '/internkontroll/amu-valg',
@@ -557,13 +507,88 @@ const navGroups: NavGroup[] = [
           },
         ],
       },
+    ],
+  },
+
+  // ── 4. Arbeidsmiljø & AMU ────────────────────────────────────────────────
+  {
+    id: 'arbeidsmiljo-amu',
+    label: 'Arbeidsmiljø & AMU',
+    icon: HeartPulse,
+    modules: [
       {
-        to: '/internkontroll',
-        label: 'Internkontroll',
+        to: '/council/amu',
+        label: 'AMU',
         end: false,
-        icon: BookMarked,
-        subs: internkontrollSubs,
-        perm: 'module.view.internal_control',
+        icon: ScrollText,
+        perm: 'module.view.council',
+        subs: [
+          {
+            label: 'Møter',
+            path: '/council/amu',
+            match: ({ pathname }) => pathname === '/council/amu' || pathname.startsWith('/council/amu/'),
+          },
+          {
+            label: 'Innstillinger',
+            path: '/council/amu/admin',
+            match: ({ pathname }) => pathname.startsWith('/council/amu/admin'),
+            requirePerm: 'amu.manage',
+          },
+        ],
+      },
+      {
+        to: '/council',
+        label: 'Medvirkning (Council Room)',
+        end: false,
+        icon: UsersRound,
+        subs: councilSubs,
+        perm: 'module.view.council',
+        moduleSlug: 'council',
+      },
+      {
+        to: '/council?tab=board',
+        label: 'Representanter',
+        end: false,
+        icon: Users,
+        subs: [],
+        perm: 'module.view.members',
+        moduleSlug: 'members',
+      },
+      {
+        to: '/survey',
+        label: 'Undersøkelser',
+        end: false,
+        icon: ListChecks,
+        subs: [],
+        perm: 'module.view.survey',
+        moduleSlug: 'survey',
+      },
+      {
+        to: '/org-health',
+        label: 'Organisasjonshelse',
+        end: false,
+        icon: HeartPulse,
+        subs: orgHealthSubs,
+        perm: 'module.view.org_health',
+        moduleSlug: 'org-health',
+      },
+    ],
+  },
+
+  // ── 5. Dokumentasjon ─────────────────────────────────────────────────────
+  {
+    id: 'dokumentasjon',
+    label: 'Dokumentasjon',
+    icon: Library,
+    modules: [
+      {
+        to: '/documents',
+        label: 'Wiki, prosedyrer & maler',
+        end: false,
+        icon: FileText,
+        subs: documentsSubs,
+        perm: 'module.view.dashboard',
+        moduleSlug: 'documents',
       },
       {
         to: '/internkontroll/arsgjenomgang',
@@ -586,64 +611,114 @@ const navGroups: NavGroup[] = [
         moduleSlug: 'ik-annual-review',
       },
       {
-        to: '/sja',
-        label: 'Sikker Jobbanalyse',
-        end: false,
-        icon: ShieldAlert,
-        subs: [
-          {
-            label: 'Oversikt',
-            path: '/sja',
-            match: ({ pathname }) => pathname === '/sja',
-          },
-          {
-            label: 'Innstillinger',
-            path: '/sja/admin',
-            match: ({ pathname }) => pathname.startsWith('/sja/admin'),
-          },
-        ],
+        to: '/modules/aarskontroll',
+        label: 'Årskontroll',
+        end: true,
+        icon: CalendarCheck,
+        subs: [],
+        perm: 'module.view.internal_control',
       },
       {
-        to: '/council/amu',
-        label: 'AMU',
-        end: false,
-        icon: ScrollText,
-        perm: 'module.view.council',
-        subs: [
-          {
-            label: 'Møter',
-            path: '/council/amu',
-            match: ({ pathname }) => pathname === '/council/amu' || pathname.startsWith('/council/amu/'),
-          },
-          {
-            label: 'Innstillinger',
-            path: '/council/amu/admin',
-            match: ({ pathname }) => pathname.startsWith('/council/amu/admin'),
-            requirePerm: 'amu.manage',
-          },
-        ],
+        to: '/compliance',
+        label: 'Compliance-dashboard',
+        end: true,
+        icon: ShieldCheck,
+        subs: [],
       },
+      // NOTE: Arbeidstilsynet-eksport is in the spec but has no route yet.
+      //       Add it here as a new nav module once the page exists.
     ],
   },
+
+  // ── 6. Opplæring & Kompetanse ────────────────────────────────────────────
   {
-    id: 'konfigurasjon',
-    label: 'Konfigurasjon',
-    icon: Settings2,
+    id: 'opplaring-kompetanse',
+    label: 'Opplæring & Kompetanse',
+    icon: GraduationCap,
     modules: [
       {
-        to: '/workflow',
-        label: 'Arbeidsflyt',
+        to: '/learning',
+        label: 'Kurs, læringsløp & sertifiseringer',
+        end: true,
+        icon: GraduationCap,
+        subs: learningSubs,
+        perm: 'module.view.learning',
+        moduleSlug: 'learning',
+      },
+      // NOTE: Kompetansematrise (AML § 3-2). The current sub-items under
+      //       `/learning` cover «Team heatmap» (/learning/compliance) which is
+      //       the compliance matrix, and «External training»
+      //       (/learning/external). Surface them as a standalone module here
+      //       once they have their own page.
+    ],
+  },
+
+  // ── 7. Organisasjon & HR ─────────────────────────────────────────────────
+  {
+    id: 'organisasjon-hr',
+    label: 'Organisasjon & HR',
+    icon: Briefcase,
+    modules: [
+      {
+        to: '/organisation',
+        label: 'Ansatte',
         end: false,
-        icon: Workflow,
+        icon: Building2,
         subs: [],
+        perm: 'module.view.dashboard',
       },
       {
-        to: '/admin/modules',
-        label: 'Moduloversikt',
-        end: false,
-        icon: Boxes,
-        subs: [],
+        to: '/organisation/admin',
+        label: 'Roller & administrasjon',
+        end: true,
+        icon: Shield,
+        subs: organisationAdminSubs,
+        perm: 'module.view.admin',
       },
+      {
+        to: '/hr',
+        label: 'HR & rettssikkerhet',
+        end: false,
+        icon: Briefcase,
+        subs: [
+          {
+            label: 'Samsvar — oversikt',
+            path: '/compliance',
+            match: ({ pathname }) => pathname === '/compliance',
+          },
+        ],
+        perm: 'module.view.hr_compliance',
+        moduleSlug: 'hr',
+      },
+      // NOTE: «Lønn» and «Onboarding» are in the spec but have no routes yet.
+      //       Add them here as new nav modules once the pages exist.
+    ],
+  },
+
+  // ── Gamle moduler (utility / legacy staging) ─────────────────────────────
+  // Items that do not map cleanly to one of the seven canonical groups above.
+  // Keep them reachable, but visibly quarantined until they are either
+  // promoted into a group or removed.
+  {
+    id: 'gamle-moduler',
+    label: 'Gamle moduler',
+    icon: Layers,
+    modules: [
+      { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [], perm: 'module.view.dashboard' },
+      {
+        to: '/workspace/revisjonslogg',
+        label: 'Revisjonslogg',
+        end: true,
+        icon: History,
+        subs: [],
+        perm: 'module.view.dashboard',
+      },
+      { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, subs: tasksSubs, perm: 'module.view.tasks', moduleSlug: 'tasks' },
+      { to: '/action-board', label: 'Action Board', end: false, icon: Kanban, subs: [], perm: 'module.view.dashboard' },
+      { to: '/reports', label: 'Rapporter', end: false, icon: BarChart3, subs: [], perm: 'module.view.reports' },
+      { to: '/hse', label: 'HSE / HMS (legacy)', end: false, icon: HardHat, subs: hseSubs, perm: 'module.view.hse', moduleSlug: 'hse' },
+      { to: '/workflow', label: 'Arbeidsflyt', end: false, icon: Workflow, subs: [] },
+      { to: '/admin/modules', label: 'Moduloversikt', end: false, icon: Boxes, subs: [] },
     ],
   },
 ]
