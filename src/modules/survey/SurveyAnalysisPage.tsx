@@ -2,7 +2,7 @@ import { useEffect, useState, type ElementType } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, LayoutList, Send, BarChart2, CheckSquare, FileText, AlertTriangle } from 'lucide-react'
-import { useSurvey } from './useSurvey'
+import { useSurveyLegacy } from './useSurveyLegacy'
 import { SurveyBuilderTab } from './SurveyBuilderTab'
 import { SurveyResponsesTab } from './SurveyResponsesTab'
 import { SurveyResultsTab } from './SurveyResultsTab'
@@ -25,7 +25,7 @@ type Props = { supabase: SupabaseClient | null }
 export function SurveyAnalysisPage({ supabase }: Props) {
   const { surveyId } = useParams<{ surveyId: string }>()
   const navigate = useNavigate()
-  const survey = useSurvey({ supabase })
+  const survey = useSurveyLegacy({ supabase })
   const [tab, setTab] = useState<Tab>('builder')
 
   useEffect(() => {

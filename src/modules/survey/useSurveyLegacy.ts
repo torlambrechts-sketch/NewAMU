@@ -91,7 +91,7 @@ function parseAmuReview(r: unknown): SurveyAmuReviewRow | null {
   return p.success ? p.data : null
 }
 
-export function useSurvey({ supabase }: Input): SurveyModuleState {
+export function useSurveyLegacy({ supabase }: Input): SurveyModuleState {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [campaigns, setCampaigns] = useState<SurveyCampaignRow[]>([])

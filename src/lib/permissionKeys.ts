@@ -31,6 +31,8 @@ export const PERMISSION_KEYS = [
   'action_plan.manage',
   /** AMU-valg — administrere valg, kandidater og stemmeberettigede */
   'amu_election.manage',
+  /** Konfigurere/kjøre organisasjonsundersøkelser (ny modul) */
+  'survey.manage',
   /** Varslingsmottak — full innsyn i whistleblowing_cases (AML kap. 2A) */
   'whistleblowing.committee',
   'module.view.tasks',
@@ -83,6 +85,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'inspection.manage': 'Inspeksjonsmodul — redigere runder og innstillinger',
   'action_plan.manage': 'Tiltaksplan — kategorier og arbeidsflyt',
   'amu_election.manage': 'AMU-valg — administrasjon',
+  'survey.manage': 'Undersøkelse — administrasjon',
   'whistleblowing.committee': 'Varslingsmottak',
   'module.view.tasks': 'Tasks',
   'module.view.learning': 'E-learning',

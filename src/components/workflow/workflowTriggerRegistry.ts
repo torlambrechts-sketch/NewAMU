@@ -49,6 +49,13 @@ export const AMU_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_AMU_MEETING_SIGNED', label: 'AMU-møte signert (distribuer referat)' },
 ] as const
 
+/** Match `workflow_dispatch_db_event` in survey enterprise migration (module `survey`). */
+export const SURVEY_WORKFLOW_TRIGGER_EVENTS = [
+  { value: 'ON_SURVEY_PUBLISHED', label: 'Undersøkelse publisert' },
+  { value: 'ON_SURVEY_CLOSED', label: 'Undersøkelse lukket' },
+  { value: 'ON_SURVEY_RESPONSE_SUBMITTED', label: 'Svar innsendt' },
+] as const
+
 const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   inspection: INSPECTION_WORKFLOW_TRIGGER_EVENTS,
   ros: ROS_WORKFLOW_TRIGGER_EVENTS,
@@ -57,6 +64,7 @@ const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   vernerunder: VERNERUNDER_WORKFLOW_TRIGGER_EVENTS,
   amu_election: AMU_ELECTION_WORKFLOW_TRIGGER_EVENTS,
   amu: AMU_WORKFLOW_TRIGGER_EVENTS,
+  survey: SURVEY_WORKFLOW_TRIGGER_EVENTS,
 }
 
 export function getWorkflowTriggerEventsForModule(triggerModule: string): { value: string; label: string }[] {

@@ -1,5 +1,5 @@
 import { EyeOff, TrendingUp, AlertTriangle } from 'lucide-react'
-import type { SurveyModuleState } from './useSurvey'
+import type { SurveyModuleState } from './useSurveyLegacy'
 import type { SurveyCampaignRow, SurveyPillar, SurveyResultRow } from './types'
 import { PILLAR_LABEL, PILLAR_COLOR, scoreColor, scoreBg, scoreLabel } from './types'
 

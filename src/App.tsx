@@ -112,6 +112,7 @@ import { RosModulePage }         from './pages/RosModulePage'
 import { RosModuleAdminPage }    from './pages/RosModuleAdminPage'
 import { RosAnalysisDetailPage } from './pages/RosAnalysisDetailPage'
 import { SurveyModulePage } from './pages/SurveyModulePage'
+import { SurveyModuleAdminPage } from './pages/SurveyModuleAdminPage'
 import { SurveyDetailPage } from './pages/SurveyDetailPage'
 import { SurveyRespondPage } from './pages/SurveyRespondPage'
 
@@ -220,6 +221,7 @@ function App() {
                       <Route path="ros/admin"   element={<RosModuleAdminPage />} />
                       <Route path="ros/:rosId"  element={<RosAnalysisDetailPage />} />
                       <Route path="survey" element={<SurveyModulePage />} />
+                      <Route path="survey/admin" element={<SurveyModuleAdminPage />} />
                       <Route path="survey/:surveyId" element={<SurveyDetailPage />} />
                       {/* Admin: module overview + RBAC */}
                       <Route path="admin/modules" element={<ModuleAdminPage />} />

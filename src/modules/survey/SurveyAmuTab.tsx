@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { CheckCircle, Clock } from 'lucide-react'
-import type { SurveyModuleState } from './useSurvey'
+import type { SurveyModuleState } from './useSurveyLegacy'
 import type { SurveyCampaignRow } from './types'
 
 const BTN_PRIMARY =
