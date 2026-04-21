@@ -11,8 +11,8 @@ import {
   Tags,
   Trash2,
 } from 'lucide-react'
-import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import { ModuleAdminShell } from '../components/layout/ModuleAdminShell'
+import { ModulePageShell } from '../components/module/ModulePageShell'
 import { WorkplaceSplit7030Layout } from '../components/layout/WorkplaceSplit7030Layout'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../components/layout/WorkplaceStandardFormPanel'
 import {
@@ -95,28 +95,8 @@ export function RosModuleAdminPage({ embedded = false }: RosModuleAdminPageProps
     [shellTabs],
   )
 
-  const shellClass = embedded ? 'space-y-6' : 'mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8'
-
-  return (
-    <div className={shellClass}>
-      <WorkplacePageHeading1
-        breadcrumb={
-          embedded
-            ? [{ label: 'HMS' }, { label: 'ROS-analyser' }]
-            : [{ label: 'HMS' }, { label: 'ROS-analyser', to: '/ros' }, { label: 'Administrasjon' }]
-        }
-        title={embedded ? 'Innstillinger' : 'ROS Administrasjon'}
-        description="Konfigurer modulen, fare- og konsekvenskategorier, standardmaler og automatiserte arbeidsflyter — samme mønster som inspeksjonsmodulen."
-        headerActions={
-          embedded ? null : (
-            <Button variant="secondary" type="button" onClick={() => navigate('/ros')}>
-              <ArrowLeft className="h-4 w-4" />
-              Tilbake til analyser
-            </Button>
-          )
-        }
-      />
-
+  const body = (
+    <>
       {ros.error && <WarningBox>{ros.error}</WarningBox>}
 
       <ModuleAdminShell
@@ -133,7 +113,34 @@ export function RosModuleAdminPage({ embedded = false }: RosModuleAdminPageProps
         {tab === 'maler' && <RosAdminMalerTab ros={ros} />}
         {tab === 'arbeidsflyt' && <WorkflowRulesTab supabase={supabase} module="ros" />}
       </ModuleAdminShell>
-    </div>
+    </>
+  )
+
+  if (embedded) {
+    // When embedded under RosModulePage the outer ModulePageShell belongs to
+    // the parent (so the root tabs and breadcrumb stay stable across
+    // Oversikt / Innstillinger).
+    return <div className="space-y-6">{body}</div>
+  }
+
+  return (
+    <ModulePageShell
+      breadcrumb={[{ label: 'HMS' }, { label: 'ROS-analyser', to: '/ros' }, { label: 'Administrasjon' }]}
+      title="ROS Administrasjon"
+      description="Konfigurer modulen, fare- og konsekvenskategorier, standardmaler og automatiserte arbeidsflyter — samme mønster som inspeksjonsmodulen."
+      headerActions={
+        <Button
+          variant="secondary"
+          type="button"
+          icon={<ArrowLeft className="h-4 w-4" />}
+          onClick={() => navigate('/ros')}
+        >
+          Tilbake til analyser
+        </Button>
+      }
+    >
+      {body}
+    </ModulePageShell>
   )
 }
 

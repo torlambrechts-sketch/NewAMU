@@ -1,14 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Settings } from 'lucide-react'
-import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
-import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
-import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
+import { Plus, Search, Settings } from 'lucide-react'
 import {
-  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
-  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
-  LAYOUT_TABLE1_POSTINGS_TH,
-} from '../../src/components/layout/layoutTable1PostingsKit'
+  ModulePageShell,
+  ModuleRecordsTableShell,
+  MODULE_TABLE_TH,
+  MODULE_TABLE_TR_BODY,
+} from '../../src/components/module'
 import { FormModal } from '../../src/template'
 import { useRos } from './useRos'
 import { ROS_STATUS_LABEL, ROS_TYPE_LABEL, ALL_LAW_DOMAINS, LAW_DOMAIN_BG, LAW_DOMAIN_CHIP_ACTIVE } from './types'
@@ -54,10 +52,21 @@ function rosStatusBadgeVariant(status: RosStatus) {
 export function RosModuleView({
   supabase,
   hideAdminNav = false,
+  tabs,
+  bodyOnly = false,
 }: {
   supabase: SupabaseClient | null
   /** When module root uses tabs to admin, hide duplicate «Innstillinger» button */
   hideAdminNav?: boolean
+  /** Optional tabs row passed to `ModulePageShell.tabs`. */
+  tabs?: React.ReactNode
+  /**
+   * When `true`, skip the ModulePageShell chrome and render the analyses
+   * body only. Used when the parent already owns the page shell (e.g. the
+   * RosModulePage root-tab wrapper renders admin and hub under a single
+   * ModulePageShell so root tabs stay visible across tabs).
+   */
+  bodyOnly?: boolean
 }) {
   const navigate = useNavigate()
   const ros = useRos({ supabase })
@@ -100,44 +109,49 @@ export function RosModuleView({
     return [{ value: '', label: '(ingen mal)' }, ...rows]
   }, [ros.templates])
 
-  return (
-    <div className="space-y-6">
-      <WorkplacePageHeading1
-        breadcrumb={[{ label: 'HMS' }, { label: 'ROS-analyser' }]}
-        title="Risikovurderinger"
-        description="Kartlegg og dokumenter risikoer i henhold til IK-forskriften § 5 nr. 6 på tvers av AML, BVL, ETL, FL og PKL."
-        headerActions={
-          <div className="flex flex-wrap gap-2">
-            {!hideAdminNav && (
-              <Button variant="secondary" type="button" onClick={() => navigate('/ros/admin')}>
-                <Settings className="h-4 w-4" />
-                Innstillinger
-              </Button>
-            )}
-            <Button variant="primary" type="button" onClick={() => setCreateOpen(true)}>
-              + Ny analyse
-            </Button>
-          </div>
-        }
-      />
+  const kpiItems = useMemo(
+    () => [
+      { big: String(stats.open), title: 'Åpne analyser', sub: 'Utkast, gjennomgang og signert' },
+      { big: String(stats.critical), title: 'Kritiske farekilder', sub: 'Risikoskår ≥ 15 i organisasjonen' },
+      { big: String(stats.approved), title: 'Godkjente', sub: 'Begge signaturer registrert' },
+      { big: String(stats.total), title: 'Totalt', sub: 'Alle analyser' },
+    ],
+    [stats.open, stats.critical, stats.approved, stats.total],
+  )
 
-      <LayoutScoreStatRow
-        items={[
-          { big: String(stats.open), title: 'Åpne analyser', sub: 'Utkast, gjennomgang og signert' },
-          { big: String(stats.critical), title: 'Kritiske farekilder', sub: 'Risikoskår ≥ 15 i organisasjonen' },
-          { big: String(stats.approved), title: 'Godkjente', sub: 'Begge signaturer registrert' },
-          { big: String(stats.total), title: 'Totalt', sub: 'Alle analyser' },
-        ]}
-      />
+  const headerActions = (
+    <div className="flex flex-wrap items-center gap-2">
+      {!hideAdminNav && (
+        <Button
+          variant="secondary"
+          type="button"
+          icon={<Settings className="h-4 w-4" />}
+          onClick={() => navigate('/ros/admin')}
+        >
+          <span className="hidden sm:inline">Innstillinger</span>
+        </Button>
+      )}
+      <Button
+        variant="primary"
+        type="button"
+        icon={<Plus className="h-4 w-4" />}
+        onClick={() => setCreateOpen(true)}
+      >
+        Ny analyse
+      </Button>
+    </div>
+  )
 
+  const body = (
+    <>
       {ros.error && <WarningBox>{ros.error}</WarningBox>}
 
-      <LayoutTable1PostingsShell
-        wrap
+      <ModuleRecordsTableShell
+        kpiItems={kpiItems}
         title="Analyser"
         description="Alle risikovurderinger sortert etter siste aktivitet."
         toolbar={
-          <div className="relative flex-1">
+          <div className="relative min-w-[200px] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
             <StandardInput
               type="search"
@@ -152,26 +166,26 @@ export function RosModuleView({
       >
         <table className="w-full min-w-[700px] border-collapse text-left text-sm">
           <thead>
-            <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Lovverk</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Vurdert</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Neste revisjon</th>
-              <th className="w-8" />
+            <tr>
+              <th className={MODULE_TABLE_TH}>Tittel</th>
+              <th className={MODULE_TABLE_TH}>Type</th>
+              <th className={MODULE_TABLE_TH}>Lovverk</th>
+              <th className={MODULE_TABLE_TH}>Status</th>
+              <th className={MODULE_TABLE_TH}>Vurdert</th>
+              <th className={MODULE_TABLE_TH}>Neste revisjon</th>
+              <th className={`w-8 ${MODULE_TABLE_TH}`} aria-hidden />
             </tr>
           </thead>
           <tbody>
             {filtered.map((a) => (
               <tr
                 key={a.id}
-                className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer hover:bg-neutral-50`}
+                className={`${MODULE_TABLE_TR_BODY} cursor-pointer`}
                 onClick={() => navigate(`/ros/${a.id}`)}
               >
-                <td className="px-5 py-3 font-medium text-neutral-900">{a.title}</td>
-                <td className="px-5 py-3 text-neutral-600">{ROS_TYPE_LABEL[a.ros_type]}</td>
-                <td className="px-5 py-3">
+                <td className="px-5 py-4 align-middle font-medium text-neutral-900">{a.title}</td>
+                <td className="px-5 py-4 align-middle text-neutral-600">{ROS_TYPE_LABEL[a.ros_type]}</td>
+                <td className="px-5 py-4 align-middle">
                   <div className="flex flex-wrap gap-1">
                     {a.law_domains.map((d) => (
                       <span key={d} className={`rounded px-1.5 py-0.5 text-[9px] font-bold text-white ${LAW_DOMAIN_BG[d]}`}>
@@ -180,13 +194,13 @@ export function RosModuleView({
                     ))}
                   </div>
                 </td>
-                <td className="px-5 py-3">
+                <td className="px-5 py-4 align-middle">
                   <Badge variant={rosStatusBadgeVariant(a.status)}>{ROS_STATUS_LABEL[a.status]}</Badge>
                 </td>
-                <td className="px-5 py-3 text-neutral-600">
+                <td className="px-5 py-4 align-middle text-neutral-600">
                   {a.assessed_at ? new Date(a.assessed_at).toLocaleDateString('nb-NO') : '—'}
                 </td>
-                <td className="px-5 py-3 text-neutral-600">
+                <td className="px-5 py-4 align-middle text-neutral-600">
                   {a.next_review_date ? (
                     (() => {
                       const d = new Date(a.next_review_date)
@@ -202,7 +216,7 @@ export function RosModuleView({
                     '—'
                   )}
                 </td>
-                <td className="w-8 px-3 py-3 text-neutral-300">›</td>
+                <td className="w-8 px-3 py-4 align-middle text-neutral-300">›</td>
               </tr>
             ))}
             {filtered.length === 0 && (
@@ -214,7 +228,7 @@ export function RosModuleView({
             )}
           </tbody>
         </table>
-      </LayoutTable1PostingsShell>
+      </ModuleRecordsTableShell>
 
       <FormModal
         open={createOpen}
@@ -304,6 +318,22 @@ export function RosModuleView({
           </div>
         </div>
       </FormModal>
-    </div>
+    </>
+  )
+
+  if (bodyOnly) {
+    return <>{body}</>
+  }
+
+  return (
+    <ModulePageShell
+      breadcrumb={[{ label: 'HMS' }, { label: 'ROS-analyser' }]}
+      title="Risikovurderinger"
+      description="Kartlegg og dokumenter risikoer i henhold til IK-forskriften § 5 nr. 6 på tvers av AML, BVL, ETL, FL og PKL."
+      tabs={tabs}
+      headerActions={headerActions}
+    >
+      {body}
+    </ModulePageShell>
   )
 }
