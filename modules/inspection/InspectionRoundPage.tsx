@@ -4,11 +4,9 @@ import { supabase } from '../../src/lib/supabaseClient'
 import {
   AlertTriangle,
   CheckCircle2,
-  Circle,
   ClipboardList,
   FileText,
   History,
-  Loader2,
   PenLine,
   Settings,
   Trash2,
@@ -18,9 +16,11 @@ import {
   WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
-import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
-import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
+import { ModulePageShell } from '../../src/components/module/ModulePageShell'
+import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
+import { ModulePreflightChecklist } from '../../src/components/module/ModulePreflightChecklist'
+import { ModuleSignatureCard } from '../../src/components/module/ModuleSignatureCard'
 import type { InspectionChecklistItem, InspectionLocationRow, InspectionRoundRow } from './types'
 import { parseChecklistItems } from './schema'
 import { useInspectionModule, type InspectionModuleState } from './useInspectionModule'
@@ -566,10 +566,21 @@ function SignaturesTab({
   }
 
   const canSign = isActive && allRequiredAnswered && hasSummary
-  const managerButtonDisabled = !canSign || signing !== null || (hasRoleRestriction && !isManager)
-  const deputyButtonDisabled = !canSign || signing !== null || (hasRoleRestriction && !isDeputy)
-  const managerButtonSolid = !hasRoleRestriction || isManager
-  const deputyButtonSolid = !hasRoleRestriction || isDeputy
+
+  const preflightItems = [
+    { ok: isActive, label: 'Runden er aktiv (ikke kladd)' },
+    {
+      ok: allRequiredAnswered,
+      label: `Alle påkrevde punkter besvart (${answeredRequiredCount}/${requiredItems.length})`,
+    },
+    { ok: hasSummary, label: 'Sammendrag er fylt ut' },
+  ]
+
+  type Role = 'manager' | 'deputy'
+  const roles: { role: Role; title: string; lawReference: string; userIsRole: boolean }[] = [
+    { role: 'manager', title: 'Leder', lawReference: 'AML § 2-1 — arbeidsgiveransvar', userIsRole: isManager },
+    { role: 'deputy', title: 'Verneombud', lawReference: 'AML § 6-2 — verneombudets representasjon', userIsRole: isDeputy },
+  ]
 
   return (
     <div className="flex flex-col">
@@ -597,117 +608,30 @@ function SignaturesTab({
           </div>
         )}
 
-        {/* Pre-flight checks */}
-        {!isSigned && (
-          <div className="space-y-1.5">
-            <p className={WPSTD_FORM_FIELD_LABEL}>Sjekkliste før signering</p>
-            {[
-              { ok: isActive, label: 'Runden er aktiv (ikke kladd)' },
-              {
-                ok: allRequiredAnswered,
-                label: `Alle påkrevde punkter besvart (${answeredRequiredCount}/${requiredItems.length})`,
-              },
-              { ok: hasSummary, label: 'Sammendrag er fylt ut' },
-            ].map(({ ok, label }) => (
-              <div key={label} className="flex items-center gap-2 text-xs">
-                {ok ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                ) : (
-                  <Circle className="h-4 w-4 text-neutral-300" />
-                )}
-                <span className={ok ? 'text-neutral-700' : 'text-neutral-400'}>{label}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        {!isSigned && <ModulePreflightChecklist items={preflightItems} />}
 
-        {/* Manager */}
-        <div className={`rounded-md border-2 p-5 transition-all ${
-          round.manager_signed_at
-            ? 'border-green-300 bg-green-50'
-            : canSign && (!hasRoleRestriction || isManager)
-              ? 'border-[#1a3d32]/40 bg-white shadow-sm'
-              : 'border-neutral-200 bg-white'
-        }`}>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              {round.manager_signed_at
-                ? <CheckCircle2 className="h-7 w-7 shrink-0 text-green-500" />
-                : <Circle className="h-7 w-7 shrink-0 text-neutral-300" />
-              }
-              <div>
-                <p className="text-base font-semibold text-neutral-900">Leder</p>
-                <p className="text-xs text-neutral-500">AML § 2-1 — arbeidsgiveransvar</p>
-                {round.manager_signed_at ? (
-                  <p className="mt-0.5 text-xs font-medium text-green-700">
-                    ✓ Signert {new Date(round.manager_signed_at).toLocaleDateString('nb-NO', { dateStyle: 'medium' })}
-                    {round.manager_signed_by && userNameById.has(round.manager_signed_by)
-                      ? ` av ${userNameById.get(round.manager_signed_by)}`
-                      : ''}
-                  </p>
-                ) : (
-                  <p className="mt-0.5 text-xs text-neutral-400">Venter på signatur</p>
-                )}
-              </div>
-            </div>
-            {!round.manager_signed_at && !isSigned && (
-              <Button
-                type="button"
-                variant={managerButtonSolid ? 'primary' : 'secondary'}
-                disabled={managerButtonDisabled}
-                title={unauthorizedTooltip}
-                onClick={() => void handleSign('manager')}
-                className="shrink-0 disabled:opacity-40"
-              >
-                {signing === 'manager' ? 'Signerer…' : 'Signer som leder'}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Deputy */}
-        <div className={`rounded-md border-2 p-5 transition-all ${
-          round.deputy_signed_at
-            ? 'border-green-300 bg-green-50'
-            : canSign && (!hasRoleRestriction || isDeputy)
-              ? 'border-[#1a3d32]/40 bg-white shadow-sm'
-              : 'border-neutral-200 bg-white'
-        }`}>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              {round.deputy_signed_at
-                ? <CheckCircle2 className="h-7 w-7 shrink-0 text-green-500" />
-                : <Circle className="h-7 w-7 shrink-0 text-neutral-300" />
-              }
-              <div>
-                <p className="text-base font-semibold text-neutral-900">Verneombud</p>
-                <p className="text-xs text-neutral-500">AML § 6-2 — verneombudets representasjon</p>
-                {round.deputy_signed_at ? (
-                  <p className="mt-0.5 text-xs font-medium text-green-700">
-                    ✓ Signert {new Date(round.deputy_signed_at).toLocaleDateString('nb-NO', { dateStyle: 'medium' })}
-                    {round.deputy_signed_by && userNameById.has(round.deputy_signed_by)
-                      ? ` av ${userNameById.get(round.deputy_signed_by)}`
-                      : ''}
-                  </p>
-                ) : (
-                  <p className="mt-0.5 text-xs text-neutral-400">Venter på signatur</p>
-                )}
-              </div>
-            </div>
-            {!round.deputy_signed_at && !isSigned && (
-              <Button
-                type="button"
-                variant={deputyButtonSolid ? 'primary' : 'secondary'}
-                disabled={deputyButtonDisabled}
-                title={unauthorizedTooltip}
-                onClick={() => void handleSign('deputy')}
-                className="shrink-0 disabled:opacity-40"
-              >
-                {signing === 'deputy' ? 'Signerer…' : 'Signer som verneombud'}
-              </Button>
-            )}
-          </div>
-        </div>
+        {roles.map(({ role, title, lawReference, userIsRole }) => {
+          const signedAt = role === 'manager' ? round.manager_signed_at : round.deputy_signed_at
+          const signedBy = role === 'manager' ? round.manager_signed_by : round.deputy_signed_by
+          const byName = signedBy && userNameById.has(signedBy) ? userNameById.get(signedBy)! : null
+          const primary = !hasRoleRestriction || userIsRole
+          const disabled = !canSign || signing !== null || (hasRoleRestriction && !userIsRole)
+          return (
+            <ModuleSignatureCard
+              key={role}
+              title={title}
+              lawReference={lawReference}
+              signed={signedAt ? { at: signedAt, byName } : null}
+              buttonLabel={`Signer som ${title.toLowerCase()}`}
+              variant={primary ? 'primary' : 'secondary'}
+              disabled={disabled}
+              disabledTitle={unauthorizedTooltip}
+              busy={signing === role}
+              hideButton={isSigned}
+              onSign={() => handleSign(role)}
+            />
+          )
+        })}
 
         {isSigned && (
           <div className="rounded-md border border-green-200 bg-green-50 p-4 text-center">
@@ -950,167 +874,165 @@ export function InspectionRoundPage() {
 
   if (!roundId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F9F7F2] text-sm text-neutral-600">
-        Mangler runde-ID.
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder', to: '/inspection-module' }]}
+        title="Inspeksjonsrunde"
+        notFound={{ title: 'Mangler runde-ID', onBack: () => navigate('/inspection-module') }}
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   if (showSpinner) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#F9F7F2]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden />
-        <p className="text-sm text-neutral-600">Laster runde…</p>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder', to: '/inspection-module' }]}
+        title="Laster runde…"
+        loading
+        loadingLabel="Laster runde…"
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   if (showNotFound) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#F9F7F2] px-4">
-        <p className="text-lg font-semibold text-neutral-900">Runde ikke funnet</p>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => navigate('/inspection-module')}
-          className="font-medium text-neutral-800"
-        >
-          ← Tilbake til inspeksjonsrunder
-        </Button>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder', to: '/inspection-module' }]}
+        title="Runde ikke funnet"
+        notFound={{
+          title: 'Runde ikke funnet',
+          backLabel: '← Tilbake til inspeksjonsrunder',
+          onBack: () => navigate('/inspection-module'),
+        }}
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   if (!round) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#F9F7F2]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden />
-        <p className="text-sm text-neutral-600">Laster runde…</p>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder', to: '/inspection-module' }]}
+        title="Laster runde…"
+        loading
+        loadingLabel="Laster runde…"
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F9F7F2]">
-      <header className="bg-[#F9F7F2]">
-        <div className="mx-auto max-w-[1400px] px-4 pb-4 pt-4 md:px-8">
-          <WorkplacePageHeading1
-            breadcrumb={[
-              { label: 'HMS' },
-              { label: 'Inspeksjonsrunder', to: '/inspection-module' },
-              { label: round.title },
-            ]}
-            title={round.title}
-            description={<p className="max-w-4xl text-xs leading-relaxed text-neutral-600">{headerSubtitle}</p>}
-            headerActions={
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge
-                  variant={
-                    round.status === 'signed' ? 'signed' : round.status === 'active' ? 'active' : 'draft'
-                  }
-                  className="px-3 py-1 text-xs"
-                >
-                  {STATUS_LABEL[round.status]}
-                </Badge>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="px-3 py-2 font-normal text-neutral-600"
-                  icon={<Settings className="w-4 h-4" aria-hidden />}
-                  onClick={() => navigate('/inspection-module/admin')}
-                >
-                  <span className="hidden sm:inline">Admin</span>
-                </Button>
-              </div>
-            }
-            menu={
-              <Tabs
-                items={tabItems}
-                activeId={activeTab}
-                onChange={(id) => setActiveTab(id as PanelTab)}
-              />
-            }
-          />
+    <ModulePageShell
+      breadcrumb={[
+        { label: 'HMS' },
+        { label: 'Inspeksjonsrunder', to: '/inspection-module' },
+        { label: round.title },
+      ]}
+      title={round.title}
+      description={<p className="max-w-4xl text-xs leading-relaxed text-neutral-600">{headerSubtitle}</p>}
+      headerActions={
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            variant={round.status === 'signed' ? 'signed' : round.status === 'active' ? 'active' : 'draft'}
+            className="px-3 py-1 text-xs"
+          >
+            {STATUS_LABEL[round.status]}
+          </Badge>
+          <Button
+            type="button"
+            variant="secondary"
+            className="px-3 py-2 font-normal text-neutral-600"
+            icon={<Settings className="w-4 h-4" aria-hidden />}
+            onClick={() => navigate('/inspection-module/admin')}
+          >
+            <span className="hidden sm:inline">Admin</span>
+          </Button>
         </div>
-      </header>
-
-      <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
-        {activeTab === 'checklist' && (
-          <div className="flex flex-col space-y-6">
-            {critCount > 0 && (
-              <div className="flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-5 py-3">
-                <Badge variant="critical" className="text-xs font-semibold shadow-none">
-                  ⚠ {critCount} kritiske funn registrert
-                </Badge>
-              </div>
-            )}
-            <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-              <RoundBasicsForm
-                round={round}
-                locations={inspection.locations}
-                assignableUsers={inspection.assignableUsers}
-                readOnly={round.status === 'signed'}
-                onUpdated={() => void inspection.loadRoundDetail(round.id)}
-              />
+      }
+      tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as PanelTab)} />}
+    >
+      {activeTab === 'checklist' && (
+        <div className="flex flex-col space-y-6">
+          {critCount > 0 && (
+            <div className="flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-5 py-3">
+              <Badge variant="critical" className="text-xs font-semibold shadow-none">
+                ⚠ {critCount} kritiske funn registrert
+              </Badge>
             </div>
-            <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-              <ChecklistTab
-                round={round}
-                checklistItems={checklistItems}
-                inspection={inspection}
-                onSwitchToFindings={(key) => {
-                  setFindingPrefillKey(key)
-                  setActiveTab('findings')
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'findings' && (
-          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            {findings.length > 0 && (
-              <div className="flex items-center justify-between border-b border-neutral-100 bg-neutral-50 px-5 py-2">
-                <span className="text-xs text-neutral-500">{findings.length} avvik registrert · tilknytt sjekklistepunkt ved behov</span>
-                {critCount > 0 && (
-                  <Badge variant="critical" className="border-transparent shadow-none">
-                    {critCount} kritisk
-                  </Badge>
-                )}
-              </div>
-            )}
-            <FindingsTab
-              key={`${round.id}-${findingPrefillKey ?? ''}`}
+          )}
+          <ModuleSectionCard>
+            <RoundBasicsForm
               round={round}
-              inspection={inspection}
-              prefillItemKey={findingPrefillKey}
-              checklistItems={checklistItems}
-              onOpenDeviation={(id) => setSelectedDeviationId(id)}
+              locations={inspection.locations}
+              assignableUsers={inspection.assignableUsers}
+              readOnly={round.status === 'signed'}
+              onUpdated={() => void inspection.loadRoundDetail(round.id)}
             />
-          </div>
-        )}
+          </ModuleSectionCard>
+          <ModuleSectionCard>
+            <ChecklistTab
+              round={round}
+              checklistItems={checklistItems}
+              inspection={inspection}
+              onSwitchToFindings={(key) => {
+                setFindingPrefillKey(key)
+                setActiveTab('findings')
+              }}
+            />
+          </ModuleSectionCard>
+        </div>
+      )}
 
-        {activeTab === 'summary' && (
-          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <SummaryTab key={`${round.id}-${round.updated_at}`} round={round} inspection={inspection} />
-          </div>
-        )}
-
-        {activeTab === 'signatures' && (
-          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <SignaturesTab round={round} inspection={inspection} checklistItems={checklistItems} />
-          </div>
-        )}
-
-        {activeTab === 'history' && (
-          <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <div className="border-b border-neutral-100 bg-neutral-50 px-5 py-2">
-              <span className="text-xs text-neutral-500">Revisjonsspor — alle endringer loggført for denne runden</span>
+      {activeTab === 'findings' && (
+        <ModuleSectionCard>
+          {findings.length > 0 && (
+            <div className="flex items-center justify-between border-b border-neutral-100 bg-neutral-50 px-5 py-2">
+              <span className="text-xs text-neutral-500">
+                {findings.length} avvik registrert · tilknytt sjekklistepunkt ved behov
+              </span>
+              {critCount > 0 && (
+                <Badge variant="critical" className="border-transparent shadow-none">
+                  {critCount} kritisk
+                </Badge>
+              )}
             </div>
-            <HseAuditLogViewer supabase={supabase} recordId={round.id} tableName="inspection_rounds" />
+          )}
+          <FindingsTab
+            key={`${round.id}-${findingPrefillKey ?? ''}`}
+            round={round}
+            inspection={inspection}
+            prefillItemKey={findingPrefillKey}
+            checklistItems={checklistItems}
+            onOpenDeviation={(id) => setSelectedDeviationId(id)}
+          />
+        </ModuleSectionCard>
+      )}
+
+      {activeTab === 'summary' && (
+        <ModuleSectionCard>
+          <SummaryTab key={`${round.id}-${round.updated_at}`} round={round} inspection={inspection} />
+        </ModuleSectionCard>
+      )}
+
+      {activeTab === 'signatures' && (
+        <ModuleSectionCard>
+          <SignaturesTab round={round} inspection={inspection} checklistItems={checklistItems} />
+        </ModuleSectionCard>
+      )}
+
+      {activeTab === 'history' && (
+        <ModuleSectionCard>
+          <div className="border-b border-neutral-100 bg-neutral-50 px-5 py-2">
+            <span className="text-xs text-neutral-500">Revisjonsspor — alle endringer loggført for denne runden</span>
           </div>
-        )}
-      </div>
+          <HseAuditLogViewer supabase={supabase} recordId={round.id} tableName="inspection_rounds" />
+        </ModuleSectionCard>
+      )}
 
       {selectedDeviationId ? (
         <DeviationPanel
@@ -1122,6 +1044,6 @@ export function InspectionRoundPage() {
           }}
         />
       ) : null}
-    </div>
+    </ModulePageShell>
   )
 }
