@@ -33,6 +33,7 @@ import {
   ShieldCheck,
   Users,
   UsersRound,
+  Vote,
   Workflow,
 } from 'lucide-react'
 import { NotificationTray } from '../notifications/NotificationTray'
@@ -119,6 +120,13 @@ const internkontrollSubs: SubItem[] = [
     label: 'Tiltaksplan',
     path: '/internkontroll/tiltaksplan',
     match: ({ pathname }) => pathname === '/internkontroll/tiltaksplan',
+  },
+  {
+    label: 'AMU-valg',
+    path: '/internkontroll/amu-valg',
+    match: ({ pathname }) =>
+      pathname === '/internkontroll/amu-valg' ||
+      pathname.startsWith('/internkontroll/amu-valg/'),
   },
   {
     label: 'ROS-analyse',
@@ -506,6 +514,27 @@ const navGroups: NavGroup[] = [
         subs: [],
         perm: 'module.view.survey',
         moduleSlug: 'survey',
+      },
+      {
+        to: '/internkontroll/amu-valg',
+        label: 'AMU-valg',
+        end: false,
+        icon: Vote,
+        perm: 'module.view.internal_control',
+        moduleSlug: 'amu_election',
+        subs: [
+          {
+            label: 'Oversikt',
+            path: '/internkontroll/amu-valg',
+            match: ({ pathname }) => pathname === '/internkontroll/amu-valg',
+          },
+          {
+            label: 'Innstillinger',
+            path: '/internkontroll/amu-valg/admin',
+            match: ({ pathname }) => pathname.startsWith('/internkontroll/amu-valg/admin'),
+            requirePermAny: ['amu_election.manage', 'internkontroll.manage', 'ik.manage'],
+          },
+        ],
       },
       {
         to: '/internkontroll',
