@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { CheckCircle2, ChevronRight, Circle, Search, Settings } from 'lucide-react'
+import { CheckCircle2, ChevronRight, Circle, Plus, Search, Settings } from 'lucide-react'
 import { FormModal } from '../../src/template'
 import { Badge, type BadgeVariant } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
+import { WarningBox } from '../../src/components/ui/AlertBox'
 import { StandardInput } from '../../src/components/ui/Input'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
-import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
-import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
-import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import {
-  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
-  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
-  LAYOUT_TABLE1_POSTINGS_TH,
-} from '../../src/components/layout/layoutTable1PostingsKit'
+  ModulePageShell,
+  ModuleRecordsTableShell,
+  MODULE_TABLE_TH,
+  MODULE_TABLE_TR_BODY,
+} from '../../src/components/module'
 import { RecurrencePicker, toDateTimeLocalValue } from '../../src/components/hse/RecurrencePicker'
 import { useSja } from './useSja'
 import type { SjaAnalysis, SjaJobType } from './types'
@@ -226,75 +225,64 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
 
   const defaultTemplateId = sja.templates[0]?.id ?? ''
 
+  const kpiItems = useMemo(
+    () => [
+      { big: String(sja.analyses.length), title: 'Totalt analyser', sub: 'Alle SJA' },
+      { big: String(stats.inProgress), title: 'Aktive analyser', sub: 'Fra kladd til under utførelse' },
+      { big: String(stats.stopped), title: 'Stoppet', sub: 'Krever oppfølging' },
+      { big: String(stats.done), title: 'Fullført / arkivert', sub: 'Avsluttet flyt' },
+    ],
+    [sja.analyses.length, stats.inProgress, stats.stopped, stats.done],
+  )
+
   return (
-    <div className="space-y-6">
-      <WorkplacePageHeading1
-        breadcrumb={[{ label: 'HMS' }, { label: 'Sikker jobbanalyse' }]}
-        title="Sikker jobbanalyse"
-        description="Planlegg, gjennomfør og signer sikker jobbanalyse i henhold til arbeidsmiljøloven og internkontroll."
-        headerActions={
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" onClick={() => setScheduleOpen(true)} className="font-medium">
-              Planlegging
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              onClick={() => {
-                const tid = defaultTemplateId
-                setNewSjaForm({
-                  title: '',
-                  templateId: tid,
-                  jobType: (tid ? templateJobTypeById.get(tid) : undefined) ?? 'custom',
-                  locationId: '',
-                  scheduledStart: '',
-                  scheduledEnd: '',
-                  responsibleId: '',
-                  cronExpression: '',
-                })
-                setCreateOpen(true)
-              }}
-              className="bg-[#2D403A] font-bold uppercase tracking-wide hover:bg-[#243830]"
-            >
-              Ny analyse
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              className="px-3 py-2 font-normal text-neutral-600"
-              icon={<Settings className="w-4 h-4" aria-hidden />}
-              onClick={() => navigate('/sja/admin')}
-              aria-label="SJA-innstillinger"
-            />
-          </div>
-        }
-      />
+    <ModulePageShell
+      breadcrumb={[{ label: 'HMS' }, { label: 'Sikker jobbanalyse' }]}
+      title="Sikker jobbanalyse"
+      description="Planlegg, gjennomfør og signer sikker jobbanalyse i henhold til arbeidsmiljøloven og internkontroll."
+      headerActions={
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="secondary" onClick={() => setScheduleOpen(true)}>
+            Planlegging
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            icon={<Settings className="h-4 w-4" />}
+            onClick={() => navigate('/sja/admin')}
+          >
+            <span className="hidden sm:inline">Innstillinger</span>
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            icon={<Plus className="h-4 w-4" />}
+            onClick={() => {
+              const tid = defaultTemplateId
+              setNewSjaForm({
+                title: '',
+                templateId: tid,
+                jobType: (tid ? templateJobTypeById.get(tid) : undefined) ?? 'custom',
+                locationId: '',
+                scheduledStart: '',
+                scheduledEnd: '',
+                responsibleId: '',
+                cronExpression: '',
+              })
+              setCreateOpen(true)
+            }}
+          >
+            Ny analyse
+          </Button>
+        </div>
+      }
+    >
+      {sja.error ? <WarningBox>{sja.error}</WarningBox> : null}
 
-      <LayoutScoreStatRow
-        items={[
-          {
-            big: String(stats.inProgress),
-            title: 'Aktive analyser',
-            sub: 'Fra kladd til under utførelse',
-          },
-          {
-            big: String(stats.stopped),
-            title: 'Stoppet',
-            sub: 'Krever oppfølging',
-          },
-          {
-            big: String(stats.done),
-            title: 'Fullført / arkivert',
-            sub: 'Avsluttet flyt',
-          },
-        ]}
-      />
-
-      <LayoutTable1PostingsShell
-        wrap
+      <ModuleRecordsTableShell
+        kpiItems={kpiItems}
         title="Analyser"
         description="Alle SJA-er — sortert etter siste aktivitet."
-        headerActions={sja.error ? <span className="text-xs text-red-600">{sja.error}</span> : undefined}
         toolbar={
           <div className="relative min-w-[200px] flex-1">
             <label className="sr-only" htmlFor="sja-search">
@@ -307,7 +295,7 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Søk i tittel, lokasjon, ansvarlig …"
-              className="rounded-lg py-2 pl-10 pr-3 shadow-sm focus:ring-2 focus:ring-[#1a3d32]/25"
+              className="py-2 pl-10"
             />
           </div>
         }
@@ -319,16 +307,16 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
       >
         <table className="w-full min-w-[640px] border-collapse text-left text-sm">
           <thead>
-            <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Mal</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Lokasjon</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Ansvarlig</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Planlagt</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Signaturer</th>
-              <th className={`w-24 ${LAYOUT_TABLE1_POSTINGS_TH}`} />
-              <th className={`w-8 ${LAYOUT_TABLE1_POSTINGS_TH}`} />
+            <tr>
+              <th className={MODULE_TABLE_TH}>Tittel</th>
+              <th className={MODULE_TABLE_TH}>Mal</th>
+              <th className={MODULE_TABLE_TH}>Lokasjon</th>
+              <th className={MODULE_TABLE_TH}>Ansvarlig</th>
+              <th className={MODULE_TABLE_TH}>Status</th>
+              <th className={MODULE_TABLE_TH}>Planlagt</th>
+              <th className={MODULE_TABLE_TH}>Signaturer</th>
+              <th className={`w-24 ${MODULE_TABLE_TH}`} aria-hidden />
+              <th className={`w-8 ${MODULE_TABLE_TH}`} aria-hidden />
             </tr>
           </thead>
           <tbody>
@@ -341,22 +329,22 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
               return (
                 <tr
                   key={a.id}
-                  className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer hover:bg-neutral-50`}
+                  className={`${MODULE_TABLE_TR_BODY} cursor-pointer`}
                   onClick={() => navigate(`/sja/${a.id}`)}
                 >
-                  <td className="px-5 py-3 font-medium text-neutral-900">{a.title}</td>
-                  <td className="px-5 py-3 text-neutral-600">{a.template_id ? templateById.get(a.template_id) ?? '—' : '—'}</td>
-                  <td className="px-5 py-3 text-neutral-600">{locName}</td>
-                  <td className="px-5 py-3 text-neutral-600">
+                  <td className="px-5 py-4 align-middle font-medium text-neutral-900">{a.title}</td>
+                  <td className="px-5 py-4 align-middle text-neutral-600">{a.template_id ? templateById.get(a.template_id) ?? '—' : '—'}</td>
+                  <td className="px-5 py-4 align-middle text-neutral-600">{locName}</td>
+                  <td className="px-5 py-4 align-middle text-neutral-600">
                     {a.responsible_id ? userNameById.get(a.responsible_id) ?? '—' : '—'}
                   </td>
-                  <td className="px-5 py-3">
+                  <td className="px-5 py-4 align-middle">
                     <Badge variant={sjaListStatusBadgeVariant(a.status)} className="text-xs">
                       {STATUS_LABEL[a.status]}
                     </Badge>
                   </td>
-                  <td className="px-5 py-3 text-neutral-600">{formatDateTimeShort(a.scheduled_start)}</td>
-                  <td className="px-5 py-3">
+                  <td className="px-5 py-4 align-middle text-neutral-600">{formatDateTimeShort(a.scheduled_start)}</td>
+                  <td className="px-5 py-4 align-middle">
                     <div className="flex items-center gap-2 text-xs text-neutral-600" title="Deltakere signert / totalt">
                       {sig && sig.total > 0 ? (
                         allSigned ? (
@@ -370,7 +358,7 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
                       <span>{sigLabel}</span>
                     </div>
                   </td>
-                  <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-5 py-4 text-right align-middle" onClick={(e) => e.stopPropagation()}>
                     {nAvvik > 0 ? (
                       <Link to={`/avvik?sourceId=${encodeURIComponent(a.id)}`} onClick={(e) => e.stopPropagation()}>
                         <Badge variant="medium" className="cursor-pointer text-[11px] hover:opacity-90">
@@ -381,7 +369,7 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
                       <span className="text-xs text-neutral-300">—</span>
                     )}
                   </td>
-                  <td className="w-8 px-3 py-3 text-neutral-300">
+                  <td className="w-8 px-3 py-4 align-middle text-neutral-300">
                     <ChevronRight className="h-4 w-4" aria-hidden />
                   </td>
                 </tr>
@@ -389,14 +377,14 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
             })}
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-5 py-10 text-center text-sm text-neutral-500">
+                <td colSpan={9} className="px-5 py-12 text-center text-sm whitespace-normal text-neutral-400">
                   {sja.loading ? 'Laster…' : 'Ingen analyser matcher søket.'}
                 </td>
               </tr>
             ) : null}
           </tbody>
         </table>
-      </LayoutTable1PostingsShell>
+      </ModuleRecordsTableShell>
 
       <FormModal
         open={createOpen}
@@ -657,6 +645,6 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
           )}
         </div>
       </FormModal>
-    </div>
+    </ModulePageShell>
   )
 }
