@@ -1,18 +1,17 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { LayoutTable1PostingsShell } from '../layout/LayoutTable1PostingsShell'
-import {
-  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
-  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
-  LAYOUT_TABLE1_POSTINGS_TH,
-} from '../layout/layoutTable1PostingsKit'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { StandardInput } from '../ui/Input'
 import { StandardTextarea } from '../ui/Textarea'
 import type { ChecklistExecutionTabProps, ChecklistItem, ChecklistResponse } from './types'
 
-const TH = `${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`
+/** Matches ROS / inspection module table headers (stacked-cell tables). */
+const TH =
+  'px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider bg-neutral-50 border-b border-neutral-200'
+
+const CHECKLIST_TR_BODY = 'border-b border-neutral-100 hover:bg-neutral-50/50 transition-colors'
 
 type ChecklistItemExecutionRowProps = {
   item: ChecklistItem
@@ -88,13 +87,11 @@ function ChecklistItemExecutionRow({
 
   return (
     <tr
-      className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} border-b border-neutral-100 transition-colors last:border-b-0 hover:bg-neutral-50 ${
-        justSaved ? 'bg-green-50/40' : ''
-      }`}
+      className={`${CHECKLIST_TR_BODY} last:border-b-0 ${justSaved ? 'bg-green-50/40' : ''}`}
     >
       <td className="whitespace-nowrap px-5 py-4 align-middle text-sm font-bold text-neutral-400">{position + 1}</td>
       <td className="max-w-[min(22rem,40vw)] px-5 py-4 align-middle">
-        <p className="text-sm font-semibold text-neutral-900">{item.label}</p>
+        <p className="text-sm font-medium text-neutral-900">{item.label}</p>
         {item.helpText ? <p className="mt-1 text-xs text-neutral-500">{item.helpText}</p> : null}
         {response?.notes ? <p className="mt-1 text-xs italic text-neutral-500">{response.notes}</p> : null}
       </td>
@@ -291,7 +288,7 @@ export function ChecklistExecutionTab({
       >
         <table className="w-full border-collapse text-left text-sm">
           <thead>
-            <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
+            <tr>
               <th className={`${TH} w-10`}>#</th>
               <th className={TH}>Punkt</th>
               <th className={TH}>Kategori</th>
