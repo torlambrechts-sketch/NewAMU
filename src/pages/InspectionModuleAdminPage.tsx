@@ -23,6 +23,8 @@ import {
 } from '../components/layout/layoutTable1PostingsKit'
 import { Button } from '../components/ui/Button'
 import { WarningBox } from '../components/ui/AlertBox'
+import { StandardInput } from '../components/ui/Input'
+import { SearchableSelect } from '../components/ui/SearchableSelect'
 import { Tabs as UITabs } from '../components/ui/Tabs'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useInspectionModule } from '../../modules/inspection/useInspectionModule'
@@ -64,10 +66,6 @@ function formatDate(input: string | null) {
   try {
     return new Date(input).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' })
   } catch { return input }
-}
-
-function hmsCategoryColor(cat: HmsCategory | undefined): string {
-  return cat ? (HMS_CATEGORIES.find((c) => c.value === cat)?.color ?? '') : ''
 }
 
 function newItem(index: number): InspectionChecklistItem {
@@ -238,10 +236,9 @@ function TemplatesTab({ inspection }: { inspection: ReturnType<typeof useInspect
           <div className={`${CARD} p-4`} style={CARD_SHADOW}>
             <label className="flex flex-col gap-1">
               <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Malnavn</span>
-              <input
+              <StandardInput
                 value={draft.name}
                 onChange={(e) => setDraft((p) => p ? { ...p, name: e.target.value } : p)}
-                className="border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
               />
             </label>
           </div>
@@ -257,23 +254,25 @@ function TemplatesTab({ inspection }: { inspection: ReturnType<typeof useInspect
                 </p>
               </div>
               <div className="flex gap-2">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon={<Plus className="h-3.5 w-3.5" />}
                   onClick={addItem}
-                  className="inline-flex items-center gap-1.5 border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
                 >
-                  <Plus className="h-3.5 w-3.5" /> Legg til rad
-                </button>
-                <button
+                  Legg til rad
+                </Button>
+                <Button
                   type="button"
-                  onClick={() => void save()}
+                  variant="primary"
+                  size="sm"
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-                  style={{ backgroundColor: '#1a3d32' }}
+                  icon={saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  onClick={() => void save()}
                 >
-                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   Lagre mal
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -348,32 +347,34 @@ function ChecklistItemRow({
       style={{ gridTemplateColumns: '1.5rem 1fr 130px 140px 100px 2rem 1.5rem' }}
     >
       <span className="text-xs text-neutral-400">{index + 1}</span>
-      <input
+      <StandardInput
         value={item.label}
         onChange={(e) => onChange({ label: e.target.value })}
         placeholder="Kontrollpunkt…"
-        className="border border-neutral-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
+        className="py-1.5 text-sm"
       />
-      <select
+      <SearchableSelect
         value={item.hmsCategory ?? ''}
-        onChange={(e) => onChange({ hmsCategory: e.target.value ? (e.target.value as HmsCategory) : undefined })}
-        className={`w-full border border-neutral-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25 ${item.hmsCategory ? hmsCategoryColor(item.hmsCategory) : 'text-neutral-400'}`}
-      >
-        <option value="">— Kategori —</option>
-        {HMS_CATEGORIES.map((cat) => <option key={cat.value} value={cat.value}>{cat.label}</option>)}
-      </select>
-      <select
+        options={[
+          { value: '', label: '— Kategori —' },
+          ...HMS_CATEGORIES.map((cat) => ({ value: cat.value, label: cat.label })),
+        ]}
+        onChange={(v) =>
+          onChange({ hmsCategory: v ? (v as HmsCategory) : undefined })
+        }
+        triggerClassName="py-1.5 px-2 text-xs"
+      />
+      <SearchableSelect
         value={item.fieldType ?? 'yes_no_na'}
-        onChange={(e) => onChange({ fieldType: e.target.value as InspectionFieldType })}
-        className="border border-neutral-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
-      >
-        {FIELD_TYPES.map((ft) => <option key={ft.value} value={ft.value}>{ft.label}</option>)}
-      </select>
-      <input
+        options={FIELD_TYPES.map((ft) => ({ value: ft.value, label: ft.label }))}
+        onChange={(v) => onChange({ fieldType: v as InspectionFieldType })}
+        triggerClassName="py-1.5 px-2 text-xs"
+      />
+      <StandardInput
         value={item.lawRef ?? ''}
         onChange={(e) => onChange({ lawRef: e.target.value || undefined })}
         placeholder="AML § 4-4"
-        className="border border-neutral-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
+        className="py-1.5 text-xs"
       />
       <div className="flex justify-center">
         <input
@@ -381,6 +382,7 @@ function ChecklistItemRow({
           checked={item.required ?? false}
           onChange={(e) => onChange({ required: e.target.checked })}
           className="h-4 w-4 accent-[#1a3d32]"
+          aria-label={`Krav — rad ${index + 1}`}
         />
       </div>
       <Button
