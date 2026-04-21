@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
+import { fetchAssignableUsers, type AssignableUser } from '../../src/hooks/useAssignableUsers'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import {
   collectParsedAmuCandidates,
@@ -9,10 +10,13 @@ import {
   collectParsedAmuVotes,
 } from './schema'
 import type {
+  AddAmuElectionCandidateInput,
   AmuElectionCandidateRow,
   AmuElectionRow,
   AmuElectionVoteRow,
+  AmuElectionVoteTotalRow,
   AmuElectionVoterRow,
+  AmuElectionCandidateStatus,
   CreateAmuElectionInput,
   UpdateAmuElectionInput,
 } from './types'
@@ -25,13 +29,19 @@ function isActiveElectionStatus(s: AmuElectionRow['status']): boolean {
 export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }) {
   const { organization, can, isAdmin, user } = useOrgSetupContext()
   const orgId = organization?.id ?? null
-  const canManage = isAdmin || can('amu_election.manage')
+  const canManage =
+    isAdmin ||
+    can('amu_election.manage') ||
+    can('internkontroll.manage') ||
+    can('ik.manage')
   const currentUserId = user?.id ?? null
 
   const [elections, setElections] = useState<AmuElectionRow[]>([])
   const [candidatesByElection, setCandidatesByElection] = useState<Record<string, AmuElectionCandidateRow[]>>({})
   const [votersByElection, setVotersByElection] = useState<Record<string, AmuElectionVoterRow[]>>({})
   const [votesByElection, setVotesByElection] = useState<Record<string, AmuElectionVoteRow[]>>({})
+  const [voteTotalsByElection, setVoteTotalsByElection] = useState<Record<string, AmuElectionVoteTotalRow[]>>({})
+  const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -94,6 +104,38 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
     }
   }, [orgId, supabase, setErr])
 
+  const loadVoteTotals = useCallback(
+    async (electionId: string) => {
+      if (!supabase || !orgId) return
+      setError(null)
+      try {
+        const { data, error: rpcErr } = await supabase.rpc('get_amu_election_vote_totals', {
+          p_election_id: electionId,
+        })
+        if (rpcErr) throw rpcErr
+        const rows: AmuElectionVoteTotalRow[] = (data ?? []).map((r: { candidate_id: string; vote_count: number | string }) => ({
+          candidate_id: r.candidate_id,
+          vote_count: typeof r.vote_count === 'string' ? Number(r.vote_count) : Number(r.vote_count),
+        }))
+        setVoteTotalsByElection((prev) => ({ ...prev, [electionId]: rows }))
+      } catch (e) {
+        setErr(e)
+      }
+    },
+    [orgId, supabase, setErr],
+  )
+
+  const loadAssignableUsersList = useCallback(async () => {
+    if (!supabase || !orgId) return
+    setError(null)
+    try {
+      const list = await fetchAssignableUsers(supabase, orgId)
+      setAssignableUsers(list)
+    } catch (e) {
+      setErr(e)
+    }
+  }, [orgId, supabase, setErr])
+
   const loadElectionDetail = useCallback(
     async (electionId: string) => {
       if (!supabase || !orgId) return
@@ -119,11 +161,12 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
         if (cRes.error) throw cRes.error
         if (vRes.error) throw vRes.error
 
+        let electionRow: AmuElectionRow | null = null
         if (eRes.data) {
-          const row = collectParsedAmuElections([eRes.data as unknown])[0]
+          electionRow = collectParsedAmuElections([eRes.data as unknown])[0]
           setElections((prev) => {
             const rest = prev.filter((x) => x.id !== electionId)
-            return [row, ...rest]
+            return [electionRow!, ...rest]
           })
         }
 
@@ -148,6 +191,16 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
             ...prev,
             [electionId]: collectParsedAmuVotes((votesRes.data ?? []) as unknown[]),
           }))
+        } else {
+          setVotesByElection((prev) => {
+            const next = { ...prev }
+            delete next[electionId]
+            return next
+          })
+        }
+
+        if (electionRow?.status === 'closed') {
+          await loadVoteTotals(electionId)
         }
       } catch (e) {
         setErr(e)
@@ -155,7 +208,7 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
         setLoading(false)
       }
     },
-    [canManage, orgId, supabase, setErr],
+    [canManage, loadVoteTotals, orgId, supabase, setErr],
   )
 
   const createElection = useCallback(
@@ -265,6 +318,78 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
     [loadElectionDetail, orgId, supabase],
   )
 
+  const addCandidate = useCallback(
+    async (input: AddAmuElectionCandidateInput) => {
+      if (!supabase || !orgId) {
+        setError('Supabase er ikke konfigurert.')
+        return null
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å nominere kandidater.')
+        return null
+      }
+      setError(null)
+      try {
+        const row = {
+          election_id: input.electionId,
+          organization_id: orgId,
+          user_id: input.userId,
+          manifesto: (input.manifesto ?? '').trim(),
+          status: input.status ?? 'nominated',
+        }
+        const res = await supabase.from('amu_election_candidates').insert(row).select('*').single()
+        if (res.error) throw res.error
+        const parsed = collectParsedAmuCandidates([res.data as unknown])[0]
+        setCandidatesByElection((prev) => ({
+          ...prev,
+          [input.electionId]: [...(prev[input.electionId] ?? []), parsed],
+        }))
+        return parsed
+      } catch (e) {
+        setErr(e)
+        return null
+      }
+    },
+    [canManage, orgId, supabase, setErr],
+  )
+
+  const setCandidateStatus = useCallback(
+    async (electionId: string, candidateId: string, status: AmuElectionCandidateStatus) => {
+      if (!supabase || !orgId) {
+        setError('Supabase er ikke konfigurert.')
+        return false
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang.')
+        return false
+      }
+      setError(null)
+      try {
+        const res = await supabase
+          .from('amu_election_candidates')
+          .update({ status })
+          .eq('organization_id', orgId)
+          .eq('election_id', electionId)
+          .eq('id', candidateId)
+          .select('*')
+          .maybeSingle()
+        if (res.error) throw res.error
+        if (res.data) {
+          const parsed = collectParsedAmuCandidates([res.data as unknown])[0]
+          setCandidatesByElection((prev) => ({
+            ...prev,
+            [electionId]: (prev[electionId] ?? []).map((c) => (c.id === parsed.id ? parsed : c)),
+          }))
+        }
+        return true
+      } catch (e) {
+        setErr(e)
+        return false
+      }
+    },
+    [canManage, orgId, supabase, setErr],
+  )
+
   return {
     organizationId: orgId,
     canManage,
@@ -274,6 +399,8 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
     candidatesByElection,
     votersByElection,
     votesByElection,
+    voteTotalsByElection,
+    assignableUsers,
     myVoterRows,
     loading,
     error,
@@ -281,8 +408,12 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
     loadElections,
     loadActiveElections,
     loadElectionDetail,
+    loadVoteTotals,
+    loadAssignableUsersList,
     createElection,
     updateElection,
+    addCandidate,
+    setCandidateStatus,
     castVote,
   }
 }

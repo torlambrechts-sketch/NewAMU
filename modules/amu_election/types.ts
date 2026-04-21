@@ -57,3 +57,15 @@ export type UpdateAmuElectionInput = {
   start_date?: string
   end_date?: string
 }
+
+export type AmuElectionVoteTotalRow = {
+  candidate_id: string
+  vote_count: number
+}
+
+export type AddAmuElectionCandidateInput = {
+  electionId: string
+  userId: string
+  manifesto: string
+  status?: AmuElectionCandidateStatus
+}

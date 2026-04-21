@@ -25,6 +25,8 @@ export const PERMISSION_KEYS = [
   'inspection.manage',
   /** Redigere tiltaksplan, kategorier og arbeidsflyt (IK) */
   'action_plan.manage',
+  /** AMU-valg — administrere valg, kandidater og stemmeberettigede */
+  'amu_election.manage',
   /** Varslingsmottak — full innsyn i whistleblowing_cases (AML kap. 2A) */
   'whistleblowing.committee',
   'module.view.tasks',
@@ -74,6 +76,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'sja.manage': 'SJA — redigere analyser og maler',
   'inspection.manage': 'Inspeksjonsmodul — redigere runder og innstillinger',
   'action_plan.manage': 'Tiltaksplan — kategorier og arbeidsflyt',
+  'amu_election.manage': 'AMU-valg — administrasjon',
   'whistleblowing.committee': 'Varslingsmottak',
   'module.view.tasks': 'Tasks',
   'module.view.learning': 'E-learning',

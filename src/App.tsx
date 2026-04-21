@@ -99,6 +99,8 @@ import { IkTiltaksplanPage } from './pages/IkTiltaksplanPage'
 import { ActionPlanPage } from './pages/ActionPlanPage'
 import { ActionPlanAdminPage } from './pages/ActionPlanAdminPage'
 import { IkAnnualReviewPage } from './pages/IkAnnualReviewPage'
+import { AmuElectionListPage } from './pages/AmuElectionListPage'
+import { AmuElectionDetailPage } from './pages/AmuElectionDetailPage'
 import { InternalControlAdminPage } from './pages/InternalControlAdminPage'
 import { RosModulePage }         from './pages/RosModulePage'
 import { RosModuleAdminPage }    from './pages/RosModuleAdminPage'
@@ -182,6 +184,8 @@ function App() {
                       <Route path="internkontroll/mal" element={<IkMalPage />} />
                       <Route path="internkontroll/tiltaksplan" element={<IkTiltaksplanPage />} />
                       <Route path="internkontroll/arsgjenomgang" element={<IkAnnualReviewPage />} />
+                      <Route path="internkontroll/amu-valg" element={<AmuElectionListPage />} />
+                      <Route path="internkontroll/amu-valg/:electionId" element={<AmuElectionDetailPage />} />
                       <Route path="internkontroll/admin" element={<InternalControlAdminPage />} />
                       <Route path="modules/aarskontroll" element={<YearskontrollModule />} />
                       <Route path="hse" element={<HseModule />} />
