@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { ClipboardList, Loader2, Plus, Sparkles } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ClipboardList, Loader2, Plus, Settings, Sparkles } from 'lucide-react'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
-import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
-import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
-import {
-  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
-  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
-  LAYOUT_TABLE1_POSTINGS_TH,
-} from '../../src/components/layout/layoutTable1PostingsKit'
-import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
 import { WorkplaceStandardFormPanel } from '../../src/components/layout/WorkplaceStandardFormPanel'
+import {
+  ModulePageShell,
+  ModuleRecordsTableShell,
+  MODULE_TABLE_TH,
+  MODULE_TABLE_TR_BODY,
+} from '../../src/components/module'
 import { Badge } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
 import { SearchableSelect, type SelectOption } from '../../src/components/ui/SearchableSelect'
@@ -83,103 +81,109 @@ export function VernerunderPage() {
     }
   }, [v, title, templateId, plannedYmd, navigate])
 
+  const kpiItems = useMemo(() => {
+    let draft = 0
+    let active = 0
+    let completed = 0
+    let signed = 0
+    for (const r of v.vernerunder) {
+      if (r.status === 'draft') draft++
+      else if (r.status === 'active') active++
+      else if (r.status === 'completed') completed++
+      else if (r.status === 'signed') signed++
+    }
+    const open = draft + active
+    return [
+      { big: String(v.vernerunder.length), title: 'Totalt runder', sub: 'Alle vernerunder' },
+      { big: String(open), title: 'Åpne', sub: 'Kladd og aktiv' },
+      { big: String(completed), title: 'Fullført', sub: 'Venter på signatur' },
+      { big: String(signed), title: 'Signert', sub: 'Arkivert' },
+    ]
+  }, [v.vernerunder])
+
   return (
-    <div className="min-h-screen bg-[#F9F7F2]">
-      <div className="border-b border-neutral-200/80 bg-[#F9F7F2]">
-        <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-          <WorkplacePageHeading1
-            breadcrumb={[{ label: 'HMS', to: '/compliance' }, { label: 'Vernerunder' }]}
-            title="Vernerunder"
-            description="Planlegg, gjennomfør og dokumenter vernerunder med sjekkliste, funn og signaturer."
-            menu={null}
-            headerActions={
-              <div className="flex flex-wrap items-center gap-2">
-                {v.canManage ? (
-                  <Link
-                    to="/vernerunder/admin"
-                    className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
-                  >
-                    Innstillinger
-                  </Link>
-                ) : null}
-                {v.canManage ? (
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="default"
-                    icon={<Plus className="h-4 w-4" aria-hidden />}
-                    onClick={() => setCreateOpen(true)}
-                  >
-                    Ny vernerunde
-                  </Button>
-                ) : null}
-              </div>
-            }
-          />
+    <ModulePageShell
+      breadcrumb={[{ label: 'HMS' }, { label: 'Vernerunder' }]}
+      title="Vernerunder"
+      description="Planlegg, gjennomfør og dokumenter vernerunder med sjekkliste, funn og signaturer."
+      headerActions={
+        <div className="flex flex-wrap items-center gap-2">
+          {v.canManage ? (
+            <Button
+              type="button"
+              variant="secondary"
+              icon={<Settings className="h-4 w-4" />}
+              onClick={() => navigate('/vernerunder/admin')}
+            >
+              <span className="hidden sm:inline">Innstillinger</span>
+            </Button>
+          ) : null}
+          {v.canManage ? (
+            <Button
+              type="button"
+              variant="primary"
+              icon={<Plus className="h-4 w-4" aria-hidden />}
+              onClick={() => setCreateOpen(true)}
+            >
+              Ny vernerunde
+            </Button>
+          ) : null}
         </div>
-      </div>
+      }
+    >
+      {v.error ? <WarningBox>{v.error}</WarningBox> : null}
 
-      <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
-        {v.error ? (
-          <div className={WORKPLACE_MODULE_CARD} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <div className="p-4">
-              <WarningBox>{v.error}</WarningBox>
-            </div>
+      <ModuleRecordsTableShell
+        kpiItems={kpiItems}
+        title="Aktive og planlagte runder"
+        description="Klikk på en rad for å åpne detaljer, sjekkliste og signaturer."
+        toolbar={<div className="min-w-0 flex-1" aria-hidden />}
+      >
+        {v.loading && v.vernerunder.length === 0 ? (
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-neutral-500">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            Laster…
           </div>
-        ) : null}
-
-        <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-          <LayoutTable1PostingsShell
-            wrap={false}
-            titleTypography="sans"
-            title="Aktive og planlagte runder"
-            description="Klikk på en rad for å åpne detaljer, sjekkliste og signaturer."
-            toolbar={<span className="text-sm text-neutral-500">Oversikt</span>}
-            headerActions={null}
-          >
-            {v.loading && v.vernerunder.length === 0 ? (
-              <div className="flex items-center justify-center gap-2 py-12 text-sm text-neutral-500">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                Laster…
-              </div>
-            ) : v.vernerunder.length === 0 ? (
-              <ListEmpty />
-            ) : (
-              <table className="w-full min-w-0 text-left text-sm text-neutral-800">
-                <thead>
-                  <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
-                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
-                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Planlagt</th>
-                    <th className={`${LAYOUT_TABLE1_POSTINGS_TH} w-12 text-right`} aria-label="Handling" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {v.vernerunder.map((r) => (
-                    <tr key={r.id} className={LAYOUT_TABLE1_POSTINGS_BODY_ROW}>
-                      <td className="px-5 py-3 font-medium text-neutral-900">{r.title}</td>
-                      <td className="px-5 py-3">
-                        <Badge variant={statusBadgeVariant(r.status)}>{STATUS_LABEL[r.status]}</Badge>
-                      </td>
-                      <td className="px-5 py-3 text-neutral-600">{r.planned_date ?? '—'}</td>
-                      <td className="px-5 py-3 text-right">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Åpne"
-                          onClick={() => navigate(`/vernerunder/${r.id}`)}
-                          icon={<ClipboardList className="h-4 w-4" />}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </LayoutTable1PostingsShell>
-        </div>
-      </div>
+        ) : v.vernerunder.length === 0 ? (
+          <ListEmpty />
+        ) : (
+          <table className="w-full min-w-0 text-left text-sm text-neutral-800">
+            <thead>
+              <tr>
+                <th className={MODULE_TABLE_TH}>Tittel</th>
+                <th className={MODULE_TABLE_TH}>Status</th>
+                <th className={MODULE_TABLE_TH}>Planlagt</th>
+                <th className={`${MODULE_TABLE_TH} w-12 text-right`} aria-label="Handling" />
+              </tr>
+            </thead>
+            <tbody>
+              {v.vernerunder.map((r) => (
+                <tr
+                  key={r.id}
+                  className={`${MODULE_TABLE_TR_BODY} cursor-pointer`}
+                  onClick={() => navigate(`/vernerunder/${r.id}`)}
+                >
+                  <td className="px-5 py-4 align-middle font-medium text-neutral-900">{r.title}</td>
+                  <td className="px-5 py-4 align-middle">
+                    <Badge variant={statusBadgeVariant(r.status)}>{STATUS_LABEL[r.status]}</Badge>
+                  </td>
+                  <td className="px-5 py-4 align-middle text-neutral-600">{r.planned_date ?? '—'}</td>
+                  <td className="px-5 py-4 text-right align-middle" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Åpne"
+                      onClick={() => navigate(`/vernerunder/${r.id}`)}
+                      icon={<ClipboardList className="h-4 w-4" />}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </ModuleRecordsTableShell>
 
       <WorkplaceStandardFormPanel
         open={createOpen}
@@ -220,6 +224,6 @@ export function VernerunderPage() {
           />
         </div>
       </WorkplaceStandardFormPanel>
-    </div>
+    </ModulePageShell>
   )
 }
