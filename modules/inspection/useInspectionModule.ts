@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchAssignableUsers } from '../../src/hooks/useAssignableUsers'
+import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
+import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import type {
   InspectionChecklistItem,
   InspectionFindingRow,
@@ -124,6 +126,10 @@ function normalizeTimestamptzInput(input: string | undefined): string | null {
 }
 
 export function useInspectionModule({ supabase }: UseInspectionModuleInput): InspectionModuleState {
+  const { organization, can, isAdmin } = useOrgSetupContext()
+  const orgId = organization?.id
+  const canManage = isAdmin || can('inspection.manage')
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
@@ -140,6 +146,10 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       setError('Supabase is not configured.')
       return
     }
+    if (!orgId) {
+      setError('Organisasjon er ikke valgt.')
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -147,16 +157,22 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         supabase
           .from('inspection_templates')
           .select('*')
+          .or(`organization_id.eq.${orgId},organization_id.is.null`)
           .eq('is_active', true)
           .order('updated_at', { ascending: false }),
         supabase
           .from('inspection_locations')
           .select('*')
+          .eq('organization_id', orgId)
           .eq('is_active', true)
           .order('name', { ascending: true }),
-        supabase.from('inspection_rounds').select('*').order('scheduled_for', { ascending: false }),
+        supabase
+          .from('inspection_rounds')
+          .select('*')
+          .eq('organization_id', orgId)
+          .order('scheduled_for', { ascending: false }),
         supabase.auth.getUser(),
-        fetchAssignableUsers(supabase),
+        fetchAssignableUsers(supabase, orgId),
       ])
       if (templatesRes.error) throw templatesRes.error
       if (locationsRes.error) throw locationsRes.error
@@ -184,17 +200,20 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       setFindings([])
       setLoadedRoundIds([])
     } catch (unknownError) {
-      const message = unknownError instanceof Error ? unknownError.message : 'Failed loading inspection module.'
-      setError(message)
+      setError(getSupabaseErrorMessage(unknownError))
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [supabase, orgId])
 
   const loadRoundDetail = useCallback(
     async (roundId: string) => {
       if (!supabase) {
         setError('Supabase is not configured.')
+        return
+      }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
         return
       }
       setError(null)
@@ -203,6 +222,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
           .from('inspection_rounds')
           .select('*')
           .eq('id', roundId)
+          .eq('organization_id', orgId)
           .maybeSingle()
         if (roundError) throw roundError
         const parsedRound = InspectionRoundRowSchema.safeParse(roundRow)
@@ -222,6 +242,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
           .from('inspection_items')
           .select('*')
           .eq('round_id', roundId)
+          .eq('organization_id', orgId)
           .order('position', { ascending: true })
         if (itemsRes.error) throw itemsRes.error
         const nextItems = parseRows<InspectionItemRow>(itemsRes.data ?? [], (row) => {
@@ -238,6 +259,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
           .from('inspection_findings')
           .select('*')
           .eq('round_id', roundId)
+          .eq('organization_id', orgId)
           .order('created_at', { ascending: false })
         let nextFindings: InspectionFindingRow[] = []
         if (findingsRes.error) {
@@ -257,11 +279,10 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         })
         setLoadedRoundIds((previous) => (previous.includes(roundId) ? previous : [...previous, roundId]))
       } catch (unknownError) {
-        const message = unknownError instanceof Error ? unknownError.message : 'Failed loading round detail.'
-        setError(message)
+        setError(getSupabaseErrorMessage(unknownError))
       }
     },
-    [supabase],
+    [supabase, orgId],
   )
 
   const createTemplate = useCallback(
@@ -270,9 +291,18 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         setError('Supabase is not configured.')
         return
       }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å opprette inspeksjonsmaler.')
+        return
+      }
       setError(null)
       const checklistItems = payload.checklistItems ?? []
       const row = {
+        organization_id: orgId,
         name: payload.name.trim(),
         checklist_definition: {
           title: payload.name.trim(),
@@ -284,6 +314,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .from('inspection_templates')
         .insert(row)
         .select('*')
+        .eq('organization_id', orgId)
         .single()
       if (insertError) {
         setError(insertError.message)
@@ -296,7 +327,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       }
       setTemplates((previous) => [parsed.data, ...previous])
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const updateTemplate = useCallback(
@@ -308,6 +339,14 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     }) => {
       if (!supabase) {
         setError('Supabase is not configured.')
+        return
+      }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre inspeksjonsmaler.')
         return
       }
       setError(null)
@@ -323,6 +362,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .from('inspection_templates')
         .update(row)
         .eq('id', payload.templateId)
+        .eq('organization_id', orgId)
         .select('*')
         .single()
       if (updateError) {
@@ -338,7 +378,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         previous.map((template) => (template.id === payload.templateId ? parsed.data : template)),
       )
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const createLocation = useCallback(
@@ -347,8 +387,17 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         setError('Supabase is not configured.')
         return
       }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å opprette inspeksjonslokasjoner.')
+        return
+      }
       setError(null)
       const row = {
+        organization_id: orgId,
         name: payload.name.trim(),
         location_code: payload.locationCode?.trim() || null,
         description: payload.description?.trim() || null,
@@ -359,6 +408,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .from('inspection_locations')
         .insert(row)
         .select('*')
+        .eq('organization_id', orgId)
         .single()
       if (insertError) {
         setError(insertError.message)
@@ -371,7 +421,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       }
       setLocations((previous) => [...previous, parsed.data].sort((a, b) => a.name.localeCompare(b.name)))
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const createRound = useCallback(
@@ -387,8 +437,13 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         setError('Supabase is not configured.')
         return
       }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
       setError(null)
       const roundInsert = {
+        organization_id: orgId,
         template_id: payload.templateId,
         location_id: payload.locationId ?? null,
         title: payload.title.trim(),
@@ -401,6 +456,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .from('inspection_rounds')
         .insert(roundInsert)
         .select('*')
+        .eq('organization_id', orgId)
         .single()
       if (insertError) {
         setError(insertError.message)
@@ -420,6 +476,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       if (checklistItems.length === 0) return
 
       const itemRows = checklistItems.map((item: InspectionChecklistItem, index) => ({
+        organization_id: orgId,
         round_id: parsedRound.data.id,
         checklist_item_key: item.key,
         checklist_item_label: item.label,
@@ -431,6 +488,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .from('inspection_items')
         .insert(itemRows)
         .select('*')
+        .eq('organization_id', orgId)
       if (itemsError) {
         setError(itemsError.message)
         return
@@ -441,7 +499,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       })
       setItems((previous) => [...parsedItems, ...previous])
     },
-    [supabase, templates],
+    [supabase, orgId, templates],
   )
 
   const updateRoundSchedule = useCallback(
@@ -454,6 +512,10 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     }) => {
       if (!supabase) {
         setError('Supabase is not configured.')
+        return
+      }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
         return
       }
       setError(null)
@@ -469,6 +531,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .from('inspection_rounds')
         .update(row)
         .eq('id', payload.roundId)
+        .eq('organization_id', orgId)
         .select('*')
         .single()
       if (updateError) {
@@ -482,7 +545,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       }
       setRounds((previous) => previous.map((round) => (round.id === payload.roundId ? parsed.data : round)))
     },
-    [supabase],
+    [supabase, orgId],
   )
 
   const signRound = useCallback(
@@ -491,11 +554,16 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         setError('Supabase is not configured.')
         return
       }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
       setError(null)
       const { data, error: updateError } = await supabase
         .from('inspection_rounds')
         .update({ status: 'signed' })
         .eq('id', roundId)
+        .eq('organization_id', orgId)
         .select('*')
         .single()
       if (updateError) {
@@ -509,7 +577,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       }
       setRounds((previous) => previous.map((round) => (round.id === roundId ? parsed.data : round)))
     },
-    [supabase],
+    [supabase, orgId],
   )
 
   const upsertItemResponse = useCallback(
@@ -527,8 +595,13 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         setError('Supabase is not configured.')
         return
       }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
       setError(null)
       const itemPayload = {
+        organization_id: orgId,
         round_id: payload.roundId,
         checklist_item_key: payload.checklistItemKey,
         checklist_item_label: payload.checklistItemLabel,
@@ -542,6 +615,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .from('inspection_items')
         .select('id')
         .eq('round_id', payload.roundId)
+        .eq('organization_id', orgId)
         .eq('checklist_item_key', payload.checklistItemKey)
         .limit(1)
       if (existingError) {
@@ -551,8 +625,14 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
 
       const existingId = Array.isArray(existingRows) && existingRows.length > 0 ? existingRows[0].id : null
       const upsertQuery = existingId
-        ? supabase.from('inspection_items').update(itemPayload).eq('id', existingId).select('*').single()
-        : supabase.from('inspection_items').insert(itemPayload).select('*').single()
+        ? supabase
+            .from('inspection_items')
+            .update(itemPayload)
+            .eq('id', existingId)
+            .eq('organization_id', orgId)
+            .select('*')
+            .single()
+        : supabase.from('inspection_items').insert(itemPayload).select('*').eq('organization_id', orgId).single()
 
       const { data, error: upsertError } = await upsertQuery
       if (upsertError) {
@@ -570,7 +650,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         return previous.map((item) => (item.id === parsed.data.id ? parsed.data : item))
       })
     },
-    [supabase],
+    [supabase, orgId],
   )
 
   const addFinding = useCallback(
@@ -587,6 +667,10 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         setError('Supabase is not configured.')
         return
       }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
       setError(null)
       const desc = payload.description.trim()
       let organizationId: string | null = null
@@ -598,6 +682,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
           .from('inspection_rounds')
           .select('organization_id')
           .eq('id', payload.roundId)
+          .eq('organization_id', orgId)
           .maybeSingle()
         if (rErr || !rRow) {
           setError(rErr?.message ?? 'Fant ikke runden.')
@@ -607,6 +692,10 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       }
       if (!organizationId) {
         setError('Mangler organisasjon for runden.')
+        return
+      }
+      if (organizationId !== orgId) {
+        setError('Runden tilhører ikke valgt organisasjon.')
         return
       }
 
@@ -626,6 +715,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .single()
 
       const findingBase: Record<string, unknown> = {
+        organization_id: orgId,
         round_id: payload.roundId,
         item_id: payload.itemId ?? null,
         description: desc,
@@ -645,18 +735,32 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
           deviation_id: deviationId,
           workflow_processed_at: new Date().toISOString(),
         }
-        const ins = await supabase.from('inspection_findings').insert(findingInsert).select('*').single()
+        const ins = await supabase
+          .from('inspection_findings')
+          .insert(findingInsert)
+          .select('*')
+          .eq('organization_id', orgId)
+          .single()
         data = ins.data
         insertError = ins.error
         if (!insertError && ins.data) {
           const fid = String((ins.data as { id: string }).id)
-          const { error: linkErr } = await supabase.from('deviations').update({ source_id: fid }).eq('id', deviationId)
+          const { error: linkErr } = await supabase
+            .from('deviations')
+            .update({ source_id: fid })
+            .eq('id', deviationId)
+            .eq('organization_id', orgId)
           if (linkErr) setError(linkErr.message)
         } else if (insertError) {
-          await supabase.from('deviations').delete().eq('id', deviationId)
+          await supabase.from('deviations').delete().eq('id', deviationId).eq('organization_id', orgId)
         }
       } else {
-        const ins = await supabase.from('inspection_findings').insert(findingBase).select('*').single()
+        const ins = await supabase
+          .from('inspection_findings')
+          .insert(findingBase)
+          .select('*')
+          .eq('organization_id', orgId)
+          .single()
         data = ins.data
         insertError = ins.error
         if (devErr && !insertError) {
@@ -678,7 +782,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       }
       setFindings((previous) => [parsed.data, ...previous])
     },
-    [supabase, rounds],
+    [supabase, orgId, rounds],
   )
 
   const updateFinding = useCallback(
@@ -692,6 +796,10 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
     }) => {
       if (!supabase) {
         setError('Supabase is not configured.')
+        return
+      }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
         return
       }
       const finding = findings.find((f) => f.id === payload.findingId)
@@ -712,6 +820,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .from('inspection_findings')
         .update(row)
         .eq('id', payload.findingId)
+        .eq('organization_id', orgId)
         .select('*')
         .single()
       if (upErr) {
@@ -734,18 +843,23 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
             severity: payload.severity,
           })
           .eq('id', finding.deviation_id)
+          .eq('organization_id', orgId)
         if (devUpErr) setError(devUpErr.message)
       }
 
       setFindings((previous) => previous.map((f) => (f.id === payload.findingId ? parsed.data : f)))
     },
-    [supabase, findings],
+    [supabase, orgId, findings],
   )
 
   const deleteFinding = useCallback(
     async (findingId: string) => {
       if (!supabase) {
         setError('Supabase is not configured.')
+        return
+      }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
         return
       }
       const deviationId = findings.find((f) => f.id === findingId)?.deviation_id ?? null
@@ -755,37 +869,50 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .from('inspection_findings')
         .update({ deleted_at: now })
         .eq('id', findingId)
+        .eq('organization_id', orgId)
       if (softErr) {
         const msg = softErr.message ?? ''
         const missingCol = /deleted_at|schema cache|column/i.test(msg)
         if (missingCol) {
-          const { error: delErr } = await supabase.from('inspection_findings').delete().eq('id', findingId)
+          const { error: delErr } = await supabase
+            .from('inspection_findings')
+            .delete()
+            .eq('id', findingId)
+            .eq('organization_id', orgId)
           if (delErr) {
             setError(delErr.message)
             return
           }
           if (deviationId) {
-            await supabase.from('deviations').delete().eq('id', deviationId)
+            await supabase.from('deviations').delete().eq('id', deviationId).eq('organization_id', orgId)
           }
         } else {
           setError(softErr.message)
           return
         }
       } else if (deviationId) {
-        const { error: devSoft } = await supabase.from('deviations').update({ deleted_at: now }).eq('id', deviationId)
+        const { error: devSoft } = await supabase
+          .from('deviations')
+          .update({ deleted_at: now })
+          .eq('id', deviationId)
+          .eq('organization_id', orgId)
         if (devSoft && /deleted_at|schema cache|column/i.test(devSoft.message ?? '')) {
-          await supabase.from('deviations').delete().eq('id', deviationId)
+          await supabase.from('deviations').delete().eq('id', deviationId).eq('organization_id', orgId)
         }
       }
       setFindings((previous) => previous.filter((f) => f.id !== findingId))
     },
-    [supabase, findings],
+    [supabase, orgId, findings],
   )
 
   const createDeviationFromFinding = useCallback(
     async (findingId: string) => {
       if (!supabase) {
         setError('Supabase is not configured.')
+        return null
+      }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
         return null
       }
       const finding = findings.find((f) => f.id === findingId)
@@ -803,13 +930,17 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       setError(null)
       const titleBase = finding.description.trim().slice(0, 80)
       const deviationInsert = {
-        organization_id: finding.organization_id,
+        organization_id: orgId,
         source: 'inspection_finding',
         source_id: findingId,
         title: `Avvik: ${titleBase}`,
         description: finding.description,
         severity: finding.severity,
         status: 'rapportert' as const,
+      }
+      if (finding.organization_id !== orgId) {
+        setError('Funnet tilhører ikke valgt organisasjon.')
+        return null
       }
       const { data: devRow, error: devErr } = await supabase
         .from('deviations')
@@ -825,6 +956,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .from('inspection_findings')
         .update({ deviation_id: newDeviationId })
         .eq('id', findingId)
+        .eq('organization_id', orgId)
         .select('*')
         .single()
       if (linkErr || !updatedFinding) {
@@ -839,13 +971,17 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       setFindings((previous) => previous.map((f) => (f.id === findingId ? parsed.data : f)))
       return newDeviationId
     },
-    [supabase, findings],
+    [supabase, orgId, findings],
   )
 
   const signRoundWithRole = useCallback(
     async (roundId: string, role: 'manager' | 'deputy') => {
       if (!supabase) {
         setError('Supabase is not configured.')
+        return
+      }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
         return
       }
       setError(null)
@@ -861,6 +997,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .from('inspection_rounds')
         .select('*')
         .eq('id', roundId)
+        .eq('organization_id', orgId)
         .single()
       if (fetchError) {
         setError(fetchError.message)
@@ -873,12 +1010,16 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       }
       setRounds((previous) => previous.map((r) => (r.id === roundId ? parsed.data : r)))
     },
-    [supabase],
+    [supabase, orgId],
   )
 
   const stampRoundGps = useCallback(
     async (roundId: string) => {
       if (!supabase || !navigator.geolocation) return
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
       setError(null)
       await new Promise<void>((resolve) => {
         navigator.geolocation.getCurrentPosition(
@@ -893,6 +1034,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
               .from('inspection_rounds')
               .update(row)
               .eq('id', roundId)
+              .eq('organization_id', orgId)
               .select('*')
               .single()
             if (error) {
@@ -916,7 +1058,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         )
       })
     },
-    [supabase],
+    [supabase, orgId],
   )
 
   const saveRoundSummary = useCallback(
@@ -930,6 +1072,10 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         setError('Supabase is not configured.')
         return
       }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
       setError(null)
       const row: Record<string, unknown> = { summary: payload.summary }
       if (payload.conductedBy !== undefined) row.conducted_by = payload.conductedBy || null
@@ -940,6 +1086,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
         .from('inspection_rounds')
         .update(row)
         .eq('id', payload.roundId)
+        .eq('organization_id', orgId)
         .select('*')
         .single()
       if (updateError) {
@@ -953,7 +1100,7 @@ export function useInspectionModule({ supabase }: UseInspectionModuleInput): Ins
       }
       setRounds((previous) => previous.map((r) => (r.id === payload.roundId ? parsed.data : r)))
     },
-    [supabase],
+    [supabase, orgId],
   )
 
   const itemsByRoundId = useMemo(() => {

@@ -13,6 +13,7 @@ export type OrgModulePayloadKey =
   | 'workplace_reporting'
   | 'workplace_dashboard'
   | 'internkontroll_settings'
+  | 'amu_election'
 
 export function orgModuleSnapKey(moduleKey: OrgModulePayloadKey, orgId: string, userId: string) {
   return `atics-org-mod:${moduleKey}:${orgId}:${userId}`

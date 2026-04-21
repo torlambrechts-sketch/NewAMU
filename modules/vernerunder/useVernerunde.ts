@@ -130,7 +130,7 @@ export function useVernerunde(opts?: UseVernerundeOptions) {
     async (opts?: { skipAssignableUsers?: boolean }) => {
       if (supabase && !opts?.skipAssignableUsers) {
         try {
-          const users = await fetchAssignableUsersStrict(supabase)
+          const users = await fetchAssignableUsersStrict(supabase, orgId ?? null)
           setAssignableUsers(users)
         } catch (e) {
           setErr(e)
@@ -139,7 +139,7 @@ export function useVernerunde(opts?: UseVernerundeOptions) {
       await loadRounds()
       await loadCatalog()
     },
-    [loadRounds, loadCatalog, supabase, setErr],
+    [loadRounds, loadCatalog, supabase, setErr, orgId],
   )
 
   useEffect(() => {

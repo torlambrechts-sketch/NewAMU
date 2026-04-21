@@ -37,12 +37,20 @@ export const VERNERUNDER_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_FINDING_UPDATED', label: 'Funn oppdatert' },
 ] as const
 
+/** AMU-valg — hendelser fra database (statusendringer på amu_elections). */
+export const AMU_ELECTION_WORKFLOW_TRIGGER_EVENTS = [
+  { value: 'ON_ELECTION_NOMINATION_OPEN', label: 'Nominasjon åpnet' },
+  { value: 'ON_ELECTION_VOTING_OPEN', label: 'Stemmegivning åpnet' },
+  { value: 'ON_ELECTION_CLOSED', label: 'Valg avsluttet' },
+] as const
+
 const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   inspection: INSPECTION_WORKFLOW_TRIGGER_EVENTS,
   ros: ROS_WORKFLOW_TRIGGER_EVENTS,
   action_plan: ACTION_PLAN_WORKFLOW_TRIGGER_EVENTS,
   internkontroll: INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS,
   vernerunder: VERNERUNDER_WORKFLOW_TRIGGER_EVENTS,
+  amu_election: AMU_ELECTION_WORKFLOW_TRIGGER_EVENTS,
 }
 
 export function getWorkflowTriggerEventsForModule(triggerModule: string): { value: string; label: string }[] {

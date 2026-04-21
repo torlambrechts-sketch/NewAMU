@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../src/lib/supabaseClient'
 import {
@@ -22,6 +22,7 @@ import {
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
+import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import {
   LAYOUT_TABLE1_POSTINGS_BODY_ROW,
   LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
@@ -292,13 +293,16 @@ function FindingsTab({
   const [linkedItemKey, setLinkedItemKey] = useState(prefillItemKey ?? '')
   const [saving, setSaving] = useState(false)
   const [linkingDeviationId, setLinkingDeviationId] = useState<string | null>(null)
-  const newFindingFormRef = useRef<HTMLDivElement | null>(null)
+  const [findingPanelOpen, setFindingPanelOpen] = useState(false)
 
   const TH = `${LAYOUT_TABLE1_POSTINGS_TH} bg-neutral-50`
 
   useEffect(() => {
     queueMicrotask(() => {
-      if (prefillItemKey) setLinkedItemKey(prefillItemKey)
+      if (prefillItemKey) {
+        setLinkedItemKey(prefillItemKey)
+        setFindingPanelOpen(true)
+      }
     })
   }, [prefillItemKey])
 
@@ -324,6 +328,7 @@ function FindingsTab({
     setFindingCons(f.risk_consequence)
     const key = f.item_id ? items.find((i) => i.id === f.item_id)?.checklist_item_key ?? '' : ''
     setLinkedItemKey(key)
+    setFindingPanelOpen(true)
   }
 
   async function handleSave() {
@@ -349,6 +354,7 @@ function FindingsTab({
       })
     }
     resetForm()
+    setFindingPanelOpen(false)
     setSaving(false)
   }
 
@@ -357,85 +363,98 @@ function FindingsTab({
   return (
     <div className="flex flex-col space-y-6">
       {!readOnly && (
-        <div ref={newFindingFormRef} id="inspection-new-finding-form" className="border border-neutral-200 bg-white px-0 py-0">
-          <p className={`${WPSTD_FORM_LEAD} border-b border-neutral-200 px-4 py-3 md:px-5`}>
-            {editingFindingId ? 'Rediger avvik' : 'Registrer nytt avvik'} — hvert avvik lagres i avviksmodulen.
-          </p>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-desc">
-              Beskrivelse
-            </label>
-            <StandardTextarea
-              id="finding-desc"
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Beskriv avviket…"
-              className="resize-none"
-            />
-          </div>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-severity">
-              Alvorlighetsgrad
-            </label>
-            <SearchableSelect
-              value={severity}
-              options={(Object.keys(SEVERITY_LABELS) as (keyof typeof SEVERITY_LABELS)[]).map((s) => ({
-                value: s,
-                label: SEVERITY_LABELS[s],
-              }))}
-              onChange={(v) => setSeverity(v as typeof severity)}
-            />
-          </div>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-item">
-              Tilknyttet sjekklistepunkt (valgfri)
-            </label>
-            <SearchableSelect
-              value={linkedItemKey}
-              options={[
-                { value: '', label: '(Ingen)' },
-                ...checklistItems.map((ci) => ({ value: ci.key, label: ci.label })),
-              ]}
-              onChange={(v) => setLinkedItemKey(v)}
-            />
-          </div>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <span className={WPSTD_FORM_FIELD_LABEL}>Risiko (sannsynlighet × konsekvens)</span>
-            <div className="rounded-md border border-neutral-200 bg-white p-3">
-              <RiskMatrix
-                probability={findingProb}
-                consequence={findingCons}
-                onChange={(p, c) => {
-                  setFindingProb(p)
-                  setFindingCons(c)
-                }}
-                size="sm"
-              />
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2 border-t border-neutral-200 px-4 py-4 md:px-5">
-            <Button
-              type="button"
-              variant="primary"
-              disabled={!description.trim() || saving}
-              onClick={() => void handleSave()}
-            >
-              {saving ? 'Lagrer…' : editingFindingId ? 'Lagre endringer' : 'Registrer avvik'}
-            </Button>
-            {(editingFindingId || description.trim()) && (
+        <SlidePanel
+          open={findingPanelOpen}
+          onClose={() => {
+            resetForm()
+            setFindingPanelOpen(false)
+          }}
+          titleId="inspection-finding-panel-title"
+          title={editingFindingId ? 'Rediger avvik' : 'Registrer nytt avvik'}
+          footer={
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <Button
                 type="button"
                 variant="secondary"
                 disabled={saving}
-                onClick={() => resetForm()}
+                onClick={() => {
+                  resetForm()
+                  setFindingPanelOpen(false)
+                }}
                 className="font-medium"
               >
                 Avbryt
               </Button>
-            )}
+              <Button
+                type="button"
+                variant="primary"
+                disabled={!description.trim() || saving}
+                onClick={() => void handleSave()}
+              >
+                {saving ? 'Lagrer…' : editingFindingId ? 'Lagre endringer' : 'Registrer avvik'}
+              </Button>
+            </div>
+          }
+        >
+          <p className={`${WPSTD_FORM_LEAD} mb-6`}>
+            Hvert avvik lagres i avviksmodulen. Listen bak panelet forblir synlig.
+          </p>
+          <div className="border border-neutral-200/90 bg-white">
+            <div className={WPSTD_FORM_ROW_GRID}>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-desc">
+                Beskrivelse
+              </label>
+              <StandardTextarea
+                id="finding-desc"
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Beskriv avviket…"
+                className="resize-none"
+              />
+            </div>
+            <div className={WPSTD_FORM_ROW_GRID}>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-severity">
+                Alvorlighetsgrad
+              </label>
+              <SearchableSelect
+                value={severity}
+                options={(Object.keys(SEVERITY_LABELS) as (keyof typeof SEVERITY_LABELS)[]).map((s) => ({
+                  value: s,
+                  label: SEVERITY_LABELS[s],
+                }))}
+                onChange={(v) => setSeverity(v as typeof severity)}
+              />
+            </div>
+            <div className={WPSTD_FORM_ROW_GRID}>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="finding-item">
+                Tilknyttet sjekklistepunkt (valgfri)
+              </label>
+              <SearchableSelect
+                value={linkedItemKey}
+                options={[
+                  { value: '', label: '(Ingen)' },
+                  ...checklistItems.map((ci) => ({ value: ci.key, label: ci.label })),
+                ]}
+                onChange={(v) => setLinkedItemKey(v)}
+              />
+            </div>
+            <div className={WPSTD_FORM_ROW_GRID}>
+              <span className={WPSTD_FORM_FIELD_LABEL}>Risiko (sannsynlighet × konsekvens)</span>
+              <div className="rounded-md border border-neutral-200 bg-white p-3">
+                <RiskMatrix
+                  probability={findingProb}
+                  consequence={findingCons}
+                  onChange={(p, c) => {
+                    setFindingProb(p)
+                    setFindingCons(c)
+                  }}
+                  size="sm"
+                />
+              </div>
+            </div>
           </div>
-        </div>
+        </SlidePanel>
       )}
 
       <LayoutTable1PostingsShell
@@ -452,7 +471,7 @@ function FindingsTab({
               icon={<Plus className="h-4 w-4" />}
               onClick={() => {
                 resetForm()
-                newFindingFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                setFindingPanelOpen(true)
               }}
             >
               Nytt avvik

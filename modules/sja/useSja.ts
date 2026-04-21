@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchAssignableUsers } from '../../src/hooks/useAssignableUsers'
+import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import type {
   SjaAnalysis,
@@ -179,6 +180,10 @@ function removeById<T extends { id: string }>(list: T[], id: string): T[] {
 }
 
 export function useSja({ supabase }: UseSjaInput): SjaState {
+  const { organization, can, isAdmin } = useOrgSetupContext()
+  const orgId = organization?.id
+  const canManage = isAdmin || can('sja.manage')
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
@@ -197,15 +202,32 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       setError('Supabase er ikke konfigurert.')
       return
     }
+    if (!orgId) {
+      setError('Organisasjon er ikke valgt.')
+      return
+    }
     setLoading(true)
     setError(null)
     try {
       const [analysesRes, templatesRes, locationsRes, authRes, assignableUsersList] = await Promise.all([
-        supabase.from('sja_analyses').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
-        supabase.from('sja_templates').select('*').order('name', { ascending: true }),
-        supabase.from('locations').select('id, name').order('name', { ascending: true }),
+        supabase
+          .from('sja_analyses')
+          .select('*')
+          .eq('organization_id', orgId)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('sja_templates')
+          .select('*')
+          .eq('organization_id', orgId)
+          .order('name', { ascending: true }),
+        supabase
+          .from('locations')
+          .select('id, name')
+          .eq('organization_id', orgId)
+          .order('name', { ascending: true }),
         supabase.auth.getUser(),
-        fetchAssignableUsers(supabase),
+        fetchAssignableUsers(supabase, orgId),
       ])
 
       if (analysesRes.error) {
@@ -271,7 +293,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [supabase, orgId])
 
   const mergeAnalysis = useCallback((row: SjaAnalysis) => {
     setAnalyses((prev) => {
@@ -287,6 +309,14 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
     async (payload: CreateSjaAnalysisPayload): Promise<SjaAnalysis | null> => {
       if (!supabase) {
         setError('Supabase er ikke konfigurert.')
+        return null
+      }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return null
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å opprette SJA.')
         return null
       }
       const title = payload.title.trim()
@@ -306,6 +336,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
           ? new Date(payload.scheduledEnd).toISOString()
           : null
       const row = {
+        organization_id: orgId,
         title,
         job_description: jobDescription,
         job_type: payload.jobType,
@@ -318,7 +349,12 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         scheduled_end: scheduledEndIso,
         status: 'draft' as const,
       }
-      const { data, error: insErr } = await supabase.from('sja_analyses').insert(row).select('*').single()
+      const { data, error: insErr } = await supabase
+        .from('sja_analyses')
+        .insert(row)
+        .select('*')
+        .eq('organization_id', orgId)
+        .single()
       if (insErr) {
         setError(getSupabaseErrorMessage(insErr))
         return null
@@ -348,7 +384,8 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
                 description: typeof pt.description === 'string' ? pt.description.trim() || null : null,
                 position: typeof pt.position === 'number' ? pt.position : ti,
               })
-              .select('*')
+              .select('*, sja_analyses!inner(organization_id)')
+              .eq('sja_analyses.organization_id', orgId)
               .single()
             if (taskErr) {
               setError(taskErr.message)
@@ -385,7 +422,8 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
                   description: hzDesc,
                   category,
                 })
-                .select('*')
+                .select('*, sja_analyses!inner(organization_id)')
+                .eq('sja_analyses.organization_id', orgId)
                 .single()
               if (hazErr) {
                 setError(hazErr.message)
@@ -415,7 +453,8 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
                     is_from_template: true,
                     is_mandatory: Boolean(m.is_mandatory),
                   })
-                  .select('*')
+                  .select('*, sja_analyses!inner(organization_id)')
+                  .eq('sja_analyses.organization_id', orgId)
                   .single()
                 if (measErr) {
                   setError(measErr.message)
@@ -431,7 +470,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
 
       return parsed
     },
-    [supabase, mergeAnalysis, templates],
+    [supabase, mergeAnalysis, templates, orgId, canManage],
   )
 
   const loadDetail = useCallback(
@@ -440,12 +479,17 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         setError('Supabase er ikke konfigurert.')
         return
       }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
       setError(null)
       try {
         const { data: analysisRow, error: analysisError } = await supabase
           .from('sja_analyses')
           .select('*')
           .eq('id', sjaId)
+          .eq('organization_id', orgId)
           .maybeSingle()
         if (analysisError) throw analysisError
         const analysis = parseRow(analysisRow, SjaAnalysisSchema)
@@ -453,10 +497,30 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         mergeAnalysis(analysis)
 
         const [pRes, tRes, hRes, mRes] = await Promise.all([
-          supabase.from('sja_participants').select('*').eq('sja_id', sjaId).order('created_at', { ascending: true }),
-          supabase.from('sja_tasks').select('*').eq('sja_id', sjaId).order('position', { ascending: true }),
-          supabase.from('sja_hazards').select('*').eq('sja_id', sjaId).order('created_at', { ascending: true }),
-          supabase.from('sja_measures').select('*').eq('sja_id', sjaId).order('created_at', { ascending: true }),
+          supabase
+            .from('sja_participants')
+            .select('*, sja_analyses!inner(organization_id)')
+            .eq('sja_id', sjaId)
+            .eq('sja_analyses.organization_id', orgId)
+            .order('created_at', { ascending: true }),
+          supabase
+            .from('sja_tasks')
+            .select('*, sja_analyses!inner(organization_id)')
+            .eq('sja_id', sjaId)
+            .eq('sja_analyses.organization_id', orgId)
+            .order('position', { ascending: true }),
+          supabase
+            .from('sja_hazards')
+            .select('*, sja_analyses!inner(organization_id)')
+            .eq('sja_id', sjaId)
+            .eq('sja_analyses.organization_id', orgId)
+            .order('created_at', { ascending: true }),
+          supabase
+            .from('sja_measures')
+            .select('*, sja_analyses!inner(organization_id)')
+            .eq('sja_id', sjaId)
+            .eq('sja_analyses.organization_id', orgId)
+            .order('created_at', { ascending: true }),
         ])
         if (pRes.error) throw pRes.error
         if (tRes.error) throw tRes.error
@@ -485,7 +549,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         setError(getSupabaseErrorMessage(e))
       }
     },
-    [supabase, mergeAnalysis],
+    [supabase, orgId, mergeAnalysis],
   )
 
   const getDetail = useCallback(
@@ -509,6 +573,14 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         setError('Supabase er ikke konfigurert.')
         return
       }
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA.')
+        return
+      }
       setError(null)
       const row: Record<string, unknown> = Object.fromEntries(
         Object.entries({ ...patch, updated_at: new Date().toISOString() }).filter(([, v]) => v !== undefined),
@@ -516,7 +588,13 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       delete row.id
       delete row.organization_id
       delete row.created_at
-      const { data, error: upErr } = await supabase.from('sja_analyses').update(row).eq('id', sjaId).select('*').single()
+      const { data, error: upErr } = await supabase
+        .from('sja_analyses')
+        .update(row)
+        .eq('id', sjaId)
+        .eq('organization_id', orgId)
+        .select('*')
+        .single()
       if (upErr) {
         setError(upErr.message)
         return
@@ -524,11 +602,15 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       const parsed = parseRow(data, SjaAnalysisSchema)
       if (parsed) mergeAnalysis(parsed)
     },
-    [supabase, mergeAnalysis],
+    [supabase, orgId, canManage, mergeAnalysis],
   )
 
   const advanceStatus = useCallback(
     async (sjaId: string, nextStatus: SjaAnalysis['status'], payload?: AdvanceStatusPayload) => {
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA-status.')
+        return
+      }
       const current = analyses.find((a) => a.id === sjaId)
       if (!current) return
       const updates: Partial<SjaAnalysis> = { status: nextStatus }
@@ -546,7 +628,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       }
       await saveAnalysisPatch(sjaId, updates as Partial<SjaAnalysis>)
     },
-    [analyses, saveAnalysisPatch],
+    [analyses, canManage, saveAnalysisPatch],
   )
 
   const addParticipant = useCallback(
@@ -560,6 +642,14 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       certsNotes?: string | null
     }) => {
       if (!supabase) return
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA.')
+        return
+      }
       setError(null)
       const row = {
         sja_id: input.sjaId,
@@ -570,7 +660,12 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         certs_verified: input.certsVerified ?? false,
         certs_notes: input.certsNotes?.trim() || null,
       }
-      const { data, error: insErr } = await supabase.from('sja_participants').insert(row).select('*').single()
+      const { data, error: insErr } = await supabase
+        .from('sja_participants')
+        .insert(row)
+        .select('*, sja_analyses!inner(organization_id)')
+        .eq('sja_analyses.organization_id', orgId)
+        .single()
       if (insErr) {
         setError(insErr.message)
         return
@@ -578,13 +673,35 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       const parsed = parseRow(data, SjaParticipantSchema)
       if (parsed) setParticipants((prev) => [...prev, parsed])
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const deleteParticipant = useCallback(
     async (participantId: string) => {
       if (!supabase) return
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA.')
+        return
+      }
       setError(null)
+      const { data: inOrg, error: preErr } = await supabase
+        .from('sja_participants')
+        .select('id, sja_analyses!inner(organization_id)')
+        .eq('id', participantId)
+        .eq('sja_analyses.organization_id', orgId)
+        .maybeSingle()
+      if (preErr) {
+        setError(preErr.message)
+        return
+      }
+      if (!inOrg) {
+        setError('Fant ikke deltakeren i denne organisasjonen.')
+        return
+      }
       const { error: delErr } = await supabase.from('sja_participants').delete().eq('id', participantId)
       if (delErr) {
         setError(delErr.message)
@@ -592,19 +709,28 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       }
       setParticipants((prev) => removeById(prev, participantId))
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const addTask = useCallback(
     async (sjaId: string, title: string): Promise<SjaTask | null> => {
       if (!supabase) return null
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return null
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA.')
+        return null
+      }
       setError(null)
       const existing = tasks.filter((t) => t.sja_id === sjaId)
       const position = existing.length > 0 ? Math.max(...existing.map((t) => t.position)) + 1 : 0
       const { data, error: insErr } = await supabase
         .from('sja_tasks')
         .insert({ sja_id: sjaId, title: title.trim(), position })
-        .select('*')
+        .select('*, sja_analyses!inner(organization_id)')
+        .eq('sja_analyses.organization_id', orgId)
         .single()
       if (insErr) {
         setError(insErr.message)
@@ -617,12 +743,20 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       }
       return null
     },
-    [supabase, tasks],
+    [supabase, orgId, canManage, tasks],
   )
 
   const updateTask = useCallback(
     async (taskId: string, patch: Partial<Pick<SjaTask, 'title' | 'description'>>) => {
       if (!supabase) return
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA.')
+        return
+      }
       setError(null)
       const row: Record<string, unknown> = {}
       if (patch.title !== undefined) row.title = patch.title
@@ -631,7 +765,8 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         .from('sja_tasks')
         .update(row)
         .eq('id', taskId)
-        .select('*')
+        .select('*, sja_analyses!inner(organization_id)')
+        .eq('sja_analyses.organization_id', orgId)
         .single()
       if (upErr) {
         setError(upErr.message)
@@ -640,13 +775,35 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       const parsed = parseRow(data, SjaTaskSchema)
       if (parsed) setTasks((prev) => replaceById(prev, taskId, parsed))
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const deleteTask = useCallback(
     async (taskId: string) => {
       if (!supabase) return
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA.')
+        return
+      }
       setError(null)
+      const { data: inOrg, error: preErr } = await supabase
+        .from('sja_tasks')
+        .select('id, sja_analyses!inner(organization_id)')
+        .eq('id', taskId)
+        .eq('sja_analyses.organization_id', orgId)
+        .maybeSingle()
+      if (preErr) {
+        setError(preErr.message)
+        return
+      }
+      if (!inOrg) {
+        setError('Fant ikke oppgaven i denne organisasjonen.')
+        return
+      }
       const { error: delErr } = await supabase.from('sja_tasks').delete().eq('id', taskId)
       if (delErr) {
         setError(delErr.message)
@@ -659,16 +816,42 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         return prev.filter((h) => h.task_id !== taskId)
       })
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const reorderTasks = useCallback(
     async (sjaId: string, orderedTaskIds: string[]) => {
       if (!supabase) return
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA.')
+        return
+      }
       setError(null)
+      const { data: parent, error: parentErr } = await supabase
+        .from('sja_analyses')
+        .select('id')
+        .eq('id', sjaId)
+        .eq('organization_id', orgId)
+        .maybeSingle()
+      if (parentErr) {
+        setError(parentErr.message)
+        return
+      }
+      if (!parent) {
+        setError('Fant ikke SJA i denne organisasjonen.')
+        return
+      }
       for (let i = 0; i < orderedTaskIds.length; i += 1) {
         const id = orderedTaskIds[i]
-        const { error: upErr } = await supabase.from('sja_tasks').update({ position: i }).eq('id', id).eq('sja_id', sjaId)
+        const { error: upErr } = await supabase
+          .from('sja_tasks')
+          .update({ position: i })
+          .eq('id', id)
+          .eq('sja_id', sjaId)
         if (upErr) {
           setError(upErr.message)
           return
@@ -682,7 +865,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         }),
       )
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const addHazard = useCallback(
@@ -694,6 +877,14 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       chemicalRef?: string | null,
     ): Promise<SjaHazard | null> => {
       if (!supabase) return null
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return null
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA.')
+        return null
+      }
       setError(null)
       const { data, error: insErr } = await supabase
         .from('sja_hazards')
@@ -704,7 +895,8 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
           category,
           chemical_ref: chemicalRef?.trim() || null,
         })
-        .select('*')
+        .select('*, sja_analyses!inner(organization_id)')
+        .eq('sja_analyses.organization_id', orgId)
         .single()
       if (insErr) {
         setError(insErr.message)
@@ -717,7 +909,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       }
       return null
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const updateHazard = useCallback(
@@ -737,6 +929,14 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       >,
     ) => {
       if (!supabase) return
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA.')
+        return
+      }
       setError(null)
       const row: Record<string, unknown> = {}
       if (patch.description !== undefined) row.description = patch.description
@@ -750,7 +950,8 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         .from('sja_hazards')
         .update(row)
         .eq('id', hazardId)
-        .select('*')
+        .select('*, sja_analyses!inner(organization_id)')
+        .eq('sja_analyses.organization_id', orgId)
         .single()
       if (upErr) {
         setError(upErr.message)
@@ -759,13 +960,35 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       const parsed = parseRow(data, SjaHazardSchema)
       if (parsed) setHazards((prev) => replaceById(prev, hazardId, parsed))
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const deleteHazard = useCallback(
     async (hazardId: string) => {
       if (!supabase) return
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA.')
+        return
+      }
       setError(null)
+      const { data: inOrg, error: preErr } = await supabase
+        .from('sja_hazards')
+        .select('id, sja_analyses!inner(organization_id)')
+        .eq('id', hazardId)
+        .eq('sja_analyses.organization_id', orgId)
+        .maybeSingle()
+      if (preErr) {
+        setError(preErr.message)
+        return
+      }
+      if (!inOrg) {
+        setError('Fant ikke farekilden i denne organisasjonen.')
+        return
+      }
       const { error: delErr } = await supabase.from('sja_hazards').delete().eq('id', hazardId)
       if (delErr) {
         setError(delErr.message)
@@ -774,7 +997,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       setHazards((prev) => removeById(prev, hazardId))
       setMeasures((prev) => prev.filter((m) => m.hazard_id !== hazardId))
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const addMeasure = useCallback(
@@ -789,6 +1012,14 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       isMandatory?: boolean
     }) => {
       if (!supabase) return
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA.')
+        return
+      }
       setError(null)
       const { data, error: insErr } = await supabase
         .from('sja_measures')
@@ -802,7 +1033,8 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
           is_from_template: input.isFromTemplate ?? false,
           is_mandatory: input.isMandatory ?? false,
         })
-        .select('*')
+        .select('*, sja_analyses!inner(organization_id)')
+        .eq('sja_analyses.organization_id', orgId)
         .single()
       if (insErr) {
         setError(insErr.message)
@@ -811,7 +1043,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       const parsed = parseRow(data, SjaMeasureSchema)
       if (parsed) setMeasures((prev) => [...prev, parsed])
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const updateMeasure = useCallback(
@@ -834,6 +1066,14 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       >,
     ) => {
       if (!supabase) return
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA.')
+        return
+      }
       setError(null)
       const body: Record<string, unknown> = {
         ...(patch.description !== undefined ? { description: patch.description } : {}),
@@ -857,7 +1097,8 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         .from('sja_measures')
         .update(body)
         .eq('id', measureId)
-        .select('*')
+        .select('*, sja_analyses!inner(organization_id)')
+        .eq('sja_analyses.organization_id', orgId)
         .maybeSingle()
       if (upErr) {
         setError(upErr.message)
@@ -866,12 +1107,20 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       const parsed = parseRow(data, SjaMeasureSchema)
       if (parsed) setMeasures((prev) => replaceById(prev, measureId, parsed))
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const deleteMeasure = useCallback(
     async (measureId: string, opts?: { justification?: string | null }) => {
       if (!supabase) return
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA.')
+        return
+      }
       setError(null)
       const {
         data: { user },
@@ -885,7 +1134,8 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
           deletion_justification: opts?.justification?.trim() || null,
         })
         .eq('id', measureId)
-        .select('*')
+        .select('*, sja_analyses!inner(organization_id)')
+        .eq('sja_analyses.organization_id', orgId)
         .maybeSingle()
       if (upErr) {
         setError(upErr.message)
@@ -895,13 +1145,35 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       if (parsed) setMeasures((prev) => replaceById(prev, measureId, parsed))
       else setMeasures((prev) => removeById(prev, measureId))
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const hardDeleteMeasure = useCallback(
     async (measureId: string) => {
       if (!supabase) return
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA.')
+        return
+      }
       setError(null)
+      const { data: inOrg, error: preErr } = await supabase
+        .from('sja_measures')
+        .select('id, sja_analyses!inner(organization_id)')
+        .eq('id', measureId)
+        .eq('sja_analyses.organization_id', orgId)
+        .maybeSingle()
+      if (preErr) {
+        setError(preErr.message)
+        return
+      }
+      if (!inOrg) {
+        setError('Fant ikke tiltaket i denne organisasjonen.')
+        return
+      }
       const { error: delErr } = await supabase.from('sja_measures').delete().eq('id', measureId)
       if (delErr) {
         setError(delErr.message)
@@ -909,19 +1181,24 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       }
       setMeasures((prev) => removeById(prev, measureId))
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const signParticipant = useCallback(
     async (participantId: string) => {
       if (!supabase) return
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
       setError(null)
       const now = new Date().toISOString()
       const { data, error: upErr } = await supabase
         .from('sja_participants')
         .update({ signed_at: now })
         .eq('id', participantId)
-        .select('*')
+        .select('*, sja_analyses!inner(organization_id)')
+        .eq('sja_analyses.organization_id', orgId)
         .single()
       if (upErr) {
         setError(upErr.message)
@@ -930,12 +1207,20 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       const parsed = parseRow(data, SjaParticipantSchema)
       if (parsed) setParticipants((prev) => replaceById(prev, participantId, parsed))
     },
-    [supabase],
+    [supabase, orgId],
   )
 
   const completeDebrief = useCallback(
     async (input: { sjaId: string; unexpectedHazards: boolean; debriefNotes: string }) => {
       if (!supabase) return
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å fullføre SJA-debrief.')
+        return
+      }
       setError(null)
       const uid = (await supabase.auth.getUser()).data.user?.id ?? null
       const { data, error: upErr } = await supabase
@@ -949,6 +1234,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
           updated_at: new Date().toISOString(),
         })
         .eq('id', input.sjaId)
+        .eq('organization_id', orgId)
         .select('*')
         .single()
       if (upErr) {
@@ -958,12 +1244,20 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       const parsed = parseRow(data, SjaAnalysisSchema)
       if (parsed) mergeAnalysis(parsed)
     },
-    [supabase, mergeAnalysis],
+    [supabase, orgId, canManage, mergeAnalysis],
   )
 
   const createAvvikFromDebrief = useCallback(
     async (sjaId: string): Promise<string | null> => {
       if (!supabase) return null
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return null
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å opprette avvik fra SJA-debrief.')
+        return null
+      }
       setError(null)
       const analysis = analyses.find((a) => a.id === sjaId)
       if (!analysis) return null
@@ -974,6 +1268,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       const { data, error: insErr } = await supabase
         .from('deviations')
         .insert({
+          organization_id: orgId,
           title,
           description,
           severity: 'high',
@@ -993,7 +1288,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       }
       return id
     },
-    [supabase, analyses, saveAnalysisPatch],
+    [supabase, orgId, canManage, analyses, saveAnalysisPatch],
   )
 
   const createTemplate = useCallback(
@@ -1007,10 +1302,19 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       is_active?: boolean
     }): Promise<SjaTemplate | null> => {
       if (!supabase) return null
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return null
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å opprette SJA-maler.')
+        return null
+      }
       setError(null)
       const { data, error: insErr } = await supabase
         .from('sja_templates')
         .insert({
+          organization_id: orgId,
           name: row.name.trim(),
           job_type: row.job_type,
           description: row.description ?? null,
@@ -1020,6 +1324,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
           is_active: row.is_active ?? true,
         })
         .select('*')
+        .eq('organization_id', orgId)
         .single()
       if (insErr) {
         setError(insErr.message)
@@ -1032,7 +1337,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       }
       return null
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   const updateTemplate = useCallback(
@@ -1049,6 +1354,14 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
       },
     ) => {
       if (!supabase) return
+      if (!orgId) {
+        setError('Organisasjon er ikke valgt.')
+        return
+      }
+      if (!canManage) {
+        setError('Du har ikke tilgang til å endre SJA-maler.')
+        return
+      }
       setError(null)
       const body: Record<string, unknown> = { updated_at: new Date().toISOString() }
       if (row.name !== undefined) body.name = row.name.trim()
@@ -1062,6 +1375,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         .from('sja_templates')
         .update(body)
         .eq('id', templateId)
+        .eq('organization_id', orgId)
         .select('*')
         .single()
       if (upErr) {
@@ -1073,7 +1387,7 @@ export function useSja({ supabase }: UseSjaInput): SjaState {
         setTemplates((prev) => prev.map((t) => (t.id === templateId ? parsed : t)))
       }
     },
-    [supabase],
+    [supabase, orgId, canManage],
   )
 
   return useMemo(
