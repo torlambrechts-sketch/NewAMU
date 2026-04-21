@@ -1,16 +1,9 @@
 import { useCallback, useId, useState } from 'react'
 import { Plus, Trash2, Users } from 'lucide-react'
-import {
-  WPSTD_FORM_FIELD_LABEL,
-  WPSTD_FORM_ROW_GRID,
-} from '../../src/components/layout/WorkplaceStandardFormPanel'
-import {
-  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
-  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
-  LAYOUT_TABLE1_POSTINGS_TH,
-} from '../../src/components/layout/layoutTable1PostingsKit'
+import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
-import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
+import { ModuleRecordsTableShell } from '../../src/components/module/ModuleRecordsTableShell'
+import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../../src/components/module/moduleTableKit'
 import { Button } from '../../src/components/ui/Button'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { YesNoToggle } from '../../src/components/ui/FormToggles'
@@ -73,56 +66,55 @@ export function AmuParticipantsTable({
     }
   }, [draftUserId, draftRole, onAdd, closePanel])
 
-  return (
-    <div className={`${WORKPLACE_MODULE_CARD} p-5 md:p-6`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-neutral-900">Deltakere</h3>
-          <p className="mt-1 text-sm text-neutral-600">
-            Legg til brukere fra virksomheten med roller i møtet.
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="primary"
-          size="sm"
-          disabled={readOnly || !canManage}
-          onClick={openPanel}
-        >
-          <Plus className="h-4 w-4" />
-          Ny deltaker
-        </Button>
-      </div>
+  const headerActions = (
+    <Button
+      type="button"
+      variant="primary"
+      size="sm"
+      icon={<Plus className="h-4 w-4" />}
+      disabled={readOnly || !canManage}
+      onClick={openPanel}
+    >
+      Ny deltaker
+    </Button>
+  )
 
-      <div className="mt-4 overflow-x-auto w-full">
+  return (
+    <>
+      <ModuleRecordsTableShell
+        title="Deltakere"
+        description="Legg til brukere fra virksomheten med roller i møtet."
+        headerActions={headerActions}
+        toolbar={<div className="min-w-0 flex-1" aria-hidden />}
+      >
         <table className="w-full min-w-[640px] border-collapse text-left text-sm">
           <thead>
-            <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Bruker</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Rolle</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Til stede</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH} />
+            <tr>
+              <th className={MODULE_TABLE_TH}>Bruker</th>
+              <th className={MODULE_TABLE_TH}>Rolle</th>
+              <th className={MODULE_TABLE_TH}>Til stede</th>
+              <th className={`${MODULE_TABLE_TH} text-right`} aria-hidden />
             </tr>
           </thead>
           <tbody>
             {participants.length === 0 ? (
-              <tr className={LAYOUT_TABLE1_POSTINGS_BODY_ROW}>
+              <tr>
                 <td colSpan={COL_COUNT} className="px-5 py-0">
                   <div className="flex flex-col items-center justify-center py-12 text-center">
                     <Users className="h-12 w-12 text-neutral-300" aria-hidden />
                     <p className="mt-4 font-medium text-neutral-900">Ingen deltakere registrert ennå</p>
                     <p className="mt-1 max-w-md text-sm text-neutral-500">
-                      AMU-møtet bør ha tydelig sammensetning. Legg til representanter fra begge sider og eventuell
-                      referent eller BHT.
+                      AMU-møtet bør ha tydelig sammensetning. Legg til representanter fra begge sider
+                      og eventuell referent eller BHT.
                     </p>
                     <div className="mt-6">
                       <Button
                         type="button"
                         variant="primary"
+                        icon={<Plus className="h-4 w-4" />}
                         disabled={readOnly || !canManage}
                         onClick={openPanel}
                       >
-                        <Plus className="h-4 w-4" />
                         Ny deltaker
                       </Button>
                     </div>
@@ -131,9 +123,11 @@ export function AmuParticipantsTable({
               </tr>
             ) : (
               participants.map((p) => (
-                <tr key={p.user_id} className={LAYOUT_TABLE1_POSTINGS_BODY_ROW}>
-                  <td className="px-5 py-3 font-medium text-neutral-900">{userLabel(p.user_id)}</td>
-                  <td className="px-5 py-3">
+                <tr key={p.user_id} className={MODULE_TABLE_TR_BODY}>
+                  <td className="px-5 py-4 align-middle font-medium text-neutral-900">
+                    {userLabel(p.user_id)}
+                  </td>
+                  <td className="px-5 py-4 align-middle">
                     <SearchableSelect
                       value={p.role}
                       options={ROLE_OPTIONS}
@@ -143,7 +137,7 @@ export function AmuParticipantsTable({
                       disabled={readOnly || !canManage}
                     />
                   </td>
-                  <td className="px-5 py-3">
+                  <td className="px-5 py-4 align-middle">
                     <YesNoToggle
                       value={p.present}
                       onChange={async (v) => {
@@ -151,7 +145,7 @@ export function AmuParticipantsTable({
                       }}
                     />
                   </td>
-                  <td className="px-5 py-3 text-right">
+                  <td className="px-5 py-4 text-right align-middle">
                     <Button
                       type="button"
                       variant="ghost"
@@ -169,7 +163,7 @@ export function AmuParticipantsTable({
             )}
           </tbody>
         </table>
-      </div>
+      </ModuleRecordsTableShell>
 
       <SlidePanel
         open={panelOpen}
@@ -211,6 +205,6 @@ export function AmuParticipantsTable({
           />
         </div>
       </SlidePanel>
-    </div>
+    </>
   )
 }
