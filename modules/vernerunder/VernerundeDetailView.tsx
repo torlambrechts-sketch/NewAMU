@@ -9,6 +9,7 @@ import {
   LAYOUT_TABLE1_POSTINGS_TH,
 } from '../../src/components/layout/layoutTable1PostingsKit'
 import {
+  ModuleInformationCard,
   ModulePageShell,
   ModulePreflightChecklist,
   ModuleSectionCard,
@@ -273,41 +274,63 @@ export function VernerundeDetailView() {
         {v.error ? <div className="border-b border-amber-100"><WarningBox>{v.error}</WarningBox></div> : null}
 
           {activeTab === 'planlegging' && (
-            <div className="border-t border-neutral-100 px-5 py-5 md:px-6">
+            <div className="border-t border-neutral-100">
               {v.canManage && !locked ? (
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Grunnopplysninger</p>
-                  <div className="grid max-w-3xl gap-4">
-                    <div className={WPSTD_FORM_ROW_GRID}>
-                      <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="vnr-title">
-                        Tittel
-                      </label>
-                      <StandardInput id="vnr-title" value={planTitle} onChange={(e) => setPlanTitle(e.target.value)} />
-                    </div>
-                    <div className={WPSTD_FORM_ROW_GRID}>
-                      <span className={WPSTD_FORM_FIELD_LABEL}>Mal</span>
-                      <SearchableSelect value={planTemplate} options={templateOptions} onChange={setPlanTemplate} />
-                    </div>
-                    <div className={WPSTD_FORM_ROW_GRID}>
-                      <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="vnr-date">
-                        Planlagt dato
-                      </label>
-                      <StandardInput
-                        id="vnr-date"
-                        type="date"
-                        value={planDate}
-                        onChange={(e) => setPlanDate(e.target.value)}
-                      />
-                    </div>
-                    <div className={WPSTD_FORM_ROW_GRID}>
-                      <span className={WPSTD_FORM_FIELD_LABEL}>Status</span>
-                      <SearchableSelect
-                        value={planStatus}
-                        options={STATUS_OPTIONS}
-                        onChange={(val) => setPlanStatus(val as VernerunderRow['status'])}
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-2 border-t border-neutral-100 pt-4">
+                <ModuleInformationCard
+                  withCard={false}
+                  hideHeader
+                  rows={[
+                    {
+                      id: 'title',
+                      label: 'Tittel',
+                      htmlFor: 'vnr-title',
+                      required: true,
+                      value: (
+                        <StandardInput
+                          id="vnr-title"
+                          value={planTitle}
+                          onChange={(e) => setPlanTitle(e.target.value)}
+                        />
+                      ),
+                    },
+                    {
+                      id: 'template',
+                      label: 'Mal',
+                      value: (
+                        <SearchableSelect
+                          value={planTemplate}
+                          options={templateOptions}
+                          onChange={setPlanTemplate}
+                        />
+                      ),
+                    },
+                    {
+                      id: 'date',
+                      label: 'Planlagt dato',
+                      htmlFor: 'vnr-date',
+                      value: (
+                        <StandardInput
+                          id="vnr-date"
+                          type="date"
+                          value={planDate}
+                          onChange={(e) => setPlanDate(e.target.value)}
+                        />
+                      ),
+                    },
+                    {
+                      id: 'status',
+                      label: 'Status',
+                      value: (
+                        <SearchableSelect
+                          value={planStatus}
+                          options={STATUS_OPTIONS}
+                          onChange={(val) => setPlanStatus(val as VernerunderRow['status'])}
+                        />
+                      ),
+                    },
+                  ]}
+                  footer={
+                    <div className="flex flex-wrap justify-end gap-2">
                       <Button type="button" variant="primary" onClick={() => void savePlan()}>
                         Lagre endringer
                       </Button>
@@ -322,10 +345,12 @@ export function VernerundeDetailView() {
                         </Button>
                       ) : null}
                     </div>
-                  </div>
-                </div>
+                  }
+                />
               ) : (
-                <p className="text-sm text-neutral-600">Du har ikke rettigheter til å endre, eller runden er låst.</p>
+                <p className="px-5 py-5 text-sm text-neutral-600 md:px-6">
+                  Du har ikke rettigheter til å endre, eller runden er låst.
+                </p>
               )}
             </div>
           )}

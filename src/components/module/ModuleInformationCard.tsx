@@ -25,8 +25,8 @@ export interface ModuleInformationRow {
 }
 
 export interface ModuleInformationCardProps {
-  /** Heading shown in the green compliance banner. */
-  title: ReactNode
+  /** Heading shown in the green compliance banner. Ignored when `hideHeader`. */
+  title?: ReactNode
   /** Optional sub-text under the heading inside the banner. */
   description?: ReactNode
   /** One row per piece of entity information. */
@@ -38,6 +38,12 @@ export interface ModuleInformationCardProps {
   footer?: ReactNode
   /** `false` — drop the outer ModuleSectionCard (e.g. already inside one). */
   withCard?: boolean
+  /**
+   * `true` — skip the dark-green `ComplianceBanner` header. Useful when an
+   * outer component (e.g. the detail-page tab surface) already renders a
+   * top-level banner and nesting would mean two stacked dark-green rows.
+   */
+  hideHeader?: boolean
   className?: string
 }
 
@@ -68,15 +74,16 @@ export function ModuleInformationCard({
   rows,
   footer,
   withCard = true,
+  hideHeader = false,
   className,
 }: ModuleInformationCardProps) {
   const body = (
     <>
-      <ComplianceBanner title={title} className="border-b border-[#1a3d32]/20">
-        {description ?? (
-          <p>Generell informasjon om denne oppføringen.</p>
-        )}
-      </ComplianceBanner>
+      {hideHeader ? null : (
+        <ComplianceBanner title={title ?? ''} className="border-b border-[#1a3d32]/20">
+          {description ?? <p>Generell informasjon om denne oppføringen.</p>}
+        </ComplianceBanner>
+      )}
 
       <div>
         {rows.map((row) => (
