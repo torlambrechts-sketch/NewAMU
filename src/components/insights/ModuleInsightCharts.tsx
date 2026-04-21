@@ -1,10 +1,13 @@
 /**
  * Donut / list insight cards — same visual language as HSE «HMS-innsikt».
+ *
+ * Corners align with the rest of the module layout system
+ * (`WORKPLACE_MODULE_CARD`, `ModuleSectionCard`, `ModuleLegalBanner`,
+ * `ModuleShortcutGrid`, `WhiteCard` in platform-admin `layout-reference` →
+ * `dashboard 70/30` and `survey insights 70/30`).
  */
-const R_FLAT = 'rounded-none'
-
 export const INSIGHT_CARD =
-  `${R_FLAT} flex flex-col border border-neutral-200/90 bg-white p-5 text-left shadow-sm transition hover:border-neutral-300 hover:shadow`
+  'rounded-xl flex flex-col border border-neutral-200/90 bg-white p-5 text-left shadow-sm transition hover:border-neutral-300 hover:shadow'
 
 export const INSIGHT_CARD_TOP_RULE = 'mb-4 h-0.5 w-full shrink-0 bg-[#1a3d32]'
 
