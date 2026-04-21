@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   ArrowLeft,
@@ -15,13 +15,16 @@ import {
   Trash2,
   UserCheck,
 } from 'lucide-react'
-import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import { ModuleAdminShell } from '../components/layout/ModuleAdminShell'
+import { ModulePageShell } from '../components/module/ModulePageShell'
 import {
   LAYOUT_TABLE1_POSTINGS_BODY_ROW,
   LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
   LAYOUT_TABLE1_POSTINGS_TH,
 } from '../components/layout/layoutTable1PostingsKit'
+import { Button } from '../components/ui/Button'
+import { WarningBox } from '../components/ui/AlertBox'
+import { Tabs as UITabs } from '../components/ui/Tabs'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useInspectionModule } from '../../modules/inspection/useInspectionModule'
 import { WorkflowRulesTab } from '../components/workflow/WorkflowRulesTab'
@@ -77,13 +80,14 @@ type Tab = 'templates' | 'locations' | 'signoff' | 'workflow' | 'stats'
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function InspectionModuleAdminPage() {
+  const navigate = useNavigate()
   const { supabase } = useOrgSetupContext()
   const inspection = useInspectionModule({ supabase })
   const [tab, setTab] = useState<Tab>('templates')
 
   useEffect(() => { void inspection.load() }, [inspection.load])
 
-  const tabs = useMemo(
+  const shellTabs = useMemo(
     () => [
       { key: 'templates', label: 'Maler', icon: <ClipboardList className="h-4 w-4" /> },
       { key: 'locations', label: 'Lokasjoner', icon: <MapPin className="h-4 w-4" /> },
@@ -94,35 +98,53 @@ export function InspectionModuleAdminPage() {
     [],
   )
 
-  return (
-    <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8 space-y-6">
-      <WorkplacePageHeading1
-        breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder', to: '/inspection-module' }, { label: 'Innstillinger' }]}
-        title="Inspeksjonsinnstillinger"
-        description="Administrer sjekkliste-maler, lokasjoner og signeringsregler for vernerunder."
-        headerActions={
-          <Link
-            to="/inspection-module"
-            className="inline-flex items-center gap-2 border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Tilbake til runder
-          </Link>
-        }
-      />
+  const tabsUiItems = useMemo(
+    () => [
+      { id: 'templates', label: 'Maler', icon: ClipboardList },
+      { id: 'locations', label: 'Lokasjoner', icon: MapPin },
+      { id: 'signoff', label: 'Signaturer', icon: UserCheck },
+      { id: 'workflow', label: 'Arbeidsflyt', icon: GitBranch },
+      { id: 'stats', label: 'Statistikk', icon: BarChart2 },
+    ],
+    [],
+  )
 
-      {inspection.error && (
-        <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {inspection.error}
-        </div>
-      )}
+  return (
+    <ModulePageShell
+      breadcrumb={[
+        { label: 'HMS' },
+        { label: 'Inspeksjonsrunder', to: '/inspection-module' },
+        { label: 'Innstillinger' },
+      ]}
+      title="Inspeksjonsinnstillinger"
+      description="Administrer sjekkliste-maler, lokasjoner og signeringsregler for vernerunder."
+      headerActions={
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<ArrowLeft className="h-4 w-4" />}
+          onClick={() => navigate('/inspection-module')}
+        >
+          Tilbake til runder
+        </Button>
+      }
+    >
+      {inspection.error ? <WarningBox>{inspection.error}</WarningBox> : null}
 
       <ModuleAdminShell
         title="Inspeksjonsinnstillinger"
         description="Administrer sjekkliste-maler, lokasjoner og signeringsregler for vernerunder."
-        tabs={tabs}
+        tabs={shellTabs}
         activeTab={tab}
         onTabChange={(key) => setTab(key as Tab)}
+        layout="tabsTop"
+        tabStrip={
+          <UITabs
+            items={tabsUiItems}
+            activeId={tab}
+            onChange={(id) => setTab(id as Tab)}
+          />
+        }
       >
         {tab === 'templates' && <TemplatesTab inspection={inspection} />}
         {tab === 'locations' && (
@@ -143,7 +165,7 @@ export function InspectionModuleAdminPage() {
         )}
         {tab === 'stats' && <HseStatsPanel supabase={supabase} />}
       </ModuleAdminShell>
-    </div>
+    </ModulePageShell>
   )
 }
 
@@ -381,9 +403,15 @@ function ChecklistItemRow({
           className="h-4 w-4 accent-[#1a3d32]"
         />
       </div>
-      <button type="button" onClick={onDelete} className="flex items-center justify-center text-neutral-300 hover:text-red-500">
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={onDelete}
+        icon={<Trash2 className="h-3.5 w-3.5" />}
+        aria-label="Slett punkt"
+        className="text-neutral-300 hover:text-red-500"
+      />
     </li>
   )
 }
