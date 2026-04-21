@@ -1,11 +1,13 @@
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { SjaPage } from '../../modules/sja/SjaPage'
 
+/**
+ * Thin route wrapper for `/sja/:sjaId`.
+ *
+ * `SjaPage` owns its own `ModulePageShell` chrome — this wrapper only
+ * injects the Supabase client from the org-context.
+ */
 export function SjaDetailPage() {
   const { supabase } = useOrgSetupContext()
-  return (
-    <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-      <SjaPage supabase={supabase} />
-    </div>
-  )
+  return <SjaPage supabase={supabase} />
 }
