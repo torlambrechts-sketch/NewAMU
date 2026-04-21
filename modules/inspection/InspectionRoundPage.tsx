@@ -23,12 +23,11 @@ import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePage
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
-import type { HmsCategory, InspectionChecklistItem, InspectionLocationRow, InspectionRoundRow } from './types'
+import type { InspectionChecklistItem, InspectionLocationRow, InspectionRoundRow } from './types'
 import { parseChecklistItems } from './schema'
 import { useInspectionModule, type InspectionModuleState } from './useInspectionModule'
 import { InspectionChecklistTable } from './components/InspectionChecklistTable'
 import { InspectionFindingsTable } from './components/InspectionFindingsTable'
-import type { ChecklistItem, ChecklistResponse } from '../../src/components/checklist/types'
 import { DeviationPanel } from '../../src/components/hse/DeviationPanel'
 import { HseAuditLogViewer } from '../../src/components/hse/HseAuditLogViewer'
 import { Badge } from '../../src/components/ui/Badge'
@@ -56,23 +55,6 @@ const STATUS_LABEL: Record<InspectionRoundRow['status'], string> = {
   signed: 'Signert',
 }
 
-const HMS_LABELS: Record<HmsCategory, string> = {
-  fysisk: 'Fysisk arbeidsmiljø',
-  ergonomi: 'Ergonomi og tilrettelegging',
-  kjemikalier: 'Kjemikalier og farlige stoffer',
-  psykososialt: 'Psykososialt arbeidsmiljø',
-  brann: 'Brann og rømning',
-  maskiner: 'Maskiner og teknisk utstyr',
-  annet: 'Annet',
-}
-const HMS_LAW: Partial<Record<HmsCategory, string>> = {
-  fysisk: 'AML § 4-4',
-  ergonomi: 'AML § 4-4',
-  kjemikalier: 'Stoffkartotekforskriften',
-  psykososialt: 'AML § 4-3',
-  brann: 'IK-forskriften',
-  maskiner: 'Arbeidsutstyrsforskriften',
-}
 const SEVERITY_LABELS = { low: 'Lav', medium: 'Middels', high: 'Høy', critical: 'Kritisk' }
 
 // ── Checklist tab ─────────────────────────────────────────────────────────────
@@ -93,36 +75,6 @@ function ChecklistTab({
 
   const readOnly = round.status === 'signed'
   const isDraft = round.status === 'draft'
-  const checklistTabItems = useMemo<ChecklistItem[]>(
-    () =>
-      checklistItems.map((item) => ({
-        key: item.key,
-        label: item.label,
-        required: item.required,
-        fieldType: (item.fieldType === 'photo_required' ? 'photo' : item.fieldType) as
-          | ChecklistItem['fieldType']
-          | undefined,
-        category: item.hmsCategory ?? '__none__',
-        categoryLabel: item.hmsCategory ? HMS_LABELS[item.hmsCategory] : 'Generelt',
-        categoryLawRef: item.hmsCategory ? HMS_LAW[item.hmsCategory] : undefined,
-        helpText: item.helpText,
-        lawRef: item.lawRef,
-      })),
-    [checklistItems],
-  )
-  const checklistTabResponses = useMemo<ChecklistResponse[]>(
-    () => (roundItems ?? []).map((item) => ({
-      key: item.checklist_item_key,
-      value: typeof item.response?.value === 'string' ? item.response.value : '',
-      notes: item.notes,
-      status:
-        item.status === 'completed' || (typeof item.response?.value === 'string' && item.response.value !== '')
-          ? 'completed'
-          : 'pending',
-    })),
-    [roundItems],
-  )
-
   const positionByKey = useMemo(() => {
     return checklistItems.reduce<Record<string, number>>((acc, item, index) => {
       acc[item.key] = index
@@ -195,12 +147,13 @@ function ChecklistTab({
         </div>
       )}
 
-      {!isRoundDetailLoading && checklistItems.length > 0 && (
+      {!isRoundDetailLoading && (
         <InspectionChecklistTable
-          items={checklistTabItems}
-          responses={checklistTabResponses}
+          checklistItems={checklistItems}
+          roundItems={roundItems}
           readOnly={readOnly}
           onSaveResponse={handleSaveResponse}
+          onRegisterFinding={(key) => onSwitchToFindings(key)}
           activationBanner={
             isDraft ? (
               <div className="mx-5 mt-4 flex flex-wrap items-center justify-between gap-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
@@ -222,20 +175,7 @@ function ChecklistTab({
               </div>
             ) : null
           }
-          onReportIssue={
-            readOnly
-              ? undefined
-              : (key) => {
-                  onSwitchToFindings(key)
-                }
-          }
         />
-      )}
-
-      {checklistItems.length === 0 && (
-        <p className="px-5 py-10 text-center text-sm text-neutral-400">
-          Ingen sjekklistepunkter i malen.
-        </p>
       )}
     </div>
   )
@@ -459,28 +399,7 @@ function FindingsTab({
         </SlidePanel>
       )}
 
-      <LayoutTable1PostingsShell
-        wrap={false}
-        titleTypography="sans"
-        title="Registrerte avvik"
-        description="Avvik knyttet til denne inspeksjonsrunden."
-        toolbar={<div className="min-w-0 flex-1" aria-hidden />}
-        headerActions={
-          !readOnly ? (
-            <Button
-              type="button"
-              variant="primary"
-              icon={<Plus className="h-4 w-4" />}
-              onClick={() => {
-                resetForm()
-                setFindingPanelOpen(true)
-              }}
-            >
-              Nytt avvik
-            </Button>
-          ) : null
-        }
-      >
+      <LayoutTable1PostingsShell wrap={false} toolbar={<div className="min-w-0 flex-1" aria-hidden />}>
         <InspectionFindingsTable
           findings={findings}
           checklistItems={checklistItems}
@@ -495,6 +414,21 @@ function FindingsTab({
             setLinkingDeviationId(null)
             if (id) onOpenDeviation(id)
           }}
+          headerActions={
+            !readOnly ? (
+              <Button
+                type="button"
+                variant="primary"
+                icon={<Plus className="h-4 w-4" />}
+                onClick={() => {
+                  resetForm()
+                  setFindingPanelOpen(true)
+                }}
+              >
+                Nytt avvik
+              </Button>
+            ) : null
+          }
         />
       </LayoutTable1PostingsShell>
     </div>

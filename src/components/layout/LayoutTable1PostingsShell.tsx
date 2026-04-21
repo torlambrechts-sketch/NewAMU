@@ -11,7 +11,8 @@ export type LayoutTable1PostingsShellProps = {
    * `false` — kun indre seksjoner (full bredde uten ytre kort).
    */
   wrap?: boolean
-  title: string
+  /** When omitted with no `description`, the title row is skipped (use an external section header). */
+  title?: string
   /** `sans` — matches module detail toolbars (no nested serif H2 on white card). Default `serif` for list/overview pages. */
   titleTypography?: 'serif' | 'sans'
   description?: string
@@ -42,19 +43,25 @@ export function LayoutTable1PostingsShell({
       : "text-xl font-semibold text-neutral-900"
   const titleStyle = titleTypography === 'sans' ? undefined : ({ fontFamily: "'Libre Baskerville', Georgia, serif" } as const)
 
+  const showTitleBlock = Boolean(title) || Boolean(description) || Boolean(headerActions)
+
   const inner = (
     <>
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
-        <div className="min-w-0">
-          <h2 className={titleClass} style={titleStyle}>
-            {title}
-          </h2>
-          {description ? <p className="mt-1 text-sm text-neutral-600">{description}</p> : null}
+      {showTitleBlock ? (
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
+          <div className="min-w-0">
+            {title ? (
+              <h2 className={titleClass} style={titleStyle}>
+                {title}
+              </h2>
+            ) : null}
+            {description ? <p className="mt-1 text-sm text-neutral-600">{description}</p> : null}
+          </div>
+          {headerActions ? (
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{headerActions}</div>
+          ) : null}
         </div>
-        {headerActions ? (
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{headerActions}</div>
-        ) : null}
-      </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-3 border-b border-neutral-100 px-5 py-3">{toolbar}</div>
       <div className="overflow-x-auto">{children}</div>
       {footer ? (

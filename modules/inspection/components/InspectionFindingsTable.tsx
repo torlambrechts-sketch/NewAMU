@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react'
 import { Pencil } from 'lucide-react'
 import { riskLabel, riskScoreFromProbCons } from '../../../src/components/hse/RiskMatrix'
+import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../../src/components/layout/WorkplaceStandardFormPanel'
 import { Badge, type BadgeVariant } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
 import type { HmsCategory, InspectionChecklistItem, InspectionFindingRow, InspectionFindingSeverity, InspectionItemRow } from '../types'
@@ -98,6 +100,8 @@ export type InspectionFindingsTableProps = {
   onEdit: (finding: InspectionFindingRow) => void
   onOpenDeviation: (deviationId: string) => void
   onCreateDeviationFromFinding: (findingId: string) => void | Promise<void>
+  /** Placed in the section header row (e.g. «Nytt avvik»). */
+  headerActions?: ReactNode
 }
 
 export function InspectionFindingsTable({
@@ -109,11 +113,26 @@ export function InspectionFindingsTable({
   onEdit,
   onOpenDeviation,
   onCreateDeviationFromFinding,
+  headerActions,
 }: InspectionFindingsTableProps) {
   const colCount = 3
 
   return (
-    <table className="w-full border-collapse text-left text-sm">
+    <>
+      <div className={WPSTD_FORM_ROW_GRID}>
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3 md:col-span-2">
+          <div className="min-w-0">
+            <p className={WPSTD_FORM_FIELD_LABEL}>Registrerte avvik</p>
+            <p className="mt-1 max-w-3xl text-xs leading-relaxed text-neutral-600">
+              Avvik knyttet til denne inspeksjonsrunden.
+            </p>
+          </div>
+          {headerActions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{headerActions}</div> : null}
+        </div>
+      </div>
+
+      <div className="overflow-x-auto w-full">
+        <table className="w-full border-collapse text-left text-sm">
       <thead>
         <tr>
           <th className={INSPECTION_TABLE_TH}>Funn / Beskrivelse</th>
@@ -203,6 +222,8 @@ export function InspectionFindingsTable({
           </tr>
         ) : null}
       </tbody>
-    </table>
+        </table>
+      </div>
+    </>
   )
 }
