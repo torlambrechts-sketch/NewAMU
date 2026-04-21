@@ -20,14 +20,12 @@ import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
-import { WorkplacePageHeading1, WorkplaceSerifSectionTitle } from '../../src/components/layout/WorkplacePageHeading1'
+import { WorkplaceSerifSectionTitle } from '../../src/components/layout/WorkplacePageHeading1'
 import {
-  WORKPLACE_MODULE_CANVAS_BG,
-  WORKPLACE_MODULE_CARD,
-  WORKPLACE_MODULE_CARD_SHADOW,
   WORKPLACE_MODULE_SUBTLE_PANEL,
   WORKPLACE_MODULE_SUBTLE_PANEL_STYLE,
 } from '../../src/components/layout/workplaceModuleSurface'
+import { ModulePageShell, ModuleSectionCard } from '../../src/components/module'
 import { Badge, type BadgeVariant } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
 import { ComplianceBanner } from '../../src/components/ui/ComplianceBanner'
@@ -458,50 +456,55 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
 
   if (!sjaId) {
     return (
-      <div
-        className="flex min-h-screen items-center justify-center text-sm text-neutral-600"
-        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Sikker jobbanalyse', to: '/sja' }]}
+        title="SJA"
+        notFound={{ title: 'Mangler SJA-ID', onBack: () => navigate('/sja') }}
       >
-        Mangler SJA-ID.
-      </div>
+        {null}
+      </ModulePageShell>
     )
   }
 
   if (showSpinner) {
     return (
-      <div
-        className="flex min-h-screen flex-col items-center justify-center gap-3"
-        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Sikker jobbanalyse', to: '/sja' }]}
+        title="Laster SJA…"
+        loading
+        loadingLabel="Laster SJA…"
       >
-        <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden />
-        <p className="text-sm text-neutral-600">Laster SJA…</p>
-      </div>
+        {null}
+      </ModulePageShell>
     )
   }
 
   if (showNotFound) {
     return (
-      <div
-        className="flex min-h-screen flex-col items-center justify-center gap-4 px-4"
-        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Sikker jobbanalyse', to: '/sja' }]}
+        title="SJA ikke funnet"
+        notFound={{
+          title: 'SJA ikke funnet',
+          backLabel: '← Tilbake til SJA',
+          onBack: () => navigate('/sja'),
+        }}
       >
-        <p className="text-lg font-semibold text-neutral-900">SJA ikke funnet</p>
-        <Button type="button" variant="secondary" onClick={() => navigate('/sja')} className="font-medium text-neutral-800">
-          ← Tilbake
-        </Button>
-      </div>
+        {null}
+      </ModulePageShell>
     )
   }
 
   if (!analysis || !detail || !draft) {
     return (
-      <div
-        className="flex min-h-screen flex-col items-center justify-center gap-3"
-        style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Sikker jobbanalyse', to: '/sja' }]}
+        title="Laster SJA…"
+        loading
+        loadingLabel="Laster SJA…"
       >
-        <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden />
-        <p className="text-sm text-neutral-600">Laster SJA…</p>
-      </div>
+        {null}
+      </ModulePageShell>
     )
   }
 
@@ -509,59 +512,39 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
   const jobTypeLocked = analysis.status !== 'draft'
 
   return (
-    <div className="min-h-full pb-10" style={{ backgroundColor: WORKPLACE_MODULE_CANVAS_BG }}>
-      <header className="bg-[#F9F7F2]">
-        <div className="mx-auto max-w-[1400px] px-4 pb-4 pt-4 md:px-8">
-          <WorkplacePageHeading1
-            breadcrumb={[
-              { label: 'HMS' },
-              { label: 'Sikker jobbanalyse', to: '/sja' },
-              { label: 'Detaljer' },
-            ]}
-            title={draft.title || 'Uten tittel'}
-            description={
-              <p className="max-w-3xl text-sm text-neutral-600">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => navigate('/sja')}
-                  className="mr-2 h-auto min-h-0 p-0 font-medium text-[#1a3d32] underline decoration-neutral-300 underline-offset-2 hover:bg-transparent hover:text-neutral-900"
-                >
-                  ← Tilbake til oversikt
-                </Button>
-                <span className="text-neutral-400">·</span>{' '}
-                {JOB_TYPE_LABEL[draft.job_type]} · {locationName ?? (draft.location_text.trim() || '—')} ·{' '}
-                {responsibleName ?? 'Ingen ansvarlig'} · Planlagt start:{' '}
-                {analysis.scheduled_start
-                  ? new Date(analysis.scheduled_start).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' })
-                  : '—'}
-              </p>
-            }
-            headerActions={
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={sjaStatusBadgeVariant(analysis.status)} className="px-3 py-1 text-xs">
-                  {STATUS_LABEL[analysis.status]}
-                </Badge>
-                {analysis.status === 'stopped' ? (
-                  <Badge variant="critical" className="px-3 py-1 text-xs font-bold">
-                    STOPPET
-                  </Badge>
-                ) : null}
-              </div>
-            }
-            menu={
-              <Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as SjaTab)} />
-            }
-          />
+    <ModulePageShell
+      breadcrumb={[
+        { label: 'HMS' },
+        { label: 'Sikker jobbanalyse', to: '/sja' },
+        { label: 'Detaljer' },
+      ]}
+      title={draft.title || 'Uten tittel'}
+      description={
+        <p className="max-w-3xl text-sm text-neutral-600">
+          {JOB_TYPE_LABEL[draft.job_type]} · {locationName ?? (draft.location_text.trim() || '—')} ·{' '}
+          {responsibleName ?? 'Ingen ansvarlig'} · Planlagt start:{' '}
+          {analysis.scheduled_start
+            ? new Date(analysis.scheduled_start).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' })
+            : '—'}
+        </p>
+      }
+      headerActions={
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={sjaStatusBadgeVariant(analysis.status)} className="px-3 py-1 text-xs">
+            {STATUS_LABEL[analysis.status]}
+          </Badge>
+          {analysis.status === 'stopped' ? (
+            <Badge variant="critical" className="px-3 py-1 text-xs font-bold">
+              STOPPET
+            </Badge>
+          ) : null}
         </div>
-      </header>
-
-      <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
-        <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
+      }
+      tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as SjaTab)} />}
+    >
+      <ModuleSectionCard>
         <div className="space-y-6 p-5 md:p-6">
-        {sja.error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{sja.error}</div>
-        ) : null}
+        {sja.error ? <WarningBox>{sja.error}</WarningBox> : null}
 
         {highRisk > 0 ? (
           <div className="border-b border-red-200 bg-red-50 px-4 py-3 md:px-5">
@@ -640,9 +623,8 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
           </LayoutTable1PostingsShell>
         )}
         </div>
-        </div>
-      </div>
-    </div>
+      </ModuleSectionCard>
+    </ModulePageShell>
   )
 }
 
