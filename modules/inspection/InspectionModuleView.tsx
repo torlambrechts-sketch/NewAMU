@@ -154,16 +154,7 @@ export function InspectionModuleView({ supabase }: Props) {
 
   return (
     <div className="flex flex-col space-y-6">
-      <LayoutScoreStatRow
-        items={[
-          { big: String(stats.total), title: 'Totalt runder', sub: 'Alle inspeksjonsrunder' },
-          { big: String(stats.open), title: 'Åpne', sub: 'Kladd og aktiv' },
-          { big: String(stats.signed), title: 'Fullført', sub: 'Signert og arkivert' },
-          { big: String(stats.criticalFindings), title: 'Kritiske funn', sub: 'Krever oppfølging' },
-        ]}
-      />
-
-      <WorkplacePageHeading1
+          <WorkplacePageHeading1
         breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder' }]}
         title="Inspeksjonsrunder"
         description="Planlegg, gjennomfør og signer vernerunder i henhold til Internkontrollforskriften § 5."
@@ -182,6 +173,14 @@ export function InspectionModuleView({ supabase }: Props) {
             </Button>
           </div>
         }
+      />
+        <LayoutScoreStatRow
+        items={[
+          { big: String(stats.total), title: 'Totalt runder', sub: 'Alle inspeksjonsrunder' },
+          { big: String(stats.open), title: 'Åpne', sub: 'Kladd og aktiv' },
+          { big: String(stats.signed), title: 'Fullført', sub: 'Signert og arkivert' },
+          { big: String(stats.criticalFindings), title: 'Kritiske funn', sub: 'Krever oppfølging' },
+        ]}
       />
 
       <LayoutTable1PostingsShell
