@@ -15,12 +15,9 @@ import {
   Users,
 } from 'lucide-react'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
-import {
-  WPSTD_FORM_FIELD_LABEL,
-  WPSTD_FORM_ROW_GRID,
-} from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { WorkplaceSerifSectionTitle } from '../../src/components/layout/WorkplacePageHeading1'
 import {
+  ModuleInformationCard,
   ModulePageShell,
   ModulePreflightChecklist,
   ModuleSectionCard,
@@ -1006,73 +1003,82 @@ function GrunnlagTab({
 
   return (
     <div className="space-y-8">
-      <div className="space-y-0">
-        <div className={WPSTD_FORM_ROW_GRID}>
-          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sja-grunnlag-title">
-            Tittel
-          </label>
-          <StandardInput
-            id="sja-grunnlag-title"
-            disabled={readOnly}
-            value={draft.title}
-            onChange={(e) => setDraft((d) => (d ? { ...d, title: e.target.value } : d))}
-          />
-        </div>
-        <div className={WPSTD_FORM_ROW_GRID}>
-          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sja-grunnlag-jobtype">
-            Jobb-type
-          </label>
-          {readOnly || jobTypeLocked ? (
-            <div id="sja-grunnlag-jobtype" className={standardFieldClassName}>
-              {jobTypeOptions.find((o) => o.value === draft.job_type)?.label ?? draft.job_type}
-            </div>
-          ) : (
-            <SearchableSelect
-              value={draft.job_type}
-              options={jobTypeOptions}
-              onChange={(v) => setDraft((d) => (d ? { ...d, job_type: v as SjaJobType } : d))}
-            />
-          )}
-        </div>
-        <div className={WPSTD_FORM_ROW_GRID}>
-          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sja-grunnlag-desc">
-            Beskrivelse av jobben
-          </label>
-          <StandardTextarea
-            id="sja-grunnlag-desc"
-            rows={4}
-            disabled={readOnly}
-            value={draft.job_description}
-            onChange={(e) => setDraft((d) => (d ? { ...d, job_description: e.target.value } : d))}
-            className="min-h-[6rem]"
-          />
-        </div>
-        <div className={WPSTD_FORM_ROW_GRID}>
-          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sja-grunnlag-trigger">
-            Årsak til SJA
-          </label>
-          {readOnly ? (
-            <div id="sja-grunnlag-trigger" className={standardFieldClassName}>
-              {TRIGGER_REASON_OPTIONS.find((o) => o.value === draft.trigger_reason)?.label ??
-                TRIGGER_REASON_OPTIONS.find((o) => o.value === 'other')?.label ??
-                draft.trigger_reason}
-            </div>
-          ) : (
-            <SearchableSelect
-              value={
-                TRIGGER_REASON_OPTIONS.some((o) => o.value === draft.trigger_reason)
-                  ? draft.trigger_reason
-                  : 'other'
-              }
-              options={TRIGGER_REASON_OPTIONS}
-              onChange={(v) => setDraft((d) => (d ? { ...d, trigger_reason: v } : d))}
-            />
-          )}
-        </div>
-        <div className={WPSTD_FORM_ROW_GRID}>
-          <span className={WPSTD_FORM_FIELD_LABEL}>Arbeidssted</span>
-          <div>
-            {draft.location_id ? (
+      <ModuleInformationCard
+        withCard={false}
+        hideHeader
+        rows={[
+          {
+            id: 'title',
+            label: 'Tittel',
+            htmlFor: 'sja-grunnlag-title',
+            required: true,
+            value: (
+              <StandardInput
+                id="sja-grunnlag-title"
+                disabled={readOnly}
+                value={draft.title}
+                onChange={(e) => setDraft((d) => (d ? { ...d, title: e.target.value } : d))}
+              />
+            ),
+          },
+          {
+            id: 'job_type',
+            label: 'Jobb-type',
+            htmlFor: 'sja-grunnlag-jobtype',
+            value:
+              readOnly || jobTypeLocked ? (
+                <div id="sja-grunnlag-jobtype" className={standardFieldClassName}>
+                  {jobTypeOptions.find((o) => o.value === draft.job_type)?.label ?? draft.job_type}
+                </div>
+              ) : (
+                <SearchableSelect
+                  value={draft.job_type}
+                  options={jobTypeOptions}
+                  onChange={(v) => setDraft((d) => (d ? { ...d, job_type: v as SjaJobType } : d))}
+                />
+              ),
+          },
+          {
+            id: 'job_description',
+            label: 'Beskrivelse av jobben',
+            htmlFor: 'sja-grunnlag-desc',
+            value: (
+              <StandardTextarea
+                id="sja-grunnlag-desc"
+                rows={4}
+                disabled={readOnly}
+                value={draft.job_description}
+                onChange={(e) => setDraft((d) => (d ? { ...d, job_description: e.target.value } : d))}
+                className="min-h-[6rem]"
+              />
+            ),
+          },
+          {
+            id: 'trigger_reason',
+            label: 'Årsak til SJA',
+            htmlFor: 'sja-grunnlag-trigger',
+            value: readOnly ? (
+              <div id="sja-grunnlag-trigger" className={standardFieldClassName}>
+                {TRIGGER_REASON_OPTIONS.find((o) => o.value === draft.trigger_reason)?.label ??
+                  TRIGGER_REASON_OPTIONS.find((o) => o.value === 'other')?.label ??
+                  draft.trigger_reason}
+              </div>
+            ) : (
+              <SearchableSelect
+                value={
+                  TRIGGER_REASON_OPTIONS.some((o) => o.value === draft.trigger_reason)
+                    ? draft.trigger_reason
+                    : 'other'
+                }
+                options={TRIGGER_REASON_OPTIONS}
+                onChange={(v) => setDraft((d) => (d ? { ...d, trigger_reason: v } : d))}
+              />
+            ),
+          },
+          {
+            id: 'location',
+            label: 'Arbeidssted',
+            value: draft.location_id ? (
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm text-neutral-800">
                   {locations.find((l) => l.id === draft.location_id)?.name ?? 'Lokasjon'}
@@ -1100,7 +1106,10 @@ function GrunnlagTab({
                 {!readOnly ? (
                   <SearchableSelect
                     value=""
-                    options={[{ value: '', label: 'Velg lokasjon fra register…' }, ...locations.map((l) => ({ value: l.id, label: l.name }))]}
+                    options={[
+                      { value: '', label: 'Velg lokasjon fra register…' },
+                      ...locations.map((l) => ({ value: l.id, label: l.name })),
+                    ]}
                     placeholder="Velg lokasjon fra register…"
                     onChange={(v) => {
                       if (!v) return
@@ -1109,59 +1118,72 @@ function GrunnlagTab({
                   />
                 ) : null}
               </div>
-            )}
+            ),
+          },
+          {
+            id: 'responsible',
+            label: 'Ansvarlig',
+            htmlFor: 'sja-grunnlag-responsible',
+            value: readOnly ? (
+              <div id="sja-grunnlag-responsible" className={standardFieldClassName}>
+                {draft.responsible_id
+                  ? assignableUsers.find((u) => u.id === draft.responsible_id)?.displayName ?? '—'
+                  : '—'}
+              </div>
+            ) : (
+              <SearchableSelect
+                value={draft.responsible_id ?? ''}
+                options={[
+                  { value: '', label: '—' },
+                  ...assignableUsers.map((u) => ({ value: u.id, label: u.displayName })),
+                ]}
+                onChange={(v) => setDraft((d) => (d ? { ...d, responsible_id: v || null } : d))}
+              />
+            ),
+          },
+          {
+            id: 'scheduled_start',
+            label: 'Planlagt start',
+            htmlFor: 'sja-grunnlag-start',
+            value: (
+              <StandardInput
+                id="sja-grunnlag-start"
+                type="datetime-local"
+                disabled={readOnly}
+                value={draft.scheduled_start}
+                onChange={(e) => setDraft((d) => (d ? { ...d, scheduled_start: e.target.value } : d))}
+              />
+            ),
+          },
+          {
+            id: 'scheduled_end',
+            label: 'Planlagt slutt',
+            htmlFor: 'sja-grunnlag-end',
+            value: (
+              <StandardInput
+                id="sja-grunnlag-end"
+                type="datetime-local"
+                disabled={readOnly}
+                value={draft.scheduled_end}
+                onChange={(e) => setDraft((d) => (d ? { ...d, scheduled_end: e.target.value } : d))}
+              />
+            ),
+          },
+        ]}
+        footer={
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="primary"
+              disabled={readOnly}
+              onClick={() => onSave()}
+            >
+              Lagre
+            </Button>
+            {savedAt ? <span className="text-xs text-neutral-500">Lagret {savedAt}</span> : null}
           </div>
-        </div>
-        <div className={WPSTD_FORM_ROW_GRID}>
-          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sja-grunnlag-responsible">
-            Ansvarlig
-          </label>
-          {readOnly ? (
-            <div id="sja-grunnlag-responsible" className={standardFieldClassName}>
-              {draft.responsible_id
-                ? assignableUsers.find((u) => u.id === draft.responsible_id)?.displayName ?? '—'
-                : '—'}
-            </div>
-          ) : (
-            <SearchableSelect
-              value={draft.responsible_id ?? ''}
-              options={[{ value: '', label: '—' }, ...assignableUsers.map((u) => ({ value: u.id, label: u.displayName }))]}
-              onChange={(v) => setDraft((d) => (d ? { ...d, responsible_id: v || null } : d))}
-            />
-          )}
-        </div>
-        <div className={WPSTD_FORM_ROW_GRID}>
-          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sja-grunnlag-start">
-            Planlagt start
-          </label>
-          <StandardInput
-            id="sja-grunnlag-start"
-            type="datetime-local"
-            disabled={readOnly}
-            value={draft.scheduled_start}
-            onChange={(e) => setDraft((d) => (d ? { ...d, scheduled_start: e.target.value } : d))}
-          />
-        </div>
-        <div className={WPSTD_FORM_ROW_GRID}>
-          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sja-grunnlag-end">
-            Planlagt slutt
-          </label>
-          <StandardInput
-            id="sja-grunnlag-end"
-            type="datetime-local"
-            disabled={readOnly}
-            value={draft.scheduled_end}
-            onChange={(e) => setDraft((d) => (d ? { ...d, scheduled_end: e.target.value } : d))}
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3 border-t border-neutral-200 pt-6">
-        <Button type="button" variant="primary" disabled={readOnly} onClick={() => onSave()} className="bg-neutral-900 hover:bg-neutral-800">
-          Lagre
-        </Button>
-        {savedAt ? <span className="text-xs text-neutral-500">Lagret {savedAt}</span> : null}
-      </div>
+        }
+      />
 
       <div className="border-t border-neutral-200 pt-8">
         <p className={PANEL_LABEL}>Status</p>
