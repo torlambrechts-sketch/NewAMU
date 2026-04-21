@@ -74,11 +74,14 @@ export function RosModuleAdminPage({ embedded = false }: RosModuleAdminPageProps
     void loadRosSettings()
   }, [organization?.id, loadRosSettings])
 
+  // Canonical admin-tab ordering for Risiko & Sikkerhet modules:
+  //   Generelt · Maler · Lokasjoner · Kategorier · Signaturer · Tilgang · Arbeidsflyt · Statistikk
+  // Each module renders only the tabs it has (ROS has no Lokasjoner/Signaturer/Tilgang/Statistikk).
   const tabsUiItems = useMemo(
     () => [
       { id: 'generelt', label: 'Generelt', icon: TAB_ICONS.generelt },
-      { id: 'kategorier', label: 'Kategorier', icon: TAB_ICONS.kategorier },
       { id: 'maler', label: 'Maler', icon: TAB_ICONS.maler },
+      { id: 'kategorier', label: 'Kategorier', icon: TAB_ICONS.kategorier },
       { id: 'arbeidsflyt', label: 'Arbeidsflyt', icon: TAB_ICONS.arbeidsflyt },
     ],
     [],

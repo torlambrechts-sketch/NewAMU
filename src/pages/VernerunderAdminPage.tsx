@@ -54,6 +54,9 @@ export function VernerunderAdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v.load, canManage])
 
+  // Canonical admin-tab ordering for Risiko & Sikkerhet modules:
+  //   Generelt · Maler · Lokasjoner · Kategorier · Signaturer · Tilgang · Arbeidsflyt · Statistikk
+  // Vernerunder has no Lokasjoner/Signaturer/Tilgang/Statistikk tabs.
   const tabsUiItems = useMemo(
     () => [
       { id: 'generelt', label: 'Generelt', icon: TAB_ICONS.generelt },

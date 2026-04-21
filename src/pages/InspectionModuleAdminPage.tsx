@@ -84,6 +84,9 @@ export function InspectionModuleAdminPage() {
 
   useEffect(() => { void inspection.load() }, [inspection.load])
 
+  // Canonical admin-tab ordering for Risiko & Sikkerhet modules:
+  //   Generelt · Maler · Lokasjoner · Kategorier · Signaturer · Tilgang · Arbeidsflyt · Statistikk
+  // Inspection has no Generelt/Kategorier/Tilgang tabs.
   const tabsUiItems = useMemo(
     () => [
       { id: 'templates', label: 'Maler', icon: ClipboardList },

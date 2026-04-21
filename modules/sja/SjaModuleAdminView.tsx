@@ -154,6 +154,9 @@ export function SjaModuleAdminView({
     if (tab === 'locations') void inspection.load()
   }, [tab, inspection.load])
 
+  // Canonical admin-tab ordering for Risiko & Sikkerhet modules:
+  //   Generelt · Maler · Lokasjoner · Kategorier · Signaturer · Tilgang · Arbeidsflyt · Statistikk
+  // SJA has no Generelt/Kategorier/Signaturer/Arbeidsflyt/Statistikk tabs.
   const adminTabItems: TabItem[] = useMemo(
     () => [
       { id: 'templates', label: 'Maler', icon: ClipboardList },
