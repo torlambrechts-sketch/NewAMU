@@ -9,10 +9,8 @@ import {
   FileText,
   History,
   Loader2,
-  Pencil,
   PenLine,
   Settings,
-  Trash2,
 } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
@@ -24,8 +22,8 @@ import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/c
 import type { HmsCategory, InspectionChecklistItem, InspectionLocationRow, InspectionRoundRow } from './types'
 import { parseChecklistItems } from './schema'
 import { useInspectionModule, type InspectionModuleState } from './useInspectionModule'
-import { ChecklistExecutionTab } from '../../src/components/checklist/ChecklistExecutionTab'
-import type { ChecklistItem, ChecklistResponse } from '../../src/components/checklist/types'
+import { InspectionChecklistTable, type InspectionChecklistTableRow } from './components/InspectionChecklistTable'
+import { InspectionFindingsTable } from './components/InspectionFindingsTable'
 import { DeviationPanel } from '../../src/components/hse/DeviationPanel'
 import { HseAuditLogViewer } from '../../src/components/hse/HseAuditLogViewer'
 import { RiskMatrix, riskLabel, riskScoreFromProbCons } from '../../src/components/hse/RiskMatrix'
@@ -62,30 +60,7 @@ const HMS_LABELS: Record<HmsCategory, string> = {
   maskiner: 'Maskiner og teknisk utstyr',
   annet: 'Annet',
 }
-const HMS_LAW: Partial<Record<HmsCategory, string>> = {
-  fysisk: 'AML § 4-4',
-  ergonomi: 'AML § 4-4',
-  kjemikalier: 'Stoffkartotekforskriften',
-  psykososialt: 'AML § 4-3',
-  brann: 'IK-forskriften',
-  maskiner: 'Arbeidsutstyrsforskriften',
-}
 const SEVERITY_LABELS = { low: 'Lav', medium: 'Middels', high: 'Høy', critical: 'Kritisk' }
-
-function severityBadgeVariant(severity: keyof typeof SEVERITY_LABELS): BadgeVariant {
-  switch (severity) {
-    case 'low':
-      return 'info'
-    case 'medium':
-      return 'medium'
-    case 'high':
-      return 'high'
-    case 'critical':
-      return 'critical'
-    default:
-      return 'neutral'
-  }
-}
 
 function riskScoreBadgeVariant(score: number): BadgeVariant {
   if (score <= 4) return 'success'
@@ -112,35 +87,24 @@ function ChecklistTab({
 
   const readOnly = round.status === 'signed'
   const isDraft = round.status === 'draft'
-  const checklistTabItems = useMemo<ChecklistItem[]>(
-    () =>
-      checklistItems.map((item) => ({
+  const checklistTableRows = useMemo<InspectionChecklistTableRow[]>(() => {
+    return checklistItems.map((item) => {
+      const row = roundItems?.find((r) => r.checklist_item_key === item.key)
+      const val = typeof row?.response?.value === 'string' ? row.response.value : ''
+      const completed =
+        row?.status === 'completed' || (typeof row?.response?.value === 'string' && row.response.value !== '')
+      return {
         key: item.key,
         label: item.label,
-        required: item.required,
-        fieldType: (item.fieldType === 'photo_required' ? 'photo' : item.fieldType) as
-          | ChecklistItem['fieldType']
-          | undefined,
-        category: item.hmsCategory ?? '__none__',
-        categoryLabel: item.hmsCategory ? HMS_LABELS[item.hmsCategory] : 'Generelt',
-        categoryLawRef: item.hmsCategory ? HMS_LAW[item.hmsCategory] : undefined,
         helpText: item.helpText,
-        lawRef: item.lawRef,
-      })),
-    [checklistItems],
-  )
-  const checklistTabResponses = useMemo<ChecklistResponse[]>(
-    () => (roundItems ?? []).map((item) => ({
-      key: item.checklist_item_key,
-      value: typeof item.response?.value === 'string' ? item.response.value : '',
-      notes: item.notes,
-      status:
-        item.status === 'completed' || (typeof item.response?.value === 'string' && item.response.value !== '')
-          ? 'completed'
-          : 'pending',
-    })),
-    [roundItems],
-  )
+        categoryLabel: item.hmsCategory ? HMS_LABELS[item.hmsCategory] : 'Generelt',
+        fieldType: item.fieldType,
+        required: item.required,
+        value: val,
+        completed,
+      }
+    })
+  }, [checklistItems, roundItems])
 
   const positionByKey = useMemo(() => {
     return checklistItems.reduce<Record<string, number>>((acc, item, index) => {
@@ -214,47 +178,36 @@ function ChecklistTab({
         </div>
       )}
 
-      {!isRoundDetailLoading && checklistItems.length > 0 && (
-        <ChecklistExecutionTab
-          items={checklistTabItems}
-          responses={checklistTabResponses}
-          readOnly={readOnly}
-          onSaveResponse={handleSaveResponse}
-          activationBanner={
-            isDraft ? (
-              <div className="mx-5 mt-4 flex flex-wrap items-center justify-between gap-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium text-amber-800">Runden er i kladd-modus</p>
-                  <p className="mt-0.5 text-xs text-amber-700">Aktiver runden for å begynne gjennomføringen.</p>
-                </div>
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={() =>
-                    void inspection.updateRoundSchedule({ roundId: round.id, status: 'active' })
-                  }
-                  className="shrink-0"
-                >
-                  Aktiver runden
-                </Button>
+      {!isRoundDetailLoading && (
+        <>
+          {isDraft ? (
+            <div className="mx-5 mt-4 flex flex-wrap items-center justify-between gap-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-amber-800">Runden er i kladd-modus</p>
+                <p className="mt-0.5 text-xs text-amber-700">Aktiver runden for å begynne gjennomføringen.</p>
               </div>
-            ) : null
-          }
-          onReportIssue={
-            readOnly
-              ? undefined
-              : (key) => {
-                  onSwitchToFindings(key)
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() =>
+                  void inspection.updateRoundSchedule({ roundId: round.id, status: 'active' })
                 }
-          }
-        />
-      )}
-
-      {checklistItems.length === 0 && (
-        <p className="px-5 py-10 text-center text-sm text-neutral-400">
-          Ingen sjekklistepunkter i malen.
-        </p>
+                className="shrink-0"
+              >
+                Aktiver runden
+              </Button>
+            </div>
+          ) : null}
+          <InspectionChecklistTable
+            rows={checklistTableRows}
+            readOnly={readOnly}
+            onUpdateItem={async (key, value) => {
+              await handleSaveResponse(key, value, null)
+            }}
+            onRegisterFinding={(key) => onSwitchToFindings(key)}
+          />
+        </>
       )}
     </div>
   )
@@ -428,101 +381,51 @@ function FindingsTab({
         </div>
       )}
 
-      {findings.length === 0 ? (
-        <p className="px-5 py-8 text-center text-sm text-neutral-400">Ingen avvik registrert ennå.</p>
-      ) : (
-        <div>
-          {findings.map((f) => {
-            const linkedLabel = f.item_id
-              ? items.find((i) => i.id === f.item_id)?.checklist_item_label ?? null
-              : null
-            const riskScore = f.risk_score ?? riskScoreFromProbCons(f.risk_probability, f.risk_consequence)
-            const showLegacyLinkBanner = !f.deviation_id && riskScore != null && riskScore >= 10
-
-            return (
-              <div key={f.id} className={`border-b border-neutral-100 border-l-4 px-5 py-4 last:border-b-0 ${
-                f.severity === 'critical' ? 'border-l-red-500 bg-red-50/30' :
-                f.severity === 'high' ? 'border-l-orange-400 bg-orange-50/20' :
-                f.severity === 'medium' ? 'border-l-yellow-400' :
-                'border-l-blue-300'
-              }`}>
-                {showLegacyLinkBanner && (
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                    <span>Risikoskår {riskScore} — koble til avvik i systemet</span>
-                    <Button
-                      type="button"
-                      variant="primary"
-                      size="sm"
-                      disabled={linkingDeviationId === f.id}
-                      className="shrink-0 disabled:opacity-50"
-                      onClick={async () => {
-                        setLinkingDeviationId(f.id)
-                        const id = await inspection.createDeviationFromFinding(f.id)
-                        setLinkingDeviationId(null)
-                        if (id) onOpenDeviation(id)
-                      }}
-                    >
-                      {linkingDeviationId === f.id ? 'Oppretter…' : 'Opprett avvik'}
-                    </Button>
-                  </div>
-                )}
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <p className="min-w-0 flex-1 text-sm text-neutral-900">{f.description}</p>
-                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                    <Badge variant={severityBadgeVariant(f.severity)}>
-                      {SEVERITY_LABELS[f.severity]}
-                    </Badge>
-                    {riskScore != null && (
-                      <Badge variant={riskScoreBadgeVariant(riskScore)}>
-                        Risiko {riskScore} — {riskLabel(riskScore)}
-                      </Badge>
-                    )}
-                    {!readOnly && (
-                      <>
-                        {f.deviation_id && (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => onOpenDeviation(f.deviation_id!)}
-                            className="border-neutral-200 font-medium text-[#1a3d32]"
-                          >
-                            Åpne avvik
-                          </Button>
-                        )}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => startEdit(f)}
-                          aria-label="Rediger avvik"
-                          title="Rediger"
-                          icon={<Pencil className="h-4 w-4" />}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            if (!window.confirm('Slette dette avviket?')) return
-                            void inspection.deleteFinding(f.id)
-                            if (editingFindingId === f.id) resetForm()
-                          }}
-                          className="text-neutral-400 hover:text-red-600"
-                          aria-label="Slett avvik"
-                          title="Slett"
-                          icon={<Trash2 className="h-4 w-4" />}
-                        />
-                      </>
-                    )}
-                  </div>
-                </div>
-                {linkedLabel && <p className="mt-1 text-xs text-neutral-500">Punkt: {linkedLabel}</p>}
-              </div>
-            )
-          })}
-        </div>
-      )}
+      <InspectionFindingsTable
+        findings={findings}
+        readOnly={readOnly}
+        getCategoryLabel={(f) =>
+          f.item_id ? items.find((i) => i.id === f.item_id)?.checklist_item_label ?? '—' : '—'
+        }
+        onEditFinding={(f) => startEdit(f)}
+        onDeleteFinding={
+          readOnly
+            ? undefined
+            : (findingId) => {
+                if (!window.confirm('Slette dette avviket?')) return
+                void inspection.deleteFinding(findingId)
+                if (editingFindingId === findingId) resetForm()
+              }
+        }
+        onOpenDeviation={onOpenDeviation}
+        showLegacyDeviationBanner={(f) => {
+          const riskScore = f.risk_score ?? riskScoreFromProbCons(f.risk_probability, f.risk_consequence)
+          return !f.deviation_id && riskScore != null && riskScore >= 10
+        }}
+        onCreateDeviationFromFinding={async (findingId) => {
+          setLinkingDeviationId(findingId)
+          const id = await inspection.createDeviationFromFinding(findingId)
+          setLinkingDeviationId(null)
+          if (id) onOpenDeviation(id)
+        }}
+        linkingDeviationId={linkingDeviationId}
+        extraDescription={(f) => {
+          const linkedLabel = f.item_id
+            ? items.find((i) => i.id === f.item_id)?.checklist_item_label ?? null
+            : null
+          const riskScore = f.risk_score ?? riskScoreFromProbCons(f.risk_probability, f.risk_consequence)
+          return (
+            <div className="flex flex-wrap items-center gap-2">
+              {riskScore != null && (
+                <Badge variant={riskScoreBadgeVariant(riskScore)}>
+                  Risiko {riskScore} — {riskLabel(riskScore)}
+                </Badge>
+              )}
+              {linkedLabel ? <p className="w-full text-xs text-neutral-500">Punkt: {linkedLabel}</p> : null}
+            </div>
+          )
+        }}
+      />
     </div>
   )
 }
