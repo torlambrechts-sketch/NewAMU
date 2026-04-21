@@ -24,3 +24,12 @@ export type {
   ModuleChecklistResponseMap,
   ModuleChecklistSecondaryAction,
 } from './ModuleChecklistCard'
+export {
+  moduleSeverityLabel,
+  moduleSeverityBadgeVariant,
+  moduleSeverityRowClass,
+  moduleSeverityFromScore,
+  moduleRiskScoreBadgeVariant,
+  moduleRiskScoreLabel,
+} from './moduleRiskKit'
+export type { ModuleSeverity } from './moduleRiskKit'
