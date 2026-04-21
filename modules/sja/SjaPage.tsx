@@ -10,7 +10,6 @@ import {
   FileText,
   GripVertical,
   History,
-  Loader2,
   PenLine,
   Trash2,
   Users,
@@ -22,10 +21,11 @@ import {
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { WorkplaceSerifSectionTitle } from '../../src/components/layout/WorkplacePageHeading1'
 import {
-  WORKPLACE_MODULE_SUBTLE_PANEL,
-  WORKPLACE_MODULE_SUBTLE_PANEL_STYLE,
-} from '../../src/components/layout/workplaceModuleSurface'
-import { ModulePageShell, ModuleSectionCard } from '../../src/components/module'
+  ModulePageShell,
+  ModulePreflightChecklist,
+  ModuleSectionCard,
+  ModuleSignatureCard,
+} from '../../src/components/module'
 import { Badge, type BadgeVariant } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
 import { ComplianceBanner } from '../../src/components/ui/ComplianceBanner'
@@ -704,21 +704,16 @@ function SignaturerTab({
         Alle deltakere skal ha lest og forstått SJA-en og bekreftet at de er kjent med risikoene og tiltakene (AML § 4-2).
       </ComplianceBanner>
 
-      <div className={`space-y-1.5 ${WORKPLACE_MODULE_SUBTLE_PANEL}`} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
-        <p className={PANEL_LABEL}>Sjekkliste før signering</p>
-        {[
+      <ModulePreflightChecklist
+        heading="Sjekkliste før signering"
+        items={[
           { ok: tasksOk, label: 'Alle deloppgaver har definerte farekilder' },
           { ok: noRedResidual, label: 'Ingen farekilder i rød restrisiko-sone' },
           { ok: minParticipants, label: 'Minimum 2 deltakere (inkl. ansvarlig)' },
           { ok: hasResponsibleParticipant, label: 'SJA-ansvarlig er utpekt' },
           { ok: statusApproved, label: 'Status er «Godkjent»' },
-        ].map(({ ok, label }) => (
-          <div key={label} className="flex items-center gap-2 text-xs">
-            {ok ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" /> : <Circle className="h-4 w-4 shrink-0 text-neutral-300" />}
-            <span className={ok ? 'text-neutral-700' : 'text-neutral-400'}>{label}</span>
-          </div>
-        ))}
-      </div>
+        ]}
+      />
 
       {showApproveButton ? (
         <Button type="button" variant="primary" onClick={() => onApproved()}>
@@ -726,19 +721,17 @@ function SignaturerTab({
         </Button>
       ) : null}
 
-      <div className="space-y-3">
-        {detail.participants.map((p) => (
-          <div key={p.id} className={`${WORKPLACE_MODULE_SUBTLE_PANEL}`} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="font-semibold text-neutral-900">{p.name}</p>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <Badge variant={participantRoleBadgeVariant(p.role)} className="text-xs">
-                    {ROLE_LABEL[p.role]}
-                  </Badge>
-                  {p.company ? <span className="text-xs text-neutral-500">{p.company}</span> : null}
-                </div>
-                <div className="mt-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {detail.participants.map((p) => {
+          const isCurrentUser = Boolean(p.user_id && currentUserId && p.user_id === currentUserId)
+          return (
+            <ModuleSignatureCard
+              key={p.id}
+              title={p.name}
+              lawReference={`${ROLE_LABEL[p.role]}${p.company ? ` · ${p.company}` : ''}`}
+              signed={p.signed_at ? { at: p.signed_at, byName: signerName(p) } : null}
+              contextLine={
+                <div className="flex flex-wrap items-center gap-2">
                   {p.certs_verified ? (
                     <span className="inline-flex items-center gap-1 rounded bg-green-50 px-2 py-0.5 text-xs font-medium text-green-800">
                       <Check className="h-3.5 w-3.5" /> Sertifikater verifisert
@@ -749,43 +742,24 @@ function SignaturerTab({
                     </span>
                   )}
                 </div>
-              </div>
-              <div className="text-right">
-                {p.signed_at ? (
-                  <div className="inline-flex items-center gap-2 text-sm text-green-700">
-                    <CheckCircle2 className="h-5 w-5 shrink-0" />
-                    <span>
-                      Signert {new Date(p.signed_at).toLocaleDateString('nb-NO', { dateStyle: 'medium' })} av{' '}
-                      {signerName(p)}
-                    </span>
-                  </div>
-                ) : p.user_id && currentUserId && p.user_id === currentUserId ? (
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    disabled={signingId !== null}
-                    onClick={async () => {
-                      setSigningId(p.id)
-                      await sja.signParticipant(p.id)
-                      setSigningId(null)
-                    }}
-                  >
-                    {signingId === p.id ? (
-                      <span className="inline-flex items-center gap-1">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Signerer…
-                      </span>
-                    ) : (
-                      'Signer'
-                    )}
-                  </Button>
-                ) : (
-                  <p className="text-xs text-neutral-400">Venter på signatur</p>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
+              }
+              buttonLabel="Signer"
+              buttonLabelSigning="Signerer…"
+              variant="primary"
+              // Only the participant themselves can sign their own row.
+              // When the current user is not the participant and no signature yet, hide the CTA and
+              // let ModuleSignatureCard render its default "Venter på signatur" state.
+              hideButton={!isCurrentUser}
+              disabled={signingId !== null}
+              busy={signingId === p.id}
+              onSign={async () => {
+                setSigningId(p.id)
+                await sja.signParticipant(p.id)
+                setSigningId(null)
+              }}
+            />
+          )
+        })}
       </div>
     </div>
   )
