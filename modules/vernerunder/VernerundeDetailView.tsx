@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle, ClipboardList, Pencil, PenLine, Plus, Sparkles, Trash2, UserPlus } from 'lucide-react'
+import { AlertTriangle, ClipboardList, Pencil, Plus, Sparkles, Trash2, UserPlus } from 'lucide-react'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import {
@@ -8,7 +8,12 @@ import {
   LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
   LAYOUT_TABLE1_POSTINGS_TH,
 } from '../../src/components/layout/layoutTable1PostingsKit'
-import { ModulePageShell, ModuleSectionCard } from '../../src/components/module'
+import {
+  ModulePageShell,
+  ModulePreflightChecklist,
+  ModuleSectionCard,
+  ModuleSignatureCard,
+} from '../../src/components/module'
 import { WorkplaceStandardFormPanel } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { Badge } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
@@ -549,54 +554,61 @@ function ParticipantsBlock({
           body="Registrer leder, HMS/verneombud og ansatt som deltar i runden, og sørg for at signatur registreres når runden avsluttes."
         />
       ) : (
-        <table className="w-full min-w-0 text-left text-sm text-neutral-800">
-          <thead>
-            <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Rolle</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Bruker</th>
-              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Signert</th>
-              <th className={`${LAYOUT_TABLE1_POSTINGS_TH} w-28 text-right`} />
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((p) => (
-              <tr key={p.id} className={LAYOUT_TABLE1_POSTINGS_BODY_ROW}>
-                <td className="px-5 py-3">{PARTICIPANT_ROLE_LABEL[p.role]}</td>
-                <td className="px-5 py-3 text-neutral-900">
-                  {displayByUserId[p.user_id] ?? p.user_id}
-                </td>
-                <td className="px-5 py-3 text-neutral-600">
-                  {p.signed_at ? <Badge variant="signed">Signert</Badge> : <Badge variant="warning">Mangler</Badge>}
-                </td>
-                <td className="px-5 py-3 text-right">
+        <div className="space-y-5">
+          {/* Pre-flight checklist — at-a-glance of signing state */}
+          <ModulePreflightChecklist
+            heading="Signaturstatus"
+            items={[
+              {
+                ok: list.some((p) => p.role === 'manager' && !!p.signed_at),
+                label: 'Nærmeste leder har signert',
+              },
+              {
+                ok: list.some((p) => p.role === 'safety_deputy' && !!p.signed_at),
+                label: 'HMS / verneombud har signert',
+              },
+              {
+                ok: list.every((p) => !!p.signed_at),
+                label: `Alle deltakere har signert (${
+                  list.filter((p) => !!p.signed_at).length
+                }/${list.length})`,
+              },
+            ]}
+          />
+
+          {/* One ModuleSignatureCard per participant */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {list.map((p) => {
+              const displayName = displayByUserId[p.user_id] ?? p.user_id
+              return (
+                <div key={p.id} className="space-y-2">
+                  <ModuleSignatureCard
+                    title={displayName}
+                    lawReference={PARTICIPANT_ROLE_LABEL[p.role]}
+                    signed={p.signed_at ? { at: p.signed_at, byName: displayName } : null}
+                    buttonLabel="Signer"
+                    variant="primary"
+                    hideButton={!v.canManage || locked}
+                    onSign={() => void v.signParticipant(p.id, vernerundeId)}
+                  />
                   {v.canManage && !locked ? (
-                    <div className="inline-flex items-center gap-1">
-                      {!p.signed_at ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => void v.signParticipant(p.id, vernerundeId)}
-                          icon={<PenLine className="h-3.5 w-3.5" />}
-                        >
-                          Signer
-                        </Button>
-                      ) : null}
+                    <div className="flex justify-end">
                       <Button
                         type="button"
-                        size="icon"
+                        size="sm"
                         variant="ghost"
                         onClick={() => void v.deleteParticipant(p.id, vernerundeId)}
-                        icon={<Trash2 className="h-4 w-4" />}
-                        aria-label="Fjern"
-                      />
+                        icon={<Trash2 className="h-4 w-4 text-neutral-400" />}
+                      >
+                        Fjern
+                      </Button>
                     </div>
                   ) : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       )}
     </div>
   )
