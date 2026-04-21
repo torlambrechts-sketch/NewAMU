@@ -295,6 +295,7 @@ export function RisikoSikkerhetFrontpage() {
       title="Risiko & Sikkerhet"
       description="Systematisk risikostyring — fra kartlegging (ROS), via jobbanalyse (SJA), til vernerunder og inspeksjonsrunder med signert dokumentasjon."
       legal={{
+        collapsible: true,
         eyebrow: 'Lovgrunnlag',
         title: 'Risiko & Sikkerhet',
         intro: (
