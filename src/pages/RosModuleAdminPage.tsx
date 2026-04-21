@@ -11,7 +11,6 @@ import {
   Tags,
   Trash2,
 } from 'lucide-react'
-import { ModuleAdminShell } from '../components/layout/ModuleAdminShell'
 import { ModulePageShell } from '../components/module/ModulePageShell'
 import { WorkplaceSplit7030Layout } from '../components/layout/WorkplaceSplit7030Layout'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../components/layout/WorkplaceStandardFormPanel'
@@ -75,52 +74,46 @@ export function RosModuleAdminPage({ embedded = false }: RosModuleAdminPageProps
     void loadRosSettings()
   }, [organization?.id, loadRosSettings])
 
-  const shellTabs = useMemo(
+  const tabsUiItems = useMemo(
     () => [
-      { key: 'generelt', label: 'Generelt', icon: <SlidersHorizontal className="h-4 w-4" /> },
-      { key: 'kategorier', label: 'Kategorier', icon: <Tags className="h-4 w-4" /> },
-      { key: 'maler', label: 'Maler', icon: <ClipboardList className="h-4 w-4" /> },
-      { key: 'arbeidsflyt', label: 'Arbeidsflyt', icon: <GitBranch className="h-4 w-4" /> },
+      { id: 'generelt', label: 'Generelt', icon: TAB_ICONS.generelt },
+      { id: 'kategorier', label: 'Kategorier', icon: TAB_ICONS.kategorier },
+      { id: 'maler', label: 'Maler', icon: TAB_ICONS.maler },
+      { id: 'arbeidsflyt', label: 'Arbeidsflyt', icon: TAB_ICONS.arbeidsflyt },
     ],
     [],
   )
 
-  const tabsUiItems = useMemo(
-    () =>
-      shellTabs.map((t) => ({
-        id: t.key,
-        label: t.label,
-        icon: TAB_ICONS[t.key as AdminTab],
-      })),
-    [shellTabs],
+  const tabsNode = (
+    <Tabs
+      items={tabsUiItems}
+      activeId={tab}
+      onChange={(id) => setTab(id as AdminTab)}
+      overflow="scroll"
+    />
   )
 
   const body = (
     <>
       {ros.error && <WarningBox>{ros.error}</WarningBox>}
 
-      <ModuleAdminShell
-        title="ROS Administrasjon"
-        description="Innstillinger lagres per organisasjon og brukes i risikomatrise og farekilde-skjemaer."
-        tabs={shellTabs}
-        activeTab={tab}
-        onTabChange={(k) => setTab(k as AdminTab)}
-        layout="tabsTop"
-        tabStrip={<Tabs items={tabsUiItems} activeId={tab} onChange={(id) => setTab(id as AdminTab)} />}
-      >
-        {tab === 'generelt' && <RosAdminGenereltTab ros={ros} />}
-        {tab === 'kategorier' && <RosAdminKategorierTab ros={ros} />}
-        {tab === 'maler' && <RosAdminMalerTab ros={ros} />}
-        {tab === 'arbeidsflyt' && <WorkflowRulesTab supabase={supabase} module="ros" />}
-      </ModuleAdminShell>
+      {tab === 'generelt' && <RosAdminGenereltTab ros={ros} />}
+      {tab === 'kategorier' && <RosAdminKategorierTab ros={ros} />}
+      {tab === 'maler' && <RosAdminMalerTab ros={ros} />}
+      {tab === 'arbeidsflyt' && <WorkflowRulesTab supabase={supabase} module="ros" />}
     </>
   )
 
   if (embedded) {
     // When embedded under RosModulePage the outer ModulePageShell belongs to
-    // the parent (so the root tabs and breadcrumb stay stable across
-    // Oversikt / Innstillinger).
-    return <div className="space-y-6">{body}</div>
+    // the parent. The parent already renders root tabs (Oversikt /
+    // Innstillinger); render the admin tab strip + body here.
+    return (
+      <div className="space-y-6">
+        {tabsNode}
+        {body}
+      </div>
+    )
   }
 
   return (
@@ -138,6 +131,7 @@ export function RosModuleAdminPage({ embedded = false }: RosModuleAdminPageProps
           Tilbake til analyser
         </Button>
       }
+      tabs={tabsNode}
     >
       {body}
     </ModulePageShell>

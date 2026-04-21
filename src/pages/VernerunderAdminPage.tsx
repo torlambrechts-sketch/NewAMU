@@ -11,7 +11,6 @@ import {
   Tags,
   Trash2,
 } from 'lucide-react'
-import { ModuleAdminShell } from '../components/layout/ModuleAdminShell'
 import { ModulePageShell } from '../components/module/ModulePageShell'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../components/layout/WorkplaceStandardFormPanel'
 import {
@@ -55,24 +54,14 @@ export function VernerunderAdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v.load, canManage])
 
-  const shellTabs = useMemo(
+  const tabsUiItems = useMemo(
     () => [
-      { key: 'generelt', label: 'Generelt', icon: <SlidersHorizontal className="h-4 w-4" /> },
-      { key: 'maler', label: 'Maler', icon: <ClipboardList className="h-4 w-4" /> },
-      { key: 'kategorier', label: 'Kategorier', icon: <Tags className="h-4 w-4" /> },
-      { key: 'arbeidsflyt', label: 'Arbeidsflyt', icon: <GitBranch className="h-4 w-4" /> },
+      { id: 'generelt', label: 'Generelt', icon: TAB_ICONS.generelt },
+      { id: 'maler', label: 'Maler', icon: TAB_ICONS.maler },
+      { id: 'kategorier', label: 'Kategorier', icon: TAB_ICONS.kategorier },
+      { id: 'arbeidsflyt', label: 'Arbeidsflyt', icon: TAB_ICONS.arbeidsflyt },
     ],
     [],
-  )
-
-  const tabsUiItems = useMemo(
-    () =>
-      shellTabs.map((t) => ({
-        id: t.key,
-        label: t.label,
-        icon: TAB_ICONS[t.key as AdminTab],
-      })),
-    [shellTabs],
   )
 
   if (!canManage) {
@@ -103,29 +92,27 @@ export function VernerunderAdminPage() {
           Tilbake til runder
         </Button>
       }
+      tabs={
+        <Tabs
+          items={tabsUiItems}
+          activeId={tab}
+          onChange={(id) => setTab(id as AdminTab)}
+          overflow="scroll"
+        />
+      }
     >
       {v.error ? <WarningBox>{v.error}</WarningBox> : null}
 
-      <ModuleAdminShell
-        title="Vernerunder"
-        description="Innhold og regler gjelder kun valgt organisasjon."
-        tabs={shellTabs}
-        activeTab={tab}
-        onTabChange={(k) => setTab(k as AdminTab)}
-        layout="tabsTop"
-        tabStrip={<Tabs items={tabsUiItems} activeId={tab} onChange={(id) => setTab(id as AdminTab)} />}
-      >
-        {tab === 'generelt' && <GenereltTab />}
-        {tab === 'maler' && <MalerTab v={v} />}
-        {tab === 'kategorier' && <KategorierTab v={v} />}
-        {tab === 'arbeidsflyt' && (
-          <WorkflowRulesTab
-            supabase={supabase}
-            module="vernerunder"
-            triggerEvents={[...VERNERUNDER_WORKFLOW_TRIGGER_EVENTS]}
-          />
-        )}
-      </ModuleAdminShell>
+      {tab === 'generelt' && <GenereltTab />}
+      {tab === 'maler' && <MalerTab v={v} />}
+      {tab === 'kategorier' && <KategorierTab v={v} />}
+      {tab === 'arbeidsflyt' && (
+        <WorkflowRulesTab
+          supabase={supabase}
+          module="vernerunder"
+          triggerEvents={[...VERNERUNDER_WORKFLOW_TRIGGER_EVENTS]}
+        />
+      )}
     </ModulePageShell>
   )
 }

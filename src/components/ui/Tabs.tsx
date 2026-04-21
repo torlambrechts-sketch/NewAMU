@@ -17,11 +17,26 @@ interface TabsProps {
   activeId: string
   onChange: (id: string) => void
   className?: string
+  /**
+   * How the tab row handles horizontal overflow.
+   *
+   * - `wrap` (default, back-compat): tabs wrap onto multiple lines once they
+   *   run out of horizontal space. Good for detail-page tab rows (≤ 5 tabs).
+   * - `scroll`: tabs stay on one line and the row scrolls horizontally.
+   *   Good for admin pages with many tabs on narrow screens — replaces the
+   *   legacy `ModuleAdminShell` mobile pill-strip.
+   */
+  overflow?: 'wrap' | 'scroll'
 }
 
-export function Tabs({ items, activeId, onChange, className }: TabsProps) {
+export function Tabs({ items, activeId, onChange, className, overflow = 'wrap' }: TabsProps) {
+  const overflowClass =
+    overflow === 'scroll'
+      ? 'flex flex-nowrap items-center gap-1 overflow-x-auto'
+      : 'flex flex-wrap items-center gap-1'
+
   return (
-    <nav className={twMerge('flex flex-wrap items-center gap-1', className)} aria-label="Tabs">
+    <nav className={twMerge(overflowClass, className)} aria-label="Tabs">
       {items.map((tab) => {
         const isActive = activeId === tab.id
         const Icon = tab.icon
@@ -40,6 +55,7 @@ export function Tabs({ items, activeId, onChange, className }: TabsProps) {
             aria-current={isActive ? 'page' : undefined}
             className={twMerge(
               'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+              overflow === 'scroll' ? 'shrink-0 whitespace-nowrap' : '',
               tab.disabled
                 ? 'cursor-not-allowed text-neutral-400 opacity-60'
                 : isActive

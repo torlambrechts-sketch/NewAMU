@@ -15,7 +15,6 @@ import {
   Trash2,
   UserCheck,
 } from 'lucide-react'
-import { ModuleAdminShell } from '../components/layout/ModuleAdminShell'
 import { ModulePageShell } from '../components/module/ModulePageShell'
 import {
   LAYOUT_TABLE1_POSTINGS_BODY_ROW,
@@ -87,17 +86,6 @@ export function InspectionModuleAdminPage() {
 
   useEffect(() => { void inspection.load() }, [inspection.load])
 
-  const shellTabs = useMemo(
-    () => [
-      { key: 'templates', label: 'Maler', icon: <ClipboardList className="h-4 w-4" /> },
-      { key: 'locations', label: 'Lokasjoner', icon: <MapPin className="h-4 w-4" /> },
-      { key: 'signoff', label: 'Signaturer', icon: <UserCheck className="h-4 w-4" /> },
-      { key: 'workflow', label: 'Arbeidsflyt', icon: <GitBranch className="h-4 w-4" /> },
-      { key: 'stats', label: 'Statistikk', icon: <BarChart2 className="h-4 w-4" /> },
-    ],
-    [],
-  )
-
   const tabsUiItems = useMemo(
     () => [
       { id: 'templates', label: 'Maler', icon: ClipboardList },
@@ -128,43 +116,35 @@ export function InspectionModuleAdminPage() {
           Tilbake til runder
         </Button>
       }
+      tabs={
+        <UITabs
+          items={tabsUiItems}
+          activeId={tab}
+          onChange={(id) => setTab(id as Tab)}
+          overflow="scroll"
+        />
+      }
     >
       {inspection.error ? <WarningBox>{inspection.error}</WarningBox> : null}
 
-      <ModuleAdminShell
-        title="Inspeksjonsinnstillinger"
-        description="Administrer sjekkliste-maler, lokasjoner og signeringsregler for vernerunder."
-        tabs={shellTabs}
-        activeTab={tab}
-        onTabChange={(key) => setTab(key as Tab)}
-        layout="tabsTop"
-        tabStrip={
-          <UITabs
-            items={tabsUiItems}
-            activeId={tab}
-            onChange={(id) => setTab(id as Tab)}
-          />
-        }
-      >
-        {tab === 'templates' && <TemplatesTab inspection={inspection} />}
-        {tab === 'locations' && (
-          <LocationsCrudTab
-            supabase={supabase}
-            locations={inspection.locations}
-            assignableUsers={inspection.assignableUsers}
-            onRefresh={() => inspection.load()}
-          />
-        )}
-        {tab === 'signoff' && <SignoffTab inspection={inspection} supabase={supabase} />}
-        {tab === 'workflow' && (
-          <WorkflowRulesTab
-            supabase={supabase}
-            module="inspection"
-            triggerEvents={[...INSPECTION_WORKFLOW_TRIGGER_EVENTS]}
-          />
-        )}
-        {tab === 'stats' && <HseStatsPanel supabase={supabase} />}
-      </ModuleAdminShell>
+      {tab === 'templates' && <TemplatesTab inspection={inspection} />}
+      {tab === 'locations' && (
+        <LocationsCrudTab
+          supabase={supabase}
+          locations={inspection.locations}
+          assignableUsers={inspection.assignableUsers}
+          onRefresh={() => inspection.load()}
+        />
+      )}
+      {tab === 'signoff' && <SignoffTab inspection={inspection} supabase={supabase} />}
+      {tab === 'workflow' && (
+        <WorkflowRulesTab
+          supabase={supabase}
+          module="inspection"
+          triggerEvents={[...INSPECTION_WORKFLOW_TRIGGER_EVENTS]}
+        />
+      )}
+      {tab === 'stats' && <HseStatsPanel supabase={supabase} />}
     </ModulePageShell>
   )
 }
