@@ -1,16 +1,9 @@
 import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ListOrdered, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
-import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
-import {
-  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
-  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
-  LAYOUT_TABLE1_POSTINGS_TH,
-} from '../../src/components/layout/layoutTable1PostingsKit'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
 import { fetchAssignableUsers, type AssignableUser } from '../../src/hooks/useAssignableUsers'
@@ -24,22 +17,16 @@ import { StandardInput } from '../../src/components/ui/Input'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { StandardTextarea } from '../../src/components/ui/Textarea'
 import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
-import { YesNoToggle } from '../../src/components/ui/FormToggles'
-import type { AmuAgendaItem, AmuDecision, AmuMeeting, AmuParticipant, AmuParticipantRole } from './types'
+import { AmuAgendaPlanningTable } from './AmuAgendaPlanningTable'
+import { AmuMeetingRoomTab } from './AmuMeetingRoomTab'
+import { AmuParticipantsTable } from './AmuParticipantsTable'
+import type { AmuAgendaItem, AmuDecision, AmuMeeting, AmuParticipant } from './types'
 import type { AmuHookState } from './useAmu'
 
 const TAB_ITEMS: TabItem[] = [
   { id: 'planlegging', label: 'Planlegging' },
   { id: 'møterom', label: 'Møterom' },
   { id: 'referat_signatur', label: 'Referat & signatur' },
-]
-
-const ROLE_OPTIONS: { value: AmuParticipantRole; label: string }[] = [
-  { value: 'employer_rep', label: 'Arbeidsgivers representant' },
-  { value: 'employee_rep', label: 'Arbeidstakerrepresentant' },
-  { value: 'safety_deputy', label: 'Verneombud' },
-  { value: 'bht', label: 'BHT' },
-  { value: 'secretary', label: 'Referent' },
 ]
 
 const SOURCE_MODULE_OPTIONS: { value: string; label: string }[] = [
@@ -125,9 +112,6 @@ export function AmuDetailView({
   const [apDue, setApDue] = useState('')
   const [apResponsible, setApResponsible] = useState('')
 
-  const [addParticipantUserId, setAddParticipantUserId] = useState('')
-  const [addParticipantRole, setAddParticipantRole] = useState<AmuParticipantRole>('employer_rep')
-
   const [minutesDraft, setMinutesDraft] = useState('')
   const [chairUserId, setChairUserId] = useState('')
 
@@ -204,6 +188,12 @@ export function AmuDetailView({
     () => assignable.map((u) => ({ value: u.id, label: u.displayName })),
     [assignable],
   )
+
+  const sourceLabelForAgenda = useCallback((item: AmuAgendaItem) => {
+    return item.source_module
+      ? SOURCE_MODULE_OPTIONS.find((o) => o.value === item.source_module)?.label ?? item.source_module
+      : '—'
+  }, [])
 
   const chairSelectOptions = useMemo(() => {
     const byId = new Map(participantOptions.map((o) => [o.value, o.label] as const))
@@ -549,278 +539,62 @@ export function AmuDetailView({
             </div>
           </div>
 
-          <div className={`${WORKPLACE_MODULE_CARD} p-5 md:p-6`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <h3 className="text-sm font-semibold text-neutral-900">Deltakere</h3>
-            <p className="mt-1 text-sm text-neutral-600">Legg til brukere fra virksomheten med roller i møtet.</p>
-            {participants.length > 0 ? (
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full min-w-[640px] text-left text-sm">
-                  <thead>
-                    <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Bruker</th>
-                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Rolle</th>
-                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Til stede</th>
-                      <th className={LAYOUT_TABLE1_POSTINGS_TH} />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {participants.map((p) => (
-                      <tr key={p.user_id} className={LAYOUT_TABLE1_POSTINGS_BODY_ROW}>
-                        <td className="px-5 py-3 font-medium text-neutral-900">{userLabel(p.user_id)}</td>
-                        <td className="px-5 py-3">
-                          <SearchableSelect
-                            value={p.role}
-                            options={ROLE_OPTIONS}
-                            onChange={async (v) => {
-                              const next = await amu.upsertParticipant(meeting.id, p.user_id, { role: v as AmuParticipantRole })
-                              if (next) {
-                                setParticipants((rows) => rows.map((r) => (r.user_id === p.user_id ? next : r)))
-                              }
-                            }}
-                            disabled={readOnly || !amu.canManage}
-                          />
-                        </td>
-                        <td className="px-5 py-3">
-                          <YesNoToggle
-                            value={p.present}
-                            onChange={async (v) => {
-                              const next = await amu.upsertParticipant(meeting.id, p.user_id, { present: v })
-                              if (next) {
-                                setParticipants((rows) => rows.map((r) => (r.user_id === p.user_id ? next : r)))
-                              }
-                            }}
-                          />
-                        </td>
-                        <td className="px-5 py-3 text-right">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            disabled={readOnly || !amu.canManage}
-                            icon={<Trash2 className="h-4 w-4" />}
-                            aria-label="Fjern"
-                            onClick={async () => {
-                              const ok = await amu.removeParticipant(meeting.id, p.user_id)
-                              if (ok) setParticipants((r) => r.filter((x) => x.user_id !== p.user_id))
-                            }}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : null}
-            <div className="mt-6 max-w-2xl space-y-3">
-              <label className={WPSTD_FORM_FIELD_LABEL}>Legg til deltaker</label>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="min-w-0 flex-1">
-                  <SearchableSelect
-                    value={addParticipantUserId}
-                    options={[{ value: '', label: 'Velg bruker' }, ...participantOptions]}
-                    onChange={setAddParticipantUserId}
-                    disabled={readOnly || !amu.canManage}
-                  />
-                </div>
-                <div className="min-w-0 sm:w-56">
-                  <SearchableSelect
-                    value={addParticipantRole}
-                    options={ROLE_OPTIONS}
-                    onChange={(v) => setAddParticipantRole(v as AmuParticipantRole)}
-                    disabled={readOnly || !amu.canManage}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={readOnly || !amu.canManage || !addParticipantUserId}
-                  onClick={async () => {
-                    if (!addParticipantUserId) return
-                    const next = await amu.upsertParticipant(meeting.id, addParticipantUserId, {
-                      role: addParticipantRole,
-                      present: true,
-                    })
-                    if (next) {
-                      setParticipants((r) => [...r.filter((x) => x.user_id !== addParticipantUserId), next])
-                      setAddParticipantUserId('')
-                    }
-                  }}
-                >
-                  <Plus className="h-4 w-4" />
-                  Legg til
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className={`${WORKPLACE_MODULE_CARD} p-0 overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-            <LayoutTable1PostingsShell
-              wrap={false}
-              title="Saksliste (agenda)"
-              description="Standard saksliste kan genereres. Rediger i sidepanel for å følge selskapsmønsteret."
-              headerActions={
-                <div className="flex flex-wrap gap-2">
-                  {agenda.length > 0 ? (
-                    <Button
-                      type="button"
-                      variant="primary"
-                      size="sm"
-                      onClick={openNewAgendaPanel}
-                      disabled={readOnly || !amu.canManage}
-                    >
-                      <Plus className="h-4 w-4" />
-                      Nytt punkt
-                    </Button>
-                  ) : null}
-                </div>
+          <AmuParticipantsTable
+            participants={participants}
+            userLabel={userLabel}
+            participantSelectOptions={participantOptions}
+            readOnly={readOnly}
+            canManage={amu.canManage}
+            onUpdateRole={async (userId, role) => {
+              const next = await amu.upsertParticipant(meeting.id, userId, { role })
+              if (next) {
+                setParticipants((rows) => rows.map((r) => (r.user_id === userId ? next : r)))
               }
-              toolbar={<span className="sr-only">Saksliste</span>}
-            >
-              {agenda.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
-                  <ListOrdered className="h-10 w-10 text-neutral-300" />
-                  <div>
-                    <p className="text-sm font-medium text-neutral-800">Ingen saker ennå</p>
-                    <p className="mt-1 max-w-md text-sm text-neutral-600">
-                      Generer forslag til saksliste for å komme raskt i gang med møtet, eller opprett punkter for hånd.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    disabled={readOnly || !amu.canManage}
-                    onClick={() => void onGenerateDefaultAgenda()}
-                  >
-                    Generer standard saksliste
-                  </Button>
-                </div>
-              ) : (
-                <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead>
-                    <tr>
-                      <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">#</th>
-                      <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">Sak</th>
-                      <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">Kilde</th>
-                      <th className="bg-neutral-50 px-5 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-neutral-500" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {agenda.map((a) => (
-                      <tr key={a.id} className="border-b border-neutral-100 hover:bg-neutral-50 transition-colors">
-                        <td className="px-5 py-3 text-neutral-600">{a.order_index + 1}</td>
-                        <td className="px-5 py-3 text-neutral-900">
-                          <div className="font-medium">{a.title}</div>
-                          {a.description ? <div className="mt-0.5 text-xs text-neutral-500 line-clamp-2">{a.description}</div> : null}
-                        </td>
-                        <td className="px-5 py-3 text-neutral-600">
-                          {a.source_module
-                            ? SOURCE_MODULE_OPTIONS.find((o) => o.value === a.source_module)?.label ?? a.source_module
-                            : '—'}
-                        </td>
-                        <td className="px-5 py-3 text-right">
-                          <div className="inline-flex items-center justify-end gap-0.5">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEditAgenda(a)}
-                              disabled={readOnly || !amu.canManage}
-                              icon={<Pencil className="h-4 w-4" />}
-                              aria-label="Rediger"
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => void deleteAgenda(a.id)}
-                              disabled={readOnly || !amu.canManage}
-                              icon={<Trash2 className="h-4 w-4" />}
-                              aria-label="Slett"
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </LayoutTable1PostingsShell>
-          </div>
+            }}
+            onUpdatePresent={async (userId, present) => {
+              const next = await amu.upsertParticipant(meeting.id, userId, { present })
+              if (next) {
+                setParticipants((rows) => rows.map((r) => (r.user_id === userId ? next : r)))
+              }
+            }}
+            onRemove={async (userId) => {
+              const ok = await amu.removeParticipant(meeting.id, userId)
+              if (ok) setParticipants((r) => r.filter((x) => x.user_id !== userId))
+            }}
+            onAdd={async (userId, role) => {
+              const next = await amu.upsertParticipant(meeting.id, userId, {
+                role,
+                present: true,
+              })
+              if (next) {
+                setParticipants((r) => [...r.filter((x) => x.user_id !== userId), next])
+                return true
+              }
+              return false
+            }}
+          />
+
+          <AmuAgendaPlanningTable
+            agenda={agenda}
+            readOnly={readOnly}
+            canManage={amu.canManage}
+            sourceLabel={sourceLabelForAgenda}
+            onGenerateDefaultAgenda={() => void onGenerateDefaultAgenda()}
+            onOpenNew={openNewAgendaPanel}
+            onOpenEdit={openEditAgenda}
+            onDelete={(id) => void deleteAgenda(id)}
+          />
         </div>
       )}
 
       {activeTab === 'møterom' && (
-        <div className={`${WORKPLACE_MODULE_CARD} p-0 overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-          <LayoutTable1PostingsShell
-            wrap={false}
-            title="Aktivt møte — saksrunde"
-            description="Gå gjennom saksene og registrer korte vedtak. Klikk for å skrive i sidepanel (ingen innebygde skjema i tabellen)."
-            headerActions={
-              meeting.status !== 'active' ? (
-                <Badge variant="info">Bruk møtestatus «Aktivt» for live modus (Planlegging-fanen)</Badge>
-              ) : null
-            }
-            toolbar={<span className="sr-only">Møterom</span>}
-          >
-            {agenda.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
-                <ListOrdered className="h-10 w-10 text-neutral-300" />
-                <div>
-                  <p className="text-sm font-medium text-neutral-800">Ingen saker i møterom</p>
-                  <p className="mt-1 max-w-md text-sm text-neutral-600">
-                    Legg inn saksliste under Planlegging, eller generer standard saksliste der.
-                  </p>
-                </div>
-                <Button type="button" variant="primary" onClick={() => setActiveTab('planlegging')}>
-                  Gå til planlegging
-                </Button>
-              </div>
-            ) : (
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr>
-                    <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500 w-20">#</th>
-                    <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">Sak</th>
-                    <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500 w-32">Vedtak</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {agenda.map((a) => {
-                    const has = decisionByAgenda[a.id]
-                    return (
-                      <tr
-                        key={a.id}
-                        className="border-b border-neutral-100 transition-colors hover:bg-neutral-50 cursor-pointer"
-                        onClick={() => fixOpenDecision(a)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault()
-                            fixOpenDecision(a)
-                          }
-                        }}
-                      >
-                        <td className="px-5 py-3 text-neutral-500">{a.order_index + 1}</td>
-                        <td className="px-5 py-3">
-                          <div className="font-medium text-neutral-900">{a.title}</div>
-                          {a.description ? <div className="mt-0.5 line-clamp-2 text-xs text-neutral-500">{a.description}</div> : null}
-                        </td>
-                        <td className="px-5 py-3 text-right">
-                          {has?.decision_text ? (
-                            <Badge variant="success">Oppført</Badge>
-                          ) : (
-                            <Badge variant="neutral">Ikke ført</Badge>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            )}
-          </LayoutTable1PostingsShell>
-        </div>
+        <AmuMeetingRoomTab
+          agenda={agenda}
+          decisionByAgenda={decisionByAgenda}
+          meetingStatus={meeting.status}
+          onOpenDecision={fixOpenDecision}
+          onGoToPlanning={() => setActiveTab('planlegging')}
+        />
       )}
 
       {activeTab === 'referat_signatur' && (
