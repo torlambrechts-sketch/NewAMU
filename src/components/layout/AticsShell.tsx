@@ -339,6 +339,13 @@ const navGroups: NavGroup[] = [
     icon: ShieldAlert,
     modules: [
       {
+        to: '/risiko-sikkerhet',
+        label: 'Oversikt',
+        end: true,
+        icon: LayoutGrid,
+        subs: [],
+      },
+      {
         to: '/sja',
         label: 'Sikker Jobbanalyse',
         end: false,
