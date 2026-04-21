@@ -17,6 +17,7 @@ import { Button } from '../../src/components/ui/Button'
 import { StandardInput } from '../../src/components/ui/Input'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { WarningBox } from '../../src/components/ui/AlertBox'
+import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import type { AmuElectionRow } from './types'
 import { useAmuElection } from './useAmuElection'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
@@ -102,24 +103,27 @@ export function AmuElectionPage({ supabase }: { supabase: SupabaseClient | null 
 
   const submitCreate = useCallback(async () => {
     if (!title.trim()) {
-      setError('Tittel er påkrevd.')
+      setError(getSupabaseErrorMessage('Tittel er påkrevd.'))
       return
     }
     if (!startYmd || !endYmd) {
-      setError('Velg start- og sluttdato.')
+      setError(getSupabaseErrorMessage('Velg start- og sluttdato.'))
       return
     }
     setSaving(true)
-    const row = await createElection({
-      title: title.trim(),
-      status: statusDraft,
-      start_date: toIsoStart(startYmd),
-      end_date: toIsoEnd(endYmd),
-    })
-    setSaving(false)
-    if (row) {
-      setCreateOpen(false)
-      nav(`/internkontroll/amu-valg/${row.id}`)
+    try {
+      const row = await createElection({
+        title: title.trim(),
+        status: statusDraft,
+        start_date: toIsoStart(startYmd),
+        end_date: toIsoEnd(endYmd),
+      })
+      if (row) {
+        setCreateOpen(false)
+        nav(`/internkontroll/amu-valg/${row.id}`)
+      }
+    } finally {
+      setSaving(false)
     }
   }, [createElection, endYmd, nav, setError, startYmd, statusDraft, title])
 

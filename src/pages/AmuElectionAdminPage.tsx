@@ -12,6 +12,7 @@ import {
 import { WorkflowRulesTab } from '../components/workflow/WorkflowRulesTab'
 import { AMU_ELECTION_WORKFLOW_TRIGGER_EVENTS } from '../components/workflow/workflowRuleFactory'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { useAmuElection } from '../../modules/amu_election/useAmuElection'
 import type { AmuElectionCommitteeMember, AmuElectionModuleSettings } from '../../modules/amu_election/types'
 import { Button } from '../components/ui/Button'
@@ -105,7 +106,7 @@ export function AmuElectionAdminPage() {
   const onSaveGenerelt = useCallback(async () => {
     const n = Number.parseInt(minDaysDraft, 10)
     if (!Number.isFinite(n) || n < 1 || n > 365) {
-      setError('Minimum antall døgn må være mellom 1 og 365.')
+      setError(getSupabaseErrorMessage('Minimum antall døgn må være mellom 1 og 365.'))
       return
     }
     await persistSettings({ minimum_voting_days: n, election_committee: committeeDraft })
@@ -120,11 +121,11 @@ export function AmuElectionAdminPage() {
 
   const addCommitteeMember = useCallback(() => {
     if (!pickUserId.trim()) {
-      setError('Velg medlem.')
+      setError(getSupabaseErrorMessage('Velg medlem.'))
       return
     }
     if (committeeDraft.some((m) => m.user_id === pickUserId.trim())) {
-      setError('Medlemmet er allerede i valgstyret.')
+      setError(getSupabaseErrorMessage('Medlemmet er allerede i valgstyret.'))
       return
     }
     setError(null)

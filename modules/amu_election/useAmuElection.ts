@@ -138,6 +138,12 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
         setVoteTotalsByElection((prev) => ({ ...prev, [electionId]: rows }))
       } catch (e) {
         setErr(e)
+        // Unngå at gamle aggregater vises etter feil (f.eks. migrasjon ikke kjørt).
+        setVoteTotalsByElection((prev) => {
+          const next = { ...prev }
+          delete next[electionId]
+          return next
+        })
       }
     },
     [orgId, supabase, setErr],
@@ -171,11 +177,11 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
   const saveModuleSettings = useCallback(
     async (next: AmuElectionModuleSettings) => {
       if (!supabase || !orgId) {
-        setError('Supabase er ikke konfigurert.')
+        setError(getSupabaseErrorMessage('Supabase er ikke konfigurert.'))
         return false
       }
       if (!canManage) {
-        setError('Du har ikke tilgang.')
+        setError(getSupabaseErrorMessage('Du har ikke tilgang.'))
         return false
       }
       setError(null)
@@ -219,21 +225,31 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
 
         let electionRow: AmuElectionRow | null = null
         if (eRes.data) {
-          electionRow = collectParsedAmuElections([eRes.data as unknown])[0]
-          setElections((prev) => {
-            const rest = prev.filter((x) => x.id !== electionId)
-            return [electionRow!, ...rest]
-          })
+          try {
+            electionRow = collectParsedAmuElections([eRes.data as unknown])[0]
+            setElections((prev) => {
+              const rest = prev.filter((x) => x.id !== electionId)
+              return [electionRow!, ...rest]
+            })
+          } catch (parseErr) {
+            setErr(parseErr)
+            return
+          }
         }
 
-        setCandidatesByElection((prev) => ({
-          ...prev,
-          [electionId]: collectParsedAmuCandidates((cRes.data ?? []) as unknown[]),
-        }))
-        setVotersByElection((prev) => ({
-          ...prev,
-          [electionId]: collectParsedAmuVoters((vRes.data ?? []) as unknown[]),
-        }))
+        try {
+          setCandidatesByElection((prev) => ({
+            ...prev,
+            [electionId]: collectParsedAmuCandidates((cRes.data ?? []) as unknown[]),
+          }))
+          setVotersByElection((prev) => ({
+            ...prev,
+            [electionId]: collectParsedAmuVoters((vRes.data ?? []) as unknown[]),
+          }))
+        } catch (parseErr) {
+          setErr(parseErr)
+          return
+        }
 
         if (canManage) {
           const votesRes = await supabase
@@ -270,16 +286,16 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
   const createElection = useCallback(
     async (input: CreateAmuElectionInput) => {
       if (!supabase || !orgId) {
-        setError('Supabase er ikke konfigurert.')
+        setError(getSupabaseErrorMessage('Supabase er ikke konfigurert.'))
         return null
       }
       if (!canManage) {
-        setError('Du har ikke tilgang til å opprette valg.')
+        setError(getSupabaseErrorMessage('Du har ikke tilgang til å opprette valg.'))
         return null
       }
       const title = input.title?.trim()
       if (!title) {
-        setError('Tittel er påkrevd.')
+        setError(getSupabaseErrorMessage('Tittel er påkrevd.'))
         return null
       }
       const status = input.status ?? 'draft'
@@ -288,7 +304,9 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
         votingWindowTooShort(input.start_date, input.end_date, moduleSettings.minimum_voting_days)
       ) {
         setError(
-          `Stemmeperioden må vare minst ${moduleSettings.minimum_voting_days} døgn (juster i innstillinger eller utvid datoene).`,
+          getSupabaseErrorMessage(
+            `Stemmeperioden må vare minst ${moduleSettings.minimum_voting_days} døgn (juster i innstillinger eller utvid datoene).`,
+          ),
         )
         return null
       }
@@ -317,11 +335,11 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
   const updateElection = useCallback(
     async (input: UpdateAmuElectionInput) => {
       if (!supabase || !orgId) {
-        setError('Supabase er ikke konfigurert.')
+        setError(getSupabaseErrorMessage('Supabase er ikke konfigurert.'))
         return false
       }
       if (!canManage) {
-        setError('Du har ikke tilgang til å oppdatere valg.')
+        setError(getSupabaseErrorMessage('Du har ikke tilgang til å oppdatere valg.'))
         return false
       }
       setError(null)
@@ -331,7 +349,7 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
       if (input.start_date !== undefined) patch.start_date = input.start_date
       if (input.end_date !== undefined) patch.end_date = input.end_date
       if (Object.keys(patch).length === 0) {
-        setError('Ingen felter å oppdatere.')
+        setError(getSupabaseErrorMessage('Ingen felter å oppdatere.'))
         return false
       }
 
@@ -349,7 +367,9 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
           votingWindowTooShort(merged.start_date, merged.end_date, moduleSettings.minimum_voting_days)
         ) {
           setError(
-            `Stemmeperioden må vare minst ${moduleSettings.minimum_voting_days} døgn (juster i innstillinger eller utvid datoene).`,
+            getSupabaseErrorMessage(
+              `Stemmeperioden må vare minst ${moduleSettings.minimum_voting_days} døgn (juster i innstillinger eller utvid datoene).`,
+            ),
           )
           return false
         }
@@ -383,7 +403,7 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
   const castVote = useCallback(
     async (electionId: string, candidateId: string) => {
       if (!supabase || !orgId) {
-        const msg = 'Supabase er ikke konfigurert.'
+        const msg = getSupabaseErrorMessage('Supabase er ikke konfigurert.')
         setError(msg)
         return { ok: false as const, error: msg }
       }
@@ -408,11 +428,11 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
   const addCandidate = useCallback(
     async (input: AddAmuElectionCandidateInput) => {
       if (!supabase || !orgId) {
-        setError('Supabase er ikke konfigurert.')
+        setError(getSupabaseErrorMessage('Supabase er ikke konfigurert.'))
         return null
       }
       if (!canManage) {
-        setError('Du har ikke tilgang til å nominere kandidater.')
+        setError(getSupabaseErrorMessage('Du har ikke tilgang til å nominere kandidater.'))
         return null
       }
       setError(null)
@@ -443,11 +463,11 @@ export function useAmuElection({ supabase }: { supabase: SupabaseClient | null }
   const setCandidateStatus = useCallback(
     async (electionId: string, candidateId: string, status: AmuElectionCandidateStatus) => {
       if (!supabase || !orgId) {
-        setError('Supabase er ikke konfigurert.')
+        setError(getSupabaseErrorMessage('Supabase er ikke konfigurert.'))
         return false
       }
       if (!canManage) {
-        setError('Du har ikke tilgang.')
+        setError(getSupabaseErrorMessage('Du har ikke tilgang.'))
         return false
       }
       setError(null)

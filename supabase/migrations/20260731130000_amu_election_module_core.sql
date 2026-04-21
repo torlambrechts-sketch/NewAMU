@@ -295,6 +295,8 @@ revoke insert, update, delete on public.amu_election_votes from authenticated;
 grant select on public.amu_election_votes to authenticated;
 
 -- ── 5. Secret ballot RPC (single transaction, row-locked voter) ─────────────
+-- Plpgsql wraps the body in one implicit transaction: FOR UPDATE + UPDATE + INSERT
+-- commit together or roll back. amu_election_votes has no user_id — only this RPC inserts rows.
 
 create or replace function public.cast_amu_vote(p_election_id uuid, p_candidate_id uuid)
 returns void

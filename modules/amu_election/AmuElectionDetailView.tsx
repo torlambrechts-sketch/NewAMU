@@ -30,6 +30,7 @@ import { StandardTextarea } from '../../src/components/ui/Textarea'
 import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { WarningBox } from '../../src/components/ui/AlertBox'
 import { InfoBox } from '../../src/components/ui/AlertBox'
+import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import type { AmuElectionRow } from './types'
 import { useAmuElection } from './useAmuElection'
 
@@ -158,33 +159,39 @@ export function AmuElectionDetailView({
 
   const submitNomination = useCallback(async () => {
     if (!nomUserId.trim()) {
-      setError('Velg kandidat.')
+      setError(getSupabaseErrorMessage('Velg kandidat.'))
       return
     }
     setNomSaving(true)
     setError(null)
-    const row = await addCandidate({
-      electionId,
-      userId: nomUserId.trim(),
-      manifesto: nomManifesto,
-      status: 'nominated',
-    })
-    setNomSaving(false)
-    if (row) {
-      setNominateOpen(false)
-      void loadElectionDetail(electionId)
+    try {
+      const row = await addCandidate({
+        electionId,
+        userId: nomUserId.trim(),
+        manifesto: nomManifesto,
+        status: 'nominated',
+      })
+      if (row) {
+        setNominateOpen(false)
+        void loadElectionDetail(electionId)
+      }
+    } finally {
+      setNomSaving(false)
     }
   }, [addCandidate, electionId, loadElectionDetail, nomManifesto, nomUserId, setError])
 
   const onCastVote = useCallback(async () => {
     if (!selectedCandidateId) {
-      setError('Velg en kandidat før du stemmer.')
+      setError(getSupabaseErrorMessage('Velg en kandidat før du stemmer.'))
       return
     }
     setCasting(true)
-    const res = await castVote(electionId, selectedCandidateId)
-    setCasting(false)
-    if (res.ok) setSelectedCandidateId(null)
+    try {
+      const res = await castVote(electionId, selectedCandidateId)
+      if (res.ok) setSelectedCandidateId(null)
+    } finally {
+      setCasting(false)
+    }
   }, [castVote, electionId, selectedCandidateId, setError])
 
   const maxVotes = useMemo(() => {
