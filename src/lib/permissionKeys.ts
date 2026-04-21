@@ -107,6 +107,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
 
 /** Route prefix → permission (primary nav). Index route checked separately. */
 export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }[] = [
+  { pathPrefix: '/council/amu', permission: 'module.view.council' },
   { pathPrefix: '/council', permission: 'module.view.council' },
   { pathPrefix: '/members', permission: 'module.view.members' },
   { pathPrefix: '/org-health', permission: 'module.view.org_health' },

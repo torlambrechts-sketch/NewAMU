@@ -23,6 +23,7 @@ import {
   ListChecks,
   ListTodo,
   Megaphone,
+  ScrollText,
   PanelLeft,
   PanelRight,
   Boxes,
@@ -212,7 +213,6 @@ const councilSubs: SubItem[] = [
       (new URLSearchParams(search).get('tab') === 'board' || new URLSearchParams(search).get('tab') === 'election'),
   },
   { label: 'Møter', path: '/council?tab=meetings', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'meetings' },
-  { label: 'AMU', path: '/council/amu', match: ({ pathname }) => pathname === '/council/amu' || pathname.startsWith('/council/amu/') },
   {
     label: 'Krav og vedtak',
     path: '/council?tab=requirements',
@@ -582,6 +582,26 @@ const navGroups: NavGroup[] = [
           },
         ],
       },
+      {
+        to: '/council/amu',
+        label: 'AMU',
+        end: false,
+        icon: ScrollText,
+        perm: 'module.view.council',
+        subs: [
+          {
+            label: 'Møter',
+            path: '/council/amu',
+            match: ({ pathname }) => pathname === '/council/amu' || pathname.startsWith('/council/amu/'),
+          },
+          {
+            label: 'Innstillinger',
+            path: '/council/amu/admin',
+            match: ({ pathname }) => pathname.startsWith('/council/amu/admin'),
+            requirePerm: 'amu.manage',
+          },
+        ],
+      },
     ],
   },
   {
@@ -656,6 +676,10 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
   if (pathname === '/organisation/admin' || pathname.startsWith('/organisation/admin/')) {
     const adminMod = modules.find((m) => m.to === '/organisation/admin')
     if (adminMod) return adminMod
+  }
+  const amuMod = modules.find((m) => m.to === '/council/amu')
+  if (amuMod && (pathname === '/council/amu' || pathname.startsWith('/council/amu/'))) {
+    return amuMod
   }
   // Exact-match first (handles /council?tab=board vs /council)
   for (const mod of modules) {
