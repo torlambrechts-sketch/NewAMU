@@ -2,8 +2,10 @@ import { useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
+  CalendarClock,
   ClipboardCheck,
   ClipboardList,
+  History,
   ShieldAlert,
 } from 'lucide-react'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
@@ -15,6 +17,7 @@ import { LayoutScoreStatRow } from '../components/layout/LayoutScoreStatRow'
 import { InfoBox } from '../components/ui/AlertBox'
 import {
   ModuleFrontpageShell,
+  ModuleMainAside,
   ModuleShortcutGrid,
   type ModuleShortcutItem,
 } from '../components/module'
@@ -181,6 +184,79 @@ export function RisikoSikkerhetFrontpage() {
   }, [ros.analyses])
   const rosTotal = rosStatus.reduce((a, s) => a + s.value, 0)
 
+  // ── Aside: siste aktivitet (de 5 nyligste hendelsene på tvers av moduler) ──
+  type ActivityEntry = {
+    key: string
+    label: string
+    module: 'ROS' | 'Inspeksjon' | 'Vernerunde' | 'SJA'
+    to: string
+    at: string
+  }
+  const recentActivity: ActivityEntry[] = useMemo(() => {
+    const all: ActivityEntry[] = []
+    for (const a of ros.analyses) {
+      all.push({
+        key: `ros-${a.id}`,
+        label: a.title,
+        module: 'ROS',
+        to: `/ros/${a.id}`,
+        at: a.updated_at,
+      })
+    }
+    for (const r of inspection.rounds) {
+      all.push({
+        key: `insp-${r.id}`,
+        label: r.title,
+        module: 'Inspeksjon',
+        to: `/inspection-module/${r.id}`,
+        at: r.updated_at,
+      })
+    }
+    for (const v of vernerunde.vernerunder) {
+      all.push({
+        key: `vern-${v.id}`,
+        label: v.title,
+        module: 'Vernerunde',
+        to: `/vernerunder/${v.id}`,
+        at: v.updated_at,
+      })
+    }
+    for (const s of sja.analyses) {
+      all.push({
+        key: `sja-${s.id}`,
+        label: s.title,
+        module: 'SJA',
+        to: `/sja/${s.id}`,
+        at: s.updated_at,
+      })
+    }
+    return all
+      .filter((e) => !!e.at)
+      .sort((a, b) => (a.at < b.at ? 1 : -1))
+      .slice(0, 5)
+  }, [ros.analyses, inspection.rounds, vernerunde.vernerunder, sja.analyses])
+
+  // ── Aside: neste revisjoner (ROS-analyser med next_review_date) ────────────
+  type ReviewEntry = { key: string; label: string; to: string; date: string; overdue: boolean }
+  const upcomingReviews: ReviewEntry[] = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return ros.analyses
+      .filter((a) => !!a.next_review_date)
+      .map<ReviewEntry>((a) => {
+        const d = new Date(a.next_review_date as string)
+        return {
+          key: `ros-rev-${a.id}`,
+          label: a.title,
+          to: `/ros/${a.id}`,
+          date: a.next_review_date as string,
+          overdue: d.getTime() < today.getTime(),
+        }
+      })
+      .sort((a, b) => (a.date < b.date ? -1 : 1))
+      .slice(0, 5)
+  }, [ros.analyses])
+
   // ── Shortcut cards ─────────────────────────────────────────────────────────
   const shortcuts: ModuleShortcutItem[] = [
     {
@@ -267,57 +343,153 @@ export function RisikoSikkerhetFrontpage() {
         />
       }
       dashboardTitle="Status og nøkkeltall"
-      dashboardDescription="Samme diagramspråk som på plattform-admin/layout rapportering. Klikk deg videre til en modul for detaljer."
+      dashboardDescription="Samme 70/30-oppsett som plattform-admin/layout-reference → Dashboard 70/30: hoveddiagrammene til venstre, siste aktivitet og kommende revisjoner til høyre."
       dashboard={
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <ModuleDonutCard
-            title="Aktiviteter per modul"
-            subtitle="Hvor mange saker er registrert i hver av modulene i denne gruppen."
-            segments={modulesMix}
-            total={modulesTotal}
-            emptyHint="Ingen registrerte aktiviteter ennå."
-          />
-          <ModuleDonutCard
-            title="Inspeksjonsrunder — status"
-            subtitle="Fordeling av alle inspeksjonsrunder etter status."
-            segments={inspectionStatus}
-            total={inspectionTotal}
-            emptyHint="Ingen inspeksjonsrunder registrert."
-          />
-          <ModuleDonutCard
-            title="Avvik — alvorlighetsgrad"
-            subtitle="Fordeling av inspeksjonsfunn etter alvorlighetsgrad."
-            segments={findingSeverity}
-            total={findingTotal}
-            emptyHint="Ingen registrerte avvik."
-          />
-          <ModuleDonutCard
-            title="ROS-analyser — status"
-            subtitle="Fordeling av ROS-analyser etter status i livsløpet."
-            segments={rosStatus}
-            total={rosTotal}
-            emptyHint="Ingen ROS-analyser registrert."
-          />
-          <div className={`${INSIGHT_CARD} lg:col-span-2`}>
-            <div className={INSIGHT_CARD_TOP_RULE} />
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                  Se mer i full rapportering
-                </p>
-                <p className="mt-1 text-sm leading-relaxed text-neutral-600">
-                  Åpne full rapporteringsmodul for å bygge egne dashboard med flere diagram og tabeller.
-                </p>
+        <ModuleMainAside
+          main={
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <ModuleDonutCard
+                  title="Aktiviteter per modul"
+                  subtitle="Hvor mange saker er registrert i hver modul."
+                  segments={modulesMix}
+                  total={modulesTotal}
+                  emptyHint="Ingen registrerte aktiviteter ennå."
+                />
+                <ModuleDonutCard
+                  title="Inspeksjonsrunder — status"
+                  subtitle="Fordeling av alle inspeksjonsrunder etter status."
+                  segments={inspectionStatus}
+                  total={inspectionTotal}
+                  emptyHint="Ingen inspeksjonsrunder registrert."
+                />
+                <ModuleDonutCard
+                  title="Avvik — alvorlighetsgrad"
+                  subtitle="Fordeling av inspeksjonsfunn."
+                  segments={findingSeverity}
+                  total={findingTotal}
+                  emptyHint="Ingen registrerte avvik."
+                />
+                <ModuleDonutCard
+                  title="ROS-analyser — status"
+                  subtitle="Fordeling av ROS-analyser i livsløpet."
+                  segments={rosStatus}
+                  total={rosTotal}
+                  emptyHint="Ingen ROS-analyser registrert."
+                />
               </div>
-              <Link
-                to="/reports"
-                className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 shadow-sm hover:bg-neutral-50"
-              >
-                Åpne rapporter <ArrowRight className="size-4" aria-hidden />
-              </Link>
+              <div className={INSIGHT_CARD}>
+                <div className={INSIGHT_CARD_TOP_RULE} />
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                      Se mer i full rapportering
+                    </p>
+                    <p className="mt-1 text-sm leading-relaxed text-neutral-600">
+                      Åpne rapportmodulen for å bygge egne dashboard med flere diagram og tabeller.
+                    </p>
+                  </div>
+                  <Link
+                    to="/reports"
+                    className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 shadow-sm hover:bg-neutral-50"
+                  >
+                    Åpne rapporter <ArrowRight className="size-4" aria-hidden />
+                  </Link>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          }
+          aside={
+            <div className="space-y-4">
+              <div className={INSIGHT_CARD}>
+                <div className={INSIGHT_CARD_TOP_RULE} />
+                <div className="flex items-center gap-2">
+                  <History className="size-4 text-neutral-500" aria-hidden />
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                    Siste aktivitet
+                  </p>
+                </div>
+                <p className="mt-1 text-sm leading-relaxed text-neutral-600">
+                  De fem nyligst oppdaterte sakene på tvers av modulene i gruppen.
+                </p>
+                {recentActivity.length === 0 ? (
+                  <p className="mt-4 text-sm text-neutral-400">Ingen registrerte saker ennå.</p>
+                ) : (
+                  <ul className="mt-4 space-y-0">
+                    {recentActivity.map((e) => (
+                      <li
+                        key={e.key}
+                        className="flex items-start justify-between gap-3 border-b border-neutral-100 py-2.5 last:border-0"
+                      >
+                        <div className="min-w-0">
+                          <Link
+                            to={e.to}
+                            className="truncate text-sm font-medium text-neutral-900 hover:text-[#1a3d32]"
+                          >
+                            {e.label}
+                          </Link>
+                          <p className="mt-0.5 text-xs text-neutral-500">
+                            {e.module} ·{' '}
+                            {new Date(e.at).toLocaleDateString('nb-NO', {
+                              day: 'numeric',
+                              month: 'short',
+                            })}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={INSIGHT_CARD}>
+                <div className={INSIGHT_CARD_TOP_RULE} />
+                <div className="flex items-center gap-2">
+                  <CalendarClock className="size-4 text-neutral-500" aria-hidden />
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                    Kommende revisjoner
+                  </p>
+                </div>
+                <p className="mt-1 text-sm leading-relaxed text-neutral-600">
+                  ROS-analyser med frist for neste gjennomgang.
+                </p>
+                {upcomingReviews.length === 0 ? (
+                  <p className="mt-4 text-sm text-neutral-400">Ingen planlagte revisjoner.</p>
+                ) : (
+                  <ul className="mt-4 space-y-0">
+                    {upcomingReviews.map((r) => (
+                      <li
+                        key={r.key}
+                        className="flex items-start justify-between gap-3 border-b border-neutral-100 py-2.5 last:border-0"
+                      >
+                        <div className="min-w-0">
+                          <Link
+                            to={r.to}
+                            className="truncate text-sm font-medium text-neutral-900 hover:text-[#1a3d32]"
+                          >
+                            {r.label}
+                          </Link>
+                          <p
+                            className={`mt-0.5 text-xs ${
+                              r.overdue ? 'font-semibold text-red-600' : 'text-neutral-500'
+                            }`}
+                          >
+                            {new Date(r.date).toLocaleDateString('nb-NO', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                            {r.overdue ? ' · forfalt' : ''}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          }
+        />
       }
       shortcutsTitle="Moduler i gruppen"
       shortcutsDescription="Direktesnarveier til hver modul i Risiko & Sikkerhet."
