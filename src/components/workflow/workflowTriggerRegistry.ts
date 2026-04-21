@@ -28,6 +28,15 @@ export const INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_ANNUAL_REVIEW_SIGNED', label: 'Årlig gjennomgang signert' },
 ] as const
 
+export const VERNERUNDER_WORKFLOW_TRIGGER_EVENTS = [
+  { value: 'ON_VERNERUNDE_CREATED', label: 'Vernerunde opprettet' },
+  { value: 'ON_VERNERUNDE_PLANNED', label: 'Vernerunde planlagt' },
+  { value: 'ON_VERNERUNDE_COMPLETED', label: 'Vernerunde fullført' },
+  { value: 'ON_STATUS_CHANGED', label: 'Statusendring vernerunde' },
+  { value: 'ON_FINDING_REGISTERED', label: 'Funn registrert' },
+  { value: 'ON_FINDING_UPDATED', label: 'Funn oppdatert' },
+] as const
+
 /** AMU-valg — hendelser fra database (statusendringer på amu_elections). */
 export const AMU_ELECTION_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_ELECTION_NOMINATION_OPEN', label: 'Nominasjon åpnet' },
@@ -45,6 +54,7 @@ const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   ros: ROS_WORKFLOW_TRIGGER_EVENTS,
   action_plan: ACTION_PLAN_WORKFLOW_TRIGGER_EVENTS,
   internkontroll: INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS,
+  vernerunder: VERNERUNDER_WORKFLOW_TRIGGER_EVENTS,
   amu_election: AMU_ELECTION_WORKFLOW_TRIGGER_EVENTS,
   amu: AMU_WORKFLOW_TRIGGER_EVENTS,
 }

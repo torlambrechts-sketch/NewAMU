@@ -19,6 +19,8 @@ export const PERMISSION_KEYS = [
   'internkontroll.manage',
   /** Alias for internkontroll.manage (årsgjennomgang / IK-oppfølging) */
   'ik.manage',
+  /** Redigere vernerunder (dette modulære grensesnittet) */
+  'vernerunder.manage',
   /** Redigere ROS (risikovurderinger) */
   'ros.manage',
   /** Redigere SJA (sikker jobbanalyse) */
@@ -75,6 +77,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'module.view.internal_control': 'Internkontroll',
   'internkontroll.manage': 'Internkontroll — redigere data',
   'ik.manage': 'Internkontroll — redigere data (alias)',
+  'vernerunder.manage': 'Vernerunder — opprette og følge opp runder',
   'ros.manage': 'ROS — redigere risikovurderinger',
   'sja.manage': 'SJA — redigere analyser og maler',
   'inspection.manage': 'Inspeksjonsmodul — redigere runder og innstillinger',
@@ -110,6 +113,7 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/tiltak', permission: 'module.view.hse' },
   { pathPrefix: '/survey', permission: 'module.view.survey' },
   { pathPrefix: '/inspection-module', permission: 'module.view.inspection' },
+  { pathPrefix: '/vernerunder', permission: 'module.view.hse' },
   { pathPrefix: '/internal-control', permission: 'module.view.internal_control' },
   { pathPrefix: '/internkontroll', permission: 'module.view.internal_control' },
   { pathPrefix: '/modules/aarskontroll', permission: 'module.view.internal_control' },
