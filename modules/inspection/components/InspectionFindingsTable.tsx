@@ -1,10 +1,13 @@
-import type { ReactNode } from 'react'
-import { Pencil } from 'lucide-react'
+import { Edit2, Plus } from 'lucide-react'
 import { riskLabel, riskScoreFromProbCons } from '../../../src/components/hse/RiskMatrix'
-import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../../src/components/layout/WorkplaceStandardFormPanel'
+import { LayoutTable1PostingsShell } from '../../../src/components/layout/LayoutTable1PostingsShell'
 import { Badge, type BadgeVariant } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
 import type { HmsCategory, InspectionChecklistItem, InspectionFindingRow, InspectionFindingSeverity, InspectionItemRow } from '../types'
+
+/** Matches ROS Measures tab (`RosMeasuresTab`) table headers. */
+const TH =
+  'border-b border-neutral-200 bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500'
 
 const SEVERITY_LABEL: Record<InspectionFindingSeverity, string> = {
   low: 'Lav',
@@ -12,10 +15,6 @@ const SEVERITY_LABEL: Record<InspectionFindingSeverity, string> = {
   high: 'Høy',
   critical: 'Kritisk',
 }
-
-/** ROS-aligned table header cell (matches Phase 1 spec). */
-const INSPECTION_TABLE_TH =
-  'px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider bg-neutral-50 border-b border-neutral-200'
 
 function riskScoreBadgeVariant(score: number): BadgeVariant {
   if (score <= 4) return 'success'
@@ -39,18 +38,19 @@ function severityBadgeVariant(severity: InspectionFindingSeverity): BadgeVariant
   }
 }
 
-function severityRowClass(severity: InspectionFindingSeverity): string {
+function findingRowClass(severity: InspectionFindingSeverity): string {
+  const base = 'border-b border-neutral-100 transition-colors hover:bg-neutral-50 last:border-b-0'
   switch (severity) {
     case 'critical':
-      return 'border-l-4 border-l-red-500 bg-red-50/30 hover:bg-red-50/50 border-b border-neutral-100'
+      return `${base} border-l-4 border-l-red-500 bg-red-50/30`
     case 'high':
-      return 'border-l-4 border-l-orange-400 bg-orange-50/20 hover:bg-orange-50/40 border-b border-neutral-100'
+      return `${base} border-l-4 border-l-orange-400 bg-orange-50/20`
     case 'medium':
-      return 'border-l-4 border-l-yellow-400 hover:bg-yellow-50 border-b border-neutral-100'
+      return `${base} border-l-4 border-l-yellow-400`
     case 'low':
-      return 'border-l-4 border-l-blue-300 hover:bg-blue-50 border-b border-neutral-100'
+      return `${base} border-l-4 border-l-blue-300`
     default:
-      return 'border-b border-neutral-100 hover:bg-neutral-50/50'
+      return base
   }
 }
 
@@ -97,11 +97,10 @@ export type InspectionFindingsTableProps = {
   roundItems: InspectionItemRow[]
   readOnly: boolean
   linkingDeviationId: string | null
-  onEdit: (finding: InspectionFindingRow) => void
+  onEditFinding: (finding: InspectionFindingRow) => void
   onOpenDeviation: (deviationId: string) => void
   onCreateDeviationFromFinding: (findingId: string) => void | Promise<void>
-  /** Placed in the section header row (e.g. «Nytt avvik»). */
-  headerActions?: ReactNode
+  onAddNew: () => void
 }
 
 export function InspectionFindingsTable({
@@ -110,51 +109,51 @@ export function InspectionFindingsTable({
   roundItems,
   readOnly,
   linkingDeviationId,
-  onEdit,
+  onEditFinding,
   onOpenDeviation,
   onCreateDeviationFromFinding,
-  headerActions,
+  onAddNew,
 }: InspectionFindingsTableProps) {
   const colCount = 3
 
+  const headerActions = !readOnly ? (
+    <Button type="button" variant="primary" icon={<Plus className="h-4 w-4" />} onClick={onAddNew}>
+      Nytt avvik
+    </Button>
+  ) : null
+
   return (
-    <>
-      <div className={WPSTD_FORM_ROW_GRID}>
-        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3 md:col-span-2">
-          <div className="min-w-0">
-            <p className={WPSTD_FORM_FIELD_LABEL}>Registrerte avvik</p>
-            <p className="mt-1 max-w-3xl text-xs leading-relaxed text-neutral-600">
-              Avvik knyttet til denne inspeksjonsrunden.
-            </p>
-          </div>
-          {headerActions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{headerActions}</div> : null}
-        </div>
-      </div>
-
+    <LayoutTable1PostingsShell
+      wrap={false}
+      titleTypography="sans"
+      title="Registrerte avvik"
+      description="Avvik knyttet til denne inspeksjonsrunden."
+      headerActions={headerActions}
+      toolbar={<div className="min-w-0 flex-1" aria-hidden />}
+    >
       <div className="overflow-x-auto w-full">
-        <table className="w-full border-collapse text-left text-sm">
-      <thead>
-        <tr>
-          <th className={INSPECTION_TABLE_TH}>Funn / Beskrivelse</th>
-          <th className={INSPECTION_TABLE_TH}>Klassifisering</th>
-          <th className={`${INSPECTION_TABLE_TH} text-right`}>Handlinger</th>
-        </tr>
-      </thead>
-      <tbody>
-        {findings.map((f) => {
-          const checkpointTitle = checkpointQuestionTitle(f, roundItems, checklistItems)
-          const categoryLabel = categoryLabelForFinding(f, roundItems, checklistItems)
-          const riskScore = f.risk_score ?? riskScoreFromProbCons(f.risk_probability, f.risk_consequence)
-          const showLegacyLinkBanner = !f.deviation_id && riskScore != null && riskScore >= 10
+        <table className="w-full border-collapse text-left text-sm whitespace-nowrap">
+          <thead>
+            <tr>
+              <th className={TH}>Funn / Beskrivelse</th>
+              <th className={TH}>Klassifisering</th>
+              <th className={`${TH} text-right`}>Handlinger</th>
+            </tr>
+          </thead>
+          <tbody>
+            {findings.map((f) => {
+              const checkpointTitle = checkpointQuestionTitle(f, roundItems, checklistItems)
+              const categoryLabel = categoryLabelForFinding(f, roundItems, checklistItems)
+              const riskScore = f.risk_score ?? riskScoreFromProbCons(f.risk_probability, f.risk_consequence)
+              const showLegacyLinkBanner = !f.deviation_id && riskScore != null && riskScore >= 10
 
-          return (
-            <tr key={f.id} className={severityRowClass(f.severity)}>
-                <td className="px-5 py-4 align-top">
-                  <div className="flex flex-col space-y-1">
-                    <span className="font-medium text-sm text-neutral-900">{checkpointTitle}</span>
-                    <span className="text-sm text-neutral-500">{f.description}</span>
+              return (
+                <tr key={f.id} className={findingRowClass(f.severity)}>
+                  <td className="max-w-[min(28rem,40vw)] px-5 py-4 align-middle">
+                    <p className="whitespace-normal font-medium text-sm text-neutral-900">{checkpointTitle}</p>
+                    <p className="mt-0.5 whitespace-normal text-sm text-neutral-500">{f.description}</p>
                     {riskScore != null ? (
-                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2 whitespace-normal">
                         <span className="text-xs text-neutral-500">Risiko</span>
                         <Badge variant={riskScoreBadgeVariant(riskScore)}>
                           {riskScore} — {riskLabel(riskScore)}
@@ -162,7 +161,7 @@ export function InspectionFindingsTable({
                       </div>
                     ) : null}
                     {readOnly && f.deviation_id ? (
-                      <div className="pt-2">
+                      <div className="mt-2 whitespace-normal">
                         <Button
                           type="button"
                           variant="secondary"
@@ -173,57 +172,56 @@ export function InspectionFindingsTable({
                         </Button>
                       </div>
                     ) : null}
-                    {showLegacyLinkBanner && (
-                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                    {showLegacyLinkBanner ? (
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 whitespace-normal rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
                         <span>Risikoskår {riskScore} — koble til avvik</span>
                         <Button
                           type="button"
                           variant="primary"
                           size="sm"
                           disabled={linkingDeviationId === f.id}
-                          onClick={async () => {
-                            await onCreateDeviationFromFinding(f.id)
-                          }}
+                          onClick={() => void onCreateDeviationFromFinding(f.id)}
                         >
                           {linkingDeviationId === f.id ? 'Oppretter…' : 'Opprett avvik'}
                         </Button>
                       </div>
-                    )}
-                  </div>
-                </td>
-                <td className="px-5 py-4 align-middle">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {categoryLabel ? <Badge variant="neutral">{categoryLabel}</Badge> : null}
-                    <Badge variant={severityBadgeVariant(f.severity)}>{SEVERITY_LABEL[f.severity]}</Badge>
-                  </div>
-                </td>
-                <td className="px-5 py-4 text-right align-middle">
-                  <div className="flex justify-end">
-                    {!readOnly ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onEdit(f)}
-                        aria-label="Rediger avvik"
-                        icon={<Pencil className="h-4 w-4" />}
-                      />
                     ) : null}
-                  </div>
+                  </td>
+                  <td className="px-5 py-4 align-middle">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {categoryLabel ? <Badge variant="neutral">{categoryLabel}</Badge> : null}
+                      <Badge variant={severityBadgeVariant(f.severity)}>{SEVERITY_LABEL[f.severity]}</Badge>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4 text-right align-middle">
+                    {!readOnly ? (
+                      <div className="inline-flex justify-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onEditFinding(f)}
+                          title="Rediger"
+                          aria-label="Rediger avvik"
+                        >
+                          <Edit2 className="h-4 w-4 text-neutral-500" />
+                        </Button>
+                      </div>
+                    ) : null}
+                  </td>
+                </tr>
+              )
+            })}
+            {findings.length === 0 ? (
+              <tr>
+                <td colSpan={colCount} className="px-5 py-12 text-center text-sm whitespace-normal text-neutral-400">
+                  Ingen avvik registrert ennå.
                 </td>
               </tr>
-          )
-        })}
-        {findings.length === 0 ? (
-          <tr>
-            <td colSpan={colCount} className="px-5 py-10 text-center text-sm text-neutral-400">
-              Ingen avvik registrert ennå.
-            </td>
-          </tr>
-        ) : null}
-      </tbody>
+            ) : null}
+          </tbody>
         </table>
       </div>
-    </>
+    </LayoutTable1PostingsShell>
   )
 }

@@ -9,7 +9,6 @@ import {
   FileText,
   History,
   Loader2,
-  Plus,
   PenLine,
   Settings,
   Trash2,
@@ -20,7 +19,6 @@ import {
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
-import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
 import type { InspectionChecklistItem, InspectionLocationRow, InspectionRoundRow } from './types'
@@ -399,38 +397,25 @@ function FindingsTab({
         </SlidePanel>
       )}
 
-      <LayoutTable1PostingsShell wrap={false} toolbar={<div className="min-w-0 flex-1" aria-hidden />}>
-        <InspectionFindingsTable
-          findings={findings}
-          checklistItems={checklistItems}
-          roundItems={items}
-          readOnly={readOnly}
-          linkingDeviationId={linkingDeviationId}
-          onEdit={startEdit}
-          onOpenDeviation={onOpenDeviation}
-          onCreateDeviationFromFinding={async (findingId) => {
-            setLinkingDeviationId(findingId)
-            const id = await inspection.createDeviationFromFinding(findingId)
-            setLinkingDeviationId(null)
-            if (id) onOpenDeviation(id)
-          }}
-          headerActions={
-            !readOnly ? (
-              <Button
-                type="button"
-                variant="primary"
-                icon={<Plus className="h-4 w-4" />}
-                onClick={() => {
-                  resetForm()
-                  setFindingPanelOpen(true)
-                }}
-              >
-                Nytt avvik
-              </Button>
-            ) : null
-          }
-        />
-      </LayoutTable1PostingsShell>
+      <InspectionFindingsTable
+        findings={findings}
+        checklistItems={checklistItems}
+        roundItems={items}
+        readOnly={readOnly}
+        linkingDeviationId={linkingDeviationId}
+        onEditFinding={startEdit}
+        onOpenDeviation={onOpenDeviation}
+        onCreateDeviationFromFinding={async (findingId) => {
+          setLinkingDeviationId(findingId)
+          const id = await inspection.createDeviationFromFinding(findingId)
+          setLinkingDeviationId(null)
+          if (id) onOpenDeviation(id)
+        }}
+        onAddNew={() => {
+          resetForm()
+          setFindingPanelOpen(true)
+        }}
+      />
     </div>
   )
 }

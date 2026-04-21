@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Search } from 'lucide-react'
+import { twMerge } from 'tailwind-merge'
 
 export type SelectOption = { value: string; label: string; suffix?: ReactNode }
 
@@ -10,12 +11,18 @@ export function SearchableSelect({
   placeholder = 'Velg …',
   onChange,
   disabled,
+  className,
+  triggerClassName,
 }: {
   value: string
   options: SelectOption[]
   placeholder?: string
   onChange: (val: string) => void
   disabled?: boolean
+  /** Optional class on the outer wrapper (e.g. table cells: `mt-0`). */
+  className?: string
+  /** Optional class on the trigger button (e.g. compact `py-1.5 text-xs`). */
+  triggerClassName?: string
 }) {
   const [open, setOpen] = useState(false)
   const [filter, setFilter] = useState('')
@@ -36,19 +43,20 @@ export function SearchableSelect({
   }, [open])
 
   return (
-    <div ref={ref} className="relative mt-1.5 w-full">
+    <div ref={ref} className={twMerge('relative mt-1.5 w-full', className)}>
       <button
         type="button"
         disabled={disabled}
         onClick={() => { if (!disabled) { setOpen((v) => !v); setFilter('') } }}
-        className={[
+        className={twMerge(
           'flex w-full items-center justify-between border bg-white px-3 py-2.5',
           'text-left text-sm outline-none transition-colors',
           disabled ? 'cursor-not-allowed bg-neutral-50 opacity-60' : '',
           open
             ? 'border-[#1a3d32] ring-1 ring-[#1a3d32]/25'
             : 'border-neutral-300 hover:border-neutral-400',
-        ].join(' ')}
+          triggerClassName,
+        )}
       >
         <span className={`flex min-w-0 items-center gap-2 ${selected ? 'text-neutral-900' : 'text-neutral-400'}`}>
           <span className="min-w-0 truncate">{selected?.label ?? placeholder}</span>
