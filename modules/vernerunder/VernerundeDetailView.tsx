@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { AlertTriangle, ClipboardList, Loader2, Pencil, PenLine, Plus, Sparkles, Trash2, UserPlus } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { AlertTriangle, ClipboardList, Pencil, PenLine, Plus, Sparkles, Trash2, UserPlus } from 'lucide-react'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
-import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import {
   LAYOUT_TABLE1_POSTINGS_BODY_ROW,
   LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
   LAYOUT_TABLE1_POSTINGS_TH,
 } from '../../src/components/layout/layoutTable1PostingsKit'
-import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
+import { ModulePageShell, ModuleSectionCard } from '../../src/components/module'
 import { WorkplaceStandardFormPanel } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { Badge } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
@@ -81,6 +80,7 @@ function TabEmpty({ icon, title, body }: { icon: ReactNode; title: string; body:
 }
 
 export function VernerundeDetailView() {
+  const navigate = useNavigate()
   const { vernerundeId: rawId } = useParams()
   const vernerundeId = rawId ?? ''
   const v = useVernerunde()
@@ -199,64 +199,73 @@ export function VernerundeDetailView() {
   }, [v, vernerundeId, round, locked])
 
   if (!vernerundeId) {
-    return <p className="p-6 text-sm text-neutral-600">Manglende vernerunde-id.</p>
+    return (
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Vernerunder', to: '/vernerunder' }]}
+        title="Vernerunde"
+        notFound={{ title: 'Manglende vernerunde-id', onBack: () => navigate('/vernerunder') }}
+      >
+        {null}
+      </ModulePageShell>
+    )
   }
 
   if (v.loading && !round) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-sm text-neutral-500">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Laster…
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Vernerunder', to: '/vernerunder' }]}
+        title="Laster vernerunde…"
+        loading
+        loadingLabel="Laster vernerunde…"
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   if (!round) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10 text-center">
-        <p className="text-sm text-neutral-700">Fant ikke vernerunden.</p>
-        <Link to="/vernerunder" className="mt-2 inline-block text-sm font-medium text-[#1a3d32] underline">
-          Tilbake til listen
-        </Link>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Vernerunder', to: '/vernerunder' }]}
+        title="Vernerunde ikke funnet"
+        notFound={{
+          title: 'Vernerunde ikke funnet',
+          backLabel: '← Tilbake til vernerunder',
+          onBack: () => navigate('/vernerunder'),
+        }}
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F9F7F2]">
-      <div className="border-b border-neutral-200/80 bg-[#F9F7F2]">
-        <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-          <WorkplacePageHeading1
-            breadcrumb={[
-              { label: 'HMS', to: '/compliance' },
-              { label: 'Vernerunder', to: '/vernerunder' },
-              { label: round.title },
-            ]}
-            title={round.title}
-            description="Sjekkliste, funn og deltakere for denne vernerunden."
-            headerActions={
-              <Badge variant={statusBadgeVariant(round.status)} className="px-3 py-1 text-xs">
-                {STATUS_LABEL[round.status]}
-              </Badge>
-            }
-            menu={
-              <Tabs
-                className="mt-1"
-                items={tabItems}
-                activeId={activeTab}
-                onChange={(id) => setActiveTab(id as DetailTab)}
-              />
-            }
-          />
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-[1400px] space-y-4 px-4 py-6 md:px-8">
-        <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-          <ComplianceBanner title="Arbeidsmiljøloven Kap. 3 — Vernerunder og Medvirkning">
-            <p>Plan, gjennomfør og dokumenter vernerunden slik at ansatte medvirker og forholdene vurderes systematisk.</p>
-          </ComplianceBanner>
-          {v.error ? <div className="border-b border-amber-100"><WarningBox>{v.error}</WarningBox></div> : null}
+    <ModulePageShell
+      breadcrumb={[
+        { label: 'HMS' },
+        { label: 'Vernerunder', to: '/vernerunder' },
+        { label: round.title },
+      ]}
+      title={round.title}
+      description="Sjekkliste, funn og deltakere for denne vernerunden."
+      headerActions={
+        <Badge variant={statusBadgeVariant(round.status)} className="px-3 py-1 text-xs">
+          {STATUS_LABEL[round.status]}
+        </Badge>
+      }
+      tabs={
+        <Tabs
+          items={tabItems}
+          activeId={activeTab}
+          onChange={(id) => setActiveTab(id as DetailTab)}
+        />
+      }
+    >
+      <ModuleSectionCard>
+        <ComplianceBanner title="Arbeidsmiljøloven Kap. 3 — Vernerunder og Medvirkning">
+          <p>Plan, gjennomfør og dokumenter vernerunden slik at ansatte medvirker og forholdene vurderes systematisk.</p>
+        </ComplianceBanner>
+        {v.error ? <div className="border-b border-amber-100"><WarningBox>{v.error}</WarningBox></div> : null}
 
           {activeTab === 'planlegging' && (
             <div className="border-t border-neutral-100 px-5 py-5 md:px-6">
@@ -450,8 +459,7 @@ export function VernerundeDetailView() {
           {activeTab === 'deltakere_signatur' && (
             <ParticipantsBlock v={v} vernerundeId={vernerundeId} locked={locked} userOptions={userOptions} />
           )}
-        </div>
-      </div>
+      </ModuleSectionCard>
 
       <CheckpointPanel
         panelKey={ckPanel ? (ckPanel.mode === 'edit' ? `e-${ckPanel.row.id}` : 'add') : 'x'}
@@ -474,7 +482,7 @@ export function VernerundeDetailView() {
         checkpointOptions={checkpointOptionsForFinding}
         labelIds={{ d: fDesc, sev: fSev, cp: fCp, cat: fCat }}
       />
-    </div>
+    </ModulePageShell>
   )
 }
 
