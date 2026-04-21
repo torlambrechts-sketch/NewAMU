@@ -204,6 +204,7 @@ const councilSubs: SubItem[] = [
       (new URLSearchParams(search).get('tab') === 'board' || new URLSearchParams(search).get('tab') === 'election'),
   },
   { label: 'Møter', path: '/council?tab=meetings', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'meetings' },
+  { label: 'AMU', path: '/council/amu', match: ({ pathname }) => pathname === '/council/amu' || pathname.startsWith('/council/amu/') },
   {
     label: 'Krav og vedtak',
     path: '/council?tab=requirements',

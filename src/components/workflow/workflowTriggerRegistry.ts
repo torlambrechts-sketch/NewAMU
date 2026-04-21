@@ -35,12 +35,18 @@ export const AMU_ELECTION_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_ELECTION_CLOSED', label: 'Valg avsluttet' },
 ] as const
 
+export const AMU_WORKFLOW_TRIGGER_EVENTS = [
+  { value: 'ON_AMU_MEETING_SCHEDULED', label: 'AMU-møte planlagt (kalenderinnkalling til deltakere)' },
+  { value: 'ON_AMU_MEETING_SIGNED', label: 'AMU-møte signert (distribuer referat)' },
+] as const
+
 const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   inspection: INSPECTION_WORKFLOW_TRIGGER_EVENTS,
   ros: ROS_WORKFLOW_TRIGGER_EVENTS,
   action_plan: ACTION_PLAN_WORKFLOW_TRIGGER_EVENTS,
   internkontroll: INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS,
   amu_election: AMU_ELECTION_WORKFLOW_TRIGGER_EVENTS,
+  amu: AMU_WORKFLOW_TRIGGER_EVENTS,
 }
 
 export function getWorkflowTriggerEventsForModule(triggerModule: string): { value: string; label: string }[] {
