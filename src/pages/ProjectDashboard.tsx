@@ -389,7 +389,7 @@ export function ProjectDashboard() {
             <div className="grid grid-cols-2 divide-x divide-y divide-neutral-100">
               {[
                 { label: 'AMU-møter i år', value: council.meetings.filter((m) => m.governanceYear === today.getFullYear()).length, colour: 'text-[#1a3d32]', to: '/council?tab=meetings' },
-                { label: 'Vernerunder', value: hse.stats.rounds, colour: 'text-emerald-700', to: '/hse?tab=rounds' },
+                { label: 'Vernerunder', value: hse.stats.rounds, colour: 'text-emerald-700', to: '/vernerunder' },
                 { label: 'Inspeksjoner åpne', value: hse.stats.openInspections, colour: hse.stats.openInspections > 0 ? 'text-amber-600' : 'text-neutral-700', to: '/hse?tab=inspections' },
                 { label: 'ROS-vurderinger', value: ic.stats.rosCount, colour: 'text-sky-700', to: '/internal-control?tab=ros' },
               ].map(({ label, value, colour, to }) => (
@@ -532,7 +532,7 @@ export function ProjectDashboard() {
         {[
           { value: hse.stats.expiredTraining, label: 'Utløpt opplæring', iconBg: 'bg-rose-500', icon: GraduationCap, urgent: hse.stats.expiredTraining > 0, to: '/hse?tab=training' },
           { value: ic.stats.rosCount, label: 'ROS-vurderinger', iconBg: 'bg-amber-500', icon: TrendingUp, to: '/internal-control?tab=ros' },
-          { value: hse.stats.rounds, label: 'Vernerunder totalt', iconBg: 'bg-emerald-600', icon: HardHat, to: '/hse?tab=rounds' },
+          { value: hse.stats.rounds, label: 'Vernerunder totalt', iconBg: 'bg-emerald-600', icon: HardHat, to: '/vernerunder' },
           { value: oh.surveys.filter((s) => s.status === 'open').length, label: 'Aktive undersøkelser', iconBg: 'bg-teal-600', icon: BookOpen, to: '/org-health?tab=surveys' },
         ].map(({ value, label, iconBg, icon: Icon, urgent, to }) => (
           <Link key={label} to={to}

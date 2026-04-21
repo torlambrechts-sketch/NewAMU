@@ -59,7 +59,7 @@ const KNOWN_STACK_TEMPLATES: KnownStackTemplate[] = [
   {
     name: 'Layout_vernerunder',
     description: 'HSE → Vernerunder (KPI, handlinger, tabell + kalender)',
-    page: '/hse?tab=rounds',
+    page: '/vernerunder',
     blocks: VERNERUNDER_TAB_LAYOUT_BLOCK_IDS,
     order: VERNERUNDER_TAB_LAYOUT_DEFAULT_ORDER,
   },

@@ -11,6 +11,7 @@ import {
   CalendarRange,
   CalendarCheck,
   ClipboardList,
+  ClipboardCheck,
   FileText,
   GraduationCap,
   HardHat,
@@ -166,7 +167,6 @@ const hseSubs: SubItem[] = [
       pathname === '/hse' &&
       (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
   },
-  { label: 'Vernerunder', path: '/hse?tab=rounds', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'rounds' },
   { label: 'Inspeksjoner', path: '/hse?tab=inspections', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'inspections' },
   {
     label: 'Inspeksjonsmodul',
@@ -470,6 +470,27 @@ const navGroups: NavGroup[] = [
         ],
       },
       {
+        to: '/vernerunder',
+        label: 'Vernerunder',
+        end: false,
+        icon: ClipboardCheck,
+        perm: 'module.view.hse',
+        moduleSlug: 'vernerunder',
+        subs: [
+          {
+            label: 'Oversikt',
+            path: '/vernerunder',
+            match: ({ pathname }) => pathname === '/vernerunder',
+          },
+          {
+            label: 'Innstillinger',
+            path: '/vernerunder/admin',
+            match: ({ pathname }) => pathname.startsWith('/vernerunder/admin'),
+            requirePerm: 'vernerunder.manage',
+          },
+        ],
+      },
+      {
         to: '/avvik',
         label: 'Avvik',
         end: false,
@@ -680,6 +701,10 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
   const amuMod = modules.find((m) => m.to === '/council/amu')
   if (amuMod && (pathname === '/council/amu' || pathname.startsWith('/council/amu/'))) {
     return amuMod
+  }
+  if (pathname === '/vernerunder' || pathname.startsWith('/vernerunder/')) {
+    const vern = modules.find((m) => m.to === '/vernerunder')
+    if (vern) return vern
   }
   // Exact-match first (handles /council?tab=board vs /council)
   for (const mod of modules) {
