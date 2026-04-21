@@ -1,58 +1,20 @@
 import { Edit2, Plus } from 'lucide-react'
-import { riskLabel, riskScoreFromProbCons } from '../../../src/components/hse/RiskMatrix'
+import { riskScoreFromProbCons } from '../../../src/components/hse/RiskMatrix'
 import { ModuleRecordsTableShell } from '../../../src/components/module/ModuleRecordsTableShell'
-import { MODULE_TABLE_TH } from '../../../src/components/module/moduleTableKit'
+import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../../../src/components/module/moduleTableKit'
+import {
+  moduleRiskScoreBadgeVariant,
+  moduleRiskScoreLabel,
+  moduleSeverityBadgeVariant,
+  moduleSeverityLabel,
+  moduleSeverityRowClass,
+} from '../../../src/components/module/moduleRiskKit'
 import type { LayoutScoreStatItem } from '../../../src/components/layout/platformLayoutKit'
-import { Badge, type BadgeVariant } from '../../../src/components/ui/Badge'
+import { Badge } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
-import type { HmsCategory, InspectionChecklistItem, InspectionFindingRow, InspectionFindingSeverity, InspectionItemRow } from '../types'
+import type { HmsCategory, InspectionChecklistItem, InspectionFindingRow, InspectionItemRow } from '../types'
 
 const TH = MODULE_TABLE_TH
-
-const SEVERITY_LABEL: Record<InspectionFindingSeverity, string> = {
-  low: 'Lav',
-  medium: 'Middels',
-  high: 'Høy',
-  critical: 'Kritisk',
-}
-
-function riskScoreBadgeVariant(score: number): BadgeVariant {
-  if (score <= 4) return 'success'
-  if (score <= 9) return 'medium'
-  if (score <= 14) return 'high'
-  return 'critical'
-}
-
-function severityBadgeVariant(severity: InspectionFindingSeverity): BadgeVariant {
-  switch (severity) {
-    case 'low':
-      return 'info'
-    case 'medium':
-      return 'medium'
-    case 'high':
-      return 'high'
-    case 'critical':
-      return 'critical'
-    default:
-      return 'neutral'
-  }
-}
-
-function findingRowClass(severity: InspectionFindingSeverity): string {
-  const base = 'border-b border-neutral-100 transition-colors hover:bg-neutral-50 last:border-b-0'
-  switch (severity) {
-    case 'critical':
-      return `${base} border-l-4 border-l-red-500 bg-red-50/30`
-    case 'high':
-      return `${base} border-l-4 border-l-orange-400 bg-orange-50/20`
-    case 'medium':
-      return `${base} border-l-4 border-l-yellow-400`
-    case 'low':
-      return `${base} border-l-4 border-l-blue-300`
-    default:
-      return base
-  }
-}
 
 const HMS_LABELS: Record<HmsCategory, string> = {
   fysisk: 'Fysisk arbeidsmiljø',
@@ -150,15 +112,15 @@ export function InspectionFindingsTable({
               const showLegacyLinkBanner = !f.deviation_id && riskScore != null && riskScore >= 10
 
               return (
-                <tr key={f.id} className={findingRowClass(f.severity)}>
+                <tr key={f.id} className={`${MODULE_TABLE_TR_BODY} ${moduleSeverityRowClass(f.severity)}`}>
                   <td className="max-w-[min(28rem,40vw)] px-5 py-4 align-middle">
                     <p className="whitespace-normal font-medium text-sm text-neutral-900">{checkpointTitle}</p>
                     <p className="mt-0.5 whitespace-normal text-sm text-neutral-500">{f.description}</p>
                     {riskScore != null ? (
                       <div className="mt-1.5 flex flex-wrap items-center gap-2 whitespace-normal">
                         <span className="text-xs text-neutral-500">Risiko</span>
-                        <Badge variant={riskScoreBadgeVariant(riskScore)}>
-                          {riskScore} — {riskLabel(riskScore)}
+                        <Badge variant={moduleRiskScoreBadgeVariant(riskScore)}>
+                          {moduleRiskScoreLabel(riskScore)}
                         </Badge>
                       </div>
                     ) : null}
@@ -192,7 +154,9 @@ export function InspectionFindingsTable({
                   <td className="px-5 py-4 align-middle">
                     <div className="flex flex-wrap items-center gap-2">
                       {categoryLabel ? <Badge variant="neutral">{categoryLabel}</Badge> : null}
-                      <Badge variant={severityBadgeVariant(f.severity)}>{SEVERITY_LABEL[f.severity]}</Badge>
+                      <Badge variant={moduleSeverityBadgeVariant(f.severity)}>
+                        {moduleSeverityLabel(f.severity)}
+                      </Badge>
                     </div>
                   </td>
                   <td className="px-5 py-4 text-right align-middle">

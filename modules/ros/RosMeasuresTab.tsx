@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import type { RosAnalysisRow, RosHazardRow, RosMeasureRow, RosControlType, RosMeasureStatus } from './types'
-import { CONTROL_TYPE_LABEL, CONTROL_TYPE_COLOR, CONTROL_TYPE_RANK } from './types'
+import { CONTROL_TYPE_LABEL, CONTROL_TYPE_COLOR, CONTROL_TYPE_RANK, riskScore as rosRiskScore } from './types'
 import type { RosState } from './useRos'
 import { Button } from '../../src/components/ui/Button'
 import { StandardInput } from '../../src/components/ui/Input'
@@ -11,6 +11,10 @@ import type { BadgeVariant } from '../../src/components/ui/Badge'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { ModuleRecordsTableShell } from '../../src/components/module/ModuleRecordsTableShell'
 import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../../src/components/module/moduleTableKit'
+import {
+  moduleSeverityFromScore,
+  moduleSeverityRowClass,
+} from '../../src/components/module/moduleRiskKit'
 
 const ALL_CONTROL_TYPES: RosControlType[] = ['eliminate', 'substitute', 'engineering', 'administrative', 'ppe']
 
@@ -245,8 +249,12 @@ export function RosMeasuresTab({
               {measureRows.map(({ hazard: h, measure: m }) => {
                 const isOverdue = m.status !== 'completed' && m.due_date && new Date(m.due_date) < new Date()
                 const rowIsBeingEdited = editingMeasureId === m.id
+                // Colour the row by the band of the hazard it mitigates — matches Avvik so
+                // a critical/high-severity measure stands out at the same visual weight.
+                const hazardScore = rosRiskScore(h.residual_probability, h.residual_consequence)
+                const hazardBand = moduleSeverityFromScore(hazardScore)
                 return (
-                  <tr key={m.id} className={TR_BODY}>
+                  <tr key={m.id} className={`${TR_BODY} ${moduleSeverityRowClass(hazardBand)}`}>
                     <td className="max-w-[min(28rem,40vw)] px-5 py-4 align-middle">
                       <p className="whitespace-normal font-medium text-neutral-900">{m.description}</p>
                       <p className="mt-0.5 whitespace-normal text-xs text-neutral-500">{h.description}</p>
