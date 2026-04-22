@@ -9,7 +9,7 @@ import { Button } from '../../src/components/ui/Button'
 import { SearchableSelect, type SelectOption } from '../../src/components/ui/SearchableSelect'
 import { ModuleInformationCard } from '../../src/components/module/ModuleInformationCard'
 
-export function RosScopeTab({ analysis, ros }: { analysis: RosAnalysisRow; ros: RosState }) {
+export function RosInformationTab({ analysis, ros }: { analysis: RosAnalysisRow; ros: RosState }) {
   const readOnly = analysis.status === 'approved' || analysis.status === 'archived'
 
   const [title, setTitle] = useState(analysis.title)
