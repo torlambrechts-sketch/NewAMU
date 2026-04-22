@@ -31,7 +31,11 @@ const TAB_ICONS: Record<AdminTab, ElementType> = {
   arbeidsflyt: GitBranch,
 }
 
-export function AmuElectionAdminPage() {
+type AmuElectionAdminPageProps = { embedded?: boolean }
+
+export function AmuElectionAdminPage({
+  embedded = false,
+}: AmuElectionAdminPageProps = {}) {
   const navigate = useNavigate()
   const { supabase, can, isAdmin } = useOrgSetupContext()
   const canManage = isAdmin || can('amu_election.manage') || can('internkontroll.manage') || can('ik.manage')
@@ -134,6 +138,10 @@ export function AmuElectionAdminPage() {
   }, [committeeDraft, pickRole, pickUserId, setError])
 
   if (!canManage) {
+    const accessBody = (
+      <WarningBox>Du har ikke tilgang til modulens innstillinger. Kontakt administrator.</WarningBox>
+    )
+    if (embedded) return accessBody
     return (
       <ModulePageShell
         breadcrumb={[
@@ -144,40 +152,22 @@ export function AmuElectionAdminPage() {
         ]}
         title="AMU-valg — innstillinger"
       >
-        <WarningBox>Du har ikke tilgang til modulens innstillinger. Kontakt administrator.</WarningBox>
+        {accessBody}
       </ModulePageShell>
     )
   }
 
-  return (
-    <ModulePageShell
-      breadcrumb={[
-        { label: 'HMS' },
-        { label: 'Internkontroll', to: '/internkontroll' },
-        { label: 'AMU-valg', to: '/internkontroll/amu-valg' },
-        { label: 'Innstillinger' },
-      ]}
-      title="AMU-valg — innstillinger"
-      description="Regler for stemmeperiode, valgstyre og arbeidsflyt (e-post til alle ved åpning av valglokale m.m.)."
-      headerActions={
-        <Button
-          type="button"
-          variant="secondary"
-          icon={<ArrowLeft className="h-4 w-4" aria-hidden />}
-          onClick={() => navigate('/internkontroll/amu-valg')}
-        >
-          Tilbake til valg
-        </Button>
-      }
-      tabs={
-        <Tabs
-          items={tabsUiItems}
-          activeId={tab}
-          onChange={(id) => setTab(id as AdminTab)}
-          overflow="scroll"
-        />
-      }
-    >
+  const tabsNode = (
+    <Tabs
+      items={tabsUiItems}
+      activeId={tab}
+      onChange={(id) => setTab(id as AdminTab)}
+      overflow="scroll"
+    />
+  )
+
+  const body = (
+    <>
       {error ? <WarningBox>{error}</WarningBox> : null}
 
       {tab === 'generelt' && (
@@ -309,6 +299,41 @@ export function AmuElectionAdminPage() {
           />
         </div>
       )}
+    </>
+  )
+
+  if (embedded) {
+    return (
+      <div className="space-y-6">
+        {tabsNode}
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <ModulePageShell
+      breadcrumb={[
+        { label: 'HMS' },
+        { label: 'Internkontroll', to: '/internkontroll' },
+        { label: 'AMU-valg', to: '/internkontroll/amu-valg' },
+        { label: 'Innstillinger' },
+      ]}
+      title="AMU-valg — innstillinger"
+      description="Regler for stemmeperiode, valgstyre og arbeidsflyt (e-post til alle ved åpning av valglokale m.m.)."
+      headerActions={
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<ArrowLeft className="h-4 w-4" aria-hidden />}
+          onClick={() => navigate('/internkontroll/amu-valg')}
+        >
+          Tilbake til valg
+        </Button>
+      }
+      tabs={tabsNode}
+    >
+      {body}
     </ModulePageShell>
   )
 }

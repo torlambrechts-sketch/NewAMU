@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useNavigate } from 'react-router-dom'
 import { Settings } from 'lucide-react'
@@ -11,7 +11,7 @@ import {
   LAYOUT_TABLE1_POSTINGS_TH,
 } from '../../src/components/layout/layoutTable1PostingsKit'
 import { WORKPLACE_MODULE_CARD, WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
-import { WorkplacePageHeading1 } from '../../src/components/layout/WorkplacePageHeading1'
+import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { Badge, type BadgeVariant } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
 import { StandardInput } from '../../src/components/ui/Input'
@@ -54,7 +54,27 @@ function toIsoEnd(dateYmd: string) {
   return new Date(`${dateYmd}T23:59:59`).toISOString()
 }
 
-export function AmuElectionPage({ supabase }: { supabase: SupabaseClient | null }) {
+export function AmuElectionPage({
+  supabase,
+  tabs,
+  bodyOnly = false,
+  hideAdminNav = false,
+}: {
+  supabase: SupabaseClient | null
+  /** Optional tabs row passed to `ModulePageShell.tabs`. */
+  tabs?: ReactNode
+  /**
+   * When `true`, skip the ModulePageShell chrome and render the election
+   * list body only. Used when the parent already owns the page shell
+   * (AmuElectionHubPage root-tab orchestrator).
+   */
+  bodyOnly?: boolean
+  /**
+   * When `true`, hide the duplicate "Innstillinger" header button because
+   * the page already renders root tabs (Valg / Innstillinger).
+   */
+  hideAdminNav?: boolean
+}) {
   const nav = useNavigate()
   const { can, isAdmin } = useOrgSetupContext()
   const canOpenAdmin =
@@ -129,31 +149,24 @@ export function AmuElectionPage({ supabase }: { supabase: SupabaseClient | null 
 
   const rows = canManage ? elections : activeElections
 
-  return (
-    <div className="min-h-screen bg-[#F9F7F2]">
-      <div className="mx-auto max-w-[1400px] space-y-4 px-4 py-6 md:px-8">
-        <WorkplacePageHeading1
-          breadcrumb={[{ label: 'HMS' }, { label: 'Internkontroll', to: '/internkontroll' }, { label: 'AMU-valg' }]}
-          title="AMU-valg"
-          description="Gjennomfør valg av representanter i tråd med medvirkningsforskriften kapittel 3."
-          headerActions={
-            canOpenAdmin ? (
-              <Button type="button" variant="secondary" onClick={() => nav('/internkontroll/amu-valg/admin')}>
-                <Settings className="h-4 w-4" aria-hidden />
-                Innstillinger
-              </Button>
-            ) : null
-          }
-        />
+  const headerActions =
+    canOpenAdmin && !hideAdminNav ? (
+      <Button type="button" variant="secondary" onClick={() => nav('/internkontroll/amu-valg/admin')}>
+        <Settings className="h-4 w-4" aria-hidden />
+        Innstillinger
+      </Button>
+    ) : null
 
-        <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
-          {error ? (
-            <div className="border-b border-neutral-100 px-5 py-4">
-              <WarningBox>{error}</WarningBox>
-            </div>
-          ) : null}
+  const body = (
+    <>
+      <div className={`${WORKPLACE_MODULE_CARD} overflow-hidden`} style={WORKPLACE_MODULE_CARD_SHADOW}>
+        {error ? (
+          <div className="border-b border-neutral-100 px-5 py-4">
+            <WarningBox>{error}</WarningBox>
+          </div>
+        ) : null}
 
-          <LayoutTable1PostingsShell
+        <LayoutTable1PostingsShell
             wrap={false}
             titleTypography="sans"
             title="Valg"
@@ -196,7 +209,6 @@ export function AmuElectionPage({ supabase }: { supabase: SupabaseClient | null 
               </table>
             )}
           </LayoutTable1PostingsShell>
-        </div>
       </div>
 
       <SlidePanel
@@ -244,6 +256,22 @@ export function AmuElectionPage({ supabase }: { supabase: SupabaseClient | null 
           </div>
         </div>
       </SlidePanel>
-    </div>
+    </>
+  )
+
+  if (bodyOnly) {
+    return <>{body}</>
+  }
+
+  return (
+    <ModulePageShell
+      breadcrumb={[{ label: 'HMS' }, { label: 'Internkontroll', to: '/internkontroll' }, { label: 'AMU-valg' }]}
+      title="AMU-valg"
+      description="Gjennomfør valg av representanter i tråd med medvirkningsforskriften kapittel 3."
+      tabs={tabs}
+      headerActions={headerActions}
+    >
+      {body}
+    </ModulePageShell>
   )
 }
