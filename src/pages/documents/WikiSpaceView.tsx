@@ -304,7 +304,7 @@ export function WikiSpaceView() {
                         {p.summary ? <p className="mt-1 line-clamp-1 text-xs text-neutral-500">{p.summary}</p> : null}
                       </td>
                       <td className="px-5 py-4 align-middle">
-                        <Badge variant={pageStatusBadgeVariant(p.status)} className="text-xs">
+                        <Badge variant={pageStatusBadgeVariant(p.status)}>
                           {STATUS_LABEL[p.status]}
                         </Badge>
                       </td>
@@ -471,7 +471,7 @@ export function WikiSpaceView() {
               {panelPage && !newPageOpen && !filesPanelOpen && (
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant={pageStatusBadgeVariant(panelPage.status)} className="text-xs">
+                    <Badge variant={pageStatusBadgeVariant(panelPage.status)}>
                       {STATUS_LABEL[panelPage.status]}
                     </Badge>
                     <span className="text-xs text-neutral-600">v{panelPage.version}</span>
