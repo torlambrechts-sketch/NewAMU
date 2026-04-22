@@ -691,6 +691,7 @@ function RoundInformationCard({
 
   return (
     <ModuleInformationCard
+      withCard={false}
       title="Informasjon om vernerunden"
       description={
         <p>
@@ -1011,13 +1012,15 @@ export function InspectionRoundPage() {
       />
 
       {activeTab === 'information' && (
-        <RoundInformationCard
-          round={round}
-          locations={inspection.locations}
-          assignableUsers={inspection.assignableUsers}
-          readOnly={round.status === 'signed'}
-          onUpdated={() => void inspection.loadRoundDetail(round.id)}
-        />
+        <ModuleSectionCard>
+          <RoundInformationCard
+            round={round}
+            locations={inspection.locations}
+            assignableUsers={inspection.assignableUsers}
+            readOnly={round.status === 'signed'}
+            onUpdated={() => void inspection.loadRoundDetail(round.id)}
+          />
+        </ModuleSectionCard>
       )}
 
       {activeTab === 'checklist' && (
