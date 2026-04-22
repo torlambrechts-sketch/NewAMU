@@ -9,7 +9,6 @@ import {
   History,
   Info,
   PenLine,
-  Settings,
   Trash2,
 } from 'lucide-react'
 import {
@@ -955,23 +954,12 @@ export function InspectionRoundPage() {
       title={round.title}
       description={<p className="max-w-4xl text-xs leading-relaxed text-neutral-600">{headerSubtitle}</p>}
       headerActions={
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge
-            variant={round.status === 'signed' ? 'signed' : round.status === 'active' ? 'active' : 'draft'}
-            className="px-3 py-1 text-xs"
-          >
-            {STATUS_LABEL[round.status]}
-          </Badge>
-          <Button
-            type="button"
-            variant="secondary"
-            className="px-3 py-2 font-normal text-neutral-600"
-            icon={<Settings className="w-4 h-4" aria-hidden />}
-            onClick={() => navigate('/inspection-module/admin')}
-          >
-            <span className="hidden sm:inline">Admin</span>
-          </Button>
-        </div>
+        <Badge
+          variant={round.status === 'signed' ? 'signed' : round.status === 'active' ? 'active' : 'draft'}
+          className="px-3 py-1 text-xs"
+        >
+          {STATUS_LABEL[round.status]}
+        </Badge>
       }
       tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as PanelTab)} />}
     >
