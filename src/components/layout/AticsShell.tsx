@@ -347,22 +347,14 @@ const navGroups: NavGroup[] = [
         subs: [],
       },
       {
+        // No sidebar subs: SjaModulePage already exposes Oversikt /
+        // Innstillinger via the root-tab strip inside the module page.
+        // Deep links to /sja/admin still resolve (back-compat shell).
         to: '/sja',
         label: 'Sikker Jobbanalyse',
         end: false,
         icon: ShieldAlert,
-        subs: [
-          {
-            label: 'Oversikt',
-            path: '/sja',
-            match: ({ pathname }) => pathname === '/sja',
-          },
-          {
-            label: 'Innstillinger',
-            path: '/sja/admin',
-            match: ({ pathname }) => pathname.startsWith('/sja/admin'),
-          },
-        ],
+        subs: [],
       },
       {
         to: '/ros',
@@ -374,45 +366,27 @@ const navGroups: NavGroup[] = [
         moduleSlug: 'ros',
       },
       {
+        // No sidebar subs: VernerunderPageRoute already exposes Oversikt /
+        // Innstillinger via the root-tab strip inside the module page.
+        // Deep links to /vernerunder/admin still resolve (back-compat shell).
         to: '/vernerunder',
         label: 'Vernerunder',
         end: false,
         icon: ClipboardCheck,
         perm: 'module.view.hse',
         moduleSlug: 'vernerunder',
-        subs: [
-          {
-            label: 'Oversikt',
-            path: '/vernerunder',
-            match: ({ pathname }) => pathname === '/vernerunder',
-          },
-          {
-            label: 'Innstillinger',
-            path: '/vernerunder/admin',
-            match: ({ pathname }) => pathname.startsWith('/vernerunder/admin'),
-            requirePerm: 'vernerunder.manage',
-          },
-        ],
+        subs: [],
       },
       {
+        // No sidebar subs: InspectionModulePage already exposes Oversikt /
+        // Innstillinger via the root-tab strip inside the module page.
+        // Deep links to /inspection-module/admin still resolve (back-compat shell).
         to: '/inspection-module',
         label: 'Inspeksjonsrunder',
         end: false,
         icon: ClipboardList,
         moduleSlug: 'inspection',
-        subs: [
-          {
-            label: 'Oversikt',
-            path: '/inspection-module',
-            match: ({ pathname }: { pathname: string }) => pathname === '/inspection-module',
-          },
-          {
-            label: 'Innstillinger',
-            path: '/inspection-module/admin',
-            match: ({ pathname }: { pathname: string }) =>
-              pathname.startsWith('/inspection-module/admin'),
-          },
-        ],
+        subs: [],
       },
     ],
   },
@@ -466,25 +440,16 @@ const navGroups: NavGroup[] = [
         moduleSlug: 'internal-control',
       },
       {
+        // No sidebar subs: ActionPlanPage already exposes Oversikt /
+        // Innstillinger via the root-tab strip inside the module page.
+        // Deep links to /tiltak/admin and /action-plan/admin still resolve
+        // (back-compat shells).
         to: '/tiltak',
         label: 'Tiltaksplan',
         end: false,
         icon: ListTodo,
         perm: 'module.view.hse',
-        subs: [
-          {
-            label: 'Oversikt',
-            path: '/tiltak',
-            match: ({ pathname }) => pathname === '/tiltak' || pathname === '/action-plan',
-          },
-          {
-            label: 'Innstillinger',
-            path: '/tiltak/admin',
-            match: ({ pathname }) =>
-              pathname.startsWith('/tiltak/admin') || pathname.startsWith('/action-plan/admin'),
-            requirePerm: 'action_plan.manage',
-          },
-        ],
+        subs: [],
       },
       {
         to: '/aarshjul',
