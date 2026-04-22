@@ -10,7 +10,7 @@ import { Badge } from '../../src/components/ui/Badge'
 import { WarningBox } from '../../src/components/ui/AlertBox'
 import type { BadgeVariant } from '../../src/components/ui/Badge'
 import { useRos } from './useRos'
-import { RosScopeTab } from './RosScopeTab'
+import { RosInformationTab } from './RosInformationTab'
 import { RosHazardsTab } from './RosHazardsTab'
 import { RosMeasuresTab } from './RosMeasuresTab'
 import { RosSignaturesTab } from './RosSignaturesTab'
@@ -18,7 +18,7 @@ import { ROS_STATUS_LABEL, riskScore, ROS_TYPE_LABEL } from './types'
 import type { RosStatus } from './types'
 import { HseAuditLogViewer } from '../../src/components/hse/HseAuditLogViewer'
 
-type Tab = 'scope' | 'hazards' | 'measures' | 'signatures' | 'history'
+type Tab = 'information' | 'hazards' | 'measures' | 'signatures' | 'history'
 
 function rosStatusBadgeVariant(status: RosStatus): BadgeVariant {
   switch (status) {
@@ -40,7 +40,7 @@ export function RosAnalysisPage({ supabase }: { supabase: SupabaseClient | null 
   const navigate = useNavigate()
   const ros = useRos({ supabase })
   const { loadDetail } = ros
-  const [activeTab, setActiveTab] = useState<Tab>('scope')
+  const [activeTab, setActiveTab] = useState<Tab>('information')
 
   useEffect(() => {
     if (!rosId) return
@@ -61,7 +61,7 @@ export function RosAnalysisPage({ supabase }: { supabase: SupabaseClient | null 
 
   const tabItems = useMemo(
     () => [
-      { id: 'scope', label: 'Omfang', icon: FileText },
+      { id: 'information', label: 'Informasjon', icon: FileText },
       {
         id: 'hazards',
         label: 'Farekilder',
@@ -183,9 +183,9 @@ export function RosAnalysisPage({ supabase }: { supabase: SupabaseClient | null 
 
       {ros.error ? <WarningBox>{ros.error}</WarningBox> : null}
 
-      {activeTab === 'scope' && (
+      {activeTab === 'information' && (
         <ModuleSectionCard>
-          <RosScopeTab key={`${analysis.id}-${analysis.updated_at}`} analysis={analysis} ros={ros} />
+          <RosInformationTab key={`${analysis.id}-${analysis.updated_at}`} analysis={analysis} ros={ros} />
         </ModuleSectionCard>
       )}
       {activeTab === 'hazards' && (

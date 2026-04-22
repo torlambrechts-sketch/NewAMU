@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { CheckCircle2, ChevronRight, Circle, Plus, Search, Settings } from 'lucide-react'
@@ -21,7 +21,23 @@ import { StandardInput } from '../../src/components/ui/Input'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { WPSTD_FORM_FIELD_LABEL } from '../../src/components/layout/WorkplaceStandardFormPanel'
 
-type Props = { supabase: SupabaseClient | null }
+type Props = {
+  supabase: SupabaseClient | null
+  /** Optional tabs row passed to `ModulePageShell.tabs`. */
+  tabs?: ReactNode
+  /**
+   * When `true`, skip the ModulePageShell chrome and render the rounds
+   * body only. Used when the parent already owns the page shell (e.g. the
+   * InspectionModulePage root-tab wrapper renders admin and hub under a
+   * single ModulePageShell so root tabs stay visible across tabs).
+   */
+  bodyOnly?: boolean
+  /**
+   * When `true`, hide the duplicate "Admin" header button because the page
+   * already renders root tabs for Oversikt / Innstillinger.
+   */
+  hideAdminNav?: boolean
+}
 
 const STATUS_LABEL: Record<InspectionRoundRow['status'], string> = {
   draft: 'Kladd',
@@ -44,7 +60,12 @@ function roundStatusBadgeVariant(status: InspectionRoundRow['status']): 'draft' 
   return 'draft'
 }
 
-export function InspectionModuleView({ supabase }: Props) {
+export function InspectionModuleView({
+  supabase,
+  tabs,
+  bodyOnly = false,
+  hideAdminNav = false,
+}: Props) {
   const navigate = useNavigate()
   const inspection = useInspectionModule({ supabase })
   const { load } = inspection
@@ -160,27 +181,26 @@ export function InspectionModuleView({ supabase }: Props) {
     [inspection.assignableUsers],
   )
 
-  return (
-    <ModulePageShell
-      breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder' }]}
-      title="Inspeksjonsrunder"
-      description="Planlegg, gjennomfør og signer vernerunder i henhold til Internkontrollforskriften § 5."
-      headerActions={
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" onClick={() => setScheduleOpen(true)}>
-            Planlegging
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            icon={<Settings className="h-4 w-4" />}
-            onClick={() => navigate('/inspection-module/admin')}
-          >
-            <span className="hidden sm:inline">Admin</span>
-          </Button>
-        </div>
-      }
-    >
+  const headerActions = (
+    <div className="flex flex-wrap gap-2">
+      <Button type="button" variant="secondary" onClick={() => setScheduleOpen(true)}>
+        Planlegging
+      </Button>
+      {!hideAdminNav && (
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<Settings className="h-4 w-4" />}
+          onClick={() => navigate('/inspection-module/admin')}
+        >
+          <span className="hidden sm:inline">Admin</span>
+        </Button>
+      )}
+    </div>
+  )
+
+  const body = (
+    <>
       <LayoutScoreStatRow
         items={[
           { big: String(stats.total), title: 'Totalt runder', sub: 'Alle inspeksjonsrunder' },
@@ -446,6 +466,22 @@ export function InspectionModuleView({ supabase }: Props) {
           {roundsForSchedule.length === 0 && <p className="text-sm text-neutral-500">Ingen runder. Opprett en runde først.</p>}
         </div>
       </FormModal>
+    </>
+  )
+
+  if (bodyOnly) {
+    return <>{body}</>
+  }
+
+  return (
+    <ModulePageShell
+      breadcrumb={[{ label: 'HMS' }, { label: 'Inspeksjonsrunder' }]}
+      title="Inspeksjonsrunder"
+      description="Planlegg, gjennomfør og signer vernerunder i henhold til Internkontrollforskriften § 5."
+      tabs={tabs}
+      headerActions={headerActions}
+    >
+      {body}
     </ModulePageShell>
   )
 }

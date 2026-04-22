@@ -76,7 +76,11 @@ type Tab = 'templates' | 'locations' | 'signoff' | 'workflow' | 'stats'
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export function InspectionModuleAdminPage() {
+type InspectionModuleAdminPageProps = { embedded?: boolean }
+
+export function InspectionModuleAdminPage({
+  embedded = false,
+}: InspectionModuleAdminPageProps = {}) {
   const navigate = useNavigate()
   const { supabase } = useOrgSetupContext()
   const inspection = useInspectionModule({ supabase })
@@ -98,34 +102,17 @@ export function InspectionModuleAdminPage() {
     [],
   )
 
-  return (
-    <ModulePageShell
-      breadcrumb={[
-        { label: 'HMS' },
-        { label: 'Inspeksjonsrunder', to: '/inspection-module' },
-        { label: 'Innstillinger' },
-      ]}
-      title="Inspeksjonsinnstillinger"
-      description="Administrer sjekkliste-maler, lokasjoner og signeringsregler for vernerunder."
-      headerActions={
-        <Button
-          type="button"
-          variant="secondary"
-          icon={<ArrowLeft className="h-4 w-4" />}
-          onClick={() => navigate('/inspection-module')}
-        >
-          Tilbake til runder
-        </Button>
-      }
-      tabs={
-        <UITabs
-          items={tabsUiItems}
-          activeId={tab}
-          onChange={(id) => setTab(id as Tab)}
-          overflow="scroll"
-        />
-      }
-    >
+  const tabsNode = (
+    <UITabs
+      items={tabsUiItems}
+      activeId={tab}
+      onChange={(id) => setTab(id as Tab)}
+      overflow="scroll"
+    />
+  )
+
+  const body = (
+    <>
       {inspection.error ? <WarningBox>{inspection.error}</WarningBox> : null}
 
       {tab === 'templates' && <TemplatesTab inspection={inspection} />}
@@ -146,6 +133,43 @@ export function InspectionModuleAdminPage() {
         />
       )}
       {tab === 'stats' && <HseStatsPanel supabase={supabase} />}
+    </>
+  )
+
+  if (embedded) {
+    // When embedded under InspectionModulePage the outer ModulePageShell
+    // belongs to the parent. The parent already renders root tabs
+    // (Oversikt / Innstillinger); render the admin tab strip + body here.
+    return (
+      <div className="space-y-6">
+        {tabsNode}
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <ModulePageShell
+      breadcrumb={[
+        { label: 'HMS' },
+        { label: 'Inspeksjonsrunder', to: '/inspection-module' },
+        { label: 'Innstillinger' },
+      ]}
+      title="Inspeksjonsinnstillinger"
+      description="Administrer sjekkliste-maler, lokasjoner og signeringsregler for vernerunder."
+      headerActions={
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<ArrowLeft className="h-4 w-4" />}
+          onClick={() => navigate('/inspection-module')}
+        >
+          Tilbake til runder
+        </Button>
+      }
+      tabs={tabsNode}
+    >
+      {body}
     </ModulePageShell>
   )
 }
