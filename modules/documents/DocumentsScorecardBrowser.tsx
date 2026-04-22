@@ -199,7 +199,9 @@ function CategoryScorecard({
                   )}
                   <span className="min-w-0 flex-1">
                     <span className="font-medium text-neutral-900">{row.title}</span>
-                    <span className="mt-0.5 block text-xs text-neutral-500">{row.meta}</span>
+                    <span className="mt-0.5 block text-xs text-neutral-500">
+                      {row.meta} · {new Date(row.updatedAt).toLocaleDateString('nb-NO', { dateStyle: 'short' })}
+                    </span>
                   </span>
                   <Badge
                     variant={row.kind === 'page' ? statusBadgeVariant(row.pageStatus ?? 'published') : 'neutral'}
