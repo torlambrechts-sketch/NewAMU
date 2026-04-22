@@ -1,34 +1,39 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import {
-  Archive,
-  BookOpen,
-  CheckCircle2,
-  Clock,
-  ExternalLink,
-  Eye,
-  FilePlus,
-  FileText,
-  Link2,
-  Pencil,
-  Trash2,
-  Upload,
-  X,
-} from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { Plus, Search, Upload, X } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
-import { PIN_GREEN } from '../../components/learning/LearningLayout'
-import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+import {
+  ModulePageShell,
+  ModuleRecordsTableShell,
+  MODULE_TABLE_TH,
+  MODULE_TABLE_TR_BODY,
+} from '../../components/module'
+import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
+import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
+import { Badge } from '../../components/ui/Badge'
+import { WarningBox } from '../../components/ui/AlertBox'
+import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
+import type { PageStatus } from '../../types/documents'
 
-const STATUS_LABEL = { published: 'Publisert', draft: 'Utkast', archived: 'Arkivert' }
+const STATUS_LABEL: Record<PageStatus, string> = {
+  published: 'Publisert',
+  draft: 'Utkast',
+  archived: 'Arkivert',
+}
 
-const BTN_PRIMARY =
-  'inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] px-4 text-sm font-medium text-white hover:bg-[#142e26]'
-const BTN_OUTLINE =
-  'inline-flex h-10 items-center justify-center gap-2 rounded-none border border-neutral-300 bg-white px-4 text-sm font-medium text-neutral-800 hover:bg-neutral-50'
-const INPUT =
-  'rounded-none border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]'
-const CARD = 'rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm'
+function pageStatusBadgeVariant(s: PageStatus): 'success' | 'draft' | 'neutral' {
+  if (s === 'published') return 'success'
+  if (s === 'draft') return 'draft'
+  return 'neutral'
+}
+
+const FILTER_OPTIONS: SelectOption[] = [
+  { value: 'all', label: 'Alle statuser' },
+  { value: 'published', label: STATUS_LABEL.published },
+  { value: 'draft', label: STATUS_LABEL.draft },
+]
 
 function subscribeClock(cb: () => void) {
   const id = window.setInterval(cb, 60_000)
@@ -59,6 +64,7 @@ export function WikiSpaceView() {
 
   const [newTitle, setNewTitle] = useState('')
   const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all')
+  const [pageSearch, setPageSearch] = useState('')
   const [urlTitle, setUrlTitle] = useState('')
   const [urlHref, setUrlHref] = useState('')
   const [busy, setBusy] = useState(false)
@@ -74,12 +80,37 @@ export function WikiSpaceView() {
     [docs.spaceItems, spaceId],
   )
 
-  const pages = docs.pages
-    .filter((p) => p.spaceId === spaceId)
-    .filter((p) => filter === 'all' || p.status === filter)
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  const allSpacePages = useMemo(
+    () => docs.pages.filter((p) => p.spaceId === spaceId),
+    [docs.pages, spaceId],
+  )
+
+  const pages = useMemo(() => {
+    const q = pageSearch.trim().toLowerCase()
+    return allSpacePages
+      .filter((p) => filter === 'all' || p.status === filter)
+      .filter(
+        (p) =>
+          !q ||
+          p.title.toLowerCase().includes(q) ||
+          (p.summary ?? '').toLowerCase().includes(q),
+      )
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  }, [allSpacePages, filter, pageSearch])
 
   const panelPage = panelPageId ? docs.pages.find((p) => p.id === panelPageId) ?? null : null
+
+  const kpiItems = useMemo(() => {
+    const pub = allSpacePages.filter((p) => p.status === 'published').length
+    const dr = allSpacePages.filter((p) => p.status === 'draft').length
+    const arch = allSpacePages.filter((p) => p.status === 'archived').length
+    return [
+      { big: String(allSpacePages.length), title: 'Sider totalt', sub: 'I denne mappen' },
+      { big: String(pub), title: 'Publisert', sub: 'Synlige dokumenter' },
+      { big: String(dr), title: 'Utkast', sub: 'Ikke publisert' },
+      { big: String(arch), title: 'Arkivert', sub: 'Ut av aktiv liste' },
+    ]
+  }, [allSpacePages])
 
   const anyOverlayOpen = newPageOpen || filesPanelOpen || Boolean(panelPageId)
   useBodyScrollLock(anyOverlayOpen)
@@ -97,14 +128,31 @@ export function WikiSpaceView() {
     return () => window.removeEventListener('keydown', onKey)
   }, [anyOverlayOpen])
 
+  if (!spaceId) {
+    return (
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]}
+        title="Mappe"
+        notFound={{ title: 'Mangler mappe-ID', onBack: () => navigate('/documents') }}
+      >
+        {null}
+      </ModulePageShell>
+    )
+  }
+
   if (!space) {
     return (
-      <div className="mx-auto max-w-[1400px] px-4 py-12 text-center text-neutral-500">
-        Mappe ikke funnet.{' '}
-        <Link to="/documents" className="text-[#1a3d32] underline">
-          ← Tilbake
-        </Link>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]}
+        title="Mappe"
+        notFound={{
+          title: 'Mappe ikke funnet',
+          backLabel: '← Tilbake til bibliotek',
+          onBack: () => navigate('/documents'),
+        }}
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
@@ -153,94 +201,118 @@ export function WikiSpaceView() {
     return { due, days, revisionWarn }
   }
 
+  const headerActions = (
+    <div className="flex flex-wrap items-center gap-2">
+      {docs.backend === 'supabase' ? (
+        <Button type="button" variant="secondary" icon={<Upload className="h-4 w-4" />} onClick={() => setFilesPanelOpen(true)}>
+          Filer og lenker
+        </Button>
+      ) : null}
+      {canManage ? (
+        <Button
+          type="button"
+          variant="primary"
+          icon={<Plus className="h-4 w-4" />}
+          onClick={() => setNewPageOpen(true)}
+        >
+          Ny side
+        </Button>
+      ) : null}
+    </div>
+  )
+
   return (
-    <DocumentsModuleLayout
-      subHeader={
-        <div className="mt-6 flex flex-col gap-3 border-b border-neutral-200/80 pb-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="text-2xl">{space.icon}</span>
-            <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Aktiv mappe</p>
-              <h2 className="font-serif text-xl font-semibold text-neutral-900">{space.title}</h2>
-              <p className="mt-1 text-sm text-neutral-600">{space.description}</p>
+    <ModulePageShell
+      breadcrumb={[
+        { label: 'HMS' },
+        { label: DOCUMENTS_MODULE_TITLE, to: '/documents' },
+        { label: space.title },
+      ]}
+      title={space.title}
+      description={
+        <p className="max-w-3xl text-sm text-neutral-600">
+          {space.description || 'Dokumenter i henhold til internkontrollforskriften § 5 — systematisk utforming, revisjon og tilgjengelighet.'}
+        </p>
+      }
+      headerActions={headerActions}
+    >
+      {docs.error ? <WarningBox>{docs.error}</WarningBox> : null}
+
+      <p className="text-sm text-neutral-500">
+        <span aria-hidden>{space.icon}</span>{' '}
+        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Mappe</span>
+      </p>
+
+      <ModuleRecordsTableShell
+        kpiItems={kpiItems}
+        title="Sider i mappen"
+        description="Klikk en rad for detaljer og handlinger."
+        toolbar={
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative min-w-[200px] flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+              <StandardInput
+                type="search"
+                value={pageSearch}
+                onChange={(e) => setPageSearch(e.target.value)}
+                placeholder="Søk i sider…"
+                className="py-2 pl-10"
+              />
+            </div>
+            <div className="min-w-[200px] shrink-0 sm:max-w-xs">
+              <SearchableSelect
+                value={filter}
+                options={FILTER_OPTIONS}
+                onChange={(v) => setFilter(v as 'all' | 'published' | 'draft')}
+              />
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {docs.backend === 'supabase' && (
-              <button type="button" onClick={() => setFilesPanelOpen(true)} className={BTN_OUTLINE}>
-                <Upload className="size-4 shrink-0" aria-hidden />
-                Filer og lenker
-              </button>
-            )}
-            <button type="button" onClick={() => setNewPageOpen(true)} className={BTN_PRIMARY}>
-              <FilePlus className="size-4 shrink-0" aria-hidden />
-              Ny side
-            </button>
-          </div>
-        </div>
-      }
-    >
-      <div className="mb-4 mt-6 flex flex-wrap gap-2">
-        {(['all', 'published', 'draft'] as const).map((f) => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => setFilter(f)}
-            className={`rounded-none border px-3 py-2 text-xs font-medium ${
-              filter === f
-                ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400'
-            }`}
-          >
-            {f === 'all' ? 'Alle' : f === 'published' ? 'Publisert' : 'Utkast'}
-          </button>
-        ))}
-      </div>
-
-      {pages.length === 0 ? (
-        <p className={`${CARD} px-4 py-12 text-center text-sm text-neutral-500`}>
-          Ingen sider ennå — trykk «Ny side» eller bruk en mal fra oversikten.
-        </p>
-      ) : (
-        <div className="overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
-          <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">
-            <h2 className="text-sm font-semibold text-neutral-900">Sider i mappen</h2>
-            <p className="text-xs text-neutral-500">Klikk en rad for å åpne detaljer og handlinger.</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
+        }
+        footer={<span className="text-sm text-neutral-500">{pages.length} treff</span>}
+      >
+        <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+          {pages.length === 0 ? (
+            <tbody>
+              <tr>
+                <td colSpan={5} className="px-5 py-8 text-center text-sm text-neutral-500">
+                  Ingen sider matcher — trykk «Ny side» eller bruk en mal fra oversikten.
+                </td>
+              </tr>
+            </tbody>
+          ) : (
+            <>
               <thead>
-                <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                  <th className="px-4 py-3">Tittel</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Versjon</th>
-                  <th className="px-4 py-3">Oppdatert</th>
-                  <th className="px-4 py-3">Revisjon</th>
+                <tr>
+                  <th className={MODULE_TABLE_TH}>Tittel</th>
+                  <th className={MODULE_TABLE_TH}>Status</th>
+                  <th className={MODULE_TABLE_TH}>Versjon</th>
+                  <th className={MODULE_TABLE_TH}>Oppdatert</th>
+                  <th className={MODULE_TABLE_TH}>Revisjon</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-100">
+              <tbody>
                 {pages.map((p) => {
                   const { due, days, revisionWarn } = revisionMeta(p)
                   return (
                     <tr
                       key={p.id}
-                      className="cursor-pointer transition-colors hover:bg-neutral-50"
+                      className={`${MODULE_TABLE_TR_BODY} cursor-pointer`}
                       onClick={() => setPanelPageId(p.id)}
                     >
-                      <td className="px-4 py-3">
-                        <span className="font-medium text-[#1a3d32]">{p.title}</span>
-                        {p.summary && <p className="mt-1 line-clamp-1 text-xs text-neutral-500">{p.summary}</p>}
+                      <td className="px-5 py-4 align-middle">
+                        <span className="font-medium text-neutral-900">{p.title}</span>
+                        {p.summary ? <p className="mt-1 line-clamp-1 text-xs text-neutral-500">{p.summary}</p> : null}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="rounded-none border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                      <td className="px-5 py-4 align-middle">
+                        <Badge variant={pageStatusBadgeVariant(p.status)} className="text-xs">
                           {STATUS_LABEL[p.status]}
-                        </span>
+                        </Badge>
                       </td>
-                      <td className="px-4 py-3 text-neutral-600">v{p.version}</td>
-                      <td className="px-4 py-3 text-xs text-neutral-600">
+                      <td className="px-5 py-4 align-middle text-neutral-600">v{p.version}</td>
+                      <td className="px-5 py-4 align-middle text-xs text-neutral-600">
                         {new Date(p.updatedAt).toLocaleDateString('no-NO')}
                       </td>
-                      <td className="px-4 py-3 text-xs">
+                      <td className="px-5 py-4 align-middle text-xs">
                         {!p.nextRevisionDueAt ? (
                           <span className="text-neutral-400">—</span>
                         ) : (
@@ -261,17 +333,18 @@ export function WikiSpaceView() {
                   )
                 })}
               </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+            </>
+          )}
+        </table>
+      </ModuleRecordsTableShell>
 
       {anyOverlayOpen && (
         <div className="fixed inset-0 z-[60] flex justify-end">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             aria-label="Lukk"
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 h-auto min-h-0 rounded-none bg-black/40 p-0 hover:bg-black/50"
             onClick={() => {
               setNewPageOpen(false)
               setFilesPanelOpen(false)
@@ -294,35 +367,38 @@ export function WikiSpaceView() {
                       ? panelPage.title
                       : 'Detaljer'}
               </h2>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Lukk panel"
                 onClick={() => {
                   setNewPageOpen(false)
                   setFilesPanelOpen(false)
                   setPanelPageId(null)
                 }}
-                className="rounded-none p-2 text-neutral-500 hover:bg-neutral-100"
-              >
-                <X className="size-5" />
-              </button>
+                icon={<X className="h-5 w-5" />}
+              />
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {newPageOpen && (
                 <form onSubmit={(e) => void handleCreate(e)} className="space-y-4">
                   <p className="text-sm text-neutral-600">Opprett en tom side og gå rett til redigering.</p>
                   <div>
-                    <label className="text-xs font-medium text-neutral-500">Tittel</label>
-                    <input
+                    <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-new-page-title">
+                      Tittel
+                    </label>
+                    <StandardInput
+                      id="wiki-new-page-title"
                       value={newTitle}
                       onChange={(e) => setNewTitle(e.target.value)}
                       placeholder="Tittel på siden"
                       required
-                      className={`${INPUT} mt-1 w-full`}
                     />
                   </div>
-                  <button type="submit" className={BTN_PRIMARY}>
+                  <Button type="submit" variant="primary">
                     Opprett og rediger
-                  </button>
+                  </Button>
                 </form>
               )}
 
@@ -331,48 +407,37 @@ export function WikiSpaceView() {
                   <p className="text-sm text-neutral-600">
                     Last opp filer eller legg til eksterne referanser i denne mappen.
                   </p>
-                  <label className={`${BTN_OUTLINE} cursor-pointer`}>
-                    <Upload className="size-4 shrink-0" aria-hidden />
-                    Last opp fil
-                    <input type="file" className="hidden" onChange={(e) => void handleUpload(e)} disabled={busy} />
-                  </label>
-                  <form onSubmit={(e) => void handleAddUrl(e)} className="space-y-2 border-t border-neutral-100 pt-4">
-                    <input
+                  <div>
+                    <input id="wiki-space-upload" type="file" className="sr-only" onChange={(e) => void handleUpload(e)} disabled={busy} />
+                    <Button type="button" variant="secondary" icon={<Upload className="h-4 w-4" />} disabled={busy} onClick={() => document.getElementById('wiki-space-upload')?.click()}>
+                      Last opp fil
+                    </Button>
+                  </div>
+                  <form onSubmit={(e) => void handleAddUrl(e)} className="space-y-3 border-t border-neutral-100 pt-4">
+                    <StandardInput
                       value={urlTitle}
                       onChange={(e) => setUrlTitle(e.target.value)}
                       placeholder="Tittel på referanse"
-                      className={`${INPUT} w-full`}
                     />
-                    <input
-                      value={urlHref}
-                      onChange={(e) => setUrlHref(e.target.value)}
-                      placeholder="https://…"
-                      type="url"
-                      className={`${INPUT} w-full`}
-                    />
-                    <button type="submit" disabled={busy} className={BTN_PRIMARY}>
-                      <Link2 className="size-4 shrink-0" aria-hidden />
+                    <StandardInput value={urlHref} onChange={(e) => setUrlHref(e.target.value)} placeholder="https://…" type="url" />
+                    <Button type="submit" variant="primary" disabled={busy}>
                       Legg til URL
-                    </button>
+                    </Button>
                   </form>
                   {itemsInSpace.length > 0 && (
-                    <ul className="divide-y divide-neutral-100 rounded-none border border-neutral-200">
+                    <ul className="divide-y divide-neutral-100 rounded-lg border border-neutral-200">
                       {itemsInSpace.map((it) => (
                         <li key={it.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
-                          <div className="flex min-w-0 items-center gap-2">
-                            {it.kind === 'url' ? (
-                              <ExternalLink className="size-4 shrink-0 text-[#1a3d32]" />
-                            ) : (
-                              <FileText className="size-4 shrink-0 text-neutral-500" />
-                            )}
-                            <span className="truncate font-medium text-neutral-800">{it.title}</span>
-                          </div>
+                          <span className="truncate font-medium text-neutral-800">
+                            {it.kind === 'url' ? '[URL] ' : '[Fil] '}
+                            {it.title}
+                          </span>
                           <div className="flex items-center gap-1">
-                            {it.kind === 'file' && (
-                              <button
+                            {it.kind === 'file' ? (
+                              <Button
                                 type="button"
-                                className="rounded-none p-1.5 text-[#1a3d32] hover:bg-neutral-100"
-                                title="Åpne / last ned"
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => {
                                   void (async () => {
                                     const u = await docs.getSpaceFileUrl(it)
@@ -380,21 +445,21 @@ export function WikiSpaceView() {
                                   })()
                                 }}
                               >
-                                <ExternalLink className="size-4" />
-                              </button>
-                            )}
-                            {canManage && (
-                              <button
+                                Åpne
+                              </Button>
+                            ) : null}
+                            {canManage ? (
+                              <Button
                                 type="button"
+                                variant="danger"
+                                size="sm"
                                 onClick={() => {
                                   if (confirm('Fjerne elementet?')) void docs.deleteSpaceItem(it)
                                 }}
-                                className="rounded-none p-1.5 text-red-400 hover:bg-red-50"
-                                title="Slett"
                               >
-                                <Trash2 className="size-4" />
-                              </button>
-                            )}
+                                Slett
+                              </Button>
+                            ) : null}
                           </div>
                         </li>
                       ))}
@@ -406,73 +471,58 @@ export function WikiSpaceView() {
               {panelPage && !newPageOpen && !filesPanelOpen && (
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-2">
-                    <span className="rounded-none border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium">
+                    <Badge variant={pageStatusBadgeVariant(panelPage.status)} className="text-xs">
                       {STATUS_LABEL[panelPage.status]}
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-xs text-neutral-600">
-                      <BookOpen className="size-3.5 shrink-0" style={{ color: PIN_GREEN }} />v{panelPage.version}
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-xs text-neutral-600">
-                      <Clock className="size-3.5 shrink-0" style={{ color: PIN_GREEN }} />
+                    </Badge>
+                    <span className="text-xs text-neutral-600">v{panelPage.version}</span>
+                    <span className="text-xs text-neutral-600">
                       {new Date(panelPage.updatedAt).toLocaleDateString('no-NO')}
                     </span>
                   </div>
-                  {panelPage.summary && <p className="text-sm text-neutral-600">{panelPage.summary}</p>}
-                  {panelPage.nextRevisionDueAt && (
+                  {panelPage.summary ? <p className="text-sm text-neutral-600">{panelPage.summary}</p> : null}
+                  {panelPage.nextRevisionDueAt ? (
                     <p className="text-xs text-neutral-600">
                       Neste revisjon:{' '}
                       <strong>{new Date(panelPage.nextRevisionDueAt).toLocaleDateString('no-NO')}</strong>
                     </p>
-                  )}
-                  {panelPage.legalRefs.length > 0 && (
+                  ) : null}
+                  {panelPage.legalRefs.length > 0 ? (
                     <div className="flex flex-wrap gap-1">
                       {panelPage.legalRefs.slice(0, 6).map((r) => (
-                        <span key={r} className="rounded-none bg-neutral-100 px-1.5 py-0.5 font-mono text-[10px] text-neutral-600">
+                        <span key={r} className="rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[10px] text-neutral-600">
                           {r}
                         </span>
                       ))}
                     </div>
-                  )}
+                  ) : null}
                   <div className="flex flex-col gap-2 border-t border-neutral-100 pt-4">
-                    <Link to={`/documents/page/${panelPage.id}`} className={`${BTN_OUTLINE} w-full justify-center`}>
-                      <Eye className="size-4 shrink-0" aria-hidden />
+                    <Button type="button" variant="secondary" className="w-full" onClick={() => navigate(`/documents/page/${panelPage.id}`)}>
                       Forhåndsvis
-                    </Link>
-                    <Link to={`/documents/page/${panelPage.id}/edit`} className={`${BTN_PRIMARY} w-full justify-center`}>
-                      <Pencil className="size-4 shrink-0" aria-hidden />
+                    </Button>
+                    <Button type="button" variant="primary" className="w-full" onClick={() => navigate(`/documents/page/${panelPage.id}/edit`)}>
                       Rediger
-                    </Link>
-                    {panelPage.status === 'draft' && (
-                      <button
-                        type="button"
-                        onClick={() => void docs.publishPage(panelPage.id)}
-                        className={`${BTN_OUTLINE} w-full justify-center text-emerald-800`}
-                      >
-                        <CheckCircle2 className="size-4 shrink-0" aria-hidden />
+                    </Button>
+                    {panelPage.status === 'draft' ? (
+                      <Button type="button" variant="secondary" className="w-full" onClick={() => void docs.publishPage(panelPage.id)}>
                         Publiser
-                      </button>
-                    )}
-                    {panelPage.status !== 'archived' && (
-                      <button
-                        type="button"
-                        onClick={() => void docs.archivePage(panelPage.id)}
-                        className={`${BTN_OUTLINE} w-full justify-center`}
-                      >
-                        <Archive className="size-4 shrink-0" aria-hidden />
+                      </Button>
+                    ) : null}
+                    {panelPage.status !== 'archived' ? (
+                      <Button type="button" variant="secondary" className="w-full" onClick={() => void docs.archivePage(panelPage.id)}>
                         Arkiver
-                      </button>
-                    )}
-                    <button
+                      </Button>
+                    ) : null}
+                    <Button
                       type="button"
+                      variant="danger"
+                      className="w-full"
                       onClick={() => {
                         if (confirm('Slett siden?')) void docs.deletePage(panelPage.id)
                         setPanelPageId(null)
                       }}
-                      className="rounded-none border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-800 hover:bg-red-100"
                     >
-                      <Trash2 className="mr-2 inline size-4 align-text-bottom" aria-hidden />
                       Slett
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -480,6 +530,6 @@ export function WikiSpaceView() {
           </div>
         </div>
       )}
-    </DocumentsModuleLayout>
+    </ModulePageShell>
   )
 }
