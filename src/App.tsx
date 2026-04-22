@@ -66,7 +66,7 @@ import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { AnnualReviewPage } from './pages/documents/AnnualReviewPage'
 import { InspectionArbeidstilsynetExportPage } from './pages/documents/InspectionArbeidstilsynetExportPage'
 import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
-import { DocumentsModuleShellLayout, DocumentsScorecardTestPage } from '../modules/documents'
+import { DocumentsModuleShellLayout, DocumentsScorecardTestPage, DocumentsWikiOutlet } from '../modules/documents'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import { DocumentsLayout } from './hooks/useDocuments'
 import { PlatformAdminLoginPage } from './pages/platform/PlatformAdminLoginPage'
@@ -260,23 +260,6 @@ function App() {
                       <Route element={<DocumentsModuleShellLayout />}>
                         <Route path="documents/scorecard-browser" element={<DocumentsScorecardTestPage />} />
                         <Route path="documents" element={<DocumentsHome />} />
-                        <Route path="documents/space/:spaceId" element={<WikiSpaceView />} />
-                        <Route
-                          path="documents/page/:pageId"
-                          element={
-                            <RouteErrorBoundary title="Kunne ikke vise dokumentet">
-                              <WikiPageView />
-                            </RouteErrorBoundary>
-                          }
-                        />
-                        <Route
-                          path="documents/page/:pageId/edit"
-                          element={
-                            <RouteErrorBoundary title="Kunne ikke åpne redigering">
-                              <WikiPageEditor />
-                            </RouteErrorBoundary>
-                          }
-                        />
                         <Route path="documents/compliance" element={<ComplianceDashboard />} />
                         <Route
                           path="documents/compliance/inspection-export"
@@ -293,6 +276,25 @@ function App() {
                           element={
                             <RouteErrorBoundary title="Kunne ikke vise årsgjennomgang">
                               <AnnualReviewPage />
+                            </RouteErrorBoundary>
+                          }
+                        />
+                      </Route>
+                      <Route element={<DocumentsWikiOutlet />}>
+                        <Route path="documents/space/:spaceId" element={<WikiSpaceView />} />
+                        <Route
+                          path="documents/page/:pageId"
+                          element={
+                            <RouteErrorBoundary title="Kunne ikke vise dokumentet">
+                              <WikiPageView />
+                            </RouteErrorBoundary>
+                          }
+                        />
+                        <Route
+                          path="documents/page/:pageId/edit"
+                          element={
+                            <RouteErrorBoundary title="Kunne ikke åpne redigering">
+                              <WikiPageEditor />
                             </RouteErrorBoundary>
                           }
                         />

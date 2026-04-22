@@ -7,10 +7,7 @@ import { Button } from '../../src/components/ui/Button'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { DOCUMENTS_MODULE_DESC, DOCUMENTS_MODULE_TITLE } from '../../src/data/documentsNav'
 import { documentsModuleShellStyle } from '../../src/lib/documentsModuleShellStyle'
-import {
-  DocumentsHubActionsProvider,
-  useDocumentsHubActions,
-} from './DocumentsHubActionsContext'
+import { DocumentsHubActionsProvider, useDocumentsHubActions } from './DocumentsHubActionsContext'
 import { DocumentsShellEmbeddedProvider } from './DocumentsShellContext'
 
 type DocumentsRootTab = 'oversikt' | 'samsvar' | 'innstillinger'
@@ -44,11 +41,7 @@ function DocumentsShellHeaderActions({
   )
 }
 
-/**
- * Shared `ModulePageShell` for all `/documents/*` routes (rule §1).
- * Root tabs Oversikt / Samsvar / Innstillinger (rule §2); legacy `/documents/templates` unchanged.
- */
-export function DocumentsModuleShellLayout() {
+function DocumentsModuleShellBody() {
   const location = useLocation()
   const navigate = useNavigate()
   const { can, isAdmin, profile } = useOrgSetupContext()
@@ -135,26 +128,36 @@ export function DocumentsModuleShellLayout() {
     ) : null
 
   return (
+    <div className="docs-module-shell" style={documentsModuleShellStyle(profile)}>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE }]}
+        title={DOCUMENTS_MODULE_TITLE}
+        description={description}
+        tabs={rootTabsNode}
+        headerActions={
+          <DocumentsShellHeaderActions
+            activeRootTab={activeRootTab}
+            canManage={canManage}
+            onHomeHub={Boolean(homeHubMatch)}
+          />
+        }
+      >
+        {oversiktLinks}
+        <Outlet />
+      </ModulePageShell>
+    </div>
+  )
+}
+
+/**
+ * Shared `ModulePageShell` for hub/admin documents routes (rule §1).
+ * Wiki space / page / editor use {@link DocumentsWikiOutlet} so each view owns its own shell (no double chrome).
+ */
+export function DocumentsModuleShellLayout() {
+  return (
     <DocumentsHubActionsProvider>
       <DocumentsShellEmbeddedProvider>
-        <div className="docs-module-shell" style={documentsModuleShellStyle(profile)}>
-          <ModulePageShell
-            breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE }]}
-            title={DOCUMENTS_MODULE_TITLE}
-            description={description}
-            tabs={rootTabsNode}
-            headerActions={
-              <DocumentsShellHeaderActions
-                activeRootTab={activeRootTab}
-                canManage={canManage}
-                onHomeHub={Boolean(homeHubMatch)}
-              />
-            }
-          >
-            {oversiktLinks}
-            <Outlet />
-          </ModulePageShell>
-        </div>
+        <DocumentsModuleShellBody />
       </DocumentsShellEmbeddedProvider>
     </DocumentsHubActionsProvider>
   )
