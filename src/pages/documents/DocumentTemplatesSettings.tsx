@@ -5,6 +5,12 @@ import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PageTemplate, SpaceCategory } from '../../types/documents'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+import { ModuleSectionCard } from '../../components/module/ModuleSectionCard'
+import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../../components/module/moduleTableKit'
+import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
+import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
+import { WarningBox } from '../../components/ui/AlertBox'
 
 const CATEGORY_LABELS: Record<SpaceCategory, string> = {
   hms_handbook: 'HMS-håndbok',
@@ -13,6 +19,11 @@ const CATEGORY_LABELS: Record<SpaceCategory, string> = {
   guide: 'Veiledning',
   template_library: 'Malbibliotek',
 }
+
+const categoryOptions: SelectOption[] = (Object.keys(CATEGORY_LABELS) as SpaceCategory[]).map((c) => ({
+  value: c,
+  label: CATEGORY_LABELS[c],
+}))
 
 function useBodyScrollLock(active: boolean) {
   useEffect(() => {
@@ -25,14 +36,10 @@ function useBodyScrollLock(active: boolean) {
   }, [active])
 }
 
-const INPUT = 'mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm'
-const BTN_PRIMARY =
-  'inline-flex items-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:bg-[#142e26] disabled:opacity-50'
-
 export function DocumentTemplatesSettings() {
   const docs = useDocuments()
-  const { can } = useOrgSetupContext()
-  const canManage = can('documents.manage')
+  const { can, isAdmin } = useOrgSetupContext()
+  const canManage = isAdmin || can('documents.manage')
 
   const [busyId, setBusyId] = useState<string | null>(null)
   const [form, setForm] = useState({
@@ -133,9 +140,9 @@ export function DocumentTemplatesSettings() {
   if (!canManage) {
     return (
       <DocumentsModuleLayout>
-        <p className="mt-8 text-center text-neutral-600">Du har ikke tilgang til å administrere dokumentmaler.</p>
+        <WarningBox>Du har ikke tilgang til å administrere dokumentmaler.</WarningBox>
         <div className="mt-4 text-center">
-          <Link to="/documents" className="text-[#1a3d32] underline">
+          <Link to="/documents" className="text-sm font-medium text-[#1a3d32] underline">
             ← Tilbake til bibliotek
           </Link>
         </div>
@@ -146,61 +153,58 @@ export function DocumentTemplatesSettings() {
   return (
     <DocumentsModuleLayout
       subHeader={
-        <p className="mt-6 border-b border-neutral-200/80 pb-6 text-sm text-neutral-600">
+        <p className="mt-2 border-b border-neutral-200/80 pb-4 text-sm text-neutral-600">
           Aktiver eller skjul systemmaler for organisasjonen, og opprett egne maler som vises i malbiblioteket. Klikk en
           rad for detaljer.
         </p>
       }
     >
-      {docs.error && (
-        <div className="mt-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {docs.error}
-        </div>
-      )}
+      {docs.error ? <WarningBox>{docs.error}</WarningBox> : null}
 
-      <section className="mt-8">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-500">Systemmaler</h2>
+      <ModuleSectionCard className="p-5 md:p-6">
+        <h2 className="text-sm font-semibold text-neutral-900">Systemmaler</h2>
         <p className="mt-1 text-xs text-neutral-500">
           Skru av maler dere ikke bruker — de skjules da i malbiblioteket for alle brukere.
         </p>
-        <div className="mt-4 overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
+        <div className="mt-4">
           {docs.loading && systemCatalog.length === 0 ? (
-            <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-neutral-500">
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-neutral-500">
               <Loader2 className="size-5 animate-spin" />
               Laster maler…
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
+              <table className="w-full min-w-[640px] border-collapse text-left text-sm">
                 <thead>
-                  <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    <th className="px-4 py-3">Mal</th>
-                    <th className="px-4 py-3">Kategori</th>
-                    <th className="px-4 py-3">Aktiv</th>
+                  <tr>
+                    <th className={MODULE_TABLE_TH}>Mal</th>
+                    <th className={MODULE_TABLE_TH}>Kategori</th>
+                    <th className={MODULE_TABLE_TH}>Aktiv</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-100">
+                <tbody>
                   {systemCatalog.map((t) => {
                     const row = docs.orgTemplateSettings.find((s) => s.templateId === t.id)
                     const enabled = row ? row.enabled : true
                     return (
                       <tr
                         key={t.id}
-                        className="cursor-pointer transition-colors hover:bg-neutral-50"
+                        className={`${MODULE_TABLE_TR_BODY} cursor-pointer`}
                         onClick={() => setSystemPanelId(t.id)}
                       >
-                        <td className="px-4 py-3">
+                        <td className="px-5 py-4 align-middle">
                           <span className="font-medium text-[#1a3d32]">{t.label}</span>
                           <p className="mt-1 line-clamp-2 text-xs text-neutral-500">{t.description}</p>
                         </td>
-                        <td className="px-4 py-3 text-xs text-neutral-600">{CATEGORY_LABELS[t.category]}</td>
-                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-5 py-4 align-middle text-xs text-neutral-600">{CATEGORY_LABELS[t.category]}</td>
+                        <td className="px-5 py-4 align-middle" onClick={(e) => e.stopPropagation()}>
                           <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
                             <input
                               type="checkbox"
-                              className="size-4 rounded-none border-neutral-300"
+                              className="size-4 rounded border-neutral-300"
                               checked={enabled}
                               disabled={busyId === t.id}
+                              aria-label={`Aktiv for ${t.label}`}
                               onChange={(e) => void toggleTemplate(t.id, e.target.checked)}
                             />
                             {busyId === t.id ? <Loader2 className="size-4 animate-spin" /> : null}
@@ -214,103 +218,100 @@ export function DocumentTemplatesSettings() {
             </div>
           )}
         </div>
-      </section>
+      </ModuleSectionCard>
 
-      <section className="mt-10">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-500">Organisasjonsspesifikke maler</h2>
+      <ModuleSectionCard className="mt-6 p-5 md:p-6">
+        <h2 className="text-sm font-semibold text-neutral-900">Organisasjonsspesifikke maler</h2>
         <p className="mt-1 text-xs text-neutral-500">Egne maler vises sammen med systemmalene når de er aktive.</p>
 
-        <form onSubmit={(e) => void handleCreateCustom(e)} className="mt-4 rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label className="text-xs font-medium text-neutral-500">Tittel</label>
-              <input
-                value={form.label}
-                onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
-                className={INPUT}
-                placeholder="F.eks. Intern revisjon — sjekkliste"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-xs font-medium text-neutral-500">Beskrivelse</label>
-              <input
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                className={INPUT}
-                placeholder="Kort beskrivelse"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-neutral-500">Kategori</label>
-              <select
-                value={form.category}
-                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as SpaceCategory }))}
-                className={`${INPUT} bg-white`}
-              >
-                {(Object.keys(CATEGORY_LABELS) as SpaceCategory[]).map((c) => (
-                  <option key={c} value={c}>
-                    {CATEGORY_LABELS[c]}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <form onSubmit={(e) => void handleCreateCustom(e)} className="mt-4 space-y-4">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="tpl-custom-title">
+              Tittel
+            </label>
+            <StandardInput
+              id="tpl-custom-title"
+              value={form.label}
+              onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
+              placeholder="F.eks. Intern revisjon — sjekkliste"
+            />
           </div>
-          {formErr && <p className="mt-2 text-sm text-red-600">{formErr}</p>}
-          <button type="submit" disabled={busyId === 'new'} className={`${BTN_PRIMARY} mt-4`}>
-            {busyId === 'new' ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-            Legg til mal
-          </button>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="tpl-custom-desc">
+              Beskrivelse
+            </label>
+            <StandardInput
+              id="tpl-custom-desc"
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              placeholder="Kort beskrivelse"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="tpl-custom-cat">
+              Kategori
+            </label>
+            <SearchableSelect
+              value={form.category}
+              options={categoryOptions}
+              onChange={(v) => setForm((f) => ({ ...f, category: v as SpaceCategory }))}
+            />
+          </div>
+          {formErr ? <WarningBox>{formErr}</WarningBox> : null}
+          <Button type="submit" variant="primary" icon={<Plus className="h-4 w-4" />} disabled={busyId === 'new'}>
+            {busyId === 'new' ? 'Lagrer…' : 'Legg til mal'}
+          </Button>
         </form>
 
         {customOnly.length > 0 && (
-          <div className="mt-6 overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
+          <div className="mt-6 overflow-x-auto rounded-lg border border-neutral-200/80">
             <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">
               <h3 className="text-sm font-semibold text-neutral-900">Dine maler</h3>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    <th className="px-4 py-3">Tittel</th>
-                    <th className="px-4 py-3">Handling</th>
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr>
+                  <th className={MODULE_TABLE_TH}>Tittel</th>
+                  <th className={MODULE_TABLE_TH}>Handling</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customOnly.map((t) => (
+                  <tr
+                    key={t.id}
+                    className={`${MODULE_TABLE_TR_BODY} cursor-pointer`}
+                    onClick={() => setCustomPanelId(t.id)}
+                  >
+                    <td className="px-5 py-4 align-middle">
+                      <span className="font-medium text-[#1a3d32]">{t.label}</span>
+                      <p className="mt-1 text-xs text-neutral-500">{t.description}</p>
+                    </td>
+                    <td className="px-5 py-4 align-middle text-xs text-neutral-500" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        type="button"
+                        variant="danger"
+                        size="sm"
+                        onClick={() => void removeCustom(t.id)}
+                        disabled={busyId === t.id}
+                      >
+                        {busyId === t.id ? <Loader2 className="size-4 animate-spin" /> : 'Slett'}
+                      </Button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100">
-                  {customOnly.map((t) => (
-                    <tr
-                      key={t.id}
-                      className="cursor-pointer transition-colors hover:bg-neutral-50"
-                      onClick={() => setCustomPanelId(t.id)}
-                    >
-                      <td className="px-4 py-3">
-                        <span className="font-medium text-[#1a3d32]">{t.label}</span>
-                        <p className="mt-1 text-xs text-neutral-500">{t.description}</p>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-neutral-500" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => void removeCustom(t.id)}
-                          disabled={busyId === t.id}
-                          className="rounded-none border border-red-200 bg-red-50 px-2 py-1 text-red-700 hover:bg-red-100 disabled:opacity-50"
-                        >
-                          {busyId === t.id ? <Loader2 className="size-4 animate-spin" /> : 'Slett'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
-      </section>
+      </ModuleSectionCard>
 
       {(systemPanelTpl || customPanelTpl) && (
         <div className="fixed inset-0 z-[60] flex justify-end">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             aria-label="Lukk"
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 h-auto min-h-0 rounded-none bg-black/40 p-0 hover:bg-black/50"
             onClick={() => {
               setSystemPanelId(null)
               setCustomPanelId(null)
@@ -325,30 +326,32 @@ export function DocumentTemplatesSettings() {
               <h2 className="text-sm font-semibold text-neutral-900">
                 {systemPanelTpl?.label ?? customPanelTpl?.label}
               </h2>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Lukk panel"
                 onClick={() => {
                   setSystemPanelId(null)
                   setCustomPanelId(null)
                 }}
-                className="rounded-none p-2 text-neutral-500 hover:bg-neutral-100"
-              >
-                <X className="size-5" />
-              </button>
+                icon={<X className="h-5 w-5" />}
+              />
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 text-sm">
               {systemPanelTpl && (
                 <>
                   <p className="text-neutral-600">{systemPanelTpl.description}</p>
                   <p className="text-xs text-neutral-500">Kategori: {CATEGORY_LABELS[systemPanelTpl.category]}</p>
-                  <label className="flex cursor-pointer items-center gap-2 border border-neutral-200 p-3">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-md border border-neutral-200 p-3">
                     <input
                       type="checkbox"
-                      className="size-4 rounded-none border-neutral-300"
+                      className="size-4 rounded border-neutral-300"
                       checked={
                         docs.orgTemplateSettings.find((s) => s.templateId === systemPanelTpl.id)?.enabled ?? true
                       }
                       disabled={busyId === systemPanelTpl.id}
+                      aria-label="Aktiv i malbiblioteket"
                       onChange={(e) => void toggleTemplate(systemPanelTpl.id, e.target.checked)}
                     />
                     <span>Aktiv i malbiblioteket</span>
@@ -359,15 +362,15 @@ export function DocumentTemplatesSettings() {
               {customPanelTpl && (
                 <>
                   <p className="text-neutral-600">{customPanelTpl.description || 'Ingen beskrivelse.'}</p>
-                  <button
+                  <Button
                     type="button"
+                    variant="danger"
+                    icon={<Trash2 className="h-4 w-4" />}
                     onClick={() => void removeCustom(customPanelTpl.id)}
                     disabled={busyId === customPanelTpl.id}
-                    className="inline-flex items-center gap-2 rounded-none border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-50"
                   >
-                    {busyId === customPanelTpl.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-                    Slett mal
-                  </button>
+                    {busyId === customPanelTpl.id ? 'Sletter…' : 'Slett mal'}
+                  </Button>
                 </>
               )}
             </div>

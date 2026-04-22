@@ -285,6 +285,7 @@ function App() {
                             </RouteErrorBoundary>
                           }
                         />
+                        <Route path="documents/admin" element={<Navigate to="/documents/templates" replace />} />
                         <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
                         <Route
                           path="documents/aarsgjennomgang"
