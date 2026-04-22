@@ -19,6 +19,7 @@ import { Button } from '../../src/components/ui/Button'
 import { Badge } from '../../src/components/ui/Badge'
 import { StandardInput } from '../../src/components/ui/Input'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
+import { WarningBox } from '../../src/components/ui/AlertBox'
 import { WPSTD_FORM_FIELD_LABEL } from '../../src/components/layout/WorkplaceStandardFormPanel'
 
 type Props = {
@@ -182,7 +183,7 @@ export function InspectionModuleView({
   )
 
   const headerActions = (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <Button type="button" variant="secondary" onClick={() => setScheduleOpen(true)}>
         Planlegging
       </Button>
@@ -196,11 +197,21 @@ export function InspectionModuleView({
           <span className="hidden sm:inline">Admin</span>
         </Button>
       )}
+      <Button
+        type="button"
+        variant="primary"
+        icon={<Plus className="h-4 w-4" />}
+        onClick={() => setCreateOpen(true)}
+      >
+        Ny inspeksjonsrunde
+      </Button>
     </div>
   )
 
   const body = (
     <>
+      {inspection.error ? <WarningBox>{inspection.error}</WarningBox> : null}
+
       <LayoutScoreStatRow
         items={[
           { big: String(stats.total), title: 'Totalt runder', sub: 'Alle inspeksjonsrunder' },
@@ -215,14 +226,6 @@ export function InspectionModuleView({
         titleTypography="sans"
         title="Runder"
         description="Alle inspeksjonsrunder — sortert etter siste aktivitet."
-        headerActions={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {inspection.error ? <span className="text-xs text-red-600">{inspection.error}</span> : null}
-            <Button type="button" variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>
-              Ny inspeksjonsrunde
-            </Button>
-          </div>
-        }
         toolbar={
           <div className="relative min-w-[200px] flex-1">
             <label className="sr-only" htmlFor="inspection-search">
