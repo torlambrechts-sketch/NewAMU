@@ -112,6 +112,12 @@ export function DocumentsModuleShellLayout() {
         <Link to="/documents/compliance" className="font-medium text-[#1a3d32] underline-offset-2 hover:underline">
           Samsvar
         </Link>
+        <Link
+          to="/documents/scorecard-browser"
+          className="font-medium text-[#1a3d32] underline-offset-2 hover:underline"
+        >
+          Scorecard-visning (test)
+        </Link>
         {canManage ? (
           <Link
             to="/documents/aarsgjennomgang"
