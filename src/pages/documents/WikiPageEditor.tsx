@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
-import { RichTextEditor } from '../../components/learning/RichTextEditor'
+import { TipTapRichTextEditor } from '../../components/documents/TipTapRichTextEditor'
 import {
   ModuleLegalBanner,
   ModulePageShell,
@@ -943,7 +943,7 @@ function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: P
   )
 
   if (block.kind === 'text') return (
-    <RichTextEditor value={block.body} onChange={(html) => onUpdate({ body: html } as Partial<ContentBlock>)} />
+    <TipTapRichTextEditor value={block.body} onChange={(html) => onUpdate({ body: html } as Partial<ContentBlock>)} />
   )
 
   if (block.kind === 'alert') return (
