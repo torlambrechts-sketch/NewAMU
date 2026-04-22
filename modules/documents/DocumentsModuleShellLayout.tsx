@@ -112,17 +112,25 @@ export function DocumentsModuleShellLayout() {
     )
 
   const oversiktLinks =
-    activeRootTab === 'oversikt' && canManage ? (
+    activeRootTab === 'oversikt' ? (
       <nav
         className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-neutral-200/80 pb-4 text-sm"
         aria-label="Flere dokumentseksjoner"
       >
         <Link
-          to="/documents/aarsgjennomgang"
+          to="/documents/scorecard-browser"
           className="font-medium text-[#1a3d32] underline-offset-2 hover:underline"
         >
-          Årsgjennomgang
+          Scorecard-visning (test)
         </Link>
+        {canManage ? (
+          <Link
+            to="/documents/aarsgjennomgang"
+            className="font-medium text-[#1a3d32] underline-offset-2 hover:underline"
+          >
+            Årsgjennomgang
+          </Link>
+        ) : null}
       </nav>
     ) : null
 
