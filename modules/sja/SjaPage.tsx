@@ -114,7 +114,7 @@ export const HAZARD_CATEGORY_LABEL: Record<SjaHazardCategory, string> = {
 }
 
 type SjaTab =
-  | 'grunnlag'
+  | 'informasjon'
   | 'deltakere'
   | 'oppgaver'
   | 'risikovurdering'
@@ -297,7 +297,7 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
   const sja = useSja({ supabase })
   const { load, loadDetail, getDetail } = sja
 
-  const [activeTab, setActiveTab] = useState<SjaTab>('grunnlag')
+  const [activeTab, setActiveTab] = useState<SjaTab>('informasjon')
   const [detailStarted, setDetailStarted] = useState(false)
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const [stopFormOpen, setStopFormOpen] = useState(false)
@@ -351,7 +351,7 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
     if (!detail) return []
     const pCount = detail.participants.length
     return [
-      { id: 'grunnlag', label: 'Grunnlag', icon: FileText },
+      { id: 'informasjon', label: 'Informasjon', icon: FileText },
       {
         id: 'deltakere',
         label: pCount > 0 ? `Deltakere (${pCount})` : 'Deltakere',
@@ -605,7 +605,7 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
           </div>
         ) : null}
 
-        {activeTab === 'grunnlag' && (
+        {activeTab === 'informasjon' && (
           <GrunnlagTab
             analysis={analysis}
             draft={draft}
@@ -872,7 +872,7 @@ function EtterarbeidTab({
     return (
       <div className="space-y-4">
         <InfoBox>
-          Etterarbeid (debrief) låses opp når SJA er merket som <strong>fullført</strong>. Gå til Grunnlag og fullfør
+          Etterarbeid (debrief) låses opp når SJA er merket som <strong>fullført</strong>. Gå til Informasjon og fullfør
           utførelsen først.
         </InfoBox>
         <p className="text-xs text-neutral-500">Forhåndsvisning — feltene er skrivebeskyttet.</p>

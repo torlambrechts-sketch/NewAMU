@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { CheckCircle2, ChevronRight, Circle, Plus, Search, Settings } from 'lucide-react'
@@ -65,7 +65,27 @@ function formatDateTimeShort(iso: string | null) {
   }
 }
 
-export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null }) {
+export function SjaModuleView({
+  supabase,
+  tabs,
+  bodyOnly = false,
+  hideAdminNav = false,
+}: {
+  supabase: SupabaseClient | null
+  /** Optional tabs row passed to `ModulePageShell.tabs`. */
+  tabs?: ReactNode
+  /**
+   * When `true`, skip the ModulePageShell chrome and render the analyses
+   * body only. Used when the parent already owns the page shell (e.g.
+   * SjaModulePage root-tab wrapper).
+   */
+  bodyOnly?: boolean
+  /**
+   * When `true`, hide the duplicate "Innstillinger" header button because
+   * the page already renders root tabs (Oversikt / Innstillinger).
+   */
+  hideAdminNav?: boolean
+}) {
   const navigate = useNavigate()
   const sja = useSja({ supabase })
   const [search, setSearch] = useState('')
@@ -235,48 +255,47 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
     [sja.analyses.length, stats.inProgress, stats.stopped, stats.done],
   )
 
-  return (
-    <ModulePageShell
-      breadcrumb={[{ label: 'HMS' }, { label: 'Sikker jobbanalyse' }]}
-      title="Sikker jobbanalyse"
-      description="Planlegg, gjennomfør og signer sikker jobbanalyse i henhold til arbeidsmiljøloven og internkontroll."
-      headerActions={
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="secondary" onClick={() => setScheduleOpen(true)}>
-            Planlegging
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            icon={<Settings className="h-4 w-4" />}
-            onClick={() => navigate('/sja/admin')}
-          >
-            <span className="hidden sm:inline">Innstillinger</span>
-          </Button>
-          <Button
-            type="button"
-            variant="primary"
-            icon={<Plus className="h-4 w-4" />}
-            onClick={() => {
-              const tid = defaultTemplateId
-              setNewSjaForm({
-                title: '',
-                templateId: tid,
-                jobType: (tid ? templateJobTypeById.get(tid) : undefined) ?? 'custom',
-                locationId: '',
-                scheduledStart: '',
-                scheduledEnd: '',
-                responsibleId: '',
-                cronExpression: '',
-              })
-              setCreateOpen(true)
-            }}
-          >
-            Ny analyse
-          </Button>
-        </div>
-      }
-    >
+  const headerActions = (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button type="button" variant="secondary" onClick={() => setScheduleOpen(true)}>
+        Planlegging
+      </Button>
+      {!hideAdminNav && (
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<Settings className="h-4 w-4" />}
+          onClick={() => navigate('/sja/admin')}
+        >
+          <span className="hidden sm:inline">Innstillinger</span>
+        </Button>
+      )}
+      <Button
+        type="button"
+        variant="primary"
+        icon={<Plus className="h-4 w-4" />}
+        onClick={() => {
+          const tid = defaultTemplateId
+          setNewSjaForm({
+            title: '',
+            templateId: tid,
+            jobType: (tid ? templateJobTypeById.get(tid) : undefined) ?? 'custom',
+            locationId: '',
+            scheduledStart: '',
+            scheduledEnd: '',
+            responsibleId: '',
+            cronExpression: '',
+          })
+          setCreateOpen(true)
+        }}
+      >
+        Ny analyse
+      </Button>
+    </div>
+  )
+
+  const body = (
+    <>
       {sja.error ? <WarningBox>{sja.error}</WarningBox> : null}
 
       <ModuleRecordsTableShell
@@ -645,6 +664,22 @@ export function SjaModuleView({ supabase }: { supabase: SupabaseClient | null })
           )}
         </div>
       </FormModal>
+    </>
+  )
+
+  if (bodyOnly) {
+    return <>{body}</>
+  }
+
+  return (
+    <ModulePageShell
+      breadcrumb={[{ label: 'HMS' }, { label: 'Sikker jobbanalyse' }]}
+      title="Sikker jobbanalyse"
+      description="Planlegg, gjennomfør og signer sikker jobbanalyse i henhold til arbeidsmiljøloven og internkontroll."
+      tabs={tabs}
+      headerActions={headerActions}
+    >
+      {body}
     </ModulePageShell>
   )
 }

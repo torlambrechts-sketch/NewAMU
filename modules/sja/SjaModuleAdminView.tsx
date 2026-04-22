@@ -136,10 +136,17 @@ export function SjaModuleAdminView({
   supabase,
   canManageRbac,
   organizationId,
+  embedded = false,
 }: {
   supabase: SupabaseClient | null
   canManageRbac: boolean
   organizationId: string | null
+  /**
+   * When `true`, skip this component's ModulePageShell and render only
+   * the tab strip + body. Used when the parent already owns the shell
+   * (e.g. SjaModulePage root-tab orchestrator).
+   */
+  embedded?: boolean
 }) {
   const navigate = useNavigate()
   const sja = useSja({ supabase })
@@ -166,23 +173,10 @@ export function SjaModuleAdminView({
     [],
   )
 
-  return (
-    <ModulePageShell
-      breadcrumb={[{ label: 'HMS' }, { label: 'Sikker jobbanalyse', to: '/sja' }, { label: 'Innstillinger' }]}
-      title="SJA-innstillinger"
-      description="Maler for sikker jobbanalyse, delte lokasjoner og tilganger."
-      headerActions={
-        <Button
-          type="button"
-          variant="secondary"
-          icon={<ArrowLeft className="h-4 w-4" />}
-          onClick={() => navigate('/sja')}
-        >
-          Tilbake til SJA
-        </Button>
-      }
-      tabs={<Tabs items={adminTabItems} activeId={tab} onChange={(id) => setTab(id as Tab)} />}
-    >
+  const tabsNode = <Tabs items={adminTabItems} activeId={tab} onChange={(id) => setTab(id as Tab)} />
+
+  const body = (
+    <>
       {sja.error ? <WarningBox>{sja.error}</WarningBox> : null}
 
       <ModuleSectionCard className="p-5 md:p-6">
@@ -205,6 +199,36 @@ export function SjaModuleAdminView({
           <SjaAccessTab supabase={supabase} canManageRbac={canManageRbac} organizationId={organizationId} />
         )}
       </ModuleSectionCard>
+    </>
+  )
+
+  if (embedded) {
+    return (
+      <div className="space-y-6">
+        {tabsNode}
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <ModulePageShell
+      breadcrumb={[{ label: 'HMS' }, { label: 'Sikker jobbanalyse', to: '/sja' }, { label: 'Innstillinger' }]}
+      title="SJA-innstillinger"
+      description="Maler for sikker jobbanalyse, delte lokasjoner og tilganger."
+      headerActions={
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<ArrowLeft className="h-4 w-4" />}
+          onClick={() => navigate('/sja')}
+        >
+          Tilbake til SJA
+        </Button>
+      }
+      tabs={tabsNode}
+    >
+      {body}
     </ModulePageShell>
   )
 }
