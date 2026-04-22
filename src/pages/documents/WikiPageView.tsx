@@ -1,12 +1,23 @@
-import { useEffect, useSyncExternalStore } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { CheckCircle2, Clock, History, Loader2, Pencil, Shield } from 'lucide-react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { History, Pencil } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { RetentionBadge } from './RetentionBadge'
 import { WikiBlockRenderer } from './WikiBlockRenderer'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
-import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+import {
+  ModuleLegalBanner,
+  ModulePageShell,
+  ModuleInformationCard,
+  ModuleSectionCard,
+} from '../../components/module'
+import { Badge } from '../../components/ui/Badge'
+import { Button } from '../../components/ui/Button'
+import { WarningBox } from '../../components/ui/AlertBox'
+import { Tabs } from '../../components/ui/Tabs'
+import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
+import type { PageStatus } from '../../types/documents'
 
 const TEMPLATE_CLASS = {
   standard: 'max-w-3xl',
@@ -22,6 +33,20 @@ function getClockSnapshot() {
   return Date.now()
 }
 
+function statusBadgeVariant(status: PageStatus): 'success' | 'draft' | 'neutral' {
+  if (status === 'published') return 'success'
+  if (status === 'draft') return 'draft'
+  return 'neutral'
+}
+
+const STATUS_LABEL: Record<PageStatus, string> = {
+  published: 'Publisert',
+  draft: 'Utkast',
+  archived: 'Arkivert',
+}
+
+type DetailTab = 'informasjon' | 'innhold' | 'versjoner'
+
 export function WikiPageView() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
@@ -29,6 +54,7 @@ export function WikiPageView() {
   const { isAdmin } = useOrgSetupContext()
   const { ensurePageLoaded, pageHydrateLoading, pageHydrateError } = docs
   const timeNow = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
+  const [activeTab, setActiveTab] = useState<DetailTab>('informasjon')
 
   const page = docs.pages.find((p) => p.id === pageId)
   const space = page ? docs.spaces.find((s) => s.id === page.spaceId) : null
@@ -37,219 +63,312 @@ export function WikiPageView() {
     void ensurePageLoaded(pageId)
   }, [ensurePageLoaded, pageId])
 
+  const legalRefs = page && Array.isArray(page.legalRefs) ? page.legalRefs : []
+  const templateKey: keyof typeof TEMPLATE_CLASS =
+    page && (page.template === 'wide' || page.template === 'policy' || page.template === 'standard')
+      ? page.template
+      : 'standard'
+
+  const alreadySigned = page ? docs.hasAcknowledged(page.id, page.version) : false
+  const showSignBadge = page ? page.requiresAcknowledgement && docs.acknowledgementRequiredForMe(page) : false
+  const versions = page ? docs.versionsForPage(page.id) : []
+  const due = page?.nextRevisionDueAt ? new Date(page.nextRevisionDueAt) : null
+  const daysToDue = due ? Math.ceil((due.getTime() - timeNow) / (24 * 60 * 60 * 1000)) : null
+  const revisionSoon = due != null && daysToDue != null && daysToDue <= 60
+
+  const tabItems = useMemo(() => {
+    const vCount = versions.length
+    return [
+      { id: 'informasjon', label: 'Informasjon' },
+      { id: 'innhold', label: 'Innhold' },
+      {
+        id: 'versjoner',
+        label: vCount > 0 ? `Versjoner (${vCount})` : 'Versjoner',
+      },
+    ]
+  }, [versions.length])
+
+  if (!pageId) {
+    return (
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]}
+        title="Dokument"
+        notFound={{ title: 'Mangler dokument-ID', onBack: () => navigate('/documents') }}
+      >
+        {null}
+      </ModulePageShell>
+    )
+  }
+
   if (pageHydrateError && !page) {
     return (
-      <div className="mx-auto max-w-[1400px] px-4 py-12 text-center">
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{pageHydrateError}</p>
-        <Link to="/documents" className="mt-4 inline-block text-[#1a3d32] underline">
-          ← Tilbake til dokumenter
-        </Link>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]}
+        title="Dokument"
+      >
+        <WarningBox>{pageHydrateError}</WarningBox>
+        <Button type="button" variant="secondary" className="mt-4" onClick={() => navigate('/documents')}>
+          Tilbake til bibliotek
+        </Button>
+      </ModulePageShell>
     )
   }
 
   if ((docs.loading || pageHydrateLoading) && !page) {
     return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-4 text-neutral-600">
-        <Loader2 className="size-8 animate-spin text-[#1a3d32]" aria-hidden />
-        <p className="text-sm">Laster dokument…</p>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]}
+        title="Laster dokument…"
+        loading
+        loadingLabel="Laster dokument…"
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   if (docs.error && !page) {
     return (
-      <div className="mx-auto max-w-[1400px] px-4 py-12 text-center">
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{docs.error}</p>
-        <Link to="/documents" className="mt-4 inline-block text-[#1a3d32] underline">
-          ← Tilbake til dokumenter
-        </Link>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]}
+        title="Dokument"
+      >
+        <WarningBox>{docs.error}</WarningBox>
+        <Button type="button" variant="secondary" className="mt-4" onClick={() => navigate('/documents')}>
+          Tilbake til bibliotek
+        </Button>
+      </ModulePageShell>
     )
   }
 
   if (!page) {
     return (
-      <div className="mx-auto max-w-[1400px] px-4 py-12 text-center text-neutral-500">
-        Side ikke funnet. <Link to="/documents" className="text-[#1a3d32] underline">← Tilbake</Link>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]}
+        title="Dokument"
+        notFound={{
+          title: 'Side ikke funnet',
+          backLabel: '← Tilbake til bibliotek',
+          onBack: () => navigate('/documents'),
+        }}
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
-  const legalRefs = Array.isArray(page.legalRefs) ? page.legalRefs : []
-  const templateKey: keyof typeof TEMPLATE_CLASS =
-    page.template === 'wide' || page.template === 'policy' || page.template === 'standard'
-      ? page.template
-      : 'standard'
-
-  const alreadySigned = docs.hasAcknowledged(page.id, page.version)
-  const showSignBadge =
-    page.requiresAcknowledgement && docs.acknowledgementRequiredForMe(page)
-  const versions = docs.versionsForPage(page.id)
-  const due = page.nextRevisionDueAt ? new Date(page.nextRevisionDueAt) : null
-  const daysToDue = due
-    ? Math.ceil((due.getTime() - timeNow) / (24 * 60 * 60 * 1000))
-    : null
-  const revisionSoon = due != null && daysToDue != null && daysToDue <= 60
+  const descriptionText =
+    page.summary?.trim() ||
+    `Versjon ${page.version} · sist oppdatert ${new Date(page.updatedAt).toLocaleDateString('no-NO')}.`
 
   return (
-    <DocumentsModuleLayout
-      subHeader={
-        <nav className="mt-6 flex flex-wrap items-center gap-2 border-b border-neutral-200/80 pb-6 text-sm text-neutral-600">
-          <Link to="/documents" className="text-neutral-500 hover:text-[#1a3d32]">
-            Bibliotek
-          </Link>
-          <span className="text-neutral-400">→</span>
-          {space && (
+    <ModulePageShell
+      breadcrumb={[
+        { label: 'HMS' },
+        { label: DOCUMENTS_MODULE_TITLE, to: '/documents' },
+        ...(space ? [{ label: space.title, to: `/documents/space/${space.id}` }] : []),
+        { label: page.title },
+      ]}
+      title={page.title}
+      description={<p className="max-w-3xl text-sm text-neutral-600">{descriptionText}</p>}
+      headerActions={
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={statusBadgeVariant(page.status)}>
+            {STATUS_LABEL[page.status]}
+          </Badge>
+          {showSignBadge && alreadySigned ? (
+            <Badge variant="success">
+              Signert
+            </Badge>
+          ) : null}
+          <Button
+            type="button"
+            variant="secondary"
+            icon={<Pencil className="h-4 w-4" />}
+            onClick={() => navigate(`/documents/page/${page.id}/edit`)}
+          >
+            Rediger
+          </Button>
+        </div>
+      }
+      tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as DetailTab)} />}
+    >
+      <ModuleLegalBanner
+        collapsible
+        defaultCollapsed
+        title="Dokumentasjon og internkontroll"
+        references={[
+          {
+            code: 'IK-forskriften § 5',
+            text: (
+              <>
+                Virksomheten skal systematisk sikre at lover og forskrifter blir fulgt — dokumentert, tilgjengelig og
+                revidert etter behov.
+              </>
+            ),
+          },
+          {
+            code: 'AML § 3-1',
+            text: <>Arbeidsmiljøloven krever skriftlig dokumentasjon av risikovurdering og tiltak der det er relevant.</>,
+          },
+        ]}
+      />
+
+      {activeTab === 'informasjon' && (
+        <ModuleSectionCard>
+          <ModuleInformationCard
+            withCard={false}
+            hideHeader
+            rows={[
+              {
+                id: 'summary',
+                label: 'Sammendrag',
+                value: page.summary?.trim() ? (
+                  <p className="text-sm text-neutral-800">{page.summary}</p>
+                ) : (
+                  <span className="text-sm text-neutral-500">—</span>
+                ),
+              },
+              {
+                id: 'updated',
+                label: 'Sist oppdatert',
+                value: (
+                  <span className="text-sm text-neutral-800">
+                    {new Date(page.updatedAt).toLocaleDateString('no-NO')} · v{page.version}
+                  </span>
+                ),
+              },
+              {
+                id: 'retention',
+                label: 'Bevaring',
+                value: (
+                  <RetentionBadge
+                    retentionCategory={page.retentionCategory}
+                    retainMinimumYears={page.retainMinimumYears}
+                    retainMaximumYears={page.retainMaximumYears}
+                    archivedAt={page.archivedAt}
+                    scheduledDeletionAt={page.scheduledDeletionAt}
+                    isAdmin={isAdmin}
+                    pageId={page.id}
+                  />
+                ),
+              },
+              {
+                id: 'revision',
+                label: 'Neste revisjon',
+                value:
+                  page.nextRevisionDueAt ? (
+                    <span
+                      className={`text-sm font-medium ${
+                        daysToDue != null && daysToDue < 0
+                          ? 'text-red-800'
+                          : daysToDue != null && daysToDue <= 60
+                            ? 'text-amber-900'
+                            : 'text-neutral-800'
+                      }`}
+                    >
+                      {new Date(page.nextRevisionDueAt).toLocaleDateString('no-NO')}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-neutral-500">—</span>
+                  ),
+              },
+              {
+                id: 'legal',
+                label: 'Hjemler',
+                value:
+                  legalRefs.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {legalRefs.map((r) => (
+                        <span key={r} className="rounded-md bg-[#1a3d32]/10 px-1.5 py-0.5 font-mono text-xs text-[#1a3d32]">
+                          {r}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-neutral-500">—</span>
+                  ),
+              },
+            ]}
+          />
+          {page.status === 'published' && revisionSoon ? (
+            <div className="border-t border-neutral-100 px-5 pb-5 pt-4 md:px-6">
+              <AddTaskLink
+                title={`Revider dokument: ${page.title}`}
+                description={`Systematisk gjennomgang (IK-f §5). Frist: ${page.nextRevisionDueAt ? new Date(page.nextRevisionDueAt).toLocaleDateString('no-NO') : ''}.`}
+                module="hse"
+                sourceType="manual"
+                sourceId={page.id}
+                sourceLabel={page.title}
+              >
+                Oppfølgingsoppgave (Kanban)
+              </AddTaskLink>
+            </div>
+          ) : null}
+        </ModuleSectionCard>
+      )}
+
+      {activeTab === 'innhold' && (
+        <ModuleSectionCard>
+          <div className={`${TEMPLATE_CLASS[templateKey]} mx-auto`}>
+            {page.containsPii ? (
+              <div
+                className="mb-6 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950"
+                role="status"
+              >
+                <p className="font-semibold text-sky-950">Dette dokumentet inneholder personopplysninger.</p>
+                {page.piiLegalBasis?.trim() ? (
+                  <p className="mt-1 text-sm text-sky-900">
+                    <span className="font-medium">Behandlingsgrunnlag:</span> {page.piiLegalBasis}
+                  </p>
+                ) : null}
+                {page.piiRetentionNote?.trim() ? (
+                  <p className="mt-1 text-sm text-sky-900">
+                    <span className="font-medium">Lagringstid:</span> {page.piiRetentionNote}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            <WikiBlockRenderer
+              blocks={Array.isArray(page.blocks) ? page.blocks : []}
+              pageId={page.id}
+              pageVersion={page.version}
+              lang={page.lang ?? 'nb'}
+            />
+          </div>
+        </ModuleSectionCard>
+      )}
+
+      {activeTab === 'versjoner' && (
+        <ModuleSectionCard>
+          {versions.length === 0 ? (
+            <p className="text-sm text-neutral-600">Ingen arkiverte publiserte versjoner ennå.</p>
+          ) : (
             <>
-              <Link to={`/documents/space/${space.id}`} className="text-neutral-500 hover:text-[#1a3d32]">
-                {space.title}
-              </Link>
-              <span className="text-neutral-400">→</span>
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+                <History className="size-4 text-[#1a3d32]" aria-hidden />
+                Publiserte versjoner (arkiv)
+              </h2>
+              <p className="mt-1 text-xs text-neutral-500">
+                Hver publisering fryser forrige versjon for revisjon og tilsyn.
+              </p>
+              <ul className="mt-3 space-y-2 text-sm">
+                {versions.map((v) => (
+                  <li
+                    key={v.id}
+                    className="flex flex-wrap items-baseline justify-between gap-2 border-b border-neutral-100 pb-2 last:border-0"
+                  >
+                    <span className="font-medium text-neutral-800">
+                      v{v.version} — {v.title}
+                    </span>
+                    <span className="text-xs text-neutral-500">{new Date(v.frozenAt).toLocaleString('no-NO')}</span>
+                  </li>
+                ))}
+              </ul>
             </>
           )}
-          <span className="font-medium text-neutral-800">{page.title}</span>
-        </nav>
-      }
-    >
-      <div className={`${TEMPLATE_CLASS[templateKey]} mx-auto mt-6`}>
-        {/* Page header */}
-        <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-          <div className="flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1
-                className="text-2xl font-bold text-neutral-900 md:text-3xl"
-                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-              >
-                {page.title}
-              </h1>
-              <span className={`rounded-none border px-2.5 py-0.5 text-xs font-semibold uppercase ${
-                page.status === 'published' ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                : page.status === 'draft' ? 'border-amber-200 bg-amber-50 text-amber-800'
-                : 'border-neutral-200 bg-neutral-100 text-neutral-600'
-              }`}>
-                {page.status === 'published' ? 'Publisert' : page.status === 'draft' ? 'Utkast' : 'Arkivert'}
-              </span>
-              {showSignBadge && alreadySigned && (
-                <span className="inline-flex items-center gap-1 rounded-none border border-[#1a3d32]/30 bg-[#1a3d32]/10 px-2.5 py-0.5 text-xs font-medium text-[#1a3d32]">
-                  <CheckCircle2 className="size-3.5" /> Signert
-                </span>
-              )}
-            </div>
-            {page.summary && <p className="mt-2 text-neutral-600">{page.summary}</p>}
-            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-neutral-400">
-              <span className="flex items-center gap-1">
-                <Clock className="size-3.5" />
-                Sist oppdatert {new Date(page.updatedAt).toLocaleDateString('no-NO')}
-              </span>
-              <span>v{page.version}</span>
-              <RetentionBadge
-                retentionCategory={page.retentionCategory}
-                retainMinimumYears={page.retainMinimumYears}
-                retainMaximumYears={page.retainMaximumYears}
-                archivedAt={page.archivedAt}
-                scheduledDeletionAt={page.scheduledDeletionAt}
-                isAdmin={isAdmin}
-                pageId={page.id}
-              />
-              {page.nextRevisionDueAt && (
-                <span
-                  className={`rounded-none border px-2 py-0.5 font-medium ${
-                    daysToDue != null && daysToDue < 0
-                      ? 'border-red-200 bg-red-50 text-red-800'
-                      : daysToDue != null && daysToDue <= 60
-                        ? 'border-amber-200 bg-amber-50 text-amber-900'
-                        : 'border-neutral-200 bg-neutral-100 text-neutral-700'
-                  }`}
-                >
-                  Neste revisjon: {new Date(page.nextRevisionDueAt).toLocaleDateString('no-NO')}
-                </span>
-              )}
-              {legalRefs.map((r) => (
-                <span key={r} className="rounded-none bg-[#1a3d32]/10 px-1.5 py-0.5 font-mono text-[#1a3d32]">
-                  {r}
-                </span>
-              ))}
-            </div>
-            {page.status === 'published' && revisionSoon && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <AddTaskLink
-                  title={`Revider dokument: ${page.title}`}
-                  description={`Systematisk gjennomgang (IK-f §5). Frist: ${page.nextRevisionDueAt ? new Date(page.nextRevisionDueAt).toLocaleDateString('no-NO') : ''}. Oppdater innhold, publiser på nytt og innhent signaturer.`}
-                  module="hse"
-                  sourceType="manual"
-                  sourceId={page.id}
-                  sourceLabel={page.title}
-                >
-                  Oppfølgingsoppgave (Kanban)
-                </AddTaskLink>
-              </div>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate(`/documents/page/${page.id}/edit`)}
-            className="inline-flex items-center gap-1.5 rounded-none border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
-          >
-            <Pencil className="size-3.5" />
-            Rediger
-          </button>
-        </div>
-
-        {page.containsPii ? (
-          <div
-            className="mb-6 flex gap-3 rounded-none border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950"
-            role="status"
-          >
-            <Shield className="mt-0.5 size-5 shrink-0 text-sky-700" aria-hidden />
-            <div>
-              <p className="font-semibold text-sky-950">Dette dokumentet inneholder personopplysninger.</p>
-              {page.piiLegalBasis?.trim() ? (
-                <p className="mt-1 text-sky-900">
-                  <span className="font-medium">Behandlingsgrunnlag:</span> {page.piiLegalBasis}
-                </p>
-              ) : null}
-              {page.piiRetentionNote?.trim() ? (
-                <p className="mt-1 text-sky-900">
-                  <span className="font-medium">Lagringstid:</span> {page.piiRetentionNote}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {/* Content */}
-        <WikiBlockRenderer
-          blocks={Array.isArray(page.blocks) ? page.blocks : []}
-          pageId={page.id}
-          pageVersion={page.version}
-          lang={page.lang ?? 'nb'}
-        />
-
-        {versions.length > 0 && (
-          <div className="mt-10 rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-neutral-800">
-              <History className="size-4 text-[#1a3d32]" />
-              Publiserte versjoner (arkiv)
-            </h2>
-            <p className="mt-1 text-xs text-neutral-500">
-              Hver publisering fryser forrige versjon for revisjon og tilsyn.
-            </p>
-            <ul className="mt-3 space-y-2 text-sm">
-              {versions.map((v) => (
-                <li key={v.id} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-neutral-100 pb-2 last:border-0">
-                  <span className="font-medium text-neutral-800">
-                    v{v.version} — {v.title}
-                  </span>
-                  <span className="text-xs text-neutral-500">
-                    {new Date(v.frozenAt).toLocaleString('no-NO')}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    </DocumentsModuleLayout>
+        </ModuleSectionCard>
+      )}
+    </ModulePageShell>
   )
 }
