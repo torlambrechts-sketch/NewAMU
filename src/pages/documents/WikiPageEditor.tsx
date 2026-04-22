@@ -1,14 +1,34 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   Accessibility,
-  AlertTriangle, CheckCircle2, ChevronDown, ChevronUp,
-  Eye, GripVertical, Loader2, Save, Trash2,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  FileText,
+  GripVertical,
+  Save,
+  Settings,
+  Trash2,
 } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { RichTextEditor } from '../../components/learning/RichTextEditor'
-import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+import {
+  ModuleLegalBanner,
+  ModulePageShell,
+  ModuleSectionCard,
+} from '../../components/module'
+import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
+import { StandardTextarea } from '../../components/ui/Textarea'
+import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
+import { Badge } from '../../components/ui/Badge'
+import { WarningBox } from '../../components/ui/AlertBox'
+import { Tabs } from '../../components/ui/Tabs'
+import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { AcknowledgementAudience, ContentBlock, ModuleBlock, WikiPageLang } from '../../types/documents'
 import {
   GDPR_ART6_SUGGESTIONS,
@@ -36,6 +56,45 @@ const MODULE_OPTIONS: { name: ModuleBlock['moduleName']; label: string }[] = [
   { name: 'acknowledgement_footer', label: 'Lest og forstått (signatur)' },
   { name: 'emergency_stop_procedure', label: 'Stansingsrett — verneombud (AML §6-3)' },
 ]
+
+const PAGE_LANG_OPTIONS: SelectOption[] = [
+  { value: 'nb', label: 'Bokmål (nb)' },
+  { value: 'nn', label: 'Nynorsk (nn)' },
+  { value: 'en', label: 'Engelsk (en)' },
+]
+
+const TEMPLATE_OPTIONS: SelectOption[] = [
+  { value: 'standard', label: 'Standard' },
+  { value: 'wide', label: 'Bred' },
+  { value: 'policy', label: 'Policy (smal)' },
+]
+
+const ACK_AUDIENCE_OPTIONS: SelectOption[] = [
+  { value: 'all_employees', label: 'Alle ansatte' },
+  { value: 'leaders_only', label: 'Kun ledere (org.admin)' },
+  { value: 'safety_reps_only', label: 'Kun verneombud / HMS-representant' },
+  { value: 'department', label: 'Spesifikk avdeling' },
+]
+
+const IMAGE_WIDTH_OPTIONS: SelectOption[] = [
+  { value: 'full', label: 'Full bredde' },
+  { value: 'wide', label: 'Bred' },
+  { value: 'medium', label: 'Medium' },
+]
+
+type EditTab = 'innhold' | 'innstillinger'
+
+function editorStatusBadgeVariant(s: 'draft' | 'published' | 'archived'): 'draft' | 'success' | 'neutral' {
+  if (s === 'published') return 'success'
+  if (s === 'draft') return 'draft'
+  return 'neutral'
+}
+
+const EDITOR_STATUS_LABEL: Record<'draft' | 'published' | 'archived', string> = {
+  published: 'Publisert',
+  draft: 'Utkast',
+  archived: 'Arkivert',
+}
 
 function emptyBlock(kind: AddKind): ContentBlock {
   switch (kind) {
@@ -97,6 +156,7 @@ export function WikiPageEditor() {
   const [pageLang, setPageLang] = useState<WikiPageLang>(() => original?.lang ?? 'nb')
   const [a11yOpen, setA11yOpen] = useState(false)
   const [a11yWarnings, setA11yWarnings] = useState<string[]>([])
+  const [editTab, setEditTab] = useState<EditTab>('innhold')
 
   // useState initializers only run once; when `original` loads after the first render (async fetch),
   // we must hydrate form state or the editor stays blank.
@@ -144,42 +204,71 @@ export function WikiPageEditor() {
     [docs.wikiRetentionCategories, retentionSlug],
   )
 
+  const retentionSelectOptions = useMemo((): SelectOption[] => {
+    return [
+      { value: '', label: '— Velg —' },
+      ...docs.wikiRetentionCategories.map((c) => ({ value: c.slug, label: c.label })),
+    ]
+  }, [docs.wikiRetentionCategories])
+
+  const deptOptions = useMemo((): SelectOption[] => {
+    return [{ value: '', label: 'Velg avdeling…' }, ...departments.map((d) => ({ value: d.id, label: d.name }))]
+  }, [departments])
+
   if (pageHydrateError && !original) {
     return (
-      <div className="mx-auto max-w-[1400px] px-4 py-12 text-center">
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{pageHydrateError}</p>
-        <Link to="/documents" className="mt-4 inline-block text-[#1a3d32] underline">
-          ← Tilbake til dokumenter
-        </Link>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]}
+        title="Rediger dokument"
+      >
+        <WarningBox>{pageHydrateError}</WarningBox>
+        <Button type="button" variant="secondary" className="mt-4" onClick={() => navigate('/documents')}>
+          Tilbake til bibliotek
+        </Button>
+      </ModulePageShell>
     )
   }
 
   if ((docs.loading || pageHydrateLoading) && !original) {
     return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-4 text-neutral-600">
-        <Loader2 className="size-8 animate-spin text-[#1a3d32]" aria-hidden />
-        <p className="text-sm">Laster redigeringsdata…</p>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]}
+        title="Laster redigering…"
+        loading
+        loadingLabel="Laster redigeringsdata…"
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   if (docs.error && !original) {
     return (
-      <div className="mx-auto max-w-[1400px] px-4 py-12 text-center">
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{docs.error}</p>
-        <Link to="/documents" className="mt-4 inline-block text-[#1a3d32] underline">
-          ← Tilbake til dokumenter
-        </Link>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]}
+        title="Rediger dokument"
+      >
+        <WarningBox>{docs.error}</WarningBox>
+        <Button type="button" variant="secondary" className="mt-4" onClick={() => navigate('/documents')}>
+          Tilbake til bibliotek
+        </Button>
+      </ModulePageShell>
     )
   }
 
   if (!original) {
     return (
-      <div className="mx-auto max-w-[1400px] px-4 py-12 text-center text-neutral-500">
-        Side ikke funnet. <Link to="/documents" className="text-[#1a3d32] underline">← Tilbake</Link>
-      </div>
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]}
+        title="Rediger dokument"
+        notFound={{
+          title: 'Side ikke funnet',
+          backLabel: '← Tilbake til bibliotek',
+          onBack: () => navigate('/documents'),
+        }}
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
@@ -284,51 +373,79 @@ export function WikiPageEditor() {
     setA11yOpen(true)
   }
 
+  const editTabItems = [
+    { id: 'innhold', label: 'Innhold', icon: FileText },
+    { id: 'innstillinger', label: 'Innstillinger', icon: Settings },
+  ]
+
   return (
-    <DocumentsModuleLayout
-      subHeader={
-        <nav className="mt-6 flex flex-wrap items-center gap-2 border-b border-neutral-200/80 pb-6 text-sm text-neutral-600">
-          <Link to="/documents" className="text-neutral-500 hover:text-[#1a3d32]">
-            Bibliotek
-          </Link>
-          <span className="text-neutral-400">→</span>
-          {space && (
-            <>
-              <Link to={`/documents/space/${space.id}`} className="text-neutral-500 hover:text-[#1a3d32]">
-                {space.title}
-              </Link>
-              <span className="text-neutral-400">→</span>
-            </>
-          )}
-          <span className="font-medium text-neutral-800">{original.title}</span>
-          <span className="ml-1 rounded-none border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900">
-            Redigerer
-          </span>
-        </nav>
+    <ModulePageShell
+      breadcrumb={[
+        { label: 'HMS' },
+        { label: DOCUMENTS_MODULE_TITLE, to: '/documents' },
+        ...(space ? [{ label: space.title, to: `/documents/space/${space.id}` }] : []),
+        { label: original.title, to: `/documents/page/${original.id}` },
+        { label: 'Rediger' },
+      ]}
+      title={`Rediger: ${original.title}`}
+      description={
+        <p className="max-w-3xl text-sm text-neutral-600">
+          Utkast og publisering følger internkontrollforskriften § 5 — dokumentasjon skal være tilgjengelig, oppdatert og
+          revidert etter behov.
+        </p>
       }
+      headerActions={
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={editorStatusBadgeVariant(original.status)} className="text-xs">
+            {EDITOR_STATUS_LABEL[original.status]}
+          </Badge>
+          <Button type="button" variant="secondary" icon={<Eye className="h-4 w-4" />} onClick={() => navigate(`/documents/page/${original.id}`)}>
+            Forhåndsvis
+          </Button>
+          <Button type="button" variant="secondary" disabled={!dirty} icon={<Save className="h-4 w-4" />} onClick={() => void handleSave()}>
+            Lagre utkast
+          </Button>
+          <Button type="button" variant="primary" icon={<CheckCircle2 className="h-4 w-4" />} onClick={() => void handlePublish()}>
+            Lagre og publiser
+          </Button>
+        </div>
+      }
+      tabs={<Tabs items={editTabItems} activeId={editTab} onChange={(id) => setEditTab(id as EditTab)} />}
     >
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-b border-neutral-200 pb-3">
-        <button
-          type="button"
-          onClick={runA11yCheck}
-          className="inline-flex items-center gap-1.5 rounded-none border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-50"
-        >
-          <Accessibility className="size-3.5 shrink-0" aria-hidden />
+      <ModuleLegalBanner
+        collapsible
+        defaultCollapsed
+        title="Dokumentasjon og revisjon"
+        references={[
+          {
+            code: 'IK-forskriften § 5',
+            text: (
+              <>
+                Virksomheten skal systematisk sikre at lover og forskrifter blir fulgt — dokumentert, tilgjengelig og
+                revidert etter behov.
+              </>
+            ),
+          },
+        ]}
+      />
+
+      <div className="flex flex-wrap items-center gap-2 border-b border-neutral-200 pb-3">
+        <Button type="button" variant="secondary" size="sm" icon={<Accessibility className="h-4 w-4" />} onClick={runA11yCheck}>
           Tilgjengelighetssjekk
-        </button>
+        </Button>
       </div>
 
       {a11yOpen ? (
         <div
-          className="mt-3 rounded-none border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950"
+          className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
           role="region"
           aria-label="Tilgjengelighet — resultat av heuristisk sjekk"
         >
           <div className="flex items-start justify-between gap-2">
             <p className="font-medium">Resultat (heuristikk)</p>
-            <button type="button" className="text-xs text-amber-900 underline" onClick={() => setA11yOpen(false)}>
+            <Button type="button" variant="ghost" size="sm" className="text-amber-900" onClick={() => setA11yOpen(false)}>
               Lukk
-            </button>
+            </Button>
           </div>
           {a11yWarnings.length === 0 ? (
             <p className="mt-2 text-xs text-amber-900">
@@ -344,186 +461,207 @@ export function WikiPageEditor() {
         </div>
       ) : null}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_280px]">
-        {/* ── Left: editor ──────────────────────────────────────────────── */}
-        <div className="space-y-4">
-          {/* Title + summary */}
-          <div className="rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <label className="text-xs font-medium text-neutral-500">Tittel</label>
-            <input
-              value={title}
-              onChange={(e) => { setTitle(e.target.value); markDirty() }}
-              className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-base font-semibold focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
-            />
-            <label className="mt-3 block text-xs font-medium text-neutral-500">Kort beskrivelse</label>
-            <input
-              value={summary}
-              onChange={(e) => { setSummary(e.target.value); markDirty() }}
-              className="mt-1 w-full rounded-none border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
-              placeholder="Valgfri beskrivelse vist i mappevisningen"
-            />
-            <div className="mt-3">
-              <label htmlFor="wiki-page-lang" className="text-xs font-medium text-neutral-500">
-                Dokumentspråk
+      {savedMsg ? (
+        <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          <CheckCircle2 className="size-4 shrink-0" aria-hidden />
+          Lagret
+        </div>
+      ) : null}
+
+      {editTab === 'innhold' ? (
+      <div className="mt-6 space-y-4">
+        <ModuleSectionCard>
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-editor-title">
+                Tittel
               </label>
-              <select
-                id="wiki-page-lang"
-                value={pageLang}
+              <StandardInput
+                id="wiki-editor-title"
+                value={title}
                 onChange={(e) => {
-                  setPageLang(e.target.value as WikiPageLang)
+                  setTitle(e.target.value)
                   markDirty()
                 }}
-                className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
-              >
-                <option value="nb">Bokmål (nb)</option>
-                <option value="nn">Nynorsk (nn)</option>
-                <option value="en">Engelsk (en)</option>
-              </select>
+                className="text-base font-semibold"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-editor-summary">
+                Kort beskrivelse
+              </label>
+              <StandardInput
+                id="wiki-editor-summary"
+                value={summary}
+                onChange={(e) => {
+                  setSummary(e.target.value)
+                  markDirty()
+                }}
+                placeholder="Valgfri beskrivelse vist i mappevisningen"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-page-lang">
+                Dokumentspråk
+              </label>
+              <SearchableSelect
+                value={pageLang}
+                options={PAGE_LANG_OPTIONS}
+                onChange={(v) => {
+                  setPageLang(v as WikiPageLang)
+                  markDirty()
+                }}
+              />
               <p className="mt-1 text-[11px] text-neutral-500">Setter språk på innholdet (WCAG).</p>
             </div>
           </div>
+        </ModuleSectionCard>
 
-          {/* Block list */}
-          <div className="space-y-2">
-            {blocks.map((block, idx) => (
-              <BlockItem
-                key={idx}
-                block={block}
-                selected={selectedIdx === idx}
-                onSelect={() => setSelectedIdx(idx === selectedIdx ? null : idx)}
-                onUpdate={(patch) => updateBlock(idx, patch)}
-                onRemove={() => removeBlock(idx)}
-                onMove={(dir) => moveBlock(idx, dir)}
-                isFirst={idx === 0}
-                isLast={idx === blocks.length - 1}
-              />
-            ))}
-          </div>
-
-          {/* Add block buttons */}
-          <div className="flex flex-wrap gap-2 rounded-none border border-dashed border-neutral-300 bg-white p-3">
-            <span className="w-full text-xs font-medium text-neutral-400">Legg til blokk</span>
-            {ADD_BLOCKS.map((a) => (
-              <button
-                key={a.kind}
-                type="button"
-                onClick={() => addBlock(a.kind)}
-                className="inline-flex items-center gap-1.5 rounded-none border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-              >
-                <span className="font-mono text-neutral-400">{a.icon}</span>
-                {a.label}
-              </button>
-            ))}
-          </div>
+        <div className="space-y-2">
+          {blocks.map((block, idx) => (
+            <BlockItem
+              key={idx}
+              block={block}
+              selected={selectedIdx === idx}
+              onSelect={() => setSelectedIdx(idx === selectedIdx ? null : idx)}
+              onUpdate={(patch) => updateBlock(idx, patch)}
+              onRemove={() => removeBlock(idx)}
+              onMove={(dir) => moveBlock(idx, dir)}
+              isFirst={idx === 0}
+              isLast={idx === blocks.length - 1}
+            />
+          ))}
         </div>
 
-        {/* ── Right: settings + actions ─────────────────────────────────── */}
+        <div className="flex flex-wrap gap-2 rounded-lg border border-dashed border-neutral-300 bg-white p-3">
+          <span className="w-full text-xs font-medium text-neutral-400">Legg til blokk</span>
+          {ADD_BLOCKS.map((a) => (
+            <Button key={a.kind} type="button" variant="secondary" size="sm" onClick={() => addBlock(a.kind)}>
+              <span className="mr-1 font-mono text-neutral-400">{a.icon}</span>
+              {a.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+      ) : (
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
-          <div className="rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold text-neutral-700">Sidestatus</h3>
-            <div className="space-y-3">
+          <ModuleSectionCard>
+            <h3 className="mb-4 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">Sidestatus</h3>
+            <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-neutral-500">Layout</label>
-                <select
+                <label className="mb-1 block text-xs font-medium text-neutral-500">Layout</label>
+                <SearchableSelect
                   value={template}
-                  onChange={(e) => { setTemplate(e.target.value as typeof template); markDirty() }}
-                  className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
-                >
-                  <option value="standard">Standard</option>
-                  <option value="wide">Bred</option>
-                  <option value="policy">Policy (smal)</option>
-                </select>
+                  options={TEMPLATE_OPTIONS}
+                  onChange={(v) => {
+                    setTemplate(v as typeof template)
+                    markDirty()
+                  }}
+                />
               </div>
               <div>
-                <label className="text-xs font-medium text-neutral-500">Lovhenvisninger (kommaseparert)</label>
-                <input
+                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-legal-refs">
+                  Lovhenvisninger (kommaseparert)
+                </label>
+                <StandardInput
+                  id="wiki-legal-refs"
                   value={legalRefs}
-                  onChange={(e) => { setLegalRefs(e.target.value); markDirty() }}
+                  onChange={(e) => {
+                    setLegalRefs(e.target.value)
+                    markDirty()
+                  }}
                   placeholder="IK-f §5 nr. 1a, AML §3-1"
-                  className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
                 />
               </div>
               <label className="flex cursor-pointer items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={requiresAck}
-                  onChange={(e) => { setRequiresAck(e.target.checked); markDirty() }}
+                  onChange={(e) => {
+                    setRequiresAck(e.target.checked)
+                    markDirty()
+                  }}
                   className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
                 />
                 Krever «Lest og forstått»-signatur
               </label>
-              {requiresAck && (
-                <div className="space-y-2 pt-1">
+              {requiresAck ? (
+                <div className="space-y-3 border-t border-neutral-100 pt-3">
                   <div>
-                    <label className="text-xs font-medium text-neutral-500">Hvem skal signere?</label>
-                    <select
+                    <label className="mb-1 block text-xs font-medium text-neutral-500">Hvem skal signere?</label>
+                    <SearchableSelect
                       value={ackAudience}
-                      onChange={(e) => {
-                        setAckAudience(e.target.value as AcknowledgementAudience)
+                      options={ACK_AUDIENCE_OPTIONS}
+                      onChange={(v) => {
+                        setAckAudience(v as AcknowledgementAudience)
                         markDirty()
                       }}
-                      className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
-                    >
-                      <option value="all_employees">Alle ansatte</option>
-                      <option value="leaders_only">Kun ledere (org.admin)</option>
-                      <option value="safety_reps_only">Kun verneombud / HMS-representant</option>
-                      <option value="department">Spesifikk avdeling</option>
-                    </select>
+                    />
                   </div>
-                  {ackAudience === 'department' && (
+                  {ackAudience === 'department' ? (
                     <div>
-                      <label className="text-xs font-medium text-neutral-500">Avdeling</label>
-                      <select
+                      <label className="mb-1 block text-xs font-medium text-neutral-500">Avdeling</label>
+                      <SearchableSelect
                         value={ackDeptId}
-                        onChange={(e) => { setAckDeptId(e.target.value); markDirty() }}
-                        className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
-                      >
-                        <option value="">Velg avdeling…</option>
-                        {departments.map((d) => (
-                          <option key={d.id} value={d.id}>{d.name}</option>
-                        ))}
-                      </select>
+                        options={deptOptions}
+                        onChange={(v) => {
+                          setAckDeptId(v)
+                          markDirty()
+                        }}
+                      />
                     </div>
-                  )}
+                  ) : null}
                 </div>
-              )}
-              <div className="pt-2">
-                <label className="text-xs font-medium text-neutral-500">Revisjonsintervall (måneder)</label>
-                <input
+              ) : null}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-revision-months">
+                  Revisjonsintervall (måneder)
+                </label>
+                <StandardInput
+                  id="wiki-revision-months"
                   type="number"
                   min={1}
                   value={revisionMonths}
-                  onChange={(e) => { setRevisionMonths(e.target.value); markDirty() }}
-                  className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
+                  onChange={(e) => {
+                    setRevisionMonths(e.target.value)
+                    markDirty()
+                  }}
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-neutral-500">Neste revideringsdato (valgfri)</label>
-                <input
+                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-next-revision">
+                  Neste revideringsdato (valgfri)
+                </label>
+                <StandardInput
+                  id="wiki-next-revision"
                   type="date"
                   value={nextRevision}
-                  onChange={(e) => { setNextRevision(e.target.value); markDirty() }}
-                  className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
+                  onChange={(e) => {
+                    setNextRevision(e.target.value)
+                    markDirty()
+                  }}
                 />
                 <p className="mt-1 text-[11px] text-neutral-400">
                   Ved publisering settes neste frist automatisk ut fra intervall (IK-f §5 — systematisk gjennomgang).
                 </p>
               </div>
             </div>
-          </div>
+          </ModuleSectionCard>
 
-          <div className="rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold text-neutral-700">Dokumentklassifisering</h3>
+          <ModuleSectionCard>
+            <h3 className="mb-4 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">
+              Dokumentklassifisering
+            </h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-retention-cat">
+                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-retention-cat">
                   Oppbevaringskategori
                 </label>
-                <select
-                  id="wiki-retention-cat"
+                <SearchableSelect
                   value={retentionSlug}
-                  onChange={(e) => {
-                    const v = e.target.value
+                  options={retentionSelectOptions}
+                  onChange={(v) => {
                     setRetentionSlug(v)
                     const row = docs.wikiRetentionCategories.find((c) => c.slug === v)
                     if (row) {
@@ -535,15 +673,7 @@ export function WikiPageEditor() {
                     }
                     markDirty()
                   }}
-                  className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
-                >
-                  <option value="">— Velg —</option>
-                  {docs.wikiRetentionCategories.map((c) => (
-                    <option key={c.slug} value={c.slug}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               {selectedRetention ? (
                 <p className="text-xs leading-relaxed text-neutral-600">
@@ -564,12 +694,12 @@ export function WikiPageEditor() {
               {selectedRetention?.description ? (
                 <p className="text-[11px] text-neutral-500">{selectedRetention.description}</p>
               ) : null}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-retain-min">
+                  <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-retain-min">
                     Minimum (år)
                   </label>
-                  <input
+                  <StandardInput
                     id="wiki-retain-min"
                     type="number"
                     min={0}
@@ -578,14 +708,13 @@ export function WikiPageEditor() {
                       setRetainMinYearsStr(e.target.value)
                       markDirty()
                     }}
-                    className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-retain-max">
+                  <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-retain-max">
                     Maksimum (år)
                   </label>
-                  <input
+                  <StandardInput
                     id="wiki-retain-max"
                     type="number"
                     min={0}
@@ -595,7 +724,6 @@ export function WikiPageEditor() {
                       setRetainMaxYearsStr(e.target.value)
                       markDirty()
                     }}
-                    className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
                   />
                 </div>
               </div>
@@ -603,10 +731,14 @@ export function WikiPageEditor() {
                 Planlagt slettedato beregnes når dokumentet er <strong>arkivert</strong> og maks. år er satt.
               </p>
             </div>
-          </div>
+          </ModuleSectionCard>
+        </div>
 
-          <div className="rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold text-neutral-700">Personopplysninger</h3>
+        <div className="space-y-4">
+          <ModuleSectionCard>
+            <h3 className="mb-4 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">
+              Personopplysninger
+            </h3>
             <label className="flex cursor-pointer items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -620,7 +752,7 @@ export function WikiPageEditor() {
               />
               Inneholder personopplysninger
             </label>
-            {containsPii && (
+            {containsPii ? (
               <div className="mt-3 space-y-3 border-t border-neutral-100 pt-3">
                 <div>
                   <span className="text-xs font-medium text-neutral-500">Kategorier</span>
@@ -633,9 +765,7 @@ export function WikiPageEditor() {
                             checked={piiCategories.includes(opt.value)}
                             onChange={(ev) => {
                               setPiiCategories((prev) =>
-                                ev.target.checked
-                                  ? [...prev, opt.value]
-                                  : prev.filter((x) => x !== opt.value),
+                                ev.target.checked ? [...prev, opt.value] : prev.filter((x) => x !== opt.value),
                               )
                               markDirty()
                             }}
@@ -650,16 +780,16 @@ export function WikiPageEditor() {
                 {(piiCategories.includes('helse') ||
                   piiCategories.includes('fagforeningsmedlemskap') ||
                   piiCategories.includes('etnisitet')) && (
-                  <p className="rounded-none border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
+                  <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
                     Dokument med særlige kategorier (f.eks. helse) er kun lesbart for brukere med tilgangen{' '}
                     <strong>hr.sensitive</strong> eller administrator.
                   </p>
                 )}
                 <div>
-                  <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-pii-legal-basis">
+                  <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-pii-legal-basis">
                     Behandlingsgrunnlag
                   </label>
-                  <input
+                  <StandardInput
                     id="wiki-pii-legal-basis"
                     list="wiki-pii-legal-basis-list"
                     value={piiLegalBasis}
@@ -668,7 +798,6 @@ export function WikiPageEditor() {
                       markDirty()
                     }}
                     placeholder="f.eks. GDPR art. 6 nr. 1 bokstav b — kontraktsforhold"
-                    className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
                   />
                   <datalist id="wiki-pii-legal-basis-list">
                     {[...GDPR_ART6_SUGGESTIONS, ...GDPR_ART9_SUGGESTIONS].map((s) => (
@@ -677,10 +806,10 @@ export function WikiPageEditor() {
                   </datalist>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-pii-retention">
+                  <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-pii-retention">
                     Lagringstid / notat
                   </label>
-                  <textarea
+                  <StandardTextarea
                     id="wiki-pii-retention"
                     rows={2}
                     value={piiRetentionNote}
@@ -689,23 +818,26 @@ export function WikiPageEditor() {
                       markDirty()
                     }}
                     placeholder="f.eks. Slettes 5 år etter avsluttet arbeidsforhold"
-                    className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
                   />
                 </div>
                 <p className="text-xs text-amber-800">
                   Husk å oppdatere behandlingsprotokollen ved endring av behandlingen.
                 </p>
               </div>
-            )}
-          </div>
+            ) : null}
+          </ModuleSectionCard>
 
-          <div className="rounded-none border border-neutral-200/90 bg-white p-4 shadow-sm">
-            <h3 className="mb-2 text-sm font-semibold text-neutral-700">Versjonshistorikk</h3>
+          <ModuleSectionCard>
+            <h3 className="mb-4 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">
+              Versjonshistorikk
+            </h3>
             <p className="text-xs text-neutral-500">
               Hver gang du publiserer, lagres gjeldende versjon som et fryst arkiv før versjonsnummer økes.
             </p>
             {docs.versionsForPage(original.id).length === 0 ? (
-              <p className="mt-2 text-xs text-neutral-400">Ingen arkiverte versjoner ennå (første publisering oppretter v1 i arkivet).</p>
+              <p className="mt-2 text-xs text-neutral-400">
+                Ingen arkiverte versjoner ennå (første publisering oppretter v1 i arkivet).
+              </p>
             ) : (
               <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-xs text-neutral-600">
                 {docs.versionsForPage(original.id).map((v) => (
@@ -715,43 +847,11 @@ export function WikiPageEditor() {
                 ))}
               </ul>
             )}
-          </div>
-
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => void handleSave()}
-              disabled={!dirty}
-              className="flex w-full items-center justify-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] py-2.5 text-sm font-medium text-white hover:bg-[#142e26] disabled:opacity-40"
-            >
-              <Save className="size-4" />
-              Lagre utkast
-            </button>
-            <button
-              type="button"
-              onClick={() => void handlePublish()}
-              className="flex w-full items-center justify-center gap-2 rounded-none border border-emerald-600 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
-            >
-              <CheckCircle2 className="size-4" />
-              Lagre og publiser
-            </button>
-            <Link
-              to={`/documents/page/${original.id}`}
-              className="flex items-center justify-center gap-2 rounded-none border border-neutral-200 py-2.5 text-sm text-neutral-600 hover:bg-neutral-50"
-            >
-              <Eye className="size-4" />
-              Forhåndsvis
-            </Link>
-          </div>
-
-          {savedMsg && (
-            <div className="flex items-center gap-2 rounded-none border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-              <CheckCircle2 className="size-4" /> Lagret
-            </div>
-          )}
+          </ModuleSectionCard>
         </div>
       </div>
-    </DocumentsModuleLayout>
+      )}
+    </ModulePageShell>
   )
 }
 
@@ -895,21 +995,14 @@ function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: P
         className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm"
       />
       <div>
-        <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-img-width">
+        <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-img-width">
           Bredde
         </label>
-        <select
-          id="wiki-img-width"
+        <SearchableSelect
           value={block.width ?? 'full'}
-          onChange={(e) =>
-            onUpdate({ width: e.target.value as 'full' | 'wide' | 'medium' } as Partial<ContentBlock>)
-          }
-          className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
-        >
-          <option value="full">Full bredde</option>
-          <option value="wide">Bred</option>
-          <option value="medium">Medium</option>
-        </select>
+          options={IMAGE_WIDTH_OPTIONS}
+          onChange={(v) => onUpdate({ width: v as 'full' | 'wide' | 'medium' } as Partial<ContentBlock>)}
+        />
       </div>
     </div>
   )
