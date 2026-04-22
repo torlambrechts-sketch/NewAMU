@@ -1,6 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronRight, FileText, FolderOpen, Search } from 'lucide-react'
 import { useDocuments } from '../../src/hooks/useDocuments'
 import type { PageStatus, SpaceCategory, WikiPage, WikiSpace } from '../../src/types/documents'
 import { Button } from '../../src/components/ui/Button'
@@ -118,21 +117,6 @@ function rowsForCategory(
   return out
 }
 
-function categoryEmoji(category: SpaceCategory): string {
-  switch (category) {
-    case 'hms_handbook':
-      return '📋'
-    case 'policy':
-      return '📜'
-    case 'procedure':
-      return '🔄'
-    case 'guide':
-      return '📖'
-    default:
-      return '🗂️'
-  }
-}
-
 function CategoryScorecard({
   category,
   rows,
@@ -154,9 +138,6 @@ function CategoryScorecard({
   return (
     <WhiteCard className="flex h-[28rem] flex-col overflow-hidden p-0">
       <div className="flex shrink-0 items-start gap-3 border-b border-neutral-100 px-4 py-3">
-        <div className="mt-0.5 text-xl" aria-hidden>
-          {categoryEmoji(category)}
-        </div>
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-neutral-900" style={{ fontFamily: DOCUMENTS_SCORECARD_SERIF }}>
             {CATEGORY_LABELS[category]}
@@ -192,11 +173,6 @@ function CategoryScorecard({
                   to={row.href}
                   className="flex items-start gap-2 rounded-md border border-transparent px-1 py-1.5 text-sm transition hover:border-neutral-200 hover:bg-white/80"
                 >
-                  {row.kind === 'space' ? (
-                    <FolderOpen className="mt-0.5 size-4 shrink-0 text-[#1a3d32]" aria-hidden />
-                  ) : (
-                    <FileText className="mt-0.5 size-4 shrink-0 text-neutral-500" aria-hidden />
-                  )}
                   <span className="min-w-0 flex-1">
                     <span className="font-medium text-neutral-900">{row.title}</span>
                     <span className="mt-0.5 block text-xs text-neutral-500">
@@ -219,11 +195,10 @@ function CategoryScorecard({
             <Button
               type="button"
               variant="ghost"
-              className="h-auto min-h-0 w-full justify-between p-2 text-xs font-semibold uppercase tracking-wide text-neutral-700"
+              className="h-auto min-h-0 w-full justify-start p-2 text-xs font-semibold uppercase tracking-wide text-neutral-700"
               onClick={onToggleExpand}
             >
-              <span>Flere ({hidden})</span>
-              <ChevronRight className="size-3.5" />
+              Flere ({hidden})
             </Button>
           </div>
         ) : expanded && rows.length > MAX_VISIBLE ? (
@@ -273,14 +248,13 @@ export function DocumentsScorecardBrowser() {
 
   return (
     <div className="space-y-6">
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+      <div>
         <StandardInput
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Søk i mapper og dokumenter…"
-          className="py-2.5 pl-10"
+          className="py-2.5"
         />
       </div>
 
