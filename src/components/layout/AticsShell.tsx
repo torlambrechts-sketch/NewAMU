@@ -238,24 +238,8 @@ const learningSubs: SubItem[] = [
   { label: 'Settings', path: '/learning/settings', match: ({ pathname }) => pathname === '/learning/settings' },
 ]
 
-const documentsSubs: SubItem[] = [
-  {
-    label: 'Hjem',
-    path: '/documents',
-    match: ({ pathname }) => pathname === '/documents',
-  },
-  {
-    label: 'Samsvarsstatus',
-    path: '/documents/compliance',
-    match: ({ pathname }) => pathname === '/documents/compliance',
-  },
-  {
-    label: 'Malinnstillinger',
-    path: '/documents/templates',
-    match: ({ pathname }) => pathname === '/documents/templates',
-    requirePerm: 'documents.manage',
-  },
-]
+/** Documents module uses in-page Oversikt / Innstillinger root tabs — no duplicate sidebar subs (UI_PLACEMENT_RULES §11). */
+const documentsSubs: SubItem[] = []
 
 const workplaceReportingSubs: SubItem[] = WORKPLACE_REPORTING_NAV.map((item) => {
   const base: SubItem = {
