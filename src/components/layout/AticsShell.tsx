@@ -460,25 +460,17 @@ const navGroups: NavGroup[] = [
         perm: 'module.view.dashboard',
       },
       {
+        // No sidebar subs: AmuElectionHubPage already exposes Valg /
+        // Innstillinger via the root-tab strip inside the module page.
+        // Deep links to /internkontroll/amu-valg/admin still resolve
+        // (back-compat shell).
         to: '/internkontroll/amu-valg',
         label: 'AMU-valg',
         end: false,
         icon: Vote,
         perm: 'module.view.internal_control',
         moduleSlug: 'amu_election',
-        subs: [
-          {
-            label: 'Oversikt',
-            path: '/internkontroll/amu-valg',
-            match: ({ pathname }) => pathname === '/internkontroll/amu-valg',
-          },
-          {
-            label: 'Innstillinger',
-            path: '/internkontroll/amu-valg/admin',
-            match: ({ pathname }) => pathname.startsWith('/internkontroll/amu-valg/admin'),
-            requirePermAny: ['amu_election.manage', 'internkontroll.manage', 'ik.manage'],
-          },
-        ],
+        subs: [],
       },
     ],
   },
@@ -490,24 +482,15 @@ const navGroups: NavGroup[] = [
     icon: HeartPulse,
     modules: [
       {
+        // No sidebar subs: AmuHubPage already exposes Møter /
+        // Innstillinger via the root-tab strip inside the module page.
+        // Deep links to /council/amu/admin still resolve (back-compat shell).
         to: '/council/amu',
         label: 'AMU',
         end: false,
         icon: ScrollText,
         perm: 'module.view.council',
-        subs: [
-          {
-            label: 'Møter',
-            path: '/council/amu',
-            match: ({ pathname }) => pathname === '/council/amu' || pathname.startsWith('/council/amu/'),
-          },
-          {
-            label: 'Innstillinger',
-            path: '/council/amu/admin',
-            match: ({ pathname }) => pathname.startsWith('/council/amu/admin'),
-            requirePerm: 'amu.manage',
-          },
-        ],
+        subs: [],
       },
       {
         to: '/council',
