@@ -37,7 +37,11 @@ const shellTabs = [
   { key: 'arbeidsflyt' as const, label: 'Arbeidsflyt', icon: <GitBranch className="h-4 w-4" /> },
 ]
 
-export function AmuModuleAdminPage() {
+type AmuModuleAdminPageProps = { embedded?: boolean }
+
+export function AmuModuleAdminPage({
+  embedded = false,
+}: AmuModuleAdminPageProps = {}) {
   const navigate = useNavigate()
   const { supabase, can, isAdmin } = useOrgSetupContext()
   const canManage = isAdmin || can('amu.manage')
@@ -153,6 +157,12 @@ export function AmuModuleAdminPage() {
   )
 
   if (!canManage) {
+    const accessBody = (
+      <WarningBox>
+        Du har ikke tilgang til AMU-innstillinger. Krever rollen <strong>amu.manage</strong> eller administrator.
+      </WarningBox>
+    )
+    if (embedded) return accessBody
     return (
       <ModulePageShell
         breadcrumb={[{ label: 'Council' }, { label: 'AMU', to: AMU_PATH }, { label: 'Administrasjon' }]}
@@ -168,37 +178,22 @@ export function AmuModuleAdminPage() {
           </Button>
         }
       >
-        <WarningBox>
-          Du har ikke tilgang til AMU-innstillinger. Krever rollen <strong>amu.manage</strong> eller administrator.
-        </WarningBox>
+        {accessBody}
       </ModulePageShell>
     )
   }
 
-  return (
-    <ModulePageShell
-      breadcrumb={[{ label: 'Council' }, { label: 'AMU', to: AMU_PATH }, { label: 'Administrasjon' }]}
-      title="AMU — administrasjon"
-      description="Standard saksliste gjelder hele virksomheten når brukere genererer agenda for nye møter. Arbeidsflyt utløses når møtet settes som planlagt (innkalling) og når referat signeres."
-      headerActions={
-        <Button
-          type="button"
-          variant="secondary"
-          icon={<ArrowLeft className="h-4 w-4" />}
-          onClick={() => navigate(AMU_PATH)}
-        >
-          Tilbake til møter
-        </Button>
-      }
-      tabs={
-        <Tabs
-          items={tabStripItems}
-          activeId={tab}
-          onChange={(id) => setTab(id as AdminTab)}
-          overflow="scroll"
-        />
-      }
-    >
+  const tabsNode = (
+    <Tabs
+      items={tabStripItems}
+      activeId={tab}
+      onChange={(id) => setTab(id as AdminTab)}
+      overflow="scroll"
+    />
+  )
+
+  const body = (
+    <>
       {amu.error ? <WarningBox>{amu.error}</WarningBox> : null}
 
       {tab === 'generelt' && (
@@ -347,6 +342,36 @@ export function AmuModuleAdminPage() {
           />
         </div>
       )}
+    </>
+  )
+
+  if (embedded) {
+    return (
+      <div className="space-y-6">
+        {tabsNode}
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <ModulePageShell
+      breadcrumb={[{ label: 'Council' }, { label: 'AMU', to: AMU_PATH }, { label: 'Administrasjon' }]}
+      title="AMU — administrasjon"
+      description="Standard saksliste gjelder hele virksomheten når brukere genererer agenda for nye møter. Arbeidsflyt utløses når møtet settes som planlagt (innkalling) og når referat signeres."
+      headerActions={
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<ArrowLeft className="h-4 w-4" />}
+          onClick={() => navigate(AMU_PATH)}
+        >
+          Tilbake til møter
+        </Button>
+      }
+      tabs={tabsNode}
+    >
+      {body}
     </ModulePageShell>
   )
 }

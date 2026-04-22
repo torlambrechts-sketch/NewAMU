@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ChevronRight, Plus, Search, Settings } from 'lucide-react'
 import { FormModal } from '../../src/template'
@@ -43,7 +43,26 @@ function todayIso() {
   return `${y}-${m < 10 ? `0${m}` : m}-${n < 10 ? `0${n}` : n}`
 }
 
-export function AmuPage() {
+export function AmuPage({
+  tabs,
+  bodyOnly = false,
+  hideAdminNav = false,
+}: {
+  /** Optional tabs row passed to `ModulePageShell.tabs`. */
+  tabs?: ReactNode
+  /**
+   * When `true`, skip the ModulePageShell chrome and render the meetings
+   * body only. Used when the parent already owns the page shell (e.g. the
+   * /council/amu root-tab orchestrator). Has no effect on the detail view
+   * (when `meetingId` is present), which always renders its own chrome.
+   */
+  bodyOnly?: boolean
+  /**
+   * When `true`, hide the duplicate "Innstillinger" header button because
+   * the page already renders root tabs (Møter / Innstillinger).
+   */
+  hideAdminNav?: boolean
+} = {}) {
   const { meetingId } = useParams<{ meetingId: string }>()
   const navigate = useNavigate()
   const amu = useAmu()
@@ -103,33 +122,30 @@ export function AmuPage() {
     return <AmuDetailView amu={amu} meetingId={meetingId} listPath={LIST_PATH} />
   }
 
-  return (
-    <ModulePageShell
-      breadcrumb={[{ label: 'Samarbeid' }, { label: 'AMU' }]}
-      title="Arbeidsmiljøutvalg (AMU)"
-      description="Møter, saksbehandling og signert referat etter arbeidsmiljøloven kapittel 7. Velg et møte eller opprett et nytt."
-      headerActions={
-        <div className="flex flex-wrap items-center gap-2">
-          {amu.canManage ? (
-            <Link to={AMU_ADMIN_PATH}>
-              <Button type="button" variant="secondary" icon={<Settings className="h-4 w-4" />}>
-                <span className="hidden sm:inline">Innstillinger</span>
-              </Button>
-            </Link>
-          ) : null}
-          {amu.canManage ? (
-            <Button
-              type="button"
-              variant="primary"
-              icon={<Plus className="h-4 w-4" />}
-              onClick={() => setCreateOpen(true)}
-            >
-              Nytt møte
-            </Button>
-          ) : null}
-        </div>
-      }
-    >
+  const headerActions = (
+    <div className="flex flex-wrap items-center gap-2">
+      {amu.canManage && !hideAdminNav ? (
+        <Link to={AMU_ADMIN_PATH}>
+          <Button type="button" variant="secondary" icon={<Settings className="h-4 w-4" />}>
+            <span className="hidden sm:inline">Innstillinger</span>
+          </Button>
+        </Link>
+      ) : null}
+      {amu.canManage ? (
+        <Button
+          type="button"
+          variant="primary"
+          icon={<Plus className="h-4 w-4" />}
+          onClick={() => setCreateOpen(true)}
+        >
+          Nytt møte
+        </Button>
+      ) : null}
+    </div>
+  )
+
+  const body = (
+    <>
       {amu.error ? <WarningBox>{amu.error}</WarningBox> : null}
 
       <ModuleRecordsTableShell
@@ -260,6 +276,22 @@ export function AmuPage() {
           </div>
         </div>
       </FormModal>
+    </>
+  )
+
+  if (bodyOnly) {
+    return <>{body}</>
+  }
+
+  return (
+    <ModulePageShell
+      breadcrumb={[{ label: 'Samarbeid' }, { label: 'AMU' }]}
+      title="Arbeidsmiljøutvalg (AMU)"
+      description="Møter, saksbehandling og signert referat etter arbeidsmiljøloven kapittel 7. Velg et møte eller opprett et nytt."
+      tabs={tabs}
+      headerActions={headerActions}
+    >
+      {body}
     </ModulePageShell>
   )
 }
