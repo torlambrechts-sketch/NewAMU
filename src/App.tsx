@@ -66,6 +66,7 @@ import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { AnnualReviewPage } from './pages/documents/AnnualReviewPage'
 import { InspectionArbeidstilsynetExportPage } from './pages/documents/InspectionArbeidstilsynetExportPage'
 import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
+import { DocumentEditorTestPage } from './pages/documents/DocumentEditorTestPage'
 import { DocumentsModuleShellLayout, DocumentsScorecardTestPage, DocumentsWikiOutlet } from '../modules/documents'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import { DocumentsLayout } from './hooks/useDocuments'
@@ -259,6 +260,7 @@ function App() {
                       <Route path="hr/o-ros" element={<HrORosPage />} />
                       <Route element={<DocumentsModuleShellLayout />}>
                         <Route path="documents/scorecard-browser" element={<DocumentsScorecardTestPage />} />
+                        <Route path="documents/editor-test" element={<DocumentEditorTestPage />} />
                         <Route path="documents" element={<DocumentsHome />} />
                         <Route path="documents/compliance" element={<ComplianceDashboard />} />
                         <Route

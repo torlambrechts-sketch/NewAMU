@@ -7,6 +7,7 @@
  * Placeholder) with our layout instead.
  */
 import { useEffect, useRef } from 'react'
+import type { Editor } from '@tiptap/core'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -34,6 +35,46 @@ type Props = {
   onChange: (html: string) => void
   className?: string
   placeholder?: string
+  /** Default `full` — document-style surfaces often use `minimal` (undo/redo only). */
+  toolbar?: 'full' | 'minimal' | 'none'
+  /** Fires when the editor instance is ready; called with `null` on unmount. */
+  onEditorReady?: (editor: Editor | null) => void
+}
+
+function TipTapMinimalToolbar({ editor }: { editor: NonNullable<ReturnType<typeof useEditor>> }) {
+  const state = useEditorState({
+    editor,
+    selector: (snap) => ({
+      canUndo: snap.editor.can().chain().focus().undo().run(),
+      canRedo: snap.editor.can().chain().focus().redo().run(),
+    }),
+  })
+  if (!state) return null
+  const { canUndo, canRedo } = state
+  return (
+    <div
+      className="flex flex-wrap items-center gap-1 border-b border-neutral-200 bg-neutral-50/90 px-2 py-2"
+      role="toolbar"
+      aria-label="Angre / gjør om"
+    >
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        icon={<Undo2 className="h-3.5 w-3.5" />}
+        disabled={!canUndo}
+        onClick={() => editor.chain().focus().undo().run()}
+      />
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        icon={<Redo2 className="h-3.5 w-3.5" />}
+        disabled={!canRedo}
+        onClick={() => editor.chain().focus().redo().run()}
+      />
+    </div>
+  )
 }
 
 function TipTapToolbar({ editor }: { editor: NonNullable<ReturnType<typeof useEditor>> }) {
@@ -197,12 +238,18 @@ export function TipTapRichTextEditor({
   onChange,
   className = '',
   placeholder = 'Skriv innhold…',
+  toolbar = 'full',
+  onEditorReady,
 }: Props) {
   const lastEmitted = useRef<string | null>(null)
   const onChangeRef = useRef(onChange)
+  const onEditorReadyRef = useRef(onEditorReady)
   useEffect(() => {
     onChangeRef.current = onChange
   }, [onChange])
+  useEffect(() => {
+    onEditorReadyRef.current = onEditorReady
+  }, [onEditorReady])
 
   const editor = useEditor({
     extensions: [
@@ -236,6 +283,17 @@ export function TipTapRichTextEditor({
     lastEmitted.current = normalized
   }, [editor, value])
 
+  useEffect(() => {
+    if (!editor) {
+      onEditorReadyRef.current?.(null)
+      return
+    }
+    onEditorReadyRef.current?.(editor)
+    return () => {
+      onEditorReadyRef.current?.(null)
+    }
+  }, [editor])
+
   if (!editor) {
     return (
       <div className={twMerge('rounded-lg border border-neutral-200 bg-white px-3 py-8 text-center text-sm text-neutral-500', className)}>
@@ -260,7 +318,8 @@ export function TipTapRichTextEditor({
         className,
       )}
     >
-      <TipTapToolbar editor={editor} />
+      {toolbar === 'full' ? <TipTapToolbar editor={editor} /> : null}
+      {toolbar === 'minimal' ? <TipTapMinimalToolbar editor={editor} /> : null}
       <EditorContent editor={editor} />
     </div>
   )
