@@ -42,7 +42,11 @@ const TAB_ICONS: Record<AdminTab, ElementType> = {
   arbeidsflyt: GitBranch,
 }
 
-export function VernerunderAdminPage() {
+type VernerunderAdminPageProps = { embedded?: boolean }
+
+export function VernerunderAdminPage({
+  embedded = false,
+}: VernerunderAdminPageProps = {}) {
   const navigate = useNavigate()
   const { supabase, can, isAdmin } = useOrgSetupContext()
   const canManage = isAdmin || can('vernerunder.manage')
@@ -68,15 +72,54 @@ export function VernerunderAdminPage() {
   )
 
   if (!canManage) {
+    const accessBody = (
+      <WarningBox>
+        Du har ikke tilgang til vernerunder-innstillinger. Krever rettigheten «vernerunder.manage» eller administrator.
+      </WarningBox>
+    )
+    if (embedded) return accessBody
     return (
       <ModulePageShell
         breadcrumb={[{ label: 'HMS' }, { label: 'Vernerunder', to: '/vernerunder' }, { label: 'Administrasjon' }]}
         title="Vernerunder — administrasjon"
       >
-        <WarningBox>
-          Du har ikke tilgang til vernerunder-innstillinger. Krever rettigheten «vernerunder.manage» eller administrator.
-        </WarningBox>
+        {accessBody}
       </ModulePageShell>
+    )
+  }
+
+  const tabsNode = (
+    <Tabs
+      items={tabsUiItems}
+      activeId={tab}
+      onChange={(id) => setTab(id as AdminTab)}
+      overflow="scroll"
+    />
+  )
+
+  const body = (
+    <>
+      {v.error ? <WarningBox>{v.error}</WarningBox> : null}
+
+      {tab === 'generelt' && <GenereltTab />}
+      {tab === 'maler' && <MalerTab v={v} />}
+      {tab === 'kategorier' && <KategorierTab v={v} />}
+      {tab === 'arbeidsflyt' && (
+        <WorkflowRulesTab
+          supabase={supabase}
+          module="vernerunder"
+          triggerEvents={[...VERNERUNDER_WORKFLOW_TRIGGER_EVENTS]}
+        />
+      )}
+    </>
+  )
+
+  if (embedded) {
+    return (
+      <div className="space-y-6">
+        {tabsNode}
+        {body}
+      </div>
     )
   }
 
@@ -95,27 +138,9 @@ export function VernerunderAdminPage() {
           Tilbake til runder
         </Button>
       }
-      tabs={
-        <Tabs
-          items={tabsUiItems}
-          activeId={tab}
-          onChange={(id) => setTab(id as AdminTab)}
-          overflow="scroll"
-        />
-      }
+      tabs={tabsNode}
     >
-      {v.error ? <WarningBox>{v.error}</WarningBox> : null}
-
-      {tab === 'generelt' && <GenereltTab />}
-      {tab === 'maler' && <MalerTab v={v} />}
-      {tab === 'kategorier' && <KategorierTab v={v} />}
-      {tab === 'arbeidsflyt' && (
-        <WorkflowRulesTab
-          supabase={supabase}
-          module="vernerunder"
-          triggerEvents={[...VERNERUNDER_WORKFLOW_TRIGGER_EVENTS]}
-        />
-      )}
+      {body}
     </ModulePageShell>
   )
 }

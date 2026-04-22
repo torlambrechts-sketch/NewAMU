@@ -72,7 +72,7 @@ const ROLE_OPTIONS: SelectOption[] = (Object.keys(PARTICIPANT_ROLE_LABEL) as Ver
   (r) => ({ value: r, label: PARTICIPANT_ROLE_LABEL[r] }),
 )
 
-type DetailTab = 'planlegging' | 'sjekkliste' | 'funn' | 'deltakere_signatur'
+type DetailTab = 'informasjon' | 'sjekkliste' | 'funn' | 'deltakere_signatur'
 
 function TabEmpty({ icon, title, body }: { icon: ReactNode; title: string; body: string }) {
   return (
@@ -91,7 +91,7 @@ export function VernerundeDetailView() {
   const { vernerundeId: rawId } = useParams()
   const vernerundeId = rawId ?? ''
   const v = useVernerunde()
-  const [activeTab, setActiveTab] = useState<DetailTab>('planlegging')
+  const [activeTab, setActiveTab] = useState<DetailTab>('informasjon')
 
   const round = v.byId[vernerundeId] ?? null
   const locked = round ? v.isLockedByStatus(round.status) : false
@@ -165,7 +165,7 @@ export function VernerundeDetailView() {
   const critFinding = useMemo(() => findings.some((f) => f.severity === 'critical'), [findings])
   const tabItems: TabItem[] = useMemo(
     () => [
-      { id: 'planlegging', label: 'Planlegging' },
+      { id: 'informasjon', label: 'Informasjon' },
       { id: 'sjekkliste', label: 'Sjekkliste', badgeCount: checkpoints.length, badgeVariant: 'default' },
       { id: 'funn', label: 'Funn', badgeCount: findings.length, badgeVariant: critFinding ? 'danger' : 'default' },
       { id: 'deltakere_signatur', label: 'Deltakere & signatur', badgeCount: participantsCount, badgeVariant: 'default' },
@@ -315,7 +315,7 @@ export function VernerundeDetailView() {
         </ComplianceBanner>
         {v.error ? <div className="border-b border-amber-100"><WarningBox>{v.error}</WarningBox></div> : null}
 
-          {activeTab === 'planlegging' && (
+          {activeTab === 'informasjon' && (
             <div className="border-t border-neutral-100">
               {v.canManage && !locked ? (
                 <ModuleInformationCard
@@ -419,7 +419,7 @@ export function VernerundeDetailView() {
                 }
                 toolbar={
                   v.canManage && !locked && round.template_id && checkpoints.length === 0 ? (
-                    <div className="text-xs text-neutral-500">Tips: I Planlegging kan du importere punkter fra valgt mal.</div>
+                    <div className="text-xs text-neutral-500">Tips: I Informasjon kan du importere punkter fra valgt mal.</div>
                   ) : (
                     <span className="text-xs text-neutral-400" />
                   )}
@@ -428,7 +428,7 @@ export function VernerundeDetailView() {
                   <TabEmpty
                     icon={<ClipboardList className="h-7 w-7" strokeWidth={1.25} aria-hidden />}
                     title="Ingen sjekkpunkter ennå"
-                    body="Importer fra mal i Planlegging, eller legg til manuelle punkter med knappen over."
+                    body="Importer fra mal i Informasjon, eller legg til manuelle punkter med knappen over."
                   />
                 ) : (
                   <table className="w-full min-w-0 text-left text-sm text-neutral-800">

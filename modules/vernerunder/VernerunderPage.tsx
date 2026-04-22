@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ClipboardList, Loader2, Plus, Settings, Sparkles } from 'lucide-react'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
@@ -45,7 +45,25 @@ function ListEmpty() {
   )
 }
 
-export function VernerunderPage() {
+export function VernerunderPage({
+  tabs,
+  bodyOnly = false,
+  hideAdminNav = false,
+}: {
+  /** Optional tabs row passed to `ModulePageShell.tabs`. */
+  tabs?: ReactNode
+  /**
+   * When `true`, skip the ModulePageShell chrome and render the rounds
+   * body only. Used when the parent already owns the page shell
+   * (VernerunderPageRoute root-tab wrapper).
+   */
+  bodyOnly?: boolean
+  /**
+   * When `true`, hide the duplicate "Innstillinger" header button because
+   * the page already renders root tabs (Oversikt / Innstillinger).
+   */
+  hideAdminNav?: boolean
+} = {}) {
   const navigate = useNavigate()
   const v = useVernerunde()
   const [createOpen, setCreateOpen] = useState(false)
@@ -101,36 +119,33 @@ export function VernerunderPage() {
     ]
   }, [v.vernerunder])
 
-  return (
-    <ModulePageShell
-      breadcrumb={[{ label: 'HMS' }, { label: 'Vernerunder' }]}
-      title="Vernerunder"
-      description="Planlegg, gjennomfør og dokumenter vernerunder med sjekkliste, funn og signaturer."
-      headerActions={
-        <div className="flex flex-wrap items-center gap-2">
-          {v.canManage ? (
-            <Button
-              type="button"
-              variant="secondary"
-              icon={<Settings className="h-4 w-4" />}
-              onClick={() => navigate('/vernerunder/admin')}
-            >
-              <span className="hidden sm:inline">Innstillinger</span>
-            </Button>
-          ) : null}
-          {v.canManage ? (
-            <Button
-              type="button"
-              variant="primary"
-              icon={<Plus className="h-4 w-4" aria-hidden />}
-              onClick={() => setCreateOpen(true)}
-            >
-              Ny vernerunde
-            </Button>
-          ) : null}
-        </div>
-      }
-    >
+  const headerActions = (
+    <div className="flex flex-wrap items-center gap-2">
+      {v.canManage && !hideAdminNav ? (
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<Settings className="h-4 w-4" />}
+          onClick={() => navigate('/vernerunder/admin')}
+        >
+          <span className="hidden sm:inline">Innstillinger</span>
+        </Button>
+      ) : null}
+      {v.canManage ? (
+        <Button
+          type="button"
+          variant="primary"
+          icon={<Plus className="h-4 w-4" aria-hidden />}
+          onClick={() => setCreateOpen(true)}
+        >
+          Ny vernerunde
+        </Button>
+      ) : null}
+    </div>
+  )
+
+  const body = (
+    <>
       {v.error ? <WarningBox>{v.error}</WarningBox> : null}
 
       <ModuleRecordsTableShell
@@ -224,6 +239,22 @@ export function VernerunderPage() {
           />
         </div>
       </WorkplaceStandardFormPanel>
+    </>
+  )
+
+  if (bodyOnly) {
+    return <>{body}</>
+  }
+
+  return (
+    <ModulePageShell
+      breadcrumb={[{ label: 'HMS' }, { label: 'Vernerunder' }]}
+      title="Vernerunder"
+      description="Planlegg, gjennomfør og dokumenter vernerunder med sjekkliste, funn og signaturer."
+      tabs={tabs}
+      headerActions={headerActions}
+    >
+      {body}
     </ModulePageShell>
   )
 }
