@@ -1,0 +1,151 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Link, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom'
+import { ClipboardList, Plus, Settings } from 'lucide-react'
+import { ModulePageShell } from '../../src/components/module/ModulePageShell'
+import { Tabs } from '../../src/components/ui/Tabs'
+import { Button } from '../../src/components/ui/Button'
+import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
+import { DOCUMENTS_MODULE_DESC, DOCUMENTS_MODULE_TITLE } from '../../src/data/documentsNav'
+import { documentsModuleShellStyle } from '../../src/lib/documentsModuleShellStyle'
+import { DocumentsReadingPrefs } from '../../src/components/documents/DocumentsReadingPrefs'
+import {
+  DocumentsHubActionsProvider,
+  useDocumentsHubActions,
+} from './DocumentsHubActionsContext'
+import { DocumentsShellEmbeddedProvider } from './DocumentsShellContext'
+
+type DocumentsRootTab = 'oversikt' | 'innstillinger'
+
+function DocumentsShellHeaderActions({
+  activeRootTab,
+  canManage,
+  onHomeHub,
+}: {
+  activeRootTab: DocumentsRootTab
+  canManage: boolean
+  onHomeHub: boolean
+}) {
+  const { requestOpenNewFolder } = useDocumentsHubActions()
+
+  if (activeRootTab !== 'oversikt' || !canManage) return null
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {onHomeHub ? (
+        <Button
+          variant="primary"
+          type="button"
+          icon={<Plus className="h-4 w-4" />}
+          onClick={() => requestOpenNewFolder()}
+        >
+          Ny mappe
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * Shared `ModulePageShell` for all `/documents/*` routes (rule §1).
+ * Root tabs Oversikt / Innstillinger (rule §2); legacy `/documents/templates` unchanged.
+ */
+export function DocumentsModuleShellLayout() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { can, isAdmin, profile } = useOrgSetupContext()
+  const canManage = isAdmin || can('documents.manage')
+
+  const [rootTab, setRootTab] = useState<DocumentsRootTab>('oversikt')
+
+  useEffect(() => {
+    const p = location.pathname
+    if (p === '/documents/templates' || p.startsWith('/documents/templates/')) {
+      setRootTab('innstillinger')
+    } else {
+      setRootTab('oversikt')
+    }
+  }, [location.pathname])
+
+  const activeRootTab: DocumentsRootTab =
+    rootTab === 'innstillinger' && !canManage ? 'oversikt' : rootTab
+
+  const homeHubMatch = useMatch({ path: '/documents', end: true })
+
+  const rootTabItems = useMemo(() => {
+    const items: { id: DocumentsRootTab; label: string; icon: typeof ClipboardList }[] = [
+      { id: 'oversikt', label: 'Oversikt', icon: ClipboardList },
+    ]
+    if (canManage) items.push({ id: 'innstillinger', label: 'Innstillinger', icon: Settings })
+    return items
+  }, [canManage])
+
+  const rootTabsNode =
+    rootTabItems.length > 1 ? (
+      <Tabs
+        items={rootTabItems}
+        activeId={activeRootTab}
+        onChange={(id) => {
+          const next = id as DocumentsRootTab
+          setRootTab(next)
+          if (next === 'innstillinger') navigate('/documents/templates')
+          else navigate('/documents')
+        }}
+      />
+    ) : undefined
+
+  const description =
+    activeRootTab === 'innstillinger' && canManage ? (
+      <p className="max-w-3xl text-sm text-neutral-600">
+        Aktiver systemmaler og opprett organisasjonsspesifikke maler for malbiblioteket (dokumentasjonskrav i
+        internkontrollforskriften § 5).
+      </p>
+    ) : (
+      <p className="max-w-3xl text-sm text-neutral-600">{DOCUMENTS_MODULE_DESC}</p>
+    )
+
+  const oversiktLinks =
+    activeRootTab === 'oversikt' ? (
+      <nav
+        className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-neutral-200/80 pb-4 text-sm"
+        aria-label="Flere dokumentseksjoner"
+      >
+        <Link to="/documents/compliance" className="font-medium text-[#1a3d32] underline-offset-2 hover:underline">
+          Samsvar
+        </Link>
+        {canManage ? (
+          <Link
+            to="/documents/aarsgjennomgang"
+            className="font-medium text-[#1a3d32] underline-offset-2 hover:underline"
+          >
+            Årsgjennomgang
+          </Link>
+        ) : null}
+      </nav>
+    ) : null
+
+  return (
+    <DocumentsHubActionsProvider>
+      <DocumentsShellEmbeddedProvider>
+        <div className="docs-module-shell" style={documentsModuleShellStyle(profile)}>
+          <ModulePageShell
+            breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE }]}
+            title={DOCUMENTS_MODULE_TITLE}
+            description={description}
+            tabs={rootTabsNode}
+            headerActions={
+              <DocumentsShellHeaderActions
+                activeRootTab={activeRootTab}
+                canManage={canManage}
+                onHomeHub={Boolean(homeHubMatch)}
+              />
+            }
+          >
+            {oversiktLinks}
+            <DocumentsReadingPrefs />
+            <Outlet />
+          </ModulePageShell>
+        </div>
+      </DocumentsShellEmbeddedProvider>
+    </DocumentsHubActionsProvider>
+  )
+}

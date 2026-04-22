@@ -66,6 +66,7 @@ import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { AnnualReviewPage } from './pages/documents/AnnualReviewPage'
 import { InspectionArbeidstilsynetExportPage } from './pages/documents/InspectionArbeidstilsynetExportPage'
 import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
+import { DocumentsModuleShellLayout } from '../modules/documents/DocumentsModuleShellLayout'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import { DocumentsLayout } from './hooks/useDocuments'
 import { PlatformAdminLoginPage } from './pages/platform/PlatformAdminLoginPage'
@@ -256,42 +257,44 @@ function App() {
                       <Route path="hr/discussion" element={<HrDiscussionPage />} />
                       <Route path="hr/consultation" element={<HrConsultationPage />} />
                       <Route path="hr/o-ros" element={<HrORosPage />} />
-                      <Route path="documents" element={<DocumentsHome />} />
-                      <Route path="documents/space/:spaceId" element={<WikiSpaceView />} />
-                      <Route
-                        path="documents/page/:pageId"
-                        element={
-                          <RouteErrorBoundary title="Kunne ikke vise dokumentet">
-                            <WikiPageView />
-                          </RouteErrorBoundary>
-                        }
-                      />
-                      <Route
-                        path="documents/page/:pageId/edit"
-                        element={
-                          <RouteErrorBoundary title="Kunne ikke åpne redigering">
-                            <WikiPageEditor />
-                          </RouteErrorBoundary>
-                        }
-                      />
-                      <Route path="documents/compliance" element={<ComplianceDashboard />} />
-                      <Route
-                        path="documents/compliance/inspection-export"
-                        element={
-                          <RouteErrorBoundary title="Kunne ikke vise tilsynsrapport">
-                            <InspectionArbeidstilsynetExportPage />
-                          </RouteErrorBoundary>
-                        }
-                      />
-                      <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
-                      <Route
-                        path="documents/aarsgjennomgang"
-                        element={
-                          <RouteErrorBoundary title="Kunne ikke vise årsgjennomgang">
-                            <AnnualReviewPage />
-                          </RouteErrorBoundary>
-                        }
-                      />
+                      <Route element={<DocumentsModuleShellLayout />}>
+                        <Route path="documents" element={<DocumentsHome />} />
+                        <Route path="documents/space/:spaceId" element={<WikiSpaceView />} />
+                        <Route
+                          path="documents/page/:pageId"
+                          element={
+                            <RouteErrorBoundary title="Kunne ikke vise dokumentet">
+                              <WikiPageView />
+                            </RouteErrorBoundary>
+                          }
+                        />
+                        <Route
+                          path="documents/page/:pageId/edit"
+                          element={
+                            <RouteErrorBoundary title="Kunne ikke åpne redigering">
+                              <WikiPageEditor />
+                            </RouteErrorBoundary>
+                          }
+                        />
+                        <Route path="documents/compliance" element={<ComplianceDashboard />} />
+                        <Route
+                          path="documents/compliance/inspection-export"
+                          element={
+                            <RouteErrorBoundary title="Kunne ikke vise tilsynsrapport">
+                              <InspectionArbeidstilsynetExportPage />
+                            </RouteErrorBoundary>
+                          }
+                        />
+                        <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
+                        <Route
+                          path="documents/aarsgjennomgang"
+                          element={
+                            <RouteErrorBoundary title="Kunne ikke vise årsgjennomgang">
+                              <AnnualReviewPage />
+                            </RouteErrorBoundary>
+                          }
+                        />
+                      </Route>
                     </Route>
                   </Route>
                 </Route>

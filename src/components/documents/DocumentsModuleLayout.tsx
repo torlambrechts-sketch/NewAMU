@@ -11,6 +11,7 @@ import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { apiFetchAnnualReview } from '../../api/wikiAnnualReview'
 import { DocumentsReadingPrefs } from './DocumentsReadingPrefs'
 import { documentsModuleShellStyle } from '../../lib/documentsModuleShellStyle'
+import { useDocumentsShellEmbedded } from '../../../modules/documents/DocumentsShellContext'
 
 const PAGE = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 
@@ -21,6 +22,7 @@ type Props = {
 }
 
 export function DocumentsModuleLayout({ children, subHeader }: Props) {
+  const embeddedInModuleShell = useDocumentsShellEmbedded()
   const location = useLocation()
   const { can, supabase, organization, profile } = useOrgSetupContext()
   const activeId = documentsNavActiveId(location.pathname)
@@ -51,6 +53,15 @@ export function DocumentsModuleLayout({ children, subHeader }: Props) {
       cancelled = true
     }
   }, [can, supabase, organization?.id])
+
+  if (embeddedInModuleShell) {
+    return (
+      <>
+        {subHeader}
+        {children}
+      </>
+    )
+  }
 
   const menuItems = DOCUMENTS_NAV.filter((n) => {
     if (n.permission) return can(n.permission)
