@@ -9,7 +9,6 @@ import {
 import { HubMenu1Bar } from '../layout/HubMenu1Bar'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { apiFetchAnnualReview } from '../../api/wikiAnnualReview'
-import { DocumentsReadingPrefs } from './DocumentsReadingPrefs'
 import { documentsModuleShellStyle } from '../../lib/documentsModuleShellStyle'
 import { useDocumentsShellEmbedded } from '../../../modules/documents/DocumentsShellContext'
 
@@ -99,8 +98,6 @@ export function DocumentsModuleLayout({ children, subHeader }: Props) {
       <div className="mt-6">
         <HubMenu1Bar ariaLabel="Bibliotek og wiki" items={menuItems} />
       </div>
-
-      <DocumentsReadingPrefs />
 
       {subHeader}
 

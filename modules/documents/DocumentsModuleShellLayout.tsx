@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom'
-import { ClipboardList, Plus, Settings } from 'lucide-react'
+import { ClipboardList, Plus, Settings, ShieldCheck } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { Tabs } from '../../src/components/ui/Tabs'
 import { Button } from '../../src/components/ui/Button'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { DOCUMENTS_MODULE_DESC, DOCUMENTS_MODULE_TITLE } from '../../src/data/documentsNav'
 import { documentsModuleShellStyle } from '../../src/lib/documentsModuleShellStyle'
-import { DocumentsReadingPrefs } from '../../src/components/documents/DocumentsReadingPrefs'
 import {
   DocumentsHubActionsProvider,
   useDocumentsHubActions,
 } from './DocumentsHubActionsContext'
 import { DocumentsShellEmbeddedProvider } from './DocumentsShellContext'
 
-type DocumentsRootTab = 'oversikt' | 'innstillinger'
+type DocumentsRootTab = 'oversikt' | 'samsvar' | 'innstillinger'
 
 function DocumentsShellHeaderActions({
   activeRootTab,
@@ -47,7 +46,7 @@ function DocumentsShellHeaderActions({
 
 /**
  * Shared `ModulePageShell` for all `/documents/*` routes (rule §1).
- * Root tabs Oversikt / Innstillinger (rule §2); legacy `/documents/templates` unchanged.
+ * Root tabs Oversikt / Samsvar / Innstillinger (rule §2); legacy `/documents/templates` unchanged.
  */
 export function DocumentsModuleShellLayout() {
   const location = useLocation()
@@ -61,6 +60,8 @@ export function DocumentsModuleShellLayout() {
     const p = location.pathname
     if (p === '/documents/templates' || p.startsWith('/documents/templates/')) {
       setRootTab('innstillinger')
+    } else if (p === '/documents/compliance' || p.startsWith('/documents/compliance/')) {
+      setRootTab('samsvar')
     } else {
       setRootTab('oversikt')
     }
@@ -74,24 +75,26 @@ export function DocumentsModuleShellLayout() {
   const rootTabItems = useMemo(() => {
     const items: { id: DocumentsRootTab; label: string; icon: typeof ClipboardList }[] = [
       { id: 'oversikt', label: 'Oversikt', icon: ClipboardList },
+      { id: 'samsvar', label: 'Samsvar', icon: ShieldCheck },
     ]
     if (canManage) items.push({ id: 'innstillinger', label: 'Innstillinger', icon: Settings })
     return items
   }, [canManage])
 
-  const rootTabsNode =
-    rootTabItems.length > 1 ? (
-      <Tabs
-        items={rootTabItems}
-        activeId={activeRootTab}
-        onChange={(id) => {
-          const next = id as DocumentsRootTab
-          setRootTab(next)
-          if (next === 'innstillinger') navigate('/documents/templates')
-          else navigate('/documents')
-        }}
-      />
-    ) : undefined
+  const rootTabsNode = (
+    <Tabs
+      items={rootTabItems}
+      activeId={activeRootTab}
+      overflow="scroll"
+      onChange={(id) => {
+        const next = id as DocumentsRootTab
+        setRootTab(next)
+        if (next === 'innstillinger') navigate('/documents/templates')
+        else if (next === 'samsvar') navigate('/documents/compliance')
+        else navigate('/documents')
+      }}
+    />
+  )
 
   const description =
     activeRootTab === 'innstillinger' && canManage ? (
@@ -99,27 +102,27 @@ export function DocumentsModuleShellLayout() {
         Aktiver systemmaler og opprett organisasjonsspesifikke maler for malbiblioteket (dokumentasjonskrav i
         internkontrollforskriften § 5).
       </p>
+    ) : activeRootTab === 'samsvar' ? (
+      <p className="max-w-3xl text-sm text-neutral-600">
+        Oversikt over dokumentasjon mot krav i internkontrollforskriften og arbeidsmiljøloven — publiserte sider og
+        mangler.
+      </p>
     ) : (
       <p className="max-w-3xl text-sm text-neutral-600">{DOCUMENTS_MODULE_DESC}</p>
     )
 
   const oversiktLinks =
-    activeRootTab === 'oversikt' ? (
+    activeRootTab === 'oversikt' && canManage ? (
       <nav
         className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-neutral-200/80 pb-4 text-sm"
         aria-label="Flere dokumentseksjoner"
       >
-        <Link to="/documents/compliance" className="font-medium text-[#1a3d32] underline-offset-2 hover:underline">
-          Samsvar
+        <Link
+          to="/documents/aarsgjennomgang"
+          className="font-medium text-[#1a3d32] underline-offset-2 hover:underline"
+        >
+          Årsgjennomgang
         </Link>
-        {canManage ? (
-          <Link
-            to="/documents/aarsgjennomgang"
-            className="font-medium text-[#1a3d32] underline-offset-2 hover:underline"
-          >
-            Årsgjennomgang
-          </Link>
-        ) : null}
       </nav>
     ) : null
 
@@ -141,7 +144,6 @@ export function DocumentsModuleShellLayout() {
             }
           >
             {oversiktLinks}
-            <DocumentsReadingPrefs />
             <Outlet />
           </ModulePageShell>
         </div>

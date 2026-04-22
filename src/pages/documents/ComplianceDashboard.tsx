@@ -4,6 +4,7 @@ import { CheckCircle2, Circle, ExternalLink, X } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+import { Button } from '../../components/ui/Button'
 
 function subscribeClock(cb: () => void) {
   const id = window.setInterval(cb, 60_000)
@@ -480,10 +481,11 @@ export function ComplianceDashboard() {
 
       {panelRef && panelRow && (
         <div className="fixed inset-0 z-[60] flex justify-end">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             aria-label="Lukk"
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 h-auto min-h-0 rounded-none bg-black/40 p-0 hover:bg-black/50"
             onClick={() => setPanelRef(null)}
           />
           <div
@@ -493,13 +495,14 @@ export function ComplianceDashboard() {
           >
             <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
               <h2 className="text-sm font-semibold text-neutral-900">Krav {panelRow.ref}</h2>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Lukk panel"
                 onClick={() => setPanelRef(null)}
-                className="rounded-none p-2 text-neutral-500 hover:bg-neutral-100"
-              >
-                <X className="size-5" />
-              </button>
+                icon={<X className="h-5 w-5" />}
+              />
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 text-sm">
               <p className="text-neutral-700">{panelRow.label}</p>
