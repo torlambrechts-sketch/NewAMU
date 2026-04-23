@@ -924,7 +924,11 @@ function useDocumentsStore() {
     ) => {
       if (useRemote && supabase && orgId && userId) {
         const old = remoteState.pages.find((p) => p.id === id)
-        if (!old) return
+        if (!old) {
+          throw new Error(
+            'Fant ikke dokumentet i denne økten. Gå tilbake til dokumentlisten og åpne siden på nytt, eller oppdater nettleseren.',
+          )
+        }
         const dbPatch: Record<string, unknown> = { updated_at: new Date().toISOString() }
         if (patch.spaceId !== undefined) dbPatch.space_id = patch.spaceId
         if (patch.title !== undefined) dbPatch.title = patch.title
@@ -957,7 +961,7 @@ function useDocumentsStore() {
         if (patch.retainMaximumYears !== undefined) dbPatch.retain_maximum_years = patch.retainMaximumYears
         if (patch.archivedAt !== undefined) dbPatch.archived_at = patch.archivedAt
         const { error: e } = await supabase.from('wiki_pages').update(dbPatch).eq('id', id).eq('organization_id', orgId)
-        if (e) throw e
+        if (e) throw new Error(getSupabaseErrorMessage(e))
         await refreshDocuments()
         return
       }

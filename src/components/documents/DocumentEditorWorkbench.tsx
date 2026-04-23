@@ -30,6 +30,7 @@ import { StandardTextarea } from '../ui/Textarea'
 import { TipTapRichTextEditor } from './TipTapRichTextEditor'
 import { DOCUMENT_EDITOR_SECTIONS, type DocumentEditorSectionId } from './documentEditorSections'
 import { useDocuments } from '../../hooks/useDocuments'
+import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 import type { ContentBlock } from '../../types/documents'
 
 const INITIAL_HTML = `<h1>Arbeidsavtale / HMS-dokument (utkast)</h1><p>Rediger dokumentet direkte på siden. Bruk <strong>Innhold</strong> for å sette inn standardseksjoner knyttet til arbeidsmiljøloven og internkontrollforskriften. TipTap gir overskrifter (H1–H3), lister, lenker, understreking og horisontal linje.</p><p></p>`
@@ -254,7 +255,7 @@ export function DocumentEditorWorkbench({
         await docs.updatePage(pageId, { title: next })
         setPersistDirty(true)
       } catch (e) {
-        setSaveError(e instanceof Error ? e.message : 'Kunne ikke lagre tittel.')
+        setSaveError(getSupabaseErrorMessage(e))
       }
     }
   }, [titleDraft, mode, pageId, original, docs])
@@ -271,7 +272,7 @@ export function DocumentEditorWorkbench({
       })
       setPersistDirty(false)
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : 'Lagring feilet.')
+      setSaveError(getSupabaseErrorMessage(e))
     } finally {
       setSaving(false)
     }
