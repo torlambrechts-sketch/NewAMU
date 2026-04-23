@@ -6,9 +6,16 @@ import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PageTemplate, WikiSpace } from '../../types/documents'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
 import { InspectionReadinessScore } from '../../components/documents/InspectionReadinessScore'
-import { ModuleRecordsTableShell, MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../../components/module'
+import {
+  ModuleDocumentsHubLayout,
+  ModuleDocumentsInsightPanel,
+  ModuleRecordsTableShell,
+  MODULE_TABLE_TH,
+  MODULE_TABLE_TR_BODY,
+} from '../../components/module'
 import { ModuleSectionCard } from '../../components/module/ModuleSectionCard'
 import { Button } from '../../components/ui/Button'
+import { InfoBox } from '../../components/ui/AlertBox'
 import { StandardInput } from '../../components/ui/Input'
 import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
 import { WarningBox } from '../../components/ui/AlertBox'
@@ -90,155 +97,179 @@ export function DocumentsHome() {
     }
   }
 
+  const foldersTable = (
+    <ModuleRecordsTableShell
+      wrapInCard={false}
+      kpiItems={kpiItems}
+      title="Mapper"
+      description="Dokumentmapper for HMS-håndbok, policyer og prosedyrer."
+      toolbar={
+        <div className="relative min-w-[200px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          <StandardInput
+            type="search"
+            value={spaceSearch}
+            onChange={(e) => setSpaceSearch(e.target.value)}
+            placeholder="Søk i mapper…"
+            className="py-2 pl-10"
+          />
+        </div>
+      }
+      footer={<span className="text-sm text-neutral-500">{filteredSpaces.length} mapper</span>}
+    >
+      <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+        <thead>
+          <tr>
+            <th className={MODULE_TABLE_TH}>Mappe</th>
+            <th className={MODULE_TABLE_TH}>Kategori</th>
+            <th className={MODULE_TABLE_TH}>Sider</th>
+            <th className={MODULE_TABLE_TH}>Publisert</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredSpaces.map((space) => {
+            const pagesInSpace = docs.pages.filter((p) => p.spaceId === space.id)
+            const published = pagesInSpace.filter((p) => p.status === 'published').length
+            return (
+              <tr
+                key={space.id}
+                className={`${MODULE_TABLE_TR_BODY} cursor-pointer`}
+                onClick={() => navigate(`/documents/space/${space.id}`)}
+              >
+                <td className="px-5 py-4 align-middle">
+                  <div className="flex items-start gap-2">
+                    <span className="text-lg" aria-hidden>
+                      {space.icon}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="font-medium text-neutral-900">{space.title}</div>
+                      <p className="mt-0.5 line-clamp-2 text-xs text-neutral-500">{space.description}</p>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-5 py-4 align-middle text-neutral-600">{CATEGORY_LABELS[space.category]}</td>
+                <td className="px-5 py-4 align-middle text-neutral-600">{pagesInSpace.length}</td>
+                <td className="px-5 py-4 align-middle text-neutral-600">{published}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </ModuleRecordsTableShell>
+  )
+
+  const documentsAside = (
+    <>
+      <ModuleDocumentsInsightPanel title="Oversikt">
+        <p className="text-xs text-neutral-600">
+          Bruk søkefeltet i listen for å filtrere mapper etter tittel, kategori eller beskrivelse. Nye mapper opprettes med{' '}
+          <span className="font-medium text-neutral-800">Ny mappe</span> i toppfeltet.
+        </p>
+        <div className="mt-3">
+          <InfoBox>Malbibliotek og tilsynsklarhet finner du under listen på denne siden.</InfoBox>
+        </div>
+      </ModuleDocumentsInsightPanel>
+    </>
+  )
+
   return (
     <DocumentsModuleLayout>
       {docs.error ? <WarningBox>{docs.error}</WarningBox> : null}
 
-      <ModuleRecordsTableShell
-        kpiItems={kpiItems}
-        title="Mapper"
-        description="Dokumentmapper for HMS-håndbok, policyer og prosedyrer."
-        toolbar={
-          <div className="relative min-w-[200px] flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <StandardInput
-              type="search"
-              value={spaceSearch}
-              onChange={(e) => setSpaceSearch(e.target.value)}
-              placeholder="Søk i mapper…"
-              className="py-2 pl-10"
-            />
-          </div>
+      <ModuleDocumentsHubLayout
+        main={foldersTable}
+        aside={documentsAside}
+        below={
+          <>
+            <InspectionReadinessScore />
+
+            {showNewSpace && canManage ? (
+              <ModuleSectionCard className="p-5 md:p-6">
+                <h2 className="text-sm font-semibold text-neutral-900">Ny dokumentmappe</h2>
+                <form onSubmit={(e) => void handleCreateSpace(e)} className="mt-4 space-y-4">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="doc-new-space-title">
+                      Tittel
+                    </label>
+                    <StandardInput
+                      id="doc-new-space-title"
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      placeholder="Tittel"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="doc-new-space-category">
+                      Kategori
+                    </label>
+                    <SearchableSelect
+                      value={newCategory}
+                      options={categoryOptions}
+                      onChange={(v) => setNewCategory(v as WikiSpace['category'])}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="doc-new-space-desc">
+                      Kort beskrivelse
+                    </label>
+                    <StandardInput
+                      id="doc-new-space-desc"
+                      value={newDesc}
+                      onChange={(e) => setNewDesc(e.target.value)}
+                      placeholder="Kort beskrivelse"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" variant="primary" disabled={savingSpace}>
+                      {savingSpace ? 'Oppretter…' : 'Opprett'}
+                    </Button>
+                    <Button type="button" variant="secondary" onClick={() => setShowNewSpace(false)}>
+                      Avbryt
+                    </Button>
+                  </div>
+                </form>
+              </ModuleSectionCard>
+            ) : null}
+
+            <ModuleSectionCard className="p-5 md:p-6">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold text-neutral-900">Malbibliotek</h2>
+                <span className="text-xs text-neutral-500">
+                  {docs.pageTemplates.length}{' '}
+                  {docs.backend === 'supabase' ? 'tilgjengelige maler' : 'mal(er) (demo lokalt)'}
+                </span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {docs.pageTemplates.map((tpl) => (
+                  <TemplateCard
+                    key={tpl.id}
+                    tpl={tpl}
+                    spaces={activeSpaces}
+                    onUse={async (spaceId) => {
+                      const page = await docs.createPage(
+                        spaceId,
+                        tpl.page.title,
+                        tpl.page.template,
+                        tpl.page.blocks,
+                        {
+                          legalRefs: tpl.page.legalRefs,
+                          requiresAcknowledgement: tpl.page.requiresAcknowledgement,
+                          summary: tpl.page.summary,
+                          acknowledgementAudience: tpl.page.acknowledgementAudience,
+                          revisionIntervalMonths: tpl.page.revisionIntervalMonths,
+                          templateId: tpl.id,
+                        },
+                      )
+                      navigate(`/documents/page/${page.id}/edit`)
+                    }}
+                  />
+                ))}
+              </div>
+            </ModuleSectionCard>
+          </>
         }
-        footer={<span className="text-sm text-neutral-500">{filteredSpaces.length} mapper</span>}
-      >
-        <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-          <thead>
-            <tr>
-              <th className={MODULE_TABLE_TH}>Mappe</th>
-              <th className={MODULE_TABLE_TH}>Kategori</th>
-              <th className={MODULE_TABLE_TH}>Sider</th>
-              <th className={MODULE_TABLE_TH}>Publisert</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredSpaces.map((space) => {
-              const pagesInSpace = docs.pages.filter((p) => p.spaceId === space.id)
-              const published = pagesInSpace.filter((p) => p.status === 'published').length
-              return (
-                <tr
-                  key={space.id}
-                  className={`${MODULE_TABLE_TR_BODY} cursor-pointer`}
-                  onClick={() => navigate(`/documents/space/${space.id}`)}
-                >
-                  <td className="px-5 py-4 align-middle">
-                    <div className="flex items-start gap-2">
-                      <span className="text-lg" aria-hidden>
-                        {space.icon}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="font-medium text-neutral-900">{space.title}</div>
-                        <p className="mt-0.5 line-clamp-2 text-xs text-neutral-500">{space.description}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 align-middle text-neutral-600">{CATEGORY_LABELS[space.category]}</td>
-                  <td className="px-5 py-4 align-middle text-neutral-600">{pagesInSpace.length}</td>
-                  <td className="px-5 py-4 align-middle text-neutral-600">{published}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </ModuleRecordsTableShell>
-
-      <div className="space-y-6">
-        <InspectionReadinessScore />
-      </div>
-
-      {showNewSpace && canManage ? (
-        <ModuleSectionCard className="p-5 md:p-6">
-          <h2 className="text-sm font-semibold text-neutral-900">Ny dokumentmappe</h2>
-          <form onSubmit={(e) => void handleCreateSpace(e)} className="mt-4 space-y-4">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="doc-new-space-title">
-                Tittel
-              </label>
-              <StandardInput
-                id="doc-new-space-title"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Tittel"
-                required
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="doc-new-space-category">
-                Kategori
-              </label>
-              <SearchableSelect
-                value={newCategory}
-                options={categoryOptions}
-                onChange={(v) => setNewCategory(v as WikiSpace['category'])}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="doc-new-space-desc">
-                Kort beskrivelse
-              </label>
-              <StandardInput
-                id="doc-new-space-desc"
-                value={newDesc}
-                onChange={(e) => setNewDesc(e.target.value)}
-                placeholder="Kort beskrivelse"
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" variant="primary" disabled={savingSpace}>
-                {savingSpace ? 'Oppretter…' : 'Opprett'}
-              </Button>
-              <Button type="button" variant="secondary" onClick={() => setShowNewSpace(false)}>
-                Avbryt
-              </Button>
-            </div>
-          </form>
-        </ModuleSectionCard>
-      ) : null}
-
-      <ModuleSectionCard className="p-5 md:p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-neutral-900">Malbibliotek</h2>
-          <span className="text-xs text-neutral-500">
-            {docs.pageTemplates.length} {docs.backend === 'supabase' ? 'tilgjengelige maler' : 'mal(er) (demo lokalt)'}
-          </span>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {docs.pageTemplates.map((tpl) => (
-            <TemplateCard
-              key={tpl.id}
-              tpl={tpl}
-              spaces={activeSpaces}
-              onUse={async (spaceId) => {
-                const page = await docs.createPage(
-                  spaceId,
-                  tpl.page.title,
-                  tpl.page.template,
-                  tpl.page.blocks,
-                  {
-                    legalRefs: tpl.page.legalRefs,
-                    requiresAcknowledgement: tpl.page.requiresAcknowledgement,
-                    summary: tpl.page.summary,
-                    acknowledgementAudience: tpl.page.acknowledgementAudience,
-                    revisionIntervalMonths: tpl.page.revisionIntervalMonths,
-                    templateId: tpl.id,
-                  },
-                )
-                navigate(`/documents/page/${page.id}/edit`)
-              }}
-            />
-          ))}
-        </div>
-      </ModuleSectionCard>
+      />
     </DocumentsModuleLayout>
   )
 }

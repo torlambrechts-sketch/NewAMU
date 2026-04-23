@@ -1,5 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
-import type { LucideIcon } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -14,19 +13,18 @@ import {
   Upload,
 } from 'lucide-react'
 import { DocumentFolderJobsStrip } from './DocumentFolderJobsStrip'
-import { ModuleMainAside } from '../module/ModuleMainAside'
-import { ModuleRecordsTableShell } from '../module/ModuleRecordsTableShell'
-import { ModuleSectionCard } from '../module/ModuleSectionCard'
+import {
+  ModuleDocumentsForestCard,
+  ModuleDocumentsHubLayout,
+  ModuleDocumentsInsightPanel,
+  ModuleRecordsTableShell,
+} from '../module'
 import { MODULE_TABLE_TD, MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../module/moduleTableKit'
-import { WORKPLACE_MODULE_SUBTLE_PANEL, WORKPLACE_MODULE_SUBTLE_PANEL_STYLE } from '../layout/workplaceModuleSurface'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { StandardInput } from '../ui/Input'
 import { SearchableSelect, type SelectOption } from '../ui/SearchableSelect'
 import { Tabs } from '../ui/Tabs'
-
-const FOREST = '#1a3d32'
-const CARD_SHADOW = { boxShadow: '0 1px 2px rgba(0,0,0,0.04)' } as const
 
 const DEPT_OPTIONS: SelectOption[] = [
   { value: 'all', label: 'Alle avdelinger' },
@@ -100,7 +98,7 @@ const MOCK_FILES: FileRow[] = [
 
 /**
  * Visual prototype: document hub with filters, folder catalogues and file table.
- * Folder strip uses layout-reference «Stillinger» pattern (platform-admin). Split uses `cardWrap={false}` so aside is not wrapped in a second outer white card; main column uses one `ModuleSectionCard` for table + `ModuleRecordsTableShell` with `wrapInCard={false}`. Filtre uses subtle cream panel instead of a nested white card.
+ * Uses {@link ModuleDocumentsHubLayout} + {@link ModuleDocumentsInsightPanel} / {@link ModuleDocumentsForestCard} (standard documents hub per `docs/UI_PLACEMENT_RULES.md`).
  * Static mock data only.
  */
 export function DocumentCenterFontTestWorkbench() {
@@ -126,10 +124,9 @@ export function DocumentCenterFontTestWorkbench() {
     setQuery('')
   }
 
-  const filterPanel = (
-    <div className={`${WORKPLACE_MODULE_SUBTLE_PANEL} p-3 md:p-4`} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
-      <h3 className="text-xs font-semibold text-neutral-900">Filtre</h3>
-      <div className="mt-3 space-y-3">
+  const filterAside = (
+    <ModuleDocumentsInsightPanel title="Filtre">
+      <div className="space-y-3">
         <div>
           <p className="text-xs font-medium text-neutral-700">Avdeling</p>
           <SearchableSelect
@@ -179,70 +176,50 @@ export function DocumentCenterFontTestWorkbench() {
           Nullstill filtre
         </Button>
       </div>
-    </div>
+    </ModuleDocumentsInsightPanel>
   )
 
-  /** Compact forest cards — aligned padding/typography with Organisasjonslagring. */
-  const forestCardShell = (Icon: LucideIcon, title: string, body: ReactNode) => {
-    return (
-      <div
-        className="overflow-hidden rounded-xl border border-emerald-900/25 text-white shadow-sm"
-        style={{ backgroundColor: FOREST, ...CARD_SHADOW }}
-      >
-        <div className="p-4">
-          <div className="flex items-center gap-1.5">
-            <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-white/95">{title}</h3>
-          </div>
-          <div className="mt-2">{body}</div>
-        </div>
-      </div>
-    )
-  }
-
-  const storageCard = forestCardShell(
-    Cloud,
-    'Organisasjonslagring',
-    <>
+  const storageCard = (
+    <ModuleDocumentsForestCard icon={Cloud} title="Organisasjonslagring">
       <p className="text-[11px] leading-snug text-white/75">32,5 GB av 50 GB brukt</p>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/15">
         <div className="h-full w-[65%] rounded-full bg-emerald-400/90" />
       </div>
-    </>,
+    </ModuleDocumentsForestCard>
   )
 
-  const pendingCard = forestCardShell(
-    AlertTriangle,
-    'Venter på godkjenning',
-    <ul className="space-y-2">
-      <li className="flex items-start justify-between gap-2 border-b border-white/10 pb-2 last:border-0 last:pb-0">
-        <span className="min-w-0 text-[11px] font-medium leading-snug text-white/90">Tariffavtaleutkast.pdf</span>
-        <Badge variant="critical" className="shrink-0 scale-90">
-          Haster
-        </Badge>
-      </li>
-      <li className="flex items-start justify-between gap-2">
-        <span className="min-w-0 text-[11px] font-medium leading-snug text-white/90">Ressursplan_Q4.docx</span>
-        <Badge variant="success" className="shrink-0 scale-90">
-          Standard
-        </Badge>
-      </li>
-    </ul>,
+  const pendingCard = (
+    <ModuleDocumentsForestCard icon={AlertTriangle} title="Venter på godkjenning">
+      <ul className="space-y-2">
+        <li className="flex items-start justify-between gap-2 border-b border-white/10 pb-2 last:border-0 last:pb-0">
+          <span className="min-w-0 text-[11px] font-medium leading-snug text-white/90">Tariffavtaleutkast.pdf</span>
+          <Badge variant="critical" className="shrink-0 scale-90">
+            Haster
+          </Badge>
+        </li>
+        <li className="flex items-start justify-between gap-2">
+          <span className="min-w-0 text-[11px] font-medium leading-snug text-white/90">Ressursplan_Q4.docx</span>
+          <Badge variant="success" className="shrink-0 scale-90">
+            Standard
+          </Badge>
+        </li>
+      </ul>
+    </ModuleDocumentsForestCard>
   )
 
-  const complianceCard = forestCardShell(CheckCircle2, 'I samsvar', (
-    <>
+  const complianceCard = (
+    <ModuleDocumentsForestCard icon={CheckCircle2} title="I samsvar">
       <p className="text-2xl font-bold tabular-nums leading-tight text-white">100%</p>
       <p className="mt-1 text-[11px] leading-snug text-white/75">Publiserte HMS-dokumenter (demo).</p>
-    </>
-  ))
+    </ModuleDocumentsForestCard>
+  )
 
-  const expiringCard = forestCardShell(Clock, 'Utløper snart', (
-    <>
+  const expiringCard = (
+    <ModuleDocumentsForestCard icon={Clock} title="Utløper snart">
       <p className="text-2xl font-bold tabular-nums leading-tight text-white">12</p>
       <p className="mt-1 text-[11px] leading-snug text-white/75">Revisjon / årlig gjennomgang (demo).</p>
-    </>
-  ))
+    </ModuleDocumentsForestCard>
+  )
 
   /** Table only inside main white card — folder strip sits above split (full width). */
   const documentsTableBlock = (
@@ -366,26 +343,17 @@ export function DocumentCenterFontTestWorkbench() {
         </div>
       </div>
 
-      <div className="mb-5">
-        <DocumentFolderJobsStrip />
-      </div>
-
-      <ModuleMainAside
-        cardWrap={false}
-        splitDensity="compact"
-        main={
-          <ModuleSectionCard className="p-3 md:p-4">
-            <div className="space-y-4">{documentsTableBlock}</div>
-          </ModuleSectionCard>
-        }
+      <ModuleDocumentsHubLayout
+        top={<DocumentFolderJobsStrip />}
+        main={<div className="space-y-4">{documentsTableBlock}</div>}
         aside={
-          <div className="space-y-3">
-            {filterPanel}
+          <>
+            {filterAside}
             {storageCard}
             {pendingCard}
             {complianceCard}
             {expiringCard}
-          </div>
+          </>
         }
       />
     </>

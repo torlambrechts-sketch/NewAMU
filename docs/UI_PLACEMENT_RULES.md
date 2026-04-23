@@ -7,6 +7,9 @@ The rules assume the UI primitives that already live in the codebase:
 - `src/components/module/ModulePageShell.tsx` — page chrome (background, max width, heading, breadcrumb, description, tabs, header actions, loading + not-found states).
 - `src/components/module/ModuleSectionCard.tsx` — white content card (rounded-xl, border, subtle shadow).
 - `src/components/module/ModuleRecordsTableShell.tsx` — KPI row + white card + table shell for records lists.
+- `src/components/module/ModuleDocumentsHubLayout.tsx` — canonical **Dokumenter** hub shell: 70/30 via `ModuleMainAside` with `cardWrap={false}` (no outer white wrap on each column), one `ModuleSectionCard` around **main** only; optional `top` / `below` full-width slots. Pass `ModuleRecordsTableShell` with `wrapInCard={false}` when the main column already owns the white card (avoids nested boxes).
+- `src/components/module/ModuleDocumentsInsightPanel.tsx` — cream aside panel for filters / short help (uses `WORKPLACE_MODULE_SUBTLE_PANEL`), not a nested white `ModuleSectionCard`.
+- `src/components/module/ModuleDocumentsForestCard.tsx` — forest-green aside surface for storage / status widgets.
 - `src/components/module/ModuleInformationCard.tsx` — form/metadata card with `withCard` + `hideHeader` props.
 - `src/components/module/ModuleSignatureCard.tsx` — per-role signature card.
 - `src/components/module/ModulePreflightChecklist.tsx` — pre-signing checklist.
@@ -17,6 +20,16 @@ The rules assume the UI primitives that already live in the codebase:
 - `src/components/ui/*` — `Button`, `Badge`, `StandardInput`, `StandardTextarea`, `SearchableSelect`, `WarningBox`, `InfoBox`, `Tabs`, etc.
 
 If a primitive does not exist yet, create it under `src/components/module/` rather than ad-hoc Tailwind. Do **not** paste raw `<input>`, `<select>`, `<button className="…">` into module code.
+
+---
+
+## Documents module hub (default)
+
+The **Dokumenter** oversikt (`DocumentsHome` and layout-test pages under `DocumentsModuleLayout`) uses **`ModuleDocumentsHubLayout`**:
+
+1. **Main column** — one white `ModuleSectionCard` wrapping `ModuleRecordsTableShell` with **`wrapInCard={false}`** so the table is not double-boxed (same idea as ROS/SJA list on cream: single card for the list block).
+2. **Aside column** — `ModuleDocumentsInsightPanel` for filters / help text; **`ModuleDocumentsForestCard`** for storage or status on forest green. No outer white `ModuleSectionCard` wrapping the whole aside column (`ModuleMainAside` **`cardWrap={false}`**).
+3. **Below the split** — `InspectionReadinessScore`, malbibliotek, and modals stay in the `below` slot as separate `ModuleSectionCard` / regions as today.
 
 ---
 
