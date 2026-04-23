@@ -11,10 +11,10 @@ type Props = {
 
 /**
  * Primary navigation for the Dokumenter module (single `HubMenu1Bar` under `ModulePageShell`).
- * One menu line: Mapper, Malbibliotek, Samsvar, (Årsgjennomgang), Innstillinger.
+ * One menu line: Dokumenter, Malbibliotek, Samsvar, (Årsgjennomgang), Innstillinger.
  */
 export function DocumentsHubSecondaryNav({ canManage, annualReviewBadgeDot }: Props) {
-  const mapperMatch = useMatch({ path: '/documents', end: true })
+  const documentsHomeMatch = useMatch({ path: '/documents', end: true })
   const editorTestMatch = useMatch({ path: '/documents/editor-test', end: true })
   const kandidatTestMatch = useMatch({ path: '/documents/kandidatdetalj-layout-test', end: true })
   const spaceMatch = useMatch({ path: '/documents/space/:spaceId', end: false })
@@ -25,22 +25,22 @@ export function DocumentsHubSecondaryNav({ canManage, annualReviewBadgeDot }: Pr
   const annualMatch = useMatch({ path: '/documents/aarsgjennomgang', end: false })
   const settingsMatch = useMatch({ path: '/documents/templates', end: false })
 
-  const mapperNavActive = Boolean(
-    mapperMatch || editorTestMatch || kandidatTestMatch || spaceMatch || pageMatch,
+  const documentsNavActive = Boolean(
+    documentsHomeMatch || editorTestMatch || kandidatTestMatch || spaceMatch || pageMatch,
   )
 
   const items: HubMenu1Item[] = useMemo(() => {
-    const mapperTabOn = Boolean(
-      mapperNavActive && !malMatch && !complianceMatch && !annualMatch && !settingsMatch,
+    const documentsTabOn = Boolean(
+      documentsNavActive && !malMatch && !complianceMatch && !annualMatch && !settingsMatch,
     )
     const list: HubMenu1Item[] = [
       {
-        key: 'mapper',
-        label: 'Mapper',
+        key: 'documents',
+        label: 'Dokumenter',
         icon: FolderOpen,
         to: '/documents',
         end: true,
-        navActiveOverride: mapperTabOn,
+        navActiveOverride: documentsTabOn,
         active: false,
       },
       {
@@ -86,7 +86,7 @@ export function DocumentsHubSecondaryNav({ canManage, annualReviewBadgeDot }: Pr
     canManage,
     complianceMatch,
     malMatch,
-    mapperNavActive,
+    documentsNavActive,
     settingsMatch,
   ])
 

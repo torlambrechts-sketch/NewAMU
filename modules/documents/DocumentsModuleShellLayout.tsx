@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { FolderPlus, Plus } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { Button } from '../../src/components/ui/Button'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
@@ -11,14 +11,17 @@ import { DocumentsShellEmbeddedProvider } from './DocumentsShellContext'
 import { DocumentsHubSecondaryNav } from '../../src/components/documents/DocumentsHubSecondaryNav'
 import { apiFetchAnnualReview } from '../../src/api/wikiAnnualReview'
 
-function DocumentsShellHeaderActions({ canManage, onMapperHub }: { canManage: boolean; onMapperHub: boolean }) {
-  const { requestOpenNewFolder } = useDocumentsHubActions()
+function DocumentsShellHeaderActions({ canManage, onDocumentsHub }: { canManage: boolean; onDocumentsHub: boolean }) {
+  const { requestOpenNewFolder, requestNewDocument } = useDocumentsHubActions()
 
-  if (!canManage || !onMapperHub) return null
+  if (!canManage || !onDocumentsHub) return null
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Button variant="primary" type="button" icon={<Plus className="h-4 w-4" />} onClick={() => requestOpenNewFolder()}>
+      <Button variant="primary" type="button" icon={<Plus className="h-4 w-4" />} onClick={() => requestNewDocument()}>
+        Nytt dokument
+      </Button>
+      <Button variant="secondary" type="button" icon={<FolderPlus className="h-4 w-4" />} onClick={() => requestOpenNewFolder()}>
         Ny mappe
       </Button>
     </div>
@@ -57,7 +60,7 @@ function DocumentsModuleShellBody() {
     }
   }, [can, supabase, organization?.id])
 
-  const onMapperHub = location.pathname === '/documents'
+  const onDocumentsHub = location.pathname === '/documents'
 
   const description = useMemo(() => {
     const p = location.pathname
@@ -110,7 +113,7 @@ function DocumentsModuleShellBody() {
         title={DOCUMENTS_MODULE_TITLE}
         description={description}
         tabs={nav}
-        headerActions={<DocumentsShellHeaderActions canManage={canManage} onMapperHub={onMapperHub} />}
+        headerActions={<DocumentsShellHeaderActions canManage={canManage} onDocumentsHub={onDocumentsHub} />}
       >
         <Outlet />
       </ModulePageShell>

@@ -6,7 +6,7 @@ import { ModuleDocumentsKandidatdetaljHub } from '../../components/module/Module
 import { WarningBox } from '../../components/ui/AlertBox'
 
 /**
- * Dokumenter **Mapper** (`/documents`) — standard hub med {@link ModuleDocumentsKandidatdetaljHub}.
+ * Dokumenter — oversikt (`/documents`) med {@link ModuleDocumentsKandidatdetaljHub}.
  */
 export function DocumentsHome() {
   const docs = useDocuments()

@@ -45,7 +45,7 @@ export type HubMenu1Item = {
   /** When true, tab is non-interactive (e.g. gated step). */
   disabled?: boolean
   /**
-   * When set, overrides NavLink `isActive` for styling (e.g. «Mapper» should stay active on
+   * When set, overrides NavLink `isActive` for styling (e.g. «Dokumenter» should stay active on
    * `/documents/page/...` even though those paths are not the same as `/documents`).
    */
   navActiveOverride?: boolean

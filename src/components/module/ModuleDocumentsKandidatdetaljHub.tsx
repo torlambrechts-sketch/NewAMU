@@ -13,7 +13,10 @@ import { StandardInput } from '../ui/Input'
 import { SearchableSelect, type SelectOption } from '../ui/SearchableSelect'
 import { WarningBox } from '../ui/AlertBox'
 import { InfoBox } from '../ui/AlertBox'
-import { useDocumentsHubActionsRegister } from '../../../modules/documents/DocumentsHubActionsContext'
+import {
+  useDocumentsHubActionsRegister,
+  useDocumentsHubNewDocumentRegister,
+} from '../../../modules/documents/DocumentsHubActionsContext'
 import { DocumentsTemplateLibraryBody } from '../documents/DocumentsTemplateLibraryBody'
 
 /** Beige nav — matches layout-reference `RefCandidateDetailPaneBlock`. */
@@ -194,6 +197,11 @@ export function ModuleDocumentsKandidatdetaljHub({
 
   const targetSpaceIdForActions = selectedSpaceId ?? spacesForNav[0]?.id ?? null
 
+  const uploadTargetSpace = useMemo(() => {
+    if (centerContent !== 'pages' || !targetSpaceIdForActions) return null
+    return activeSpacesPages.find((s) => s.id === targetSpaceIdForActions) ?? null
+  }, [centerContent, targetSpaceIdForActions, activeSpacesPages])
+
   const newFolderCategoryOptions = useMemo(
     () =>
       centerContent === 'templates'
@@ -275,7 +283,7 @@ export function ModuleDocumentsKandidatdetaljHub({
     }
   }
 
-  const handleNewDocument = async () => {
+  const handleNewDocument = useCallback(async () => {
     setUiError(null)
     if (!targetSpaceIdForActions) {
       setUiError('Opprett eller velg en mappe først.')
@@ -287,7 +295,14 @@ export function ModuleDocumentsKandidatdetaljHub({
     } catch (err) {
       setUiError(err instanceof Error ? err.message : 'Kunne ikke opprette side.')
     }
-  }
+  }, [targetSpaceIdForActions, docs, navigate])
+
+  useDocumentsHubNewDocumentRegister(
+    () => {
+      void handleNewDocument()
+    },
+    centerContent === 'pages',
+  )
 
   const triggerUpload = () => {
     setUiError(null)
@@ -381,7 +396,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                 <span>Kandidatdetalj-split</span>
               </>
             ) : (
-              <span className="font-medium text-neutral-700">Mapper</span>
+              <span className="font-medium text-neutral-700">Dokumenter</span>
             )}
           </p>
           <div className="mt-1.5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -565,7 +580,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                       aria-label="Søk i sider"
                     />
                   </div>
-                  {canManage && targetSpaceIdForActions && selectedSpace ? (
+                  {canManage && targetSpaceIdForActions && uploadTargetSpace ? (
                     <ModuleSectionCard className="overflow-hidden p-2.5 shadow-sm">
                       <div
                         role="region"
@@ -580,7 +595,13 @@ export function ModuleDocumentsKandidatdetaljHub({
                       >
                         <Upload className="mx-auto h-4 w-4 text-neutral-400" aria-hidden />
                         <p className="mt-1.5 text-[11px] font-medium leading-snug text-neutral-800">
-                          Slipp filer her for opplasting i <span className="text-[#1a3d32]">«{selectedSpace.title}»</span>
+                          Slipp filer her for opplasting i{' '}
+                          <span className="text-[#1a3d32]">«{uploadTargetSpace.title}»</span>
+                          {selectedSpaceId == null ? (
+                            <span className="block pt-0.5 text-[10px] font-normal text-neutral-500">
+                              Velg en mappe til venstre for å endre målmappe.
+                            </span>
+                          ) : null}
                         </p>
                         <p className="mt-0.5 text-[10px] text-neutral-500">Eller «Last opp».</p>
                       </div>

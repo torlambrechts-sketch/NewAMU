@@ -5,4 +5,5 @@ export {
   DocumentsHubActionsProvider,
   useDocumentsHubActions,
   useDocumentsHubActionsRegister,
+  useDocumentsHubNewDocumentRegister,
 } from './DocumentsHubActionsContext'
