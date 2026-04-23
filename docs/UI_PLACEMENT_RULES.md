@@ -64,6 +64,8 @@ Rules:
 4. Description is **compliance-anchored**: name the lovverk / forskrift relevant to the module when there is one (e.g. "Planlegg, gjennomfør og signer vernerunder i henhold til Internkontrollforskriften § 5.").
 5. On list/hub pages, breadcrumb is `[{ label: 'HMS' | 'Samarbeid' | … }, { label: 'Modulnavn' }]` — two levels. On detail pages add the record's title as a third level, linking the second level back to the list.
 
+**Dokumenter — TipTap reference editor:** `/documents/page/:pageId/reference-edit` is a child of `DocumentsModuleShellLayout` (same outer chrome as `/documents/editor-test`). Wiki space / page view / block editor stay under `DocumentsWikiOutlet` with their own shells.
+
 ---
 
 ## 2. Hub / settings pattern — root-tab model (canonical)
