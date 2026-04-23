@@ -36,6 +36,7 @@ import {
   PII_CATEGORY_OPTIONS,
 } from '../../data/wikiPiiLegalBasisSuggestions'
 import { runWikiWcagHeuristics } from '../../lib/wikiA11yHeuristics'
+import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 
 type AddKind = ContentBlock['kind']
 
@@ -152,6 +153,7 @@ export function WikiPageEditor() {
   )
   const [dirty, setDirty] = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
   const [pageLang, setPageLang] = useState<WikiPageLang>(() => original?.lang ?? 'nb')
   const [a11yOpen, setA11yOpen] = useState(false)
@@ -302,35 +304,42 @@ export function WikiPageEditor() {
     markDirty()
   }
 
-  async function handleSave() {
-    if (!original) return
+  async function handleSave(): Promise<boolean> {
+    if (!original) return false
+    setSaveError(null)
     const months = Math.max(1, parseInt(revisionMonths, 10) || 12)
-    await docs.updatePage(original.id, {
-      title: title.trim() || original.title,
-      summary,
-      blocks,
-      legalRefs: legalRefs.split(',').map((s) => s.trim()).filter(Boolean),
-      requiresAcknowledgement: requiresAck,
-      template,
-      acknowledgementAudience: ackAudience,
-      acknowledgementDepartmentId: ackAudience === 'department' ? (ackDeptId || null) : null,
-      revisionIntervalMonths: months,
-      nextRevisionDueAt: nextRevision ? new Date(`${nextRevision}T12:00:00`).toISOString() : null,
-      containsPii,
-      piiCategories: containsPii ? piiCategories : [],
-      piiLegalBasis: containsPii ? (piiLegalBasis.trim() || null) : null,
-      piiRetentionNote: containsPii ? (piiRetentionNote.trim() || null) : null,
-      retentionCategory: retentionSlug.trim() || null,
-      retainMinimumYears: retainMinYearsStr.trim()
-        ? Math.max(0, parseInt(retainMinYearsStr, 10) || 0) || null
-        : null,
-      retainMaximumYears: retainMaxYearsStr.trim()
-        ? Math.max(0, parseInt(retainMaxYearsStr, 10) || 0) || null
-        : null,
-      lang: pageLang,
-    })
-    setDirty(false)
-    setSavedMsg(true)
+    try {
+      await docs.updatePage(original.id, {
+        title: title.trim() || original.title,
+        summary,
+        blocks,
+        legalRefs: legalRefs.split(',').map((s) => s.trim()).filter(Boolean),
+        requiresAcknowledgement: requiresAck,
+        template,
+        acknowledgementAudience: ackAudience,
+        acknowledgementDepartmentId: ackAudience === 'department' ? (ackDeptId || null) : null,
+        revisionIntervalMonths: months,
+        nextRevisionDueAt: nextRevision ? new Date(`${nextRevision}T12:00:00`).toISOString() : null,
+        containsPii,
+        piiCategories: containsPii ? piiCategories : [],
+        piiLegalBasis: containsPii ? (piiLegalBasis.trim() || null) : null,
+        piiRetentionNote: containsPii ? (piiRetentionNote.trim() || null) : null,
+        retentionCategory: retentionSlug.trim() || null,
+        retainMinimumYears: retainMinYearsStr.trim()
+          ? Math.max(0, parseInt(retainMinYearsStr, 10) || 0) || null
+          : null,
+        retainMaximumYears: retainMaxYearsStr.trim()
+          ? Math.max(0, parseInt(retainMaxYearsStr, 10) || 0) || null
+          : null,
+        lang: pageLang,
+      })
+      setDirty(false)
+      setSavedMsg(true)
+      return true
+    } catch (e) {
+      setSaveError(getSupabaseErrorMessage(e))
+      return false
+    }
   }
 
   async function handlePublish() {
@@ -363,9 +372,14 @@ export function WikiPageEditor() {
       )
       if (!ok) return
     }
-    await handleSave()
-    await docs.publishPage(original.id)
-    navigate(`/documents/page/${original.id}`)
+    try {
+      const saved = await handleSave()
+      if (!saved) return
+      await docs.publishPage(original.id)
+      navigate(`/documents/page/${original.id}`)
+    } catch (e) {
+      setSaveError(getSupabaseErrorMessage(e))
+    }
   }
 
   function runA11yCheck() {
@@ -465,6 +479,12 @@ export function WikiPageEditor() {
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
           <CheckCircle2 className="size-4 shrink-0" aria-hidden />
           Lagret
+        </div>
+      ) : null}
+
+      {saveError ? (
+        <div className="mt-3">
+          <WarningBox>{saveError}</WarningBox>
         </div>
       ) : null}
 

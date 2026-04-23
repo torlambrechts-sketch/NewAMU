@@ -31,6 +31,9 @@ export function getSupabaseErrorMessage(err: unknown): string {
   if (mapped) return mapped
 
   const lower = raw.toLowerCase()
+  if (lower.includes('failed to fetch') || lower.includes('networkerror') || lower.includes('network request failed')) {
+    return 'Nettverket svarte ikke (Failed to fetch). Sjekk tilkoblingen og prøv igjen — lagring kan likevel ha lyktes; oppdater siden for å bekrefte.'
+  }
   if (
     lower.includes('lock broken') ||
     lower.includes("'steal'") ||
