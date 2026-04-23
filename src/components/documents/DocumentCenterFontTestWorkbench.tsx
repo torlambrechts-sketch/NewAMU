@@ -385,14 +385,11 @@ export function DocumentCenterFontTestWorkbench() {
         </div>
       </div>
 
+      <div className="mb-6">{folderKpiRows}</div>
+
       <ModuleMainAside
         cardWrap
-        main={
-          <div className="space-y-6">
-            {folderKpiRows}
-            {documentsTableBlock}
-          </div>
-        }
+        main={<div className="space-y-6">{documentsTableBlock}</div>}
         aside={
           <div className="space-y-4">
             {filterCard}
