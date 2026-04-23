@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Loader2, Plus, Trash2, X } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
@@ -38,6 +38,7 @@ function useBodyScrollLock(active: boolean) {
 
 export function DocumentTemplatesSettings() {
   const docs = useDocuments()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { can, isAdmin } = useOrgSetupContext()
   const canManage = isAdmin || can('documents.manage')
 
@@ -67,6 +68,18 @@ export function DocumentTemplatesSettings() {
   )
 
   useBodyScrollLock(Boolean(systemPanelId || customPanelId))
+
+  useEffect(() => {
+    const sid = searchParams.get('system')
+    if (!sid || !canManage) return
+    const exists = docs.systemTemplatesCatalog.some((t) => t.id === sid)
+    if (!exists) return
+    setSystemPanelId(sid)
+    setCustomPanelId(null)
+    const next = new URLSearchParams(searchParams)
+    next.delete('system')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams, canManage, docs.systemTemplatesCatalog])
 
   useEffect(() => {
     if (!systemPanelId && !customPanelId) return

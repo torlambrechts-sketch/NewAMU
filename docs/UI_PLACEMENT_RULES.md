@@ -12,7 +12,7 @@ The rules assume the UI primitives that already live in the codebase:
 - `src/components/module/ModuleDocumentsForestCard.tsx` — forest-green aside surface for storage / status widgets.
 - `src/components/documents/DocumentsHubSecondaryNav.tsx` — **én** primær menylinje under `ModulePageShell` (`HubMenu1Bar`): **Dokumenter** (`/documents`), **Malbibliotek**, **Samsvar**, **Årsgjennomgang** (admin), **Innstillinger** (admin). «Dokumenter» forblir aktiv på wiki-understier (`/documents/page/…`, `/documents/space/…`) via `navActiveOverride` i `HubMenu1Bar`.
 - `src/components/module/ModuleDocumentsKandidatdetaljHub.tsx` — default **Dokumenter** hub (Kandidatdetalj-split): beige ~22% mappe-nav, høyre kolonne `pages` eller `templates`, drag page to folder, fil-slipp i høyre kolonne under «Søk i sider»; på **Malbibliotek** vises kun mapper med kategori `template_library` i venstre kolonne, og maler opprettes kun i slike mapper.
-- `src/components/documents/DocumentsTemplateLibraryBody.tsx` — malrutenett for malbibliotek-siden (brukes inne i hubbens høyre kolonne).
+- `src/components/documents/DocumentsTemplateLibraryBody.tsx` — malrutenett for malbibliotek-siden: **Ny mal** / **Ny malmappe** (managers), blyant på hver mal (organisasjonsmal → modal; systemmal → `/documents/templates?system=…`).
 - `src/components/module/ModuleInformationCard.tsx` — form/metadata card with `withCard` + `hideHeader` props.
 - `src/components/module/ModuleSignatureCard.tsx` — per-role signature card.
 - `src/components/module/ModulePreflightChecklist.tsx` — pre-signing checklist.

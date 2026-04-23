@@ -26,6 +26,7 @@ import { WIKI_RETENTION_CATEGORIES_STATIC } from '../data/wikiRetentionCategorie
 import * as wikiAnnualApi from '../api/wikiAnnualReview'
 
 const STORAGE_KEY = 'atics-documents-v2'
+const LOCAL_ORG_TEMPLATES_KEY = 'atics-document-org-templates-v1'
 
 /** @deprecated Local demo only */
 export const DEMO_USER_ID = 'user-demo'
@@ -45,13 +46,32 @@ type LegalCoverageRow = { ref: string; label: string; templateIds: string[]; max
 
 type OrgTemplateSetting = { templateId: string; enabled: boolean }
 
-type OrgCustomTemplate = {
+export type OrgCustomTemplate = {
   id: string
   label: string
   description: string
   category: SpaceCategory
   legalBasis: string[]
   pagePayload: Omit<WikiPage, 'id' | 'spaceId' | 'createdAt' | 'updatedAt' | 'authorId' | 'version'>
+}
+
+function loadLocalOrgTemplates(): OrgCustomTemplate[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_ORG_TEMPLATES_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as OrgCustomTemplate[]
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function saveLocalOrgTemplates(templates: OrgCustomTemplate[]) {
+  try {
+    localStorage.setItem(LOCAL_ORG_TEMPLATES_KEY, JSON.stringify(templates))
+  } catch {
+    /* ignore */
+  }
 }
 
 function emptyLocalState(): DocumentsState {
@@ -407,6 +427,9 @@ function useDocumentsStore() {
   >([])
   const [orgTemplateSettings, setOrgTemplateSettings] = useState<OrgTemplateSetting[]>([])
   const [orgCustomTemplates, setOrgCustomTemplates] = useState<OrgCustomTemplate[]>([])
+  const [localOrgCustomTemplates, setLocalOrgCustomTemplates] = useState<OrgCustomTemplate[]>(() =>
+    useRemote ? [] : loadLocalOrgTemplates(),
+  )
   const [retentionCategories, setRetentionCategories] = useState<WikiRetentionCategoryRow[]>([])
   const [loading, setLoading] = useState(useRemote)
   const [error, setError] = useState<string | null>(null)
@@ -550,6 +573,11 @@ function useDocumentsStore() {
     }
   }, [useRemote, localState])
 
+  useEffect(() => {
+    if (useRemote) return
+    setLocalOrgCustomTemplates(loadLocalOrgTemplates())
+  }, [useRemote])
+
   const wikiRetentionCategories = useMemo(
     () => (retentionCategories.length > 0 ? retentionCategories : WIKI_RETENTION_CATEGORIES_STATIC),
     [retentionCategories],
@@ -571,7 +599,8 @@ function useDocumentsStore() {
         category: t.category,
         page: t.pagePayload,
       }))
-    const custom: PageTemplate[] = orgCustomTemplates.map((t) => ({
+    const orgCustomSource = useRemote ? orgCustomTemplates : localOrgCustomTemplates
+    const custom: PageTemplate[] = orgCustomSource.map((t) => ({
       id: t.id,
       label: t.label,
       description: t.description,
@@ -580,7 +609,7 @@ function useDocumentsStore() {
       page: t.pagePayload,
     }))
     return [...system, ...custom]
-  }, [useRemote, systemTemplates, orgTemplateSettings, orgCustomTemplates])
+  }, [useRemote, systemTemplates, orgTemplateSettings, orgCustomTemplates, localOrgCustomTemplates])
 
   const setSystemTemplateEnabled = useCallback(
     async (templateId: string, enabled: boolean) => {
@@ -608,8 +637,25 @@ function useDocumentsStore() {
       legalBasis: string[]
       page: PageTemplate['page']
     }) => {
-      if (!supabase || !orgId || !userId) return
       const id = input.id ?? crypto.randomUUID()
+      if (!useRemote) {
+        const row: OrgCustomTemplate = {
+          id,
+          label: input.label.trim(),
+          description: input.description.trim(),
+          category: input.category,
+          legalBasis: input.legalBasis,
+          pagePayload: input.page,
+        }
+        setLocalOrgCustomTemplates((prev) => {
+          const next = prev.filter((x) => x.id !== id)
+          next.push(row)
+          saveLocalOrgTemplates(next)
+          return next
+        })
+        return id
+      }
+      if (!supabase || !orgId || !userId) return
       const row = {
         id,
         organization_id: orgId,
@@ -624,17 +670,25 @@ function useDocumentsStore() {
       await refreshDocuments()
       return id
     },
-    [supabase, orgId, userId, refreshDocuments],
+    [useRemote, supabase, orgId, userId, refreshDocuments],
   )
 
   const deleteOrgCustomTemplate = useCallback(
     async (id: string) => {
+      if (!useRemote) {
+        setLocalOrgCustomTemplates((prev) => {
+          const next = prev.filter((x) => x.id !== id)
+          saveLocalOrgTemplates(next)
+          return next
+        })
+        return
+      }
       if (!supabase || !orgId) return
       const { error: e } = await supabase.from('document_org_templates').delete().eq('id', id).eq('organization_id', orgId)
       if (e) throw e
       await refreshDocuments()
     },
-    [supabase, orgId, refreshDocuments],
+    [useRemote, supabase, orgId, refreshDocuments],
   )
 
   const ledgerEntryLocal = useCallback(
@@ -1252,7 +1306,9 @@ function useDocumentsStore() {
 
   const resetDemo = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(LOCAL_ORG_TEMPLATES_KEY)
     setLocalState(emptyLocalState())
+    setLocalOrgCustomTemplates([])
     if (orgId && userId) clearSnap(orgId, userId)
     setRemoteState(emptyLocalState())
   }, [orgId, userId])
@@ -1407,7 +1463,7 @@ function useDocumentsStore() {
     pageTemplates,
     systemTemplatesCatalog: systemTemplates,
     orgTemplateSettings,
-    orgCustomTemplates,
+    orgCustomTemplates: useRemote ? orgCustomTemplates : localOrgCustomTemplates,
     refreshDocuments,
     setSystemTemplateEnabled,
     saveOrgCustomTemplate,

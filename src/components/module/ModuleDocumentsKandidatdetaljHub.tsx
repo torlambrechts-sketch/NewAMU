@@ -109,6 +109,7 @@ export function ModuleDocumentsKandidatdetaljHub({
 
   const [deletePageTarget, setDeletePageTarget] = useState<WikiPage | null>(null)
   const [deletingPage, setDeletingPage] = useState(false)
+  const [newTemplateKey, setNewTemplateKey] = useState(0)
 
   const uploadInputRef = useRef<HTMLInputElement>(null)
 
@@ -124,6 +125,11 @@ export function ModuleDocumentsKandidatdetaljHub({
     setNewFolderOpen(true)
   }, [centerContent])
   useDocumentsHubActionsRegister(openNewFolderFromShell)
+
+  const openNewTemplateFolderFromLibrary = useCallback(() => {
+    setNewCategory('template_library')
+    setNewFolderOpen(true)
+  }, [])
 
   const toggleNewFolderPanel = useCallback(() => {
     setNewFolderOpen((open) => {
@@ -414,15 +420,33 @@ export function ModuleDocumentsKandidatdetaljHub({
             </div>
             {canManage ? (
               <div className="flex shrink-0 flex-wrap items-center gap-2">
-                <Button type="button" variant="secondary" icon={<FolderPlus className="h-4 w-4" />} onClick={toggleNewFolderPanel}>
-                  Ny mappe
-                </Button>
-                <Button type="button" variant="secondary" icon={<Upload className="h-4 w-4" />} onClick={triggerUpload}>
-                  Last opp
-                </Button>
-                <Button type="button" variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => void handleNewDocument()}>
-                  Nytt dokument
-                </Button>
+                {centerContent === 'templates' ? (
+                  <>
+                    <Button type="button" variant="secondary" icon={<FolderPlus className="h-4 w-4" />} onClick={openNewTemplateFolderFromLibrary}>
+                      Ny malmappe
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      icon={<Plus className="h-4 w-4" />}
+                      onClick={() => setNewTemplateKey((k) => k + 1)}
+                    >
+                      Ny mal
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button type="button" variant="secondary" icon={<FolderPlus className="h-4 w-4" />} onClick={toggleNewFolderPanel}>
+                      Ny mappe
+                    </Button>
+                    <Button type="button" variant="secondary" icon={<Upload className="h-4 w-4" />} onClick={triggerUpload}>
+                      Last opp
+                    </Button>
+                    <Button type="button" variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => void handleNewDocument()}>
+                      Nytt dokument
+                    </Button>
+                  </>
+                )}
               </div>
             ) : null}
           </div>
@@ -560,7 +584,11 @@ export function ModuleDocumentsKandidatdetaljHub({
 
         <div className="min-w-0 bg-white p-4 md:p-6">
           {centerContent === 'templates' ? (
-            <DocumentsTemplateLibraryBody destinationSpaces={activeSpacesTemplates} />
+            <DocumentsTemplateLibraryBody
+              destinationSpaces={activeSpacesTemplates}
+              onNewTemplateFolder={canManage ? openNewTemplateFolderFromLibrary : undefined}
+              newTemplateKey={newTemplateKey}
+            />
           ) : (
             <ModuleRecordsTableShell
               wrapInCard={false}
