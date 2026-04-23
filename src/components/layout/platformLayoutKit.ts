@@ -13,4 +13,6 @@ export type LayoutScoreStatItem = {
   title: string
   /** Sekundærtekst (grå) */
   sub: string
+  /** Valgfritt ikon til venstre i cellen (f.eks. dokumentmapper). */
+  icon?: 'folder'
 }

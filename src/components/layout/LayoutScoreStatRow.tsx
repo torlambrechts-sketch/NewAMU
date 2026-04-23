@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Folder } from 'lucide-react'
 import { LAYOUT_SCORE_STAT_CREAM, type LayoutScoreStatItem } from './platformLayoutKit'
 
 type Props = {
@@ -56,6 +57,12 @@ export function LayoutScoreStatRow({
 
   const gapClass = gap === 'tight' ? 'gap-2' : 'gap-3'
 
+  const folderIconClass = dense
+    ? 'mt-0.5 h-4 w-4 shrink-0 text-neutral-500'
+    : compact
+      ? 'mt-1 h-5 w-5 shrink-0 text-neutral-500'
+      : 'mt-2 h-6 w-6 shrink-0 text-neutral-500'
+
   return (
     <div
       className={`grid ${gapClass} ${className}`.trim()}
@@ -67,9 +74,22 @@ export function LayoutScoreStatRow({
           className={`min-w-0 rounded-xl ${cellPad}`}
           style={{ backgroundColor: LAYOUT_SCORE_STAT_CREAM }}
         >
-          <p className={bigClass}>{it.big}</p>
-          <p className={titleClass}>{it.title}</p>
-          <p className={subClass}>{it.sub}</p>
+          {it.icon === 'folder' ? (
+            <div className="flex gap-2">
+              <Folder className={folderIconClass} aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className={bigClass}>{it.big}</p>
+                <p className={titleClass}>{it.title}</p>
+                <p className={subClass}>{it.sub}</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className={bigClass}>{it.big}</p>
+              <p className={titleClass}>{it.title}</p>
+              <p className={subClass}>{it.sub}</p>
+            </>
+          )}
           {childrenByIndex?.[idx] ?? null}
         </div>
       ))}

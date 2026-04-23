@@ -99,19 +99,19 @@ const MOCK_FILES: FileRow[] = [
 
 /** Two rows × 5 compact folder tiles (demodata), half-scale vs default KPI row. */
 const FOLDER_KPI_ROW_A = [
-  { big: '124', title: 'Arbeidsrett', sub: '1,2 GB' },
-  { big: '48', title: 'Tariffavtaler', sub: '450 MB' },
-  { big: '89', title: 'Møtereferat 24', sub: '210 MB' },
-  { big: '36', title: 'HMS-håndbok', sub: '88 MB' },
-  { big: '15', title: 'Opplæring', sub: '12 filer' },
+  { big: '124', title: 'Arbeidsrett', sub: '1,2 GB', icon: 'folder' as const },
+  { big: '48', title: 'Tariffavtaler', sub: '450 MB', icon: 'folder' as const },
+  { big: '89', title: 'Møtereferat 24', sub: '210 MB', icon: 'folder' as const },
+  { big: '36', title: 'HMS-håndbok', sub: '88 MB', icon: 'folder' as const },
+  { big: '15', title: 'Opplæring', sub: '12 filer', icon: 'folder' as const },
 ] as const
 
 const FOLDER_KPI_ROW_B = [
-  { big: '22', title: 'ROS / risiko', sub: '9 mapper' },
-  { big: '7', title: 'SJA', sub: '3 aktive' },
-  { big: '41', title: 'Varsling', sub: 'PDF + mal' },
-  { big: '18', title: 'Avvik', sub: '2024' },
-  { big: '3', title: 'Årsgj.', sub: 'utkast' },
+  { big: '22', title: 'ROS / risiko', sub: '9 mapper', icon: 'folder' as const },
+  { big: '7', title: 'SJA', sub: '3 aktive', icon: 'folder' as const },
+  { big: '41', title: 'Varsling', sub: 'PDF + mal', icon: 'folder' as const },
+  { big: '18', title: 'Avvik', sub: '2024', icon: 'folder' as const },
+  { big: '3', title: 'Årsgj.', sub: 'utkast', icon: 'folder' as const },
 ] as const
 
 /**
