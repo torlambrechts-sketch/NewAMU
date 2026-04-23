@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import { LayoutScoreStatRow } from '../layout/LayoutScoreStatRow'
 import type { LayoutScoreStatItem } from '../layout/platformLayoutKit'
 import { LayoutTable1PostingsShell } from '../layout/LayoutTable1PostingsShell'
@@ -38,6 +38,8 @@ export interface ModuleRecordsTableShellProps {
   wrapInCard?: boolean
   /** Optional override for the postings shell's title typography. */
   titleTypography?: 'serif' | 'sans'
+  /** Props forwarded to `LayoutScoreStatRow` when `kpiItems` is set (e.g. `columns`, `variant`, `gap`). */
+  kpiRowProps?: Omit<ComponentProps<typeof LayoutScoreStatRow>, 'items' | 'childrenByIndex'>
 }
 
 export function ModuleRecordsTableShell({
@@ -50,8 +52,10 @@ export function ModuleRecordsTableShell({
   children,
   wrapInCard = true,
   titleTypography = 'sans',
+  kpiRowProps,
 }: ModuleRecordsTableShellProps) {
-  const kpi = kpiItems && kpiItems.length > 0 ? <LayoutScoreStatRow items={kpiItems} /> : null
+  const kpi =
+    kpiItems && kpiItems.length > 0 ? <LayoutScoreStatRow items={kpiItems} {...kpiRowProps} /> : null
 
   const tableShell = (
     <LayoutTable1PostingsShell

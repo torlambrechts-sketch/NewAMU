@@ -13,6 +13,7 @@ import {
   Search,
   Upload,
 } from 'lucide-react'
+import { LayoutScoreStatRow } from '../layout/LayoutScoreStatRow'
 import { ModuleMainAside } from '../module/ModuleMainAside'
 import { ModuleRecordsTableShell } from '../module/ModuleRecordsTableShell'
 import { ModuleSectionCard } from '../module/ModuleSectionCard'
@@ -96,15 +97,26 @@ const MOCK_FILES: FileRow[] = [
   },
 ]
 
-const FOLDER_KPI_ITEMS = [
-  { big: '124', title: 'Arbeidsrett — referanser', sub: '1,2 GB · mapper og filer' },
-  { big: '48', title: 'Tariffavtaler', sub: '450 MB · mapper og filer' },
-  { big: '89', title: 'Møtereferat 2024', sub: '210 MB · mapper og filer' },
+/** Two rows × 5 compact folder tiles (demodata), half-scale vs default KPI row. */
+const FOLDER_KPI_ROW_A = [
+  { big: '124', title: 'Arbeidsrett', sub: '1,2 GB' },
+  { big: '48', title: 'Tariffavtaler', sub: '450 MB' },
+  { big: '89', title: 'Møtereferat 24', sub: '210 MB' },
+  { big: '36', title: 'HMS-håndbok', sub: '88 MB' },
+  { big: '15', title: 'Opplæring', sub: '12 filer' },
+] as const
+
+const FOLDER_KPI_ROW_B = [
+  { big: '22', title: 'ROS / risiko', sub: '9 mapper' },
+  { big: '7', title: 'SJA', sub: '3 aktive' },
+  { big: '41', title: 'Varsling', sub: 'PDF + mal' },
+  { big: '18', title: 'Avvik', sub: '2024' },
+  { big: '3', title: 'Årsgj.', sub: 'utkast' },
 ] as const
 
 /**
  * Visual prototype: document hub with filters, folder catalogues and file table.
- * Reuses `ModuleRecordsTableShell` (ROS/SJA KPI + table), `ModuleMainAside`, and module cards per docs/UI_PLACEMENT_RULES.md.
+ * Folder KPIs render above `ModuleMainAside` (outside white cards, like ROS/SJA hub). Table uses `ModuleRecordsTableShell` without KPIs; `ModuleMainAside` + module cards per docs/UI_PLACEMENT_RULES.md.
  * Static mock data only.
  */
 export function DocumentCenterFontTestWorkbench() {
@@ -245,10 +257,16 @@ export function DocumentCenterFontTestWorkbench() {
     </>
   ))
 
-  /** ROS/SJA pattern: KPI row outside and above the white table card (`ModuleRecordsTableShell`). */
+  const folderKpiRows = (
+    <div className="space-y-2">
+      <LayoutScoreStatRow items={[...FOLDER_KPI_ROW_A]} variant="dense" columns={5} gap="tight" />
+      <LayoutScoreStatRow items={[...FOLDER_KPI_ROW_B]} variant="dense" columns={5} gap="tight" />
+    </div>
+  )
+
+  /** Table only inside main white card — folder tiles sit above `ModuleMainAside` like ROS/SJA hub. */
   const documentsTableBlock = (
     <ModuleRecordsTableShell
-      kpiItems={[...FOLDER_KPI_ITEMS]}
       title="Nylige filer"
       titleTypography="sans"
       description={
@@ -364,6 +382,8 @@ export function DocumentCenterFontTestWorkbench() {
           </Button>
         </div>
       </div>
+
+      <div className="mb-6">{folderKpiRows}</div>
 
       <ModuleMainAside
         cardWrap
