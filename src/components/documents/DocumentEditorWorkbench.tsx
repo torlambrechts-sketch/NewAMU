@@ -626,7 +626,7 @@ export function DocumentEditorWorkbench({
 
   const headerBlock =
     showHeader ? (
-      <div className="mb-6 flex flex-col gap-4 border-b border-neutral-200/80 pb-6 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mb-6 flex flex-col gap-4 border-b border-neutral-200/80 pb-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold text-neutral-900">
             {mode === 'persist' ? 'Rediger dokument' : 'Dokumentredaktør — UI-test'}
@@ -637,7 +637,7 @@ export function DocumentEditorWorkbench({
               : 'PandaDoc-inspirert arbeidsflate med TipTap (tiptap.dev), fullbred dokumentflate og dokumentspesifikasjon i sidepanelet. Kun lokalt utkast — ingen integrasjon.'}
           </p>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
           {mode === 'persist' ? (
             <>
               {persistDirty ? <Badge variant="draft">Ulagrede endringer</Badge> : <Badge variant="signed">Lagret</Badge>}
@@ -667,16 +667,20 @@ export function DocumentEditorWorkbench({
         </div>
       </div>
     ) : mode === 'persist' ? (
-      <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
-        {persistDirty ? <Badge variant="draft">Ulagrede endringer</Badge> : null}
-        {onExit ? (
-          <Button type="button" variant="secondary" onClick={onExit}>
-            Tilbake
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {persistDirty ? <Badge variant="draft">Ulagrede endringer</Badge> : <Badge variant="signed">Lagret</Badge>}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
+          {onExit ? (
+            <Button type="button" variant="secondary" onClick={onExit}>
+              Tilbake
+            </Button>
+          ) : null}
+          <Button type="button" variant="primary" disabled={saving || !persistDirty} onClick={() => void handleSavePersist()}>
+            {saving ? 'Lagrer…' : 'Lagre'}
           </Button>
-        ) : null}
-        <Button type="button" variant="primary" disabled={saving || !persistDirty} onClick={() => void handleSavePersist()}>
-          {saving ? 'Lagrer…' : 'Lagre'}
-        </Button>
+        </div>
       </div>
     ) : null
 

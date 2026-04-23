@@ -1,6 +1,6 @@
 # UI Placement & Module Consistency Rules
 
-Reference for module UI work. Use this file as the system prompt / context when asking another LLM (e.g. Composer 2) to bring additional modules into alignment. It codifies the patterns established across ROS, Inspeksjonsrunder, Vernerunder, SJA, AMU, AMU-valg, and Tiltaksplan.
+Reference for module UI work. Use this file as the system prompt / context when asking another LLM (e.g. Composer 2) to bring additional modules into alignment. It codifies the patterns established across ROS, Inspeksjonsrunder, Vernerunder, SJA, AMU, AMU-valg, and Tiltaksplan. For Dokumenter / malbibliotek **handlingsrekkefølge og knappejustering**, see **`docs/UI_DESIGN_RULES.md`** (same pattern as `WorkplacePageHeading1.headerActions`).
 
 The rules assume the UI primitives that already live in the codebase:
 

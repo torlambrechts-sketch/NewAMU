@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Pencil, Plus } from 'lucide-react'
+import { FolderPlus, Pencil, Plus } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PageTemplate, SpaceCategory, WikiSpace } from '../../types/documents'
@@ -186,17 +186,17 @@ export function DocumentsTemplateLibraryBody({
   return (
     <>
       <ModuleSectionCard className="p-5 md:p-6">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          <div>
+        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
             <h2 className="text-sm font-semibold text-neutral-900">Tilgjengelige maler</h2>
             <span className="mt-1 block text-xs text-neutral-500">
               {docs.pageTemplates.length} {docs.backend === 'supabase' ? 'tilgjengelige maler' : 'mal(er) (demo lokalt)'}
             </span>
           </div>
           {canManage ? (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
               {onNewTemplateFolder ? (
-                <Button type="button" variant="secondary" icon={<Plus className="h-4 w-4" />} onClick={onNewTemplateFolder}>
+                <Button type="button" variant="secondary" icon={<FolderPlus className="h-4 w-4" />} onClick={onNewTemplateFolder}>
                   Ny malmappe
                 </Button>
               ) : null}
@@ -285,12 +285,12 @@ export function DocumentsTemplateLibraryBody({
                 />
               </div>
               {createErr ? <WarningBox>{createErr}</WarningBox> : null}
-              <div className="flex flex-wrap gap-2 pt-1">
-                <Button type="submit" variant="primary" disabled={createBusy}>
-                  {createBusy ? 'Lagrer…' : 'Opprett mal'}
-                </Button>
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
                 <Button type="button" variant="secondary" onClick={() => setCreateOpen(false)}>
                   Avbryt
+                </Button>
+                <Button type="submit" variant="primary" disabled={createBusy}>
+                  {createBusy ? 'Lagrer…' : 'Opprett mal'}
                 </Button>
               </div>
             </form>
@@ -353,12 +353,12 @@ export function DocumentsTemplateLibraryBody({
                 />
               </div>
               {editErr ? <WarningBox>{editErr}</WarningBox> : null}
-              <div className="flex flex-wrap gap-2 pt-1">
-                <Button type="submit" variant="primary" disabled={editBusy}>
-                  {editBusy ? 'Lagrer…' : 'Lagre'}
-                </Button>
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
                 <Button type="button" variant="secondary" onClick={closeEdit}>
                   Avbryt
+                </Button>
+                <Button type="submit" variant="primary" disabled={editBusy}>
+                  {editBusy ? 'Lagrer…' : 'Lagre'}
                 </Button>
               </div>
             </form>
@@ -431,7 +431,10 @@ function TemplateCard({
       {open ? (
         <div className="mt-3 space-y-2">
           <SearchableSelect value={selected} options={spaceOptions} onChange={(v) => setSelected(v)} />
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
+              Avbryt
+            </Button>
             <Button
               type="button"
               variant="primary"
@@ -445,9 +448,6 @@ function TemplateCard({
               }}
             >
               {busy ? '…' : 'Bruk mal'}
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
-              Avbryt
             </Button>
           </div>
         </div>

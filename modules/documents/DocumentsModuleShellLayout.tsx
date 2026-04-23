@@ -17,12 +17,12 @@ function DocumentsShellHeaderActions({ canManage, onDocumentsHub }: { canManage:
   if (!canManage || !onDocumentsHub) return null
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button variant="primary" type="button" icon={<Plus className="h-4 w-4" />} onClick={() => requestNewDocument()}>
-        Nytt dokument
-      </Button>
+    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
       <Button variant="secondary" type="button" icon={<FolderPlus className="h-4 w-4" />} onClick={() => requestOpenNewFolder()}>
         Ny mappe
+      </Button>
+      <Button variant="primary" type="button" icon={<Plus className="h-4 w-4" />} onClick={() => requestNewDocument()}>
+        Nytt dokument
       </Button>
     </div>
   )

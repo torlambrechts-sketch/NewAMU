@@ -405,7 +405,7 @@ export function ModuleDocumentsKandidatdetaljHub({
               <span className="font-medium text-neutral-700">Dokumenter</span>
             )}
           </p>
-          <div className="mt-1.5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="mt-1.5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-neutral-900 sm:text-xl" style={{ fontFamily: SERIF }}>
                 {centerContent === 'templates' ? 'Malbibliotek' : 'Mapper og dokumenter'}
@@ -419,7 +419,7 @@ export function ModuleDocumentsKandidatdetaljHub({
               </p>
             </div>
             {canManage ? (
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
                 {centerContent === 'templates' ? (
                   <>
                     <Button type="button" variant="secondary" icon={<FolderPlus className="h-4 w-4" />} onClick={openNewTemplateFolderFromLibrary}>
@@ -492,12 +492,12 @@ export function ModuleDocumentsKandidatdetaljHub({
                 onChange={(v) => setNewCategory(v as WikiSpace['category'])}
               />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" variant="primary" size="sm" disabled={savingFolder}>
-                {savingFolder ? 'Oppretter…' : 'Opprett'}
-              </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={() => setNewFolderOpen(false)}>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setNewFolderOpen(false)}>
                 Avbryt
+              </Button>
+              <Button type="submit" variant="primary" disabled={savingFolder}>
+                {savingFolder ? 'Oppretter…' : 'Opprett'}
               </Button>
             </div>
           </form>
@@ -755,12 +755,12 @@ export function ModuleDocumentsKandidatdetaljHub({
                 </label>
                 <SearchableSelect value={editCategory} options={categoryOptions} onChange={(v) => setEditCategory(v as WikiSpace['category'])} />
               </div>
-              <div className="flex flex-wrap gap-2 pt-1">
-                <Button type="submit" variant="primary" size="sm" disabled={savingEditSpace}>
-                  {savingEditSpace ? 'Lagrer…' : 'Lagre'}
-                </Button>
-                <Button type="button" variant="secondary" size="sm" onClick={() => setEditSpace(null)}>
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                <Button type="button" variant="secondary" onClick={() => setEditSpace(null)}>
                   Avbryt
+                </Button>
+                <Button type="submit" variant="primary" disabled={savingEditSpace}>
+                  {savingEditSpace ? 'Lagrer…' : 'Lagre'}
                 </Button>
               </div>
             </form>
@@ -781,12 +781,12 @@ export function ModuleDocumentsKandidatdetaljHub({
               «{archiveSpaceTarget.title}» settes til arkivert og vises ikke lenger under aktive mapper. Sider i mappen
               slettes ikke.
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button type="button" variant="danger" size="sm" disabled={archivingSpace} onClick={() => void confirmArchiveSpace()}>
-                {archivingSpace ? 'Arkiverer…' : 'Arkiver'}
-              </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={() => setArchiveSpaceTarget(null)}>
+            <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setArchiveSpaceTarget(null)}>
                 Avbryt
+              </Button>
+              <Button type="button" variant="danger" disabled={archivingSpace} onClick={() => void confirmArchiveSpace()}>
+                {archivingSpace ? 'Arkiverer…' : 'Arkiver'}
               </Button>
             </div>
           </ModuleSectionCard>
@@ -805,12 +805,12 @@ export function ModuleDocumentsKandidatdetaljHub({
             <p className="mt-2 text-sm text-neutral-600">
               «{deletePageTarget.title}» kan ikke gjenopprettes. Vurder å arkivere fra redigeringsvisningen i stedet.
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button type="button" variant="danger" size="sm" disabled={deletingPage} onClick={() => void confirmDeletePage()}>
-                {deletingPage ? 'Sletter…' : 'Slett'}
-              </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={() => setDeletePageTarget(null)}>
+            <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setDeletePageTarget(null)}>
                 Avbryt
+              </Button>
+              <Button type="button" variant="danger" disabled={deletingPage} onClick={() => void confirmDeletePage()}>
+                {deletingPage ? 'Sletter…' : 'Slett'}
               </Button>
             </div>
           </ModuleSectionCard>
