@@ -44,6 +44,11 @@ export type HubMenu1Item = {
   onClick?: () => void
   /** When true, tab is non-interactive (e.g. gated step). */
   disabled?: boolean
+  /**
+   * When set, overrides NavLink `isActive` for styling (e.g. «Mapper» should stay active on
+   * `/documents/page/...` even though those paths are not the same as `/documents`).
+   */
+  navActiveOverride?: boolean
 }
 
 type Props = {
@@ -83,16 +88,25 @@ export function HubMenu1Bar({ ariaLabel, items }: Props) {
                 title={compact ? item.label : undefined}
                 aria-label={compact ? item.label : undefined}
                 className={({ isActive }) => {
-                  const on = hubNavLinkActive(item.to!, location, isActive)
+                  const on =
+                    item.navActiveOverride !== undefined
+                      ? item.navActiveOverride
+                      : hubNavLinkActive(item.to!, location, isActive)
                   return `${tabClass} ${on ? TAB_ACTIVE : TAB_INACTIVE}`
                 }}
                 style={({ isActive }) => {
-                  const on = hubNavLinkActive(item.to!, location, isActive)
+                  const on =
+                    item.navActiveOverride !== undefined
+                      ? item.navActiveOverride
+                      : hubNavLinkActive(item.to!, location, isActive)
                   return on ? { backgroundColor: WORKPLACE_FOREST } : undefined
                 }}
               >
                 {({ isActive }) => {
-                  const on = hubNavLinkActive(item.to!, location, isActive)
+                  const on =
+                    item.navActiveOverride !== undefined
+                      ? item.navActiveOverride
+                      : hubNavLinkActive(item.to!, location, isActive)
                   return (
                     <>
                       <Icon className={`size-4 shrink-0 ${on ? 'text-white' : 'text-neutral-500'}`} aria-hidden={compact} />

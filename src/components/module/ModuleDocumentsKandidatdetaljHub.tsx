@@ -68,7 +68,7 @@ export type ModuleDocumentsKandidatdetaljHubProps = {
 
 /**
  * Default **Dokumenter** hub: Kandidatdetalj-style split (beige ~22% folder nav + white hovedkolonne),
- * drag wiki page onto folder to move; fil-slipp for opplasting i valgt mappe ligger i venstre kolonne rett under søk (inne i hub-kortet).
+ * drag wiki page onto folder to move; fil-slipp for opplasting ligger i høyre kolonne rett under «Søk i sider».
  *
  * Follow `docs/UI_PLACEMENT_RULES.md` and `DESIGN_SYSTEM.md` (module primitives, no raw controls).
  */
@@ -116,49 +116,91 @@ export function ModuleDocumentsKandidatdetaljHub({
     return () => window.removeEventListener('dragend', clear)
   }, [canManage])
 
-  const openNewFolder = useCallback(() => setNewFolderOpen(true), [])
-  useDocumentsHubActionsRegister(openNewFolder)
+  const openNewFolderFromShell = useCallback(() => {
+    setNewCategory(centerContent === 'templates' ? 'template_library' : 'hms_handbook')
+    setNewFolderOpen(true)
+  }, [centerContent])
+  useDocumentsHubActionsRegister(openNewFolderFromShell)
+
+  const toggleNewFolderPanel = useCallback(() => {
+    setNewFolderOpen((open) => {
+      const next = !open
+      if (next) setNewCategory(centerContent === 'templates' ? 'template_library' : 'hms_handbook')
+      return next
+    })
+  }, [centerContent])
 
   const activeSpaces = useMemo(() => docs.spaces.filter((s) => s.status === 'active'), [docs.spaces])
 
+  const activeSpacesPages = useMemo(
+    () => activeSpaces.filter((s) => s.category !== 'template_library'),
+    [activeSpaces],
+  )
+  const activeSpacesTemplates = useMemo(
+    () => activeSpaces.filter((s) => s.category === 'template_library'),
+    [activeSpaces],
+  )
+
+  const spacesForNav = centerContent === 'templates' ? activeSpacesTemplates : activeSpacesPages
+
   const filteredSpaces = useMemo(() => {
     const q = folderQuery.trim().toLowerCase()
-    if (!q) return activeSpaces
-    return activeSpaces.filter(
+    if (!q) return spacesForNav
+    return spacesForNav.filter(
       (s) =>
         s.title.toLowerCase().includes(q) ||
         s.description.toLowerCase().includes(q) ||
         CATEGORY_LABELS[s.category].toLowerCase().includes(q),
     )
-  }, [activeSpaces, folderQuery])
+  }, [spacesForNav, folderQuery])
 
   const pagesForTable = useMemo(() => {
     const q = pageQuery.trim().toLowerCase()
     let list: WikiPage[]
+    const relevantIds = new Set(spacesForNav.map((s) => s.id))
     if (selectedSpaceId == null) {
-      const ids = new Set(activeSpaces.map((s) => s.id))
-      list = docs.pages.filter((p) => ids.has(p.spaceId))
+      list = docs.pages.filter((p) => relevantIds.has(p.spaceId))
     } else {
       list = docs.pages.filter((p) => p.spaceId === selectedSpaceId)
     }
     if (!q) return list
     return list.filter((p) => p.title.toLowerCase().includes(q) || (p.summary ?? '').toLowerCase().includes(q))
-  }, [docs.pages, activeSpaces, selectedSpaceId, pageQuery])
+  }, [docs.pages, spacesForNav, selectedSpaceId, pageQuery])
 
   const sortedPages = useMemo(
     () => [...pagesForTable].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
     [pagesForTable],
   )
 
-  const selectedSpace = selectedSpaceId ? activeSpaces.find((s) => s.id === selectedSpaceId) : null
-  const mainTitle = selectedSpace ? `Sider — ${selectedSpace.title}` : 'Sider — alle mapper'
-  const mainDescription = selectedSpace
-    ? `${CATEGORY_LABELS[selectedSpace.category]} · ${docs.pages.filter((p) => p.spaceId === selectedSpace.id).length} sider`
-    : `${sortedPages.length} sider på tvers av aktive mapper`
+  const selectedSpace = selectedSpaceId ? spacesForNav.find((s) => s.id === selectedSpaceId) : null
+  const mainTitle =
+    centerContent === 'templates'
+      ? selectedSpace
+        ? `Maler — ${selectedSpace.title}`
+        : 'Maler — alle malmapper'
+      : selectedSpace
+        ? `Sider — ${selectedSpace.title}`
+        : 'Sider — alle mapper'
+  const mainDescription =
+    centerContent === 'templates'
+      ? selectedSpace
+        ? `${CATEGORY_LABELS[selectedSpace.category]} · ${docs.pages.filter((p) => p.spaceId === selectedSpace.id).length} sider`
+        : `${sortedPages.length} sider i malmapper (kategori «Malbibliotek»)`
+      : selectedSpace
+        ? `${CATEGORY_LABELS[selectedSpace.category]} · ${docs.pages.filter((p) => p.spaceId === selectedSpace.id).length} sider`
+        : `${sortedPages.length} sider på tvers av aktive mapper`
 
-  const spaceById = useMemo(() => new Map(activeSpaces.map((s) => [s.id, s])), [activeSpaces])
+  const spaceById = useMemo(() => new Map(spacesForNav.map((s) => [s.id, s])), [spacesForNav])
 
-  const targetSpaceIdForActions = selectedSpaceId ?? activeSpaces[0]?.id ?? null
+  const targetSpaceIdForActions = selectedSpaceId ?? spacesForNav[0]?.id ?? null
+
+  const newFolderCategoryOptions = useMemo(
+    () =>
+      centerContent === 'templates'
+        ? categoryOptions.filter((c) => c.value === 'template_library')
+        : categoryOptions.filter((c) => c.value !== 'template_library'),
+    [centerContent],
+  )
 
   const openEditSpace = useCallback((s: WikiSpace) => {
     setEditSpace(s)
@@ -339,7 +381,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                 <span>Kandidatdetalj-split</span>
               </>
             ) : (
-              <span className="font-medium text-neutral-700">Oversikt</span>
+              <span className="font-medium text-neutral-700">Mapper</span>
             )}
           </p>
           <div className="mt-1.5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -357,13 +399,13 @@ export function ModuleDocumentsKandidatdetaljHub({
             </div>
             {canManage ? (
               <div className="flex shrink-0 flex-wrap items-center gap-2">
-                <Button type="button" variant="secondary" size="sm" icon={<FolderPlus className="h-4 w-4" />} onClick={() => setNewFolderOpen((o) => !o)}>
+                <Button type="button" variant="secondary" icon={<FolderPlus className="h-4 w-4" />} onClick={toggleNewFolderPanel}>
                   Ny mappe
                 </Button>
-                <Button type="button" variant="secondary" size="sm" icon={<Upload className="h-4 w-4" />} onClick={triggerUpload}>
+                <Button type="button" variant="secondary" icon={<Upload className="h-4 w-4" />} onClick={triggerUpload}>
                   Last opp
                 </Button>
-                <Button type="button" variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => void handleNewDocument()}>
+                <Button type="button" variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => void handleNewDocument()}>
                   Nytt dokument
                 </Button>
               </div>
@@ -405,7 +447,11 @@ export function ModuleDocumentsKandidatdetaljHub({
               <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="hub-new-cat">
                 Kategori
               </label>
-              <SearchableSelect value={newCategory} options={categoryOptions} onChange={(v) => setNewCategory(v as WikiSpace['category'])} />
+              <SearchableSelect
+                value={newCategory}
+                options={newFolderCategoryOptions}
+                onChange={(v) => setNewCategory(v as WikiSpace['category'])}
+              />
             </div>
             <div className="flex flex-wrap gap-2">
               <Button type="submit" variant="primary" size="sm" disabled={savingFolder}>
@@ -434,33 +480,10 @@ export function ModuleDocumentsKandidatdetaljHub({
               />
             </div>
           </div>
-          {canManage && targetSpaceIdForActions && selectedSpace ? (
-            <div className="border-b border-neutral-200/60 px-2.5 pb-2.5 pt-0">
-              <ModuleSectionCard className="overflow-hidden p-2.5 shadow-sm">
-                <div
-                  role="region"
-                  aria-label="Slipp filer for opplasting"
-                  onDragOver={(e) => {
-                    if (!e.dataTransfer.types.includes('Files')) return
-                    e.preventDefault()
-                    e.dataTransfer.dropEffect = 'copy'
-                  }}
-                  onDrop={(e) => void onUploadZoneDrop(e)}
-                  className="rounded-md border border-dashed border-neutral-300 bg-neutral-50/90 px-2 py-3 text-center transition hover:border-[#1a3d32]/40"
-                >
-                  <Upload className="mx-auto h-4 w-4 text-neutral-400" aria-hidden />
-                  <p className="mt-1.5 text-[11px] font-medium leading-snug text-neutral-800">
-                    Slipp filer her for opplasting i <span className="text-[#1a3d32]">«{selectedSpace.title}»</span>
-                  </p>
-                  <p className="mt-0.5 text-[10px] text-neutral-500">Eller «Last opp».</p>
-                </div>
-              </ModuleSectionCard>
-            </div>
-          ) : null}
           <nav className="max-h-[min(70vh,32rem)] overflow-y-auto p-2" aria-label="Dokumentmapper">
             <NavFolderRow
-              label="Alle mapper"
-              sub={`${activeSpaces.length} aktive`}
+              label={centerContent === 'templates' ? 'Alle malmapper' : 'Alle mapper'}
+              sub={`${spacesForNav.length} aktive`}
               active={selectedSpaceId == null}
               onSelect={() => setSelectedSpaceId(null)}
             />
@@ -522,7 +545,7 @@ export function ModuleDocumentsKandidatdetaljHub({
 
         <div className="min-w-0 bg-white p-4 md:p-6">
           {centerContent === 'templates' ? (
-            <DocumentsTemplateLibraryBody />
+            <DocumentsTemplateLibraryBody destinationSpaces={activeSpacesTemplates} />
           ) : (
             <ModuleRecordsTableShell
               wrapInCard={false}
@@ -530,16 +553,39 @@ export function ModuleDocumentsKandidatdetaljHub({
               titleTypography="sans"
               description={mainDescription}
               toolbar={
-                <div className="relative min-w-0 flex-1">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-                  <StandardInput
-                    type="search"
-                    className="w-full py-2 pl-10"
-                    placeholder="Søk i sider…"
-                    value={pageQuery}
-                    onChange={(e) => setPageQuery(e.target.value)}
-                    aria-label="Søk i sider"
-                  />
+                <div className="flex w-full min-w-0 flex-col gap-3">
+                  <div className="relative min-w-0 flex-1">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                    <StandardInput
+                      type="search"
+                      className="w-full py-2 pl-10"
+                      placeholder="Søk i sider…"
+                      value={pageQuery}
+                      onChange={(e) => setPageQuery(e.target.value)}
+                      aria-label="Søk i sider"
+                    />
+                  </div>
+                  {canManage && targetSpaceIdForActions && selectedSpace ? (
+                    <ModuleSectionCard className="overflow-hidden p-2.5 shadow-sm">
+                      <div
+                        role="region"
+                        aria-label="Slipp filer for opplasting"
+                        onDragOver={(e) => {
+                          if (!e.dataTransfer.types.includes('Files')) return
+                          e.preventDefault()
+                          e.dataTransfer.dropEffect = 'copy'
+                        }}
+                        onDrop={(e) => void onUploadZoneDrop(e)}
+                        className="rounded-md border border-dashed border-neutral-300 bg-neutral-50/90 px-2 py-3 text-center transition hover:border-[#1a3d32]/40"
+                      >
+                        <Upload className="mx-auto h-4 w-4 text-neutral-400" aria-hidden />
+                        <p className="mt-1.5 text-[11px] font-medium leading-snug text-neutral-800">
+                          Slipp filer her for opplasting i <span className="text-[#1a3d32]">«{selectedSpace.title}»</span>
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-neutral-500">Eller «Last opp».</p>
+                      </div>
+                    </ModuleSectionCard>
+                  ) : null}
                 </div>
               }
               footer={<span className="text-sm text-neutral-500">{sortedPages.length} treff</span>}

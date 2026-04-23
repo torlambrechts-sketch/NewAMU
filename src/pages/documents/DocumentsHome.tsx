@@ -1,14 +1,12 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useDocuments } from '../../hooks/useDocuments'
-import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
 import { DOCUMENTS_HUB_SECTION_IDS } from '../../components/documents/documentsHubSectionIds'
 import { ModuleDocumentsKandidatdetaljHub } from '../../components/module/ModuleDocumentsKandidatdetaljHub'
 import { WarningBox } from '../../components/ui/AlertBox'
 
 /**
- * Dokumenter **Oversikt** — standard hub med {@link ModuleDocumentsKandidatdetaljHub}.
- * Malbibliotek: egen rute `/documents/malbibliotek` (samme hub-komponent).
+ * Dokumenter **Mapper** (`/documents`) — standard hub med {@link ModuleDocumentsKandidatdetaljHub}.
  */
 export function DocumentsHome() {
   const docs = useDocuments()
@@ -23,12 +21,12 @@ export function DocumentsHome() {
   }, [location.hash])
 
   return (
-    <DocumentsModuleLayout>
+    <>
       {docs.error ? <WarningBox>{docs.error}</WarningBox> : null}
 
       <div id={DOCUMENTS_HUB_SECTION_IDS.mapper} className="scroll-mt-6">
-        <ModuleDocumentsKandidatdetaljHub variant="home" showIntro centerContent="pages" />
+        <ModuleDocumentsKandidatdetaljHub variant="home" showIntro={false} centerContent="pages" />
       </div>
-    </DocumentsModuleLayout>
+    </>
   )
 }

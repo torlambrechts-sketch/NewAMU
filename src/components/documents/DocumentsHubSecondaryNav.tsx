@@ -1,70 +1,94 @@
-import { useCallback, useMemo } from 'react'
-import { useLocation, useMatch, useNavigate } from 'react-router-dom'
-import { BookOpen, Calendar, FolderOpen } from 'lucide-react'
+import { useMemo } from 'react'
+import { useMatch } from 'react-router-dom'
+import { BookOpen, ClipboardCheck, FolderOpen, Settings, ShieldCheck } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../layout/HubMenu1Bar'
-import { DOCUMENTS_HUB_SECTION_IDS } from './documentsHubSectionIds'
 
 type Props = {
   canManage: boolean
-}
-
-function scrollToHubSection(id: string) {
-  queueMicrotask(() => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  })
+  /** Red dot on «Årsgjennomgang» when review is missing or incomplete (same signal as legacy sidebar). */
+  annualReviewBadgeDot?: boolean
 }
 
 /**
- * Secondary navigation for the Dokumenter **Oversikt** hub: in-page sections on `/documents`
- * and årsgjennomgang when permitted.
+ * Primary navigation for the Dokumenter module (single `HubMenu1Bar` under `ModulePageShell`).
+ * One menu line: Mapper, Malbibliotek, Samsvar, (Årsgjennomgang), Innstillinger.
  */
-export function DocumentsHubSecondaryNav({ canManage }: Props) {
-  const location = useLocation()
-  const navigate = useNavigate()
+export function DocumentsHubSecondaryNav({ canManage, annualReviewBadgeDot }: Props) {
+  const mapperMatch = useMatch({ path: '/documents', end: true })
+  const editorTestMatch = useMatch({ path: '/documents/editor-test', end: true })
+  const kandidatTestMatch = useMatch({ path: '/documents/kandidatdetalj-layout-test', end: true })
+  const spaceMatch = useMatch({ path: '/documents/space/:spaceId', end: false })
+  const pageMatch = useMatch({ path: '/documents/page/:pageId', end: false })
 
-  const mapperHash = `#${DOCUMENTS_HUB_SECTION_IDS.mapper}`
-
-  const onDocumentsHome = location.pathname === '/documents'
-  const hash = location.hash || ''
-
-  const mapperActive = onDocumentsHome && (hash === '' || hash === mapperHash)
-  const templatesMatch = useMatch({ path: '/documents/malbibliotek', end: false })
-
+  const malMatch = useMatch({ path: '/documents/malbibliotek', end: true })
+  const complianceMatch = useMatch({ path: '/documents/compliance', end: false })
   const annualMatch = useMatch({ path: '/documents/aarsgjennomgang', end: false })
+  const settingsMatch = useMatch({ path: '/documents/templates', end: false })
 
-  const goMapper = useCallback(() => {
-    void navigate(`/documents${mapperHash}`)
-    scrollToHubSection(DOCUMENTS_HUB_SECTION_IDS.mapper)
-  }, [navigate, mapperHash])
+  const mapperNavActive = Boolean(
+    mapperMatch || editorTestMatch || kandidatTestMatch || spaceMatch || pageMatch,
+  )
 
   const items: HubMenu1Item[] = useMemo(() => {
+    const mapperTabOn = Boolean(
+      mapperNavActive && !malMatch && !complianceMatch && !annualMatch && !settingsMatch,
+    )
     const list: HubMenu1Item[] = [
       {
         key: 'mapper',
         label: 'Mapper',
         icon: FolderOpen,
-        active: Boolean(mapperActive),
-        onClick: goMapper,
+        to: '/documents',
+        end: true,
+        navActiveOverride: mapperTabOn,
+        active: false,
       },
       {
-        key: 'templates',
+        key: 'malbibliotek',
         label: 'Malbibliotek',
         icon: BookOpen,
         to: '/documents/malbibliotek',
-        active: Boolean(templatesMatch),
+        end: true,
+        active: false,
+      },
+      {
+        key: 'samsvar',
+        label: 'Samsvar',
+        icon: ShieldCheck,
+        to: '/documents/compliance',
+        end: false,
+        active: false,
       },
     ]
     if (canManage) {
       list.push({
         key: 'annual',
         label: 'Årsgjennomgang',
-        icon: Calendar,
+        icon: ClipboardCheck,
         to: '/documents/aarsgjennomgang',
-        active: Boolean(annualMatch),
+        end: false,
+        active: false,
+        badgeDot: annualReviewBadgeDot === true,
+      })
+      list.push({
+        key: 'innstillinger',
+        label: 'Innstillinger',
+        icon: Settings,
+        to: '/documents/templates',
+        end: false,
+        active: false,
       })
     }
     return list
-  }, [annualMatch, canManage, goMapper, mapperActive, templatesMatch])
+  }, [
+    annualMatch,
+    annualReviewBadgeDot,
+    canManage,
+    complianceMatch,
+    malMatch,
+    mapperNavActive,
+    settingsMatch,
+  ])
 
-  return <HubMenu1Bar ariaLabel="Dokumenter — flere seksjoner" items={items} />
+  return <HubMenu1Bar ariaLabel="Dokumenter" items={items} />
 }

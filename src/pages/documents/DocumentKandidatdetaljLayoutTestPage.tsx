@@ -1,11 +1,6 @@
-import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
 import { ModuleDocumentsKandidatdetaljHub } from '../../components/module/ModuleDocumentsKandidatdetaljHub'
 
-/** Route: `/documents/kandidatdetalj-layout-test` — same hub as oversikt, demo breadcrumb. */
+/** Route: `/documents/kandidatdetalj-layout-test` — layout reference (demo breadcrumb in hub). */
 export function DocumentKandidatdetaljLayoutTestPage() {
-  return (
-    <DocumentsModuleLayout>
-      <ModuleDocumentsKandidatdetaljHub variant="demo" showIntro />
-    </DocumentsModuleLayout>
-  )
+  return <ModuleDocumentsKandidatdetaljHub variant="demo" showIntro />
 }

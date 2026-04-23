@@ -6,18 +6,27 @@ import { ModuleSectionCard } from '../module/ModuleSectionCard'
 import { Button } from '../ui/Button'
 import { SearchableSelect, type SelectOption } from '../ui/SearchableSelect'
 
+type Props = {
+  /**
+   * Mapper brukeren kan opprette dokument fra (f.eks. kun `template_library`-mapper på malbibliotek-siden).
+   * Tom liste → ingen «Bruk mal».
+   */
+  destinationSpaces?: WikiSpace[]
+}
+
 /**
- * Malbibliotek grid (brukt på egen side med {@link ModuleDocumentsKandidatdetaljHub} `centerContent="templates"`).
+ * Malbibliotek grid (brukt i hub med `centerContent="templates"`).
  */
-export function DocumentsTemplateLibraryBody() {
+export function DocumentsTemplateLibraryBody({ destinationSpaces }: Props) {
   const docs = useDocuments()
   const navigate = useNavigate()
   const activeSpaces = useMemo(() => docs.spaces.filter((s) => s.status === 'active'), [docs.spaces])
+  const dest = destinationSpaces ?? activeSpaces
 
   return (
     <ModuleSectionCard className="p-5 md:p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-neutral-900">Malbibliotek</h2>
+        <h2 className="text-sm font-semibold text-neutral-900">Tilgjengelige maler</h2>
         <span className="text-xs text-neutral-500">
           {docs.pageTemplates.length} {docs.backend === 'supabase' ? 'tilgjengelige maler' : 'mal(er) (demo lokalt)'}
         </span>
@@ -27,7 +36,7 @@ export function DocumentsTemplateLibraryBody() {
           <TemplateCard
             key={tpl.id}
             tpl={tpl}
-            spaces={activeSpaces}
+            spaces={dest}
             onUse={async (spaceId) => {
               const page = await docs.createPage(
                 spaceId,
@@ -93,7 +102,6 @@ function TemplateCard({
             <Button
               type="button"
               variant="primary"
-              size="sm"
               disabled={busy || !selected}
               onClick={() => {
                 setBusy(true)
@@ -105,7 +113,7 @@ function TemplateCard({
             >
               {busy ? '…' : 'Bruk mal'}
             </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={() => setOpen(false)}>
+            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
               Avbryt
             </Button>
           </div>
@@ -114,7 +122,6 @@ function TemplateCard({
         <Button
           type="button"
           variant="secondary"
-          size="sm"
           className="mt-3 w-full"
           onClick={() => {
             setSelected(spaces[0]?.id ?? '')

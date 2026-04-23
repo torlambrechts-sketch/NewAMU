@@ -10,8 +10,8 @@ The rules assume the UI primitives that already live in the codebase:
 - `src/components/module/ModuleDocumentsHubLayout.tsx` — canonical **Dokumenter** hub shell: 70/30 via `ModuleMainAside` with `cardWrap={false}` (no outer white wrap on each column), one `ModuleSectionCard` around **main** only; optional `top` / `below` full-width slots. Pass `ModuleRecordsTableShell` with `wrapInCard={false}` when the main column already owns the white card (avoids nested boxes).
 - `src/components/module/ModuleDocumentsInsightPanel.tsx` — cream aside panel for filters / short help (uses `WORKPLACE_MODULE_SUBTLE_PANEL`), not a nested white `ModuleSectionCard`.
 - `src/components/module/ModuleDocumentsForestCard.tsx` — forest-green aside surface for storage / status widgets.
-- `src/components/documents/DocumentsHubSecondaryNav.tsx` — **Oversikt** secondary row under `ModulePageShell` tabs (`HubMenu1Bar`): jumps to hub sections on `/documents` via hashes in `documentsHubSectionIds.ts`, plus årsgjennomgang for admins.
-- `src/components/module/ModuleDocumentsKandidatdetaljHub.tsx` — default **Dokumenter** hub (Kandidatdetalj-split): beige ~22% folder nav, høyre kolonne `pages` eller `templates`, drag page to folder, fil-slipp under mappesøk; brukt på `DocumentsHome`, `/documents/malbibliotek`, og `/documents/kandidatdetalj-layout-test`.
+- `src/components/documents/DocumentsHubSecondaryNav.tsx` — **én** primær menylinje under `ModulePageShell` (`HubMenu1Bar`): **Mapper** (`/documents`), **Malbibliotek**, **Samsvar**, **Årsgjennomgang** (admin), **Innstillinger** (admin). «Mapper» forblir aktiv på wiki-understier (`/documents/page/…`, `/documents/space/…`) via `navActiveOverride` i `HubMenu1Bar`.
+- `src/components/module/ModuleDocumentsKandidatdetaljHub.tsx` — default **Dokumenter** hub (Kandidatdetalj-split): beige ~22% mappe-nav, høyre kolonne `pages` eller `templates`, drag page to folder, fil-slipp i høyre kolonne under «Søk i sider»; på **Malbibliotek** vises kun mapper med kategori `template_library` i venstre kolonne, og maler opprettes kun i slike mapper.
 - `src/components/documents/DocumentsTemplateLibraryBody.tsx` — malrutenett for malbibliotek-siden (brukes inne i hubbens høyre kolonne).
 - `src/components/module/ModuleInformationCard.tsx` — form/metadata card with `withCard` + `hideHeader` props.
 - `src/components/module/ModuleSignatureCard.tsx` — per-role signature card.
@@ -28,7 +28,9 @@ If a primitive does not exist yet, create it under `src/components/module/` rath
 
 ## Documents module hub (default)
 
-The **Dokumenter** oversikt (`DocumentsHome` under `DocumentsModuleLayout`) uses **`ModuleDocumentsKandidatdetaljHub`** with **`centerContent="pages"`** (mapper + dokumenttabell). **Malbibliotek** er egen rute **`/documents/malbibliotek`** med samme hub og **`centerContent="templates"`** (høyre kolonne: `DocumentsTemplateLibraryBody` i `ModuleSectionCard`). Opplastingsslipp ligger i **venstre kolonne**, rett under mappesøk, inne i hub-kortet (`ModuleSectionCard` rundt slippfeltet).
+Hele dokumentmodulen under **`DocumentsModuleShellLayout`** bruker **én** `ModulePageShell` (én `h1`, én beskrivelse som varierer med rute, én `HubMenu1Bar`). **`DocumentsModuleLayout`** er kun en tynn `Outlet`-wrapper (ingen egen overskrift/meny).
+
+**Mapper** (`DocumentsHome`, `/documents`): **`ModuleDocumentsKandidatdetaljHub`** med **`centerContent="pages"`** (mapper utenom `template_library` + dokumenttabell). **Malbibliotek** (`/documents/malbibliotek`): samme hub med **`centerContent="templates"`** — venstre kolonne: kun **malmapper** (`category === template_library`); høyre: `DocumentsTemplateLibraryBody` med `destinationSpaces` begrenset til disse. Opplastingsslipp ligger i **høyre kolonne** rett under «Søk i sider».
 
 Alternativt 70/30-oppsett for andre dokumentvisninger: **`ModuleDocumentsHubLayout`** med valgfri `top`-stripe (`DocumentFolderJobsStrip`), `ModuleMainAside` **`cardWrap={false}`**, og `ModuleRecordsTableShell` med **`wrapInCard={false}`** i hovedkolonnen.
 

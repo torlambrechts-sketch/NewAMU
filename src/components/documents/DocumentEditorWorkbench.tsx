@@ -586,7 +586,6 @@ export function DocumentEditorWorkbench({
                       <Button
                         type="button"
                         variant="secondary"
-                        size="sm"
                         className="mt-2 w-full"
                         onClick={() => restoreHistoryEntry(h)}
                       >
@@ -641,13 +640,12 @@ export function DocumentEditorWorkbench({
           {mode === 'persist' ? (
             <>
               {persistDirty ? <Badge variant="draft">Ulagrede endringer</Badge> : <Badge variant="signed">Lagret</Badge>}
-              <Button type="button" variant="secondary" size="sm" onClick={onExit}>
+              <Button type="button" variant="secondary" onClick={onExit}>
                 Tilbake til oversikt
               </Button>
               <Button
                 type="button"
                 variant="primary"
-                size="sm"
                 disabled={saving || !persistDirty}
                 onClick={() => void handleSavePersist()}
               >
@@ -657,10 +655,10 @@ export function DocumentEditorWorkbench({
           ) : (
             <>
               <Badge variant="draft">Utkast</Badge>
-              <Button variant="secondary" size="sm">
+              <Button variant="secondary">
                 Forhåndsvisning
               </Button>
-              <Button variant="primary" size="sm" icon={<FileText className="h-4 w-4" />}>
+              <Button variant="primary" icon={<FileText className="h-4 w-4" />}>
                 Send (demo)
               </Button>
             </>
@@ -671,11 +669,11 @@ export function DocumentEditorWorkbench({
       <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
         {persistDirty ? <Badge variant="draft">Ulagrede endringer</Badge> : null}
         {onExit ? (
-          <Button type="button" variant="secondary" size="sm" onClick={onExit}>
+          <Button type="button" variant="secondary" onClick={onExit}>
             Tilbake
           </Button>
         ) : null}
-        <Button type="button" variant="primary" size="sm" disabled={saving || !persistDirty} onClick={() => void handleSavePersist()}>
+        <Button type="button" variant="primary" disabled={saving || !persistDirty} onClick={() => void handleSavePersist()}>
           {saving ? 'Lagrer…' : 'Lagre'}
         </Button>
       </div>
