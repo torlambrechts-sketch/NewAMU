@@ -99,7 +99,7 @@ const MOCK_FILES: FileRow[] = [
 
 /**
  * Visual prototype: document hub with filters, folder catalogues and file table.
- * Folder strip uses layout-reference «Stillinger» pattern (platform-admin). Table uses `ModuleRecordsTableShell`; `ModuleMainAside` + module cards per docs/UI_PLACEMENT_RULES.md.
+ * Folder strip uses layout-reference «Stillinger» pattern (platform-admin). File list uses `ModuleRecordsTableShell` with `wrapInCard={false}` so it matches ROS/SJA on-page table (no nested white box inside the main column card).
  * Static mock data only.
  */
 export function DocumentCenterFontTestWorkbench() {
@@ -243,6 +243,7 @@ export function DocumentCenterFontTestWorkbench() {
   /** Table only inside main white card — folder strip sits above split (full width). */
   const documentsTableBlock = (
     <ModuleRecordsTableShell
+      wrapInCard={false}
       title="Nylige filer"
       titleTypography="sans"
       description={
