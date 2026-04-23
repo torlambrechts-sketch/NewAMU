@@ -52,6 +52,8 @@ export interface ModuleMainAsideProps {
    * individually-styled widgets.
    */
   cardWrap?: boolean
+  /** Passed to `WorkplaceSplit7030Layout` — tighter grid/gaps and card padding when `compact`. */
+  splitDensity?: 'default' | 'compact'
   /** Extra class on the outer grid. */
   className?: string
 }
@@ -60,6 +62,7 @@ export function ModuleMainAside({
   main,
   aside,
   cardWrap = false,
+  splitDensity = 'default',
   className = '',
 }: ModuleMainAsideProps) {
   return (
@@ -67,6 +70,7 @@ export function ModuleMainAside({
       main={main}
       aside={aside}
       cardWrap={cardWrap}
+      splitDensity={splitDensity}
       className={className}
     />
   )

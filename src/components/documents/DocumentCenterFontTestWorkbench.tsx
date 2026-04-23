@@ -143,9 +143,9 @@ export function DocumentCenterFontTestWorkbench() {
   }
 
   const filterCard = (
-    <ModuleSectionCard className="p-5">
-      <h3 className="text-sm font-semibold text-neutral-900">Filtre</h3>
-      <div className="mt-4 space-y-4">
+    <ModuleSectionCard className="p-4">
+      <h3 className="text-xs font-semibold text-neutral-900">Filtre</h3>
+      <div className="mt-3 space-y-3">
         <div>
           <p className="text-xs font-medium text-neutral-700">Avdeling</p>
           <SearchableSelect
@@ -360,15 +360,15 @@ export function DocumentCenterFontTestWorkbench() {
 
   return (
     <>
-      <div className="mb-6 flex flex-col gap-4 border-b border-neutral-200/80 pb-6 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mb-5 flex flex-col gap-3 border-b border-neutral-200/80 pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs text-neutral-500">
             <span>Dokumenter</span>
             <span className="mx-1.5 text-neutral-300">›</span>
             <span className="font-medium text-neutral-700">HR-protokoller</span>
           </p>
-          <h2 className="mt-2 text-xl font-semibold text-neutral-900 sm:text-2xl">HR-protokoller</h2>
-          <p className="mt-2 max-w-3xl text-sm text-neutral-600">
+          <h2 className="mt-1.5 text-lg font-semibold text-neutral-900 sm:text-xl">HR-protokoller</h2>
+          <p className="mt-1.5 max-w-3xl text-xs text-neutral-600 sm:text-sm">
             Demoside for dokumenthub: filtre, katalogkort og liste — samme kort- og tabellmønstre som i plattform layout-referanse. Ingen ekte data.
           </p>
         </div>
@@ -385,13 +385,14 @@ export function DocumentCenterFontTestWorkbench() {
         </div>
       </div>
 
-      <div className="mb-6">{folderKpiRows}</div>
+      <div className="mb-5">{folderKpiRows}</div>
 
       <ModuleMainAside
         cardWrap
-        main={<div className="space-y-6">{documentsTableBlock}</div>}
+        splitDensity="compact"
+        main={<div className="space-y-4">{documentsTableBlock}</div>}
         aside={
-          <div className="space-y-4">
+          <div className="space-y-3">
             {filterCard}
             {storageCard}
             {pendingCard}
