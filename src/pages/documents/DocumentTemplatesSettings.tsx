@@ -5,6 +5,7 @@ import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PageTemplate, SpaceCategory } from '../../types/documents'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+import { ModuleDocumentsKandidatdetaljHub } from '../../components/module/ModuleDocumentsKandidatdetaljHub'
 import { ModuleSectionCard } from '../../components/module/ModuleSectionCard'
 import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../../components/module/moduleTableKit'
 import { Button } from '../../components/ui/Button'
@@ -160,6 +161,16 @@ export function DocumentTemplatesSettings() {
       }
     >
       {docs.error ? <WarningBox>{docs.error}</WarningBox> : null}
+
+      <ModuleSectionCard className="mb-8 p-4 md:p-5">
+        <h2 className="text-sm font-semibold text-neutral-900">Bibliotek — layout (referanse)</h2>
+        <p className="mt-1 text-xs text-neutral-500">
+          Samme hub som på oversikt: mapper til venstre, dokumentliste til høyre (uten ekstra sideintro).
+        </p>
+        <div className="mt-4">
+          <ModuleDocumentsKandidatdetaljHub variant="home" showIntro={false} />
+        </div>
+      </ModuleSectionCard>
 
       <ModuleSectionCard className="p-5 md:p-6">
         <h2 className="text-sm font-semibold text-neutral-900">Systemmaler</h2>

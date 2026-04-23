@@ -76,7 +76,7 @@ export function RetentionBadge({
       </span>
       {d != null && d <= 30 && isAdmin && pageId ? (
         <Link
-          to={`/documents/page/${pageId}/edit`}
+          to={`/documents/page/${pageId}/reference-edit`}
           className="ml-1 shrink-0 font-semibold underline decoration-2 underline-offset-2"
         >
           Juster oppbevaring

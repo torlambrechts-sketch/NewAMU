@@ -1,11 +1,11 @@
-import { DocumentKandidatdetaljLayoutWorkbench } from '../../components/documents/DocumentKandidatdetaljLayoutWorkbench'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+import { ModuleDocumentsKandidatdetaljHub } from '../../components/module/ModuleDocumentsKandidatdetaljHub'
 
-/** Route: `/documents/kandidatdetalj-layout-test` — mapper venstre / sider høyre (layout-reference). */
+/** Route: `/documents/kandidatdetalj-layout-test` — same hub as oversikt, demo breadcrumb. */
 export function DocumentKandidatdetaljLayoutTestPage() {
   return (
     <DocumentsModuleLayout>
-      <DocumentKandidatdetaljLayoutWorkbench />
+      <ModuleDocumentsKandidatdetaljHub variant="demo" showIntro />
     </DocumentsModuleLayout>
   )
 }

@@ -1,19 +1,21 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Archive, Folder, FolderPlus, Pencil, Plus, Search, Upload } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { WikiPage, WikiSpace } from '../../types/documents'
-import { ModuleRecordsTableShell, MODULE_TABLE_TD, MODULE_TABLE_TD_ACTION, MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../module'
-import { ModuleSectionCard } from '../module/ModuleSectionCard'
+import { ModuleRecordsTableShell } from './ModuleRecordsTableShell'
+import { MODULE_TABLE_TD, MODULE_TABLE_TD_ACTION, MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from './moduleTableKit'
+import { ModuleSectionCard } from './ModuleSectionCard'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { StandardInput } from '../ui/Input'
 import { SearchableSelect, type SelectOption } from '../ui/SearchableSelect'
 import { WarningBox } from '../ui/AlertBox'
 import { InfoBox } from '../ui/AlertBox'
+import { useDocumentsHubActionsRegister } from '../../../modules/documents/DocumentsHubActionsContext'
 
-/** Same as layout-reference `RefCandidateDetailPaneBlock` (`platformReferenceLayoutBlocks.tsx`). */
+/** Beige nav — matches layout-reference `RefCandidateDetailPaneBlock`. */
 const BEIGE_NAV = '#EDE4D3'
 const FOREST = '#1a3d32'
 const SERIF = "'Libre Baskerville', Georgia, serif"
@@ -41,6 +43,8 @@ const categoryOptions: SelectOption[] = (Object.keys(CATEGORY_LABELS) as WikiSpa
   label: CATEGORY_LABELS[c],
 }))
 
+const MIME_PAGE_DRAG = 'application/x-klarert-wiki-page-id'
+
 function formatShortDate(iso: string) {
   try {
     return new Date(iso).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -49,14 +53,20 @@ function formatShortDate(iso: string) {
   }
 }
 
+export type ModuleDocumentsKandidatdetaljHubProps = {
+  /** `home` — documents oversikt (default chrome). `demo` — layout reference label in breadcrumb. */
+  variant?: 'home' | 'demo'
+  /** Show title + breadcrumb block (off for tight embed under templates). */
+  showIntro?: boolean
+}
+
 /**
- * Documents hub layout inspired by platform layout-reference **Kandidatdetalj**:
- * ~22% beige section nav (mapper) on the **left**, standard records table (sider)
- * on the **right** — same split as {@link RefCandidateDetailPaneBlock}.
+ * Default **Dokumenter** hub: Kandidatdetalj-style split (beige ~22% folder nav + white table),
+ * drag wiki page onto folder to move, compact drag-and-drop upload strip for the target folder.
  *
- * Route: `/documents/kandidatdetalj-layout-test` (real data via {@link useDocuments}).
+ * Follow `docs/UI_PLACEMENT_RULES.md` and `DESIGN_SYSTEM.md` (module primitives, no raw controls).
  */
-export function DocumentKandidatdetaljLayoutWorkbench() {
+export function ModuleDocumentsKandidatdetaljHub({ variant = 'home', showIntro = true }: ModuleDocumentsKandidatdetaljHubProps) {
   const docs = useDocuments()
   const navigate = useNavigate()
   const { can, isAdmin } = useOrgSetupContext()
@@ -66,6 +76,8 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
   const [folderQuery, setFolderQuery] = useState('')
   const [pageQuery, setPageQuery] = useState('')
   const [uiError, setUiError] = useState<string | null>(null)
+  const [dropHighlightSpaceId, setDropHighlightSpaceId] = useState<string | null>(null)
+  const [movingPageId, setMovingPageId] = useState<string | null>(null)
 
   const [newFolderOpen, setNewFolderOpen] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -86,6 +98,16 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
   const [deletingPage, setDeletingPage] = useState(false)
 
   const uploadInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!canManage) return
+    const clear = () => setDropHighlightSpaceId(null)
+    window.addEventListener('dragend', clear)
+    return () => window.removeEventListener('dragend', clear)
+  }, [canManage])
+
+  const openNewFolder = useCallback(() => setNewFolderOpen(true), [])
+  useDocumentsHubActionsRegister(openNewFolder)
 
   const activeSpaces = useMemo(() => docs.spaces.filter((s) => s.status === 'active'), [docs.spaces])
 
@@ -209,7 +231,7 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
     }
     try {
       const page = await docs.createPage(targetSpaceIdForActions, 'Ny side', 'standard', [])
-      navigate(`/documents/page/${page.id}/edit`)
+      navigate(`/documents/page/${page.id}/reference-edit`)
     } catch (err) {
       setUiError(err instanceof Error ? err.message : 'Kunne ikke opprette side.')
     }
@@ -224,58 +246,119 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
     uploadInputRef.current?.click()
   }
 
+  const uploadToSpace = async (spaceId: string, files: FileList | File[]) => {
+    const list = Array.from(files)
+    if (!list.length) return
+    setUiError(null)
+    try {
+      for (const file of list) {
+        await docs.uploadSpaceFile(spaceId, file)
+      }
+    } catch (err) {
+      setUiError(err instanceof Error ? err.message : 'Opplasting feilet.')
+    }
+  }
+
   const onUploadFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const sid = targetSpaceIdForActions
     if (!sid) return
     const files = e.target.files
     if (!files?.length) return
+    await uploadToSpace(sid, files)
+    e.target.value = ''
+  }
+
+  const movePageToSpace = async (pageId: string, spaceId: string) => {
     setUiError(null)
+    setMovingPageId(pageId)
     try {
-      for (const file of Array.from(files)) {
-        await docs.uploadSpaceFile(sid, file)
-      }
+      await docs.updatePage(pageId, { spaceId })
     } catch (err) {
-      setUiError(err instanceof Error ? err.message : 'Opplasting feilet.')
+      setUiError(err instanceof Error ? err.message : 'Kunne ikke flytte dokument.')
     } finally {
-      e.target.value = ''
+      setMovingPageId(null)
+      setDropHighlightSpaceId(null)
     }
   }
 
+  const onPageDragStart = (e: DragEvent, pageId: string) => {
+    e.dataTransfer.setData(MIME_PAGE_DRAG, pageId)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const onFolderDragOver = (e: DragEvent, spaceId: string) => {
+    if (!canManage || !e.dataTransfer.types.includes(MIME_PAGE_DRAG)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDropHighlightSpaceId(spaceId)
+  }
+
+  const onFolderDrop = async (e: DragEvent, spaceId: string) => {
+    if (!canManage) return
+    e.preventDefault()
+    const pageId = e.dataTransfer.getData(MIME_PAGE_DRAG)
+    setDropHighlightSpaceId(null)
+    if (!pageId) return
+    const page = docs.pages.find((p) => p.id === pageId)
+    if (!page || page.spaceId === spaceId) return
+    await movePageToSpace(pageId, spaceId)
+  }
+
+  const onUploadZoneDrop = async (e: DragEvent) => {
+    if (!canManage || !targetSpaceIdForActions) return
+    e.preventDefault()
+    setDropHighlightSpaceId(null)
+    if (e.dataTransfer.files?.length) {
+      await uploadToSpace(targetSpaceIdForActions, e.dataTransfer.files)
+    }
+  }
+
+  const editPath = (pageId: string) => `/documents/page/${pageId}/reference-edit`
+
   return (
     <div className="space-y-4">
-      <div>
-        <p className="text-xs text-neutral-500">
-          <span>Dokumenter</span>
-          <span className="mx-1.5 text-neutral-300">›</span>
-          <span className="font-medium text-neutral-700">Layout-test</span>
-          <span className="mx-1.5 text-neutral-300">›</span>
-          <span>Kandidatdetalj-split</span>
-        </p>
-        <div className="mt-1.5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-neutral-900 sm:text-xl" style={{ fontFamily: SERIF }}>
-              Mapper og dokumenter
-            </h2>
-            <p className="mt-1 max-w-3xl text-sm text-neutral-600">
-              Venstre: mapper. Høyre: sider. Med tilgang kan du opprette, redigere, laste opp og slette — arkiver mappe
-              fjerner den fra aktive mapper.
-            </p>
-          </div>
-          {canManage ? (
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
-              <Button type="button" variant="secondary" size="sm" icon={<FolderPlus className="h-4 w-4" />} onClick={() => setNewFolderOpen((o) => !o)}>
-                Ny mappe
-              </Button>
-              <Button type="button" variant="secondary" size="sm" icon={<Upload className="h-4 w-4" />} onClick={triggerUpload}>
-                Last opp
-              </Button>
-              <Button type="button" variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => void handleNewDocument()}>
-                Nytt dokument
-              </Button>
+      {showIntro ? (
+        <div>
+          <p className="text-xs text-neutral-500">
+            <span>Dokumenter</span>
+            <span className="mx-1.5 text-neutral-300">›</span>
+            {variant === 'demo' ? (
+              <>
+                <span className="font-medium text-neutral-700">Layout-test</span>
+                <span className="mx-1.5 text-neutral-300">›</span>
+                <span>Kandidatdetalj-split</span>
+              </>
+            ) : (
+              <span className="font-medium text-neutral-700">Oversikt</span>
+            )}
+          </p>
+          <div className="mt-1.5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-neutral-900 sm:text-xl" style={{ fontFamily: SERIF }}>
+                Mapper og dokumenter
+              </h2>
+              <p className="mt-1 max-w-3xl text-sm text-neutral-600">
+                {variant === 'demo'
+                  ? 'Referanse: beige seksjonsnav (~22 %) og tabell til høyre. Dra en rad til en mappe for å flytte dokumentet.'
+                  : 'Bibliotek: velg mappe til venstre, jobb med sider til høyre. Dra dokumentrader til en mappe for å flytte. Standard modul-UI.'}
+              </p>
             </div>
-          ) : null}
+            {canManage ? (
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <Button type="button" variant="secondary" size="sm" icon={<FolderPlus className="h-4 w-4" />} onClick={() => setNewFolderOpen((o) => !o)}>
+                  Ny mappe
+                </Button>
+                <Button type="button" variant="secondary" size="sm" icon={<Upload className="h-4 w-4" />} onClick={triggerUpload}>
+                  Last opp
+                </Button>
+                <Button type="button" variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => void handleNewDocument()}>
+                  Nytt dokument
+                </Button>
+              </div>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <input
         ref={uploadInputRef}
@@ -295,19 +378,19 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
           <h3 className="text-sm font-semibold text-neutral-900">Ny mappe</h3>
           <form onSubmit={(e) => void handleCreateFolder(e)} className="mt-3 space-y-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="kd-new-title">
+              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="hub-new-title">
                 Tittel
               </label>
-              <StandardInput id="kd-new-title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} required placeholder="Tittel" />
+              <StandardInput id="hub-new-title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} required placeholder="Tittel" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="kd-new-desc">
+              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="hub-new-desc">
                 Beskrivelse
               </label>
-              <StandardInput id="kd-new-desc" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="Kort beskrivelse" />
+              <StandardInput id="hub-new-desc" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="Kort beskrivelse" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="kd-new-cat">
+              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="hub-new-cat">
                 Kategori
               </label>
               <SearchableSelect value={newCategory} options={categoryOptions} onChange={(v) => setNewCategory(v as WikiSpace['category'])} />
@@ -322,6 +405,26 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
             </div>
           </form>
         </ModuleSectionCard>
+      ) : null}
+
+      {canManage && targetSpaceIdForActions && selectedSpace ? (
+        <div
+          role="region"
+          aria-label="Slipp filer for opplasting"
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes('Files')) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'copy'
+          }}
+          onDrop={(e) => void onUploadZoneDrop(e)}
+          className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50/80 px-4 py-5 text-center transition hover:border-[#1a3d32]/40 hover:bg-neutral-50"
+        >
+          <Upload className="mx-auto h-5 w-5 text-neutral-400" aria-hidden />
+          <p className="mt-2 text-xs font-medium text-neutral-800">
+            Slipp filer her for opplasting i <span className="text-[#1a3d32]">«{selectedSpace.title}»</span>
+          </p>
+          <p className="mt-1 text-[11px] text-neutral-500">Kompakt sone — eller bruk «Last opp».</p>
+        </div>
       ) : null}
 
       <div className="grid grid-cols-1 gap-0 overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-sm lg:grid-cols-[minmax(200px,22%)_1fr]">
@@ -348,13 +451,17 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
             />
             {filteredSpaces.map((space) => {
               const count = docs.pages.filter((p) => p.spaceId === space.id).length
+              const dropOn = canManage
               return (
                 <NavFolderRow
                   key={space.id}
                   label={space.title}
                   sub={`${CATEGORY_LABELS[space.category]} · ${count} sider`}
                   active={selectedSpaceId === space.id}
+                  highlightDrop={dropOn && dropHighlightSpaceId === space.id}
                   onSelect={() => setSelectedSpaceId(space.id)}
+                  onDragOver={dropOn ? (e) => onFolderDragOver(e, space.id) : undefined}
+                  onDrop={dropOn ? (e) => void onFolderDrop(e, space.id) : undefined}
                   actions={
                     canManage ? (
                       <>
@@ -448,9 +555,15 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
                   const space = spaceById.get(page.spaceId)
                   const statusLabel =
                     page.status === 'published' ? 'Publisert' : page.status === 'draft' ? 'Utkast' : 'Arkivert'
-                  const variant = page.status === 'published' ? 'success' : 'neutral'
+                  const variantBadge = page.status === 'published' ? 'success' : 'neutral'
+                  const busy = movingPageId === page.id
                   return (
-                    <tr key={page.id} className={MODULE_TABLE_TR_BODY}>
+                    <tr
+                      key={page.id}
+                      className={MODULE_TABLE_TR_BODY}
+                      draggable={canManage}
+                      onDragStart={canManage ? (e) => onPageDragStart(e, page.id) : undefined}
+                    >
                       {selectedSpaceId == null ? (
                         <td className={`${MODULE_TABLE_TD} text-sm text-neutral-600`}>
                           <span className="inline-flex items-center gap-2">
@@ -463,14 +576,15 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
                         <button
                           type="button"
                           className="inline-flex min-w-0 items-center gap-2 text-left hover:underline"
-                          onClick={() => navigate(`/documents/page/${page.id}/edit`)}
+                          onClick={() => navigate(editPath(page.id))}
+                          disabled={busy}
                         >
                           <Folder className={FOLDER_ICON_CLASS} aria-hidden />
                           <span className="truncate font-medium">{page.title}</span>
                         </button>
                       </td>
                       <td className={`${MODULE_TABLE_TD}`}>
-                        <Badge variant={variant} className="scale-95">
+                        <Badge variant={variantBadge} className="scale-95">
                           {statusLabel}
                         </Badge>
                       </td>
@@ -478,15 +592,10 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
                       {canManage ? (
                         <td className={`${MODULE_TABLE_TD_ACTION}`}>
                           <div className="flex flex-wrap justify-end gap-1">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => navigate(`/documents/page/${page.id}/edit`)}
-                            >
+                            <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => navigate(editPath(page.id))}>
                               Rediger
                             </Button>
-                            <Button type="button" size="sm" variant="danger" onClick={() => setDeletePageTarget(page)}>
+                            <Button type="button" size="sm" variant="danger" disabled={busy} onClick={() => setDeletePageTarget(page)}>
                               Slett
                             </Button>
                           </div>
@@ -506,28 +615,28 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="kd-edit-folder-title"
+          aria-labelledby="hub-edit-folder-title"
           onClick={() => setEditSpace(null)}
         >
           <ModuleSectionCard className="w-full max-w-md p-5 shadow-lg" onClick={(e) => e.stopPropagation()}>
-            <h3 id="kd-edit-folder-title" className="text-sm font-semibold text-neutral-900">
+            <h3 id="hub-edit-folder-title" className="text-sm font-semibold text-neutral-900">
               Rediger mappe
             </h3>
             <form onSubmit={(e) => void handleSaveEditSpace(e)} className="mt-4 space-y-3">
               <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="kd-edit-title">
+                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="hub-edit-title">
                   Tittel
                 </label>
-                <StandardInput id="kd-edit-title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required />
+                <StandardInput id="hub-edit-title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="kd-edit-desc">
+                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="hub-edit-desc">
                   Beskrivelse
                 </label>
-                <StandardInput id="kd-edit-desc" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
+                <StandardInput id="hub-edit-desc" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="kd-edit-cat">
+                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="hub-edit-cat">
                   Kategori
                 </label>
                 <SearchableSelect value={editCategory} options={categoryOptions} onChange={(v) => setEditCategory(v as WikiSpace['category'])} />
@@ -601,21 +710,29 @@ function NavFolderRow({
   label,
   sub,
   active,
+  highlightDrop,
   onSelect,
+  onDragOver,
+  onDrop,
   actions,
 }: {
   label: string
   sub: string
   active: boolean
+  highlightDrop?: boolean
   onSelect: () => void
+  onDragOver?: (e: DragEvent) => void
+  onDrop?: (e: DragEvent) => void
   actions?: ReactNode
 }) {
   return (
     <div
       className={`mb-0.5 flex w-full items-stretch gap-0.5 rounded-md transition ${
-        active ? 'bg-white/70 text-neutral-900 shadow-sm' : 'text-neutral-600 hover:bg-white/40'
+        highlightDrop ? 'bg-emerald-50 ring-2 ring-[#1a3d32]/30' : active ? 'bg-white/70 text-neutral-900 shadow-sm' : 'text-neutral-600 hover:bg-white/40'
       }`}
-      style={active ? { boxShadow: `inset 3px 0 0 ${FOREST}` } : undefined}
+      style={active && !highlightDrop ? { boxShadow: `inset 3px 0 0 ${FOREST}` } : undefined}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
     >
       <button type="button" onClick={onSelect} className="min-w-0 flex-1 rounded-md px-3 py-2.5 text-left" aria-current={active ? 'true' : undefined}>
         <span className="flex items-start gap-2">

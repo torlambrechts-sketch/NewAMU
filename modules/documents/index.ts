@@ -6,5 +6,3 @@ export {
   useDocumentsHubActions,
   useDocumentsHubActionsRegister,
 } from './DocumentsHubActionsContext'
-export { DocumentsScorecardBrowser } from './DocumentsScorecardBrowser'
-export { DocumentsScorecardTestPage } from './DocumentsScorecardTestPage'

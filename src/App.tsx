@@ -61,16 +61,16 @@ import { LearningExternalTraining } from './pages/learning/LearningExternalTrain
 import { DocumentsHome } from './pages/documents/DocumentsHome'
 import { WikiSpaceView } from './pages/documents/WikiSpaceView'
 import { WikiPageView } from './pages/documents/WikiPageView'
+import { WikiPageEditRedirect } from './pages/documents/WikiPageEditRedirect'
 import { WikiPageEditor } from './pages/documents/WikiPageEditor'
 import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { AnnualReviewPage } from './pages/documents/AnnualReviewPage'
 import { InspectionArbeidstilsynetExportPage } from './pages/documents/InspectionArbeidstilsynetExportPage'
 import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
 import { DocumentEditorTestPage } from './pages/documents/DocumentEditorTestPage'
-import { DocumentCenterFontTestPage } from './pages/documents/DocumentCenterFontTestPage'
-import { DocumentPandadocHomeTestPage } from './pages/documents/DocumentPandadocHomeTestPage'
 import { DocumentKandidatdetaljLayoutTestPage } from './pages/documents/DocumentKandidatdetaljLayoutTestPage'
-import { DocumentsModuleShellLayout, DocumentsScorecardTestPage, DocumentsWikiOutlet } from '../modules/documents'
+import { WikiPageReferenceEditor } from './pages/documents/WikiPageReferenceEditor'
+import { DocumentsModuleShellLayout, DocumentsWikiOutlet } from '../modules/documents'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import { DocumentsLayout } from './hooks/useDocuments'
 import { PlatformAdminLoginPage } from './pages/platform/PlatformAdminLoginPage'
@@ -262,10 +262,7 @@ function App() {
                       <Route path="hr/consultation" element={<HrConsultationPage />} />
                       <Route path="hr/o-ros" element={<HrORosPage />} />
                       <Route element={<DocumentsModuleShellLayout />}>
-                        <Route path="documents/scorecard-browser" element={<DocumentsScorecardTestPage />} />
                         <Route path="documents/editor-test" element={<DocumentEditorTestPage />} />
-                        <Route path="documents/document-center-font-test" element={<DocumentCenterFontTestPage />} />
-                        <Route path="documents/pandadoc-home-test" element={<DocumentPandadocHomeTestPage />} />
                         <Route path="documents/kandidatdetalj-layout-test" element={<DocumentKandidatdetaljLayoutTestPage />} />
                         <Route path="documents" element={<DocumentsHome />} />
                         <Route path="documents/compliance" element={<ComplianceDashboard />} />
@@ -299,7 +296,16 @@ function App() {
                           }
                         />
                         <Route
-                          path="documents/page/:pageId/edit"
+                          path="documents/page/:pageId/reference-edit"
+                          element={
+                            <RouteErrorBoundary title="Kunne ikke åpne redigering">
+                              <WikiPageReferenceEditor />
+                            </RouteErrorBoundary>
+                          }
+                        />
+                        <Route path="documents/page/:pageId/edit" element={<WikiPageEditRedirect />} />
+                        <Route
+                          path="documents/page/:pageId/wiki-edit"
                           element={
                             <RouteErrorBoundary title="Kunne ikke åpne redigering">
                               <WikiPageEditor />

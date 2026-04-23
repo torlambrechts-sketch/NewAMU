@@ -10,8 +10,8 @@ The rules assume the UI primitives that already live in the codebase:
 - `src/components/module/ModuleDocumentsHubLayout.tsx` — canonical **Dokumenter** hub shell: 70/30 via `ModuleMainAside` with `cardWrap={false}` (no outer white wrap on each column), one `ModuleSectionCard` around **main** only; optional `top` / `below` full-width slots. Pass `ModuleRecordsTableShell` with `wrapInCard={false}` when the main column already owns the white card (avoids nested boxes).
 - `src/components/module/ModuleDocumentsInsightPanel.tsx` — cream aside panel for filters / short help (uses `WORKPLACE_MODULE_SUBTLE_PANEL`), not a nested white `ModuleSectionCard`.
 - `src/components/module/ModuleDocumentsForestCard.tsx` — forest-green aside surface for storage / status widgets.
-- `src/components/documents/DocumentsHubSecondaryNav.tsx` — **Oversikt** secondary row under `ModulePageShell` tabs (`HubMenu1Bar`): jumps to hub sections on `/documents` via hashes in `documentsHubSectionIds.ts`, plus routes to scorecard test, layout-test, and årsgjennomgang.
-- `src/components/documents/DocumentKandidatdetaljLayoutWorkbench.tsx` — optional **Kandidatdetalj** split (layout-reference): beige ~22% left nav for mapper, white main column with `ModuleRecordsTableShell` for wiki pages; test route `/documents/kandidatdetalj-layout-test`.
+- `src/components/documents/DocumentsHubSecondaryNav.tsx` — **Oversikt** secondary row under `ModulePageShell` tabs (`HubMenu1Bar`): jumps to hub sections on `/documents` via hashes in `documentsHubSectionIds.ts`, plus årsgjennomgang for admins.
+- `src/components/module/ModuleDocumentsKandidatdetaljHub.tsx` — default **Dokumenter** hub (Kandidatdetalj-split fra layout-reference): beige ~22% folder nav, `ModuleRecordsTableShell` for wiki pages, drag page to folder, compact upload drop zone; used on `DocumentsHome`, templates settings preview, and `/documents/kandidatdetalj-layout-test`.
 - `src/components/module/ModuleInformationCard.tsx` — form/metadata card with `withCard` + `hideHeader` props.
 - `src/components/module/ModuleSignatureCard.tsx` — per-role signature card.
 - `src/components/module/ModulePreflightChecklist.tsx` — pre-signing checklist.
@@ -27,12 +27,9 @@ If a primitive does not exist yet, create it under `src/components/module/` rath
 
 ## Documents module hub (default)
 
-The **Dokumenter** oversikt (`DocumentsHome` and layout-test pages under `DocumentsModuleLayout`) uses **`ModuleDocumentsHubLayout`**:
+The **Dokumenter** oversikt (`DocumentsHome` under `DocumentsModuleLayout`) uses **`ModuleDocumentsKandidatdetaljHub`** (mapper + dokumentliste). Malbibliotek ligger i egen `ModuleSectionCard` under hubben (anker `documents-hub-templates`).
 
-1. **`top` slot** — optional `DocumentFolderJobsStrip` (mapper-katalog med utvidbare «siste fem»-rader) full width above the split, same pattern as `DocumentCenterFontTestWorkbench`.
-2. **Main column** — one white `ModuleSectionCard` wrapping `ModuleRecordsTableShell` with **`wrapInCard={false}`** so the table is not double-boxed (same idea as ROS/SJA list on cream: single card for the list block).
-3. **Aside column** — `ModuleDocumentsInsightPanel` for filters / help text; **`ModuleDocumentsForestCard`** for storage or status on forest green. No outer white `ModuleSectionCard` wrapping the whole aside column (`ModuleMainAside` **`cardWrap={false}`**).
-4. **Below the split** — `InspectionReadinessScore`, malbibliotek, and modals stay in the `below` slot as separate `ModuleSectionCard` / regions as today.
+Alternativt 70/30-oppsett for andre dokumentvisninger: **`ModuleDocumentsHubLayout`** med valgfri `top`-stripe (`DocumentFolderJobsStrip`), `ModuleMainAside` **`cardWrap={false}`**, og `ModuleRecordsTableShell` med **`wrapInCard={false}`** i hovedkolonnen.
 
 ---
 

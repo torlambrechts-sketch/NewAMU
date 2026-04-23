@@ -845,6 +845,7 @@ function useDocumentsStore() {
       patch: Partial<
         Pick<
           WikiPage,
+          | 'spaceId'
           | 'title'
           | 'summary'
           | 'blocks'
@@ -871,6 +872,7 @@ function useDocumentsStore() {
         const old = remoteState.pages.find((p) => p.id === id)
         if (!old) return
         const dbPatch: Record<string, unknown> = { updated_at: new Date().toISOString() }
+        if (patch.spaceId !== undefined) dbPatch.space_id = patch.spaceId
         if (patch.title !== undefined) dbPatch.title = patch.title
         if (patch.summary !== undefined) dbPatch.summary = patch.summary
         if (patch.blocks !== undefined) dbPatch.blocks = patch.blocks
@@ -911,6 +913,7 @@ function useDocumentsStore() {
         const next: WikiPage = {
           ...old,
           ...patch,
+          spaceId: patch.spaceId ?? old.spaceId,
           updatedAt: new Date().toISOString(),
         }
         return {

@@ -185,7 +185,7 @@ export function WikiPageView() {
             type="button"
             variant="secondary"
             icon={<Pencil className="h-4 w-4" />}
-            onClick={() => navigate(`/documents/page/${page.id}/edit`)}
+            onClick={() => navigate(`/documents/page/${page.id}/reference-edit`)}
           >
             Rediger
           </Button>

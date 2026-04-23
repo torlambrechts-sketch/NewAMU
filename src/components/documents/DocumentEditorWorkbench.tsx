@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import {
   AlertTriangle,
@@ -23,11 +23,14 @@ import {
 import { ModuleSectionCard } from '../module/ModuleSectionCard'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
+import { WarningBox } from '../ui/AlertBox'
 import { SearchableSelect, type SelectOption } from '../ui/SearchableSelect'
 import { StandardInput } from '../ui/Input'
 import { StandardTextarea } from '../ui/Textarea'
 import { TipTapRichTextEditor } from './TipTapRichTextEditor'
 import { DOCUMENT_EDITOR_SECTIONS, type DocumentEditorSectionId } from './documentEditorSections'
+import { useDocuments } from '../../hooks/useDocuments'
+import type { ContentBlock } from '../../types/documents'
 
 const INITIAL_HTML = `<h1>Arbeidsavtale / HMS-dokument (utkast)</h1><p>Rediger dokumentet direkte på siden. Bruk <strong>Innhold</strong> for å sette inn standardseksjoner knyttet til arbeidsmiljøloven og internkontrollforskriften. TipTap gir overskrifter (H1–H3), lister, lenker, understreking og horisontal linje.</p><p></p>`
 
@@ -95,18 +98,51 @@ function formatNowLabel(d: Date) {
   })
 }
 
+function htmlFromWikiBlocks(blocks: ContentBlock[]): string {
+  const t = blocks.find((b): b is Extract<ContentBlock, { kind: 'text' }> => b.kind === 'text')
+  return t?.body?.trim() ? t.body : '<p></p>'
+}
+
+function mergeHtmlIntoBlocks(blocks: ContentBlock[], html: string): ContentBlock[] {
+  const body = html.trim() ? html : '<p></p>'
+  const idx = blocks.findIndex((b) => b.kind === 'text')
+  if (idx >= 0) {
+    return blocks.map((b, i) => (i === idx ? { kind: 'text' as const, body: body } : b))
+  }
+  return [{ kind: 'text', body: body }, ...blocks]
+}
+
+export type DocumentEditorWorkbenchProps = {
+  /** `demo` — lokal state (standard test). `persist` — lagre tittel + TipTap-HTML til wiki-side. */
+  mode?: 'demo' | 'persist'
+  pageId?: string
+  onExit?: () => void
+  /** Vis toppintro («Dokumentredaktør — UI-test»). Av for innebygd bruk. */
+  showHeader?: boolean
+}
+
 /**
- * Standalone PandaDoc-style document editor shell for prototyping the documents module.
- * Uses `ModuleSectionCard` and UI primitives per docs/UI_PLACEMENT_RULES.md.
- * Renders as outlet body under `DocumentsModuleShellLayout` (single page shell from parent route).
- * Rich editing via TipTap (tiptap.dev). No backend integration — local state only.
+ * PandaDoc-style TipTap-dokumentflate med sidepanel (seksjoner, spesifikasjon, historikk).
+ * `mode="demo"` — kun lokalt. `mode="persist"` — krever `pageId` og `useDocuments` for lagring.
  */
-export function DocumentEditorWorkbench() {
-  const [html, setHtml] = useState(INITIAL_HTML)
+export function DocumentEditorWorkbench({
+  mode = 'demo',
+  pageId,
+  onExit,
+  showHeader = true,
+}: DocumentEditorWorkbenchProps = {}) {
+  const docs = useDocuments()
+  const original = mode === 'persist' && pageId ? docs.pages.find((p) => p.id === pageId) : undefined
+
+  const [html, setHtml] = useState(() => (mode === 'persist' && original ? htmlFromWikiBlocks(original.blocks) : INITIAL_HTML))
   const [editor, setEditor] = useState<Editor | null>(null)
-  const [documentTitle, setDocumentTitle] = useState('Side 1')
-  const [titleDraft, setTitleDraft] = useState('Side 1')
+  const [documentTitle, setDocumentTitle] = useState(() => (mode === 'persist' && original ? original.title : 'Side 1'))
+  const [titleDraft, setTitleDraft] = useState(() => (mode === 'persist' && original ? original.title : 'Side 1'))
   const [titleEditing, setTitleEditing] = useState(false)
+  const [persistDirty, setPersistDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const hydratedKeyRef = useRef<string | null>(null)
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>('content')
   const [recipient, setRecipient] = useState('employee')
 
@@ -123,10 +159,44 @@ export function DocumentEditorWorkbench() {
   })
   const [lastEditorActivity, setLastEditorActivity] = useState(() => formatNowLabel(new Date()))
 
-  const handleHtmlChange = useCallback((next: string) => {
-    setHtml(next)
-    setLastEditorActivity(formatNowLabel(new Date()))
-  }, [])
+  const handleHtmlChange = useCallback(
+    (next: string) => {
+      setHtml(next)
+      setLastEditorActivity(formatNowLabel(new Date()))
+      if (mode === 'persist') setPersistDirty(true)
+    },
+    [mode],
+  )
+
+  useEffect(() => {
+    if (mode !== 'persist' || !pageId) return
+    void docs.ensurePageLoaded(pageId)
+  }, [mode, pageId, docs])
+
+  useLayoutEffect(() => {
+    if (mode !== 'persist' || !pageId || !original) return
+    const key = `${pageId}:${original.updatedAt}:${original.version}`
+    if (hydratedKeyRef.current === key) return
+    hydratedKeyRef.current = key
+    const nextHtml = htmlFromWikiBlocks(original.blocks)
+    const nextTitle = original.title || 'Uten tittel'
+    queueMicrotask(() => {
+      setHtml(nextHtml)
+      setDocumentTitle(nextTitle)
+      setTitleDraft(nextTitle)
+      setTitleEditing(false)
+      setPersistDirty(false)
+      lastHistoryHtmlRef.current = nextHtml
+      setHistory([
+        {
+          id: crypto.randomUUID(),
+          savedAt: new Date().toISOString(),
+          label: 'Versjon fra server',
+          htmlSnapshot: nextHtml,
+        },
+      ])
+    })
+  }, [mode, pageId, original])
 
   const [history, setHistory] = useState<HistoryEntry[]>(() => [
     {
@@ -173,12 +243,39 @@ export function DocumentEditorWorkbench() {
     return () => window.cancelAnimationFrame(id)
   }, [titleEditing])
 
-  const commitDocumentTitle = useCallback(() => {
+  const commitDocumentTitle = useCallback(async () => {
     const next = titleDraft.trim() || 'Uten tittel'
     setDocumentTitle(next)
     setTitleDraft(next)
     setTitleEditing(false)
-  }, [titleDraft])
+    if (mode === 'persist' && pageId && original) {
+      setSaveError(null)
+      try {
+        await docs.updatePage(pageId, { title: next })
+        setPersistDirty(true)
+      } catch (e) {
+        setSaveError(e instanceof Error ? e.message : 'Kunne ikke lagre tittel.')
+      }
+    }
+  }, [titleDraft, mode, pageId, original, docs])
+
+  const handleSavePersist = useCallback(async () => {
+    if (mode !== 'persist' || !pageId || !original) return
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const nextBlocks = mergeHtmlIntoBlocks(original.blocks, html)
+      await docs.updatePage(pageId, {
+        title: documentTitle.trim() || original.title,
+        blocks: nextBlocks,
+      })
+      setPersistDirty(false)
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Lagring feilet.')
+    } finally {
+      setSaving(false)
+    }
+  }, [mode, pageId, original, html, documentTitle, docs])
 
   const insertSectionHtml = useCallback(
     (fragment: string) => {
@@ -272,6 +369,7 @@ export function DocumentEditorWorkbench() {
             <div className="flex min-h-0 w-full flex-1 flex-col border-neutral-200/90 bg-white shadow-sm lg:border-r-0">
               <div className="min-h-0 flex-1 border-b border-neutral-100">
                 <TipTapRichTextEditor
+                  key={mode === 'persist' && original ? `p-${pageId}-${original.updatedAt}` : 'demo'}
                   value={html}
                   onChange={handleHtmlChange}
                   toolbar="full"
@@ -382,9 +480,11 @@ export function DocumentEditorWorkbench() {
                     )
                   })}
                 </div>
-                <p className="mt-2 text-xs text-neutral-500">
-                  Feltene er kun visuelle i denne testen — ingen lagring eller PDF ennå.
-                </p>
+                {mode === 'demo' ? (
+                  <p className="mt-2 text-xs text-neutral-500">
+                    Feltene er kun visuelle i denne testen — ingen lagring eller PDF ennå.
+                  </p>
+                ) : null}
               </>
             ) : sidebarMode === 'specification' ? (
               <>
@@ -469,7 +569,9 @@ export function DocumentEditorWorkbench() {
               <>
                 <h2 className="text-sm font-semibold text-neutral-900">Historikk</h2>
                 <p className="mt-1 text-xs text-neutral-500">
-                  Automatiske øyeblikksbilder av dokumentinnhold (TipTap HTML) under redigering — kun lokalt.
+                  {mode === 'persist'
+                    ? 'Øyeblikksbilder under redigering (lokalt i nettleseren). Lagre innhold med «Lagre» over dokumentet.'
+                    : 'Automatiske øyeblikksbilder av dokumentinnhold (TipTap HTML) under redigering — kun lokalt.'}
                 </p>
                 <ul className="mt-4 space-y-2">
                   {history.map((h) => (
@@ -501,30 +603,92 @@ export function DocumentEditorWorkbench() {
     </ModuleSectionCard>
   )
 
-  /**
-   * Body only — must render inside `DocumentsModuleShellLayout` (+ `DocumentsModuleLayout`) so content
-   * aligns with Oversikt / Samsvar tabs and matches other documents routes (no nested ModulePageShell).
-   */
-  return (
-    <>
+  if (mode === 'persist') {
+    if (!pageId) {
+      return <WarningBox>Mangler side-ID.</WarningBox>
+    }
+    if (docs.loading && !original) {
+      return <p className="text-sm text-neutral-600">Laster dokument…</p>
+    }
+    if (!original) {
+      return (
+        <>
+          <WarningBox>Fant ikke dokumentet.</WarningBox>
+          {onExit ? (
+            <Button type="button" variant="secondary" className="mt-4" onClick={onExit}>
+              Tilbake
+            </Button>
+          ) : null}
+        </>
+      )
+    }
+  }
+
+  const headerBlock =
+    showHeader ? (
       <div className="mb-6 flex flex-col gap-4 border-b border-neutral-200/80 pb-6 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-neutral-900">Dokumentredaktør — UI-test</h2>
+          <h2 className="text-lg font-semibold text-neutral-900">
+            {mode === 'persist' ? 'Rediger dokument' : 'Dokumentredaktør — UI-test'}
+          </h2>
           <p className="mt-2 max-w-3xl text-sm text-neutral-600">
-            PandaDoc-inspirert arbeidsflate med TipTap (tiptap.dev), fullbred dokumentflate og dokumentspesifikasjon i
-            sidepanelet. Kun lokalt utkast — ingen integrasjon.
+            {mode === 'persist'
+              ? 'TipTap-redaktør med samme arbeidsflate som dokument-testen. Innhold lagres i første tekstblokk på wiki-siden.'
+              : 'PandaDoc-inspirert arbeidsflate med TipTap (tiptap.dev), fullbred dokumentflate og dokumentspesifikasjon i sidepanelet. Kun lokalt utkast — ingen integrasjon.'}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Badge variant="draft">Utkast</Badge>
-          <Button variant="secondary" size="sm">
-            Forhåndsvisning
-          </Button>
-          <Button variant="primary" size="sm" icon={<FileText className="h-4 w-4" />}>
-            Send (demo)
-          </Button>
+          {mode === 'persist' ? (
+            <>
+              {persistDirty ? <Badge variant="draft">Ulagrede endringer</Badge> : <Badge variant="signed">Lagret</Badge>}
+              <Button type="button" variant="secondary" size="sm" onClick={onExit}>
+                Tilbake til oversikt
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                disabled={saving || !persistDirty}
+                onClick={() => void handleSavePersist()}
+              >
+                {saving ? 'Lagrer…' : 'Lagre'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Badge variant="draft">Utkast</Badge>
+              <Button variant="secondary" size="sm">
+                Forhåndsvisning
+              </Button>
+              <Button variant="primary" size="sm" icon={<FileText className="h-4 w-4" />}>
+                Send (demo)
+              </Button>
+            </>
+          )}
         </div>
       </div>
+    ) : mode === 'persist' ? (
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+        {persistDirty ? <Badge variant="draft">Ulagrede endringer</Badge> : null}
+        {onExit ? (
+          <Button type="button" variant="secondary" size="sm" onClick={onExit}>
+            Tilbake
+          </Button>
+        ) : null}
+        <Button type="button" variant="primary" size="sm" disabled={saving || !persistDirty} onClick={() => void handleSavePersist()}>
+          {saving ? 'Lagrer…' : 'Lagre'}
+        </Button>
+      </div>
+    ) : null
+
+  return (
+    <>
+      {saveError ? (
+        <div className="mb-4">
+          <WarningBox>{saveError}</WarningBox>
+        </div>
+      ) : null}
+      {headerBlock}
       {body}
     </>
   )

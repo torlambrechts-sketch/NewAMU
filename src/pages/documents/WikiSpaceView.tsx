@@ -162,7 +162,7 @@ export function WikiSpaceView() {
     const page = await docs.createPage(spaceId, newTitle)
     setNewTitle('')
     setNewPageOpen(false)
-    navigate(`/documents/page/${page.id}/edit`)
+    navigate(`/documents/page/${page.id}/reference-edit`)
   }
 
   async function handleAddUrl(e: React.FormEvent) {
@@ -499,7 +499,7 @@ export function WikiSpaceView() {
                     <Button type="button" variant="secondary" className="w-full" onClick={() => navigate(`/documents/page/${panelPage.id}`)}>
                       Forhåndsvis
                     </Button>
-                    <Button type="button" variant="primary" className="w-full" onClick={() => navigate(`/documents/page/${panelPage.id}/edit`)}>
+                    <Button type="button" variant="primary" className="w-full" onClick={() => navigate(`/documents/page/${panelPage.id}/reference-edit`)}>
                       Rediger
                     </Button>
                     {panelPage.status === 'draft' ? (
