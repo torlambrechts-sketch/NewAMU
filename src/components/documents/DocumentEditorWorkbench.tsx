@@ -11,6 +11,7 @@ import {
   History,
   LayoutTemplate,
   Megaphone,
+  Pencil,
   PenLine,
   Plus,
   Scale,
@@ -103,6 +104,9 @@ function formatNowLabel(d: Date) {
 export function DocumentEditorWorkbench() {
   const [html, setHtml] = useState(INITIAL_HTML)
   const [editor, setEditor] = useState<Editor | null>(null)
+  const [documentTitle, setDocumentTitle] = useState('Side 1')
+  const [titleDraft, setTitleDraft] = useState('Side 1')
+  const [titleEditing, setTitleEditing] = useState(false)
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>('content')
   const [recipient, setRecipient] = useState('employee')
 
@@ -157,6 +161,25 @@ export function DocumentEditorWorkbench() {
     }
   }, [html])
 
+  useEffect(() => {
+    if (!titleEditing) return
+    const id = window.requestAnimationFrame(() => {
+      const el = document.getElementById('doc-page-title-input')
+      if (el instanceof HTMLInputElement) {
+        el.focus()
+        el.select()
+      }
+    })
+    return () => window.cancelAnimationFrame(id)
+  }, [titleEditing])
+
+  const commitDocumentTitle = useCallback(() => {
+    const next = titleDraft.trim() || 'Uten tittel'
+    setDocumentTitle(next)
+    setTitleDraft(next)
+    setTitleEditing(false)
+  }, [titleDraft])
+
   const insertSectionHtml = useCallback(
     (fragment: string) => {
       if (editor) {
@@ -194,8 +217,48 @@ export function DocumentEditorWorkbench() {
         {/* Canvas column — document uses full horizontal width of this column */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#eef2f0]">
           <div className="flex w-full items-center justify-between border-b border-neutral-200/80 bg-white/90 px-3 py-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Side 1</span>
-            <div className="flex items-center gap-1">
+            <div className="flex min-w-0 flex-1 items-center gap-2 pr-2">
+              {titleEditing ? (
+                <StandardInput
+                  id="doc-page-title-input"
+                  className="max-w-md py-1.5 text-xs font-semibold uppercase tracking-wide"
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onBlur={commitDocumentTitle}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      commitDocumentTitle()
+                    }
+                    if (e.key === 'Escape') {
+                      setTitleDraft(documentTitle)
+                      setTitleEditing(false)
+                    }
+                  }}
+                  aria-label="Dokumenttittel"
+                />
+              ) : (
+                <span className="truncate text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  {documentTitle}
+                </span>
+              )}
+              {!titleEditing ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 text-neutral-500 hover:text-neutral-800"
+                  aria-label="Endre dokumenttittel"
+                  onClick={() => {
+                    setTitleDraft(documentTitle)
+                    setTitleEditing(true)
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              ) : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
               <Button type="button" variant="ghost" size="icon" aria-label="Legg til side">
                 <Plus className="h-4 w-4" />
               </Button>
@@ -216,11 +279,6 @@ export function DocumentEditorWorkbench() {
                   placeholder="Skriv eller lim inn dokumenttekst…"
                   className="rounded-none border-0 shadow-none [&_.tiptap-editor-root]:min-h-[min(520px,calc(100vh-320px))] [&_.tiptap-editor-root]:px-4 [&_.tiptap-editor-root]:py-6 sm:[&_.tiptap-editor-root]:px-8 md:[&_.tiptap-editor-root]:min-h-[560px]"
                 />
-              </div>
-              <div className="flex justify-center border-t border-dashed border-neutral-200 py-4">
-                <Button type="button" variant="secondary" size="sm" icon={<Plus className="h-4 w-4" />}>
-                  Sett inn blokk
-                </Button>
               </div>
             </div>
           </div>
