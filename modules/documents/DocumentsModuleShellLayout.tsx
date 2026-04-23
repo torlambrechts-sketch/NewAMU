@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom'
 import { ClipboardList, Plus, Settings, ShieldCheck } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { Tabs } from '../../src/components/ui/Tabs'
@@ -9,6 +9,7 @@ import { DOCUMENTS_MODULE_DESC, DOCUMENTS_MODULE_TITLE } from '../../src/data/do
 import { documentsModuleShellStyle } from '../../src/lib/documentsModuleShellStyle'
 import { DocumentsHubActionsProvider, useDocumentsHubActions } from './DocumentsHubActionsContext'
 import { DocumentsShellEmbeddedProvider } from './DocumentsShellContext'
+import { DocumentsHubSecondaryNav } from '../../src/components/documents/DocumentsHubSecondaryNav'
 
 type DocumentsRootTab = 'oversikt' | 'samsvar' | 'innstillinger'
 
@@ -47,21 +48,15 @@ function DocumentsModuleShellBody() {
   const { can, isAdmin, profile } = useOrgSetupContext()
   const canManage = isAdmin || can('documents.manage')
 
-  const [rootTab, setRootTab] = useState<DocumentsRootTab>('oversikt')
-
-  useEffect(() => {
+  const rootTabFromPath = useMemo((): DocumentsRootTab => {
     const p = location.pathname
-    if (p === '/documents/templates' || p.startsWith('/documents/templates/')) {
-      setRootTab('innstillinger')
-    } else if (p === '/documents/compliance' || p.startsWith('/documents/compliance/')) {
-      setRootTab('samsvar')
-    } else {
-      setRootTab('oversikt')
-    }
+    if (p === '/documents/templates' || p.startsWith('/documents/templates/')) return 'innstillinger'
+    if (p === '/documents/compliance' || p.startsWith('/documents/compliance/')) return 'samsvar'
+    return 'oversikt'
   }, [location.pathname])
 
   const activeRootTab: DocumentsRootTab =
-    rootTab === 'innstillinger' && !canManage ? 'oversikt' : rootTab
+    rootTabFromPath === 'innstillinger' && !canManage ? 'oversikt' : rootTabFromPath
 
   const homeHubMatch = useMatch({ path: '/documents', end: true })
 
@@ -81,7 +76,6 @@ function DocumentsModuleShellBody() {
       overflow="scroll"
       onChange={(id) => {
         const next = id as DocumentsRootTab
-        setRootTab(next)
         if (next === 'innstillinger') navigate('/documents/templates')
         else if (next === 'samsvar') navigate('/documents/compliance')
         else navigate('/documents')
@@ -104,34 +98,8 @@ function DocumentsModuleShellBody() {
       <p className="max-w-3xl text-sm text-neutral-600">{DOCUMENTS_MODULE_DESC}</p>
     )
 
-  const oversiktLinks =
-    activeRootTab === 'oversikt' ? (
-      <nav
-        className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-neutral-200/80 pb-4 text-sm"
-        aria-label="Flere dokumentseksjoner"
-      >
-        <Link
-          to="/documents/scorecard-browser"
-          className="font-medium text-[#1a3d32] underline-offset-2 hover:underline"
-        >
-          Scorecard-visning (test)
-        </Link>
-        <Link
-          to="/documents/document-center-font-test"
-          className="font-medium text-[#1a3d32] underline-offset-2 hover:underline"
-        >
-          Dokumentsenter (layout-test)
-        </Link>
-        {canManage ? (
-          <Link
-            to="/documents/aarsgjennomgang"
-            className="font-medium text-[#1a3d32] underline-offset-2 hover:underline"
-          >
-            Årsgjennomgang
-          </Link>
-        ) : null}
-      </nav>
-    ) : null
+  const oversiktSecondaryNav =
+    activeRootTab === 'oversikt' ? <DocumentsHubSecondaryNav canManage={canManage} /> : null
 
   return (
     <div className="docs-module-shell" style={documentsModuleShellStyle(profile)}>
@@ -148,7 +116,7 @@ function DocumentsModuleShellBody() {
           />
         }
       >
-        {oversiktLinks}
+        {oversiktSecondaryNav}
         <Outlet />
       </ModulePageShell>
     </div>

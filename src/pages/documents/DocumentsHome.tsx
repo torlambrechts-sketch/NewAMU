@@ -1,10 +1,12 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PageTemplate, WikiSpace } from '../../types/documents'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+import { DOCUMENTS_HUB_SECTION_IDS } from '../../components/documents/documentsHubSectionIds'
 import { InspectionReadinessScore } from '../../components/documents/InspectionReadinessScore'
 import {
   ModuleDocumentsHubLayout,
@@ -45,6 +47,7 @@ const categoryOptions: SelectOption[] = (Object.keys(CATEGORY_LABELS) as WikiSpa
 export function DocumentsHome() {
   const docs = useDocuments()
   const navigate = useNavigate()
+  const location = useLocation()
   const { can, isAdmin } = useOrgSetupContext()
   const canManage = isAdmin || can('documents.manage')
 
@@ -57,6 +60,16 @@ export function DocumentsHome() {
 
   const openNewFolder = useCallback(() => setShowNewSpace(true), [])
   useDocumentsHubActionsRegister(openNewFolder)
+
+  useEffect(() => {
+    const raw = location.hash.replace(/^#/, '')
+    if (!raw) return
+    const allowed = Object.values(DOCUMENTS_HUB_SECTION_IDS) as string[]
+    if (!allowed.includes(raw)) return
+    queueMicrotask(() => {
+      document.getElementById(raw)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [location.hash])
 
   const activeSpaces = docs.spaces.filter((s) => s.status === 'active')
 
@@ -177,11 +190,14 @@ export function DocumentsHome() {
       {docs.error ? <WarningBox>{docs.error}</WarningBox> : null}
 
       <ModuleDocumentsHubLayout
+        regionId={DOCUMENTS_HUB_SECTION_IDS.mapper}
         main={foldersTable}
         aside={documentsAside}
         below={
           <>
-            <InspectionReadinessScore />
+            <div id={DOCUMENTS_HUB_SECTION_IDS.readiness} className="scroll-mt-6">
+              <InspectionReadinessScore />
+            </div>
 
             {showNewSpace && canManage ? (
               <ModuleSectionCard className="p-5 md:p-6">
@@ -232,7 +248,7 @@ export function DocumentsHome() {
               </ModuleSectionCard>
             ) : null}
 
-            <ModuleSectionCard className="p-5 md:p-6">
+            <ModuleSectionCard id={DOCUMENTS_HUB_SECTION_IDS.templates} className="scroll-mt-6 p-5 md:p-6">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-sm font-semibold text-neutral-900">Malbibliotek</h2>
                 <span className="text-xs text-neutral-500">

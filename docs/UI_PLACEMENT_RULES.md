@@ -10,6 +10,7 @@ The rules assume the UI primitives that already live in the codebase:
 - `src/components/module/ModuleDocumentsHubLayout.tsx` — canonical **Dokumenter** hub shell: 70/30 via `ModuleMainAside` with `cardWrap={false}` (no outer white wrap on each column), one `ModuleSectionCard` around **main** only; optional `top` / `below` full-width slots. Pass `ModuleRecordsTableShell` with `wrapInCard={false}` when the main column already owns the white card (avoids nested boxes).
 - `src/components/module/ModuleDocumentsInsightPanel.tsx` — cream aside panel for filters / short help (uses `WORKPLACE_MODULE_SUBTLE_PANEL`), not a nested white `ModuleSectionCard`.
 - `src/components/module/ModuleDocumentsForestCard.tsx` — forest-green aside surface for storage / status widgets.
+- `src/components/documents/DocumentsHubSecondaryNav.tsx` — **Oversikt** secondary row under `ModulePageShell` tabs (`HubMenu1Bar`): jumps to hub sections on `/documents` via hashes in `documentsHubSectionIds.ts`, plus routes to scorecard test, layout-test, and årsgjennomgang.
 - `src/components/module/ModuleInformationCard.tsx` — form/metadata card with `withCard` + `hideHeader` props.
 - `src/components/module/ModuleSignatureCard.tsx` — per-role signature card.
 - `src/components/module/ModulePreflightChecklist.tsx` — pre-signing checklist.

@@ -4,6 +4,8 @@ import { ModuleMainAside } from './ModuleMainAside'
 import { ModuleSectionCard } from './ModuleSectionCard'
 
 export type ModuleDocumentsHubLayoutProps = {
+  /** Optional id on the root region (e.g. in-page anchor for hub secondary nav). */
+  regionId?: string
   /** Primary column: typically a table inside the shell; rendered inside one white {@link ModuleSectionCard}. */
   main: ReactNode
   /** Aside: filters / insight widgets — use {@link ModuleDocumentsInsightPanel} and {@link ModuleDocumentsForestCard}. */
@@ -25,6 +27,7 @@ export type ModuleDocumentsHubLayoutProps = {
  * and avoid double white boxes (`docs/UI_PLACEMENT_RULES.md`).
  */
 export function ModuleDocumentsHubLayout({
+  regionId,
   main,
   aside,
   top,
@@ -33,7 +36,7 @@ export function ModuleDocumentsHubLayout({
   className,
 }: ModuleDocumentsHubLayoutProps) {
   return (
-    <div className={twMerge('space-y-0', className)}>
+    <div id={regionId} className={twMerge('scroll-mt-6 space-y-0', className)}>
       {top ? <div className="mb-5">{top}</div> : null}
       <ModuleMainAside
         cardWrap={false}
