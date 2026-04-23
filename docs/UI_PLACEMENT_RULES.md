@@ -11,6 +11,7 @@ The rules assume the UI primitives that already live in the codebase:
 - `src/components/module/ModuleDocumentsInsightPanel.tsx` — cream aside panel for filters / short help (uses `WORKPLACE_MODULE_SUBTLE_PANEL`), not a nested white `ModuleSectionCard`.
 - `src/components/module/ModuleDocumentsForestCard.tsx` — forest-green aside surface for storage / status widgets.
 - `src/components/documents/DocumentsHubSecondaryNav.tsx` — **Oversikt** secondary row under `ModulePageShell` tabs (`HubMenu1Bar`): jumps to hub sections on `/documents` via hashes in `documentsHubSectionIds.ts`, plus routes to scorecard test, layout-test, and årsgjennomgang.
+- `src/components/documents/DocumentKandidatdetaljLayoutWorkbench.tsx` — optional **Kandidatdetalj** split (layout-reference): beige ~22% left nav for mapper, white main column with `ModuleRecordsTableShell` for wiki pages; test route `/documents/kandidatdetalj-layout-test`.
 - `src/components/module/ModuleInformationCard.tsx` — form/metadata card with `withCard` + `hideHeader` props.
 - `src/components/module/ModuleSignatureCard.tsx` — per-role signature card.
 - `src/components/module/ModulePreflightChecklist.tsx` — pre-signing checklist.

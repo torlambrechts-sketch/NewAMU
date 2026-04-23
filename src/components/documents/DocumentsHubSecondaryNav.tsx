@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useLocation, useMatch, useNavigate } from 'react-router-dom'
-import { BarChart3, BookOpen, Calendar, FolderOpen, Home, LayoutGrid, ShieldCheck } from 'lucide-react'
+import { BarChart3, BookOpen, Calendar, FolderOpen, Home, LayoutGrid, PanelLeft, ShieldCheck } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../layout/HubMenu1Bar'
 import { DOCUMENTS_HUB_SECTION_IDS } from './documentsHubSectionIds'
 
@@ -36,6 +36,7 @@ export function DocumentsHubSecondaryNav({ canManage }: Props) {
   const scorecardMatch = useMatch({ path: '/documents/scorecard-browser', end: false })
   const layoutTestMatch = useMatch({ path: '/documents/document-center-font-test', end: false })
   const pandadocHomeMatch = useMatch({ path: '/documents/pandadoc-home-test', end: false })
+  const kandidatdetaljLayoutMatch = useMatch({ path: '/documents/kandidatdetalj-layout-test', end: false })
   const annualMatch = useMatch({ path: '/documents/aarsgjennomgang', end: false })
 
   const goHubSection = useCallback(
@@ -91,6 +92,13 @@ export function DocumentsHubSecondaryNav({ canManage }: Props) {
         to: '/documents/pandadoc-home-test',
         active: Boolean(pandadocHomeMatch),
       },
+      {
+        key: 'kandidatdetalj_layout',
+        label: 'Kandidatdetalj-layout (test)',
+        icon: PanelLeft,
+        to: '/documents/kandidatdetalj-layout-test',
+        active: Boolean(kandidatdetaljLayoutMatch),
+      },
     ]
     if (canManage) {
       list.push({
@@ -108,6 +116,7 @@ export function DocumentsHubSecondaryNav({ canManage }: Props) {
     goHubSection,
     layoutTestMatch,
     pandadocHomeMatch,
+    kandidatdetaljLayoutMatch,
     mapperActive,
     readinessActive,
     scorecardMatch,
