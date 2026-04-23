@@ -8,11 +8,12 @@ import {
   ChevronUp,
   Eye,
   FileText,
-  GripVertical,
+  RotateCcw,
   Save,
   Settings,
   Trash2,
 } from 'lucide-react'
+import { useDirtyGuard } from '../../hooks/useDirtyGuard'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { TipTapRichTextEditor } from '../../components/documents/TipTapRichTextEditor'
@@ -151,9 +152,12 @@ export function WikiPageEditor() {
   const [retainMaxYearsStr, setRetainMaxYearsStr] = useState(() =>
     original?.retainMaximumYears != null ? String(original.retainMaximumYears) : '',
   )
+  const [retentionAutoFilled, setRetentionAutoFilled] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const saveErrorRef = useRef<HTMLDivElement>(null)
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
   const [pageLang, setPageLang] = useState<WikiPageLang>(() => original?.lang ?? 'nb')
   const [a11yOpen, setA11yOpen] = useState(false)
@@ -216,6 +220,8 @@ export function WikiPageEditor() {
   const deptOptions = useMemo((): SelectOption[] => {
     return [{ value: '', label: 'Velg avdeling…' }, ...departments.map((d) => ({ value: d.id, label: d.name }))]
   }, [departments])
+
+  useDirtyGuard(dirty)
 
   if (pageHydrateError && !original) {
     return (
@@ -307,6 +313,7 @@ export function WikiPageEditor() {
   async function handleSave(): Promise<boolean> {
     if (!original) return false
     setSaveError(null)
+    setSaving(true)
     const months = Math.max(1, parseInt(revisionMonths, 10) || 12)
     try {
       await docs.updatePage(original.id, {
@@ -337,8 +344,12 @@ export function WikiPageEditor() {
       setSavedMsg(true)
       return true
     } catch (e) {
-      setSaveError(getSupabaseErrorMessage(e))
+      const msg = getSupabaseErrorMessage(e)
+      setSaveError(msg)
+      queueMicrotask(() => saveErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
       return false
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -413,14 +424,14 @@ export function WikiPageEditor() {
           <Badge variant={editorStatusBadgeVariant(original.status)} className="text-xs">
             {EDITOR_STATUS_LABEL[original.status]}
           </Badge>
-          <Button type="button" variant="secondary" icon={<Eye className="h-4 w-4" />} onClick={() => navigate(`/documents/page/${original.id}`)}>
+          <Button type="button" variant="secondary" disabled={saving} icon={<Eye className="h-4 w-4" />} onClick={() => navigate(`/documents/page/${original.id}`)}>
             Forhåndsvis
           </Button>
-          <Button type="button" variant="secondary" disabled={!dirty} icon={<Save className="h-4 w-4" />} onClick={() => void handleSave()}>
-            Lagre utkast
+          <Button type="button" variant="secondary" disabled={saving || !dirty} icon={<Save className="h-4 w-4" />} onClick={() => void handleSave()}>
+            {saving ? 'Lagrer…' : 'Lagre utkast'}
           </Button>
-          <Button type="button" variant="primary" icon={<CheckCircle2 className="h-4 w-4" />} onClick={() => void handlePublish()}>
-            Lagre og publiser
+          <Button type="button" variant="primary" disabled={saving} icon={<CheckCircle2 className="h-4 w-4" />} onClick={() => void handlePublish()}>
+            {saving ? 'Lagrer…' : 'Lagre og publiser'}
           </Button>
         </div>
       }
@@ -483,8 +494,20 @@ export function WikiPageEditor() {
       ) : null}
 
       {saveError ? (
-        <div className="mt-3">
-          <WarningBox>{saveError}</WarningBox>
+        <div ref={saveErrorRef} className="mt-3">
+          <WarningBox>
+            <div className="flex items-start justify-between gap-3">
+              <span>{saveError}</span>
+              <button
+                type="button"
+                onClick={() => void handleSave()}
+                className="shrink-0 inline-flex items-center gap-1 rounded-md border border-amber-400 bg-white px-2 py-1 text-xs font-medium text-amber-900 hover:bg-amber-50"
+              >
+                <RotateCcw className="size-3" aria-hidden />
+                Prøv igjen
+              </button>
+            </div>
+          </WarningBox>
         </div>
       ) : null}
 
@@ -566,8 +589,9 @@ export function WikiPageEditor() {
       ) : (
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
+          {/* ── Presentasjon ── */}
           <ModuleSectionCard>
-            <h3 className="mb-4 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">Sidestatus</h3>
+            <h3 className="mb-4 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">Presentasjon</h3>
             <div className="space-y-4">
               <div>
                 <label className="mb-1 block text-xs font-medium text-neutral-500">Layout</label>
@@ -580,6 +604,56 @@ export function WikiPageEditor() {
                   }}
                 />
               </div>
+            </div>
+          </ModuleSectionCard>
+
+          {/* ── Signatur og bekreftelse ── */}
+          <ModuleSectionCard>
+            <h3 className="mb-4 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">Signatur og bekreftelse</h3>
+            <div className="space-y-4">
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={requiresAck}
+                  onChange={(e) => {
+                    setRequiresAck(e.target.checked)
+                    markDirty()
+                  }}
+                  className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+                />
+                Krever «Lest og forstått»-signatur
+              </label>
+              <div className={`space-y-3 border-t border-neutral-100 pt-3 transition-opacity ${requiresAck ? '' : 'pointer-events-none opacity-40'}`}>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-neutral-500">Hvem skal signere?</label>
+                  <SearchableSelect
+                    value={ackAudience}
+                    options={ACK_AUDIENCE_OPTIONS}
+                    onChange={(v) => {
+                      setAckAudience(v as AcknowledgementAudience)
+                      markDirty()
+                    }}
+                  />
+                </div>
+                <div className={`transition-opacity ${ackAudience === 'department' ? '' : 'pointer-events-none opacity-40'}`}>
+                  <label className="mb-1 block text-xs font-medium text-neutral-500">Avdeling</label>
+                  <SearchableSelect
+                    value={ackDeptId}
+                    options={deptOptions}
+                    onChange={(v) => {
+                      setAckDeptId(v)
+                      markDirty()
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </ModuleSectionCard>
+
+          {/* ── Revisjon og hjemler ── */}
+          <ModuleSectionCard>
+            <h3 className="mb-4 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">Revisjon og hjemler</h3>
+            <div className="space-y-4">
               <div>
                 <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-legal-refs">
                   Lovhenvisninger (kommaseparert)
@@ -594,46 +668,6 @@ export function WikiPageEditor() {
                   placeholder="IK-f §5 nr. 1a, AML §3-1"
                 />
               </div>
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={requiresAck}
-                  onChange={(e) => {
-                    setRequiresAck(e.target.checked)
-                    markDirty()
-                  }}
-                  className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
-                />
-                Krever «Lest og forstått»-signatur
-              </label>
-              {requiresAck ? (
-                <div className="space-y-3 border-t border-neutral-100 pt-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-neutral-500">Hvem skal signere?</label>
-                    <SearchableSelect
-                      value={ackAudience}
-                      options={ACK_AUDIENCE_OPTIONS}
-                      onChange={(v) => {
-                        setAckAudience(v as AcknowledgementAudience)
-                        markDirty()
-                      }}
-                    />
-                  </div>
-                  {ackAudience === 'department' ? (
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-neutral-500">Avdeling</label>
-                      <SearchableSelect
-                        value={ackDeptId}
-                        options={deptOptions}
-                        onChange={(v) => {
-                          setAckDeptId(v)
-                          markDirty()
-                        }}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
               <div>
                 <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-revision-months">
                   Revisjonsintervall (måneder)
@@ -687,9 +721,11 @@ export function WikiPageEditor() {
                     if (row) {
                       setRetainMinYearsStr(String(row.minYears))
                       setRetainMaxYearsStr(row.maxYears != null ? String(row.maxYears) : '')
+                      setRetentionAutoFilled(true)
                     } else {
                       setRetainMinYearsStr('')
                       setRetainMaxYearsStr('')
+                      setRetentionAutoFilled(false)
                     }
                     markDirty()
                   }}
@@ -714,6 +750,11 @@ export function WikiPageEditor() {
               {selectedRetention?.description ? (
                 <p className="text-[11px] text-neutral-500">{selectedRetention.description}</p>
               ) : null}
+              {retentionAutoFilled ? (
+                <p className="rounded-md bg-blue-50 px-2 py-1.5 text-xs text-blue-800">
+                  Verdiene er oppdatert fra kategori. Juster manuelt om nødvendig.
+                </p>
+              ) : null}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-retain-min">
@@ -726,6 +767,7 @@ export function WikiPageEditor() {
                     value={retainMinYearsStr}
                     onChange={(e) => {
                       setRetainMinYearsStr(e.target.value)
+                      setRetentionAutoFilled(false)
                       markDirty()
                     }}
                   />
@@ -742,6 +784,7 @@ export function WikiPageEditor() {
                     value={retainMaxYearsStr}
                     onChange={(e) => {
                       setRetainMaxYearsStr(e.target.value)
+                      setRetentionAutoFilled(false)
                       markDirty()
                     }}
                   />
@@ -772,8 +815,7 @@ export function WikiPageEditor() {
               />
               Inneholder personopplysninger
             </label>
-            {containsPii ? (
-              <div className="mt-3 space-y-3 border-t border-neutral-100 pt-3">
+            <div className={`mt-3 space-y-3 border-t border-neutral-100 pt-3 transition-opacity ${containsPii ? '' : 'pointer-events-none opacity-40'}`}>
                 <div>
                   <span className="text-xs font-medium text-neutral-500">Kategorier</span>
                   <ul className="mt-2 space-y-2">
@@ -843,8 +885,7 @@ export function WikiPageEditor() {
                 <p className="text-xs text-amber-800">
                   Husk å oppdatere behandlingsprotokollen ved endring av behandlingen.
                 </p>
-              </div>
-            ) : null}
+            </div>
           </ModuleSectionCard>
 
           <ModuleSectionCard>
@@ -904,7 +945,7 @@ function BlockItem({
           className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded text-left focus:outline-none focus:ring-2 focus:ring-[#1a3d32]/40"
           aria-expanded={selected}
         >
-          <GripVertical className="size-4 shrink-0 text-neutral-300" aria-hidden />
+          <span className="size-1.5 shrink-0 rounded-full bg-neutral-300" aria-hidden />
           <span className="truncate text-xs font-medium text-neutral-500">{kindLabel[block.kind]}</span>
         </button>
         <div className="flex shrink-0 items-center gap-0.5">
@@ -1028,16 +1069,26 @@ function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: P
   )
 
   if (block.kind === 'law_ref') return (
-    <div className="space-y-2">
-      <input value={block.ref} onChange={(e) => onUpdate({ ref: e.target.value } as Partial<ContentBlock>)}
-        placeholder="Referanse (f.eks. IK-f §5 nr. 1a)"
-        className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm font-mono" />
-      <input value={block.description} onChange={(e) => onUpdate({ description: e.target.value } as Partial<ContentBlock>)}
-        placeholder="Beskrivelse"
-        className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm" />
-      <input value={block.url ?? ''} onChange={(e) => onUpdate({ url: e.target.value } as Partial<ContentBlock>)}
-        placeholder="URL (valgfritt)"
-        className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm" />
+    <div className="space-y-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">§ Lovhenvisning</p>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-neutral-500">Referanse</label>
+        <input value={block.ref} onChange={(e) => onUpdate({ ref: e.target.value } as Partial<ContentBlock>)}
+          placeholder="f.eks. IK-f §5 nr. 1a"
+          className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm font-mono" />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-neutral-500">Beskrivelse</label>
+        <input value={block.description} onChange={(e) => onUpdate({ description: e.target.value } as Partial<ContentBlock>)}
+          placeholder="Beskriv hva bestemmelsen krever"
+          className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm" />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-neutral-500">Lenke (valgfritt)</label>
+        <input value={block.url ?? ''} onChange={(e) => onUpdate({ url: e.target.value } as Partial<ContentBlock>)}
+          placeholder="https://lovdata.no/…"
+          className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm" />
+      </div>
     </div>
   )
 

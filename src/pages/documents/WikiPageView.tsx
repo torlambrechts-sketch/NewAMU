@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { History, Pencil } from 'lucide-react'
+import { History, Pencil, ShieldAlert } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { RetentionBadge } from './RetentionBadge'
@@ -258,17 +258,29 @@ export function WikiPageView() {
                 label: 'Neste revisjon',
                 value:
                   page.nextRevisionDueAt ? (
-                    <span
-                      className={`text-sm font-medium ${
-                        daysToDue != null && daysToDue < 0
-                          ? 'text-red-800'
-                          : daysToDue != null && daysToDue <= 60
-                            ? 'text-amber-900'
-                            : 'text-neutral-800'
-                      }`}
-                    >
-                      {new Date(page.nextRevisionDueAt).toLocaleDateString('no-NO')}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span
+                        className={`text-sm font-medium ${
+                          daysToDue != null && daysToDue < 0
+                            ? 'text-red-800'
+                            : daysToDue != null && daysToDue <= 60
+                              ? 'text-amber-900'
+                              : 'text-neutral-800'
+                        }`}
+                      >
+                        {new Date(page.nextRevisionDueAt).toLocaleDateString('no-NO')}
+                        {daysToDue != null && daysToDue < 0 ? ' (forfalt)' : daysToDue != null && daysToDue <= 60 ? ` (${daysToDue} dager)` : ''}
+                      </span>
+                      {revisionSoon && isAdmin ? (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/documents/page/${page.id}/reference-edit`)}
+                          className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
+                        >
+                          Start revisjon →
+                        </button>
+                      ) : null}
+                    </div>
                   ) : (
                     <span className="text-sm text-neutral-500">—</span>
                   ),
@@ -369,6 +381,31 @@ export function WikiPageView() {
           )}
         </ModuleSectionCard>
       )}
+
+      {showSignBadge && !alreadySigned ? (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-3 border-t border-[#1a3d32]/30 bg-[#1a3d32] px-4 py-3 text-sm text-white shadow-lg"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="flex items-center gap-2">
+            <ShieldAlert className="size-4 shrink-0" aria-hidden />
+            Dette dokumentet krever din bekreftelse
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('innhold')
+              queueMicrotask(() => {
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+              })
+            }}
+            className="shrink-0 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-[#1a3d32] hover:bg-neutral-100"
+          >
+            Gå til signering ↓
+          </button>
+        </div>
+      ) : null}
     </ModulePageShell>
   )
 }
