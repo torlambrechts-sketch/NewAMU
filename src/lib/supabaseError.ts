@@ -7,6 +7,13 @@ export function getSupabaseErrorMessage(err: unknown): string {
     return 'Nettverket svarte ikke (Failed to fetch). Sjekk tilkoblingen og prøv igjen — lagring kan likevel ha lyktes; oppdater siden for å bekrefte.'
   }
 
+  if (err instanceof DOMException && err.name === 'AbortError') {
+    return mapAbortLikeMessage(err.message)
+  }
+  if (err instanceof Error && err.name === 'AbortError') {
+    return mapAbortLikeMessage(err.message)
+  }
+
   if (err instanceof Error) {
     raw = err.message
   } else if (typeof err === 'object' && err !== null && 'message' in err) {
@@ -24,6 +31,19 @@ export function getSupabaseErrorMessage(err: unknown): string {
   if (mapped) return mapped
 
   const lower = raw.toLowerCase()
+  if (
+    lower.includes('lock broken') ||
+    lower.includes("'steal'") ||
+    (lower.includes('steal') && lower.includes('lock'))
+  ) {
+    return (
+      'Synkronisering ble avbrutt (lås-konflikt). Dette skjer ofte når flere oppdateringer kjører samtidig. Vent et øyeblikk og prøv «Lagre» eller oppdater siden — data kan allerede være lagret.'
+    )
+  }
+  if (lower.includes('aborted') && (lower.includes('timeout') || lower.includes('manual cancellation'))) {
+    return 'Forespørselen ble avbrutt (tidsavbrudd eller avbestilling). Prøv igjen om et øyeblikk.'
+  }
+
   if (lower.includes('infinite recursion') && lower.includes('profiles')) {
     return (
       'Database-policy for profiler har en konflikt (rekursjon). Administrator må kjøre migrasjon «profiles_rls_no_subquery_recursion» i Supabase SQL Editor — se README.'
@@ -42,6 +62,19 @@ export function getSupabaseErrorMessage(err: unknown): string {
   }
 
   return raw || 'Ukjent feil'
+}
+
+function mapAbortLikeMessage(message: string): string {
+  const m = message.toLowerCase()
+  if (m.includes('lock broken') || m.includes('steal')) {
+    return (
+      'Synkronisering ble avbrutt (lås-konflikt). Dette skjer ofte når flere oppdateringer kjører samtidig. Vent et øyeblikk og prøv igjen — data kan allerede være lagret.'
+    )
+  }
+  if (m.includes('timeout') || m.includes('aborted')) {
+    return 'Forespørselen ble avbrutt. Prøv igjen om et øyeblikk.'
+  }
+  return 'Forespørselen ble avbrutt. Prøv igjen.'
 }
 
 function duplicateOrgMessage(): string {

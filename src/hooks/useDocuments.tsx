@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- provider + hook + store in one module */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Outlet } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
@@ -439,6 +439,9 @@ function useDocumentsStore() {
     error: null,
   })
 
+  /** Serialize full org refresh so concurrent calls (save + composer poll + tab focus) do not abort IndexedDB locks. */
+  const refreshDocumentsChainRef = useRef<Promise<void>>(Promise.resolve())
+
   const state = useRemote ? remoteState : localState
 
   const isOrgAdmin = profile?.is_org_admin === true || isOrgAdminFromPerms
@@ -477,86 +480,92 @@ function useDocumentsStore() {
 
   const refreshDocuments = useCallback(async () => {
     if (!supabase || !orgId || !userId) return
-    setLoading(true)
-    setError(null)
-    try {
-      await supabase.rpc('wiki_ensure_org_defaults')
-      const [
-        covRes,
-        tplRes,
-        setRes,
-        customRes,
-        retRes,
-        data,
-      ] = await Promise.all([
-        supabase.from('wiki_legal_coverage_items').select('ref, label, template_ids, max_revision_months').order('ref'),
-        supabase
-          .from('document_system_templates')
-          .select('id, label, description, category, legal_basis, page_payload, sort_order')
-          .order('sort_order', { ascending: true }),
-        supabase.from('document_org_template_settings').select('template_id, enabled').eq('organization_id', orgId),
-        supabase.from('document_org_templates').select('*').eq('organization_id', orgId).order('created_at'),
-        supabase
-          .from('wiki_retention_categories')
-          .select('slug, label, min_years, max_years, legal_refs, description')
-          .order('slug'),
-        fetchAllForOrg(supabase, orgId, authorFallback),
-      ])
-      if (covRes.error) throw covRes.error
-      if (tplRes.error) throw tplRes.error
-      if (setRes.error) throw setRes.error
-      if (customRes.error) throw customRes.error
-      if (retRes.error) {
-        console.warn('wiki_retention_categories:', retRes.error.message)
-        setRetentionCategories(WIKI_RETENTION_CATEGORIES_STATIC)
-      } else {
-        setRetentionCategories((retRes.data ?? []).map((r) => mapWikiRetentionCategory(r as Parameters<typeof mapWikiRetentionCategory>[0])))
-      }
+    const run = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        await supabase.rpc('wiki_ensure_org_defaults')
+        const [
+          covRes,
+          tplRes,
+          setRes,
+          customRes,
+          retRes,
+          data,
+        ] = await Promise.all([
+          supabase.from('wiki_legal_coverage_items').select('ref, label, template_ids, max_revision_months').order('ref'),
+          supabase
+            .from('document_system_templates')
+            .select('id, label, description, category, legal_basis, page_payload, sort_order')
+            .order('sort_order', { ascending: true }),
+          supabase.from('document_org_template_settings').select('template_id, enabled').eq('organization_id', orgId),
+          supabase.from('document_org_templates').select('*').eq('organization_id', orgId).order('created_at'),
+          supabase
+            .from('wiki_retention_categories')
+            .select('slug, label, min_years, max_years, legal_refs, description')
+            .order('slug'),
+          fetchAllForOrg(supabase, orgId, authorFallback),
+        ])
+        if (covRes.error) throw covRes.error
+        if (tplRes.error) throw tplRes.error
+        if (setRes.error) throw setRes.error
+        if (customRes.error) throw customRes.error
+        if (retRes.error) {
+          console.warn('wiki_retention_categories:', retRes.error.message)
+          setRetentionCategories(WIKI_RETENTION_CATEGORIES_STATIC)
+        } else {
+          setRetentionCategories((retRes.data ?? []).map((r) => mapWikiRetentionCategory(r as Parameters<typeof mapWikiRetentionCategory>[0])))
+        }
 
-      setLegalCoverage(
-        (covRes.data ?? []).map((r) => ({
-          ref: r.ref,
-          label: r.label,
-          templateIds: (r.template_ids as string[]) ?? [],
-          maxRevisionMonths:
-            r.max_revision_months !== undefined && r.max_revision_months !== null
-              ? Number(r.max_revision_months)
-              : null,
-        })),
-      )
-      setSystemTemplates(
-        (tplRes.data ?? []).map((r) => ({
-          id: r.id,
-          label: r.label,
-          description: r.description ?? '',
-          category: r.category as SpaceCategory,
-          legalBasis: (r.legal_basis as string[]) ?? [],
-          pagePayload: r.page_payload as PageTemplate['page'],
-        })),
-      )
-      setOrgTemplateSettings(
-        (setRes.data ?? []).map((r) => ({ templateId: r.template_id, enabled: r.enabled })),
-      )
-      setOrgCustomTemplates(
-        (customRes.data ?? []).map((r) => ({
-          id: r.id,
-          label: r.label,
-          description: r.description ?? '',
-          category: r.category as SpaceCategory,
-          legalBasis: (r.legal_basis as string[]) ?? [],
-          pagePayload: r.page_payload as OrgCustomTemplate['pagePayload'],
-        })),
-      )
-      setRemoteState(data)
-      writeSnap(orgId, userId, data)
-    } catch (e) {
-      // Transient network / CORS failures must not wipe the in-memory org snapshot — that breaks
-      // the editor after a successful write when a follow-up refetch fails (e.g. "Failed to fetch").
-      setError(getSupabaseErrorMessage(e))
-      setRetentionCategories((prev) => (prev.length > 0 ? prev : WIKI_RETENTION_CATEGORIES_STATIC))
-    } finally {
-      setLoading(false)
+        setLegalCoverage(
+          (covRes.data ?? []).map((r) => ({
+            ref: r.ref,
+            label: r.label,
+            templateIds: (r.template_ids as string[]) ?? [],
+            maxRevisionMonths:
+              r.max_revision_months !== undefined && r.max_revision_months !== null
+                ? Number(r.max_revision_months)
+                : null,
+          })),
+        )
+        setSystemTemplates(
+          (tplRes.data ?? []).map((r) => ({
+            id: r.id,
+            label: r.label,
+            description: r.description ?? '',
+            category: r.category as SpaceCategory,
+            legalBasis: (r.legal_basis as string[]) ?? [],
+            pagePayload: r.page_payload as PageTemplate['page'],
+          })),
+        )
+        setOrgTemplateSettings(
+          (setRes.data ?? []).map((r) => ({ templateId: r.template_id, enabled: r.enabled })),
+        )
+        setOrgCustomTemplates(
+          (customRes.data ?? []).map((r) => ({
+            id: r.id,
+            label: r.label,
+            description: r.description ?? '',
+            category: r.category as SpaceCategory,
+            legalBasis: (r.legal_basis as string[]) ?? [],
+            pagePayload: r.page_payload as OrgCustomTemplate['pagePayload'],
+          })),
+        )
+        setRemoteState(data)
+        writeSnap(orgId, userId, data)
+      } catch (e) {
+        // Transient network / CORS failures must not wipe the in-memory org snapshot — that breaks
+        // the editor after a successful write when a follow-up refetch fails (e.g. "Failed to fetch").
+        setError(getSupabaseErrorMessage(e))
+        setRetentionCategories((prev) => (prev.length > 0 ? prev : WIKI_RETENTION_CATEGORIES_STATIC))
+      } finally {
+        setLoading(false)
+      }
     }
+    refreshDocumentsChainRef.current = refreshDocumentsChainRef.current
+      .catch(() => undefined)
+      .then(() => run())
+    await refreshDocumentsChainRef.current
   }, [supabase, orgId, userId, authorFallback])
 
   useEffect(() => {
