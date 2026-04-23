@@ -16,15 +16,18 @@ import {
   Bold,
   Braces,
   Code,
+  Heading1,
   Heading2,
   Heading3,
   Italic,
   Link2,
   List,
   ListOrdered,
+  Minus,
   Quote,
   Redo2,
   Strikethrough,
+  Underline,
   Undo2,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
@@ -85,8 +88,10 @@ function TipTapToolbar({ editor }: { editor: NonNullable<ReturnType<typeof useEd
       italic: snap.editor.isActive('italic'),
       strike: snap.editor.isActive('strike'),
       code: snap.editor.isActive('code'),
+      h1: snap.editor.isActive('heading', { level: 1 }),
       h2: snap.editor.isActive('heading', { level: 2 }),
       h3: snap.editor.isActive('heading', { level: 3 }),
+      underline: snap.editor.isActive('underline'),
       bulletList: snap.editor.isActive('bulletList'),
       orderedList: snap.editor.isActive('orderedList'),
       blockquote: snap.editor.isActive('blockquote'),
@@ -99,8 +104,23 @@ function TipTapToolbar({ editor }: { editor: NonNullable<ReturnType<typeof useEd
 
   if (!state) return null
 
-  const { bold, italic, strike, code, h2, h3, bulletList, orderedList, blockquote, codeBlock, link, canUndo, canRedo } =
-    state
+  const {
+    bold,
+    italic,
+    strike,
+    code,
+    h1,
+    h2,
+    h3,
+    underline,
+    bulletList,
+    orderedList,
+    blockquote,
+    codeBlock,
+    link,
+    canUndo,
+    canRedo,
+  } = state
 
   const toggleLink = () => {
     if (editor.isActive('link')) {
@@ -153,7 +173,23 @@ function TipTapToolbar({ editor }: { editor: NonNullable<ReturnType<typeof useEd
         onClick={() => editor.chain().focus().toggleCode().run()}
         aria-pressed={code}
       />
+      <Button
+        type="button"
+        variant={underline ? 'primary' : 'secondary'}
+        size="sm"
+        icon={<Underline className="h-3.5 w-3.5" />}
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        aria-pressed={underline}
+      />
       <span className="mx-1 hidden h-6 w-px bg-neutral-200 sm:inline" aria-hidden />
+      <Button
+        type="button"
+        variant={h1 ? 'primary' : 'secondary'}
+        size="sm"
+        icon={<Heading1 className="h-3.5 w-3.5" />}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        aria-pressed={h1}
+      />
       <Button
         type="button"
         variant={h2 ? 'primary' : 'secondary'}
@@ -212,6 +248,14 @@ function TipTapToolbar({ editor }: { editor: NonNullable<ReturnType<typeof useEd
         onClick={toggleLink}
         aria-pressed={link}
       />
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        icon={<Minus className="h-3.5 w-3.5" />}
+        onClick={() => editor.chain().focus().setHorizontalRule().run()}
+        aria-label="Horisontal linje"
+      />
       <span className="mx-1 hidden h-6 w-px bg-neutral-200 sm:inline" aria-hidden />
       <Button
         type="button"
@@ -254,7 +298,7 @@ export function TipTapRichTextEditor({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: { levels: [2, 3] },
+        heading: { levels: [1, 2, 3] },
         link: { openOnClick: false, HTMLAttributes: { class: 'text-[#1a3d32] underline underline-offset-2' } },
       }),
       Placeholder.configure({ placeholder }),
@@ -308,8 +352,10 @@ export function TipTapRichTextEditor({
         'tiptap-rich-text-editor overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm',
         '[&_.tiptap-editor-root]:min-h-[220px]',
         '[&_.tiptap-editor-root_p]:mb-2 [&_.tiptap-editor-root_p:last-child]:mb-0',
+        '[&_.tiptap-editor-root_h1]:mt-4 [&_.tiptap-editor-root_h1]:mb-3 [&_.tiptap-editor-root_h1]:text-xl [&_.tiptap-editor-root_h1]:font-bold [&_.tiptap-editor-root_h1]:text-neutral-900',
         '[&_.tiptap-editor-root_h2]:mt-4 [&_.tiptap-editor-root_h2]:mb-2 [&_.tiptap-editor-root_h2]:text-lg [&_.tiptap-editor-root_h2]:font-semibold [&_.tiptap-editor-root_h2]:text-neutral-900',
         '[&_.tiptap-editor-root_h3]:mt-3 [&_.tiptap-editor-root_h3]:mb-1.5 [&_.tiptap-editor-root_h3]:text-base [&_.tiptap-editor-root_h3]:font-semibold [&_.tiptap-editor-root_h3]:text-neutral-900',
+        '[&_.tiptap-editor-root_hr]:my-6 [&_.tiptap-editor-root_hr]:border-neutral-200',
         '[&_.tiptap-editor-root_ul]:my-2 [&_.tiptap-editor-root_ul]:list-disc [&_.tiptap-editor-root_ul]:pl-5',
         '[&_.tiptap-editor-root_ol]:my-2 [&_.tiptap-editor-root_ol]:list-decimal [&_.tiptap-editor-root_ol]:pl-5',
         '[&_.tiptap-editor-root_blockquote]:my-2 [&_.tiptap-editor-root_blockquote]:border-l-4 [&_.tiptap-editor-root_blockquote]:border-neutral-300 [&_.tiptap-editor-root_blockquote]:pl-3 [&_.tiptap-editor-root_blockquote]:italic [&_.tiptap-editor-root_blockquote]:text-neutral-700',
