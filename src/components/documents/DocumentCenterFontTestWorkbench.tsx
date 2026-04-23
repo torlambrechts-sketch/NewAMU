@@ -308,47 +308,49 @@ export function DocumentCenterFontTestWorkbench() {
         </div>
       }
     >
-      <table className="min-w-full border-collapse text-sm">
+      <table className="min-w-full border-collapse text-sm leading-normal text-neutral-600">
         <thead>
           <tr>
-            <th className={MODULE_TABLE_TH}>Navn</th>
-            <th className={MODULE_TABLE_TH}>Type</th>
-            <th className={MODULE_TABLE_TH}>Eier</th>
-            <th className={MODULE_TABLE_TH}>Endret</th>
-            <th className={`${MODULE_TABLE_TH} text-right`}>Størrelse</th>
+            <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Navn</th>
+            <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Type</th>
+            <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Eier</th>
+            <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Endret</th>
+            <th className={`${MODULE_TABLE_TH} text-right text-sm normal-case font-semibold tracking-normal`}>
+              Størrelse
+            </th>
           </tr>
         </thead>
         <tbody>
           {filteredFiles.map((row) => (
             <tr key={row.id} className={MODULE_TABLE_TR_BODY}>
-              <td className={MODULE_TABLE_TD}>
+              <td className={`${MODULE_TABLE_TD} text-sm text-neutral-900`}>
                 <span className="inline-flex items-center gap-2">
                   {row.typeKey === 'pdf' ? (
-                    <FileText className="h-4 w-4 text-red-600/90" aria-hidden />
+                    <FileText className="h-4 w-4 shrink-0 text-red-600/90" aria-hidden />
                   ) : row.typeKey === 'docx' ? (
-                    <FileText className="h-4 w-4 text-blue-600/90" aria-hidden />
+                    <FileText className="h-4 w-4 shrink-0 text-blue-600/90" aria-hidden />
                   ) : (
-                    <FileSpreadsheet className="h-4 w-4 text-emerald-700/90" aria-hidden />
+                    <FileSpreadsheet className="h-4 w-4 shrink-0 text-emerald-700/90" aria-hidden />
                   )}
-                  <span className="font-medium text-neutral-900">{row.name}</span>
+                  <span className="font-medium">{row.name}</span>
                 </span>
               </td>
-              <td className={MODULE_TABLE_TD}>
-                <span className="text-neutral-600">{row.type}</span>
+              <td className={`${MODULE_TABLE_TD} text-sm text-neutral-600`}>
+                <span>{row.type}</span>
               </td>
-              <td className={MODULE_TABLE_TD}>
+              <td className={`${MODULE_TABLE_TD} text-sm text-neutral-600`}>
                 <span className="inline-flex items-center gap-2">
                   <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-[10px] font-bold text-neutral-700"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-[10px] font-bold text-neutral-600"
                     aria-hidden
                   >
                     {row.ownerInitials}
                   </span>
-                  <span className="text-neutral-700">{row.owner}</span>
+                  <span>{row.owner}</span>
                 </span>
               </td>
-              <td className={`${MODULE_TABLE_TD} text-neutral-600`}>{row.modified}</td>
-              <td className={`${MODULE_TABLE_TD} text-right text-neutral-600`}>{row.size}</td>
+              <td className={`${MODULE_TABLE_TD} text-sm text-neutral-600`}>{row.modified}</td>
+              <td className={`${MODULE_TABLE_TD} text-right text-sm text-neutral-600`}>{row.size}</td>
             </tr>
           ))}
         </tbody>
