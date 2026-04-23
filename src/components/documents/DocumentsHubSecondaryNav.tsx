@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useLocation, useMatch, useNavigate } from 'react-router-dom'
-import { BarChart3, BookOpen, Calendar, FolderOpen, LayoutGrid, ShieldCheck } from 'lucide-react'
+import { BarChart3, BookOpen, Calendar, FolderOpen, Home, LayoutGrid, ShieldCheck } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../layout/HubMenu1Bar'
 import { DOCUMENTS_HUB_SECTION_IDS } from './documentsHubSectionIds'
 
@@ -35,6 +35,7 @@ export function DocumentsHubSecondaryNav({ canManage }: Props) {
 
   const scorecardMatch = useMatch({ path: '/documents/scorecard-browser', end: false })
   const layoutTestMatch = useMatch({ path: '/documents/document-center-font-test', end: false })
+  const pandadocHomeMatch = useMatch({ path: '/documents/pandadoc-home-test', end: false })
   const annualMatch = useMatch({ path: '/documents/aarsgjennomgang', end: false })
 
   const goHubSection = useCallback(
@@ -83,6 +84,13 @@ export function DocumentsHubSecondaryNav({ canManage }: Props) {
         to: '/documents/document-center-font-test',
         active: Boolean(layoutTestMatch),
       },
+      {
+        key: 'pandadoc_home',
+        label: 'PandaDoc-hjem (test)',
+        icon: Home,
+        to: '/documents/pandadoc-home-test',
+        active: Boolean(pandadocHomeMatch),
+      },
     ]
     if (canManage) {
       list.push({
@@ -99,6 +107,7 @@ export function DocumentsHubSecondaryNav({ canManage }: Props) {
     canManage,
     goHubSection,
     layoutTestMatch,
+    pandadocHomeMatch,
     mapperActive,
     readinessActive,
     scorecardMatch,
