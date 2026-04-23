@@ -16,7 +16,13 @@ import { StandardInput } from '../ui/Input'
 
 const FOREST = '#1a3d32'
 
-type RecentDoc = { name: string; modified: string }
+export type DocumentFolderRecentDoc = {
+  name: string
+  modified: string
+  /** When set, row opens this wiki page in the editor. */
+  pageId?: string
+  spaceId?: string
+}
 
 export type DocumentFolderJobsItem = {
   id: string
@@ -26,7 +32,7 @@ export type DocumentFolderJobsItem = {
   /** Short code / ref shown as chip */
   code: string
   documentCount: number
-  recentDocuments: RecentDoc[]
+  recentDocuments: DocumentFolderRecentDoc[]
 }
 
 const DEFAULT_FOLDERS: DocumentFolderJobsItem[] = [
@@ -104,6 +110,13 @@ const DEFAULT_FOLDERS: DocumentFolderJobsItem[] = [
 
 type Props = {
   folders?: DocumentFolderJobsItem[]
+  /** Folders shown when «Arkiv» is selected (e.g. archived spaces). Omit to hide archive mode. */
+  archivedFolders?: DocumentFolderJobsItem[]
+  onNewFolderClick?: () => void
+  /** Open folder / space (card header). */
+  onFolderOpen?: (folderId: string) => void
+  /** Open a recent document row when `pageId` is present on the row. */
+  onRecentDocumentClick?: (doc: DocumentFolderRecentDoc) => void
 }
 
 /**
@@ -111,18 +124,27 @@ type Props = {
  * forest tab bar, white toolbar (count + search + filters + grid/list), then five compact job-style cards.
  * Each card expands to show five recent documents (demodata).
  */
-export function DocumentFolderJobsStrip({ folders = DEFAULT_FOLDERS }: Props) {
+export function DocumentFolderJobsStrip({
+  folders = DEFAULT_FOLDERS,
+  archivedFolders,
+  onNewFolderClick,
+  onFolderOpen,
+  onRecentDocumentClick,
+}: Props) {
   const [layout, setLayout] = useState<'grid' | 'list'>('grid')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [stripQuery, setStripQuery] = useState('')
+  const [archiveTab, setArchiveTab] = useState<'active' | 'archived'>('active')
 
-  const totalDocs = useMemo(() => folders.reduce((s, f) => s + f.documentCount, 0), [folders])
+  const activeList = archiveTab === 'archived' && archivedFolders != null ? archivedFolders : folders
+
+  const totalDocs = useMemo(() => activeList.reduce((s, f) => s + f.documentCount, 0), [activeList])
 
   const filteredFolders = useMemo(() => {
     const q = stripQuery.trim().toLowerCase()
-    if (!q) return folders
-    return folders.filter((f) => f.name.toLowerCase().includes(q) || f.meta.toLowerCase().includes(q))
-  }, [folders, stripQuery])
+    if (!q) return activeList
+    return activeList.filter((f) => f.name.toLowerCase().includes(q) || f.meta.toLowerCase().includes(q))
+  }, [activeList, stripQuery])
 
   const gridClass =
     layout === 'grid'
@@ -139,6 +161,11 @@ export function DocumentFolderJobsStrip({ folders = DEFAULT_FOLDERS }: Props) {
             variant="primary"
             className="bg-[#FDFBF7] text-neutral-900 shadow-sm hover:bg-[#FDFBF7]"
             icon={<Briefcase className="h-3.5 w-3.5" />}
+            aria-pressed={archiveTab === 'active'}
+            onClick={() => {
+              setArchiveTab('active')
+              setExpandedId(null)
+            }}
           >
             Aktive mapper
           </Button>
@@ -148,6 +175,13 @@ export function DocumentFolderJobsStrip({ folders = DEFAULT_FOLDERS }: Props) {
             variant="ghost"
             className="border-transparent text-white/90 hover:bg-white/10"
             icon={<Archive className="h-3.5 w-3.5" />}
+            aria-pressed={archiveTab === 'archived'}
+            disabled={archivedFolders == null}
+            onClick={() => {
+              if (archivedFolders == null) return
+              setArchiveTab('archived')
+              setExpandedId(null)
+            }}
           >
             Arkiv
           </Button>
@@ -157,6 +191,8 @@ export function DocumentFolderJobsStrip({ folders = DEFAULT_FOLDERS }: Props) {
           size="sm"
           variant="ghost"
           className="border border-white/20 bg-white/10 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-white/20"
+          onClick={onNewFolderClick}
+          disabled={!onNewFolderClick}
         >
           + Ny mappe
         </Button>
@@ -215,13 +251,18 @@ export function DocumentFolderJobsStrip({ folders = DEFAULT_FOLDERS }: Props) {
           return (
             <ModuleSectionCard key={f.id} className="overflow-hidden p-0">
               <div className="flex flex-wrap items-start justify-between gap-2 border-b border-neutral-100 px-2.5 py-2 sm:px-3 sm:py-2.5">
-                <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 rounded-md text-left outline-none ring-[#1a3d32] focus-visible:ring-2"
+                  onClick={() => onFolderOpen?.(f.id)}
+                  disabled={!onFolderOpen}
+                >
                   <p className="text-xs font-semibold leading-snug text-neutral-900 sm:text-[13px]">{f.name}</p>
                   <p className="mt-0.5 text-[10px] text-neutral-500 sm:text-[11px]">{f.meta}</p>
                   <span className="mt-1 inline-block rounded-md bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-700">
                     {f.code}
                   </span>
-                </div>
+                </button>
                 <div className="flex shrink-0 items-center gap-1">
                   <Button type="button" size="icon" variant="ghost" className="text-neutral-400 hover:text-neutral-700" aria-label="Mer">
                     <MoreHorizontal className="h-4 w-4" />
@@ -249,13 +290,27 @@ export function DocumentFolderJobsStrip({ folders = DEFAULT_FOLDERS }: Props) {
                 <div className="border-t border-neutral-100 bg-neutral-50/80 px-2.5 py-2 sm:px-3">
                   <p className="text-[9px] font-bold uppercase tracking-wide text-neutral-500">5 siste i mappen</p>
                   <ul className="mt-1.5 space-y-1.5">
-                    {f.recentDocuments.map((d) => (
-                      <li key={d.name} className="flex min-w-0 items-start gap-1.5 text-[10px] text-neutral-700 sm:text-[11px]">
-                        <FileText className="mt-0.5 h-3 w-3 shrink-0 text-neutral-400" aria-hidden />
-                        <span className="min-w-0 flex-1 truncate font-medium text-neutral-800">{d.name}</span>
-                        <span className="shrink-0 text-neutral-500">{d.modified}</span>
-                      </li>
-                    ))}
+                    {f.recentDocuments.map((d, idx) => {
+                      const openRecent = onRecentDocumentClick && d.pageId && d.spaceId
+                      const key = `${d.name}-${idx}`
+                      return (
+                        <li key={key} className="flex min-w-0 items-start gap-1.5 text-[10px] text-neutral-700 sm:text-[11px]">
+                          <FileText className="mt-0.5 h-3 w-3 shrink-0 text-neutral-400" aria-hidden />
+                          {openRecent ? (
+                            <button
+                              type="button"
+                              className="min-w-0 flex-1 truncate rounded text-left font-medium text-neutral-800 underline-offset-2 hover:underline"
+                              onClick={() => onRecentDocumentClick(d)}
+                            >
+                              {d.name}
+                            </button>
+                          ) : (
+                            <span className="min-w-0 flex-1 truncate font-medium text-neutral-800">{d.name}</span>
+                          )}
+                          <span className="shrink-0 text-neutral-500">{d.modified}</span>
+                        </li>
+                      )
+                    })}
                   </ul>
                 </div>
               ) : null}

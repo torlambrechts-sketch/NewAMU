@@ -28,9 +28,10 @@ If a primitive does not exist yet, create it under `src/components/module/` rath
 
 The **Dokumenter** oversikt (`DocumentsHome` and layout-test pages under `DocumentsModuleLayout`) uses **`ModuleDocumentsHubLayout`**:
 
-1. **Main column** — one white `ModuleSectionCard` wrapping `ModuleRecordsTableShell` with **`wrapInCard={false}`** so the table is not double-boxed (same idea as ROS/SJA list on cream: single card for the list block).
-2. **Aside column** — `ModuleDocumentsInsightPanel` for filters / help text; **`ModuleDocumentsForestCard`** for storage or status on forest green. No outer white `ModuleSectionCard` wrapping the whole aside column (`ModuleMainAside` **`cardWrap={false}`**).
-3. **Below the split** — `InspectionReadinessScore`, malbibliotek, and modals stay in the `below` slot as separate `ModuleSectionCard` / regions as today.
+1. **`top` slot** — optional `DocumentFolderJobsStrip` (mapper-katalog med utvidbare «siste fem»-rader) full width above the split, same pattern as `DocumentCenterFontTestWorkbench`.
+2. **Main column** — one white `ModuleSectionCard` wrapping `ModuleRecordsTableShell` with **`wrapInCard={false}`** so the table is not double-boxed (same idea as ROS/SJA list on cream: single card for the list block).
+3. **Aside column** — `ModuleDocumentsInsightPanel` for filters / help text; **`ModuleDocumentsForestCard`** for storage or status on forest green. No outer white `ModuleSectionCard` wrapping the whole aside column (`ModuleMainAside` **`cardWrap={false}`**).
+4. **Below the split** — `InspectionReadinessScore`, malbibliotek, and modals stay in the `below` slot as separate `ModuleSectionCard` / regions as today.
 
 ---
 
