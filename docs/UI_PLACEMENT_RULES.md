@@ -42,7 +42,7 @@ Alternativt 70/30-oppsett for andre dokumentvisninger: **`ModuleDocumentsHubLayo
 
 ## 1. Page chrome — always `ModulePageShell`
 
-Every route page (hub, detail, admin) renders inside a `ModulePageShell`:
+Every route page (hub, detail, admin) renders inside a `ModulePageShell`. The TipTap **reference editor** (`/documents/page/:pageId/reference-edit`) is registered under `DocumentsModuleShellLayout` like `/documents/editor-test`, so it shares the same module tabs and secondary nav — not under `DocumentsWikiOutlet` alone.
 
 ```tsx
 <ModulePageShell

@@ -125,7 +125,8 @@ function DocumentsModuleShellBody() {
 
 /**
  * Shared `ModulePageShell` for hub/admin documents routes (rule §1).
- * Wiki space / page / editor use {@link DocumentsWikiOutlet} so each view owns its own shell (no double chrome).
+ * Wiki space / page / wiki block editor use {@link DocumentsWikiOutlet} (own shell). TipTap reference editor
+ * (`/documents/page/:id/reference-edit`) lives here next to `editor-test` so it shares the same module chrome.
  */
 export function DocumentsModuleShellLayout() {
   return (
