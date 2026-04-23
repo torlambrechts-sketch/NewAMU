@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import {
+  AlertTriangle,
   CheckCircle2,
   Clock,
   Cloud,
@@ -7,9 +9,11 @@ import {
   FileText,
   FolderPlus,
   History,
+  Plus,
   Search,
   Upload,
 } from 'lucide-react'
+import { LayoutScoreStatRow } from '../layout/LayoutScoreStatRow'
 import { LayoutTable1PostingsShell } from '../layout/LayoutTable1PostingsShell'
 import { ModuleMainAside } from '../module/ModuleMainAside'
 import { ModuleSectionCard } from '../module/ModuleSectionCard'
@@ -93,10 +97,10 @@ const MOCK_FILES: FileRow[] = [
   },
 ]
 
-const FOLDERS = [
-  { title: 'Arbeidsrett — referanser', items: '124', size: '1,2 GB' },
-  { title: 'Tariffavtaler', items: '48', size: '450 MB' },
-  { title: 'Møtereferat 2024', items: '89', size: '210 MB' },
+const FOLDER_KPI_ITEMS = [
+  { big: '124', title: 'Arbeidsrett — referanser', sub: '1,2 GB · mapper og filer' },
+  { big: '48', title: 'Tariffavtaler', sub: '450 MB · mapper og filer' },
+  { big: '89', title: 'Møtereferat 2024', sub: '210 MB · mapper og filer' },
 ] as const
 
 /**
@@ -183,40 +187,62 @@ export function DocumentCenterFontTestWorkbench() {
     </ModuleSectionCard>
   )
 
-  const storageCard = (
-    <ModuleSectionCard className="overflow-hidden p-0 text-white" style={{ backgroundColor: FOREST, ...CARD_SHADOW }}>
-      <div className="p-5">
-        <div className="flex items-center gap-2">
-          <Cloud className="h-5 w-5 shrink-0 opacity-90" aria-hidden />
-          <h3 className="text-sm font-semibold">Organisasjonslagring</h3>
+  const forestCardShell = (Icon: LucideIcon, title: string, body: ReactNode) => {
+    return (
+      <ModuleSectionCard className="overflow-hidden p-0 text-white" style={{ backgroundColor: FOREST, ...CARD_SHADOW }}>
+        <div className="p-5">
+          <div className="flex items-center gap-2">
+            <Icon className="h-5 w-5 shrink-0 opacity-90" aria-hidden />
+            <h3 className="text-sm font-semibold">{title}</h3>
+          </div>
+          <div className="mt-3">{body}</div>
         </div>
-        <p className="mt-3 text-xs text-white/80">32,5 GB av 50 GB brukt</p>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/15">
-          <div className="h-full w-[65%] rounded-full bg-emerald-400/90" />
-        </div>
+      </ModuleSectionCard>
+    )
+  }
+
+  const storageCard = forestCardShell(
+    Cloud,
+    'Organisasjonslagring',
+    <>
+      <p className="text-xs text-white/80">32,5 GB av 50 GB brukt</p>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/15">
+        <div className="h-full w-[65%] rounded-full bg-emerald-400/90" />
       </div>
-    </ModuleSectionCard>
+    </>,
   )
 
-  const folderRow = (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {FOLDERS.map((f) => (
-        <ModuleSectionCard key={f.title} className="p-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
-              <FileText className="h-5 w-5" aria-hidden />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-neutral-900">{f.title}</p>
-              <p className="mt-1 text-xs text-neutral-500">
-                {f.items} elementer · {f.size}
-              </p>
-            </div>
-          </div>
-        </ModuleSectionCard>
-      ))}
-    </div>
+  const pendingCard = forestCardShell(
+    AlertTriangle,
+    'Venter på godkjenning',
+    <ul className="space-y-3">
+      <li className="flex items-start justify-between gap-2 border-b border-white/10 pb-3 last:border-0 last:pb-0">
+        <span className="min-w-0 text-xs font-medium text-white/95">Tariffavtaleutkast.pdf</span>
+        <Badge variant="critical">Haster</Badge>
+      </li>
+      <li className="flex items-start justify-between gap-2">
+        <span className="min-w-0 text-xs font-medium text-white/95">Ressursplan_Q4.docx</span>
+        <Badge variant="success">Standard</Badge>
+      </li>
+    </ul>,
   )
+
+  const complianceCard = forestCardShell(CheckCircle2, 'I samsvar', (
+    <>
+      <p className="text-3xl font-bold tabular-nums text-white">100%</p>
+      <p className="mt-2 text-xs font-medium text-white/90">Sjekkliste for publiserte HMS-dokumenter (demo).</p>
+    </>
+  ))
+
+  const expiringCard = forestCardShell(Clock, 'Utløper snart', (
+    <>
+      <p className="text-3xl font-bold tabular-nums text-white">12</p>
+      <p className="mt-2 text-xs font-medium text-white/90">Revisjon eller årlig gjennomgang (demo).</p>
+    </>
+  ))
+
+  /** Same KPI strip as ROS/SJA hub above `ModuleRecordsTableShell` (`LayoutScoreStatRow`). */
+  const folderKpiRow = <LayoutScoreStatRow items={[...FOLDER_KPI_ITEMS]} />
 
   const recentTable = (
     <LayoutTable1PostingsShell
@@ -309,44 +335,6 @@ export function DocumentCenterFontTestWorkbench() {
     </LayoutTable1PostingsShell>
   )
 
-  const bottomCards = (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <ModuleSectionCard className="p-5">
-        <h3 className="text-sm font-semibold text-neutral-900">Venter på godkjenning</h3>
-        <ul className="mt-4 space-y-3">
-          <li className="flex items-start justify-between gap-2 border-b border-neutral-100 pb-3 last:border-0 last:pb-0">
-            <span className="min-w-0 text-xs font-medium text-neutral-800">Tariffavtaleutkast.pdf</span>
-            <Badge variant="critical">Haster</Badge>
-          </li>
-          <li className="flex items-start justify-between gap-2">
-            <span className="min-w-0 text-xs font-medium text-neutral-800">Ressursplan_Q4.docx</span>
-            <Badge variant="success">Standard</Badge>
-          </li>
-        </ul>
-      </ModuleSectionCard>
-      <ModuleSectionCard className="p-5">
-        <div className="flex items-start gap-3">
-          <CheckCircle2 className="h-8 w-8 shrink-0 text-emerald-600" aria-hidden />
-          <div>
-            <p className="text-3xl font-bold tabular-nums text-neutral-900">100%</p>
-            <p className="mt-1 text-sm font-medium text-neutral-800">I samsvar</p>
-            <p className="text-xs text-neutral-500">Sjekkliste for publiserte HMS-dokumenter (demo).</p>
-          </div>
-        </div>
-      </ModuleSectionCard>
-      <ModuleSectionCard className="p-5">
-        <div className="flex items-start gap-3">
-          <Clock className="h-8 w-8 shrink-0 text-amber-600" aria-hidden />
-          <div>
-            <p className="text-3xl font-bold tabular-nums text-neutral-900">12</p>
-            <p className="mt-1 text-sm font-medium text-neutral-800">Utløper snart</p>
-            <p className="text-xs text-neutral-500">Revisjon eller årlig gjennomgang (demo).</p>
-          </div>
-        </div>
-      </ModuleSectionCard>
-    </div>
-  )
-
   return (
     <>
       <div className="mb-6 flex flex-col gap-4 border-b border-neutral-200/80 pb-6 sm:flex-row sm:items-start sm:justify-between">
@@ -365,8 +353,11 @@ export function DocumentCenterFontTestWorkbench() {
           <Button type="button" variant="secondary" icon={<FolderPlus className="h-4 w-4" />}>
             Ny mappe
           </Button>
-          <Button type="button" variant="primary" icon={<Upload className="h-4 w-4" />}>
+          <Button type="button" variant="secondary" icon={<Upload className="h-4 w-4" />}>
             Last opp dokument
+          </Button>
+          <Button type="button" variant="primary" icon={<Plus className="h-4 w-4" />}>
+            Nytt dokument
           </Button>
         </div>
       </div>
@@ -375,15 +366,17 @@ export function DocumentCenterFontTestWorkbench() {
         cardWrap
         main={
           <div className="space-y-6">
-            {folderRow}
+            {folderKpiRow}
             {recentTable}
-            {bottomCards}
           </div>
         }
         aside={
           <div className="space-y-6">
             {filterCard}
             {storageCard}
+            {pendingCard}
+            {complianceCard}
+            {expiringCard}
           </div>
         }
       />
