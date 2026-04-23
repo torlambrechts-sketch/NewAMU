@@ -1,17 +1,24 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Folder, Layers, Search } from 'lucide-react'
+import { Archive, Folder, FolderPlus, Pencil, Plus, Search, Upload } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { WikiPage, WikiSpace } from '../../types/documents'
-import { ModuleRecordsTableShell, MODULE_TABLE_TD, MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../module'
+import { ModuleRecordsTableShell, MODULE_TABLE_TD, MODULE_TABLE_TD_ACTION, MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../module'
+import { ModuleSectionCard } from '../module/ModuleSectionCard'
 import { Badge } from '../ui/Badge'
+import { Button } from '../ui/Button'
 import { StandardInput } from '../ui/Input'
+import { SearchableSelect, type SelectOption } from '../ui/SearchableSelect'
 import { WarningBox } from '../ui/AlertBox'
+import { InfoBox } from '../ui/AlertBox'
 
 /** Same as layout-reference `RefCandidateDetailPaneBlock` (`platformReferenceLayoutBlocks.tsx`). */
 const BEIGE_NAV = '#EDE4D3'
 const FOREST = '#1a3d32'
 const SERIF = "'Libre Baskerville', Georgia, serif"
+
+const FOLDER_ICON_CLASS = 'size-3.5 shrink-0 text-neutral-500'
 
 const CATEGORY_LABELS: Record<WikiSpace['category'], string> = {
   hms_handbook: 'HMS-håndbok',
@@ -20,6 +27,19 @@ const CATEGORY_LABELS: Record<WikiSpace['category'], string> = {
   guide: 'Veiledning',
   template_library: 'Malbibliotek',
 }
+
+const CATEGORY_ICONS: Record<WikiSpace['category'], string> = {
+  hms_handbook: '📋',
+  policy: '📜',
+  procedure: '🔄',
+  guide: '📖',
+  template_library: '🗂️',
+}
+
+const categoryOptions: SelectOption[] = (Object.keys(CATEGORY_LABELS) as WikiSpace['category'][]).map((c) => ({
+  value: c,
+  label: CATEGORY_LABELS[c],
+}))
 
 function formatShortDate(iso: string) {
   try {
@@ -39,9 +59,33 @@ function formatShortDate(iso: string) {
 export function DocumentKandidatdetaljLayoutWorkbench() {
   const docs = useDocuments()
   const navigate = useNavigate()
+  const { can, isAdmin } = useOrgSetupContext()
+  const canManage = isAdmin || can('documents.manage')
+
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null)
   const [folderQuery, setFolderQuery] = useState('')
   const [pageQuery, setPageQuery] = useState('')
+  const [uiError, setUiError] = useState<string | null>(null)
+
+  const [newFolderOpen, setNewFolderOpen] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newDesc, setNewDesc] = useState('')
+  const [newCategory, setNewCategory] = useState<WikiSpace['category']>('hms_handbook')
+  const [savingFolder, setSavingFolder] = useState(false)
+
+  const [editSpace, setEditSpace] = useState<WikiSpace | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDesc, setEditDesc] = useState('')
+  const [editCategory, setEditCategory] = useState<WikiSpace['category']>('hms_handbook')
+  const [savingEditSpace, setSavingEditSpace] = useState(false)
+
+  const [archiveSpaceTarget, setArchiveSpaceTarget] = useState<WikiSpace | null>(null)
+  const [archivingSpace, setArchivingSpace] = useState(false)
+
+  const [deletePageTarget, setDeletePageTarget] = useState<WikiPage | null>(null)
+  const [deletingPage, setDeletingPage] = useState(false)
+
+  const uploadInputRef = useRef<HTMLInputElement>(null)
 
   const activeSpaces = useMemo(() => docs.spaces.filter((s) => s.status === 'active'), [docs.spaces])
 
@@ -82,6 +126,121 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
 
   const spaceById = useMemo(() => new Map(activeSpaces.map((s) => [s.id, s])), [activeSpaces])
 
+  const targetSpaceIdForActions = selectedSpaceId ?? activeSpaces[0]?.id ?? null
+
+  const openEditSpace = useCallback((s: WikiSpace) => {
+    setEditSpace(s)
+    setEditTitle(s.title)
+    setEditDesc(s.description)
+    setEditCategory(s.category)
+  }, [])
+
+  const handleCreateFolder = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newTitle.trim()) return
+    setSavingFolder(true)
+    setUiError(null)
+    try {
+      const sp = await docs.createSpace(newTitle, newDesc, newCategory, CATEGORY_ICONS[newCategory])
+      setNewTitle('')
+      setNewDesc('')
+      setNewFolderOpen(false)
+      setSelectedSpaceId(sp.id)
+    } catch (err) {
+      setUiError(err instanceof Error ? err.message : 'Kunne ikke opprette mappe.')
+    } finally {
+      setSavingFolder(false)
+    }
+  }
+
+  const handleSaveEditSpace = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editSpace || !editTitle.trim()) return
+    setSavingEditSpace(true)
+    setUiError(null)
+    try {
+      await docs.updateSpace(editSpace.id, {
+        title: editTitle.trim(),
+        description: editDesc.trim(),
+        category: editCategory,
+      })
+      setEditSpace(null)
+    } catch (err) {
+      setUiError(err instanceof Error ? err.message : 'Kunne ikke lagre mappe.')
+    } finally {
+      setSavingEditSpace(false)
+    }
+  }
+
+  const confirmArchiveSpace = async () => {
+    if (!archiveSpaceTarget) return
+    setArchivingSpace(true)
+    setUiError(null)
+    try {
+      await docs.updateSpace(archiveSpaceTarget.id, { status: 'archived' })
+      if (selectedSpaceId === archiveSpaceTarget.id) setSelectedSpaceId(null)
+      setArchiveSpaceTarget(null)
+    } catch (err) {
+      setUiError(err instanceof Error ? err.message : 'Kunne ikke arkivere mappe.')
+    } finally {
+      setArchivingSpace(false)
+    }
+  }
+
+  const confirmDeletePage = async () => {
+    if (!deletePageTarget) return
+    setDeletingPage(true)
+    setUiError(null)
+    try {
+      await docs.deletePage(deletePageTarget.id)
+      setDeletePageTarget(null)
+    } catch (err) {
+      setUiError(err instanceof Error ? err.message : 'Kunne ikke slette side.')
+    } finally {
+      setDeletingPage(false)
+    }
+  }
+
+  const handleNewDocument = async () => {
+    setUiError(null)
+    if (!targetSpaceIdForActions) {
+      setUiError('Opprett eller velg en mappe først.')
+      return
+    }
+    try {
+      const page = await docs.createPage(targetSpaceIdForActions, 'Ny side', 'standard', [])
+      navigate(`/documents/page/${page.id}/edit`)
+    } catch (err) {
+      setUiError(err instanceof Error ? err.message : 'Kunne ikke opprette side.')
+    }
+  }
+
+  const triggerUpload = () => {
+    setUiError(null)
+    if (!targetSpaceIdForActions) {
+      setUiError('Velg en mappe (eller opprett én) før du laster opp.')
+      return
+    }
+    uploadInputRef.current?.click()
+  }
+
+  const onUploadFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const sid = targetSpaceIdForActions
+    if (!sid) return
+    const files = e.target.files
+    if (!files?.length) return
+    setUiError(null)
+    try {
+      for (const file of Array.from(files)) {
+        await docs.uploadSpaceFile(sid, file)
+      }
+    } catch (err) {
+      setUiError(err instanceof Error ? err.message : 'Opplasting feilet.')
+    } finally {
+      e.target.value = ''
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -92,16 +251,78 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
           <span className="mx-1.5 text-neutral-300">›</span>
           <span>Kandidatdetalj-split</span>
         </p>
-        <h2 className="mt-1.5 text-lg font-semibold text-neutral-900 sm:text-xl" style={{ fontFamily: SERIF }}>
-          Mapper og dokumenter
-        </h2>
-        <p className="mt-1 max-w-3xl text-sm text-neutral-600">
-          Venstre kolonne følger layout-referansen «Kandidatdetalj» (beige seksjonsnav ~22 %). Høyre side viser standard
-          tabellskall med sider fra valgt mappe eller alle mapper.
-        </p>
+        <div className="mt-1.5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-neutral-900 sm:text-xl" style={{ fontFamily: SERIF }}>
+              Mapper og dokumenter
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm text-neutral-600">
+              Venstre: mapper. Høyre: sider. Med tilgang kan du opprette, redigere, laste opp og slette — arkiver mappe
+              fjerner den fra aktive mapper.
+            </p>
+          </div>
+          {canManage ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <Button type="button" variant="secondary" size="sm" icon={<FolderPlus className="h-4 w-4" />} onClick={() => setNewFolderOpen((o) => !o)}>
+                Ny mappe
+              </Button>
+              <Button type="button" variant="secondary" size="sm" icon={<Upload className="h-4 w-4" />} onClick={triggerUpload}>
+                Last opp
+              </Button>
+              <Button type="button" variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => void handleNewDocument()}>
+                Nytt dokument
+              </Button>
+            </div>
+          ) : null}
+        </div>
       </div>
 
+      <input
+        ref={uploadInputRef}
+        type="file"
+        className="hidden"
+        multiple
+        onChange={(e) => void onUploadFiles(e)}
+        aria-hidden
+      />
+
       {docs.error ? <WarningBox>{docs.error}</WarningBox> : null}
+      {uiError ? <WarningBox>{uiError}</WarningBox> : null}
+      {!canManage ? <InfoBox>Du har ikke redigeringstilgang — visning av mapper og sider.</InfoBox> : null}
+
+      {canManage && newFolderOpen ? (
+        <ModuleSectionCard className="p-4 md:p-5">
+          <h3 className="text-sm font-semibold text-neutral-900">Ny mappe</h3>
+          <form onSubmit={(e) => void handleCreateFolder(e)} className="mt-3 space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="kd-new-title">
+                Tittel
+              </label>
+              <StandardInput id="kd-new-title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} required placeholder="Tittel" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="kd-new-desc">
+                Beskrivelse
+              </label>
+              <StandardInput id="kd-new-desc" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="Kort beskrivelse" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="kd-new-cat">
+                Kategori
+              </label>
+              <SearchableSelect value={newCategory} options={categoryOptions} onChange={(v) => setNewCategory(v as WikiSpace['category'])} />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" variant="primary" size="sm" disabled={savingFolder}>
+                {savingFolder ? 'Oppretter…' : 'Opprett'}
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setNewFolderOpen(false)}>
+                Avbryt
+              </Button>
+            </div>
+          </form>
+        </ModuleSectionCard>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-0 overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-sm lg:grid-cols-[minmax(200px,22%)_1fr]">
         <aside className="border-b border-neutral-200 lg:border-b-0 lg:border-r lg:border-neutral-200/80" style={{ backgroundColor: BEIGE_NAV }}>
@@ -122,9 +343,8 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
             <NavFolderRow
               label="Alle mapper"
               sub={`${activeSpaces.length} aktive`}
-              icon={<Layers className="size-4 shrink-0 text-neutral-500" aria-hidden />}
               active={selectedSpaceId == null}
-              onClick={() => setSelectedSpaceId(null)}
+              onSelect={() => setSelectedSpaceId(null)}
             />
             {filteredSpaces.map((space) => {
               const count = docs.pages.filter((p) => p.spaceId === space.id).length
@@ -133,9 +353,42 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
                   key={space.id}
                   label={space.title}
                   sub={`${CATEGORY_LABELS[space.category]} · ${count} sider`}
-                  icon={<span className="text-base leading-none">{space.icon}</span>}
                   active={selectedSpaceId === space.id}
-                  onClick={() => setSelectedSpaceId(space.id)}
+                  onSelect={() => setSelectedSpaceId(space.id)}
+                  actions={
+                    canManage ? (
+                      <>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-neutral-500 hover:text-neutral-800"
+                          title="Rediger mappe"
+                          aria-label={`Rediger mappe ${space.title}`}
+                          onClick={(ev) => {
+                            ev.stopPropagation()
+                            openEditSpace(space)
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-neutral-500 hover:text-neutral-900"
+                          title="Arkiver mappe"
+                          aria-label={`Arkiver mappe ${space.title}`}
+                          onClick={(ev) => {
+                            ev.stopPropagation()
+                            setArchiveSpaceTarget(space)
+                          }}
+                        >
+                          <Archive className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    ) : undefined
+                  }
                 />
               )
             })}
@@ -175,16 +428,19 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
                   <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Tittel</th>
                   <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Status</th>
                   <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Endret</th>
+                  {canManage ? (
+                    <th className={`${MODULE_TABLE_TH} text-right text-sm normal-case font-semibold tracking-normal`}>Handlinger</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
                 {sortedPages.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={selectedSpaceId == null ? 4 : 3}
+                      colSpan={selectedSpaceId == null ? (canManage ? 5 : 4) : canManage ? 4 : 3}
                       className="px-5 py-12 text-center text-sm text-neutral-500"
                     >
-                      Ingen sider i denne visningen. Velg en annen mappe eller opprett sider i en mappe.
+                      Ingen sider i denne visningen. Velg en mappe eller opprett et dokument.
                     </td>
                   </tr>
                 ) : null}
@@ -194,24 +450,24 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
                     page.status === 'published' ? 'Publisert' : page.status === 'draft' ? 'Utkast' : 'Arkivert'
                   const variant = page.status === 'published' ? 'success' : 'neutral'
                   return (
-                    <tr
-                      key={page.id}
-                      className={`${MODULE_TABLE_TR_BODY} cursor-pointer`}
-                      onClick={() => navigate(`/documents/page/${page.id}/edit`)}
-                    >
+                    <tr key={page.id} className={MODULE_TABLE_TR_BODY}>
                       {selectedSpaceId == null ? (
                         <td className={`${MODULE_TABLE_TD} text-sm text-neutral-600`}>
                           <span className="inline-flex items-center gap-2">
-                            <Folder className="size-3.5 shrink-0 text-neutral-400" aria-hidden />
+                            <Folder className={FOLDER_ICON_CLASS} aria-hidden />
                             {space?.title ?? '—'}
                           </span>
                         </td>
                       ) : null}
                       <td className={`${MODULE_TABLE_TD} text-sm text-neutral-900`}>
-                        <span className="inline-flex items-center gap-2">
-                          <FileText className="size-4 shrink-0 text-neutral-400" aria-hidden />
-                          <span className="font-medium">{page.title}</span>
-                        </span>
+                        <button
+                          type="button"
+                          className="inline-flex min-w-0 items-center gap-2 text-left hover:underline"
+                          onClick={() => navigate(`/documents/page/${page.id}/edit`)}
+                        >
+                          <Folder className={FOLDER_ICON_CLASS} aria-hidden />
+                          <span className="truncate font-medium">{page.title}</span>
+                        </button>
                       </td>
                       <td className={`${MODULE_TABLE_TD}`}>
                         <Badge variant={variant} className="scale-95">
@@ -219,6 +475,23 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
                         </Badge>
                       </td>
                       <td className={`${MODULE_TABLE_TD} text-sm text-neutral-600`}>{formatShortDate(page.updatedAt)}</td>
+                      {canManage ? (
+                        <td className={`${MODULE_TABLE_TD_ACTION}`}>
+                          <div className="flex flex-wrap justify-end gap-1">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => navigate(`/documents/page/${page.id}/edit`)}
+                            >
+                              Rediger
+                            </Button>
+                            <Button type="button" size="sm" variant="danger" onClick={() => setDeletePageTarget(page)}>
+                              Slett
+                            </Button>
+                          </div>
+                        </td>
+                      ) : null}
                     </tr>
                   )
                 })}
@@ -227,6 +500,99 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
           </ModuleRecordsTableShell>
         </div>
       </div>
+
+      {editSpace ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="kd-edit-folder-title"
+          onClick={() => setEditSpace(null)}
+        >
+          <ModuleSectionCard className="w-full max-w-md p-5 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <h3 id="kd-edit-folder-title" className="text-sm font-semibold text-neutral-900">
+              Rediger mappe
+            </h3>
+            <form onSubmit={(e) => void handleSaveEditSpace(e)} className="mt-4 space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="kd-edit-title">
+                  Tittel
+                </label>
+                <StandardInput id="kd-edit-title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="kd-edit-desc">
+                  Beskrivelse
+                </label>
+                <StandardInput id="kd-edit-desc" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="kd-edit-cat">
+                  Kategori
+                </label>
+                <SearchableSelect value={editCategory} options={categoryOptions} onChange={(v) => setEditCategory(v as WikiSpace['category'])} />
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button type="submit" variant="primary" size="sm" disabled={savingEditSpace}>
+                  {savingEditSpace ? 'Lagrer…' : 'Lagre'}
+                </Button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => setEditSpace(null)}>
+                  Avbryt
+                </Button>
+              </div>
+            </form>
+          </ModuleSectionCard>
+        </div>
+      ) : null}
+
+      {archiveSpaceTarget ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setArchiveSpaceTarget(null)}
+        >
+          <ModuleSectionCard className="w-full max-w-md p-5 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-neutral-900">Arkiver mappe?</h3>
+            <p className="mt-2 text-sm text-neutral-600">
+              «{archiveSpaceTarget.title}» settes til arkivert og vises ikke lenger under aktive mapper. Sider i mappen
+              slettes ikke.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button type="button" variant="danger" size="sm" disabled={archivingSpace} onClick={() => void confirmArchiveSpace()}>
+                {archivingSpace ? 'Arkiverer…' : 'Arkiver'}
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setArchiveSpaceTarget(null)}>
+                Avbryt
+              </Button>
+            </div>
+          </ModuleSectionCard>
+        </div>
+      ) : null}
+
+      {deletePageTarget ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setDeletePageTarget(null)}
+        >
+          <ModuleSectionCard className="w-full max-w-md p-5 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-neutral-900">Slett side permanent?</h3>
+            <p className="mt-2 text-sm text-neutral-600">
+              «{deletePageTarget.title}» kan ikke gjenopprettes. Vurder å arkivere fra redigeringsvisningen i stedet.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button type="button" variant="danger" size="sm" disabled={deletingPage} onClick={() => void confirmDeletePage()}>
+                {deletingPage ? 'Sletter…' : 'Slett'}
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setDeletePageTarget(null)}>
+                Avbryt
+              </Button>
+            </div>
+          </ModuleSectionCard>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -234,31 +600,33 @@ export function DocumentKandidatdetaljLayoutWorkbench() {
 function NavFolderRow({
   label,
   sub,
-  icon,
   active,
-  onClick,
+  onSelect,
+  actions,
 }: {
   label: string
   sub: string
-  icon: ReactNode
   active: boolean
-  onClick: () => void
+  onSelect: () => void
+  actions?: ReactNode
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`mb-0.5 flex w-full items-start gap-2 rounded-md px-3 py-2.5 text-left transition ${
+    <div
+      className={`mb-0.5 flex w-full items-stretch gap-0.5 rounded-md transition ${
         active ? 'bg-white/70 text-neutral-900 shadow-sm' : 'text-neutral-600 hover:bg-white/40'
       }`}
       style={active ? { boxShadow: `inset 3px 0 0 ${FOREST}` } : undefined}
-      aria-current={active ? 'true' : undefined}
     >
-      <span className="mt-0.5 shrink-0">{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{label}</span>
-        <span className="mt-0.5 block truncate text-[11px] text-neutral-500">{sub}</span>
-      </span>
-    </button>
+      <button type="button" onClick={onSelect} className="min-w-0 flex-1 rounded-md px-3 py-2.5 text-left" aria-current={active ? 'true' : undefined}>
+        <span className="flex items-start gap-2">
+          <Folder className={`${FOLDER_ICON_CLASS} mt-0.5`} aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium">{label}</span>
+            <span className="mt-0.5 block truncate text-[11px] text-neutral-500">{sub}</span>
+          </span>
+        </span>
+      </button>
+      {actions ? <div className="flex shrink-0 flex-col justify-center gap-0.5 border-l border-neutral-200/50 py-1 pr-1">{actions}</div> : null}
+    </div>
   )
 }
