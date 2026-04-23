@@ -116,6 +116,12 @@ function DocumentsModuleShellBody() {
         >
           Scorecard-visning (test)
         </Link>
+        <Link
+          to="/documents/document-center-font-test"
+          className="font-medium text-[#1a3d32] underline-offset-2 hover:underline"
+        >
+          Dokumentsenter (layout-test)
+        </Link>
         {canManage ? (
           <Link
             to="/documents/aarsgjennomgang"
