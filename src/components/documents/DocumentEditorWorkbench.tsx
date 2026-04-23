@@ -31,7 +31,7 @@ import { TipTapRichTextEditor } from './TipTapRichTextEditor'
 import { DOCUMENT_EDITOR_SECTIONS, type DocumentEditorSectionId } from './documentEditorSections'
 import { useDocuments } from '../../hooks/useDocuments'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
-import type { ContentBlock } from '../../types/documents'
+import type { ContentBlock, PageTemplate } from '../../types/documents'
 
 const INITIAL_HTML = `<h1>Arbeidsavtale / HMS-dokument (utkast)</h1><p>Rediger dokumentet direkte på siden. Bruk <strong>Innhold</strong> for å sette inn standardseksjoner knyttet til arbeidsmiljøloven og internkontrollforskriften. TipTap gir overskrifter (H1–H3), lister, lenker, understreking og horisontal linje.</p><p></p>`
 
@@ -113,10 +113,16 @@ function mergeHtmlIntoBlocks(blocks: ContentBlock[], html: string): ContentBlock
   return [{ kind: 'text', body: body }, ...blocks]
 }
 
+function mergeHtmlIntoPagePayload(page: PageTemplate['page'], html: string): PageTemplate['page'] {
+  return { ...page, blocks: mergeHtmlIntoBlocks(page.blocks, html) }
+}
+
 export type DocumentEditorWorkbenchProps = {
   /** `demo` — lokal state (standard test). `persist` — lagre tittel + TipTap-HTML til wiki-side. */
   mode?: 'demo' | 'persist'
   pageId?: string
+  /** Når satt med `mode="persist"`: lagre til `document_org_templates` (organisasjonsmal), ikke wiki-side. */
+  orgTemplateId?: string
   onExit?: () => void
   /** Vis toppintro («Dokumentredaktør — UI-test»). Av for innebygd bruk. */
   showHeader?: boolean
@@ -124,16 +130,23 @@ export type DocumentEditorWorkbenchProps = {
 
 /**
  * PandaDoc-style TipTap-dokumentflate med sidepanel (seksjoner, spesifikasjon, historikk).
- * `mode="demo"` — kun lokalt. `mode="persist"` — krever `pageId` og `useDocuments` for lagring.
+ * `mode="demo"` — kun lokalt. `mode="persist"` — wiki: `pageId` + `useDocuments`; organisasjonsmal: `orgTemplateId` (lagrer via `saveOrgCustomTemplate`).
  */
 export function DocumentEditorWorkbench({
   mode = 'demo',
   pageId,
+  orgTemplateId,
   onExit,
   showHeader = true,
 }: DocumentEditorWorkbenchProps = {}) {
   const docs = useDocuments()
-  const original = mode === 'persist' && pageId ? docs.pages.find((p) => p.id === pageId) : undefined
+  const persistOrgTemplate = mode === 'persist' && Boolean(orgTemplateId)
+  const orgTemplateRow = useMemo(
+    () => (persistOrgTemplate && orgTemplateId ? docs.orgCustomTemplates.find((t) => t.id === orgTemplateId) : undefined),
+    [persistOrgTemplate, orgTemplateId, docs.orgCustomTemplates],
+  )
+  const originalPage = mode === 'persist' && pageId && !persistOrgTemplate ? docs.pages.find((p) => p.id === pageId) : undefined
+  const original = persistOrgTemplate ? orgTemplateRow?.pagePayload : originalPage
 
   const [html, setHtml] = useState(() => (mode === 'persist' && original ? htmlFromWikiBlocks(original.blocks) : INITIAL_HTML))
   const [editor, setEditor] = useState<Editor | null>(null)
@@ -170,13 +183,40 @@ export function DocumentEditorWorkbench({
   )
 
   useEffect(() => {
-    if (mode !== 'persist' || !pageId) return
+    if (mode !== 'persist' || !pageId || persistOrgTemplate) return
     void docs.ensurePageLoaded(pageId)
-  }, [mode, pageId, docs])
+  }, [mode, pageId, persistOrgTemplate, docs])
 
   useLayoutEffect(() => {
-    if (mode !== 'persist' || !pageId || !original) return
-    const key = `${pageId}:${original.updatedAt}:${original.version}`
+    if (mode !== 'persist') return
+    if (persistOrgTemplate) {
+      if (!orgTemplateId || !orgTemplateRow?.pagePayload) return
+      const p = orgTemplateRow.pagePayload
+      const key = `org:${orgTemplateId}:${orgTemplateRow.label}:${JSON.stringify(p.blocks).slice(0, 120)}`
+      if (hydratedKeyRef.current === key) return
+      hydratedKeyRef.current = key
+      const nextHtml = htmlFromWikiBlocks(p.blocks)
+      const nextTitle = (p.title || orgTemplateRow.label || 'Uten tittel').trim()
+      queueMicrotask(() => {
+        setHtml(nextHtml)
+        setDocumentTitle(nextTitle)
+        setTitleDraft(nextTitle)
+        setTitleEditing(false)
+        setPersistDirty(false)
+        lastHistoryHtmlRef.current = nextHtml
+        setHistory([
+          {
+            id: crypto.randomUUID(),
+            savedAt: new Date().toISOString(),
+            label: 'Mal fra biblioteket',
+            htmlSnapshot: nextHtml,
+          },
+        ])
+      })
+      return
+    }
+    if (!pageId || !originalPage) return
+    const key = `${pageId}:${originalPage.updatedAt}:${originalPage.version}`
     if (hydratedKeyRef.current === key) return
     hydratedKeyRef.current = key
     const nextHtml = htmlFromWikiBlocks(original.blocks)
@@ -197,7 +237,7 @@ export function DocumentEditorWorkbench({
         },
       ])
     })
-  }, [mode, pageId, original])
+  }, [mode, persistOrgTemplate, orgTemplateId, orgTemplateRow, pageId, original, originalPage])
 
   const [history, setHistory] = useState<HistoryEntry[]>(() => [
     {
@@ -249,25 +289,54 @@ export function DocumentEditorWorkbench({
     setDocumentTitle(next)
     setTitleDraft(next)
     setTitleEditing(false)
-    if (mode === 'persist' && pageId && original) {
-      setSaveError(null)
-      try {
+    if (mode !== 'persist' || !original) return
+    setSaveError(null)
+    try {
+      if (persistOrgTemplate && orgTemplateId && orgTemplateRow) {
+        const nextPage = mergeHtmlIntoPagePayload(orgTemplateRow.pagePayload, html)
+        await docs.saveOrgCustomTemplate({
+          id: orgTemplateId,
+          label: next,
+          description: orgTemplateRow.description,
+          category: orgTemplateRow.category,
+          legalBasis: orgTemplateRow.legalBasis,
+          page: { ...nextPage, title: next },
+        })
+        setPersistDirty(false)
+        return
+      }
+      if (pageId) {
         await docs.updatePage(pageId, { title: next })
         setPersistDirty(true)
-      } catch (e) {
-        setSaveError(getSupabaseErrorMessage(e))
       }
+    } catch (e) {
+      setSaveError(getSupabaseErrorMessage(e))
     }
-  }, [titleDraft, mode, pageId, original, docs])
+  }, [titleDraft, mode, pageId, original, persistOrgTemplate, orgTemplateId, orgTemplateRow, html, docs])
 
   const handleSavePersist = useCallback(async () => {
-    if (mode !== 'persist' || !pageId || !original) return
+    if (mode !== 'persist' || !original) return
     setSaving(true)
     setSaveError(null)
     try {
-      const nextBlocks = mergeHtmlIntoBlocks(original.blocks, html)
+      if (persistOrgTemplate && orgTemplateId && orgTemplateRow) {
+        const title = documentTitle.trim() || orgTemplateRow.label
+        const nextPage = mergeHtmlIntoPagePayload(orgTemplateRow.pagePayload, html)
+        await docs.saveOrgCustomTemplate({
+          id: orgTemplateId,
+          label: title,
+          description: orgTemplateRow.description,
+          category: orgTemplateRow.category,
+          legalBasis: orgTemplateRow.legalBasis,
+          page: { ...nextPage, title },
+        })
+        setPersistDirty(false)
+        return
+      }
+      if (!pageId || !originalPage) return
+      const nextBlocks = mergeHtmlIntoBlocks(originalPage.blocks, html)
       await docs.updatePage(pageId, {
-        title: documentTitle.trim() || original.title,
+        title: documentTitle.trim() || originalPage.title,
         blocks: nextBlocks,
       })
       setPersistDirty(false)
@@ -276,7 +345,18 @@ export function DocumentEditorWorkbench({
     } finally {
       setSaving(false)
     }
-  }, [mode, pageId, original, html, documentTitle, docs])
+  }, [
+    mode,
+    original,
+    originalPage,
+    pageId,
+    html,
+    documentTitle,
+    docs,
+    persistOrgTemplate,
+    orgTemplateId,
+    orgTemplateRow,
+  ])
 
   const insertSectionHtml = useCallback(
     (fragment: string) => {
@@ -604,23 +684,44 @@ export function DocumentEditorWorkbench({
   )
 
   if (mode === 'persist') {
-    if (!pageId) {
-      return <WarningBox>Mangler side-ID.</WarningBox>
-    }
-    if (docs.loading && !original) {
-      return <p className="text-sm text-neutral-600">Laster dokument…</p>
-    }
-    if (!original) {
-      return (
-        <>
-          <WarningBox>Fant ikke dokumentet.</WarningBox>
-          {onExit ? (
-            <Button type="button" variant="secondary" className="mt-4" onClick={onExit}>
-              Tilbake
-            </Button>
-          ) : null}
-        </>
-      )
+    if (persistOrgTemplate) {
+      if (!orgTemplateId) {
+        return <WarningBox>Mangler mal-ID.</WarningBox>
+      }
+      if (docs.loading && !orgTemplateRow) {
+        return <p className="text-sm text-neutral-600">Laster mal…</p>
+      }
+      if (!orgTemplateRow?.pagePayload) {
+        return (
+          <>
+            <WarningBox>Fant ikke organisasjonsmalen.</WarningBox>
+            {onExit ? (
+              <Button type="button" variant="secondary" className="mt-4" onClick={onExit}>
+                Tilbake
+              </Button>
+            ) : null}
+          </>
+        )
+      }
+    } else {
+      if (!pageId) {
+        return <WarningBox>Mangler side-ID.</WarningBox>
+      }
+      if (docs.loading && !originalPage) {
+        return <p className="text-sm text-neutral-600">Laster dokument…</p>
+      }
+      if (!originalPage) {
+        return (
+          <>
+            <WarningBox>Fant ikke dokumentet.</WarningBox>
+            {onExit ? (
+              <Button type="button" variant="secondary" className="mt-4" onClick={onExit}>
+                Tilbake
+              </Button>
+            ) : null}
+          </>
+        )
+      }
     }
   }
 

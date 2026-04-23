@@ -71,6 +71,7 @@ import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSe
 import { DocumentEditorTestPage } from './pages/documents/DocumentEditorTestPage'
 import { DocumentKandidatdetaljLayoutTestPage } from './pages/documents/DocumentKandidatdetaljLayoutTestPage'
 import { WikiPageReferenceEditor } from './pages/documents/WikiPageReferenceEditor'
+import { DocumentsOrgTemplateEditorPage } from './pages/documents/DocumentsOrgTemplateEditorPage'
 import { DocumentsModuleShellLayout, DocumentsWikiOutlet } from '../modules/documents'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import { DocumentsLayout } from './hooks/useDocuments'
@@ -285,6 +286,14 @@ function App() {
                           }
                         />
                         <Route path="documents/admin" element={<Navigate to="/documents/templates" replace />} />
+                        <Route
+                          path="documents/templates/org/:templateId/edit"
+                          element={
+                            <RouteErrorBoundary title="Kunne ikke åpne malredigering">
+                              <DocumentsOrgTemplateEditorPage />
+                            </RouteErrorBoundary>
+                          }
+                        />
                         <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
                         <Route
                           path="documents/aarsgjennomgang"

@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FolderPlus, Pencil, Plus } from 'lucide-react'
+import { FolderPlus, Loader2, Pencil, Plus } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PageTemplate, SpaceCategory, WikiSpace } from '../../types/documents'
 import { ModuleSectionCard } from '../module/ModuleSectionCard'
 import { Button } from '../ui/Button'
 import { StandardInput } from '../ui/Input'
-import { StandardTextarea } from '../ui/Textarea'
 import { SearchableSelect, type SelectOption } from '../ui/SearchableSelect'
 import { WarningBox } from '../ui/AlertBox'
 
@@ -36,25 +35,9 @@ type Props = {
   newTemplateKey?: number
 }
 
-function htmlFromTemplatePage(page: PageTemplate['page']): string {
-  const t = page.blocks.find((b): b is { kind: 'text'; body: string } => b.kind === 'text')
-  return t?.body?.trim() ? t.body : '<p></p>'
-}
-
-function mergeHtmlIntoPageBlocks(page: PageTemplate['page'], html: string): PageTemplate['page'] {
-  const body = html.trim() ? html : '<p></p>'
-  const idx = page.blocks.findIndex((b) => b.kind === 'text')
-  if (idx >= 0) {
-    return {
-      ...page,
-      blocks: page.blocks.map((b, i) => (i === idx ? { kind: 'text' as const, body } : b)),
-    }
-  }
-  return { ...page, blocks: [{ kind: 'text' as const, body }, ...page.blocks] }
-}
-
 /**
  * Malbibliotek grid (brukt i hub med `centerContent="templates"`).
+ * Rediger (blyant): organisasjonsmal → TipTap på egen rute; systemmal → ny wiki-side fra mal i valgt malmappe, deretter TipTap.
  */
 export function DocumentsTemplateLibraryBody({
   destinationSpaces,
@@ -77,14 +60,8 @@ export function DocumentsTemplateLibraryBody({
   const [createBusy, setCreateBusy] = useState(false)
   const [createErr, setCreateErr] = useState<string | null>(null)
 
-  const [editTpl, setEditTpl] = useState<PageTemplate | null>(null)
-  const [editLabel, setEditLabel] = useState('')
-  const [editDesc, setEditDesc] = useState('')
-  const [editCategory, setEditCategory] = useState<SpaceCategory>('template_library')
-  const [editLegal, setEditLegal] = useState('')
-  const [editHtml, setEditHtml] = useState('')
-  const [editBusy, setEditBusy] = useState(false)
-  const [editErr, setEditErr] = useState<string | null>(null)
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
+  const [templateActionErr, setTemplateActionErr] = useState<string | null>(null)
 
   useEffect(() => {
     if (newTemplateKey <= 0) return
@@ -95,19 +72,47 @@ export function DocumentsTemplateLibraryBody({
     setCreateOpen(true)
   }, [newTemplateKey])
 
-  const openEdit = useCallback((tpl: PageTemplate) => {
-    setEditErr(null)
-    setEditTpl(tpl)
-    setEditLabel(tpl.label)
-    setEditDesc(tpl.description)
-    setEditCategory(tpl.category)
-    setEditLegal(tpl.legalBasis.join(', '))
-    setEditHtml(htmlFromTemplatePage(tpl.page))
-  }, [])
+  const openOrgTemplateEditor = useCallback(
+    (tpl: PageTemplate) => {
+      setTemplateActionErr(null)
+      navigate(`/documents/templates/org/${encodeURIComponent(tpl.id)}/edit`)
+    },
+    [navigate],
+  )
 
-  const closeEdit = useCallback(() => {
-    setEditTpl(null)
-  }, [])
+  const openSystemTemplateAsDocument = useCallback(
+    async (tpl: PageTemplate) => {
+      const sid = dest[0]?.id
+      if (!sid) {
+        setTemplateActionErr('Opprett eller velg en malmappe før du redigerer systemmal som dokument.')
+        return
+      }
+      setTemplateActionErr(null)
+      setEditingTemplateId(tpl.id)
+      try {
+        const page = await docs.createPage(
+          sid,
+          tpl.page.title,
+          tpl.page.template,
+          tpl.page.blocks,
+          {
+            legalRefs: tpl.page.legalRefs,
+            requiresAcknowledgement: tpl.page.requiresAcknowledgement,
+            summary: tpl.page.summary,
+            acknowledgementAudience: tpl.page.acknowledgementAudience,
+            revisionIntervalMonths: tpl.page.revisionIntervalMonths,
+            templateId: tpl.id,
+          },
+        )
+        navigate(`/documents/page/${page.id}/reference-edit`)
+      } catch (err) {
+        setTemplateActionErr(err instanceof Error ? err.message : 'Kunne ikke åpne mal for redigering.')
+      } finally {
+        setEditingTemplateId(null)
+      }
+    },
+    [dest, docs, navigate],
+  )
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -143,46 +148,6 @@ export function DocumentsTemplateLibraryBody({
     }
   }
 
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!editTpl) return
-    setEditErr(null)
-    if (!editLabel.trim()) {
-      setEditErr('Tittel er påkrevd.')
-      return
-    }
-    const isOrgCustom = orgCustomIds.has(editTpl.id)
-    if (!isOrgCustom) {
-      setEditErr('Kun organisasjonsspesifikke maler kan redigeres her. Bruk blyanten for systemmal → Innstillinger.')
-      return
-    }
-    setEditBusy(true)
-    try {
-      const legalBasis = editLegal
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-      const nextPage = mergeHtmlIntoPageBlocks(editTpl.page, editHtml)
-      await docs.saveOrgCustomTemplate({
-        id: editTpl.id,
-        label: editLabel.trim(),
-        description: editDesc.trim(),
-        category: editCategory,
-        legalBasis,
-        page: {
-          ...nextPage,
-          title: editLabel.trim(),
-          summary: editDesc.trim(),
-        },
-      })
-      closeEdit()
-    } catch (err) {
-      setEditErr(err instanceof Error ? err.message : 'Kunne ikke lagre.')
-    } finally {
-      setEditBusy(false)
-    }
-  }
-
   return (
     <>
       <ModuleSectionCard className="p-5 md:p-6">
@@ -206,6 +171,11 @@ export function DocumentsTemplateLibraryBody({
             </div>
           ) : null}
         </div>
+        {templateActionErr ? (
+          <div className="mb-3">
+            <WarningBox>{templateActionErr}</WarningBox>
+          </div>
+        ) : null}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {docs.pageTemplates.map((tpl) => (
             <TemplateCard
@@ -214,8 +184,9 @@ export function DocumentsTemplateLibraryBody({
               spaces={dest}
               canManage={canManage}
               isOrgCustom={orgCustomIds.has(tpl.id)}
-              onEdit={() => openEdit(tpl)}
-              onEditSystem={() => navigate(`/documents/templates?system=${encodeURIComponent(tpl.id)}`)}
+              busyEdit={editingTemplateId === tpl.id}
+              onEditOrg={() => openOrgTemplateEditor(tpl)}
+              onEditSystem={() => void openSystemTemplateAsDocument(tpl)}
               onUse={async (spaceId) => {
                 const page = await docs.createPage(
                   spaceId,
@@ -297,74 +268,6 @@ export function DocumentsTemplateLibraryBody({
           </ModuleSectionCard>
         </div>
       ) : null}
-
-      {editTpl && canManage ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="tpl-edit-title"
-          onClick={closeEdit}
-        >
-          <ModuleSectionCard className="max-h-[min(90vh,40rem)] w-full max-w-lg overflow-y-auto p-5 shadow-lg" onClick={(ev) => ev.stopPropagation()}>
-            <h3 id="tpl-edit-title" className="text-sm font-semibold text-neutral-900">
-              Rediger mal
-            </h3>
-            <p className="mt-1 text-xs text-neutral-500">Kun organisasjonsspesifikke maler lagres fra her.</p>
-            <form onSubmit={(e) => void handleSaveEdit(e)} className="mt-4 space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="tpl-lib-edit-label">
-                  Tittel
-                </label>
-                <StandardInput id="tpl-lib-edit-label" value={editLabel} onChange={(e) => setEditLabel(e.target.value)} required />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="tpl-lib-edit-desc">
-                  Beskrivelse
-                </label>
-                <StandardInput id="tpl-lib-edit-desc" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="tpl-lib-edit-cat">
-                  Kategori
-                </label>
-                <SearchableSelect value={editCategory} options={categoryOptions} onChange={(v) => setEditCategory(v as SpaceCategory)} />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="tpl-lib-edit-legal">
-                  Lovhenvisninger (kommaseparert)
-                </label>
-                <StandardInput
-                  id="tpl-lib-edit-legal"
-                  value={editLegal}
-                  onChange={(e) => setEditLegal(e.target.value)}
-                  placeholder="F.eks. AML § 2-1, IK-f § 5"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="tpl-lib-edit-html">
-                  Innhold (HTML, første tekstblokk)
-                </label>
-                <StandardTextarea
-                  id="tpl-lib-edit-html"
-                  className="min-h-[140px] font-mono text-xs"
-                  value={editHtml}
-                  onChange={(e) => setEditHtml(e.target.value)}
-                />
-              </div>
-              {editErr ? <WarningBox>{editErr}</WarningBox> : null}
-              <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
-                <Button type="button" variant="secondary" onClick={closeEdit}>
-                  Avbryt
-                </Button>
-                <Button type="submit" variant="primary" disabled={editBusy}>
-                  {editBusy ? 'Lagrer…' : 'Lagre'}
-                </Button>
-              </div>
-            </form>
-          </ModuleSectionCard>
-        </div>
-      ) : null}
     </>
   )
 }
@@ -374,7 +277,8 @@ function TemplateCard({
   spaces,
   canManage,
   isOrgCustom,
-  onEdit,
+  busyEdit,
+  onEditOrg,
   onEditSystem,
   onUse,
 }: {
@@ -382,8 +286,9 @@ function TemplateCard({
   spaces: WikiSpace[]
   canManage: boolean
   isOrgCustom: boolean
-  onEdit: () => void
-  onEditSystem: () => void
+  busyEdit: boolean
+  onEditOrg: () => void
+  onEditSystem: () => void | Promise<void>
   onUse: (spaceId: string) => void | Promise<void>
 }) {
   const [open, setOpen] = useState(false)
@@ -408,11 +313,12 @@ function TemplateCard({
             variant="ghost"
             size="icon"
             className="shrink-0 text-neutral-500 hover:text-neutral-800"
-            title={isOrgCustom ? 'Rediger mal' : 'Innstillinger for systemmal'}
-            aria-label={isOrgCustom ? `Rediger mal ${tpl.label}` : `Rediger systemmal ${tpl.label} i innstillinger`}
-            onClick={() => (isOrgCustom ? onEdit() : onEditSystem())}
+            title={isOrgCustom ? 'Rediger mal' : 'Rediger som dokument (fra systemmal)'}
+            aria-label={isOrgCustom ? `Rediger mal ${tpl.label}` : `Rediger systemmal ${tpl.label} som dokument`}
+            disabled={busyEdit}
+            onClick={() => (isOrgCustom ? onEditOrg() : void onEditSystem())}
           >
-            <Pencil className="h-4 w-4" />
+            {busyEdit ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Pencil className="h-4 w-4" />}
           </Button>
         ) : null}
       </div>
