@@ -23,24 +23,19 @@ export function DocumentsHubSecondaryNav({ canManage }: Props) {
   const navigate = useNavigate()
 
   const mapperHash = `#${DOCUMENTS_HUB_SECTION_IDS.mapper}`
-  const templatesHash = `#${DOCUMENTS_HUB_SECTION_IDS.templates}`
 
   const onDocumentsHome = location.pathname === '/documents'
   const hash = location.hash || ''
 
   const mapperActive = onDocumentsHome && (hash === '' || hash === mapperHash)
-  const templatesActive = onDocumentsHome && hash === templatesHash
+  const templatesMatch = useMatch({ path: '/documents/malbibliotek', end: false })
 
   const annualMatch = useMatch({ path: '/documents/aarsgjennomgang', end: false })
 
-  const goHubSection = useCallback(
-    (id: string) => {
-      const h = `#${id}`
-      void navigate(`/documents${h}`)
-      scrollToHubSection(id)
-    },
-    [navigate],
-  )
+  const goMapper = useCallback(() => {
+    void navigate(`/documents${mapperHash}`)
+    scrollToHubSection(DOCUMENTS_HUB_SECTION_IDS.mapper)
+  }, [navigate, mapperHash])
 
   const items: HubMenu1Item[] = useMemo(() => {
     const list: HubMenu1Item[] = [
@@ -49,14 +44,14 @@ export function DocumentsHubSecondaryNav({ canManage }: Props) {
         label: 'Mapper',
         icon: FolderOpen,
         active: Boolean(mapperActive),
-        onClick: () => goHubSection(DOCUMENTS_HUB_SECTION_IDS.mapper),
+        onClick: goMapper,
       },
       {
         key: 'templates',
         label: 'Malbibliotek',
         icon: BookOpen,
-        active: Boolean(templatesActive),
-        onClick: () => goHubSection(DOCUMENTS_HUB_SECTION_IDS.templates),
+        to: '/documents/malbibliotek',
+        active: Boolean(templatesMatch),
       },
     ]
     if (canManage) {
@@ -69,7 +64,7 @@ export function DocumentsHubSecondaryNav({ canManage }: Props) {
       })
     }
     return list
-  }, [annualMatch, canManage, goHubSection, mapperActive, templatesActive])
+  }, [annualMatch, canManage, goMapper, mapperActive, templatesMatch])
 
   return <HubMenu1Bar ariaLabel="Dokumenter — flere seksjoner" items={items} />
 }

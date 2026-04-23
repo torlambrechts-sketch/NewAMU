@@ -59,6 +59,7 @@ import { LearningComplianceMatrix } from './pages/learning/LearningComplianceMat
 import { LearningPathsPage } from './pages/learning/LearningPathsPage'
 import { LearningExternalTraining } from './pages/learning/LearningExternalTraining'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
+import { DocumentsMalbibliotekPage } from './pages/documents/DocumentsMalbibliotekPage'
 import { WikiSpaceView } from './pages/documents/WikiSpaceView'
 import { WikiPageView } from './pages/documents/WikiPageView'
 import { WikiPageEditRedirect } from './pages/documents/WikiPageEditRedirect'
@@ -264,6 +265,7 @@ function App() {
                       <Route element={<DocumentsModuleShellLayout />}>
                         <Route path="documents/editor-test" element={<DocumentEditorTestPage />} />
                         <Route path="documents/kandidatdetalj-layout-test" element={<DocumentKandidatdetaljLayoutTestPage />} />
+                        <Route path="documents/malbibliotek" element={<DocumentsMalbibliotekPage />} />
                         <Route path="documents" element={<DocumentsHome />} />
                         <Route path="documents/compliance" element={<ComplianceDashboard />} />
                         <Route

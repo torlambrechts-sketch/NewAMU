@@ -14,6 +14,7 @@ import { SearchableSelect, type SelectOption } from '../ui/SearchableSelect'
 import { WarningBox } from '../ui/AlertBox'
 import { InfoBox } from '../ui/AlertBox'
 import { useDocumentsHubActionsRegister } from '../../../modules/documents/DocumentsHubActionsContext'
+import { DocumentsTemplateLibraryBody } from '../documents/DocumentsTemplateLibraryBody'
 
 /** Beige nav — matches layout-reference `RefCandidateDetailPaneBlock`. */
 const BEIGE_NAV = '#EDE4D3'
@@ -58,15 +59,24 @@ export type ModuleDocumentsKandidatdetaljHubProps = {
   variant?: 'home' | 'demo'
   /** Show title + breadcrumb block (off for tight embed under templates). */
   showIntro?: boolean
+  /**
+   * `pages` — høyre kolonne: dokumenttabell (standard).
+   * `templates` — høyre kolonne: malbibliotek (egen rute `/documents/malbibliotek`).
+   */
+  centerContent?: 'pages' | 'templates'
 }
 
 /**
- * Default **Dokumenter** hub: Kandidatdetalj-style split (beige ~22% folder nav + white table),
- * drag wiki page onto folder to move, compact drag-and-drop upload strip for the target folder.
+ * Default **Dokumenter** hub: Kandidatdetalj-style split (beige ~22% folder nav + white hovedkolonne),
+ * drag wiki page onto folder to move; fil-slipp for opplasting i valgt mappe ligger i venstre kolonne rett under søk (inne i hub-kortet).
  *
  * Follow `docs/UI_PLACEMENT_RULES.md` and `DESIGN_SYSTEM.md` (module primitives, no raw controls).
  */
-export function ModuleDocumentsKandidatdetaljHub({ variant = 'home', showIntro = true }: ModuleDocumentsKandidatdetaljHubProps) {
+export function ModuleDocumentsKandidatdetaljHub({
+  variant = 'home',
+  showIntro = true,
+  centerContent = 'pages',
+}: ModuleDocumentsKandidatdetaljHubProps) {
   const docs = useDocuments()
   const navigate = useNavigate()
   const { can, isAdmin } = useOrgSetupContext()
@@ -335,12 +345,14 @@ export function ModuleDocumentsKandidatdetaljHub({ variant = 'home', showIntro =
           <div className="mt-1.5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-neutral-900 sm:text-xl" style={{ fontFamily: SERIF }}>
-                Mapper og dokumenter
+                {centerContent === 'templates' ? 'Malbibliotek' : 'Mapper og dokumenter'}
               </h2>
               <p className="mt-1 max-w-3xl text-sm text-neutral-600">
-                {variant === 'demo'
-                  ? 'Referanse: beige seksjonsnav (~22 %) og tabell til høyre. Dra en rad til en mappe for å flytte dokumentet.'
-                  : 'Bibliotek: velg mappe til venstre, jobb med sider til høyre. Dra dokumentrader til en mappe for å flytte. Standard modul-UI.'}
+                {centerContent === 'templates'
+                  ? 'Velg mappe til venstre for kontekst. Til høyre: tilgjengelige maler. Nye sider åpnes i standard dokumentredaktør.'
+                  : variant === 'demo'
+                    ? 'Referanse: beige seksjonsnav (~22 %) og tabell til høyre. Dra en rad til en mappe for å flytte dokumentet.'
+                    : 'Bibliotek: velg mappe til venstre, jobb med sider til høyre. Dra dokumentrader til en mappe for å flytte. Standard modul-UI.'}
               </p>
             </div>
             {canManage ? (
@@ -407,26 +419,6 @@ export function ModuleDocumentsKandidatdetaljHub({ variant = 'home', showIntro =
         </ModuleSectionCard>
       ) : null}
 
-      {canManage && targetSpaceIdForActions && selectedSpace ? (
-        <div
-          role="region"
-          aria-label="Slipp filer for opplasting"
-          onDragOver={(e) => {
-            if (!e.dataTransfer.types.includes('Files')) return
-            e.preventDefault()
-            e.dataTransfer.dropEffect = 'copy'
-          }}
-          onDrop={(e) => void onUploadZoneDrop(e)}
-          className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50/80 px-4 py-5 text-center transition hover:border-[#1a3d32]/40 hover:bg-neutral-50"
-        >
-          <Upload className="mx-auto h-5 w-5 text-neutral-400" aria-hidden />
-          <p className="mt-2 text-xs font-medium text-neutral-800">
-            Slipp filer her for opplasting i <span className="text-[#1a3d32]">«{selectedSpace.title}»</span>
-          </p>
-          <p className="mt-1 text-[11px] text-neutral-500">Kompakt sone — eller bruk «Last opp».</p>
-        </div>
-      ) : null}
-
       <div className="grid grid-cols-1 gap-0 overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-sm lg:grid-cols-[minmax(200px,22%)_1fr]">
         <aside className="border-b border-neutral-200 lg:border-b-0 lg:border-r lg:border-neutral-200/80" style={{ backgroundColor: BEIGE_NAV }}>
           <div className="border-b border-neutral-200/60 p-2.5">
@@ -442,6 +434,29 @@ export function ModuleDocumentsKandidatdetaljHub({ variant = 'home', showIntro =
               />
             </div>
           </div>
+          {canManage && targetSpaceIdForActions && selectedSpace ? (
+            <div className="border-b border-neutral-200/60 px-2.5 pb-2.5 pt-0">
+              <ModuleSectionCard className="overflow-hidden p-2.5 shadow-sm">
+                <div
+                  role="region"
+                  aria-label="Slipp filer for opplasting"
+                  onDragOver={(e) => {
+                    if (!e.dataTransfer.types.includes('Files')) return
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'copy'
+                  }}
+                  onDrop={(e) => void onUploadZoneDrop(e)}
+                  className="rounded-md border border-dashed border-neutral-300 bg-neutral-50/90 px-2 py-3 text-center transition hover:border-[#1a3d32]/40"
+                >
+                  <Upload className="mx-auto h-4 w-4 text-neutral-400" aria-hidden />
+                  <p className="mt-1.5 text-[11px] font-medium leading-snug text-neutral-800">
+                    Slipp filer her for opplasting i <span className="text-[#1a3d32]">«{selectedSpace.title}»</span>
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-neutral-500">Eller «Last opp».</p>
+                </div>
+              </ModuleSectionCard>
+            </div>
+          ) : null}
           <nav className="max-h-[min(70vh,32rem)] overflow-y-auto p-2" aria-label="Dokumentmapper">
             <NavFolderRow
               label="Alle mapper"
@@ -506,107 +521,111 @@ export function ModuleDocumentsKandidatdetaljHub({ variant = 'home', showIntro =
         </aside>
 
         <div className="min-w-0 bg-white p-4 md:p-6">
-          <ModuleRecordsTableShell
-            wrapInCard={false}
-            title={mainTitle}
-            titleTypography="sans"
-            description={mainDescription}
-            toolbar={
-              <div className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-                <StandardInput
-                  type="search"
-                  className="w-full py-2 pl-10"
-                  placeholder="Søk i sider…"
-                  value={pageQuery}
-                  onChange={(e) => setPageQuery(e.target.value)}
-                  aria-label="Søk i sider"
-                />
-              </div>
-            }
-            footer={<span className="text-sm text-neutral-500">{sortedPages.length} treff</span>}
-          >
-            <table className="min-w-full border-collapse text-left text-sm">
-              <thead>
-                <tr>
-                  {selectedSpaceId == null ? (
-                    <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Mappe</th>
-                  ) : null}
-                  <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Tittel</th>
-                  <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Status</th>
-                  <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Endret</th>
-                  {canManage ? (
-                    <th className={`${MODULE_TABLE_TH} text-right text-sm normal-case font-semibold tracking-normal`}>Handlinger</th>
-                  ) : null}
-                </tr>
-              </thead>
-              <tbody>
-                {sortedPages.length === 0 ? (
+          {centerContent === 'templates' ? (
+            <DocumentsTemplateLibraryBody />
+          ) : (
+            <ModuleRecordsTableShell
+              wrapInCard={false}
+              title={mainTitle}
+              titleTypography="sans"
+              description={mainDescription}
+              toolbar={
+                <div className="relative min-w-0 flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                  <StandardInput
+                    type="search"
+                    className="w-full py-2 pl-10"
+                    placeholder="Søk i sider…"
+                    value={pageQuery}
+                    onChange={(e) => setPageQuery(e.target.value)}
+                    aria-label="Søk i sider"
+                  />
+                </div>
+              }
+              footer={<span className="text-sm text-neutral-500">{sortedPages.length} treff</span>}
+            >
+              <table className="min-w-full border-collapse text-left text-sm">
+                <thead>
                   <tr>
-                    <td
-                      colSpan={selectedSpaceId == null ? (canManage ? 5 : 4) : canManage ? 4 : 3}
-                      className="px-5 py-12 text-center text-sm text-neutral-500"
-                    >
-                      Ingen sider i denne visningen. Velg en mappe eller opprett et dokument.
-                    </td>
+                    {selectedSpaceId == null ? (
+                      <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Mappe</th>
+                    ) : null}
+                    <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Tittel</th>
+                    <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Status</th>
+                    <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Endret</th>
+                    {canManage ? (
+                      <th className={`${MODULE_TABLE_TH} text-right text-sm normal-case font-semibold tracking-normal`}>Handlinger</th>
+                    ) : null}
                   </tr>
-                ) : null}
-                {sortedPages.map((page) => {
-                  const space = spaceById.get(page.spaceId)
-                  const statusLabel =
-                    page.status === 'published' ? 'Publisert' : page.status === 'draft' ? 'Utkast' : 'Arkivert'
-                  const variantBadge = page.status === 'published' ? 'success' : 'neutral'
-                  const busy = movingPageId === page.id
-                  return (
-                    <tr
-                      key={page.id}
-                      className={MODULE_TABLE_TR_BODY}
-                      draggable={canManage}
-                      onDragStart={canManage ? (e) => onPageDragStart(e, page.id) : undefined}
-                    >
-                      {selectedSpaceId == null ? (
-                        <td className={`${MODULE_TABLE_TD} text-sm text-neutral-600`}>
-                          <span className="inline-flex items-center gap-2">
-                            <Folder className={FOLDER_ICON_CLASS} aria-hidden />
-                            {space?.title ?? '—'}
-                          </span>
-                        </td>
-                      ) : null}
-                      <td className={`${MODULE_TABLE_TD} text-sm text-neutral-900`}>
-                        <button
-                          type="button"
-                          className="inline-flex min-w-0 items-center gap-2 text-left hover:underline"
-                          onClick={() => navigate(editPath(page.id))}
-                          disabled={busy}
-                        >
-                          <Folder className={FOLDER_ICON_CLASS} aria-hidden />
-                          <span className="truncate font-medium">{page.title}</span>
-                        </button>
+                </thead>
+                <tbody>
+                  {sortedPages.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={selectedSpaceId == null ? (canManage ? 5 : 4) : canManage ? 4 : 3}
+                        className="px-5 py-12 text-center text-sm text-neutral-500"
+                      >
+                        Ingen sider i denne visningen. Velg en mappe eller opprett et dokument.
                       </td>
-                      <td className={`${MODULE_TABLE_TD}`}>
-                        <Badge variant={variantBadge} className="scale-95">
-                          {statusLabel}
-                        </Badge>
-                      </td>
-                      <td className={`${MODULE_TABLE_TD} text-sm text-neutral-600`}>{formatShortDate(page.updatedAt)}</td>
-                      {canManage ? (
-                        <td className={`${MODULE_TABLE_TD_ACTION}`}>
-                          <div className="flex flex-wrap justify-end gap-1">
-                            <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => navigate(editPath(page.id))}>
-                              Rediger
-                            </Button>
-                            <Button type="button" size="sm" variant="danger" disabled={busy} onClick={() => setDeletePageTarget(page)}>
-                              Slett
-                            </Button>
-                          </div>
-                        </td>
-                      ) : null}
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </ModuleRecordsTableShell>
+                  ) : null}
+                  {sortedPages.map((page) => {
+                    const space = spaceById.get(page.spaceId)
+                    const statusLabel =
+                      page.status === 'published' ? 'Publisert' : page.status === 'draft' ? 'Utkast' : 'Arkivert'
+                    const variantBadge = page.status === 'published' ? 'success' : 'neutral'
+                    const busy = movingPageId === page.id
+                    return (
+                      <tr
+                        key={page.id}
+                        className={MODULE_TABLE_TR_BODY}
+                        draggable={canManage}
+                        onDragStart={canManage ? (e) => onPageDragStart(e, page.id) : undefined}
+                      >
+                        {selectedSpaceId == null ? (
+                          <td className={`${MODULE_TABLE_TD} text-sm text-neutral-600`}>
+                            <span className="inline-flex items-center gap-2">
+                              <Folder className={FOLDER_ICON_CLASS} aria-hidden />
+                              {space?.title ?? '—'}
+                            </span>
+                          </td>
+                        ) : null}
+                        <td className={`${MODULE_TABLE_TD} text-sm text-neutral-900`}>
+                          <button
+                            type="button"
+                            className="inline-flex min-w-0 items-center gap-2 text-left hover:underline"
+                            onClick={() => navigate(editPath(page.id))}
+                            disabled={busy}
+                          >
+                            <Folder className={FOLDER_ICON_CLASS} aria-hidden />
+                            <span className="truncate font-medium">{page.title}</span>
+                          </button>
+                        </td>
+                        <td className={`${MODULE_TABLE_TD}`}>
+                          <Badge variant={variantBadge} className="scale-95">
+                            {statusLabel}
+                          </Badge>
+                        </td>
+                        <td className={`${MODULE_TABLE_TD} text-sm text-neutral-600`}>{formatShortDate(page.updatedAt)}</td>
+                        {canManage ? (
+                          <td className={`${MODULE_TABLE_TD_ACTION}`}>
+                            <div className="flex flex-wrap justify-end gap-1">
+                              <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => navigate(editPath(page.id))}>
+                                Rediger
+                              </Button>
+                              <Button type="button" size="sm" variant="danger" disabled={busy} onClick={() => setDeletePageTarget(page)}>
+                                Slett
+                              </Button>
+                            </div>
+                          </td>
+                        ) : null}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </ModuleRecordsTableShell>
+          )}
         </div>
       </div>
 

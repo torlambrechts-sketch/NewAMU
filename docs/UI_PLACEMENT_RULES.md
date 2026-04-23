@@ -11,7 +11,8 @@ The rules assume the UI primitives that already live in the codebase:
 - `src/components/module/ModuleDocumentsInsightPanel.tsx` — cream aside panel for filters / short help (uses `WORKPLACE_MODULE_SUBTLE_PANEL`), not a nested white `ModuleSectionCard`.
 - `src/components/module/ModuleDocumentsForestCard.tsx` — forest-green aside surface for storage / status widgets.
 - `src/components/documents/DocumentsHubSecondaryNav.tsx` — **Oversikt** secondary row under `ModulePageShell` tabs (`HubMenu1Bar`): jumps to hub sections on `/documents` via hashes in `documentsHubSectionIds.ts`, plus årsgjennomgang for admins.
-- `src/components/module/ModuleDocumentsKandidatdetaljHub.tsx` — default **Dokumenter** hub (Kandidatdetalj-split fra layout-reference): beige ~22% folder nav, `ModuleRecordsTableShell` for wiki pages, drag page to folder, compact upload drop zone; used on `DocumentsHome`, templates settings preview, and `/documents/kandidatdetalj-layout-test`.
+- `src/components/module/ModuleDocumentsKandidatdetaljHub.tsx` — default **Dokumenter** hub (Kandidatdetalj-split): beige ~22% folder nav, høyre kolonne `pages` eller `templates`, drag page to folder, fil-slipp under mappesøk; brukt på `DocumentsHome`, `/documents/malbibliotek`, og `/documents/kandidatdetalj-layout-test`.
+- `src/components/documents/DocumentsTemplateLibraryBody.tsx` — malrutenett for malbibliotek-siden (brukes inne i hubbens høyre kolonne).
 - `src/components/module/ModuleInformationCard.tsx` — form/metadata card with `withCard` + `hideHeader` props.
 - `src/components/module/ModuleSignatureCard.tsx` — per-role signature card.
 - `src/components/module/ModulePreflightChecklist.tsx` — pre-signing checklist.
@@ -27,7 +28,7 @@ If a primitive does not exist yet, create it under `src/components/module/` rath
 
 ## Documents module hub (default)
 
-The **Dokumenter** oversikt (`DocumentsHome` under `DocumentsModuleLayout`) uses **`ModuleDocumentsKandidatdetaljHub`** (mapper + dokumentliste). Malbibliotek ligger i egen `ModuleSectionCard` under hubben (anker `documents-hub-templates`).
+The **Dokumenter** oversikt (`DocumentsHome` under `DocumentsModuleLayout`) uses **`ModuleDocumentsKandidatdetaljHub`** with **`centerContent="pages"`** (mapper + dokumenttabell). **Malbibliotek** er egen rute **`/documents/malbibliotek`** med samme hub og **`centerContent="templates"`** (høyre kolonne: `DocumentsTemplateLibraryBody` i `ModuleSectionCard`). Opplastingsslipp ligger i **venstre kolonne**, rett under mappesøk, inne i hub-kortet (`ModuleSectionCard` rundt slippfeltet).
 
 Alternativt 70/30-oppsett for andre dokumentvisninger: **`ModuleDocumentsHubLayout`** med valgfri `top`-stripe (`DocumentFolderJobsStrip`), `ModuleMainAside` **`cardWrap={false}`**, og `ModuleRecordsTableShell` med **`wrapInCard={false}`** i hovedkolonnen.
 
