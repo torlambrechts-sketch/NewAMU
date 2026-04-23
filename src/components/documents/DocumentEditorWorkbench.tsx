@@ -19,7 +19,6 @@ import {
   Type,
   User,
 } from 'lucide-react'
-import { ModulePageShell } from '../module/ModulePageShell'
 import { ModuleSectionCard } from '../module/ModuleSectionCard'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
@@ -97,7 +96,8 @@ function formatNowLabel(d: Date) {
 
 /**
  * Standalone PandaDoc-style document editor shell for prototyping the documents module.
- * Uses `ModulePageShell`, `ModuleSectionCard`, and UI primitives per docs/UI_PLACEMENT_RULES.md.
+ * Uses `ModuleSectionCard` and UI primitives per docs/UI_PLACEMENT_RULES.md.
+ * Renders as outlet body under `DocumentsModuleShellLayout` (single page shell from parent route).
  * Rich editing via TipTap (tiptap.dev). No backend integration — local state only.
  */
 export function DocumentEditorWorkbench() {
@@ -443,13 +443,21 @@ export function DocumentEditorWorkbench() {
     </ModuleSectionCard>
   )
 
+  /**
+   * Body only — must render inside `DocumentsModuleShellLayout` (+ `DocumentsModuleLayout`) so content
+   * aligns with Oversikt / Samsvar tabs and matches other documents routes (no nested ModulePageShell).
+   */
   return (
-    <ModulePageShell
-      breadcrumb={[{ label: 'HMS' }, { label: 'Dokumenter' }, { label: 'Redaktør (test)' }]}
-      title="Dokumentredaktør — UI-test"
-      description="PandaDoc-inspirert arbeidsflate med TipTap (tiptap.dev), fullbred dokumentflate og dokumentspesifikasjon i sidepanelet. Kun lokalt utkast — ingen integrasjon."
-      headerActions={
-        <div className="flex flex-wrap items-center gap-2">
+    <>
+      <div className="mb-6 flex flex-col gap-4 border-b border-neutral-200/80 pb-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-neutral-900">Dokumentredaktør — UI-test</h2>
+          <p className="mt-2 max-w-3xl text-sm text-neutral-600">
+            PandaDoc-inspirert arbeidsflate med TipTap (tiptap.dev), fullbred dokumentflate og dokumentspesifikasjon i
+            sidepanelet. Kun lokalt utkast — ingen integrasjon.
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Badge variant="draft">Utkast</Badge>
           <Button variant="secondary" size="sm">
             Forhåndsvisning
@@ -458,9 +466,8 @@ export function DocumentEditorWorkbench() {
             Send (demo)
           </Button>
         </div>
-      }
-    >
+      </div>
       {body}
-    </ModulePageShell>
+    </>
   )
 }
