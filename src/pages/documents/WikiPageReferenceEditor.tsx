@@ -4,7 +4,7 @@ import { DocumentEditorWorkbench } from '../../components/documents/DocumentEdit
 
 /**
  * TipTap «referanse»-redigering for wiki-sider (samme UI som `/documents/editor-test`), med lagring til første tekstblokk.
- * Rute: `/documents/page/:pageId/reference-edit`.
+ * Rute: `/documents/page/:pageId/reference-edit` (under {@link DocumentsModuleShellLayout}, samme ytre ramme som `/documents/editor-test`).
  */
 export function WikiPageReferenceEditor() {
   const { pageId } = useParams<{ pageId: string }>()

@@ -264,6 +264,14 @@ function App() {
                       <Route path="hr/o-ros" element={<HrORosPage />} />
                       <Route element={<DocumentsModuleShellLayout />}>
                         <Route path="documents/editor-test" element={<DocumentEditorTestPage />} />
+                        <Route
+                          path="documents/page/:pageId/reference-edit"
+                          element={
+                            <RouteErrorBoundary title="Kunne ikke åpne redigering">
+                              <WikiPageReferenceEditor />
+                            </RouteErrorBoundary>
+                          }
+                        />
                         <Route path="documents/kandidatdetalj-layout-test" element={<DocumentKandidatdetaljLayoutTestPage />} />
                         <Route path="documents/malbibliotek" element={<DocumentsMalbibliotekPage />} />
                         <Route path="documents" element={<DocumentsHome />} />
@@ -294,14 +302,6 @@ function App() {
                           element={
                             <RouteErrorBoundary title="Kunne ikke vise dokumentet">
                               <WikiPageView />
-                            </RouteErrorBoundary>
-                          }
-                        />
-                        <Route
-                          path="documents/page/:pageId/reference-edit"
-                          element={
-                            <RouteErrorBoundary title="Kunne ikke åpne redigering">
-                              <WikiPageReferenceEditor />
                             </RouteErrorBoundary>
                           }
                         />
