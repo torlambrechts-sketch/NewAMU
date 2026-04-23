@@ -550,10 +550,10 @@ function useDocumentsStore() {
       setRemoteState(data)
       writeSnap(orgId, userId, data)
     } catch (e) {
+      // Transient network / CORS failures must not wipe the in-memory org snapshot — that breaks
+      // the editor after a successful write when a follow-up refetch fails (e.g. "Failed to fetch").
       setError(getSupabaseErrorMessage(e))
-      if (orgId && userId) clearSnap(orgId, userId)
-      setRetentionCategories(WIKI_RETENTION_CATEGORIES_STATIC)
-      setRemoteState(emptyLocalState())
+      setRetentionCategories((prev) => (prev.length > 0 ? prev : WIKI_RETENTION_CATEGORIES_STATIC))
     } finally {
       setLoading(false)
     }
@@ -841,7 +841,15 @@ function useDocumentsStore() {
         if (pe) throw pe
         const page = mapPage(data as Parameters<typeof mapPage>[0], authorFallback)
         await insertLedgerRemote(page, 'created')
-        await refreshDocuments()
+        setRemoteState((s) => {
+          if (s.pages.some((p) => p.id === page.id)) return s
+          const next = { ...s, pages: [...s.pages, page] }
+          if (orgId && userId) writeSnap(orgId, userId, next)
+          return next
+        })
+        void refreshDocuments().catch((err) => {
+          setError(getSupabaseErrorMessage(err))
+        })
         return page
       }
       const page: WikiPage = {
@@ -960,9 +968,23 @@ function useDocumentsStore() {
         if (patch.retainMinimumYears !== undefined) dbPatch.retain_minimum_years = patch.retainMinimumYears
         if (patch.retainMaximumYears !== undefined) dbPatch.retain_maximum_years = patch.retainMaximumYears
         if (patch.archivedAt !== undefined) dbPatch.archived_at = patch.archivedAt
-        const { error: e } = await supabase.from('wiki_pages').update(dbPatch).eq('id', id).eq('organization_id', orgId)
+        const { data: row, error: e } = await supabase
+          .from('wiki_pages')
+          .update(dbPatch)
+          .eq('id', id)
+          .eq('organization_id', orgId)
+          .select('*')
+          .single()
         if (e) throw new Error(getSupabaseErrorMessage(e))
-        await refreshDocuments()
+        const updated = mapPage(row as Parameters<typeof mapPage>[0], authorFallback)
+        setRemoteState((s) => {
+          const next = { ...s, pages: s.pages.map((p) => (p.id === id ? updated : p)) }
+          if (orgId && userId) writeSnap(orgId, userId, next)
+          return next
+        })
+        void refreshDocuments().catch((err) => {
+          setError(getSupabaseErrorMessage(err))
+        })
         return
       }
       setLocalState((s) => {
@@ -980,7 +1002,7 @@ function useDocumentsStore() {
         }
       })
     },
-    [useRemote, supabase, orgId, userId, remoteState.pages, refreshDocuments],
+    [useRemote, supabase, orgId, userId, remoteState.pages, refreshDocuments, authorFallback],
   )
 
   const publishPage = useCallback(
@@ -1030,7 +1052,14 @@ function useDocumentsStore() {
         if (e) throw e
         const page = mapPage(data as Parameters<typeof mapPage>[0], authorFallback)
         await insertLedgerRemote(page, 'published', fromVersion)
-        await refreshDocuments()
+        setRemoteState((s) => {
+          const next = { ...s, pages: s.pages.map((p) => (p.id === id ? page : p)) }
+          if (orgId && userId) writeSnap(orgId, userId, next)
+          return next
+        })
+        void refreshDocuments().catch((err) => {
+          setError(getSupabaseErrorMessage(err))
+        })
         return
       }
       setLocalState((s) => {
@@ -1100,7 +1129,14 @@ function useDocumentsStore() {
         if (e) throw e
         const page = mapPage(data as Parameters<typeof mapPage>[0], authorFallback)
         await insertLedgerRemote(page, 'archived', fromVersion)
-        await refreshDocuments()
+        setRemoteState((s) => {
+          const next = { ...s, pages: s.pages.map((p) => (p.id === id ? page : p)) }
+          if (orgId && userId) writeSnap(orgId, userId, next)
+          return next
+        })
+        void refreshDocuments().catch((err) => {
+          setError(getSupabaseErrorMessage(err))
+        })
         return
       }
       setLocalState((s) => {
@@ -1130,7 +1166,14 @@ function useDocumentsStore() {
       if (useRemote && supabase && orgId && userId) {
         const { error: e } = await supabase.from('wiki_pages').delete().eq('id', id).eq('organization_id', orgId)
         if (e) throw e
-        await refreshDocuments()
+        setRemoteState((s) => {
+          const next = { ...s, pages: s.pages.filter((p) => p.id !== id) }
+          if (orgId && userId) writeSnap(orgId, userId, next)
+          return next
+        })
+        void refreshDocuments().catch((err) => {
+          setError(getSupabaseErrorMessage(err))
+        })
         return
       }
       setLocalState((s) => ({ ...s, pages: s.pages.filter((p) => p.id !== id) }))
@@ -1170,7 +1213,9 @@ function useDocumentsStore() {
         })
         if (re) throw re
         await insertLedgerRemote(page, 'acknowledged')
-        await refreshDocuments()
+        void refreshDocuments().catch((err) => {
+          setError(getSupabaseErrorMessage(err))
+        })
         return
       }
       setLocalState((s) => {

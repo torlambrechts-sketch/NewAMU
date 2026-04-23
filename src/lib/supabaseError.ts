@@ -3,6 +3,10 @@ export function getSupabaseErrorMessage(err: unknown): string {
   if (err == null) return 'Ukjent feil'
 
   let raw = ''
+  if (err instanceof TypeError && err.message === 'Failed to fetch') {
+    return 'Nettverket svarte ikke (Failed to fetch). Sjekk tilkoblingen og prøv igjen — lagring kan likevel ha lyktes; oppdater siden for å bekrefte.'
+  }
+
   if (err instanceof Error) {
     raw = err.message
   } else if (typeof err === 'object' && err !== null && 'message' in err) {
