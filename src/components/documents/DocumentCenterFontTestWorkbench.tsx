@@ -18,6 +18,7 @@ import { ModuleMainAside } from '../module/ModuleMainAside'
 import { ModuleRecordsTableShell } from '../module/ModuleRecordsTableShell'
 import { ModuleSectionCard } from '../module/ModuleSectionCard'
 import { MODULE_TABLE_TD, MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../module/moduleTableKit'
+import { WORKPLACE_MODULE_SUBTLE_PANEL, WORKPLACE_MODULE_SUBTLE_PANEL_STYLE } from '../layout/workplaceModuleSurface'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { StandardInput } from '../ui/Input'
@@ -99,7 +100,7 @@ const MOCK_FILES: FileRow[] = [
 
 /**
  * Visual prototype: document hub with filters, folder catalogues and file table.
- * Folder strip uses layout-reference «Stillinger» pattern (platform-admin). File list uses `ModuleRecordsTableShell` with `wrapInCard={false}` so it matches ROS/SJA on-page table (no nested white box inside the main column card).
+ * Folder strip uses layout-reference «Stillinger» pattern (platform-admin). Split uses `cardWrap={false}` so aside is not wrapped in a second outer white card; main column uses one `ModuleSectionCard` for table + `ModuleRecordsTableShell` with `wrapInCard={false}`. Filtre uses subtle cream panel instead of a nested white card.
  * Static mock data only.
  */
 export function DocumentCenterFontTestWorkbench() {
@@ -125,8 +126,8 @@ export function DocumentCenterFontTestWorkbench() {
     setQuery('')
   }
 
-  const filterCard = (
-    <ModuleSectionCard className="p-4">
+  const filterPanel = (
+    <div className={`${WORKPLACE_MODULE_SUBTLE_PANEL} p-3 md:p-4`} style={WORKPLACE_MODULE_SUBTLE_PANEL_STYLE}>
       <h3 className="text-xs font-semibold text-neutral-900">Filtre</h3>
       <div className="mt-3 space-y-3">
         <div>
@@ -178,13 +179,16 @@ export function DocumentCenterFontTestWorkbench() {
           Nullstill filtre
         </Button>
       </div>
-    </ModuleSectionCard>
+    </div>
   )
 
   /** Compact forest cards — aligned padding/typography with Organisasjonslagring. */
   const forestCardShell = (Icon: LucideIcon, title: string, body: ReactNode) => {
     return (
-      <ModuleSectionCard className="overflow-hidden p-0 text-white" style={{ backgroundColor: FOREST, ...CARD_SHADOW }}>
+      <div
+        className="overflow-hidden rounded-xl border border-emerald-900/25 text-white shadow-sm"
+        style={{ backgroundColor: FOREST, ...CARD_SHADOW }}
+      >
         <div className="p-4">
           <div className="flex items-center gap-1.5">
             <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
@@ -192,7 +196,7 @@ export function DocumentCenterFontTestWorkbench() {
           </div>
           <div className="mt-2">{body}</div>
         </div>
-      </ModuleSectionCard>
+      </div>
     )
   }
 
@@ -367,12 +371,16 @@ export function DocumentCenterFontTestWorkbench() {
       </div>
 
       <ModuleMainAside
-        cardWrap
+        cardWrap={false}
         splitDensity="compact"
-        main={<div className="space-y-4">{documentsTableBlock}</div>}
+        main={
+          <ModuleSectionCard className="p-3 md:p-4">
+            <div className="space-y-4">{documentsTableBlock}</div>
+          </ModuleSectionCard>
+        }
         aside={
           <div className="space-y-3">
-            {filterCard}
+            {filterPanel}
             {storageCard}
             {pendingCard}
             {complianceCard}
