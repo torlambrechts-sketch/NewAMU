@@ -68,6 +68,16 @@ alter table public.wiki_spaces
   add column if not exists restricted_permission text;
 
 -- ---------------------------------------------------------------------------
+-- 2b. wiki_pages PII columns (20260630120000 chain) — SELECT policy references them
+-- ---------------------------------------------------------------------------
+
+alter table public.wiki_pages
+  add column if not exists contains_pii boolean not null default false,
+  add column if not exists pii_categories text[] not null default '{}',
+  add column if not exists pii_legal_basis text,
+  add column if not exists pii_retention_note text;
+
+-- ---------------------------------------------------------------------------
 -- 3. Recreate wiki_pages SELECT policy (folder grants + prior RLS semantics)
 -- ---------------------------------------------------------------------------
 

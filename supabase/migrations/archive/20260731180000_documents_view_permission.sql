@@ -14,6 +14,13 @@ from public.role_permissions rp
 where rp.permission_key = 'documents.manage'
 on conflict do nothing;
 
+-- wiki_pages_select_org references PII columns — ensure they exist if PII migration was skipped
+alter table public.wiki_pages
+  add column if not exists contains_pii boolean not null default false,
+  add column if not exists pii_categories text[] not null default '{}',
+  add column if not exists pii_legal_basis text,
+  add column if not exists pii_retention_note text;
+
 -- Extend wiki_pages SELECT (after wiki_space_access_grants policy) so documents.view matches documents.manage read paths.
 drop policy if exists "wiki_pages_select_org" on public.wiki_pages;
 

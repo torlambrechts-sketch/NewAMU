@@ -72,6 +72,12 @@ alter table public.wiki_spaces
 alter table public.wiki_spaces
   add column if not exists restricted_permission text;
 
+alter table public.wiki_pages
+  add column if not exists contains_pii boolean not null default false,
+  add column if not exists pii_categories text[] not null default '{}',
+  add column if not exists pii_legal_basis text,
+  add column if not exists pii_retention_note text;
+
 -- ---------------------------------------------------------------------------
 -- 3. wiki_pages SELECT — honor folder grant allow-list
 -- ---------------------------------------------------------------------------
