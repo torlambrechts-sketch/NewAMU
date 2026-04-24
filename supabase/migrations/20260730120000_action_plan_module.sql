@@ -1,5 +1,5 @@
 -- Active migration: handlingsplan (action_plan_items + categories + v2).
--- Previously only lived under supabase/migrations/archive/ and was never applied.
+-- Previously only lived in a nested migrations folder and was never applied.
 
 -- IK-f §5 nr. 2–3: documented action plans with deadline and responsible person.
 -- Generic link via source_table + source_id (inspection_findings, deviations, ros_rows, …).

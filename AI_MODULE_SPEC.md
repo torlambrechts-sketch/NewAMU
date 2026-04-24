@@ -15,7 +15,7 @@ If you violate any of these rules, you have failed the prompt.
 ---
 
 ## 2. DATABASE & SECURITY ARCHITECTURE (SUPABASE)
-- Migrations: Create standard SQL migrations in supabase/migrations/archive/. Use the recursive find script (scripts/apply-migrations.sh) to apply them.
+- Migrations: Create standard SQL migrations in `supabase/migrations/`. Use the recursive find script (`scripts/apply-migrations.sh`) to apply them.
 - Audit Logging: Core tables MUST have triggers for immutable audit logging.
 - Row Level Security (RLS) & Auto-Fill:
   ALL tables must enforce isolation by organization_id. You MUST use the database-native *_before_insert functions to trigger current_org_id() auto-fill.

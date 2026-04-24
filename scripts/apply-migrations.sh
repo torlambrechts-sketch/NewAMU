@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Apply all SQL files under supabase/migrations/ (including archive/) in
+# Apply all SQL files under supabase/migrations/ (recursive) in
 # lexical order by filename (timestamp prefix YYYYMMDDHHMMSS_...).
 # Requires: psql (postgresql-client) and a Postgres connection URL in the environment.
 #
@@ -33,7 +33,7 @@ FILES=()
 while IFS= read -r line; do
   [[ -n "${line}" ]] && FILES+=("${line}")
 done < <(
-  # Sort by migration filename (timestamp prefix), not path — works with archive/ subfolder.
+  # Sort by migration filename (timestamp prefix), not path — works with subfolders if any.
   find "${MIG_DIR}" -name '*.sql' -type f | awk -F/ '{ print $NF "\t" $0 }' | LC_ALL=C sort | cut -f2-
 )
 

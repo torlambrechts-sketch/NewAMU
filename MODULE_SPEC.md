@@ -140,7 +140,7 @@ VALUES (org_id, 'xxx', 'Xxx Modulnavn', true, '{"enablePhotos":true}');
 ## 3. Migration File Naming Convention
 
 ```
-supabase/migrations/archive/
+supabase/migrations/
   YYYYMMDDHHMMSS_xxx_schema.sql          -- tables, indexes, RLS, triggers
   YYYYMMDDHHMMSS_xxx_workflow.sql        -- workflow rules
   YYYYMMDDHHMMSS_xxx_seed_templates.sql  -- default templates
