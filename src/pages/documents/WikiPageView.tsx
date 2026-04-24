@@ -14,11 +14,12 @@ import {
 } from '../../components/module'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
-import { WarningBox } from '../../components/ui/AlertBox'
+import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
+import { DocumentAccessRequestForm } from '../../components/documents/DocumentAccessRequestForm'
 import { Tabs } from '../../components/ui/Tabs'
 import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { PageStatus } from '../../types/documents'
-import { canViewWikiSpace } from '../../lib/wikiSpaceAccessGrants'
+import { canViewWikiSpace, wikiSpaceHasRestrictedAccess } from '../../lib/wikiSpaceAccessGrants'
 import { canBypassWikiFolderGrants, canEditWikiDocuments } from '../../lib/documentsAccess'
 
 const TEMPLATE_CLASS = {
@@ -56,9 +57,20 @@ export function WikiPageView() {
   const { can, user, profile, members } = useOrgSetupContext()
   const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
   const bypassFolderRbac = canBypassWikiFolderGrants(can, profile?.is_org_admin)
-  const { ensurePageLoaded, pageHydrateLoading, pageHydrateError } = docs
+  const {
+    ensurePageLoaded,
+    pageHydrateLoading,
+    pageHydrateError,
+    resolvePageMetaForAccessRequest,
+    createWikiAccessRequest,
+  } = docs
   const timeNow = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
   const [activeTab, setActiveTab] = useState<DetailTab>('informasjon')
+  const [accessReqBusy, setAccessReqBusy] = useState(false)
+  const [accessReqErr, setAccessReqErr] = useState<string | null>(null)
+  const [accessReqDone, setAccessReqDone] = useState(false)
+  const [gateMetaLoading, setGateMetaLoading] = useState(false)
+  const [blockedSpaceTitle, setBlockedSpaceTitle] = useState<string | null>(null)
 
   const page = docs.pages.find((p) => p.id === pageId)
   const space = page ? docs.spaces.find((s) => s.id === page.spaceId) : null
@@ -77,6 +89,39 @@ export function WikiPageView() {
   useEffect(() => {
     void ensurePageLoaded(pageId)
   }, [ensurePageLoaded, pageId])
+
+  const folderRestricted =
+    page && space
+      ? wikiSpaceHasRestrictedAccess(space.id, docs.wikiSpaceAccessGrants)
+      : page
+        ? wikiSpaceHasRestrictedAccess(page.spaceId, docs.wikiSpaceAccessGrants)
+        : false
+  const showAccessRequestGate = Boolean(page && !canViewFolder && folderRestricted && user?.id)
+
+  useEffect(() => {
+    if (!showAccessRequestGate || !page) {
+      setBlockedSpaceTitle(null)
+      setGateMetaLoading(false)
+      return
+    }
+    if (space?.title) {
+      setBlockedSpaceTitle(space.title)
+      setGateMetaLoading(false)
+      return
+    }
+    let cancelled = false
+    setGateMetaLoading(true)
+    void (async () => {
+      const meta = await resolvePageMetaForAccessRequest(page.id)
+      if (!cancelled) {
+        setBlockedSpaceTitle(meta?.spaceId ? docs.spaces.find((s) => s.id === meta.spaceId)?.title ?? `Mappe ${meta.spaceId}` : null)
+        setGateMetaLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [showAccessRequestGate, page, space?.title, space?.id, resolvePageMetaForAccessRequest, docs.spaces])
 
   const legalRefs = page && Array.isArray(page.legalRefs) ? page.legalRefs : []
   const templateKey: keyof typeof TEMPLATE_CLASS =
@@ -171,6 +216,63 @@ export function WikiPageView() {
   }
 
   if (!canViewFolder) {
+    if (showAccessRequestGate && page) {
+      const folderTitle =
+        space?.title ?? blockedSpaceTitle ?? `Mappe (${page.spaceId})`
+      const docLabel = page.title
+      return (
+        <ModulePageShell
+          breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }, { label: page.title }]}
+          title="Begrenset tilgang"
+          description={
+            <p className="max-w-3xl text-sm text-neutral-600">
+              Du har ikke tilgang til dette dokumentet ennå. Send en formell forespørsel — den behandles av
+              dokumentansvarlig.
+            </p>
+          }
+        >
+          {gateMetaLoading ? (
+            <p className="text-sm text-neutral-500">Henter mappeinformasjon…</p>
+          ) : null}
+          {accessReqDone ? (
+            <InfoBox>Søknaden er sendt. Du får tilgang når en administrator godkjenner den.</InfoBox>
+          ) : (
+            <DocumentAccessRequestForm
+              documentLabel={docLabel}
+              subLabel={`Mappe: ${folderTitle}`}
+              busy={accessReqBusy}
+              error={accessReqErr}
+              onCancel={() => navigate('/documents')}
+              onSubmit={async ({ justification, accessScope, duration }) => {
+                if (!user?.id || !profile) return
+                setAccessReqErr(null)
+                setAccessReqBusy(true)
+                try {
+                  await createWikiAccessRequest({
+                    resourceType: 'document',
+                    spaceId: page.spaceId,
+                    pageId: page.id,
+                    title: page.title,
+                    justification,
+                    accessScope,
+                    duration,
+                    requesterName: profile.display_name ?? '',
+                  })
+                  setAccessReqDone(true)
+                } catch (err) {
+                  setAccessReqErr(err instanceof Error ? err.message : 'Kunne ikke sende søknad.')
+                } finally {
+                  setAccessReqBusy(false)
+                }
+              }}
+            />
+          )}
+          <Button type="button" variant="secondary" className="mt-4" onClick={() => navigate('/documents')}>
+            Tilbake til bibliotek
+          </Button>
+        </ModulePageShell>
+      )
+    }
     return (
       <ModulePageShell
         breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]}

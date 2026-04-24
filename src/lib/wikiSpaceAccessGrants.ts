@@ -34,6 +34,10 @@ export function saveWikiSpaceGrantsToStorage(organizationId: string, grants: Wik
   }
 }
 
+export function wikiSpaceHasRestrictedAccess(spaceId: string, grants: WikiSpaceAccessGrant[]): boolean {
+  return grants.some((g) => g.spaceId === spaceId)
+}
+
 export function canViewWikiSpace(args: {
   spaceId: string
   grants: WikiSpaceAccessGrant[]

@@ -30,9 +30,16 @@ import {
   type WikiSpaceAccessGrant,
   type WikiSpaceGrantType,
 } from '../lib/wikiSpaceAccessGrants'
+import type {
+  WikiAccessRequestDuration,
+  WikiAccessRequestScope,
+  WikiAccessRequestStatus,
+  WikiDocumentAccessRequest,
+} from '../types/wikiAccessRequest'
 
 const STORAGE_KEY = 'atics-documents-v2'
 const LOCAL_ORG_TEMPLATES_KEY = 'atics-document-org-templates-v1'
+const LOCAL_ACCESS_REQUESTS_KEY = 'atics-wiki-access-requests-v1'
 
 /** @deprecated Local demo only */
 export const DEMO_USER_ID = 'user-demo'
@@ -59,6 +66,63 @@ function mapSpaceAccessGrant(row: {
     spaceId: row.space_id,
     grantType: row.grant_type as WikiSpaceGrantType,
     subjectId: row.subject_id,
+  }
+}
+
+function mapWikiAccessRequest(row: {
+  id: string
+  organization_id: string
+  resource_type: string
+  space_id: string
+  page_id: string | null
+  title: string
+  requester_id: string
+  requester_name: string
+  justification: string
+  access_scope: string
+  duration: string
+  status: string
+  reviewer_id: string | null
+  reviewed_at: string | null
+  admin_note: string | null
+  created_at: string
+}): WikiDocumentAccessRequest {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    resourceType: row.resource_type as WikiDocumentAccessRequest['resourceType'],
+    spaceId: row.space_id,
+    pageId: row.page_id,
+    title: row.title,
+    requesterId: row.requester_id,
+    requesterName: row.requester_name,
+    justification: row.justification,
+    accessScope: row.access_scope as WikiAccessRequestScope,
+    duration: row.duration as WikiAccessRequestDuration,
+    status: row.status as WikiAccessRequestStatus,
+    reviewerId: row.reviewer_id,
+    reviewedAt: row.reviewed_at,
+    adminNote: row.admin_note,
+    createdAt: row.created_at,
+  }
+}
+
+function loadLocalAccessRequests(orgId: string): WikiDocumentAccessRequest[] {
+  try {
+    const raw = localStorage.getItem(`${LOCAL_ACCESS_REQUESTS_KEY}:${orgId}`)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as WikiDocumentAccessRequest[]
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function saveLocalAccessRequests(orgId: string, rows: WikiDocumentAccessRequest[]) {
+  try {
+    localStorage.setItem(`${LOCAL_ACCESS_REQUESTS_KEY}:${orgId}`, JSON.stringify(rows))
+  } catch {
+    /* ignore */
   }
 }
 
@@ -452,6 +516,7 @@ function useDocumentsStore() {
   )
   const [retentionCategories, setRetentionCategories] = useState<WikiRetentionCategoryRow[]>([])
   const [wikiSpaceAccessGrants, setWikiSpaceAccessGrants] = useState<WikiSpaceAccessGrant[]>([])
+  const [wikiAccessRequests, setWikiAccessRequests] = useState<WikiDocumentAccessRequest[]>([])
   const [loading, setLoading] = useState(useRemote)
   const [error, setError] = useState<string | null>(null)
   /** Deep-link / stale cache: fetch one page by id when missing from state */
@@ -513,6 +578,7 @@ function useDocumentsStore() {
           customRes,
           retRes,
           grantsRes,
+          accessReqRes,
           data,
         ] = await Promise.all([
           supabase.from('wiki_legal_coverage_items').select('ref, label, template_ids, max_revision_months').order('ref'),
@@ -530,6 +596,12 @@ function useDocumentsStore() {
             .from('wiki_space_access_grants')
             .select('id, space_id, grant_type, subject_id')
             .eq('organization_id', orgId),
+          supabase
+            .from('wiki_document_access_requests')
+            .select('*')
+            .eq('organization_id', orgId)
+            .order('created_at', { ascending: false })
+            .limit(200),
           fetchAllForOrg(supabase, orgId, authorFallback),
         ])
         if (covRes.error) throw covRes.error
@@ -551,6 +623,16 @@ function useDocumentsStore() {
           setWikiSpaceAccessGrants([])
         } else {
           setWikiSpaceAccessGrants((grantsRes.data ?? []).map((r) => mapSpaceAccessGrant(r as Parameters<typeof mapSpaceAccessGrant>[0])))
+        }
+
+        if (accessReqRes.error) {
+          const msg = accessReqRes.error.message?.toLowerCase() ?? ''
+          if (!msg.includes('wiki_document_access_requests') && !msg.includes('does not exist')) {
+            throw accessReqRes.error
+          }
+          setWikiAccessRequests([])
+        } else {
+          setWikiAccessRequests((accessReqRes.data ?? []).map((r) => mapWikiAccessRequest(r as Parameters<typeof mapWikiAccessRequest>[0])))
         }
 
         setLegalCoverage(
@@ -626,6 +708,7 @@ function useDocumentsStore() {
   useEffect(() => {
     if (useRemote || !orgId) return
     setWikiSpaceAccessGrants(loadWikiSpaceGrantsFromStorage(orgId))
+    setWikiAccessRequests(loadLocalAccessRequests(orgId))
   }, [useRemote, orgId])
 
   const wikiRetentionCategories = useMemo(
@@ -1464,6 +1547,191 @@ function useDocumentsStore() {
     [useRemote, orgId, supabase, refreshDocuments],
   )
 
+  const resolvePageMetaForAccessRequest = useCallback(
+    async (pageId: string): Promise<{ spaceId: string; title: string } | null> => {
+      const p = remoteState.pages.find((x) => x.id === pageId)
+      if (p) return { spaceId: p.spaceId, title: p.title }
+      if (!supabase || !orgId) return null
+      const { data, error: e } = await supabase.rpc('wiki_page_access_request_meta', { p_page_id: pageId })
+      if (e) {
+        console.warn('wiki_page_access_request_meta', e.message)
+        return null
+      }
+      const row = Array.isArray(data) ? data[0] : data
+      if (!row || typeof row !== 'object') return null
+      const r = row as { space_id?: string; title?: string }
+      if (!r.space_id || !r.title) return null
+      return { spaceId: r.space_id, title: r.title }
+    },
+    [supabase, orgId, remoteState.pages],
+  )
+
+  const createWikiAccessRequest = useCallback(
+    async (input: {
+      resourceType: WikiDocumentAccessRequest['resourceType']
+      spaceId: string
+      pageId: string | null
+      title: string
+      justification: string
+      accessScope: WikiAccessRequestScope
+      duration: WikiAccessRequestDuration
+      requesterName: string
+    }) => {
+      if (!userId) throw new Error('Du må være innlogget for å sende en søknad.')
+      const title = input.title.trim() || 'Uten tittel'
+      const justification = input.justification.trim()
+      if (!justification) throw new Error('Begrunnelse er påkrevd.')
+      if (!useRemote) {
+        if (!orgId) throw new Error('Mangler organisasjon.')
+        const id = crypto.randomUUID()
+        const row: WikiDocumentAccessRequest = {
+          id,
+          organizationId: orgId,
+          resourceType: input.resourceType,
+          spaceId: input.spaceId,
+          pageId: input.pageId,
+          title,
+          requesterId: userId,
+          requesterName: input.requesterName.trim() || 'Bruker',
+          justification,
+          accessScope: input.accessScope,
+          duration: input.duration,
+          status: 'pending',
+          reviewerId: null,
+          reviewedAt: null,
+          adminNote: null,
+          createdAt: new Date().toISOString(),
+        }
+        setWikiAccessRequests((prev) => {
+          const next = [row, ...prev]
+          saveLocalAccessRequests(orgId, next)
+          return next
+        })
+        return row
+      }
+      if (!supabase || !orgId) throw new Error('Ikke tilkoblet.')
+      const { data, error: e } = await supabase
+        .from('wiki_document_access_requests')
+        .insert({
+          organization_id: orgId,
+          resource_type: input.resourceType,
+          space_id: input.spaceId,
+          page_id: input.pageId,
+          title,
+          requester_id: userId,
+          requester_name: input.requesterName.trim() || 'Bruker',
+          justification,
+          access_scope: input.accessScope,
+          duration: input.duration,
+          status: 'pending',
+        })
+        .select('*')
+        .single()
+      if (e) throw new Error(getSupabaseErrorMessage(e))
+      const mapped = mapWikiAccessRequest(data as Parameters<typeof mapWikiAccessRequest>[0])
+      setWikiAccessRequests((prev) => [mapped, ...prev.filter((x) => x.id !== mapped.id)])
+      return mapped
+    },
+    [useRemote, orgId, supabase, userId],
+  )
+
+  const cancelWikiAccessRequest = useCallback(
+    async (requestId: string) => {
+      if (!userId) return
+      if (!useRemote) {
+        if (!orgId) return
+        setWikiAccessRequests((prev) => {
+          const next = prev.map((r) =>
+            r.id === requestId && r.requesterId === userId && r.status === 'pending'
+              ? { ...r, status: 'cancelled' as const }
+              : r,
+          )
+          saveLocalAccessRequests(orgId, next)
+          return next
+        })
+        return
+      }
+      if (!supabase || !orgId) return
+      const { error: e } = await supabase
+        .from('wiki_document_access_requests')
+        .update({ status: 'cancelled' })
+        .eq('id', requestId)
+        .eq('organization_id', orgId)
+        .eq('requester_id', userId)
+        .eq('status', 'pending')
+      if (e) throw new Error(getSupabaseErrorMessage(e))
+      setWikiAccessRequests((prev) =>
+        prev.map((r) => (r.id === requestId ? { ...r, status: 'cancelled' as const } : r)),
+      )
+    },
+    [useRemote, orgId, supabase, userId],
+  )
+
+  const updateWikiAccessRequestDecision = useCallback(
+    async (req: WikiDocumentAccessRequest, decision: 'approved' | 'rejected', adminNote: string | null) => {
+      if (!userId) throw new Error('Ikke innlogget.')
+      if (req.status !== 'pending') throw new Error('Forespørselen er allerede behandlet.')
+
+      if (!useRemote) {
+        if (!orgId) throw new Error('Mangler organisasjon.')
+        if (decision === 'approved') {
+          await addWikiSpaceAccessGrant(req.spaceId, 'user', req.requesterId)
+        }
+        const reviewedAt = new Date().toISOString()
+        setWikiAccessRequests((prev) => {
+          const next = prev.map((r) =>
+            r.id === req.id
+              ? {
+                  ...r,
+                  status: decision,
+                  reviewerId: userId,
+                  reviewedAt,
+                  adminNote: adminNote?.trim() || null,
+                }
+              : r,
+          )
+          saveLocalAccessRequests(orgId, next)
+          return next
+        })
+        return
+      }
+      if (!supabase || !orgId) throw new Error('Ikke tilkoblet.')
+
+      if (decision === 'approved') {
+        await addWikiSpaceAccessGrant(req.spaceId, 'user', req.requesterId)
+      }
+
+      const { error: e } = await supabase
+        .from('wiki_document_access_requests')
+        .update({
+          status: decision,
+          reviewer_id: userId,
+          reviewed_at: new Date().toISOString(),
+          admin_note: adminNote?.trim() || null,
+        })
+        .eq('id', req.id)
+        .eq('organization_id', orgId)
+        .eq('status', 'pending')
+      if (e) throw new Error(getSupabaseErrorMessage(e))
+
+      setWikiAccessRequests((prev) =>
+        prev.map((r) =>
+          r.id === req.id
+            ? {
+                ...r,
+                status: decision,
+                reviewerId: userId,
+                reviewedAt: new Date().toISOString(),
+                adminNote: adminNote?.trim() || null,
+              }
+            : r,
+        ),
+      )
+      void refreshDocuments().catch((err) => setError(getSupabaseErrorMessage(err)))
+    },
+    [userId, useRemote, orgId, supabase, addWikiSpaceAccessGrant, refreshDocuments],
+  )
+
   const stats = useMemo(() => {
     const published = state.pages.filter((p) => p.status === 'published').length
     const drafts = state.pages.filter((p) => p.status === 'draft').length
@@ -1478,7 +1746,11 @@ function useDocumentsStore() {
     setLocalState(emptyLocalState())
     setLocalOrgCustomTemplates([])
     setWikiSpaceAccessGrants([])
-    if (orgId) saveWikiSpaceGrantsToStorage(orgId, [])
+    setWikiAccessRequests([])
+    if (orgId) {
+      saveWikiSpaceGrantsToStorage(orgId, [])
+      saveLocalAccessRequests(orgId, [])
+    }
     if (orgId && userId) clearSnap(orgId, userId)
     setRemoteState(emptyLocalState())
   }, [orgId, userId])
@@ -1617,8 +1889,13 @@ function useDocumentsStore() {
     spaceItems: state.spaceItems,
     pageVersions: state.pageVersions,
     wikiSpaceAccessGrants,
+    wikiAccessRequests,
     addWikiSpaceAccessGrant,
     removeWikiSpaceAccessGrant,
+    resolvePageMetaForAccessRequest,
+    createWikiAccessRequest,
+    cancelWikiAccessRequest,
+    updateWikiAccessRequestDecision,
     versionsForPage,
     addSpaceUrl,
     uploadSpaceFile,

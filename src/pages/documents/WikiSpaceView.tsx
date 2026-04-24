@@ -13,10 +13,11 @@ import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
 import { Badge } from '../../components/ui/Badge'
-import { WarningBox } from '../../components/ui/AlertBox'
+import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
+import { DocumentAccessRequestForm } from '../../components/documents/DocumentAccessRequestForm'
 import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { PageStatus } from '../../types/documents'
-import { canViewWikiSpace } from '../../lib/wikiSpaceAccessGrants'
+import { canViewWikiSpace, wikiSpaceHasRestrictedAccess } from '../../lib/wikiSpaceAccessGrants'
 import { canBypassWikiFolderGrants, canEditWikiDocuments } from '../../lib/documentsAccess'
 
 const STATUS_LABEL: Record<PageStatus, string> = {
@@ -74,6 +75,9 @@ export function WikiSpaceView() {
   const [newPageOpen, setNewPageOpen] = useState(false)
   const [filesPanelOpen, setFilesPanelOpen] = useState(false)
   const [panelPageId, setPanelPageId] = useState<string | null>(null)
+  const [accessReqBusy, setAccessReqBusy] = useState(false)
+  const [accessReqErr, setAccessReqErr] = useState<string | null>(null)
+  const [accessReqDone, setAccessReqDone] = useState(false)
 
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -169,6 +173,64 @@ export function WikiSpaceView() {
   })
 
   if (!canViewSpace) {
+    const folderRestricted = wikiSpaceHasRestrictedAccess(space.id, docs.wikiSpaceAccessGrants)
+    const showAccessRequestGate = folderRestricted && user?.id
+
+    if (showAccessRequestGate) {
+      return (
+        <ModulePageShell
+          breadcrumb={[
+            { label: 'HMS' },
+            { label: DOCUMENTS_MODULE_TITLE, to: '/documents' },
+            { label: space.title },
+          ]}
+          title="Begrenset tilgang"
+          description={
+            <p className="max-w-3xl text-sm text-neutral-600">
+              Du har ikke tilgang til denne mappen ennå. Send en forespørsel til dokumentansvarlig.
+            </p>
+          }
+        >
+          {accessReqDone ? (
+            <InfoBox>Søknaden er sendt. Du får tilgang når en administrator godkjenner den.</InfoBox>
+          ) : (
+            <DocumentAccessRequestForm
+              documentLabel={space.title}
+              subLabel="Hele mappen (alle dokumenter i mappen)"
+              busy={accessReqBusy}
+              error={accessReqErr}
+              onCancel={() => navigate('/documents')}
+              onSubmit={async ({ justification, accessScope, duration }) => {
+                if (!user?.id || !profile) return
+                setAccessReqErr(null)
+                setAccessReqBusy(true)
+                try {
+                  await docs.createWikiAccessRequest({
+                    resourceType: 'folder',
+                    spaceId: space.id,
+                    pageId: null,
+                    title: space.title,
+                    justification,
+                    accessScope,
+                    duration,
+                    requesterName: profile.display_name ?? '',
+                  })
+                  setAccessReqDone(true)
+                } catch (err) {
+                  setAccessReqErr(err instanceof Error ? err.message : 'Kunne ikke sende søknad.')
+                } finally {
+                  setAccessReqBusy(false)
+                }
+              }}
+            />
+          )}
+          <Button type="button" variant="secondary" className="mt-4" onClick={() => navigate('/documents')}>
+            Tilbake til bibliotek
+          </Button>
+        </ModulePageShell>
+      )
+    }
+
     return (
       <ModulePageShell
         breadcrumb={[

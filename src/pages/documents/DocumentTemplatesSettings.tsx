@@ -13,6 +13,7 @@ import { SearchableSelect, type SelectOption } from '../../components/ui/Searcha
 import { WarningBox } from '../../components/ui/AlertBox'
 import { ToggleSwitch } from '../../components/ui/FormToggles'
 import { DocumentFolderAccessSettings } from './DocumentFolderAccessSettings'
+import { DocumentAccessRequestsPanel } from './DocumentAccessRequestsPanel'
 import {
   buildTemplateExport,
   buildWikiPageExport,
@@ -323,6 +324,8 @@ export function DocumentTemplatesSettings() {
       {docs.error ? <WarningBox>{docs.error}</WarningBox> : null}
 
       <DocumentFolderAccessSettings canManage={canManage} />
+
+      <DocumentAccessRequestsPanel canManage={canManage} />
 
       {canManage ? (
         <ModuleSectionCard className="mb-8 p-4 md:p-5">
