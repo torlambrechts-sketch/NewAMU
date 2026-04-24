@@ -1451,24 +1451,57 @@ function useDocumentsStore() {
         return
       }
       if (!supabase || !orgId) return
-      const { data, error: e } = await supabase
-        .from('wiki_space_access_grants')
-        .insert({
-          organization_id: orgId,
-          space_id: spaceId,
-          grant_type: grantType,
-          subject_id: sid,
-          can_read: caps.canRead,
-          can_create: caps.canCreate,
-          can_write: caps.canWrite,
-          can_archive: caps.canArchive,
-          can_delete: caps.canDelete,
-        })
-        .select(
-          'id, space_id, grant_type, subject_id, can_read, can_create, can_write, can_archive, can_delete',
-        )
-        .single()
-      if (e) throw e
+
+      const insertFull = () =>
+        supabase
+          .from('wiki_space_access_grants')
+          .insert({
+            organization_id: orgId,
+            space_id: spaceId,
+            grant_type: grantType,
+            subject_id: sid,
+            can_read: caps.canRead,
+            can_create: caps.canCreate,
+            can_write: caps.canWrite,
+            can_archive: caps.canArchive,
+            can_delete: caps.canDelete,
+          })
+          .select(
+            'id, space_id, grant_type, subject_id, can_read, can_create, can_write, can_archive, can_delete',
+          )
+          .single()
+
+      const insertLegacy = () =>
+        supabase
+          .from('wiki_space_access_grants')
+          .insert({
+            organization_id: orgId,
+            space_id: spaceId,
+            grant_type: grantType,
+            subject_id: sid,
+          })
+          .select('id, space_id, grant_type, subject_id')
+          .single()
+
+      let first = await insertFull()
+      let data = first.data as Parameters<typeof mapSpaceAccessGrant>[0] | null
+      let e = first.error
+      if (e) {
+        const msg = `${e.message ?? ''} ${(e as { details?: string }).details ?? ''}`.toLowerCase()
+        const missingCapCols =
+          e.code === '42703' ||
+          msg.includes('can_read') ||
+          msg.includes('can_create') ||
+          (msg.includes('column') && msg.includes('does not exist'))
+        if (missingCapCols) {
+          const legacy = await insertLegacy()
+          e = legacy.error
+          data = legacy.data as Parameters<typeof mapSpaceAccessGrant>[0] | null
+        }
+      }
+
+      if (e) throw new Error(getSupabaseErrorMessage(e))
+      if (!data) throw new Error('Ingen data returnert fra databasen.')
       const mapped = mapSpaceAccessGrant(data as Parameters<typeof mapSpaceAccessGrant>[0])
       setWikiSpaceAccessGrants((prev) => {
         if (prev.some((g) => g.id === mapped.id)) return prev

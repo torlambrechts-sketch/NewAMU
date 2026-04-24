@@ -175,7 +175,7 @@ export function DocumentFolderAccessSettings({ canManage }: Props) {
       setSubjectId('')
       setCaps({ canRead: true, canCreate: false, canWrite: false, canArchive: false, canDelete: false })
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Kunne ikke legge til tilgang.')
+      setErr(e instanceof Error ? e.message : String(e))
     } finally {
       setBusy(false)
     }
@@ -189,7 +189,7 @@ export function DocumentFolderAccessSettings({ canManage }: Props) {
       try {
         await docs.removeWikiSpaceAccessGrant(id)
       } catch (e) {
-        setErr(e instanceof Error ? e.message : 'Kunne ikke fjerne tilgang.')
+        setErr(e instanceof Error ? e.message : String(e))
       } finally {
         setBusy(false)
       }
