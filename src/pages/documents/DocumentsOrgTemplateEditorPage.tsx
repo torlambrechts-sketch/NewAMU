@@ -2,7 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { DocumentEditorWorkbench } from '../../components/documents/DocumentEditorWorkbench'
 
 /**
- * Rediger organisasjonsmal i samme TipTap-redaktør som wiki-sider (`persistTarget="org_template"`).
+ * Rediger organisasjonsmal i samme TipTap-redaktør som wiki-sider (`orgTemplateId` + `saveOrgCustomTemplate`).
  * Rute: `/documents/templates/org/:templateId/edit`
  */
 export function DocumentsOrgTemplateEditorPage() {
@@ -16,7 +16,6 @@ export function DocumentsOrgTemplateEditorPage() {
   return (
     <DocumentEditorWorkbench
       mode="persist"
-      persistTarget="org_template"
       orgTemplateId={templateId}
       showHeader={false}
       onExit={() => navigate('/documents/malbibliotek')}

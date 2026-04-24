@@ -219,8 +219,8 @@ export function DocumentEditorWorkbench({
     const key = `${pageId}:${originalPage.updatedAt}:${originalPage.version}`
     if (hydratedKeyRef.current === key) return
     hydratedKeyRef.current = key
-    const nextHtml = htmlFromWikiBlocks(original.blocks)
-    const nextTitle = original.title || 'Uten tittel'
+    const nextHtml = htmlFromWikiBlocks(originalPage.blocks)
+    const nextTitle = originalPage.title || 'Uten tittel'
     queueMicrotask(() => {
       setHtml(nextHtml)
       setDocumentTitle(nextTitle)
@@ -237,7 +237,7 @@ export function DocumentEditorWorkbench({
         },
       ])
     })
-  }, [mode, persistOrgTemplate, orgTemplateId, orgTemplateRow, pageId, original, originalPage])
+  }, [mode, persistOrgTemplate, orgTemplateId, orgTemplateRow, pageId, originalPage])
 
   const [history, setHistory] = useState<HistoryEntry[]>(() => [
     {
@@ -450,7 +450,13 @@ export function DocumentEditorWorkbench({
             <div className="flex min-h-0 w-full flex-1 flex-col border-neutral-200/90 bg-white shadow-sm lg:border-r-0">
               <div className="min-h-0 flex-1 border-b border-neutral-100">
                 <TipTapRichTextEditor
-                  key={mode === 'persist' && original ? `p-${pageId}-${original.updatedAt}` : 'demo'}
+                  key={
+                    mode === 'persist' && persistOrgTemplate && orgTemplateId && orgTemplateRow
+                      ? `org-${orgTemplateId}-${orgTemplateRow.label}`
+                      : mode === 'persist' && originalPage && pageId
+                        ? `p-${pageId}-${originalPage.updatedAt}`
+                        : 'demo'
+                  }
                   value={html}
                   onChange={handleHtmlChange}
                   toolbar="full"
