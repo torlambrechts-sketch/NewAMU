@@ -24,6 +24,12 @@ import {
 } from '../data/documentTemplates'
 import { WIKI_RETENTION_CATEGORIES_STATIC } from '../data/wikiRetentionCategories'
 import * as wikiAnnualApi from '../api/wikiAnnualReview'
+import {
+  loadWikiSpaceGrantsFromStorage,
+  saveWikiSpaceGrantsToStorage,
+  type WikiSpaceAccessGrant,
+  type WikiSpaceGrantType,
+} from '../lib/wikiSpaceAccessGrants'
 
 const STORAGE_KEY = 'atics-documents-v2'
 const LOCAL_ORG_TEMPLATES_KEY = 'atics-document-org-templates-v1'
@@ -40,6 +46,20 @@ type DocumentsState = {
   receipts: ComplianceReceipt[]
   spaceItems: WikiSpaceItem[]
   pageVersions: WikiPageVersionSnapshot[]
+}
+
+function mapSpaceAccessGrant(row: {
+  id: string
+  space_id: string
+  grant_type: string
+  subject_id: string
+}): WikiSpaceAccessGrant {
+  return {
+    id: row.id,
+    spaceId: row.space_id,
+    grantType: row.grant_type as WikiSpaceGrantType,
+    subjectId: row.subject_id,
+  }
 }
 
 type LegalCoverageRow = { ref: string; label: string; templateIds: string[]; maxRevisionMonths: number | null }
@@ -431,6 +451,7 @@ function useDocumentsStore() {
     useRemote ? [] : loadLocalOrgTemplates(),
   )
   const [retentionCategories, setRetentionCategories] = useState<WikiRetentionCategoryRow[]>([])
+  const [wikiSpaceAccessGrants, setWikiSpaceAccessGrants] = useState<WikiSpaceAccessGrant[]>([])
   const [loading, setLoading] = useState(useRemote)
   const [error, setError] = useState<string | null>(null)
   /** Deep-link / stale cache: fetch one page by id when missing from state */
@@ -491,6 +512,7 @@ function useDocumentsStore() {
           setRes,
           customRes,
           retRes,
+          grantsRes,
           data,
         ] = await Promise.all([
           supabase.from('wiki_legal_coverage_items').select('ref, label, template_ids, max_revision_months').order('ref'),
@@ -504,6 +526,10 @@ function useDocumentsStore() {
             .from('wiki_retention_categories')
             .select('slug, label, min_years, max_years, legal_refs, description')
             .order('slug'),
+          supabase
+            .from('wiki_space_access_grants')
+            .select('id, space_id, grant_type, subject_id')
+            .eq('organization_id', orgId),
           fetchAllForOrg(supabase, orgId, authorFallback),
         ])
         if (covRes.error) throw covRes.error
@@ -515,6 +541,16 @@ function useDocumentsStore() {
           setRetentionCategories(WIKI_RETENTION_CATEGORIES_STATIC)
         } else {
           setRetentionCategories((retRes.data ?? []).map((r) => mapWikiRetentionCategory(r as Parameters<typeof mapWikiRetentionCategory>[0])))
+        }
+
+        if (grantsRes.error) {
+          const msg = grantsRes.error.message?.toLowerCase() ?? ''
+          if (!msg.includes('wiki_space_access_grants') && !msg.includes('does not exist')) {
+            throw grantsRes.error
+          }
+          setWikiSpaceAccessGrants([])
+        } else {
+          setWikiSpaceAccessGrants((grantsRes.data ?? []).map((r) => mapSpaceAccessGrant(r as Parameters<typeof mapSpaceAccessGrant>[0])))
         }
 
         setLegalCoverage(
@@ -586,6 +622,11 @@ function useDocumentsStore() {
     if (useRemote) return
     setLocalOrgCustomTemplates(loadLocalOrgTemplates())
   }, [useRemote])
+
+  useEffect(() => {
+    if (useRemote || !orgId) return
+    setWikiSpaceAccessGrants(loadWikiSpaceGrantsFromStorage(orgId))
+  }, [useRemote, orgId])
 
   const wikiRetentionCategories = useMemo(
     () => (retentionCategories.length > 0 ? retentionCategories : WIKI_RETENTION_CATEGORIES_STATIC),
@@ -1354,6 +1395,73 @@ function useDocumentsStore() {
     [supabase],
   )
 
+  const addWikiSpaceAccessGrant = useCallback(
+    async (spaceId: string, grantType: WikiSpaceGrantType, subjectId: string) => {
+      const sid = subjectId.trim()
+      if (!spaceId || !sid) return
+      if (!useRemote) {
+        if (!orgId) return
+        const id = crypto.randomUUID()
+        setWikiSpaceAccessGrants((prev) => {
+          const dedup = prev.filter(
+            (g) => !(g.spaceId === spaceId && g.grantType === grantType && g.subjectId === sid),
+          )
+          const next = [...dedup, { id, spaceId, grantType, subjectId: sid }]
+          saveWikiSpaceGrantsToStorage(orgId, next)
+          return next
+        })
+        return
+      }
+      if (!supabase || !orgId) return
+      const { data, error: e } = await supabase
+        .from('wiki_space_access_grants')
+        .insert({
+          organization_id: orgId,
+          space_id: spaceId,
+          grant_type: grantType,
+          subject_id: sid,
+        })
+        .select('id, space_id, grant_type, subject_id')
+        .single()
+      if (e) throw e
+      const mapped = mapSpaceAccessGrant(data as Parameters<typeof mapSpaceAccessGrant>[0])
+      setWikiSpaceAccessGrants((prev) => {
+        if (prev.some((g) => g.id === mapped.id)) return prev
+        const dedup = prev.filter(
+          (g) => !(g.spaceId === spaceId && g.grantType === grantType && g.subjectId === sid),
+        )
+        return [...dedup, mapped]
+      })
+      void refreshDocuments().catch((err) => setError(getSupabaseErrorMessage(err)))
+    },
+    [useRemote, orgId, supabase, refreshDocuments],
+  )
+
+  const removeWikiSpaceAccessGrant = useCallback(
+    async (grantId: string) => {
+      if (!grantId) return
+      if (!useRemote) {
+        if (!orgId) return
+        setWikiSpaceAccessGrants((prev) => {
+          const next = prev.filter((g) => g.id !== grantId)
+          saveWikiSpaceGrantsToStorage(orgId, next)
+          return next
+        })
+        return
+      }
+      if (!supabase || !orgId) return
+      const { error: e } = await supabase
+        .from('wiki_space_access_grants')
+        .delete()
+        .eq('id', grantId)
+        .eq('organization_id', orgId)
+      if (e) throw e
+      setWikiSpaceAccessGrants((prev) => prev.filter((g) => g.id !== grantId))
+      void refreshDocuments().catch((err) => setError(getSupabaseErrorMessage(err)))
+    },
+    [useRemote, orgId, supabase, refreshDocuments],
+  )
+
   const stats = useMemo(() => {
     const published = state.pages.filter((p) => p.status === 'published').length
     const drafts = state.pages.filter((p) => p.status === 'draft').length
@@ -1367,6 +1475,8 @@ function useDocumentsStore() {
     localStorage.removeItem(LOCAL_ORG_TEMPLATES_KEY)
     setLocalState(emptyLocalState())
     setLocalOrgCustomTemplates([])
+    setWikiSpaceAccessGrants([])
+    if (orgId) saveWikiSpaceGrantsToStorage(orgId, [])
     if (orgId && userId) clearSnap(orgId, userId)
     setRemoteState(emptyLocalState())
   }, [orgId, userId])
@@ -1504,6 +1614,9 @@ function useDocumentsStore() {
     receipts: state.receipts,
     spaceItems: state.spaceItems,
     pageVersions: state.pageVersions,
+    wikiSpaceAccessGrants,
+    addWikiSpaceAccessGrant,
+    removeWikiSpaceAccessGrant,
     versionsForPage,
     addSpaceUrl,
     uploadSpaceFile,

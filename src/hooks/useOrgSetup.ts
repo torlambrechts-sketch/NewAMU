@@ -39,6 +39,8 @@ export function useOrgSetup() {
   const [teams, setTeams] = useState<TeamRow[]>([])
   const [locations, setLocations] = useState<LocationRow[]>([])
   const [members, setMembers] = useState<OrganizationMemberRow[]>([])
+  /** Org users for admin pickers (e.g. document folder RBAC) — best-effort; RLS may hide rows. */
+  const [orgProfiles, setOrgProfiles] = useState<{ id: string; display_name: string; email: string | null }[]>([])
 
   const {
     can,
@@ -95,14 +97,16 @@ export function useOrgSetup() {
       setTeams([])
       setLocations([])
       setMembers([])
+      setOrgProfiles([])
       return
     }
     const oid = organization.id
-    const [dRes, tRes, lRes, mRes] = await Promise.all([
+    const [dRes, tRes, lRes, mRes, pRes] = await Promise.all([
       supabase.from('departments').select('*').eq('organization_id', oid).order('sort_order'),
       supabase.from('teams').select('*').eq('organization_id', oid).order('sort_order'),
       supabase.from('locations').select('*').eq('organization_id', oid).order('sort_order'),
       supabase.from('organization_members').select('*').eq('organization_id', oid),
+      supabase.from('profiles').select('id, display_name, email').eq('organization_id', oid).order('display_name'),
     ])
     if (dRes.error) throw dRes.error
     if (tRes.error) throw tRes.error
@@ -112,6 +116,12 @@ export function useOrgSetup() {
     setTeams((tRes.data ?? []) as TeamRow[])
     setLocations((lRes.data ?? []) as LocationRow[])
     setMembers((mRes.data ?? []) as OrganizationMemberRow[])
+    if (pRes.error) {
+      console.warn('profiles list for org:', pRes.error.message)
+      setOrgProfiles([])
+    } else {
+      setOrgProfiles((pRes.data ?? []) as { id: string; display_name: string; email: string | null }[])
+    }
   }, [supabase, organization])
 
   /** Re-read session when the route changes (fixes: login → SPA navigate while user state was still null). */
@@ -579,6 +589,7 @@ export function useOrgSetup() {
     teams,
     locations,
     members,
+    orgProfiles,
     needsOnboarding,
     refreshChildren,
     createOrganizationFromBrreg,

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { History, Pencil } from 'lucide-react'
+import { Eye, History, Pencil } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { RetentionBadge } from './RetentionBadge'
@@ -18,6 +18,7 @@ import { WarningBox } from '../../components/ui/AlertBox'
 import { Tabs } from '../../components/ui/Tabs'
 import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { PageStatus } from '../../types/documents'
+import { canViewWikiSpace } from '../../lib/wikiSpaceAccessGrants'
 
 const TEMPLATE_CLASS = {
   standard: 'max-w-3xl',
@@ -51,13 +52,26 @@ export function WikiPageView() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
   const docs = useDocuments()
-  const { isAdmin } = useOrgSetupContext()
+  const { isAdmin, can, user, profile, members } = useOrgSetupContext()
+  const canManage = isAdmin || can('documents.manage')
+  const bypassFolderRbac = canManage
   const { ensurePageLoaded, pageHydrateLoading, pageHydrateError } = docs
   const timeNow = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
   const [activeTab, setActiveTab] = useState<DetailTab>('informasjon')
 
   const page = docs.pages.find((p) => p.id === pageId)
   const space = page ? docs.spaces.find((s) => s.id === page.spaceId) : null
+  const canViewFolder =
+    !page || !space
+      ? true
+      : canViewWikiSpace({
+          spaceId: space.id,
+          grants: docs.wikiSpaceAccessGrants,
+          bypassRestriction: bypassFolderRbac,
+          userId: user?.id,
+          profile,
+          members,
+        })
 
   useEffect(() => {
     void ensurePageLoaded(pageId)
@@ -72,21 +86,19 @@ export function WikiPageView() {
   const alreadySigned = page ? docs.hasAcknowledged(page.id, page.version) : false
   const showSignBadge = page ? page.requiresAcknowledgement && docs.acknowledgementRequiredForMe(page) : false
   const versions = page ? docs.versionsForPage(page.id) : []
+  const versionCount = versions.length
   const due = page?.nextRevisionDueAt ? new Date(page.nextRevisionDueAt) : null
   const daysToDue = due ? Math.ceil((due.getTime() - timeNow) / (24 * 60 * 60 * 1000)) : null
   const revisionSoon = due != null && daysToDue != null && daysToDue <= 60
 
-  const tabItems = useMemo(() => {
-    const vCount = versions.length
-    return [
-      { id: 'informasjon', label: 'Informasjon' },
-      { id: 'innhold', label: 'Innhold' },
-      {
-        id: 'versjoner',
-        label: vCount > 0 ? `Versjoner (${vCount})` : 'Versjoner',
-      },
-    ]
-  }, [versions.length])
+  const tabItems = [
+    { id: 'informasjon', label: 'Informasjon' },
+    { id: 'innhold', label: 'Innhold' },
+    {
+      id: 'versjoner',
+      label: versionCount > 0 ? `Versjoner (${versionCount})` : 'Versjoner',
+    },
+  ]
 
   if (!pageId) {
     return (
@@ -157,6 +169,24 @@ export function WikiPageView() {
     )
   }
 
+  if (!canViewFolder) {
+    return (
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]}
+        title="Ingen tilgang"
+        description={<p className="max-w-3xl text-sm text-neutral-600">Du har ikke tilgang til dokumenter i denne mappen.</p>}
+      >
+        <WarningBox>
+          Mappen er begrenset til bestemte brukere, avdelinger eller team. Kontakt en administrator hvis du mener dette
+          er feil.
+        </WarningBox>
+        <Button type="button" variant="secondary" className="mt-4" onClick={() => navigate('/documents')}>
+          Tilbake til bibliotek
+        </Button>
+      </ModulePageShell>
+    )
+  }
+
   const descriptionText =
     page.summary?.trim() ||
     `Versjon ${page.version} · sist oppdatert ${new Date(page.updatedAt).toLocaleDateString('no-NO')}.`
@@ -172,7 +202,7 @@ export function WikiPageView() {
       title={page.title}
       description={<p className="max-w-3xl text-sm text-neutral-600">{descriptionText}</p>}
       headerActions={
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
           <Badge variant={statusBadgeVariant(page.status)}>
             {STATUS_LABEL[page.status]}
           </Badge>
@@ -183,12 +213,25 @@ export function WikiPageView() {
           ) : null}
           <Button
             type="button"
-            variant="secondary"
-            icon={<Pencil className="h-4 w-4" />}
-            onClick={() => navigate(`/documents/page/${page.id}/reference-edit`)}
+            variant="primary"
+            icon={<Eye className="h-4 w-4" />}
+            onClick={() => setActiveTab('innhold')}
           >
-            Rediger
+            Vis dokument
           </Button>
+          {canManage ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="shrink-0 text-neutral-500 hover:text-neutral-800"
+              title="Rediger"
+              aria-label="Rediger dokument"
+              onClick={() => navigate(`/documents/page/${page.id}/reference-edit`)}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          ) : null}
         </div>
       }
       tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as DetailTab)} />}

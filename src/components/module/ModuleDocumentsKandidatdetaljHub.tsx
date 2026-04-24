@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Archive, Folder, FolderPlus, Pencil, Plus, Search, Upload } from 'lucide-react'
+import { Archive, Eye, Folder, FolderPlus, Pencil, Plus, Search, Upload } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { WikiPage, WikiSpace } from '../../types/documents'
@@ -18,6 +18,7 @@ import {
   useDocumentsHubNewDocumentRegister,
 } from '../../../modules/documents/DocumentsHubActionsContext'
 import { DocumentsTemplateLibraryBody } from '../documents/DocumentsTemplateLibraryBody'
+import { canViewWikiSpace } from '../../lib/wikiSpaceAccessGrants'
 
 /** Beige nav — matches layout-reference `RefCandidateDetailPaneBlock`. */
 const BEIGE_NAV = '#EDE4D3'
@@ -82,8 +83,9 @@ export function ModuleDocumentsKandidatdetaljHub({
 }: ModuleDocumentsKandidatdetaljHubProps) {
   const docs = useDocuments()
   const navigate = useNavigate()
-  const { can, isAdmin } = useOrgSetupContext()
+  const { can, isAdmin, user, profile, members } = useOrgSetupContext()
   const canManage = isAdmin || can('documents.manage')
+  const bypassFolderRbac = isAdmin || canManage
 
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null)
   const [folderQuery, setFolderQuery] = useState('')
@@ -152,21 +154,42 @@ export function ModuleDocumentsKandidatdetaljHub({
 
   const spacesForNav = centerContent === 'templates' ? activeSpacesTemplates : activeSpacesPages
 
+  const spacesForNavFiltered = useMemo(() => {
+    if (centerContent === 'templates') return spacesForNav
+    return spacesForNav.filter((s) =>
+      canViewWikiSpace({
+        spaceId: s.id,
+        grants: docs.wikiSpaceAccessGrants,
+        bypassRestriction: bypassFolderRbac,
+        userId: user?.id,
+        profile,
+        members,
+      }),
+    )
+  }, [centerContent, spacesForNav, docs.wikiSpaceAccessGrants, bypassFolderRbac, user?.id, profile, members])
+
+  useEffect(() => {
+    if (centerContent !== 'pages') return
+    if (selectedSpaceId && !spacesForNavFiltered.some((s) => s.id === selectedSpaceId)) {
+      setSelectedSpaceId(null)
+    }
+  }, [centerContent, selectedSpaceId, spacesForNavFiltered])
+
   const filteredSpaces = useMemo(() => {
     const q = folderQuery.trim().toLowerCase()
-    if (!q) return spacesForNav
-    return spacesForNav.filter(
+    if (!q) return spacesForNavFiltered
+    return spacesForNavFiltered.filter(
       (s) =>
         s.title.toLowerCase().includes(q) ||
         s.description.toLowerCase().includes(q) ||
         CATEGORY_LABELS[s.category].toLowerCase().includes(q),
     )
-  }, [spacesForNav, folderQuery])
+  }, [spacesForNavFiltered, folderQuery])
 
   const pagesForTable = useMemo(() => {
     const q = pageQuery.trim().toLowerCase()
     let list: WikiPage[]
-    const relevantIds = new Set(spacesForNav.map((s) => s.id))
+    const relevantIds = new Set(spacesForNavFiltered.map((s) => s.id))
     if (selectedSpaceId == null) {
       list = docs.pages.filter((p) => relevantIds.has(p.spaceId))
     } else {
@@ -174,7 +197,7 @@ export function ModuleDocumentsKandidatdetaljHub({
     }
     if (!q) return list
     return list.filter((p) => p.title.toLowerCase().includes(q) || (p.summary ?? '').toLowerCase().includes(q))
-  }, [docs.pages, spacesForNav, selectedSpaceId, pageQuery])
+  }, [docs.pages, spacesForNavFiltered, selectedSpaceId, pageQuery])
 
   const sortedPages = useMemo(
     () => [...pagesForTable].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
@@ -199,14 +222,14 @@ export function ModuleDocumentsKandidatdetaljHub({
         ? `${CATEGORY_LABELS[selectedSpace.category]} · ${docs.pages.filter((p) => p.spaceId === selectedSpace.id).length} sider`
         : `${sortedPages.length} sider på tvers av aktive mapper`
 
-  const spaceById = useMemo(() => new Map(spacesForNav.map((s) => [s.id, s])), [spacesForNav])
+  const spaceById = useMemo(() => new Map(docs.spaces.map((s) => [s.id, s])), [docs.spaces])
 
-  const targetSpaceIdForActions = selectedSpaceId ?? spacesForNav[0]?.id ?? null
+  const targetSpaceIdForActions = selectedSpaceId ?? spacesForNavFiltered[0]?.id ?? null
 
   const uploadTargetSpace = useMemo(() => {
     if (centerContent !== 'pages' || !targetSpaceIdForActions) return null
-    return activeSpacesPages.find((s) => s.id === targetSpaceIdForActions) ?? null
-  }, [centerContent, targetSpaceIdForActions, activeSpacesPages])
+    return spacesForNavFiltered.find((s) => s.id === targetSpaceIdForActions) ?? null
+  }, [centerContent, targetSpaceIdForActions, spacesForNavFiltered])
 
   const newFolderCategoryOptions = useMemo(
     () =>
@@ -361,6 +384,18 @@ export function ModuleDocumentsKandidatdetaljHub({
 
   const onFolderDragOver = (e: DragEvent, spaceId: string) => {
     if (!canManage || !e.dataTransfer.types.includes(MIME_PAGE_DRAG)) return
+    if (
+      !canViewWikiSpace({
+        spaceId,
+        grants: docs.wikiSpaceAccessGrants,
+        bypassRestriction: bypassFolderRbac,
+        userId: user?.id,
+        profile,
+        members,
+      })
+    ) {
+      return
+    }
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setDropHighlightSpaceId(spaceId)
@@ -368,6 +403,18 @@ export function ModuleDocumentsKandidatdetaljHub({
 
   const onFolderDrop = async (e: DragEvent, spaceId: string) => {
     if (!canManage) return
+    if (
+      !canViewWikiSpace({
+        spaceId,
+        grants: docs.wikiSpaceAccessGrants,
+        bypassRestriction: bypassFolderRbac,
+        userId: user?.id,
+        profile,
+        members,
+      })
+    ) {
+      return
+    }
     e.preventDefault()
     const pageId = e.dataTransfer.getData(MIME_PAGE_DRAG)
     setDropHighlightSpaceId(null)
@@ -386,6 +433,7 @@ export function ModuleDocumentsKandidatdetaljHub({
     }
   }
 
+  const viewPath = (pageId: string) => `/documents/page/${pageId}`
   const editPath = (pageId: string) => `/documents/page/${pageId}/reference-edit`
 
   return (
@@ -522,7 +570,7 @@ export function ModuleDocumentsKandidatdetaljHub({
           <nav className="max-h-[min(70vh,32rem)] overflow-y-auto p-2" aria-label="Dokumentmapper">
             <NavFolderRow
               label={centerContent === 'templates' ? 'Alle malmapper' : 'Alle mapper'}
-              sub={`${spacesForNav.length} aktive`}
+              sub={`${spacesForNavFiltered.length} aktive`}
               active={selectedSpaceId == null}
               onSelect={() => setSelectedSpaceId(null)}
             />
@@ -648,16 +696,16 @@ export function ModuleDocumentsKandidatdetaljHub({
                     <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Tittel</th>
                     <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Status</th>
                     <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Endret</th>
-                    {canManage ? (
-                      <th className={`${MODULE_TABLE_TH} text-right text-sm normal-case font-semibold tracking-normal`}>Handlinger</th>
-                    ) : null}
+                    <th className={`${MODULE_TABLE_TH} text-right text-sm normal-case font-semibold tracking-normal`}>
+                      {canManage ? 'Handlinger' : 'Dokument'}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {sortedPages.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={selectedSpaceId == null ? (canManage ? 5 : 4) : canManage ? 4 : 3}
+                        colSpan={selectedSpaceId == null ? 5 : 4}
                         className="px-5 py-12 text-center text-sm text-neutral-500"
                       >
                         Ingen sider i denne visningen. Velg en mappe eller opprett et dokument.
@@ -689,7 +737,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                           <button
                             type="button"
                             className="inline-flex min-w-0 items-center gap-2 text-left hover:underline"
-                            onClick={() => navigate(editPath(page.id))}
+                            onClick={() => navigate(viewPath(page.id))}
                             disabled={busy}
                           >
                             <Folder className={FOLDER_ICON_CLASS} aria-hidden />
@@ -702,18 +750,38 @@ export function ModuleDocumentsKandidatdetaljHub({
                           </Badge>
                         </td>
                         <td className={`${MODULE_TABLE_TD} text-sm text-neutral-600`}>{formatShortDate(page.updatedAt)}</td>
-                        {canManage ? (
-                          <td className={`${MODULE_TABLE_TD_ACTION}`}>
-                            <div className="flex flex-wrap justify-end gap-1">
-                              <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => navigate(editPath(page.id))}>
-                                Rediger
-                              </Button>
-                              <Button type="button" size="sm" variant="danger" disabled={busy} onClick={() => setDeletePageTarget(page)}>
-                                Slett
-                              </Button>
-                            </div>
-                          </td>
-                        ) : null}
+                        <td className={`${MODULE_TABLE_TD_ACTION}`}>
+                          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="primary"
+                              icon={<Eye className="h-4 w-4" />}
+                              disabled={busy}
+                              onClick={() => navigate(viewPath(page.id))}
+                            >
+                              Vis dokument
+                            </Button>
+                            {canManage ? (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="shrink-0 text-neutral-500 hover:text-neutral-800"
+                                  title="Rediger"
+                                  aria-label={`Rediger ${page.title}`}
+                                  disabled={busy}
+                                  onClick={() => navigate(editPath(page.id))}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button type="button" variant="danger" disabled={busy} onClick={() => setDeletePageTarget(page)}>
+                                  Slett
+                                </Button>
+                              </>
+                            ) : null}
+                          </div>
+                        </td>
                       </tr>
                     )
                   })}

@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
 import { WarningBox } from '../../components/ui/AlertBox'
+import { DocumentFolderAccessSettings } from './DocumentFolderAccessSettings'
 
 const CATEGORY_LABELS: Record<SpaceCategory, string> = {
   hms_handbook: 'HMS-håndbok',
@@ -173,6 +174,8 @@ export function DocumentTemplatesSettings() {
       }
     >
       {docs.error ? <WarningBox>{docs.error}</WarningBox> : null}
+
+      <DocumentFolderAccessSettings canManage={canManage} />
 
       <ModuleSectionCard className="mb-8 p-4 md:p-5">
         <h2 className="text-sm font-semibold text-neutral-900">Malbibliotek (brukerflate)</h2>

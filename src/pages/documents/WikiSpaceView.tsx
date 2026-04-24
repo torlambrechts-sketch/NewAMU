@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Plus, Search, Upload, X } from 'lucide-react'
+import { Eye, Pencil, Plus, Search, Upload, X } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import {
@@ -16,6 +16,7 @@ import { Badge } from '../../components/ui/Badge'
 import { WarningBox } from '../../components/ui/AlertBox'
 import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { PageStatus } from '../../types/documents'
+import { canViewWikiSpace } from '../../lib/wikiSpaceAccessGrants'
 
 const STATUS_LABEL: Record<PageStatus, string> = {
   published: 'Publisert',
@@ -58,8 +59,9 @@ export function WikiSpaceView() {
   const { spaceId } = useParams<{ spaceId: string }>()
   const navigate = useNavigate()
   const docs = useDocuments()
-  const { can } = useOrgSetupContext()
-  const canManage = can('documents.manage')
+  const { can, isAdmin, user, profile, members } = useOrgSetupContext()
+  const canManage = isAdmin || can('documents.manage')
+  const bypassFolderRbac = canManage
   const timeNow = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
 
   const [newTitle, setNewTitle] = useState('')
@@ -156,6 +158,39 @@ export function WikiSpaceView() {
     )
   }
 
+  const canViewSpace = canViewWikiSpace({
+    spaceId: space.id,
+    grants: docs.wikiSpaceAccessGrants,
+    bypassRestriction: bypassFolderRbac,
+    userId: user?.id,
+    profile,
+    members,
+  })
+
+  if (!canViewSpace) {
+    return (
+      <ModulePageShell
+        breadcrumb={[
+          { label: 'HMS' },
+          { label: DOCUMENTS_MODULE_TITLE, to: '/documents' },
+          { label: space.title },
+        ]}
+        title="Ingen tilgang"
+        description={
+          <p className="max-w-3xl text-sm text-neutral-600">Du har ikke tilgang til dokumenter i denne mappen.</p>
+        }
+      >
+        <WarningBox>
+          Mappen er begrenset til bestemte brukere, avdelinger eller team. Kontakt en administrator hvis du mener dette
+          er feil.
+        </WarningBox>
+        <Button type="button" variant="secondary" className="mt-4" onClick={() => navigate('/documents')}>
+          Tilbake til bibliotek
+        </Button>
+      </ModulePageShell>
+    )
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     if (!newTitle.trim() || !spaceId) return
@@ -202,19 +237,14 @@ export function WikiSpaceView() {
   }
 
   const headerActions = (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
       {docs.backend === 'supabase' ? (
         <Button type="button" variant="secondary" icon={<Upload className="h-4 w-4" />} onClick={() => setFilesPanelOpen(true)}>
           Filer og lenker
         </Button>
       ) : null}
       {canManage ? (
-        <Button
-          type="button"
-          variant="primary"
-          icon={<Plus className="h-4 w-4" />}
-          onClick={() => setNewPageOpen(true)}
-        >
+        <Button type="button" variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setNewPageOpen(true)}>
           Ny side
         </Button>
       ) : null}
@@ -496,12 +526,30 @@ export function WikiSpaceView() {
                     </div>
                   ) : null}
                   <div className="flex flex-col gap-2 border-t border-neutral-100 pt-4">
-                    <Button type="button" variant="secondary" className="w-full" onClick={() => navigate(`/documents/page/${panelPage.id}`)}>
-                      Forhåndsvis
-                    </Button>
-                    <Button type="button" variant="primary" className="w-full" onClick={() => navigate(`/documents/page/${panelPage.id}/reference-edit`)}>
-                      Rediger
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="primary"
+                        className="min-w-0 flex-1"
+                        icon={<Eye className="h-4 w-4" />}
+                        onClick={() => navigate(`/documents/page/${panelPage.id}`)}
+                      >
+                        Vis dokument
+                      </Button>
+                      {canManage ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0 text-neutral-500 hover:text-neutral-800"
+                          title="Rediger"
+                          aria-label="Rediger"
+                          onClick={() => navigate(`/documents/page/${panelPage.id}/reference-edit`)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                    </div>
                     {panelPage.status === 'draft' ? (
                       <Button type="button" variant="secondary" className="w-full" onClick={() => void docs.publishPage(panelPage.id)}>
                         Publiser
