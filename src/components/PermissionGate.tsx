@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
-import { permissionForPath } from '../lib/permissionKeys'
+import { permissionForPath, type PermissionKey } from '../lib/permissionKeys'
 
 /** Enforces module.view.* from roles when Supabase + user session exist. */
 export function PermissionGate() {
@@ -40,7 +40,30 @@ export function PermissionGate() {
     return <Outlet />
   }
 
-  const required = permissionForPath(location.pathname)
+  const isDocumentsPath = path === '/documents' || path.startsWith('/documents/')
+  const isDocumentsEditorPath =
+    /\/reference-edit$/.test(path) ||
+    path.includes('/wiki-edit') ||
+    (path.includes('/documents/templates/org/') && path.includes('/edit'))
+
+  if (isDocumentsPath && isDocumentsEditorPath) {
+    const canOpenEditor =
+      profile?.is_org_admin === true || can('documents.manage') || can('documents.edit')
+    if (!canOpenEditor) {
+      return <Navigate to="/documents" replace state={{ accessDenied: ['documents.edit', 'documents.manage'] }} />
+    }
+    const canEnterModule =
+      can('module.view.dashboard') || can('documents.view') || can('documents.edit') || can('documents.manage')
+    if (!canEnterModule) {
+      return <Navigate to="/" replace state={{ accessDenied: 'documents' }} />
+    }
+    return <Outlet />
+  }
+
+  let required: PermissionKey | PermissionKey[] = permissionForPath(path)
+  if (isDocumentsPath) {
+    required = ['module.view.dashboard', 'documents.view', 'documents.edit', 'documents.manage']
+  }
   const allowed = Array.isArray(required) ? required.some((k) => can(k)) : can(required)
   if (!allowed) {
     return <Navigate to="/" replace state={{ accessDenied: required }} />

@@ -19,6 +19,7 @@ import { Tabs } from '../../components/ui/Tabs'
 import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { PageStatus } from '../../types/documents'
 import { canViewWikiSpace } from '../../lib/wikiSpaceAccessGrants'
+import { canBypassWikiFolderGrants, canEditWikiDocuments } from '../../lib/documentsAccess'
 
 const TEMPLATE_CLASS = {
   standard: 'max-w-3xl',
@@ -52,9 +53,9 @@ export function WikiPageView() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
   const docs = useDocuments()
-  const { isAdmin, can, user, profile, members } = useOrgSetupContext()
-  const canManage = isAdmin || can('documents.manage')
-  const bypassFolderRbac = canManage
+  const { can, user, profile, members } = useOrgSetupContext()
+  const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
+  const bypassFolderRbac = canBypassWikiFolderGrants(can, profile?.is_org_admin)
   const { ensurePageLoaded, pageHydrateLoading, pageHydrateError } = docs
   const timeNow = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
   const [activeTab, setActiveTab] = useState<DetailTab>('informasjon')
@@ -213,13 +214,14 @@ export function WikiPageView() {
           ) : null}
           <Button
             type="button"
-            variant="primary"
-            icon={<Eye className="h-4 w-4" />}
+            variant="secondary"
+            size="icon"
+            title="Vis dokument"
+            aria-label="Vis dokument"
             onClick={() => setActiveTab('innhold')}
-          >
-            Vis dokument
-          </Button>
-          {canManage ? (
+            icon={<Eye className="h-4 w-4" aria-hidden />}
+          />
+          {canEditDocs ? (
             <Button
               type="button"
               variant="ghost"
@@ -291,7 +293,7 @@ export function WikiPageView() {
                     retainMaximumYears={page.retainMaximumYears}
                     archivedAt={page.archivedAt}
                     scheduledDeletionAt={page.scheduledDeletionAt}
-                    isAdmin={isAdmin}
+                    canEditRetention={canEditDocs}
                     pageId={page.id}
                   />
                 ),
@@ -314,7 +316,7 @@ export function WikiPageView() {
                         {new Date(page.nextRevisionDueAt).toLocaleDateString('no-NO')}
                         {daysToDue != null && daysToDue < 0 ? ' (forfalt)' : daysToDue != null && daysToDue <= 60 ? ` (${daysToDue} dager)` : ''}
                       </span>
-                      {revisionSoon && isAdmin ? (
+                      {revisionSoon && canEditDocs ? (
                         <button
                           type="button"
                           onClick={() => navigate(`/documents/page/${page.id}/reference-edit`)}

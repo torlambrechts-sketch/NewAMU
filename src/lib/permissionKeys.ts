@@ -58,6 +58,10 @@ export const PERMISSION_KEYS = [
   'learning.manage',
   /** Documents & wiki — folders, pages, compliance, template settings */
   'documents.manage',
+  /** Documents & wiki — opprette og redigere sider (ikke malbibliotek-admin) */
+  'documents.edit',
+  /** Documents & wiki — lese mapper og sider (ikke redigere eller publisere) */
+  'documents.view',
   'module.view.admin',
 ] as const
 
@@ -101,7 +105,9 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'hr.o_ros.view': 'HR — O-ROS innsyn',
   'hr.o_ros.sign': 'HR — O-ROS signatur (AMU/VO)',
   'learning.manage': 'E-learning — opprette og redigere kurs',
-  'documents.manage': 'Documents & wiki — redigere innhold og maler',
+  'documents.manage': 'Documents & wiki — administrere maler og mapper',
+  'documents.edit': 'Documents & wiki — redigere og publisere dokumenter',
+  'documents.view': 'Documents & wiki — lese innhold (visning)',
   'module.view.admin': 'Admin (brukere & roller)',
 }
 

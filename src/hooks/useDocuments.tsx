@@ -960,6 +960,7 @@ function useDocumentsStore() {
           | 'spaceId'
           | 'title'
           | 'summary'
+          | 'status'
           | 'blocks'
           | 'legalRefs'
           | 'lang'
@@ -991,6 +992,7 @@ function useDocumentsStore() {
         if (patch.spaceId !== undefined) dbPatch.space_id = patch.spaceId
         if (patch.title !== undefined) dbPatch.title = patch.title
         if (patch.summary !== undefined) dbPatch.summary = patch.summary
+        if (patch.status !== undefined) dbPatch.status = patch.status
         if (patch.blocks !== undefined) dbPatch.blocks = patch.blocks
         if (patch.legalRefs !== undefined) dbPatch.legal_refs = patch.legalRefs
         if (patch.lang !== undefined) dbPatch.lang = patch.lang

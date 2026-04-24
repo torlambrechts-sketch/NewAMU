@@ -4,6 +4,7 @@ import { FolderPlus, Plus } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { Button } from '../../src/components/ui/Button'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
+import { canEditWikiDocuments } from '../../src/lib/documentsAccess'
 import { DOCUMENTS_MODULE_DESC, DOCUMENTS_MODULE_TITLE } from '../../src/data/documentsNav'
 import { documentsModuleShellStyle } from '../../src/lib/documentsModuleShellStyle'
 import { DocumentsHubActionsProvider, useDocumentsHubActions } from './DocumentsHubActionsContext'
@@ -11,10 +12,10 @@ import { DocumentsShellEmbeddedProvider } from './DocumentsShellContext'
 import { DocumentsHubSecondaryNav } from '../../src/components/documents/DocumentsHubSecondaryNav'
 import { apiFetchAnnualReview } from '../../src/api/wikiAnnualReview'
 
-function DocumentsShellHeaderActions({ canManage, onDocumentsHub }: { canManage: boolean; onDocumentsHub: boolean }) {
+function DocumentsShellHeaderActions({ canEditDocs, onDocumentsHub }: { canEditDocs: boolean; onDocumentsHub: boolean }) {
   const { requestOpenNewFolder, requestNewDocument } = useDocumentsHubActions()
 
-  if (!canManage || !onDocumentsHub) return null
+  if (!canEditDocs || !onDocumentsHub) return null
 
   return (
     <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
@@ -30,8 +31,9 @@ function DocumentsShellHeaderActions({ canManage, onDocumentsHub }: { canManage:
 
 function DocumentsModuleShellBody() {
   const location = useLocation()
-  const { can, isAdmin, profile, supabase, organization } = useOrgSetupContext()
-  const canManage = isAdmin || can('documents.manage')
+  const { can, profile, supabase, organization } = useOrgSetupContext()
+  const canManage = can('documents.manage') || profile?.is_org_admin === true
+  const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
   const [annualReviewDot, setAnnualReviewDot] = useState(false)
 
   useEffect(() => {
@@ -67,8 +69,8 @@ function DocumentsModuleShellBody() {
     if (p.startsWith('/documents/templates')) {
       return (
         <p className="max-w-3xl text-sm text-neutral-600">
-          Aktiver systemmaler og opprett organisasjonsspesifikke maler for malbiblioteket (dokumentasjonskrav i
-          internkontrollforskriften § 5).
+          Administrer dokumentmaler: aktiver systemmaler, egne organisasjonsmaler, mappe-tilgang og JSON-import/eksport
+          (internkontrollforskriften § 5).
         </p>
       )
     }
@@ -113,7 +115,7 @@ function DocumentsModuleShellBody() {
         title={DOCUMENTS_MODULE_TITLE}
         description={description}
         tabs={nav}
-        headerActions={<DocumentsShellHeaderActions canManage={canManage} onDocumentsHub={onDocumentsHub} />}
+        headerActions={<DocumentsShellHeaderActions canEditDocs={canEditDocs} onDocumentsHub={onDocumentsHub} />}
       >
         <Outlet />
       </ModulePageShell>

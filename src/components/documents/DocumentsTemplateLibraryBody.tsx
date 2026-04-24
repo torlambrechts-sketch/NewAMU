@@ -9,6 +9,7 @@ import { Button } from '../ui/Button'
 import { StandardInput } from '../ui/Input'
 import { SearchableSelect, type SelectOption } from '../ui/SearchableSelect'
 import { WarningBox } from '../ui/AlertBox'
+import { canAdminDocumentTemplates, canEditWikiDocuments } from '../../lib/documentsAccess'
 
 const CATEGORY_LABELS: Record<SpaceCategory, string> = {
   hms_handbook: 'HMS-håndbok',
@@ -46,8 +47,9 @@ export function DocumentsTemplateLibraryBody({
 }: Props) {
   const docs = useDocuments()
   const navigate = useNavigate()
-  const { can, isAdmin } = useOrgSetupContext()
-  const canManage = isAdmin || can('documents.manage')
+  const { can, profile } = useOrgSetupContext()
+  const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
+  const canAdminTemplates = canAdminDocumentTemplates(can, profile?.is_org_admin)
   const activeSpaces = useMemo(() => docs.spaces.filter((s) => s.status === 'active'), [docs.spaces])
   const dest = destinationSpaces ?? activeSpaces
 
@@ -153,12 +155,13 @@ export function DocumentsTemplateLibraryBody({
       <ModuleSectionCard className="p-5 md:p-6">
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-neutral-900">Tilgjengelige maler</h2>
+            <h2 className="text-sm font-semibold text-neutral-900">Dokumentmaler</h2>
             <span className="mt-1 block text-xs text-neutral-500">
-              {docs.pageTemplates.length} {docs.backend === 'supabase' ? 'tilgjengelige maler' : 'mal(er) (demo lokalt)'}
+              {docs.pageTemplates.length}{' '}
+              {docs.backend === 'supabase' ? 'tilgjengelige dokumentmaler' : 'dokumentmal(er) (demo lokalt)'}
             </span>
           </div>
-          {canManage ? (
+          {canAdminTemplates ? (
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
               {onNewTemplateFolder ? (
                 <Button type="button" variant="secondary" icon={<FolderPlus className="h-4 w-4" />} onClick={onNewTemplateFolder}>
@@ -182,7 +185,8 @@ export function DocumentsTemplateLibraryBody({
               key={tpl.id}
               tpl={tpl}
               spaces={dest}
-              canManage={canManage}
+              canAdminTemplate={canAdminTemplates}
+              canCreateDocumentFromTemplate={canEditDocs}
               isOrgCustom={orgCustomIds.has(tpl.id)}
               busyEdit={editingTemplateId === tpl.id}
               onEditOrg={() => openOrgTemplateEditor(tpl)}
@@ -209,7 +213,7 @@ export function DocumentsTemplateLibraryBody({
         </div>
       </ModuleSectionCard>
 
-      {createOpen && canManage ? (
+      {createOpen && canAdminTemplates ? (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
           role="dialog"
@@ -275,7 +279,8 @@ export function DocumentsTemplateLibraryBody({
 function TemplateCard({
   tpl,
   spaces,
-  canManage,
+  canAdminTemplate,
+  canCreateDocumentFromTemplate,
   isOrgCustom,
   busyEdit,
   onEditOrg,
@@ -284,7 +289,8 @@ function TemplateCard({
 }: {
   tpl: PageTemplate
   spaces: WikiSpace[]
-  canManage: boolean
+  canAdminTemplate: boolean
+  canCreateDocumentFromTemplate: boolean
   isOrgCustom: boolean
   busyEdit: boolean
   onEditOrg: () => void
@@ -307,7 +313,7 @@ function TemplateCard({
           <div className="font-medium text-neutral-900">{tpl.label}</div>
           <p className="mt-1 text-xs text-neutral-500 line-clamp-2">{tpl.description}</p>
         </div>
-        {canManage ? (
+        {canAdminTemplate ? (
           <Button
             type="button"
             variant="ghost"
@@ -344,7 +350,7 @@ function TemplateCard({
             <Button
               type="button"
               variant="primary"
-              disabled={busy || !selected}
+              disabled={busy || !selected || !canCreateDocumentFromTemplate}
               onClick={() => {
                 setBusy(true)
                 void Promise.resolve(onUse(selected)).finally(() => {
@@ -353,7 +359,7 @@ function TemplateCard({
                 })
               }}
             >
-              {busy ? '…' : 'Bruk mal'}
+              {busy ? '…' : 'Start nytt dokument'}
             </Button>
           </div>
         </div>
@@ -366,9 +372,9 @@ function TemplateCard({
             setSelected(spaces[0]?.id ?? '')
             setOpen(true)
           }}
-          disabled={spaces.length === 0}
+          disabled={spaces.length === 0 || !canCreateDocumentFromTemplate}
         >
-          + Bruk mal
+          Bruk dokumentmal
         </Button>
       )}
     </div>

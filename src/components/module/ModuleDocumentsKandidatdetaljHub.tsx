@@ -19,6 +19,7 @@ import {
 } from '../../../modules/documents/DocumentsHubActionsContext'
 import { DocumentsTemplateLibraryBody } from '../documents/DocumentsTemplateLibraryBody'
 import { canViewWikiSpace } from '../../lib/wikiSpaceAccessGrants'
+import { canBypassWikiFolderGrants, canEditWikiDocuments } from '../../lib/documentsAccess'
 
 /** Beige nav — matches layout-reference `RefCandidateDetailPaneBlock`. */
 const BEIGE_NAV = '#EDE4D3'
@@ -83,9 +84,9 @@ export function ModuleDocumentsKandidatdetaljHub({
 }: ModuleDocumentsKandidatdetaljHubProps) {
   const docs = useDocuments()
   const navigate = useNavigate()
-  const { can, isAdmin, user, profile, members } = useOrgSetupContext()
-  const canManage = isAdmin || can('documents.manage')
-  const bypassFolderRbac = isAdmin || canManage
+  const { can, user, profile, members } = useOrgSetupContext()
+  const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
+  const bypassFolderRbac = canBypassWikiFolderGrants(can, profile?.is_org_admin)
 
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null)
   const [folderQuery, setFolderQuery] = useState('')
@@ -109,18 +110,18 @@ export function ModuleDocumentsKandidatdetaljHub({
   const [archiveSpaceTarget, setArchiveSpaceTarget] = useState<WikiSpace | null>(null)
   const [archivingSpace, setArchivingSpace] = useState(false)
 
-  const [deletePageTarget, setDeletePageTarget] = useState<WikiPage | null>(null)
-  const [deletingPage, setDeletingPage] = useState(false)
+  const [archivePageTarget, setArchivePageTarget] = useState<WikiPage | null>(null)
+  const [archivingPage, setArchivingPage] = useState(false)
   const [newTemplateKey, setNewTemplateKey] = useState(0)
 
   const uploadInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (!canManage) return
+    if (!canEditDocs) return
     const clear = () => setDropHighlightSpaceId(null)
     window.addEventListener('dragend', clear)
     return () => window.removeEventListener('dragend', clear)
-  }, [canManage])
+  }, [canEditDocs])
 
   const openNewFolderFromShell = useCallback(() => {
     setNewCategory(centerContent === 'templates' ? 'template_library' : 'hms_handbook')
@@ -298,17 +299,17 @@ export function ModuleDocumentsKandidatdetaljHub({
     }
   }
 
-  const confirmDeletePage = async () => {
-    if (!deletePageTarget) return
-    setDeletingPage(true)
+  const confirmArchivePage = async () => {
+    if (!archivePageTarget) return
+    setArchivingPage(true)
     setUiError(null)
     try {
-      await docs.deletePage(deletePageTarget.id)
-      setDeletePageTarget(null)
+      await docs.archivePage(archivePageTarget.id)
+      setArchivePageTarget(null)
     } catch (err) {
-      setUiError(err instanceof Error ? err.message : 'Kunne ikke slette side.')
+      setUiError(err instanceof Error ? err.message : 'Kunne ikke arkivere side.')
     } finally {
-      setDeletingPage(false)
+      setArchivingPage(false)
     }
   }
 
@@ -383,7 +384,7 @@ export function ModuleDocumentsKandidatdetaljHub({
   }
 
   const onFolderDragOver = (e: DragEvent, spaceId: string) => {
-    if (!canManage || !e.dataTransfer.types.includes(MIME_PAGE_DRAG)) return
+    if (!canEditDocs || !e.dataTransfer.types.includes(MIME_PAGE_DRAG)) return
     if (
       !canViewWikiSpace({
         spaceId,
@@ -402,7 +403,7 @@ export function ModuleDocumentsKandidatdetaljHub({
   }
 
   const onFolderDrop = async (e: DragEvent, spaceId: string) => {
-    if (!canManage) return
+    if (!canEditDocs) return
     if (
       !canViewWikiSpace({
         spaceId,
@@ -425,7 +426,7 @@ export function ModuleDocumentsKandidatdetaljHub({
   }
 
   const onUploadZoneDrop = async (e: DragEvent) => {
-    if (!canManage || !targetSpaceIdForActions) return
+    if (!canEditDocs || !targetSpaceIdForActions) return
     e.preventDefault()
     setDropHighlightSpaceId(null)
     if (e.dataTransfer.files?.length) {
@@ -466,7 +467,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                     : 'Bibliotek: velg mappe til venstre, jobb med sider til høyre. Dra dokumentrader til en mappe for å flytte. Standard modul-UI.'}
               </p>
             </div>
-            {canManage ? (
+            {canEditDocs ? (
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
                 {centerContent === 'templates' ? (
                   <>
@@ -512,9 +513,9 @@ export function ModuleDocumentsKandidatdetaljHub({
 
       {docs.error ? <WarningBox>{docs.error}</WarningBox> : null}
       {uiError ? <WarningBox>{uiError}</WarningBox> : null}
-      {!canManage ? <InfoBox>Du har ikke redigeringstilgang — visning av mapper og sider.</InfoBox> : null}
+      {!canEditDocs ? <InfoBox>Du har ikke redigeringstilgang — visning av mapper og sider.</InfoBox> : null}
 
-      {canManage && newFolderOpen ? (
+      {canEditDocs && newFolderOpen ? (
         <ModuleSectionCard className="p-4 md:p-5">
           <h3 className="text-sm font-semibold text-neutral-900">Ny mappe</h3>
           <form onSubmit={(e) => void handleCreateFolder(e)} className="mt-3 space-y-3">
@@ -576,7 +577,7 @@ export function ModuleDocumentsKandidatdetaljHub({
             />
             {filteredSpaces.map((space) => {
               const count = docs.pages.filter((p) => p.spaceId === space.id).length
-              const dropOn = canManage
+              const dropOn = canEditDocs
               return (
                 <NavFolderRow
                   key={space.id}
@@ -588,7 +589,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                   onDragOver={dropOn ? (e) => onFolderDragOver(e, space.id) : undefined}
                   onDrop={dropOn ? (e) => void onFolderDrop(e, space.id) : undefined}
                   actions={
-                    canManage ? (
+                    canEditDocs ? (
                       <>
                         <Button
                           type="button"
@@ -634,7 +635,7 @@ export function ModuleDocumentsKandidatdetaljHub({
           {centerContent === 'templates' ? (
             <DocumentsTemplateLibraryBody
               destinationSpaces={activeSpacesTemplates}
-              onNewTemplateFolder={canManage ? openNewTemplateFolderFromLibrary : undefined}
+              onNewTemplateFolder={canEditDocs ? openNewTemplateFolderFromLibrary : undefined}
               newTemplateKey={newTemplateKey}
             />
           ) : (
@@ -656,7 +657,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                       aria-label="Søk i sider"
                     />
                   </div>
-                  {canManage && targetSpaceIdForActions && uploadTargetSpace ? (
+                  {canEditDocs && targetSpaceIdForActions && uploadTargetSpace ? (
                     <ModuleSectionCard className="overflow-hidden p-2.5 shadow-sm">
                       <div
                         role="region"
@@ -697,7 +698,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                     <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Status</th>
                     <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Endret</th>
                     <th className={`${MODULE_TABLE_TH} text-right text-sm normal-case font-semibold tracking-normal`}>
-                      {canManage ? 'Handlinger' : 'Dokument'}
+                      {canEditDocs ? 'Handlinger' : 'Dokument'}
                     </th>
                   </tr>
                 </thead>
@@ -722,8 +723,8 @@ export function ModuleDocumentsKandidatdetaljHub({
                       <tr
                         key={page.id}
                         className={MODULE_TABLE_TR_BODY}
-                        draggable={canManage}
-                        onDragStart={canManage ? (e) => onPageDragStart(e, page.id) : undefined}
+                        draggable={canEditDocs}
+                        onDragStart={canEditDocs ? (e) => onPageDragStart(e, page.id) : undefined}
                       >
                         {selectedSpaceId == null ? (
                           <td className={`${MODULE_TABLE_TD} text-sm text-neutral-600`}>
@@ -754,14 +755,15 @@ export function ModuleDocumentsKandidatdetaljHub({
                           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                             <Button
                               type="button"
-                              variant="primary"
-                              icon={<Eye className="h-4 w-4" />}
+                              variant="secondary"
+                              size="icon"
+                              title="Vis dokument"
+                              aria-label={`Vis dokument ${page.title}`}
                               disabled={busy}
                               onClick={() => navigate(viewPath(page.id))}
-                            >
-                              Vis dokument
-                            </Button>
-                            {canManage ? (
+                              icon={<Eye className="h-4 w-4" aria-hidden />}
+                            />
+                            {canEditDocs ? (
                               <>
                                 <Button
                                   type="button"
@@ -775,9 +777,17 @@ export function ModuleDocumentsKandidatdetaljHub({
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </Button>
-                                <Button type="button" variant="danger" disabled={busy} onClick={() => setDeletePageTarget(page)}>
-                                  Slett
-                                </Button>
+                                {page.status !== 'archived' ? (
+                                  <Button
+                                    type="button"
+                                    variant="secondary"
+                                    disabled={busy}
+                                    icon={<Archive className="h-4 w-4" aria-hidden />}
+                                    onClick={() => setArchivePageTarget(page)}
+                                  >
+                                    Arkiver
+                                  </Button>
+                                ) : null}
                               </>
                             ) : null}
                           </div>
@@ -861,24 +871,25 @@ export function ModuleDocumentsKandidatdetaljHub({
         </div>
       ) : null}
 
-      {deletePageTarget ? (
+      {archivePageTarget ? (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
           role="dialog"
           aria-modal="true"
-          onClick={() => setDeletePageTarget(null)}
+          onClick={() => setArchivePageTarget(null)}
         >
           <ModuleSectionCard className="w-full max-w-md p-5 shadow-lg" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-neutral-900">Slett side permanent?</h3>
+            <h3 className="text-sm font-semibold text-neutral-900">Arkiver side?</h3>
             <p className="mt-2 text-sm text-neutral-600">
-              «{deletePageTarget.title}» kan ikke gjenopprettes. Vurder å arkivere fra redigeringsvisningen i stedet.
+              «{archivePageTarget.title}» settes til arkivert og vises ikke lenger i aktive lister. Du kan gjenåpne fra
+              administrasjon om nødvendig.
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setDeletePageTarget(null)}>
+              <Button type="button" variant="secondary" onClick={() => setArchivePageTarget(null)}>
                 Avbryt
               </Button>
-              <Button type="button" variant="danger" disabled={deletingPage} onClick={() => void confirmDeletePage()}>
-                {deletingPage ? 'Sletter…' : 'Slett'}
+              <Button type="button" variant="secondary" disabled={archivingPage} onClick={() => void confirmArchivePage()}>
+                {archivingPage ? 'Arkiverer…' : 'Arkiver'}
               </Button>
             </div>
           </ModuleSectionCard>

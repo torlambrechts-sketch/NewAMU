@@ -295,6 +295,8 @@ type NavModule = {
   subs: SubItem[]
   /** When set and RBAC is active, module is hidden if user lacks this permission. */
   perm?: PermissionKey
+  /** When set, user needs any of these permissions (overrides `perm` for the gate). */
+  permAny?: PermissionKey[]
   /** Maps to the slug in the modules table; item is hidden when the module is disabled. */
   moduleSlug?: string
 }
@@ -527,7 +529,7 @@ const navGroups: NavGroup[] = [
         end: false,
         icon: FileText,
         subs: documentsSubs,
-        perm: 'module.view.dashboard',
+        permAny: ['module.view.dashboard', 'documents.view', 'documents.edit', 'documents.manage'],
         moduleSlug: 'documents',
       },
       {
@@ -676,7 +678,8 @@ function filterNavGroups(
       modules: g.modules.filter((m) => {
         if (m.moduleSlug && disabledModules.has(m.moduleSlug)) return false
         if (m.moduleSlug && hiddenForUser.has(m.moduleSlug)) return false
-        if (gateNav && m.perm && !can(m.perm)) return false
+        if (gateNav && m.permAny?.length && !m.permAny.some((k) => can(k))) return false
+        if (gateNav && m.perm && !m.permAny?.length && !can(m.perm)) return false
         return true
       }),
     }))

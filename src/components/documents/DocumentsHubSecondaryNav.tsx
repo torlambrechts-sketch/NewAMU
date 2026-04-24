@@ -4,6 +4,7 @@ import { BookOpen, ClipboardCheck, FolderOpen, Settings, ShieldCheck } from 'luc
 import { HubMenu1Bar, type HubMenu1Item } from '../layout/HubMenu1Bar'
 
 type Props = {
+  /** Full documents admin (maler, årsgjennomgang, innstillinger i hub-menyen) */
   canManage: boolean
   /** Red dot on «Årsgjennomgang» when review is missing or incomplete (same signal as legacy sidebar). */
   annualReviewBadgeDot?: boolean
@@ -72,7 +73,7 @@ export function DocumentsHubSecondaryNav({ canManage, annualReviewBadgeDot }: Pr
       })
       list.push({
         key: 'innstillinger',
-        label: 'Innstillinger',
+        label: 'Dokumentmaler',
         icon: Settings,
         to: '/documents/templates',
         end: false,

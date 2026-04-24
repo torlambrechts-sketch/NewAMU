@@ -26,7 +26,7 @@ export const DOCUMENTS_NAV: readonly DocumentsNavItem[] = [
   {
     id: 'templates',
     to: '/documents/templates',
-    label: 'Maler',
+    label: 'Dokumentmaler',
     icon: Settings2,
   },
   {

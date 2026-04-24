@@ -17,6 +17,7 @@ import { WarningBox } from '../../components/ui/AlertBox'
 import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { PageStatus } from '../../types/documents'
 import { canViewWikiSpace } from '../../lib/wikiSpaceAccessGrants'
+import { canBypassWikiFolderGrants, canEditWikiDocuments } from '../../lib/documentsAccess'
 
 const STATUS_LABEL: Record<PageStatus, string> = {
   published: 'Publisert',
@@ -59,9 +60,9 @@ export function WikiSpaceView() {
   const { spaceId } = useParams<{ spaceId: string }>()
   const navigate = useNavigate()
   const docs = useDocuments()
-  const { can, isAdmin, user, profile, members } = useOrgSetupContext()
-  const canManage = isAdmin || can('documents.manage')
-  const bypassFolderRbac = canManage
+  const { can, user, profile, members } = useOrgSetupContext()
+  const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
+  const bypassFolderRbac = canBypassWikiFolderGrants(can, profile?.is_org_admin)
   const timeNow = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
 
   const [newTitle, setNewTitle] = useState('')
@@ -243,7 +244,7 @@ export function WikiSpaceView() {
           Filer og lenker
         </Button>
       ) : null}
-      {canManage ? (
+      {canEditDocs ? (
         <Button type="button" variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setNewPageOpen(true)}>
           Ny side
         </Button>
@@ -478,7 +479,7 @@ export function WikiSpaceView() {
                                 Åpne
                               </Button>
                             ) : null}
-                            {canManage ? (
+                            {canEditDocs ? (
                               <Button
                                 type="button"
                                 variant="danger"
@@ -529,14 +530,14 @@ export function WikiSpaceView() {
                     <div className="flex items-center gap-2">
                       <Button
                         type="button"
-                        variant="primary"
-                        className="min-w-0 flex-1"
-                        icon={<Eye className="h-4 w-4" />}
+                        variant="secondary"
+                        size="icon"
+                        title="Vis dokument"
+                        aria-label="Vis dokument"
                         onClick={() => navigate(`/documents/page/${panelPage.id}`)}
-                      >
-                        Vis dokument
-                      </Button>
-                      {canManage ? (
+                        icon={<Eye className="h-4 w-4" aria-hidden />}
+                      />
+                      {canEditDocs ? (
                         <Button
                           type="button"
                           variant="ghost"
@@ -550,27 +551,16 @@ export function WikiSpaceView() {
                         </Button>
                       ) : null}
                     </div>
-                    {panelPage.status === 'draft' ? (
+                    {canEditDocs && panelPage.status === 'draft' ? (
                       <Button type="button" variant="secondary" className="w-full" onClick={() => void docs.publishPage(panelPage.id)}>
                         Publiser
                       </Button>
                     ) : null}
-                    {panelPage.status !== 'archived' ? (
+                    {canEditDocs && panelPage.status !== 'archived' ? (
                       <Button type="button" variant="secondary" className="w-full" onClick={() => void docs.archivePage(panelPage.id)}>
                         Arkiver
                       </Button>
                     ) : null}
-                    <Button
-                      type="button"
-                      variant="danger"
-                      className="w-full"
-                      onClick={() => {
-                        if (confirm('Slett siden?')) void docs.deletePage(panelPage.id)
-                        setPanelPageId(null)
-                      }}
-                    >
-                      Slett
-                    </Button>
                   </div>
                 </div>
               )}

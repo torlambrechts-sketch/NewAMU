@@ -16,7 +16,8 @@ type Props = {
   retainMaximumYears: number | null | undefined
   archivedAt: string | null | undefined
   scheduledDeletionAt: string | null | undefined
-  isAdmin?: boolean
+  /** When true, show admin link to adjust retention in the editor */
+  canEditRetention?: boolean
   pageId?: string
 }
 
@@ -30,7 +31,7 @@ export function RetentionBadge({
   retainMaximumYears,
   archivedAt,
   scheduledDeletionAt,
-  isAdmin,
+  canEditRetention,
   pageId,
 }: Props) {
   const now = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
@@ -74,7 +75,7 @@ export function RetentionBadge({
         {lagring}
         {slettes ? ` · ${slettes}` : ''}
       </span>
-      {d != null && d <= 30 && isAdmin && pageId ? (
+      {d != null && d <= 30 && canEditRetention && pageId ? (
         <Link
           to={`/documents/page/${pageId}/reference-edit`}
           className="ml-1 shrink-0 font-semibold underline decoration-2 underline-offset-2"

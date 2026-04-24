@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Loader2, Plus, Trash2, X } from 'lucide-react'
+import { Download, Loader2, Plus, Trash2, Upload, X } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PageTemplate, SpaceCategory } from '../../types/documents'
@@ -13,6 +13,12 @@ import { SearchableSelect, type SelectOption } from '../../components/ui/Searcha
 import { WarningBox } from '../../components/ui/AlertBox'
 import { ToggleSwitch } from '../../components/ui/FormToggles'
 import { DocumentFolderAccessSettings } from './DocumentFolderAccessSettings'
+import {
+  buildTemplateExport,
+  buildWikiPageExport,
+  parseDocumentTemplateExport,
+  parseWikiPageExport,
+} from '../../lib/documentJsonImportExport'
 
 const CATEGORY_LABELS: Record<SpaceCategory, string> = {
   hms_handbook: 'HMS-håndbok',
@@ -41,8 +47,148 @@ function useBodyScrollLock(active: boolean) {
 export function DocumentTemplatesSettings() {
   const docs = useDocuments()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { can, isAdmin } = useOrgSetupContext()
-  const canManage = isAdmin || can('documents.manage')
+  const { can, profile } = useOrgSetupContext()
+  const canManage = profile?.is_org_admin === true || can('documents.manage')
+
+  const templateImportRef = useRef<HTMLInputElement>(null)
+  const pageImportRef = useRef<HTMLInputElement>(null)
+  const [jsonBusy, setJsonBusy] = useState(false)
+  const [jsonErr, setJsonErr] = useState<string | null>(null)
+  const [importPageSpaceId, setImportPageSpaceId] = useState('')
+  const [exportPageId, setExportPageId] = useState('')
+
+  const spaceOptions: SelectOption[] = useMemo(
+    () => docs.spaces.filter((s) => s.status === 'active').map((s) => ({ value: s.id, label: s.title })),
+    [docs.spaces],
+  )
+
+  const pageExportOptions: SelectOption[] = useMemo(
+    () => docs.pages.map((p) => ({ value: p.id, label: `${p.title} (${p.status})` })),
+    [docs.pages],
+  )
+
+  const [exportTemplateId, setExportTemplateId] = useState('')
+
+  const templateExportOptions: SelectOption[] = useMemo(
+    () => docs.pageTemplates.map((t) => ({ value: t.id, label: t.label })),
+    [docs.pageTemplates],
+  )
+
+  useEffect(() => {
+    if (!importPageSpaceId && spaceOptions.length > 0) setImportPageSpaceId(spaceOptions[0]!.value)
+  }, [importPageSpaceId, spaceOptions])
+
+  useEffect(() => {
+    if (!exportPageId && pageExportOptions.length > 0) setExportPageId(pageExportOptions[0]!.value)
+  }, [exportPageId, pageExportOptions])
+
+  useEffect(() => {
+    if (!exportTemplateId && templateExportOptions.length > 0) setExportTemplateId(templateExportOptions[0]!.value)
+  }, [exportTemplateId, templateExportOptions])
+
+  function downloadJson(filename: string, data: unknown) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.rel = 'noopener'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleExportPageJson() {
+    setJsonErr(null)
+    const page = docs.pages.find((p) => p.id === exportPageId)
+    if (!page) {
+      setJsonErr('Velg et dokument å eksportere.')
+      return
+    }
+    downloadJson(`wiki-page-${page.id.slice(0, 8)}.json`, buildWikiPageExport(page))
+  }
+
+  function handleExportTemplateJson() {
+    setJsonErr(null)
+    const tpl = docs.pageTemplates.find((t) => t.id === exportTemplateId)
+    if (!tpl) {
+      setJsonErr('Velg en mal å eksportere.')
+      return
+    }
+    downloadJson(`document-template-${tpl.id}.json`, buildTemplateExport(tpl))
+  }
+
+  async function handleImportTemplateFile(f: File) {
+    setJsonErr(null)
+    setJsonBusy(true)
+    try {
+      const text = await f.text()
+      const parsed = parseDocumentTemplateExport(JSON.parse(text) as unknown)
+      if (!parsed) {
+        setJsonErr('Ugyldig malfil — forventet klarert-document-template-export-v1.')
+        return
+      }
+      const t = parsed.template
+      await docs.saveOrgCustomTemplate({
+        label: `${t.label} (import)`,
+        description: t.description,
+        category: t.category,
+        legalBasis: t.legalBasis,
+        page: t.page,
+      })
+    } catch (e) {
+      setJsonErr(e instanceof Error ? e.message : 'Import av mal feilet.')
+    } finally {
+      setJsonBusy(false)
+    }
+  }
+
+  async function handleImportPageFile(f: File) {
+    setJsonErr(null)
+    if (!importPageSpaceId) {
+      setJsonErr('Velg målmappe for import.')
+      return
+    }
+    setJsonBusy(true)
+    try {
+      const text = await f.text()
+      const parsed = parseWikiPageExport(JSON.parse(text) as unknown)
+      if (!parsed) {
+        setJsonErr('Ugyldig dokumentfil — forventet klarert-wiki-page-export-v1.')
+        return
+      }
+      const p = parsed.page
+      const page = await docs.createPage(
+        importPageSpaceId,
+        p.title.trim() || 'Importert dokument',
+        p.template,
+        Array.isArray(p.blocks) ? p.blocks : [],
+        {
+          legalRefs: p.legalRefs,
+          requiresAcknowledgement: p.requiresAcknowledgement,
+          summary: p.summary,
+          acknowledgementAudience: p.acknowledgementAudience,
+          acknowledgementDepartmentId: p.acknowledgementDepartmentId,
+          revisionIntervalMonths: p.revisionIntervalMonths,
+          nextRevisionDueAt: p.nextRevisionDueAt,
+        },
+      )
+      await docs.updatePage(page.id, {
+        lang: p.lang,
+        containsPii: p.containsPii,
+        piiCategories: p.piiCategories,
+        piiLegalBasis: p.piiLegalBasis,
+        piiRetentionNote: p.piiRetentionNote,
+        retentionCategory: p.retentionCategory,
+        retainMinimumYears: p.retainMinimumYears,
+        retainMaximumYears: p.retainMaximumYears,
+        status: 'draft',
+      })
+    } catch (e) {
+      setJsonErr(e instanceof Error ? e.message : 'Import av dokument feilet.')
+    } finally {
+      setJsonBusy(false)
+    }
+  }
 
   const [busyId, setBusyId] = useState<string | null>(null)
   const [form, setForm] = useState({
@@ -169,14 +315,121 @@ export function DocumentTemplatesSettings() {
     <DocumentsModuleLayout
       subHeader={
         <p className="mt-2 border-b border-neutral-200/80 pb-4 text-sm text-neutral-600">
-          Aktiver eller skjul systemmaler for organisasjonen, og opprett egne maler som vises i malbiblioteket. Klikk en
-          rad for detaljer.
+          Dokumentmaler for malbiblioteket: aktiver systemmaler, opprett egendefinerte maler, styr mappe-tilgang og
+          bruk JSON for import/eksport. Klikk en rad for detaljer.
         </p>
       }
     >
       {docs.error ? <WarningBox>{docs.error}</WarningBox> : null}
 
       <DocumentFolderAccessSettings canManage={canManage} />
+
+      {canManage ? (
+        <ModuleSectionCard className="mb-8 p-4 md:p-5">
+          <h2 className="text-sm font-semibold text-neutral-900">JSON — dokumenter og dokumentmaler</h2>
+          <p className="mt-1 text-xs text-neutral-500">
+            Last ned eller last opp JSON i Klarert-format for sikkerhetskopiering og deling mellom miljøer.
+          </p>
+          {jsonErr ? (
+            <div className="mt-3">
+              <WarningBox>{jsonErr}</WarningBox>
+            </div>
+          ) : null}
+          <div className="mt-4 grid gap-6 lg:grid-cols-2">
+            <div className="space-y-3 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600">Dokument (wiki-side)</h3>
+              <div>
+                <span className="mb-1 block text-xs font-medium text-neutral-500">Velg dokument</span>
+                <SearchableSelect
+                  value={exportPageId}
+                  options={pageExportOptions}
+                  onChange={(v) => setExportPageId(v)}
+                  disabled={pageExportOptions.length === 0 || jsonBusy}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                icon={<Download className="h-4 w-4" aria-hidden />}
+                disabled={jsonBusy || pageExportOptions.length === 0}
+                onClick={() => void handleExportPageJson()}
+              >
+                Last ned JSON
+              </Button>
+              <div className="border-t border-neutral-200/80 pt-3">
+                <span className="mb-1 block text-xs font-medium text-neutral-500">Målmappe for import</span>
+                <SearchableSelect
+                  value={importPageSpaceId}
+                  options={spaceOptions}
+                  onChange={(v) => setImportPageSpaceId(v)}
+                  disabled={spaceOptions.length === 0 || jsonBusy}
+                />
+              </div>
+              <input
+                ref={pageImportRef}
+                type="file"
+                accept="application/json,.json"
+                className="sr-only"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  e.target.value = ''
+                  if (f) void handleImportPageFile(f)
+                }}
+              />
+              <Button
+                type="button"
+                variant="primary"
+                icon={<Upload className="h-4 w-4" aria-hidden />}
+                disabled={jsonBusy || spaceOptions.length === 0}
+                onClick={() => pageImportRef.current?.click()}
+              >
+                Last opp dokument-JSON
+              </Button>
+            </div>
+            <div className="space-y-3 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600">Dokumentmal</h3>
+              <div>
+                <span className="mb-1 block text-xs font-medium text-neutral-500">Velg mal</span>
+                <SearchableSelect
+                  value={exportTemplateId}
+                  options={templateExportOptions}
+                  onChange={(v) => setExportTemplateId(v)}
+                  disabled={templateExportOptions.length === 0 || jsonBusy}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                icon={<Download className="h-4 w-4" aria-hidden />}
+                disabled={jsonBusy || templateExportOptions.length === 0}
+                onClick={() => handleExportTemplateJson()}
+              >
+                Last ned mal-JSON
+              </Button>
+              <input
+                ref={templateImportRef}
+                type="file"
+                accept="application/json,.json"
+                className="sr-only"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  e.target.value = ''
+                  if (f) void handleImportTemplateFile(f)
+                }}
+              />
+              <Button
+                type="button"
+                variant="primary"
+                icon={<Upload className="h-4 w-4" aria-hidden />}
+                disabled={jsonBusy}
+                onClick={() => templateImportRef.current?.click()}
+              >
+                Last opp mal-JSON
+              </Button>
+            </div>
+          </div>
+        </ModuleSectionCard>
+      ) : null}
 
       <ModuleSectionCard className="mb-8 p-4 md:p-5">
         <h2 className="text-sm font-semibold text-neutral-900">Malbibliotek (brukerflate)</h2>
