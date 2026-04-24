@@ -1,10 +1,9 @@
--- Folder-level access grants (user / department / team) for wiki spaces.
--- When a space has at least one row in wiki_space_access_grants, only matching
--- subjects (plus org admins and documents.manage) may read pages in that space,
--- in addition to existing restricted_permission and PII rules.
+-- Repair: wiki_pages_select_org may reference wiki_spaces columns that do not exist
+-- yet on databases where AMU / PII migrations were skipped or applied out of order.
+-- Safe to run multiple times (IF NOT EXISTS + DROP/CREATE policy).
 
 -- ---------------------------------------------------------------------------
--- 1. wiki_space_access_grants
+-- 1. wiki_space_access_grants (no-op if 20260731170000 already applied fully)
 -- ---------------------------------------------------------------------------
 
 create table if not exists public.wiki_space_access_grants (
@@ -19,9 +18,6 @@ create table if not exists public.wiki_space_access_grants (
 
 create index if not exists wiki_space_access_grants_org_space_idx
   on public.wiki_space_access_grants (organization_id, space_id);
-
-comment on table public.wiki_space_access_grants is
-  'Optional allow-list per folder: when rows exist for a space, only listed users/departments/teams (plus org admin / documents.manage) satisfy the wiki_pages SELECT policy for that space.';
 
 alter table public.wiki_space_access_grants enable row level security;
 
@@ -62,8 +58,7 @@ create policy "wiki_space_access_grants_delete_manage"
   );
 
 -- ---------------------------------------------------------------------------
--- 2. Ensure wiki_spaces columns exist before policies reference them
---    (is_amu_space from AMU migration; restricted_permission from PII/RLS chain)
+-- 2. wiki_spaces columns required by wiki_pages_select_org
 -- ---------------------------------------------------------------------------
 
 alter table public.wiki_spaces
@@ -73,7 +68,7 @@ alter table public.wiki_spaces
   add column if not exists restricted_permission text;
 
 -- ---------------------------------------------------------------------------
--- 3. wiki_pages SELECT — honor folder grant allow-list
+-- 3. Recreate wiki_pages SELECT policy (folder grants + prior RLS semantics)
 -- ---------------------------------------------------------------------------
 
 drop policy if exists "wiki_pages_select_org" on public.wiki_pages;
