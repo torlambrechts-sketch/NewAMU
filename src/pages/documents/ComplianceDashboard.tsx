@@ -347,7 +347,7 @@ export function ComplianceDashboard() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="rounded-none bg-[#1a3d32]/10 px-1.5 py-0.5 font-mono text-xs text-[#1a3d32]">
+                    <span className="rounded-md bg-[#1a3d32]/10 px-1.5 py-0.5 font-mono text-xs text-[#1a3d32]">
                       {c.ref}
                     </span>
                   </td>
@@ -376,7 +376,7 @@ export function ComplianceDashboard() {
                         {c.coveredBy.map((p) => (
                           <span
                             key={p.id}
-                            className="rounded-none border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800"
+                            className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800"
                           >
                             {p.title}
                           </span>
@@ -429,7 +429,7 @@ export function ComplianceDashboard() {
                         <td className="px-4 py-3 text-xs text-neutral-500">v{p.version}</td>
                         <td className="px-4 py-3">
                           <span
-                            className={`rounded-none border px-2 py-0.5 text-xs font-medium ${
+                            className={`rounded-md border px-2 py-0.5 text-xs font-medium ${
                               recs.length > 0
                                 ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                                 : 'border-amber-200 bg-amber-50 text-amber-800'
@@ -470,7 +470,7 @@ export function ComplianceDashboard() {
             type="button"
             variant="ghost"
             aria-label="Lukk"
-            className="absolute inset-0 h-auto min-h-0 rounded-none bg-black/40 p-0 hover:bg-black/50"
+            className="absolute inset-0 h-auto min-h-0 rounded-sm bg-black/40 p-0 hover:bg-black/50"
             onClick={() => setPanelRef(null)}
           />
           <div
