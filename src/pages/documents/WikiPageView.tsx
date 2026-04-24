@@ -392,18 +392,19 @@ export function WikiPageView() {
             <ShieldAlert className="size-4 shrink-0" aria-hidden />
             Dette dokumentet krever din bekreftelse
           </span>
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            className="shrink-0 rounded-full border-white bg-white text-[#1a3d32] hover:bg-neutral-100"
             onClick={() => {
               setActiveTab('innhold')
               queueMicrotask(() => {
                 window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
               })
             }}
-            className="shrink-0 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-[#1a3d32] hover:bg-neutral-100"
           >
             Gå til signering ↓
-          </button>
+          </Button>
         </div>
       ) : null}
     </ModulePageShell>

@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ClipboardList, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
-import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+import { Badge } from '../../components/ui/Badge'
+import { Button } from '../../components/ui/Button'
+import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
+import { StandardInput } from '../../components/ui/Input'
+import { StandardTextarea } from '../../components/ui/Textarea'
+import { WarningBox } from '../../components/ui/AlertBox'
+import { ModuleSectionCard } from '../../components/module'
 import type { WikiAnnualReviewItemRow } from '../../api/wikiAnnualReview'
 
-const BTN =
-  'inline-flex items-center justify-center gap-2 rounded-none border border-[#1a3d32] bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#142e26] disabled:opacity-40'
+const STATUS_OPTIONS: SelectOption[] = [
+  { value: 'pending', label: 'Ikke vurdert' },
+  { value: 'ok', label: 'OK' },
+  { value: 'needs_update', label: 'Trenger oppdatering' },
+  { value: 'not_applicable', label: 'Ikke aktuelt' },
+]
 
 function subscribeClock(cb: () => void) {
   const id = window.setInterval(cb, 60_000)
@@ -129,38 +139,25 @@ export function AnnualReviewPage() {
   const progressPct = itemsTotal > 0 ? Math.round((itemsReviewed / itemsTotal) * 100) : 0
 
   return (
-    <DocumentsModuleLayout
-      subHeader={
-        <div className="mt-6 flex items-center gap-2 border-b border-neutral-200/80 pb-6 text-sm text-neutral-600">
-          <ClipboardList className="size-4 text-[#1a3d32]" aria-hidden />
-          <span>IK-f §5 nr. 5 — systematisk gjennomgang</span>
-        </div>
-      }
-    >
+    <>
       {loading ? (
         <div className="mt-12 flex justify-center text-neutral-600">
           <Loader2 className="size-8 animate-spin text-[#1a3d32]" />
         </div>
       ) : err ? (
-        <p className="mt-6 rounded-none border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{err}</p>
+        <div className="mt-6">
+          <WarningBox>{err}</WarningBox>
+        </div>
       ) : (
         <div className="mt-6 space-y-8">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900 md:text-3xl" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
+            <h1 className="text-2xl font-bold text-neutral-900 md:text-3xl">
               Årsgjennomgang {year} — IK-f §5 nr. 5
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <span
-                className={`rounded-none border px-2.5 py-0.5 text-xs font-semibold uppercase ${
-                  status === 'completed'
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                    : status === 'overdue'
-                      ? 'border-red-200 bg-red-50 text-red-800'
-                      : 'border-amber-200 bg-amber-50 text-amber-900'
-                }`}
-              >
+              <Badge variant={status === 'completed' ? 'success' : status === 'overdue' ? 'critical' : 'warning'}>
                 {status === 'completed' ? 'Fullført' : status === 'overdue' ? 'Forfalt' : 'Pågår'}
-              </span>
+              </Badge>
               {reviewPageId ? (
                 <Link to={`/documents/page/${reviewPageId}`} className="text-sm text-[#1a3d32] underline">
                   Åpne oppsummeringsside
@@ -170,47 +167,47 @@ export function AnnualReviewPage() {
             <p className="mt-4 text-sm text-neutral-600">
               {itemsReviewed} av {itemsTotal} punkter gjennomgått
             </p>
-            <div className="mt-2 h-2 max-w-xl overflow-hidden rounded-none bg-neutral-200">
-              <div className="h-full bg-[#1a3d32] transition-all" style={{ width: `${progressPct}%` }} />
+            <div className="mt-2 h-2 max-w-xl overflow-hidden rounded-full bg-neutral-200">
+              <div className="h-full rounded-full bg-[#1a3d32] transition-all" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
 
-          <section className="rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-neutral-900">Lovpålagte dokumenter</h2>
+          <ModuleSectionCard>
+            <h2 className="mb-3 text-sm font-semibold text-neutral-900">Lovpålagte dokumenter</h2>
             <ItemTable items={mandatory} onPatch={patchItem} disabled={status === 'completed'} />
-          </section>
+          </ModuleSectionCard>
 
-          <section className="rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-neutral-900">Risikovurderinger (IK-f §5 nr. 2)</h2>
+          <ModuleSectionCard>
+            <h2 className="mb-3 text-sm font-semibold text-neutral-900">Risikovurderinger (IK-f §5 nr. 2)</h2>
             <ItemTable items={risk} onPatch={patchItem} disabled={status === 'completed'} />
-          </section>
+          </ModuleSectionCard>
 
-          <section className="rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-neutral-900">Øvrige dokumenter med hjemmel</h2>
+          <ModuleSectionCard>
+            <h2 className="mb-3 text-sm font-semibold text-neutral-900">Øvrige dokumenter med hjemmel</h2>
             <ItemTable items={otherPages} onPatch={patchItem} disabled={status === 'completed'} />
-          </section>
+          </ModuleSectionCard>
 
-          <section className="rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-neutral-900">Avviksbehandling</h2>
-            <p className="mt-2 text-sm text-neutral-600">
+          <ModuleSectionCard>
+            <h2 className="mb-3 text-sm font-semibold text-neutral-900">Avviksbehandling</h2>
+            <p className="text-sm text-neutral-600">
               Se avviksmodulen for statistikk og åpne saker.
             </p>
             <Link to="/workflow" className="mt-2 inline-block text-sm text-[#1a3d32] underline">
               Arbeidsflyt / avvik
             </Link>
-          </section>
+          </ModuleSectionCard>
 
-          <section className="rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-neutral-900">HMS-opplæring</h2>
-            <p className="mt-2 text-sm text-neutral-600">Oversikt over kurs og sertifiseringer i læringsmodulen.</p>
+          <ModuleSectionCard>
+            <h2 className="mb-3 text-sm font-semibold text-neutral-900">HMS-opplæring</h2>
+            <p className="text-sm text-neutral-600">Oversikt over kurs og sertifiseringer i læringsmodulen.</p>
             <Link to="/learning" className="mt-2 inline-block text-sm text-[#1a3d32] underline">
               Gå til opplæring
             </Link>
-          </section>
+          </ModuleSectionCard>
 
-          <section className="rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-neutral-900">Verneombud og AMU</h2>
-            <p className="mt-2 text-sm text-neutral-600">
+          <ModuleSectionCard>
+            <h2 className="mb-3 text-sm font-semibold text-neutral-900">Verneombud og AMU</h2>
+            <p className="text-sm text-neutral-600">
               Publiserte AMU-protokoller siste 12 måneder (fra aktivitetslogg):{' '}
               <strong>{amuPublishes12m}</strong>
             </p>
@@ -218,46 +215,47 @@ export function AnnualReviewPage() {
               Valg av verneombud og AMU-sammensetning følges i HR / organisasjonskart — legg inn referanse i notatfelt
               under ved behov.
             </p>
-          </section>
+          </ModuleSectionCard>
 
-          <section className="rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-neutral-900">Hendelser og ulykker</h2>
-            <p className="mt-2 text-sm text-neutral-600">
+          <ModuleSectionCard>
+            <h2 className="mb-3 text-sm font-semibold text-neutral-900">Hendelser og ulykker</h2>
+            <p className="text-sm text-neutral-600">
               Se hendelsesregisteret for siste 12 måneder (arbeidsplassrapportering).
             </p>
             <Link to="/workplace-reporting/incidents" className="mt-2 inline-block text-sm text-[#1a3d32] underline">
               Hendelser
             </Link>
-          </section>
+          </ModuleSectionCard>
 
-          <div className="rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
+          <ModuleSectionCard>
             <label className="text-xs font-medium text-neutral-500" htmlFor="ar-notes">
               Notater til oppsummering
             </label>
-            <textarea
+            <StandardTextarea
               id="ar-notes"
               rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               disabled={status === 'completed'}
-              className="mt-2 w-full max-w-2xl rounded-none border border-neutral-200 px-3 py-2 text-sm"
+              className="mt-2 max-w-2xl"
             />
-            <button
+            <Button
               type="button"
+              variant="primary"
               disabled={status === 'completed' || finishing || !reviewId}
               onClick={() => void handleComplete()}
-              className={`${BTN} mt-4`}
+              className="mt-4"
             >
               {finishing ? 'Fullfører…' : 'Fullfør årsgjennomgang'}
-            </button>
+            </Button>
             <p className="mt-2 text-xs text-neutral-500">
               Oppretter og publiserer en side fra malen «Årsgjennomgang av internkontrollen» i HMS-håndbok og registrerer
               hendelsen i revisjonsloggen.
             </p>
-          </div>
+          </ModuleSectionCard>
         </div>
       )}
-    </DocumentsModuleLayout>
+    </>
   )
 }
 
@@ -298,30 +296,27 @@ function ItemTable({
                   <div className="text-neutral-700">{it.description}</div>
                 </td>
                 <td className="py-3 pr-4">
-                  <select
-                    value={st}
-                    disabled={disabled}
-                    onChange={(e) => {
-                      const v = e.target.value as WikiAnnualReviewItemRow['status']
-                      setLocal((s) => ({ ...s, [it.id]: { status: v, notes: nt } }))
-                      void onPatch(it.id, v, nt)
-                    }}
-                    className="w-full max-w-[200px] rounded-none border border-neutral-200 px-2 py-1 text-xs"
-                  >
-                    <option value="pending">Ikke vurdert</option>
-                    <option value="ok">OK</option>
-                    <option value="needs_update">Trenger oppdatering</option>
-                    <option value="not_applicable">Ikke aktuelt</option>
-                  </select>
+                  <div className={disabled ? 'pointer-events-none opacity-50' : ''}>
+                    <SearchableSelect
+                      value={st}
+                      options={STATUS_OPTIONS}
+                      onChange={(v) => {
+                        const val = v as WikiAnnualReviewItemRow['status']
+                        setLocal((s) => ({ ...s, [it.id]: { status: val, notes: nt } }))
+                        void onPatch(it.id, val, nt)
+                      }}
+                      triggerClassName="py-1 text-xs"
+                    />
+                  </div>
                 </td>
                 <td className="py-3 pr-4">
-                  <input
+                  <StandardInput
                     type="text"
                     value={nt}
                     disabled={disabled}
                     onChange={(e) => setLocal((s) => ({ ...s, [it.id]: { status: st, notes: e.target.value } }))}
                     onBlur={() => void onPatch(it.id, st, nt)}
-                    className="w-full min-w-[160px] rounded-none border border-neutral-200 px-2 py-1 text-xs"
+                    className="min-w-[160px]"
                   />
                 </td>
                 <td className="py-3">

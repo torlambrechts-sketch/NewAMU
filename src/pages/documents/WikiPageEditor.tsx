@@ -38,6 +38,7 @@ import {
 } from '../../data/wikiPiiLegalBasisSuggestions'
 import { runWikiWcagHeuristics } from '../../lib/wikiA11yHeuristics'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
+import { ToggleSwitch } from '../../components/ui/FormToggles'
 
 type AddKind = ContentBlock['kind']
 
@@ -58,6 +59,8 @@ const MODULE_OPTIONS: { name: ModuleBlock['moduleName']; label: string }[] = [
   { name: 'acknowledgement_footer', label: 'Lest og forstått (signatur)' },
   { name: 'emergency_stop_procedure', label: 'Stansingsrett — verneombud (AML §6-3)' },
 ]
+
+const MODULE_SELECT_OPTIONS: SelectOption[] = MODULE_OPTIONS.map((o) => ({ value: o.name, label: o.label }))
 
 const PAGE_LANG_OPTIONS: SelectOption[] = [
   { value: 'nb', label: 'Bokmål (nb)' },
@@ -498,14 +501,16 @@ export function WikiPageEditor() {
           <WarningBox>
             <div className="flex items-start justify-between gap-3">
               <span>{saveError}</span>
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
+                icon={<RotateCcw className="size-3" aria-hidden />}
                 onClick={() => void handleSave()}
-                className="shrink-0 inline-flex items-center gap-1 rounded-md border border-amber-400 bg-white px-2 py-1 text-xs font-medium text-amber-900 hover:bg-amber-50"
+                className="shrink-0 border-amber-400 text-amber-900 hover:bg-amber-50"
               >
-                <RotateCcw className="size-3" aria-hidden />
                 Prøv igjen
-              </button>
+              </Button>
             </div>
           </WarningBox>
         </div>
@@ -611,18 +616,17 @@ export function WikiPageEditor() {
           <ModuleSectionCard>
             <h3 className="mb-4 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">Signatur og bekreftelse</h3>
             <div className="space-y-4">
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-neutral-700">Krever «Lest og forstått»-signatur</span>
+                <ToggleSwitch
                   checked={requiresAck}
-                  onChange={(e) => {
-                    setRequiresAck(e.target.checked)
+                  onChange={(v) => {
+                    setRequiresAck(v)
                     markDirty()
                   }}
-                  className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+                  label="Krever «Lest og forstått»-signatur"
                 />
-                Krever «Lest og forstått»-signatur
-              </label>
+              </div>
               <div className={`space-y-3 border-t border-neutral-100 pt-3 transition-opacity ${requiresAck ? '' : 'pointer-events-none opacity-40'}`}>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-neutral-500">Hvem skal signere?</label>
@@ -802,19 +806,18 @@ export function WikiPageEditor() {
             <h3 className="mb-4 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">
               Personopplysninger
             </h3>
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm text-neutral-700">Inneholder personopplysninger</span>
+              <ToggleSwitch
                 checked={containsPii}
-                onChange={(e) => {
-                  setContainsPii(e.target.checked)
-                  if (!e.target.checked) setPiiCategories([])
+                onChange={(v) => {
+                  setContainsPii(v)
+                  if (!v) setPiiCategories([])
                   markDirty()
                 }}
-                className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+                label="Inneholder personopplysninger"
               />
-              Inneholder personopplysninger
-            </label>
+            </div>
             <div className={`mt-3 space-y-3 border-t border-neutral-100 pt-3 transition-opacity ${containsPii ? '' : 'pointer-events-none opacity-40'}`}>
                 <div>
                   <span className="text-xs font-medium text-neutral-500">Kategorier</span>
@@ -992,14 +995,22 @@ function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: P
     <div className="space-y-2">
       <div className="flex gap-2">
         {([1, 2, 3] as const).map((l) => (
-          <button key={l} type="button" onClick={() => onUpdate({ level: l } as Partial<ContentBlock>)}
-            className={`rounded px-2 py-1 text-xs font-bold ${block.level === l ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-600'}`}>
+          <Button
+            key={l}
+            type="button"
+            variant={block.level === l ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => onUpdate({ level: l } as Partial<ContentBlock>)}
+          >
             H{l}
-          </button>
+          </Button>
         ))}
       </div>
-      <input value={block.text} onChange={(e) => onUpdate({ text: e.target.value } as Partial<ContentBlock>)}
-        className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm font-semibold" />
+      <StandardInput
+        value={block.text}
+        onChange={(e) => onUpdate({ text: e.target.value } as Partial<ContentBlock>)}
+        className="font-semibold"
+      />
     </div>
   )
 
@@ -1009,16 +1020,23 @@ function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: P
 
   if (block.kind === 'alert') return (
     <div className="space-y-2">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {(['info', 'warning', 'danger', 'tip'] as const).map((v) => (
-          <button key={v} type="button" onClick={() => onUpdate({ variant: v } as Partial<ContentBlock>)}
-            className={`rounded px-2 py-1 text-xs ${block.variant === v ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-600'}`}>
+          <Button
+            key={v}
+            type="button"
+            variant={block.variant === v ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => onUpdate({ variant: v } as Partial<ContentBlock>)}
+          >
             {v}
-          </button>
+          </Button>
         ))}
       </div>
-      <input value={block.text} onChange={(e) => onUpdate({ text: e.target.value } as Partial<ContentBlock>)}
-        className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" />
+      <StandardInput
+        value={block.text}
+        onChange={(e) => onUpdate({ text: e.target.value } as Partial<ContentBlock>)}
+      />
     </div>
   )
 
@@ -1029,31 +1047,28 @@ function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: P
       <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-img-url">
         Bilde-URL
       </label>
-      <input
+      <StandardInput
         id="wiki-img-url"
         value={block.url}
         onChange={(e) => onUpdate({ url: e.target.value } as Partial<ContentBlock>)}
         placeholder="https://…"
-        className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm"
       />
       <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-img-alt">
         Alt-tekst
       </label>
-      <input
+      <StandardInput
         id="wiki-img-alt"
         value={block.alt ?? ''}
         onChange={(e) => onUpdate({ alt: e.target.value } as Partial<ContentBlock>)}
         placeholder="Beskriv bildet for skjermlesere"
-        className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm"
       />
       <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-img-cap">
         Bildetekst (valgfritt)
       </label>
-      <input
+      <StandardInput
         id="wiki-img-cap"
         value={block.caption ?? ''}
         onChange={(e) => onUpdate({ caption: e.target.value } as Partial<ContentBlock>)}
-        className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm"
       />
       <div>
         <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-img-width">
@@ -1073,21 +1088,28 @@ function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: P
       <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">§ Lovhenvisning</p>
       <div>
         <label className="mb-1 block text-xs font-medium text-neutral-500">Referanse</label>
-        <input value={block.ref} onChange={(e) => onUpdate({ ref: e.target.value } as Partial<ContentBlock>)}
+        <StandardInput
+          value={block.ref}
+          onChange={(e) => onUpdate({ ref: e.target.value } as Partial<ContentBlock>)}
           placeholder="f.eks. IK-f §5 nr. 1a"
-          className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm font-mono" />
+          className="font-mono"
+        />
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-neutral-500">Beskrivelse</label>
-        <input value={block.description} onChange={(e) => onUpdate({ description: e.target.value } as Partial<ContentBlock>)}
+        <StandardInput
+          value={block.description}
+          onChange={(e) => onUpdate({ description: e.target.value } as Partial<ContentBlock>)}
           placeholder="Beskriv hva bestemmelsen krever"
-          className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm" />
+        />
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-neutral-500">Lenke (valgfritt)</label>
-        <input value={block.url ?? ''} onChange={(e) => onUpdate({ url: e.target.value } as Partial<ContentBlock>)}
+        <StandardInput
+          value={block.url ?? ''}
+          onChange={(e) => onUpdate({ url: e.target.value } as Partial<ContentBlock>)}
           placeholder="https://lovdata.no/…"
-          className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm" />
+        />
       </div>
     </div>
   )
@@ -1095,28 +1117,24 @@ function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: P
   if (block.kind === 'module') return (
     <div className="space-y-3">
       <div>
-        <label className="text-xs font-medium text-neutral-500">Modul</label>
-        <select
+        <label className="mb-1 block text-xs font-medium text-neutral-500">Modul</label>
+        <SearchableSelect
           value={block.moduleName}
-          onChange={(e) => onUpdate({ moduleName: e.target.value as ModuleBlock['moduleName'] } as Partial<ContentBlock>)}
-          className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
-        >
-          {MODULE_OPTIONS.map((o) => <option key={o.name} value={o.name}>{o.label}</option>)}
-        </select>
+          options={MODULE_SELECT_OPTIONS}
+          onChange={(v) => onUpdate({ moduleName: v as ModuleBlock['moduleName'] } as Partial<ContentBlock>)}
+        />
       </div>
       {block.moduleName === 'action_button' && (
         <div className="space-y-2">
-          <input
+          <StandardInput
             value={typeof block.params?.label === 'string' ? block.params.label : ''}
             onChange={(e) => onUpdate({ params: { ...block.params, label: e.target.value } } as Partial<ContentBlock>)}
             placeholder="Knappetekst"
-            className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
           />
-          <input
+          <StandardInput
             value={typeof block.params?.route === 'string' ? block.params.route : ''}
             onChange={(e) => onUpdate({ params: { ...block.params, route: e.target.value } } as Partial<ContentBlock>)}
             placeholder="Rute (f.eks. /workplace-reporting/incidents)"
-            className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
           />
         </div>
       )}
