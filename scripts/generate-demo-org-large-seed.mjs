@@ -1,5 +1,5 @@
 /**
- * Generates supabase/migrations/20260513120000_demo_org_large_seed.sql
+ * Generates supabase/migrations/archive/20260513120000_demo_org_large_seed.sql
  * Run: node scripts/generate-demo-org-large-seed.mjs
  */
 import { writeFileSync } from 'node:fs'
@@ -903,6 +903,6 @@ on conflict (organization_id, module_key) do update set
 `
 }
 
-const outPath = join(__dirname, '../supabase/migrations/20260513120000_demo_org_large_seed.sql')
+const outPath = join(__dirname, '../supabase/migrations/archive/20260513120000_demo_org_large_seed.sql')
 writeFileSync(outPath, sql, 'utf8')
 console.log('Wrote', outPath)

@@ -6,7 +6,7 @@
 
 ## 1. ARCHITECTURE: DATABASE FIRST
 Every module must start with the data layer. We use Supabase (PostgreSQL).
-- **Migration Files:** Create standard SQL migrations in `supabase/migrations/`.
+- **Migration Files:** Create **new** SQL migrations in `supabase/migrations/` (root). Keep the long historical chain under `supabase/migrations/archive/`.
 - **Primary Tables:** Create the core entity tables (e.g., `[module_name]`, `[module_name]_items`).
 - **Audit Logging:** Core tables MUST have triggers for immutable audit logging (reference `hse_immutable_audit_log.sql`).
 - **Row Level Security (RLS):** ALL tables MUST have strict RLS policies ensuring users only see data for their organization/location.
@@ -63,7 +63,7 @@ Every module MUST have an Admin Settings area and hook into the global workflow 
 
 ## 4. EXECUTION PROTOCOL
 When asked to generate a new module, execute in this exact order:
-1. **DB & Types:** `supabase/migrations/` SQL -> `modules/[name]/types.ts` & `schema.ts`.
+1. **DB & Types:** `supabase/migrations/*.sql` (and `archive/`) SQL -> `modules/[name]/types.ts` & `schema.ts`.
 2. **State:** `modules/[name]/use[Name].ts` handling all Supabase interactions.
 3. **Admin:** Build the Admin UI for managing templates.
 4. **Workflow:** Register the module's events in the workflow factory.

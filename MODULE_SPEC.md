@@ -141,7 +141,9 @@ VALUES (org_id, 'xxx', 'Xxx Modulnavn', true, '{"enablePhotos":true}');
 
 ```
 supabase/migrations/
-  YYYYMMDDHHMMSS_xxx_schema.sql          -- tables, indexes, RLS, triggers
+  YYYYMMDDHHMMSS_xxx_new_change.sql      -- new migrations only (keep root uncluttered)
+supabase/migrations/archive/
+  YYYYMMDDHHMMSS_xxx_schema.sql          -- historical chain: tables, indexes, RLS, triggers
   YYYYMMDDHHMMSS_xxx_workflow.sql        -- workflow rules
   YYYYMMDDHHMMSS_xxx_seed_templates.sql  -- default templates
   YYYYMMDDHHMMSS_xxx_seed_module.sql     -- modules table registration

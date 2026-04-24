@@ -6,7 +6,7 @@
 
 ## 1. ARCHITECTURE & DATABASE (SUPABASE)
 Every module starts with the data layer. 
-- **Migrations:** Create standard SQL migrations in `supabase/migrations/`.
+- **Migrations:** New SQL in `supabase/migrations/` (root); historical chain in `supabase/migrations/archive/`.
 - **Audit Logging:** Core tables MUST have triggers for immutable audit logging.
 - **Row Level Security (RLS) - CRITICAL:**
   ALL tables must enforce isolation by `organization_id`. Use this exact trigger pattern for inserts:

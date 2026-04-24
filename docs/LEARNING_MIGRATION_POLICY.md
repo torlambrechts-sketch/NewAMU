@@ -30,7 +30,7 @@ RLS policies enforce org membership; certificate **insert** uses a security defi
 
 ## Rollout
 
-1. Apply migrations in `supabase/migrations/` (all `*.sql` files in that directory; `npm run db:migrate` runs them in timestamp order).
+1. Apply migrations under `supabase/migrations/` recursively (`archive/` holds the historical chain; add **new** migrations as `*.sql` in the folder root; `npm run db:migrate` runs everything in timestamp order).
 2. Existing orgs: grant `learning.manage` to the **admin** system role via migration; other roles keep `module.view.learning` only until changed in Admin → Roles.
 3. First-time orgs: `create_organization_with_brreg` seeds `learning.manage` on the admin role.
 4. App: when Supabase + `organization_id` are present, `useLearning` reads/writes these tables; optional one-time seed from bundled AML/demo when the org library is empty (client batch insert, `learning.manage` only).
