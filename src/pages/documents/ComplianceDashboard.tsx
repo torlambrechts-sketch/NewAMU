@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { CheckCircle2, Circle, ExternalLink, X } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
-import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
+import { ModuleSectionCard, MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../../components/module'
 import { Button } from '../../components/ui/Button'
 
 function subscribeClock(cb: () => void) {
@@ -152,23 +152,8 @@ export function ComplianceDashboard() {
   const pct = total ? Math.round((covered / total) * 100) : 0
 
   return (
-    <DocumentsModuleLayout
-      subHeader={
-        <div className="mt-6 border-b border-neutral-200/80 pb-6">
-          <p className="text-sm text-neutral-600">
-            Oversikt over hvilke krav i Internkontrollforskriften og Arbeidsmiljøloven som er dekket av publiserte sider.
-            Klikk en rad for detaljer og lenker.
-          </p>
-          <Link
-            to="/documents/compliance/inspection-export"
-            className="mt-3 inline-flex text-sm font-medium text-[#1a3d32] underline"
-          >
-            Arbeidstilsynet-rapport (strukturert utskrift) →
-          </Link>
-        </div>
-      }
-    >
-      <div className="mt-6 rounded-none border border-neutral-200/90 bg-white p-5 shadow-sm">
+    <>
+      <ModuleSectionCard className="mt-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="text-4xl font-bold tabular-nums text-[#1a3d32]">{pct}%</div>
@@ -183,14 +168,14 @@ export function ComplianceDashboard() {
             </div>
           </div>
         </div>
-        <div className="mt-4 h-3 overflow-hidden rounded-none bg-neutral-200">
-          <div className="h-full rounded-none bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+        <div className="mt-4 h-3 overflow-hidden rounded-full bg-neutral-200">
+          <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
         </div>
-      </div>
+      </ModuleSectionCard>
 
       {employeeCount >= 50 ? (
         <div className="mt-8 space-y-4">
-          <div className="overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
+          <ModuleSectionCard className="overflow-hidden p-0">
             <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">
               <h2 className="font-semibold text-neutral-900">AMU (AML §7 — store virksomheter)</h2>
               <p className="text-xs text-neutral-500">
@@ -201,15 +186,15 @@ export function ComplianceDashboard() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    <th className="px-4 py-3">Hjemmel</th>
-                    <th className="px-4 py-3">Krav</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Siste</th>
+                  <tr>
+                    <th className={MODULE_TABLE_TH}>Hjemmel</th>
+                    <th className={MODULE_TABLE_TH}>Krav</th>
+                    <th className={MODULE_TABLE_TH}>Status</th>
+                    <th className={MODULE_TABLE_TH}>Siste</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
-                  <tr>
+                  <tr className={MODULE_TABLE_TR_BODY}>
                     <td className="px-4 py-3 font-mono text-xs text-[#1a3d32]">AML §7-4</td>
                     <td className="px-4 py-3 text-neutral-700">AMU-protokoller tilgjengelig</td>
                     <td className="px-4 py-3">
@@ -237,10 +222,10 @@ export function ComplianceDashboard() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </ModuleSectionCard>
 
           <div
-            className={`rounded-none border px-4 py-3 text-sm ${
+            className={`rounded-xl border px-4 py-3 text-sm ${
               amuCompliance.meetingsPublishedLast12m >= 4
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
                 : 'border-amber-200 bg-amber-50 text-amber-950'
@@ -270,7 +255,7 @@ export function ComplianceDashboard() {
         </p>
       )}
 
-      <div className="mt-8 overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
+      <ModuleSectionCard className="mt-8 overflow-hidden p-0">
         <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">
           <h2 className="font-semibold text-neutral-900">Verneombud (AML §6-1)</h2>
           <p className="text-xs text-neutral-500">Mandat og valgperiode — revisjonsfrist følger 2-årsvalg.</p>
@@ -278,15 +263,15 @@ export function ComplianceDashboard() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead>
-              <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                <th className="px-4 py-3">Hjemmel</th>
-                <th className="px-4 py-3">Krav</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Mandat utløper</th>
+              <tr>
+                <th className={MODULE_TABLE_TH}>Hjemmel</th>
+                <th className={MODULE_TABLE_TH}>Krav</th>
+                <th className={MODULE_TABLE_TH}>Status</th>
+                <th className={MODULE_TABLE_TH}>Mandat utløper</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
+              <tr className={MODULE_TABLE_TR_BODY}>
                 <td className="px-4 py-3 font-mono text-xs text-[#1a3d32]">AML §6-1</td>
                 <td className="px-4 py-3 text-neutral-700">Verneombud valgt og dokumentert</td>
                 <td className="px-4 py-3">
@@ -321,21 +306,21 @@ export function ComplianceDashboard() {
             </tbody>
           </table>
         </div>
-      </div>
+      </ModuleSectionCard>
 
-      <div className="mb-8 mt-8 overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
+      <ModuleSectionCard className="mb-8 mt-8 overflow-hidden p-0">
         <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">
           <h2 className="font-semibold text-neutral-900">Krav per lovhenvisning</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[800px] text-left text-sm">
             <thead>
-              <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Hjemmel</th>
-                <th className="px-4 py-3">Krav</th>
-                <th className="px-4 py-3">Neste revideringsdato</th>
-                <th className="px-4 py-3">Dekket av</th>
+              <tr>
+                <th className={MODULE_TABLE_TH}>Status</th>
+                <th className={MODULE_TABLE_TH}>Hjemmel</th>
+                <th className={MODULE_TABLE_TH}>Krav</th>
+                <th className={MODULE_TABLE_TH}>Neste revideringsdato</th>
+                <th className={MODULE_TABLE_TH}>Dekket av</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -362,7 +347,7 @@ export function ComplianceDashboard() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="rounded-none bg-[#1a3d32]/10 px-1.5 py-0.5 font-mono text-xs text-[#1a3d32]">
+                    <span className="rounded-md bg-[#1a3d32]/10 px-1.5 py-0.5 font-mono text-xs text-[#1a3d32]">
                       {c.ref}
                     </span>
                   </td>
@@ -391,7 +376,7 @@ export function ComplianceDashboard() {
                         {c.coveredBy.map((p) => (
                           <span
                             key={p.id}
-                            className="rounded-none border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800"
+                            className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800"
                           >
                             {p.title}
                           </span>
@@ -406,9 +391,9 @@ export function ComplianceDashboard() {
             </tbody>
           </table>
         </div>
-      </div>
+      </ModuleSectionCard>
 
-      <div className="overflow-hidden rounded-none border border-neutral-200/90 bg-white shadow-sm">
+      <ModuleSectionCard className="overflow-hidden p-0">
         <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">
           <h2 className="font-semibold text-neutral-900">Compliance-kvitteringer</h2>
           <p className="text-xs text-neutral-500">
@@ -421,11 +406,11 @@ export function ComplianceDashboard() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
-                <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                  <th className="px-4 py-3">Side</th>
-                  <th className="px-4 py-3">Versjon</th>
-                  <th className="px-4 py-3">Kvitteringer</th>
-                  <th className="px-4 py-3">Siste signatur</th>
+                <tr>
+                  <th className={MODULE_TABLE_TH}>Side</th>
+                  <th className={MODULE_TABLE_TH}>Versjon</th>
+                  <th className={MODULE_TABLE_TH}>Kvitteringer</th>
+                  <th className={MODULE_TABLE_TH}>Siste signatur</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -435,7 +420,7 @@ export function ComplianceDashboard() {
                     const recs = docs.receipts.filter((r) => r.pageId === p.id)
                     const last = recs.sort((a, b) => b.acknowledgedAt.localeCompare(a.acknowledgedAt))[0]
                     return (
-                      <tr key={p.id}>
+                      <tr key={p.id} className={MODULE_TABLE_TR_BODY}>
                         <td className="px-4 py-3">
                           <Link to={`/documents/page/${p.id}`} className="font-medium text-[#1a3d32] hover:underline">
                             {p.title}
@@ -444,7 +429,7 @@ export function ComplianceDashboard() {
                         <td className="px-4 py-3 text-xs text-neutral-500">v{p.version}</td>
                         <td className="px-4 py-3">
                           <span
-                            className={`rounded-none border px-2 py-0.5 text-xs font-medium ${
+                            className={`rounded-md border px-2 py-0.5 text-xs font-medium ${
                               recs.length > 0
                                 ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                                 : 'border-amber-200 bg-amber-50 text-amber-800'
@@ -465,7 +450,7 @@ export function ComplianceDashboard() {
             </table>
           </div>
         )}
-      </div>
+      </ModuleSectionCard>
 
       <div className="mt-6 flex justify-end">
         <a
@@ -485,7 +470,7 @@ export function ComplianceDashboard() {
             type="button"
             variant="ghost"
             aria-label="Lukk"
-            className="absolute inset-0 h-auto min-h-0 rounded-none bg-black/40 p-0 hover:bg-black/50"
+            className="absolute inset-0 h-auto min-h-0 rounded-sm bg-black/40 p-0 hover:bg-black/50"
             onClick={() => setPanelRef(null)}
           />
           <div
@@ -540,6 +525,6 @@ export function ComplianceDashboard() {
           </div>
         </div>
       )}
-    </DocumentsModuleLayout>
+    </>
   )
 }

@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
 import { WarningBox } from '../../components/ui/AlertBox'
+import { ToggleSwitch } from '../../components/ui/FormToggles'
 import { DocumentFolderAccessSettings } from './DocumentFolderAccessSettings'
 
 const CATEGORY_LABELS: Record<SpaceCategory, string> = {
@@ -226,17 +227,17 @@ export function DocumentTemplatesSettings() {
                         </td>
                         <td className="px-5 py-4 align-middle text-xs text-neutral-600">{CATEGORY_LABELS[t.category]}</td>
                         <td className="px-5 py-4 align-middle" onClick={(e) => e.stopPropagation()}>
-                          <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
-                            <input
-                              type="checkbox"
-                              className="size-4 rounded border-neutral-300"
-                              checked={enabled}
-                              disabled={busyId === t.id}
-                              aria-label={`Aktiv for ${t.label}`}
-                              onChange={(e) => void toggleTemplate(t.id, e.target.checked)}
-                            />
-                            {busyId === t.id ? <Loader2 className="size-4 animate-spin" /> : null}
-                          </label>
+                          <div className="flex items-center gap-2">
+                            {busyId === t.id ? (
+                              <Loader2 className="size-4 animate-spin text-neutral-400" />
+                            ) : (
+                              <ToggleSwitch
+                                checked={enabled}
+                                onChange={(v) => void toggleTemplate(t.id, v)}
+                                label={`Aktiv for ${t.label}`}
+                              />
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )
@@ -371,20 +372,18 @@ export function DocumentTemplatesSettings() {
                 <>
                   <p className="text-neutral-600">{systemPanelTpl.description}</p>
                   <p className="text-xs text-neutral-500">Kategori: {CATEGORY_LABELS[systemPanelTpl.category]}</p>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-md border border-neutral-200 p-3">
-                    <input
-                      type="checkbox"
-                      className="size-4 rounded border-neutral-300"
-                      checked={
-                        docs.orgTemplateSettings.find((s) => s.templateId === systemPanelTpl.id)?.enabled ?? true
-                      }
-                      disabled={busyId === systemPanelTpl.id}
-                      aria-label="Aktiv i malbiblioteket"
-                      onChange={(e) => void toggleTemplate(systemPanelTpl.id, e.target.checked)}
-                    />
-                    <span>Aktiv i malbiblioteket</span>
-                    {busyId === systemPanelTpl.id ? <Loader2 className="size-4 animate-spin" /> : null}
-                  </label>
+                  <div className="flex items-center gap-3 rounded-md border border-neutral-200 p-3">
+                    {busyId === systemPanelTpl.id ? (
+                      <Loader2 className="size-4 animate-spin text-neutral-400" />
+                    ) : (
+                      <ToggleSwitch
+                        checked={docs.orgTemplateSettings.find((s) => s.templateId === systemPanelTpl.id)?.enabled ?? true}
+                        onChange={(v) => void toggleTemplate(systemPanelTpl.id, v)}
+                        label="Aktiv i malbiblioteket"
+                      />
+                    )}
+                    <span className="text-sm text-neutral-700">Aktiv i malbiblioteket</span>
+                  </div>
                 </>
               )}
               {customPanelTpl && (

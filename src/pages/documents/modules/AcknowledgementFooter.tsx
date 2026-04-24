@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { CheckCircle2, ShieldCheck } from 'lucide-react'
 import { useDocuments, DEMO_USER_NAME } from '../../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
+import { Button } from '../../../components/ui/Button'
+import { StandardInput } from '../../../components/ui/Input'
 
 type Props = {
   pageId: string
@@ -40,21 +42,22 @@ export function AcknowledgementFooter({ pageId, pageVersion }: Props) {
             </div>
           ) : (
             <div className="mt-4 flex flex-wrap gap-3">
-              <input
+              <StandardInput
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ditt fulle navn"
-                className="min-w-[200px] flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+                className="min-w-[200px] flex-1"
               />
-              <button
+              <Button
                 type="button"
+                variant="primary"
                 disabled={!name.trim() && !profile?.display_name?.trim()}
+                icon={<ShieldCheck className="size-4" />}
                 onClick={() => void acknowledge(pageId, name || (profile?.display_name ?? ''))}
-                className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-5 py-2 text-sm font-medium text-white disabled:opacity-40 hover:bg-[#142e26]"
+                className="rounded-full"
               >
-                <ShieldCheck className="size-4" />
                 Jeg har lest og forstått dette dokumentet
-              </button>
+              </Button>
             </div>
           )}
           <p className="mt-2 text-xs text-neutral-400">
