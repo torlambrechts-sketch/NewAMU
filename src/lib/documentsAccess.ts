@@ -13,15 +13,15 @@ export function canAccessDocumentsModule(can: (k: PermissionKey) => boolean): bo
 }
 
 /**
- * Folder grant bypass — editors and org admins see every folder without per-folder grants.
- * View-only (`documents.view`) still follows folder allow-lists.
+ * Folder grant bypass — only full documents admin (and org admin profile) ignores per-folder rules.
+ * Editors and viewers follow mappe-regler (see wikiSpaceAccessGrants).
  */
 export function canBypassWikiFolderGrants(
   can: (k: PermissionKey) => boolean,
   isOrgAdminProfile: boolean | undefined,
 ): boolean {
   if (isOrgAdminProfile) return true
-  return can('documents.manage') || can('documents.edit')
+  return can('documents.manage')
 }
 
 /** Create, edit, publish, archive wiki pages (not org template library admin). */

@@ -1,4 +1,4 @@
-import type { ContentBlock, PageTemplate, SpaceCategory, WikiPage } from '../types/documents'
+import type { ContentBlock, PageTemplate, WikiPage } from '../types/documents'
 
 export const WIKI_PAGE_EXPORT_VERSION = 'klarert-wiki-page-export-v1' as const
 export const DOCUMENT_TEMPLATE_EXPORT_VERSION = 'klarert-document-template-export-v1' as const

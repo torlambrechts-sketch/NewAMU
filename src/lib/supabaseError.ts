@@ -19,7 +19,11 @@ export function getSupabaseErrorMessage(err: unknown): string {
   } else if (typeof err === 'object' && err !== null && 'message' in err) {
     const e = err as { message?: string; details?: string; hint?: string; code?: string }
     if (e.code === '23505') {
-      return duplicateOrgMessage()
+      const hint = `${e.message ?? ''} ${e.details ?? ''}`.toLowerCase()
+      if (hint.includes('organization') || hint.includes('orgnr') || hint.includes('organisasjon')) {
+        return duplicateOrgMessage()
+      }
+      return 'Denne oppføringen finnes allerede (dublett). Fjern den gamle regelen eller velg en annen kombinasjon.'
     }
     const parts = [e.message, e.details, e.hint].filter(Boolean)
     raw = parts.join(' — ')

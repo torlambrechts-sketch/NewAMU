@@ -16,10 +16,16 @@ import { InfoBox } from '../ui/AlertBox'
 import {
   useDocumentsHubActionsRegister,
   useDocumentsHubNewDocumentRegister,
+  useDocumentsHubShellCapabilitiesRegister,
 } from '../../../modules/documents/DocumentsHubActionsContext'
 import { DocumentsTemplateLibraryBody } from '../documents/DocumentsTemplateLibraryBody'
-import { canViewWikiSpace } from '../../lib/wikiSpaceAccessGrants'
-import { canBypassWikiFolderGrants, canEditWikiDocuments } from '../../lib/documentsAccess'
+import {
+  canViewWikiSpace,
+  folderAllowsArchivePage,
+  folderAllowsCreate,
+  folderAllowsWritePage,
+} from '../../lib/wikiSpaceAccessGrants'
+import { canAdminDocumentTemplates, canEditWikiDocuments } from '../../lib/documentsAccess'
 
 /** Beige nav — matches layout-reference `RefCandidateDetailPaneBlock`. */
 const BEIGE_NAV = '#EDE4D3'
@@ -86,7 +92,7 @@ export function ModuleDocumentsKandidatdetaljHub({
   const navigate = useNavigate()
   const { can, user, profile, members } = useOrgSetupContext()
   const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
-  const bypassFolderRbac = canBypassWikiFolderGrants(can, profile?.is_org_admin)
+  const canAdminTemplates = canAdminDocumentTemplates(can, profile?.is_org_admin)
 
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null)
   const [folderQuery, setFolderQuery] = useState('')
@@ -161,13 +167,14 @@ export function ModuleDocumentsKandidatdetaljHub({
       canViewWikiSpace({
         spaceId: s.id,
         grants: docs.wikiSpaceAccessGrants,
-        bypassRestriction: bypassFolderRbac,
+        can,
+        isOrgAdminProfile: profile?.is_org_admin,
         userId: user?.id,
         profile,
         members,
       }),
     )
-  }, [centerContent, spacesForNav, docs.wikiSpaceAccessGrants, bypassFolderRbac, user?.id, profile, members])
+  }, [centerContent, spacesForNav, docs.wikiSpaceAccessGrants, can, user?.id, profile, members])
 
   useEffect(() => {
     if (centerContent !== 'pages') return
@@ -231,6 +238,38 @@ export function ModuleDocumentsKandidatdetaljHub({
     if (centerContent !== 'pages' || !targetSpaceIdForActions) return null
     return spacesForNavFiltered.find((s) => s.id === targetSpaceIdForActions) ?? null
   }, [centerContent, targetSpaceIdForActions, spacesForNavFiltered])
+
+  const hubCanCreateInTarget = useMemo(
+    () =>
+      targetSpaceIdForActions
+        ? folderAllowsCreate(targetSpaceIdForActions, docs.wikiSpaceAccessGrants, can, profile?.is_org_admin)
+        : false,
+    [targetSpaceIdForActions, docs.wikiSpaceAccessGrants, can, profile],
+  )
+  const hubCanWriteTarget = useMemo(
+    () =>
+      targetSpaceIdForActions
+        ? folderAllowsWritePage(
+            targetSpaceIdForActions,
+            docs.wikiSpaceAccessGrants,
+            can,
+            profile?.is_org_admin,
+            user?.id,
+            profile,
+            members,
+          )
+        : false,
+    [targetSpaceIdForActions, docs.wikiSpaceAccessGrants, can, user?.id, profile, members],
+  )
+
+  const hubShellCaps = useMemo(() => {
+    if (centerContent !== 'pages' || variant !== 'home') return null
+    return {
+      canNewDocument: canEditDocs && hubCanCreateInTarget,
+      canNewFolder: canAdminTemplates || (canEditDocs && hubCanCreateInTarget),
+    }
+  }, [centerContent, variant, canEditDocs, hubCanCreateInTarget, canAdminTemplates])
+  useDocumentsHubShellCapabilitiesRegister(hubShellCaps)
 
   const newFolderCategoryOptions = useMemo(
     () =>
@@ -319,13 +358,17 @@ export function ModuleDocumentsKandidatdetaljHub({
       setUiError('Opprett eller velg en mappe først.')
       return
     }
+    if (!folderAllowsCreate(targetSpaceIdForActions, docs.wikiSpaceAccessGrants, can, profile?.is_org_admin)) {
+      setUiError('Du har ikke rettighet til å opprette dokumenter i denne mappen.')
+      return
+    }
     try {
       const page = await docs.createPage(targetSpaceIdForActions, 'Ny side', 'standard', [])
       navigate(`/documents/page/${page.id}/reference-edit`)
     } catch (err) {
       setUiError(err instanceof Error ? err.message : 'Kunne ikke opprette side.')
     }
-  }, [targetSpaceIdForActions, docs, navigate])
+  }, [targetSpaceIdForActions, docs, navigate, can, profile?.is_org_admin])
 
   useDocumentsHubNewDocumentRegister(
     () => {
@@ -338,6 +381,10 @@ export function ModuleDocumentsKandidatdetaljHub({
     setUiError(null)
     if (!targetSpaceIdForActions) {
       setUiError('Velg en mappe (eller opprett én) før du laster opp.')
+      return
+    }
+    if (!folderAllowsWritePage(targetSpaceIdForActions, docs.wikiSpaceAccessGrants, can, profile?.is_org_admin, user?.id, profile, members)) {
+      setUiError('Du har ikke rettighet til å laste opp filer i denne mappen.')
       return
     }
     uploadInputRef.current?.click()
@@ -385,16 +432,7 @@ export function ModuleDocumentsKandidatdetaljHub({
 
   const onFolderDragOver = (e: DragEvent, spaceId: string) => {
     if (!canEditDocs || !e.dataTransfer.types.includes(MIME_PAGE_DRAG)) return
-    if (
-      !canViewWikiSpace({
-        spaceId,
-        grants: docs.wikiSpaceAccessGrants,
-        bypassRestriction: bypassFolderRbac,
-        userId: user?.id,
-        profile,
-        members,
-      })
-    ) {
+    if (!folderAllowsWritePage(spaceId, docs.wikiSpaceAccessGrants, can, profile?.is_org_admin, user?.id, profile, members)) {
       return
     }
     e.preventDefault()
@@ -404,16 +442,7 @@ export function ModuleDocumentsKandidatdetaljHub({
 
   const onFolderDrop = async (e: DragEvent, spaceId: string) => {
     if (!canEditDocs) return
-    if (
-      !canViewWikiSpace({
-        spaceId,
-        grants: docs.wikiSpaceAccessGrants,
-        bypassRestriction: bypassFolderRbac,
-        userId: user?.id,
-        profile,
-        members,
-      })
-    ) {
+    if (!folderAllowsWritePage(spaceId, docs.wikiSpaceAccessGrants, can, profile?.is_org_admin, user?.id, profile, members)) {
       return
     }
     e.preventDefault()
@@ -422,11 +451,29 @@ export function ModuleDocumentsKandidatdetaljHub({
     if (!pageId) return
     const page = docs.pages.find((p) => p.id === pageId)
     if (!page || page.spaceId === spaceId) return
+    if (
+      !folderAllowsWritePage(page.spaceId, docs.wikiSpaceAccessGrants, can, profile?.is_org_admin, user?.id, profile, members)
+    ) {
+      return
+    }
     await movePageToSpace(pageId, spaceId)
   }
 
   const onUploadZoneDrop = async (e: DragEvent) => {
     if (!canEditDocs || !targetSpaceIdForActions) return
+    if (
+      !folderAllowsWritePage(
+        targetSpaceIdForActions,
+        docs.wikiSpaceAccessGrants,
+        can,
+        profile?.is_org_admin,
+        user?.id,
+        profile,
+        members,
+      )
+    ) {
+      return
+    }
     e.preventDefault()
     setDropHighlightSpaceId(null)
     if (e.dataTransfer.files?.length) {
@@ -467,7 +514,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                     : 'Bibliotek: velg mappe til venstre, jobb med sider til høyre. Dra dokumentrader til en mappe for å flytte. Standard modul-UI.'}
               </p>
             </div>
-            {canEditDocs ? (
+            {canEditDocs || canAdminTemplates ? (
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
                 {centerContent === 'templates' ? (
                   <>
@@ -485,15 +532,21 @@ export function ModuleDocumentsKandidatdetaljHub({
                   </>
                 ) : (
                   <>
-                    <Button type="button" variant="secondary" icon={<FolderPlus className="h-4 w-4" />} onClick={toggleNewFolderPanel}>
-                      Ny mappe
-                    </Button>
-                    <Button type="button" variant="secondary" icon={<Upload className="h-4 w-4" />} onClick={triggerUpload}>
-                      Last opp
-                    </Button>
-                    <Button type="button" variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => void handleNewDocument()}>
-                      Nytt dokument
-                    </Button>
+                    {(canAdminTemplates || (canEditDocs && hubCanCreateInTarget)) ? (
+                      <Button type="button" variant="secondary" icon={<FolderPlus className="h-4 w-4" />} onClick={toggleNewFolderPanel}>
+                        Ny mappe
+                      </Button>
+                    ) : null}
+                    {canEditDocs && hubCanWriteTarget ? (
+                      <Button type="button" variant="secondary" icon={<Upload className="h-4 w-4" />} onClick={triggerUpload}>
+                        Last opp
+                      </Button>
+                    ) : null}
+                    {canEditDocs && hubCanCreateInTarget ? (
+                      <Button type="button" variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => void handleNewDocument()}>
+                        Nytt dokument
+                      </Button>
+                    ) : null}
                   </>
                 )}
               </div>
@@ -515,7 +568,7 @@ export function ModuleDocumentsKandidatdetaljHub({
       {uiError ? <WarningBox>{uiError}</WarningBox> : null}
       {!canEditDocs ? <InfoBox>Du har ikke redigeringstilgang — visning av mapper og sider.</InfoBox> : null}
 
-      {canEditDocs && newFolderOpen ? (
+      {(canAdminTemplates || (canEditDocs && hubCanCreateInTarget)) && newFolderOpen ? (
         <ModuleSectionCard className="p-4 md:p-5">
           <h3 className="text-sm font-semibold text-neutral-900">Ny mappe</h3>
           <form onSubmit={(e) => void handleCreateFolder(e)} className="mt-3 space-y-3">
@@ -577,7 +630,7 @@ export function ModuleDocumentsKandidatdetaljHub({
             />
             {filteredSpaces.map((space) => {
               const count = docs.pages.filter((p) => p.spaceId === space.id).length
-              const dropOn = canEditDocs
+              const dropOn = canEditDocs && folderAllowsWritePage(space.id, docs.wikiSpaceAccessGrants, can, profile?.is_org_admin, user?.id, profile, members)
               return (
                 <NavFolderRow
                   key={space.id}
@@ -589,7 +642,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                   onDragOver={dropOn ? (e) => onFolderDragOver(e, space.id) : undefined}
                   onDrop={dropOn ? (e) => void onFolderDrop(e, space.id) : undefined}
                   actions={
-                    canEditDocs ? (
+                    canAdminTemplates ? (
                       <>
                         <Button
                           type="button"
@@ -657,7 +710,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                       aria-label="Søk i sider"
                     />
                   </div>
-                  {canEditDocs && targetSpaceIdForActions && uploadTargetSpace ? (
+                  {canEditDocs && hubCanWriteTarget && targetSpaceIdForActions && uploadTargetSpace ? (
                     <ModuleSectionCard className="overflow-hidden p-2.5 shadow-sm">
                       <div
                         role="region"
@@ -698,7 +751,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                     <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Status</th>
                     <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Endret</th>
                     <th className={`${MODULE_TABLE_TH} text-right text-sm normal-case font-semibold tracking-normal`}>
-                      {canEditDocs ? 'Handlinger' : 'Dokument'}
+                      {canEditDocs ? 'Handlinger' : 'Vis'}
                     </th>
                   </tr>
                 </thead>
@@ -719,12 +772,30 @@ export function ModuleDocumentsKandidatdetaljHub({
                       page.status === 'published' ? 'Publisert' : page.status === 'draft' ? 'Utkast' : 'Arkivert'
                     const variantBadge = page.status === 'published' ? 'success' : 'neutral'
                     const busy = movingPageId === page.id
+                    const rowWrite = folderAllowsWritePage(
+                      page.spaceId,
+                      docs.wikiSpaceAccessGrants,
+                      can,
+                      profile?.is_org_admin,
+                      user?.id,
+                      profile,
+                      members,
+                    )
+                    const rowArchive = folderAllowsArchivePage(
+                      page.spaceId,
+                      docs.wikiSpaceAccessGrants,
+                      can,
+                      profile?.is_org_admin,
+                      user?.id,
+                      profile,
+                      members,
+                    )
                     return (
                       <tr
                         key={page.id}
                         className={MODULE_TABLE_TR_BODY}
-                        draggable={canEditDocs}
-                        onDragStart={canEditDocs ? (e) => onPageDragStart(e, page.id) : undefined}
+                        draggable={canEditDocs && rowWrite}
+                        onDragStart={canEditDocs && rowWrite ? (e) => onPageDragStart(e, page.id) : undefined}
                       >
                         {selectedSpaceId == null ? (
                           <td className={`${MODULE_TABLE_TD} text-sm text-neutral-600`}>
@@ -763,32 +834,30 @@ export function ModuleDocumentsKandidatdetaljHub({
                               onClick={() => navigate(viewPath(page.id))}
                               icon={<Eye className="h-4 w-4" aria-hidden />}
                             />
-                            {canEditDocs ? (
-                              <>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="shrink-0 text-neutral-500 hover:text-neutral-800"
-                                  title="Rediger"
-                                  aria-label={`Rediger ${page.title}`}
-                                  disabled={busy}
-                                  onClick={() => navigate(editPath(page.id))}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                {page.status !== 'archived' ? (
-                                  <Button
-                                    type="button"
-                                    variant="secondary"
-                                    disabled={busy}
-                                    icon={<Archive className="h-4 w-4" aria-hidden />}
-                                    onClick={() => setArchivePageTarget(page)}
-                                  >
-                                    Arkiver
-                                  </Button>
-                                ) : null}
-                              </>
+                            {canEditDocs && rowWrite ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="shrink-0 text-neutral-500 hover:text-neutral-800"
+                                title="Rediger"
+                                aria-label={`Rediger ${page.title}`}
+                                disabled={busy}
+                                onClick={() => navigate(editPath(page.id))}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            ) : null}
+                            {canEditDocs && rowArchive && page.status !== 'archived' ? (
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                disabled={busy}
+                                icon={<Archive className="h-4 w-4" aria-hidden />}
+                                onClick={() => setArchivePageTarget(page)}
+                              >
+                                Arkiver
+                              </Button>
                             ) : null}
                           </div>
                         </td>
