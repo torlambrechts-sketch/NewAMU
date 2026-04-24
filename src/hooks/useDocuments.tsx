@@ -53,12 +53,22 @@ function mapSpaceAccessGrant(row: {
   space_id: string
   grant_type: string
   subject_id: string
+  can_read?: boolean | null
+  can_create?: boolean | null
+  can_write?: boolean | null
+  can_archive?: boolean | null
+  can_delete?: boolean | null
 }): WikiSpaceAccessGrant {
   return {
     id: row.id,
     spaceId: row.space_id,
     grantType: row.grant_type as WikiSpaceGrantType,
     subjectId: row.subject_id,
+    canRead: row.can_read !== false,
+    canCreate: row.can_create === true,
+    canWrite: row.can_write === true,
+    canArchive: row.can_archive === true,
+    canDelete: row.can_delete === true,
   }
 }
 
@@ -528,7 +538,9 @@ function useDocumentsStore() {
             .order('slug'),
           supabase
             .from('wiki_space_access_grants')
-            .select('id, space_id, grant_type, subject_id')
+            .select(
+              'id, space_id, grant_type, subject_id, can_read, can_create, can_write, can_archive, can_delete',
+            )
             .eq('organization_id', orgId),
           fetchAllForOrg(supabase, orgId, authorFallback),
         ])
@@ -1398,7 +1410,18 @@ function useDocumentsStore() {
   )
 
   const addWikiSpaceAccessGrant = useCallback(
-    async (spaceId: string, grantType: WikiSpaceGrantType, subjectId: string) => {
+    async (
+      spaceId: string,
+      grantType: WikiSpaceGrantType,
+      subjectId: string,
+      caps: {
+        canRead: boolean
+        canCreate: boolean
+        canWrite: boolean
+        canArchive: boolean
+        canDelete: boolean
+      },
+    ) => {
       const sid = subjectId.trim()
       if (!spaceId || !sid) return
       if (!useRemote) {
@@ -1408,7 +1431,20 @@ function useDocumentsStore() {
           const dedup = prev.filter(
             (g) => !(g.spaceId === spaceId && g.grantType === grantType && g.subjectId === sid),
           )
-          const next = [...dedup, { id, spaceId, grantType, subjectId: sid }]
+          const next = [
+            ...dedup,
+            {
+              id,
+              spaceId,
+              grantType,
+              subjectId: sid,
+              canRead: caps.canRead,
+              canCreate: caps.canCreate,
+              canWrite: caps.canWrite,
+              canArchive: caps.canArchive,
+              canDelete: caps.canDelete,
+            },
+          ]
           saveWikiSpaceGrantsToStorage(orgId, next)
           return next
         })
@@ -1422,8 +1458,15 @@ function useDocumentsStore() {
           space_id: spaceId,
           grant_type: grantType,
           subject_id: sid,
+          can_read: caps.canRead,
+          can_create: caps.canCreate,
+          can_write: caps.canWrite,
+          can_archive: caps.canArchive,
+          can_delete: caps.canDelete,
         })
-        .select('id, space_id, grant_type, subject_id')
+        .select(
+          'id, space_id, grant_type, subject_id, can_read, can_create, can_write, can_archive, can_delete',
+        )
         .single()
       if (e) throw e
       const mapped = mapSpaceAccessGrant(data as Parameters<typeof mapSpaceAccessGrant>[0])

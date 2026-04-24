@@ -18,8 +18,8 @@ import { WarningBox } from '../../components/ui/AlertBox'
 import { Tabs } from '../../components/ui/Tabs'
 import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { PageStatus } from '../../types/documents'
-import { canViewWikiSpace } from '../../lib/wikiSpaceAccessGrants'
-import { canBypassWikiFolderGrants, canEditWikiDocuments } from '../../lib/documentsAccess'
+import { canViewWikiSpace, folderAllowsWritePage } from '../../lib/wikiSpaceAccessGrants'
+import { canEditWikiDocuments } from '../../lib/documentsAccess'
 
 const TEMPLATE_CLASS = {
   standard: 'max-w-3xl',
@@ -55,7 +55,6 @@ export function WikiPageView() {
   const docs = useDocuments()
   const { can, user, profile, members } = useOrgSetupContext()
   const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
-  const bypassFolderRbac = canBypassWikiFolderGrants(can, profile?.is_org_admin)
   const { ensurePageLoaded, pageHydrateLoading, pageHydrateError } = docs
   const timeNow = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
   const [activeTab, setActiveTab] = useState<DetailTab>('informasjon')
@@ -68,7 +67,8 @@ export function WikiPageView() {
       : canViewWikiSpace({
           spaceId: space.id,
           grants: docs.wikiSpaceAccessGrants,
-          bypassRestriction: bypassFolderRbac,
+          can,
+          isOrgAdminProfile: profile?.is_org_admin,
           userId: user?.id,
           profile,
           members,
@@ -87,6 +87,11 @@ export function WikiPageView() {
   const alreadySigned = page ? docs.hasAcknowledged(page.id, page.version) : false
   const showSignBadge = page ? page.requiresAcknowledgement && docs.acknowledgementRequiredForMe(page) : false
   const versions = page ? docs.versionsForPage(page.id) : []
+  const canEditThisPage =
+    page && space
+      ? canEditDocs &&
+        folderAllowsWritePage(space.id, docs.wikiSpaceAccessGrants, can, profile?.is_org_admin, user?.id, profile, members)
+      : canEditDocs
   const versionCount = versions.length
   const due = page?.nextRevisionDueAt ? new Date(page.nextRevisionDueAt) : null
   const daysToDue = due ? Math.ceil((due.getTime() - timeNow) / (24 * 60 * 60 * 1000)) : null
@@ -221,7 +226,7 @@ export function WikiPageView() {
             onClick={() => setActiveTab('innhold')}
             icon={<Eye className="h-4 w-4" aria-hidden />}
           />
-          {canEditDocs ? (
+          {canEditThisPage ? (
             <Button
               type="button"
               variant="ghost"
@@ -293,7 +298,7 @@ export function WikiPageView() {
                     retainMaximumYears={page.retainMaximumYears}
                     archivedAt={page.archivedAt}
                     scheduledDeletionAt={page.scheduledDeletionAt}
-                    canEditRetention={canEditDocs}
+                    canEditRetention={canEditThisPage}
                     pageId={page.id}
                   />
                 ),
@@ -316,7 +321,7 @@ export function WikiPageView() {
                         {new Date(page.nextRevisionDueAt).toLocaleDateString('no-NO')}
                         {daysToDue != null && daysToDue < 0 ? ' (forfalt)' : daysToDue != null && daysToDue <= 60 ? ` (${daysToDue} dager)` : ''}
                       </span>
-                      {revisionSoon && canEditDocs ? (
+                      {revisionSoon && canEditThisPage ? (
                         <button
                           type="button"
                           onClick={() => navigate(`/documents/page/${page.id}/reference-edit`)}

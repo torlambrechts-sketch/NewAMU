@@ -4,7 +4,7 @@ import { FolderPlus, Plus } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { Button } from '../../src/components/ui/Button'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
-import { canEditWikiDocuments } from '../../src/lib/documentsAccess'
+import { canAdminDocumentTemplates, canEditWikiDocuments } from '../../src/lib/documentsAccess'
 import { DOCUMENTS_MODULE_DESC, DOCUMENTS_MODULE_TITLE } from '../../src/data/documentsNav'
 import { documentsModuleShellStyle } from '../../src/lib/documentsModuleShellStyle'
 import { DocumentsHubActionsProvider, useDocumentsHubActions } from './DocumentsHubActionsContext'
@@ -12,19 +12,37 @@ import { DocumentsShellEmbeddedProvider } from './DocumentsShellContext'
 import { DocumentsHubSecondaryNav } from '../../src/components/documents/DocumentsHubSecondaryNav'
 import { apiFetchAnnualReview } from '../../src/api/wikiAnnualReview'
 
-function DocumentsShellHeaderActions({ canEditDocs, onDocumentsHub }: { canEditDocs: boolean; onDocumentsHub: boolean }) {
-  const { requestOpenNewFolder, requestNewDocument } = useDocumentsHubActions()
+function DocumentsShellHeaderActions({
+  canEditDocs,
+  canAdminTemplates,
+  onDocumentsHub,
+}: {
+  canEditDocs: boolean
+  canAdminTemplates: boolean
+  onDocumentsHub: boolean
+}) {
+  const { requestOpenNewFolder, requestNewDocument, shellCapabilities } = useDocumentsHubActions()
 
   if (!canEditDocs || !onDocumentsHub) return null
 
+  const caps = shellCapabilities ?? { canNewDocument: canEditDocs, canNewFolder: canEditDocs }
+  const showFolder = canAdminTemplates || caps.canNewFolder
+  const showDoc = caps.canNewDocument
+
+  if (!showFolder && !showDoc) return null
+
   return (
     <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
-      <Button variant="secondary" type="button" icon={<FolderPlus className="h-4 w-4" />} onClick={() => requestOpenNewFolder()}>
-        Ny mappe
-      </Button>
-      <Button variant="primary" type="button" icon={<Plus className="h-4 w-4" />} onClick={() => requestNewDocument()}>
-        Nytt dokument
-      </Button>
+      {showFolder ? (
+        <Button variant="secondary" type="button" icon={<FolderPlus className="h-4 w-4" />} onClick={() => requestOpenNewFolder()}>
+          Ny mappe
+        </Button>
+      ) : null}
+      {showDoc ? (
+        <Button variant="primary" type="button" icon={<Plus className="h-4 w-4" />} onClick={() => requestNewDocument()}>
+          Nytt dokument
+        </Button>
+      ) : null}
     </div>
   )
 }
@@ -34,6 +52,7 @@ function DocumentsModuleShellBody() {
   const { can, profile, supabase, organization } = useOrgSetupContext()
   const canManage = can('documents.manage') || profile?.is_org_admin === true
   const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
+  const canAdminTemplates = canAdminDocumentTemplates(can, profile?.is_org_admin)
   const [annualReviewDot, setAnnualReviewDot] = useState(false)
 
   useEffect(() => {
@@ -115,7 +134,13 @@ function DocumentsModuleShellBody() {
         title={DOCUMENTS_MODULE_TITLE}
         description={description}
         tabs={nav}
-        headerActions={<DocumentsShellHeaderActions canEditDocs={canEditDocs} onDocumentsHub={onDocumentsHub} />}
+        headerActions={
+          <DocumentsShellHeaderActions
+            canEditDocs={canEditDocs}
+            canAdminTemplates={canAdminTemplates}
+            onDocumentsHub={onDocumentsHub}
+          />
+        }
       >
         <Outlet />
       </ModulePageShell>
