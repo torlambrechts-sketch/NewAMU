@@ -118,7 +118,7 @@ export function WikiPageEditor() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
   const docs = useDocuments()
-  const { ensurePageLoaded, pageHydrateLoading, pageHydrateError } = docs
+  const { ensurePageLoaded, pageHydrateLoading, pageHydrateError, documentsCatalogHydrated } = docs
   const { departments, supabase, organization } = useOrgSetupContext()
 
   const original = docs.pages.find((p) => p.id === pageId)
@@ -240,7 +240,7 @@ export function WikiPageEditor() {
     )
   }
 
-  if ((docs.loading || pageHydrateLoading) && !original) {
+  if ((pageHydrateLoading || (!original && !documentsCatalogHydrated)) && !original) {
     return (
       <ModulePageShell
         breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]}

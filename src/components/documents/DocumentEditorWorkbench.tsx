@@ -156,6 +156,7 @@ export function DocumentEditorWorkbench({
     pageHydrateLoading,
     pageHydrateError,
     ensurePageLoaded,
+    documentsCatalogHydrated,
   } = docs
   const { can, user, profile, members } = useOrgSetupContext()
   const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
@@ -245,7 +246,7 @@ export function DocumentEditorWorkbench({
       setBlockedMetaLoading(false)
       return
     }
-    if (docs.loading || pageHydrateLoading) return
+    if (pageHydrateLoading) return
     if (originalPage) {
       setBlockedMeta(null)
       setBlockedMetaLoading(false)
@@ -268,7 +269,6 @@ export function DocumentEditorWorkbench({
     mode,
     pageId,
     persistOrgTemplate,
-    docs.loading,
     pageHydrateLoading,
     originalPage,
     user?.id,
@@ -844,7 +844,7 @@ export function DocumentEditorWorkbench({
       if (!pageId) {
         return <WarningBox>Mangler side-ID.</WarningBox>
       }
-      if ((docs.loading || pageHydrateLoading) && !originalPage) {
+      if ((pageHydrateLoading || (!originalPage && !documentsCatalogHydrated)) && !originalPage) {
         return <p className="text-sm text-neutral-600">Laster dokument…</p>
       }
       if (pageHydrateError && !originalPage) {
