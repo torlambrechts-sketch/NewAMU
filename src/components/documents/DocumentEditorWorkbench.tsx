@@ -23,7 +23,7 @@ import {
 import { ModuleSectionCard } from '../module/ModuleSectionCard'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
-import { WarningBox } from '../ui/AlertBox'
+import { WarningBox, InfoBox } from '../ui/AlertBox'
 import { SearchableSelect, type SelectOption } from '../ui/SearchableSelect'
 import { StandardInput } from '../ui/Input'
 import { StandardTextarea } from '../ui/Textarea'
@@ -33,9 +33,14 @@ import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useDirtyGuard } from '../../hooks/useDirtyGuard'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
-import { folderAllowsWritePageInSpace, wikiSpaceHasRestrictedAccess } from '../../lib/wikiSpaceAccessGrants'
+import {
+  canViewWikiSpace,
+  folderAllowsWritePageInSpace,
+  wikiSpaceHasRestrictedAccess,
+} from '../../lib/wikiSpaceAccessGrants'
 import { canBypassWikiFolderGrants, canEditWikiDocuments } from '../../lib/documentsAccess'
 import { DocumentAccessRequestDialog } from './DocumentAccessRequestDialog'
+import { DocumentAccessRequestForm } from './DocumentAccessRequestForm'
 import type { ContentBlock, PageTemplate } from '../../types/documents'
 
 const INITIAL_HTML = `<h1>Arbeidsavtale / HMS-dokument (utkast)</h1><p>Rediger dokumentet direkte på siden. Bruk <strong>Innhold</strong> for å sette inn standardseksjoner knyttet til arbeidsmiljøloven og internkontrollforskriften. TipTap gir overskrifter (H1–H3), lister, lenker, understreking og horisontal linje.</p><p></p>`
@@ -145,7 +150,13 @@ export function DocumentEditorWorkbench({
   showHeader = true,
 }: DocumentEditorWorkbenchProps = {}) {
   const docs = useDocuments()
-  const { createWikiAccessRequest } = docs
+  const {
+    createWikiAccessRequest,
+    resolvePageMetaForAccessRequest,
+    pageHydrateLoading,
+    pageHydrateError,
+    ensurePageLoaded,
+  } = docs
   const { can, user, profile, members } = useOrgSetupContext()
   const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
   const bypassFolderRbac = canBypassWikiFolderGrants(can, profile?.is_org_admin)
@@ -178,6 +189,10 @@ export function DocumentEditorWorkbench({
   const [accessReqBusy, setAccessReqBusy] = useState(false)
   const [accessReqErr, setAccessReqErr] = useState<string | null>(null)
   const [accessReqDone, setAccessReqDone] = useState(false)
+
+  /** When page is not in `docs.pages` after hydrate (RLS): meta from RPC for access request. */
+  const [blockedMeta, setBlockedMeta] = useState<{ spaceId: string; title: string } | null>(null)
+  const [blockedMetaLoading, setBlockedMetaLoading] = useState(false)
 
   const [html, setHtml] = useState(() => (mode === 'persist' && original ? htmlFromWikiBlocks(original.blocks) : INITIAL_HTML))
   const [editor, setEditor] = useState<Editor | null>(null)
@@ -216,8 +231,49 @@ export function DocumentEditorWorkbench({
 
   useEffect(() => {
     if (mode !== 'persist' || !pageId || persistOrgTemplate) return
-    void docs.ensurePageLoaded(pageId)
-  }, [mode, pageId, persistOrgTemplate, docs])
+    void ensurePageLoaded(pageId)
+  }, [mode, pageId, persistOrgTemplate, ensurePageLoaded])
+
+  useEffect(() => {
+    setAccessReqDone(false)
+    setAccessReqErr(null)
+  }, [pageId])
+
+  useEffect(() => {
+    if (mode !== 'persist' || !pageId || persistOrgTemplate) {
+      setBlockedMeta(null)
+      setBlockedMetaLoading(false)
+      return
+    }
+    if (docs.loading || pageHydrateLoading) return
+    if (originalPage) {
+      setBlockedMeta(null)
+      setBlockedMetaLoading(false)
+      return
+    }
+    if (!user?.id) return
+    let cancelled = false
+    setBlockedMetaLoading(true)
+    void (async () => {
+      const meta = await resolvePageMetaForAccessRequest(pageId)
+      if (!cancelled) {
+        setBlockedMeta(meta)
+        setBlockedMetaLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [
+    mode,
+    pageId,
+    persistOrgTemplate,
+    docs.loading,
+    pageHydrateLoading,
+    originalPage,
+    user?.id,
+    resolvePageMetaForAccessRequest,
+  ])
 
   useEffect(() => {
     if (!folderWriteBlocked) {
@@ -788,17 +844,107 @@ export function DocumentEditorWorkbench({
       if (!pageId) {
         return <WarningBox>Mangler side-ID.</WarningBox>
       }
-      if (docs.loading && !originalPage) {
+      if ((docs.loading || pageHydrateLoading) && !originalPage) {
         return <p className="text-sm text-neutral-600">Laster dokument…</p>
       }
-      if (!originalPage) {
+      if (pageHydrateError && !originalPage) {
         return (
           <>
-            <WarningBox>Fant ikke dokumentet.</WarningBox>
+            <WarningBox>{pageHydrateError}</WarningBox>
             {onExit ? (
               <Button type="button" variant="secondary" className="mt-4" onClick={onExit}>
                 Tilbake
               </Button>
+            ) : null}
+          </>
+        )
+      }
+      if (!originalPage) {
+        if (blockedMetaLoading) {
+          return <p className="text-sm text-neutral-500">Sjekker tilgang til dokumentet…</p>
+        }
+        if (blockedMeta && user?.id && profile) {
+          const folderRestricted = wikiSpaceHasRestrictedAccess(blockedMeta.spaceId, docs.wikiSpaceAccessGrants)
+          const canViewFolder = canViewWikiSpace({
+            spaceId: blockedMeta.spaceId,
+            grants: docs.wikiSpaceAccessGrants,
+            bypassRestriction: bypassFolderRbac,
+            userId: user.id,
+            profile,
+            members,
+          })
+          const showAccessRequestGate = !canViewFolder && folderRestricted
+          if (showAccessRequestGate) {
+            const folderTitle =
+              docs.spaces.find((s) => s.id === blockedMeta.spaceId)?.title ?? `Mappe (${blockedMeta.spaceId})`
+            return (
+              <ModuleSectionCard className="p-5 md:p-6">
+                <h2 className="text-sm font-semibold text-neutral-900">Begrenset tilgang</h2>
+                <p className="mt-1 max-w-2xl text-sm text-neutral-600">
+                  Du har ikke tilgang til å redigere dette dokumentet ennå. Send en forespørsel — den behandles av
+                  dokumentansvarlig.
+                </p>
+                {accessReqDone ? (
+                  <div className="mt-4">
+                    <InfoBox>Søknaden er sendt. Du får tilgang når en administrator godkjenner den.</InfoBox>
+                  </div>
+                ) : (
+                  <div className="mt-4 max-w-lg">
+                    <DocumentAccessRequestForm
+                      documentLabel={blockedMeta.title}
+                      subLabel={`Mappe: ${folderTitle}`}
+                      busy={accessReqBusy}
+                      error={accessReqErr}
+                      onCancel={onExit}
+                      onSubmit={async ({ justification, accessScope, duration }) => {
+                        setAccessReqErr(null)
+                        setAccessReqBusy(true)
+                        try {
+                          await createWikiAccessRequest({
+                            resourceType: 'document',
+                            spaceId: blockedMeta.spaceId,
+                            pageId,
+                            title: blockedMeta.title,
+                            justification,
+                            accessScope,
+                            duration,
+                            requesterName: profile.display_name ?? '',
+                          })
+                          setAccessReqDone(true)
+                        } catch (err) {
+                          setAccessReqErr(err instanceof Error ? err.message : 'Kunne ikke sende søknad.')
+                        } finally {
+                          setAccessReqBusy(false)
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+                {onExit ? (
+                  <Button type="button" variant="secondary" className="mt-4" onClick={onExit}>
+                    Tilbake til bibliotek
+                  </Button>
+                ) : null}
+              </ModuleSectionCard>
+            )
+          }
+        }
+        return (
+          <>
+            <WarningBox>Fant ikke dokumentet.</WarningBox>
+            <p className="mt-2 max-w-xl text-sm text-neutral-600">
+              Dokumentet finnes kanskje ikke, eller det er ikke synlig i denne økten. Prøv å oppdatere listen, eller gå
+              tilbake og åpne dokumentet på nytt.
+            </p>
+            {onExit ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button type="button" variant="secondary" onClick={() => void ensurePageLoaded(pageId)}>
+                  Prøv igjen
+                </Button>
+                <Button type="button" variant="secondary" onClick={onExit}>
+                  Tilbake
+                </Button>
+              </div>
             ) : null}
           </>
         )
