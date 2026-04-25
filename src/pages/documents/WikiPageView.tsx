@@ -66,6 +66,7 @@ export function WikiPageView() {
     ensurePageLoaded,
     pageHydrateLoading,
     pageHydrateError,
+    documentsCatalogHydrated,
     resolvePageMetaForAccessRequest,
     createWikiAccessRequest,
   } = docs
@@ -202,7 +203,7 @@ export function WikiPageView() {
     )
   }
 
-  if ((docs.loading || pageHydrateLoading) && !page) {
+  if ((pageHydrateLoading || (!page && !documentsCatalogHydrated)) && !page) {
     return (
       <ModulePageShell
         breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]}

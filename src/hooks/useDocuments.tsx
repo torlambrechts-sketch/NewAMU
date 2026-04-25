@@ -528,6 +528,8 @@ function useDocumentsStore() {
   const [wikiSpaceAccessGrants, setWikiSpaceAccessGrants] = useState<WikiSpaceAccessGrant[]>([])
   const [wikiAccessRequests, setWikiAccessRequests] = useState<WikiDocumentAccessRequest[]>([])
   const [loading, setLoading] = useState(useRemote)
+  /** Becomes true after the first `refreshDocuments` run finishes (success or handled failure). */
+  const [documentsCatalogHydrated, setDocumentsCatalogHydrated] = useState(!useRemote)
   const [error, setError] = useState<string | null>(null)
   /** Deep-link / stale cache: fetch one page by id when missing from state */
   const [pageHydrate, setPageHydrate] = useState<{ loading: boolean; error: string | null }>({
@@ -690,6 +692,7 @@ function useDocumentsStore() {
         setRetentionCategories((prev) => (prev.length > 0 ? prev : WIKI_RETENTION_CATEGORIES_STATIC))
       } finally {
         setLoading(false)
+        setDocumentsCatalogHydrated(true)
       }
     }
     refreshDocumentsChainRef.current = refreshDocumentsChainRef.current
@@ -701,10 +704,22 @@ function useDocumentsStore() {
   useEffect(() => {
     if (!useRemote) {
       setLoading(false)
+      setDocumentsCatalogHydrated(true)
       return
     }
     void refreshDocuments()
   }, [useRemote, refreshDocuments])
+
+  /** If the org refresh promise never settles, `loading` would stay true forever and deep-linked editors hang. */
+  useEffect(() => {
+    if (!useRemote || !loading) return
+    const id = window.setTimeout(() => {
+      setLoading(false)
+      setDocumentsCatalogHydrated(true)
+      setError((prev) => prev ?? 'Tidsavbrudd ved lasting av dokumenter. Prøv å oppdatere siden.')
+    }, 90_000)
+    return () => window.clearTimeout(id)
+  }, [useRemote, loading])
 
   useEffect(() => {
     if (!useRemote) {
@@ -1971,6 +1986,7 @@ function useDocumentsStore() {
   return {
     backend: useRemote ? ('supabase' as const) : ('local' as const),
     loading: useRemote && loading,
+    documentsCatalogHydrated,
     error,
     pageHydrateLoading: pageHydrate.loading,
     pageHydrateError: pageHydrate.error,
