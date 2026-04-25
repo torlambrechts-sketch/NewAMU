@@ -19,6 +19,15 @@ export function getSupabaseErrorMessage(err: unknown): string {
   } else if (typeof err === 'object' && err !== null && 'message' in err) {
     const e = err as { message?: string; details?: string; hint?: string; code?: string }
     if (e.code === '23505') {
+      const combined = [e.message, e.details].filter(Boolean).join(' ').toLowerCase()
+      if (
+        combined.includes('wiki_space_access_grants') ||
+        (combined.includes('space_id') &&
+          combined.includes('grant_type') &&
+          combined.includes('subject_id'))
+      ) {
+        return 'En tilgangsregel finnes allerede for denne mappen og mottakeren. Fjern den gamle først, eller velg en annen mottaker.'
+      }
       return duplicateOrgMessage()
     }
     const parts = [e.message, e.details, e.hint].filter(Boolean)

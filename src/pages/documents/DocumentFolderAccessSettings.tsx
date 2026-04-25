@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
+import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { WikiSpaceGrantType } from '../../lib/wikiSpaceAccessGrants'
 import { ModuleSectionCard } from '../../components/module/ModuleSectionCard'
@@ -113,7 +114,7 @@ export function DocumentFolderAccessSettings({ canManage }: Props) {
       })
       setSubjectId('')
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Kunne ikke legge til tilgang.')
+      setErr(getSupabaseErrorMessage(e))
     } finally {
       setBusy(false)
     }
@@ -127,7 +128,7 @@ export function DocumentFolderAccessSettings({ canManage }: Props) {
       try {
         await docs.removeWikiSpaceAccessGrant(id)
       } catch (e) {
-        setErr(e instanceof Error ? e.message : 'Kunne ikke fjerne tilgang.')
+        setErr(getSupabaseErrorMessage(e))
       } finally {
         setBusy(false)
       }
