@@ -1628,7 +1628,10 @@ function useDocumentsStore() {
       const p = remoteState.pages.find((x) => x.id === pageId)
       if (p) return { spaceId: p.spaceId, title: p.title }
       if (!supabase || !orgId) return null
-      const { data, error: e } = await supabase.rpc('wiki_page_access_request_meta', { p_page_id: pageId })
+      const { data, error: e } = await supabase.rpc('wiki_page_access_request_meta', {
+        p_page_id: pageId,
+        p_organization_id: orgId,
+      })
       if (e) {
         console.warn('wiki_page_access_request_meta', e.message)
         return null

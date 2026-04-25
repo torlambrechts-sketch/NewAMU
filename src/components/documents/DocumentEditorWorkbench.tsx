@@ -863,7 +863,7 @@ export function DocumentEditorWorkbench({
         if (blockedMetaLoading) {
           return <p className="text-sm text-neutral-500">Sjekker tilgang til dokumentet…</p>
         }
-        if (blockedMeta && user?.id && profile) {
+        if (blockedMeta && user?.id && profile && canEditDocs) {
           const folderRestricted = wikiSpaceHasRestrictedAccess(blockedMeta.spaceId, docs.wikiSpaceAccessGrants)
           const canViewFolder = canViewWikiSpace({
             spaceId: blockedMeta.spaceId,
@@ -873,16 +873,27 @@ export function DocumentEditorWorkbench({
             profile,
             members,
           })
-          const showAccessRequestGate = !canViewFolder && folderRestricted
-          if (showAccessRequestGate) {
+          const canWriteFolder =
+            bypassFolderRbac ||
+            folderAllowsWritePageInSpace({
+              spaceId: blockedMeta.spaceId,
+              grants: docs.wikiSpaceAccessGrants,
+              userId: user.id,
+              profile,
+              members,
+            })
+          const showNoReadGate = folderRestricted && !canViewFolder
+          const showWriteOnlyGate = folderRestricted && canViewFolder && !canWriteFolder
+          if (showNoReadGate || showWriteOnlyGate) {
             const folderTitle =
               docs.spaces.find((s) => s.id === blockedMeta.spaceId)?.title ?? `Mappe (${blockedMeta.spaceId})`
             return (
               <ModuleSectionCard className="p-5 md:p-6">
                 <h2 className="text-sm font-semibold text-neutral-900">Begrenset tilgang</h2>
                 <p className="mt-1 max-w-2xl text-sm text-neutral-600">
-                  Du har ikke tilgang til å redigere dette dokumentet ennå. Send en forespørsel — den behandles av
-                  dokumentansvarlig.
+                  {showWriteOnlyGate
+                    ? 'Du kan se mappen, men ikke redigere dokumenter i den ennå. Send en forespørsel om skrivetilgang — den behandles av dokumentansvarlig.'
+                    : 'Du har ikke tilgang til dette dokumentet ennå. Send en forespørsel — den behandles av dokumentansvarlig.'}
                 </p>
                 {accessReqDone ? (
                   <div className="mt-4">
