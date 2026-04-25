@@ -189,6 +189,28 @@ export function ModuleDocumentsKandidatdetaljHub({
     [activeSpaces],
   )
 
+  /** Document folders (not malbibliotek) where the user may create pages — for «Bruk mal» / systemmal pencil. */
+  const templateDocumentDestinationSpaces = useMemo(() => {
+    return activeSpacesPages.filter((s) =>
+      canViewWikiSpace({
+        spaceId: s.id,
+        grants: docs.wikiSpaceAccessGrants,
+        bypassRestriction: bypassFolderRbac,
+        userId: user?.id,
+        profile,
+        members,
+      }) &&
+      (bypassFolderRbac ||
+        folderAllowsCreateInSpace({
+          spaceId: s.id,
+          grants: docs.wikiSpaceAccessGrants,
+          userId: user?.id,
+          profile,
+          members,
+        })),
+    )
+  }, [activeSpacesPages, docs.wikiSpaceAccessGrants, bypassFolderRbac, user?.id, profile, members])
+
   const spacesForNav = centerContent === 'templates' ? activeSpacesTemplates : activeSpacesPages
 
   const spacesForNavFiltered = useMemo(() => {
@@ -721,6 +743,7 @@ export function ModuleDocumentsKandidatdetaljHub({
           {centerContent === 'templates' ? (
             <DocumentsTemplateLibraryBody
               destinationSpaces={activeSpacesTemplates}
+              documentCatalogSpaces={templateDocumentDestinationSpaces}
               onNewTemplateFolder={canEditDocs ? openNewTemplateFolderFromLibrary : undefined}
               newTemplateKey={newTemplateKey}
             />
