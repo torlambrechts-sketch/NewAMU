@@ -1,8 +1,11 @@
 import type { ReactNode } from 'react'
+import { useMemo } from 'react'
 import { Loader2 } from 'lucide-react'
 import { WorkplacePageHeading1 } from '../layout/WorkplacePageHeading1'
 import type { WorkplaceBreadcrumbItem } from '../layout/WorkplacePageHeading1'
 import { Button } from '../ui/Button'
+import { ModuleLegalFrameworkToggle } from './ModuleLegalFrameworkToggle'
+import { useModuleLegalFramework } from './ModuleLegalFrameworkContext'
 
 /**
  * Standard module page chrome.
@@ -61,6 +64,18 @@ export function ModulePageShell({
   loadingLabel = 'Laster…',
   notFound,
 }: ModulePageShellProps) {
+  const { bannerMounted } = useModuleLegalFramework()
+
+  const mergedHeaderActions = useMemo(() => {
+    if (!bannerMounted && headerActions == null) return undefined
+    return (
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
+        <ModuleLegalFrameworkToggle />
+        {headerActions}
+      </div>
+    )
+  }, [bannerMounted, headerActions])
+
   const header = (
     <header className={HEADER_BAND}>
       <div className={HEADER_INNER}>
@@ -68,7 +83,7 @@ export function ModulePageShell({
           breadcrumb={breadcrumb}
           title={title}
           description={description}
-          headerActions={headerActions}
+          headerActions={mergedHeaderActions}
           menu={tabs}
         />
       </div>

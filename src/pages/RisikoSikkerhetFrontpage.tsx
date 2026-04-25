@@ -52,7 +52,7 @@ const STATUS_COLORS = {
  *
  * Composition:
  *   1. ModuleFrontpageShell   — page chrome, breadcrumb, title, tabs slot
- *   2. ModuleLegalBanner      — IK-forskriften § 5 nr. 6 + AML § 3-1
+ *   2. ModuleLegalBanner      — mint regelverkspanel + kort per hovedparagraf
  *   3. LayoutScoreStatRow     — 4 top-level KPI tiles (åpne saker, kritiske, osv.)
  *   4. Donut/list chart grid  — same visual grammar as klarert.com layout rapportering
  *   5. ModuleShortcutGrid     — navigation cards to SJA, ROS, Vernerunder, Inspeksjon
@@ -295,8 +295,6 @@ export function RisikoSikkerhetFrontpage() {
       title="Risiko & Sikkerhet"
       description="Systematisk risikostyring — fra kartlegging (ROS), via jobbanalyse (SJA), til vernerunder og inspeksjonsrunder med signert dokumentasjon."
       legal={{
-        collapsible: true,
-        eyebrow: 'Lovgrunnlag',
         title: 'Risiko & Sikkerhet',
         intro: (
           <>

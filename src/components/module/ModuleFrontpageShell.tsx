@@ -10,7 +10,7 @@ import type { ModuleLegalBannerProps } from './ModuleLegalBanner'
  *
  * Composes:
  *   1. `ModulePageShell` — breadcrumb, serif H1, description, tabs.
- *   2. `ModuleLegalBanner` — legal framework (dark green surface).
+ *   2. `ModuleLegalBanner` — legal framework (mint surface, inner cards; dismiss + header switch).
  *   3. Slots the caller fills: `overview`, `dashboard`, `shortcuts`, `guidance`.
  *
  * Rule of thumb for slot order on a frontpage:

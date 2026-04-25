@@ -269,7 +269,6 @@ export function VernerundeDetailView() {
       }
     >
       <ModuleLegalBanner
-        collapsible
         title="Vernerunder"
         intro={
           <p>

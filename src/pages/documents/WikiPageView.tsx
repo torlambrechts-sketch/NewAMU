@@ -381,8 +381,6 @@ export function WikiPageView() {
       tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as DetailTab)} />}
     >
       <ModuleLegalBanner
-        collapsible
-        defaultCollapsed
         title="Dokumentasjon og internkontroll"
         references={[
           {

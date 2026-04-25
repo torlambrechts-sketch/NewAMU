@@ -964,7 +964,6 @@ export function InspectionRoundPage() {
       tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as PanelTab)} />}
     >
       <ModuleLegalBanner
-        collapsible
         title="Inspeksjonsrunder"
         intro={
           <p>

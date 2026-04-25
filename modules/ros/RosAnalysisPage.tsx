@@ -141,7 +141,6 @@ export function RosAnalysisPage({ supabase }: { supabase: SupabaseClient | null 
       tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as Tab)} />}
     >
       <ModuleLegalBanner
-        collapsible
         title="ROS-analyser"
         intro={
           <p>

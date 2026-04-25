@@ -35,6 +35,8 @@ export {
 export type { ModuleSeverity } from './moduleRiskKit'
 export { ModuleLegalBanner } from './ModuleLegalBanner'
 export type { ModuleLegalBannerProps, ModuleLegalReference } from './ModuleLegalBanner'
+export { ModuleLegalFrameworkProvider } from './ModuleLegalFrameworkContext'
+export { useModuleLegalFramework } from './ModuleLegalFrameworkContext'
 export { ModuleShortcutGrid } from './ModuleShortcutGrid'
 export type { ModuleShortcutGridProps, ModuleShortcutItem } from './ModuleShortcutGrid'
 export { ModuleDashboardGrid } from './ModuleDashboardGrid'

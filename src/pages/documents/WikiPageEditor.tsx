@@ -441,8 +441,6 @@ export function WikiPageEditor() {
       tabs={<Tabs items={editTabItems} activeId={editTab} onChange={(id) => setEditTab(id as EditTab)} />}
     >
       <ModuleLegalBanner
-        collapsible
-        defaultCollapsed
         title="Dokumentasjon og revisjon"
         references={[
           {

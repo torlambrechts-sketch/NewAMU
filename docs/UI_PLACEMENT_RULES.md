@@ -17,7 +17,7 @@ The rules assume the UI primitives that already live in the codebase:
 - `src/components/module/ModuleSignatureCard.tsx` — per-role signature card.
 - `src/components/module/ModulePreflightChecklist.tsx` — pre-signing checklist.
 - `src/components/module/ModuleChecklistCard.tsx` — data-driven HSE checklist.
-- `src/components/module/ModuleLegalBanner.tsx` — collapsible dark-green legal banner.
+- `src/components/module/ModuleLegalBanner.tsx` — mint «regelverk»-banner med innkort per referanse, lukk (X) og bryter i `ModulePageShell`-header (`ModuleLegalFrameworkProvider` i app-ruten).
 - `src/components/module/moduleTableKit.ts` — `MODULE_TABLE_TH`, `MODULE_TABLE_TR_BODY` class constants.
 - `src/components/module/moduleRiskKit.ts` — shared severity/risk helpers.
 - `src/components/ui/*` — `Button`, `Badge`, `StandardInput`, `StandardTextarea`, `SearchableSelect`, `WarningBox`, `InfoBox`, `Tabs`, etc.
@@ -294,7 +294,7 @@ Canonical detail page shape:
   headerActions={<Badge variant={statusBadgeVariant(record.status)}>{STATUS_LABEL[record.status]}</Badge>}
   tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as DetailTab)} />}
 >
-  <ModuleLegalBanner collapsible defaultCollapsed title="Foo" references={[…]} />
+  <ModuleLegalBanner title="Foo" references={[…]} />
 
   {activeTab === 'informasjon' && (
     <ModuleSectionCard>
@@ -340,9 +340,9 @@ Why: this guarantees every tab body has the same outer visual treatment (border,
 
 Detail-page `headerActions` is usually **just the status `Badge`**. Do **not** put an "Admin" / "Innstillinger" button on a detail page — the breadcrumb already links back to the list, and the root-tab strip on the list handles admin navigation.
 
-### 5.4 Legal banner
+### 5.4 Legal banner (regelverk)
 
-The first element inside the shell body is `<ModuleLegalBanner collapsible defaultCollapsed title="…" references={[…]} />` on pages where the lovverk / forskrift is core to the module (ROS, Inspection, VR, SJA). Default collapsed so it doesn't push primary content below the fold; expandable on demand.
+The first element inside the shell body is `<ModuleLegalBanner title="…" intro={…} references={[…]} />` on pages where the lovverk / forskrift is core to the module (ROS, Inspection, VR, SJA, dokumenter). The banner is a light mint panel with white inner cards (one per `references` item). The user can close it with **X**; a **Regelverk** toggle in the page header (from `ModulePageShell`) shows it again for the browser session (`sessionStorage`).
 
 ### 5.5 Signatures tab
 
@@ -460,7 +460,7 @@ For frontpages and detail views with a primary area + a contextual aside, use `M
 - Headings inside a section card: `text-sm font-semibold text-neutral-900` for sub-headings. The page `h1` is handled by the shell.
 - Body copy: `text-sm text-neutral-600` (prose), `text-sm text-neutral-800` (dense tables).
 - Tiny meta/helper: `text-xs text-neutral-500`.
-- Brand green compliance banner: use `ComplianceBanner` / `ModuleLegalBanner` — do not recreate with raw Tailwind.
+- Compliance / IK copy: use `ComplianceBanner` for compact callouts; use `ModuleLegalBanner` for the mint regelverkspanel — do not recreate with raw Tailwind.
 
 ---
 

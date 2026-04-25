@@ -541,7 +541,6 @@ export function SjaPage({ supabase }: { supabase: SupabaseClient | null }) {
       tabs={<Tabs items={tabItems} activeId={activeTab} onChange={(id) => setActiveTab(id as SjaTab)} />}
     >
       <ModuleLegalBanner
-        collapsible
         title="Sikker jobbanalyse (SJA)"
         intro={
           <p>
