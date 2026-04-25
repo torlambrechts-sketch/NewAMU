@@ -2,7 +2,9 @@
 -- In that context the session org is often unset, so the function returned no rows
 -- and the app could not show the access-request flow for deep-linked editors.
 
+-- Remove old 1-arg and any prior 2-arg signature (idempotent).
 drop function if exists public.wiki_page_access_request_meta(text);
+drop function if exists public.wiki_page_access_request_meta(text, uuid);
 
 create or replace function public.wiki_page_access_request_meta(
   p_page_id text,
