@@ -21,6 +21,14 @@ const GRANT_TYPE_OPTIONS: SelectOption[] = [
   { value: 'team', label: GRANT_LABEL.team },
 ]
 
+const capShort = (read: boolean, write: boolean, arch: boolean) => {
+  const parts: string[] = []
+  if (read) parts.push('Les')
+  if (write) parts.push('Skriv')
+  if (arch) parts.push('Arkiv')
+  return parts.length ? parts.join(' · ') : '—'
+}
+
 type Props = {
   /** When false, hide the whole block (caller handles access message). */
   canManage: boolean
@@ -33,6 +41,9 @@ export function DocumentFolderAccessSettings({ canManage }: Props) {
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('')
   const [grantType, setGrantType] = useState<WikiSpaceGrantType>('department')
   const [subjectId, setSubjectId] = useState<string>('')
+  const [canRead, setCanRead] = useState(true)
+  const [canWrite, setCanWrite] = useState(false)
+  const [canArchive, setCanArchive] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -86,17 +97,27 @@ export function DocumentFolderAccessSettings({ canManage }: Props) {
       setErr('Velg mappe og hvem som skal ha tilgang.')
       return
     }
+    if (!canRead && !canWrite && !canArchive) {
+      setErr('Velg minst én rettighet (les, skriv eller arkiver).')
+      return
+    }
     setErr(null)
     setBusy(true)
     try {
-      await docs.addWikiSpaceAccessGrant(selectedSpaceId, grantType, subjectId.trim())
+      await docs.addWikiSpaceAccessGrant(selectedSpaceId, grantType, subjectId.trim(), {
+        canRead,
+        canCreate: canWrite,
+        canWrite,
+        canArchive,
+        canDelete: false,
+      })
       setSubjectId('')
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Kunne ikke legge til tilgang.')
     } finally {
       setBusy(false)
     }
-  }, [canManage, selectedSpaceId, subjectId, grantType, docs])
+  }, [canManage, selectedSpaceId, subjectId, grantType, docs, canRead, canWrite, canArchive])
 
   const onRemove = useCallback(
     async (id: string) => {
@@ -117,12 +138,13 @@ export function DocumentFolderAccessSettings({ canManage }: Props) {
   if (!canManage) return null
 
   return (
-    <ModuleSectionCard className="p-5 md:p-6">
+    <ModuleSectionCard clip="visible" className="p-5 md:p-6">
       <h2 className="text-sm font-semibold text-neutral-900">Mappe-tilgang (RBAC)</h2>
       <p className="mt-1 text-xs text-neutral-500">
         Når du legger til minst én regel for en mappe, kan kun oppførte brukere, avdelinger eller team se dokumentene i
         den mappen (i tillegg til organisasjonsadministratorer og personer med «Dokumenter — administrer»). Uten regler
-        gjelder vanlig tilgang for alle i organisasjonen.
+        gjelder vanlig tilgang for alle i organisasjonen. Kryss av for <strong>Les</strong>, <strong>Skriv</strong> (redigere
+        og opprette innhold) og <strong>Arkiver</strong> etter behov.
       </p>
 
       {err ? (
@@ -170,6 +192,42 @@ export function DocumentFolderAccessSettings({ canManage }: Props) {
               />
             </div>
           </div>
+
+          <fieldset className="mt-4 space-y-2 rounded-lg border border-neutral-200 bg-neutral-50/80 p-3">
+            <legend className="px-1 text-xs font-semibold text-neutral-700">Rettigheter for denne regelen</legend>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
+              <input
+                type="checkbox"
+                className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]"
+                checked={canRead}
+                onChange={(e) => setCanRead(e.target.checked)}
+              />
+              Les (se dokumenter og mapper)
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
+              <input
+                type="checkbox"
+                className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]"
+                checked={canWrite}
+                onChange={(e) => {
+                  const w = e.target.checked
+                  setCanWrite(w)
+                  if (w) setCanRead(true)
+                }}
+              />
+              Skriv (redigere dokumenter og opprette nye i mappen)
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
+              <input
+                type="checkbox"
+                className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]"
+                checked={canArchive}
+                onChange={(e) => setCanArchive(e.target.checked)}
+              />
+              Arkiver (arkivere dokumenter i mappen)
+            </label>
+          </fieldset>
+
           <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
             <Button type="button" variant="primary" disabled={busy || !selectedSpaceId || !subjectId} onClick={() => void onAdd()}>
               Legg til tilgang
@@ -184,11 +242,12 @@ export function DocumentFolderAccessSettings({ canManage }: Props) {
               {grantsForSpace.length === 0 ? (
                 <p className="text-sm text-neutral-600">Ingen begrensning — alle i organisasjonen kan se dokumenter i mappen.</p>
               ) : (
-                <table className="w-full min-w-[480px] border-collapse text-left text-sm">
+                <table className="w-full min-w-[560px] border-collapse text-left text-sm">
                   <thead>
                     <tr>
                       <th className={MODULE_TABLE_TH}>Type</th>
                       <th className={MODULE_TABLE_TH}>Hvem</th>
+                      <th className={MODULE_TABLE_TH}>Rettigheter</th>
                       <th className={`${MODULE_TABLE_TH} text-right`}>Fjern</th>
                     </tr>
                   </thead>
@@ -197,6 +256,9 @@ export function DocumentFolderAccessSettings({ canManage }: Props) {
                       <tr key={g.id} className={MODULE_TABLE_TR_BODY}>
                         <td className="px-5 py-3 text-neutral-700">{GRANT_LABEL[g.grantType]}</td>
                         <td className="px-5 py-3 font-medium text-neutral-900">{subjectLabel(g.grantType, g.subjectId)}</td>
+                        <td className="px-5 py-3 text-neutral-700">
+                          {capShort(g.canRead, g.canWrite, g.canArchive)}
+                        </td>
                         <td className="px-5 py-3 text-right">
                           <Button
                             type="button"

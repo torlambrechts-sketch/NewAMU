@@ -18,7 +18,14 @@ import {
   useDocumentsHubNewDocumentRegister,
 } from '../../../modules/documents/DocumentsHubActionsContext'
 import { DocumentsTemplateLibraryBody } from '../documents/DocumentsTemplateLibraryBody'
-import { canViewWikiSpace } from '../../lib/wikiSpaceAccessGrants'
+import { DocumentAccessRequestDialog } from '../documents/DocumentAccessRequestDialog'
+import {
+  canViewWikiSpace,
+  folderAllowsArchivePageInSpace,
+  folderAllowsCreateInSpace,
+  folderAllowsWritePageInSpace,
+  wikiSpaceHasRestrictedAccess,
+} from '../../lib/wikiSpaceAccessGrants'
 import { canBypassWikiFolderGrants, canEditWikiDocuments } from '../../lib/documentsAccess'
 
 /** Beige nav — matches layout-reference `RefCandidateDetailPaneBlock`. */
@@ -85,6 +92,7 @@ export function ModuleDocumentsKandidatdetaljHub({
   const docs = useDocuments()
   const navigate = useNavigate()
   const { can, user, profile, members } = useOrgSetupContext()
+  const { createWikiAccessRequest } = docs
   const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
   const bypassFolderRbac = canBypassWikiFolderGrants(can, profile?.is_org_admin)
 
@@ -114,7 +122,35 @@ export function ModuleDocumentsKandidatdetaljHub({
   const [archivingPage, setArchivingPage] = useState(false)
   const [newTemplateKey, setNewTemplateKey] = useState(0)
 
+  const [accessRequestPage, setAccessRequestPage] = useState<WikiPage | null>(null)
+  const [accessReqBusy, setAccessReqBusy] = useState(false)
+  const [accessReqErr, setAccessReqErr] = useState<string | null>(null)
+  const [accessReqDone, setAccessReqDone] = useState(false)
+
   const uploadInputRef = useRef<HTMLInputElement>(null)
+
+  const grantBase = useMemo(
+    () => ({
+      grants: docs.wikiSpaceAccessGrants,
+      userId: user?.id,
+      profile,
+      members,
+    }),
+    [docs.wikiSpaceAccessGrants, user?.id, profile, members],
+  )
+
+  const folderWriteOk = useCallback(
+    (spaceId: string) => bypassFolderRbac || folderAllowsWritePageInSpace({ ...grantBase, spaceId }),
+    [bypassFolderRbac, grantBase],
+  )
+  const folderCreateOk = useCallback(
+    (spaceId: string) => bypassFolderRbac || folderAllowsCreateInSpace({ ...grantBase, spaceId }),
+    [bypassFolderRbac, grantBase],
+  )
+  const folderArchiveOk = useCallback(
+    (spaceId: string) => bypassFolderRbac || folderAllowsArchivePageInSpace({ ...grantBase, spaceId }),
+    [bypassFolderRbac, grantBase],
+  )
 
   useEffect(() => {
     if (!canEditDocs) return
@@ -319,13 +355,17 @@ export function ModuleDocumentsKandidatdetaljHub({
       setUiError('Opprett eller velg en mappe først.')
       return
     }
+    if (!folderCreateOk(targetSpaceIdForActions)) {
+      setUiError('Du har ikke opprettingstilgang i den valgte mappen.')
+      return
+    }
     try {
       const page = await docs.createPage(targetSpaceIdForActions, 'Ny side', 'standard', [])
       navigate(`/documents/page/${page.id}/reference-edit`)
     } catch (err) {
       setUiError(err instanceof Error ? err.message : 'Kunne ikke opprette side.')
     }
-  }, [targetSpaceIdForActions, docs, navigate])
+  }, [targetSpaceIdForActions, docs, navigate, folderCreateOk])
 
   useDocumentsHubNewDocumentRegister(
     () => {
@@ -338,6 +378,10 @@ export function ModuleDocumentsKandidatdetaljHub({
     setUiError(null)
     if (!targetSpaceIdForActions) {
       setUiError('Velg en mappe (eller opprett én) før du laster opp.')
+      return
+    }
+    if (!folderCreateOk(targetSpaceIdForActions) && !folderWriteOk(targetSpaceIdForActions)) {
+      setUiError('Du har ikke opplastingstilgang i den valgte mappen.')
       return
     }
     uploadInputRef.current?.click()
@@ -367,6 +411,11 @@ export function ModuleDocumentsKandidatdetaljHub({
 
   const movePageToSpace = async (pageId: string, spaceId: string) => {
     setUiError(null)
+    const page = docs.pages.find((p) => p.id === pageId)
+    if (page && (!folderWriteOk(page.spaceId) || !folderWriteOk(spaceId))) {
+      setUiError('Du har ikke skrivetilgang i kilde- eller målmappe for å flytte dokumentet.')
+      return
+    }
     setMovingPageId(pageId)
     try {
       await docs.updatePage(pageId, { spaceId })
@@ -393,7 +442,8 @@ export function ModuleDocumentsKandidatdetaljHub({
         userId: user?.id,
         profile,
         members,
-      })
+      }) ||
+      !folderWriteOk(spaceId)
     ) {
       return
     }
@@ -412,7 +462,8 @@ export function ModuleDocumentsKandidatdetaljHub({
         userId: user?.id,
         profile,
         members,
-      })
+      }) ||
+      !folderWriteOk(spaceId)
     ) {
       return
     }
@@ -427,6 +478,7 @@ export function ModuleDocumentsKandidatdetaljHub({
 
   const onUploadZoneDrop = async (e: DragEvent) => {
     if (!canEditDocs || !targetSpaceIdForActions) return
+    if (!folderCreateOk(targetSpaceIdForActions) && !folderWriteOk(targetSpaceIdForActions)) return
     e.preventDefault()
     setDropHighlightSpaceId(null)
     if (e.dataTransfer.files?.length) {
@@ -436,6 +488,22 @@ export function ModuleDocumentsKandidatdetaljHub({
 
   const viewPath = (pageId: string) => `/documents/page/${pageId}`
   const editPath = (pageId: string) => `/documents/page/${pageId}/reference-edit`
+
+  const hubTargetAllowsUpload =
+    targetSpaceIdForActions != null &&
+    (folderCreateOk(targetSpaceIdForActions) || folderWriteOk(targetSpaceIdForActions))
+  const hubTargetAllowsNewDoc =
+    targetSpaceIdForActions != null && folderCreateOk(targetSpaceIdForActions)
+
+  const openEditOrRequest = (page: WikiPage) => {
+    if (folderWriteOk(page.spaceId)) {
+      navigate(editPath(page.id))
+      return
+    }
+    setAccessReqErr(null)
+    setAccessReqDone(false)
+    setAccessRequestPage(page)
+  }
 
   return (
     <div className="space-y-4">
@@ -488,10 +556,22 @@ export function ModuleDocumentsKandidatdetaljHub({
                     <Button type="button" variant="secondary" icon={<FolderPlus className="h-4 w-4" />} onClick={toggleNewFolderPanel}>
                       Ny mappe
                     </Button>
-                    <Button type="button" variant="secondary" icon={<Upload className="h-4 w-4" />} onClick={triggerUpload}>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      icon={<Upload className="h-4 w-4" />}
+                      onClick={triggerUpload}
+                      disabled={!hubTargetAllowsUpload}
+                    >
                       Last opp
                     </Button>
-                    <Button type="button" variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => void handleNewDocument()}>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      icon={<Plus className="h-4 w-4" />}
+                      onClick={() => void handleNewDocument()}
+                      disabled={!hubTargetAllowsNewDoc}
+                    >
                       Nytt dokument
                     </Button>
                   </>
@@ -577,7 +657,9 @@ export function ModuleDocumentsKandidatdetaljHub({
             />
             {filteredSpaces.map((space) => {
               const count = docs.pages.filter((p) => p.spaceId === space.id).length
-              const dropOn = canEditDocs
+              const dropOn = canEditDocs && folderWriteOk(space.id)
+              const canEditThisFolder = canEditDocs && folderWriteOk(space.id)
+              const canArchiveThisFolder = canEditDocs && folderArchiveOk(space.id)
               return (
                 <NavFolderRow
                   key={space.id}
@@ -589,36 +671,40 @@ export function ModuleDocumentsKandidatdetaljHub({
                   onDragOver={dropOn ? (e) => onFolderDragOver(e, space.id) : undefined}
                   onDrop={dropOn ? (e) => void onFolderDrop(e, space.id) : undefined}
                   actions={
-                    canEditDocs ? (
+                    canEditThisFolder || canArchiveThisFolder ? (
                       <>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 text-neutral-500 hover:text-neutral-800"
-                          title="Rediger mappe"
-                          aria-label={`Rediger mappe ${space.title}`}
-                          onClick={(ev) => {
-                            ev.stopPropagation()
-                            openEditSpace(space)
-                          }}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 text-neutral-500 hover:text-neutral-900"
-                          title="Arkiver mappe"
-                          aria-label={`Arkiver mappe ${space.title}`}
-                          onClick={(ev) => {
-                            ev.stopPropagation()
-                            setArchiveSpaceTarget(space)
-                          }}
-                        >
-                          <Archive className="h-3.5 w-3.5" />
-                        </Button>
+                        {canEditThisFolder ? (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-neutral-500 hover:text-neutral-800"
+                            title="Rediger mappe"
+                            aria-label={`Rediger mappe ${space.title}`}
+                            onClick={(ev) => {
+                              ev.stopPropagation()
+                              openEditSpace(space)
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : null}
+                        {canArchiveThisFolder ? (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-neutral-500 hover:text-neutral-900"
+                            title="Arkiver mappe"
+                            aria-label={`Arkiver mappe ${space.title}`}
+                            onClick={(ev) => {
+                              ev.stopPropagation()
+                              setArchiveSpaceTarget(space)
+                            }}
+                          >
+                            <Archive className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : null}
                       </>
                     ) : undefined
                   }
@@ -657,7 +743,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                       aria-label="Søk i sider"
                     />
                   </div>
-                  {canEditDocs && targetSpaceIdForActions && uploadTargetSpace ? (
+                  {canEditDocs && targetSpaceIdForActions && uploadTargetSpace && hubTargetAllowsUpload ? (
                     <ModuleSectionCard className="overflow-hidden p-2.5 shadow-sm">
                       <div
                         role="region"
@@ -698,7 +784,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                     <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Status</th>
                     <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Endret</th>
                     <th className={`${MODULE_TABLE_TH} text-right text-sm normal-case font-semibold tracking-normal`}>
-                      {canEditDocs ? 'Handlinger' : 'Dokument'}
+                      Dokument
                     </th>
                   </tr>
                 </thead>
@@ -719,12 +805,15 @@ export function ModuleDocumentsKandidatdetaljHub({
                       page.status === 'published' ? 'Publisert' : page.status === 'draft' ? 'Utkast' : 'Arkivert'
                     const variantBadge = page.status === 'published' ? 'success' : 'neutral'
                     const busy = movingPageId === page.id
+                    const rowWrite = folderWriteOk(page.spaceId)
+                    const rowArchive = folderArchiveOk(page.spaceId)
+                    const restricted = wikiSpaceHasRestrictedAccess(page.spaceId, docs.wikiSpaceAccessGrants)
                     return (
                       <tr
                         key={page.id}
                         className={MODULE_TABLE_TR_BODY}
-                        draggable={canEditDocs}
-                        onDragStart={canEditDocs ? (e) => onPageDragStart(e, page.id) : undefined}
+                        draggable={canEditDocs && rowWrite}
+                        onDragStart={canEditDocs && rowWrite ? (e) => onPageDragStart(e, page.id) : undefined}
                       >
                         {selectedSpaceId == null ? (
                           <td className={`${MODULE_TABLE_TD} text-sm text-neutral-600`}>
@@ -770,14 +859,14 @@ export function ModuleDocumentsKandidatdetaljHub({
                                   variant="ghost"
                                   size="icon"
                                   className="shrink-0 text-neutral-500 hover:text-neutral-800"
-                                  title="Rediger"
-                                  aria-label={`Rediger ${page.title}`}
+                                  title={rowWrite ? 'Rediger' : restricted ? 'Be om redigeringstilgang' : 'Ingen skrivetilgang'}
+                                  aria-label={rowWrite ? `Rediger ${page.title}` : `Be om tilgang — ${page.title}`}
                                   disabled={busy}
-                                  onClick={() => navigate(editPath(page.id))}
+                                  onClick={() => openEditOrRequest(page)}
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </Button>
-                                {page.status !== 'archived' ? (
+                                {page.status !== 'archived' && rowArchive ? (
                                   <Button
                                     type="button"
                                     variant="secondary"
@@ -895,6 +984,48 @@ export function ModuleDocumentsKandidatdetaljHub({
           </ModuleSectionCard>
         </div>
       ) : null}
+
+      <DocumentAccessRequestDialog
+        open={Boolean(accessRequestPage && user?.id && profile)}
+        title="Be om redigeringstilgang"
+        documentLabel={accessRequestPage?.title ?? 'Dokument'}
+        subLabel={
+          accessRequestPage
+            ? `Mappe: ${spaceById.get(accessRequestPage.spaceId)?.title ?? accessRequestPage.spaceId}`
+            : undefined
+        }
+        busy={accessReqBusy}
+        error={accessReqErr}
+        done={accessReqDone}
+        onClose={() => {
+          if (accessReqBusy) return
+          setAccessRequestPage(null)
+          setAccessReqErr(null)
+          setAccessReqDone(false)
+        }}
+        onSubmit={async ({ justification, accessScope, duration }) => {
+          if (!accessRequestPage || !user?.id || !profile) return
+          setAccessReqErr(null)
+          setAccessReqBusy(true)
+          try {
+            await createWikiAccessRequest({
+              resourceType: 'document',
+              spaceId: accessRequestPage.spaceId,
+              pageId: accessRequestPage.id,
+              title: accessRequestPage.title,
+              justification,
+              accessScope,
+              duration,
+              requesterName: profile.display_name ?? '',
+            })
+            setAccessReqDone(true)
+          } catch (err) {
+            setAccessReqErr(err instanceof Error ? err.message : 'Kunne ikke sende søknad.')
+          } finally {
+            setAccessReqBusy(false)
+          }
+        }}
+      />
     </div>
   )
 }

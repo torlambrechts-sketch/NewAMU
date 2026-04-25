@@ -40,6 +40,8 @@ type Props = {
   placeholder?: string
   /** Default `full` — document-style surfaces often use `minimal` (undo/redo only). */
   toolbar?: 'full' | 'minimal' | 'none'
+  /** When true, the document is view-only (toolbar hidden, no edits). */
+  readOnly?: boolean
   /** Fires when the editor instance is ready; called with `null` on unmount. */
   onEditorReady?: (editor: Editor | null) => void
 }
@@ -283,6 +285,7 @@ export function TipTapRichTextEditor({
   className = '',
   placeholder = 'Skriv innhold…',
   toolbar = 'full',
+  readOnly = false,
   onEditorReady,
 }: Props) {
   const lastEmitted = useRef<string | null>(null)
@@ -296,6 +299,7 @@ export function TipTapRichTextEditor({
   }, [onEditorReady])
 
   const editor = useEditor({
+    editable: !readOnly,
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
@@ -315,6 +319,11 @@ export function TipTapRichTextEditor({
       onChangeRef.current(html)
     },
   })
+
+  useEffect(() => {
+    if (!editor) return
+    editor.setEditable(!readOnly)
+  }, [editor, readOnly])
 
   // Sync external value (e.g. hydration, undo outside editor) without fighting local typing
   useEffect(() => {
@@ -364,8 +373,8 @@ export function TipTapRichTextEditor({
         className,
       )}
     >
-      {toolbar === 'full' ? <TipTapToolbar editor={editor} /> : null}
-      {toolbar === 'minimal' ? <TipTapMinimalToolbar editor={editor} /> : null}
+      {!readOnly && toolbar === 'full' ? <TipTapToolbar editor={editor} /> : null}
+      {!readOnly && toolbar === 'minimal' ? <TipTapMinimalToolbar editor={editor} /> : null}
       <EditorContent editor={editor} />
     </div>
   )

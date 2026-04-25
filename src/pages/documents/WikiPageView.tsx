@@ -16,10 +16,15 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
 import { DocumentAccessRequestForm } from '../../components/documents/DocumentAccessRequestForm'
+import { DocumentAccessRequestDialog } from '../../components/documents/DocumentAccessRequestDialog'
 import { Tabs } from '../../components/ui/Tabs'
 import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { PageStatus } from '../../types/documents'
-import { canViewWikiSpace, wikiSpaceHasRestrictedAccess } from '../../lib/wikiSpaceAccessGrants'
+import {
+  canViewWikiSpace,
+  folderAllowsWritePageInSpace,
+  wikiSpaceHasRestrictedAccess,
+} from '../../lib/wikiSpaceAccessGrants'
 import { canBypassWikiFolderGrants, canEditWikiDocuments } from '../../lib/documentsAccess'
 
 const TEMPLATE_CLASS = {
@@ -71,6 +76,10 @@ export function WikiPageView() {
   const [accessReqDone, setAccessReqDone] = useState(false)
   const [gateMetaLoading, setGateMetaLoading] = useState(false)
   const [blockedSpaceTitle, setBlockedSpaceTitle] = useState<string | null>(null)
+  const [editAccessOpen, setEditAccessOpen] = useState(false)
+  const [editAccessBusy, setEditAccessBusy] = useState(false)
+  const [editAccessErr, setEditAccessErr] = useState<string | null>(null)
+  const [editAccessDone, setEditAccessDone] = useState(false)
 
   const page = docs.pages.find((p) => p.id === pageId)
   const space = page ? docs.spaces.find((s) => s.id === page.spaceId) : null
@@ -98,6 +107,18 @@ export function WikiPageView() {
         : false
   const showAccessRequestGate = Boolean(page && !canViewFolder && folderRestricted && user?.id)
 
+  const canEditThisDoc =
+    Boolean(page) &&
+    canEditDocs &&
+    (bypassFolderRbac ||
+      folderAllowsWritePageInSpace({
+        spaceId: page!.spaceId,
+        grants: docs.wikiSpaceAccessGrants,
+        userId: user?.id,
+        profile,
+        members,
+      }))
+
   useEffect(() => {
     if (!showAccessRequestGate || !page) {
       setBlockedSpaceTitle(null)
@@ -122,6 +143,15 @@ export function WikiPageView() {
       cancelled = true
     }
   }, [showAccessRequestGate, page, space?.title, space?.id, resolvePageMetaForAccessRequest, docs.spaces])
+
+  useEffect(() => {
+    if (canEditThisDoc) {
+      setEditAccessOpen(false)
+      setEditAccessBusy(false)
+      setEditAccessErr(null)
+      setEditAccessDone(false)
+    }
+  }, [canEditThisDoc])
 
   const legalRefs = page && Array.isArray(page.legalRefs) ? page.legalRefs : []
   const templateKey: keyof typeof TEMPLATE_CLASS =
@@ -329,9 +359,19 @@ export function WikiPageView() {
               variant="ghost"
               size="icon"
               className="shrink-0 text-neutral-500 hover:text-neutral-800"
-              title="Rediger"
-              aria-label="Rediger dokument"
-              onClick={() => navigate(`/documents/page/${page.id}/reference-edit`)}
+              title={canEditThisDoc ? 'Rediger' : folderRestricted ? 'Be om redigeringstilgang' : 'Ingen skrivetilgang'}
+              aria-label={canEditThisDoc ? 'Rediger dokument' : 'Be om tilgang til redigering'}
+              onClick={() => {
+                if (canEditThisDoc) {
+                  navigate(`/documents/page/${page.id}/reference-edit`)
+                  return
+                }
+                if (folderRestricted && user?.id) {
+                  setEditAccessErr(null)
+                  setEditAccessDone(false)
+                  setEditAccessOpen(true)
+                }
+              }}
             >
               <Pencil className="h-4 w-4" />
             </Button>
@@ -554,6 +594,44 @@ export function WikiPageView() {
           </Button>
         </div>
       ) : null}
+
+      <DocumentAccessRequestDialog
+        open={editAccessOpen && Boolean(page && user?.id && profile)}
+        title="Be om redigeringstilgang"
+        documentLabel={page?.title ?? 'Dokument'}
+        subLabel={space?.title ? `Mappe: ${space.title}` : undefined}
+        busy={editAccessBusy}
+        error={editAccessErr}
+        done={editAccessDone}
+        onClose={() => {
+          if (editAccessBusy) return
+          setEditAccessOpen(false)
+          setEditAccessErr(null)
+          setEditAccessDone(false)
+        }}
+        onSubmit={async ({ justification, accessScope, duration }) => {
+          if (!page || !user?.id || !profile) return
+          setEditAccessErr(null)
+          setEditAccessBusy(true)
+          try {
+            await createWikiAccessRequest({
+              resourceType: 'document',
+              spaceId: page.spaceId,
+              pageId: page.id,
+              title: page.title,
+              justification,
+              accessScope,
+              duration,
+              requesterName: profile.display_name ?? '',
+            })
+            setEditAccessDone(true)
+          } catch (err) {
+            setEditAccessErr(err instanceof Error ? err.message : 'Kunne ikke sende søknad.')
+          } finally {
+            setEditAccessBusy(false)
+          }
+        }}
+      />
     </ModulePageShell>
   )
 }

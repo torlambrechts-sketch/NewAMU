@@ -30,8 +30,12 @@ import { StandardTextarea } from '../ui/Textarea'
 import { TipTapRichTextEditor } from './TipTapRichTextEditor'
 import { DOCUMENT_EDITOR_SECTIONS, type DocumentEditorSectionId } from './documentEditorSections'
 import { useDocuments } from '../../hooks/useDocuments'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useDirtyGuard } from '../../hooks/useDirtyGuard'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
+import { folderAllowsWritePageInSpace, wikiSpaceHasRestrictedAccess } from '../../lib/wikiSpaceAccessGrants'
+import { canBypassWikiFolderGrants, canEditWikiDocuments } from '../../lib/documentsAccess'
+import { DocumentAccessRequestDialog } from './DocumentAccessRequestDialog'
 import type { ContentBlock, PageTemplate } from '../../types/documents'
 
 const INITIAL_HTML = `<h1>Arbeidsavtale / HMS-dokument (utkast)</h1><p>Rediger dokumentet direkte på siden. Bruk <strong>Innhold</strong> for å sette inn standardseksjoner knyttet til arbeidsmiljøloven og internkontrollforskriften. TipTap gir overskrifter (H1–H3), lister, lenker, understreking og horisontal linje.</p><p></p>`
@@ -141,6 +145,10 @@ export function DocumentEditorWorkbench({
   showHeader = true,
 }: DocumentEditorWorkbenchProps = {}) {
   const docs = useDocuments()
+  const { createWikiAccessRequest } = docs
+  const { can, user, profile, members } = useOrgSetupContext()
+  const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
+  const bypassFolderRbac = canBypassWikiFolderGrants(can, profile?.is_org_admin)
   const persistOrgTemplate = mode === 'persist' && Boolean(orgTemplateId)
   const orgTemplateRow = useMemo(
     () => (persistOrgTemplate && orgTemplateId ? docs.orgCustomTemplates.find((t) => t.id === orgTemplateId) : undefined),
@@ -148,6 +156,28 @@ export function DocumentEditorWorkbench({
   )
   const originalPage = mode === 'persist' && pageId && !persistOrgTemplate ? docs.pages.find((p) => p.id === pageId) : undefined
   const original = persistOrgTemplate ? orgTemplateRow?.pagePayload : originalPage
+
+  const folderWriteBlocked =
+    mode === 'persist' &&
+    !persistOrgTemplate &&
+    Boolean(pageId && originalPage) &&
+    canEditDocs &&
+    originalPage != null &&
+    wikiSpaceHasRestrictedAccess(originalPage.spaceId, docs.wikiSpaceAccessGrants) &&
+    !bypassFolderRbac &&
+    !folderAllowsWritePageInSpace({
+      spaceId: originalPage.spaceId,
+      grants: docs.wikiSpaceAccessGrants,
+      userId: user?.id,
+      profile,
+      members,
+    })
+  const editorReadOnly = Boolean(folderWriteBlocked)
+
+  const [accessReqOpen, setAccessReqOpen] = useState(false)
+  const [accessReqBusy, setAccessReqBusy] = useState(false)
+  const [accessReqErr, setAccessReqErr] = useState<string | null>(null)
+  const [accessReqDone, setAccessReqDone] = useState(false)
 
   const [html, setHtml] = useState(() => (mode === 'persist' && original ? htmlFromWikiBlocks(original.blocks) : INITIAL_HTML))
   const [editor, setEditor] = useState<Editor | null>(null)
@@ -176,17 +206,27 @@ export function DocumentEditorWorkbench({
 
   const handleHtmlChange = useCallback(
     (next: string) => {
+      if (editorReadOnly) return
       setHtml(next)
       setLastEditorActivity(formatNowLabel(new Date()))
       if (mode === 'persist') setPersistDirty(true)
     },
-    [mode],
+    [mode, editorReadOnly],
   )
 
   useEffect(() => {
     if (mode !== 'persist' || !pageId || persistOrgTemplate) return
     void docs.ensurePageLoaded(pageId)
   }, [mode, pageId, persistOrgTemplate, docs])
+
+  useEffect(() => {
+    if (!folderWriteBlocked) {
+      setAccessReqOpen(false)
+      setAccessReqBusy(false)
+      setAccessReqErr(null)
+      setAccessReqDone(false)
+    }
+  }, [folderWriteBlocked])
 
   useLayoutEffect(() => {
     if (mode !== 'persist') return
@@ -291,6 +331,7 @@ export function DocumentEditorWorkbench({
     setDocumentTitle(next)
     setTitleDraft(next)
     setTitleEditing(false)
+    if (editorReadOnly) return
     if (mode !== 'persist' || !original) return
     setSaveError(null)
     try {
@@ -314,9 +355,10 @@ export function DocumentEditorWorkbench({
     } catch (e) {
       setSaveError(getSupabaseErrorMessage(e))
     }
-  }, [titleDraft, mode, pageId, original, persistOrgTemplate, orgTemplateId, orgTemplateRow, html, docs])
+  }, [titleDraft, mode, pageId, original, persistOrgTemplate, orgTemplateId, orgTemplateRow, html, docs, editorReadOnly])
 
   const handleSavePersist = useCallback(async () => {
+    if (editorReadOnly) return
     if (mode !== 'persist' || !original) return
     setSaving(true)
     setSaveError(null)
@@ -369,29 +411,32 @@ export function DocumentEditorWorkbench({
     persistOrgTemplate,
     orgTemplateId,
     orgTemplateRow,
+    editorReadOnly,
   ])
 
   const insertSectionHtml = useCallback(
     (fragment: string) => {
+      if (editorReadOnly) return
       if (editor) {
         editor.chain().focus().insertContent(fragment + '<p></p>').run()
         return
       }
       setHtml((prev) => `${prev}<p></p>${fragment}`)
     },
-    [editor],
+    [editor, editorReadOnly],
   )
 
   const restoreHistoryEntry = useCallback((entry: HistoryEntry) => {
+    if (editorReadOnly) return
     setHtml(entry.htmlSnapshot)
     setLastEditorActivity(formatNowLabel(new Date()))
     lastHistoryHtmlRef.current = entry.htmlSnapshot
     if (editor) {
       editor.commands.setContent(entry.htmlSnapshot, { emitUpdate: false })
     }
-  }, [editor])
+  }, [editor, editorReadOnly])
 
-  useDirtyGuard(mode === 'persist' && persistDirty)
+  useDirtyGuard(mode === 'persist' && persistDirty && !editorReadOnly)
 
   const recipientOptionsWithDot = useMemo(
     () =>
@@ -435,7 +480,7 @@ export function DocumentEditorWorkbench({
                   {documentTitle}
                 </span>
               )}
-              {!titleEditing ? (
+              {!titleEditing && !editorReadOnly ? (
                 <Button
                   type="button"
                   variant="ghost"
@@ -475,6 +520,7 @@ export function DocumentEditorWorkbench({
                   value={html}
                   onChange={handleHtmlChange}
                   toolbar="full"
+                  readOnly={editorReadOnly}
                   onEditorReady={setEditor}
                   placeholder="Skriv eller lim inn dokumenttekst…"
                   className="rounded-none border-0 shadow-none [&_.tiptap-editor-root]:min-h-[min(520px,calc(100vh-320px))] [&_.tiptap-editor-root]:px-4 [&_.tiptap-editor-root]:py-6 sm:[&_.tiptap-editor-root]:px-8 md:[&_.tiptap-editor-root]:min-h-[560px]"
@@ -542,6 +588,7 @@ export function DocumentEditorWorkbench({
                         type="button"
                         variant="secondary"
                         className="h-auto flex-col gap-1.5 py-3 text-center"
+                        disabled={editorReadOnly}
                         onClick={() => insertSectionHtml(sec.html)}
                         title={sec.description}
                       >
@@ -563,6 +610,7 @@ export function DocumentEditorWorkbench({
                     options={recipientOptionsWithDot}
                     onChange={setRecipient}
                     placeholder="Velg mottaker"
+                    disabled={editorReadOnly}
                     triggerClassName="py-2 text-xs"
                   />
                 </div>
@@ -583,6 +631,7 @@ export function DocumentEditorWorkbench({
                         type="button"
                         variant="secondary"
                         className="h-auto flex-col gap-1 border border-orange-100 bg-orange-50/80 py-2.5 hover:bg-orange-50"
+                        disabled={editorReadOnly}
                         onClick={() => insertSectionHtml(fieldHtml[f.id] ?? `<p>${f.label}</p>`)}
                         title={`Sett inn ${f.label}`}
                       >
@@ -611,6 +660,7 @@ export function DocumentEditorWorkbench({
                       options={CATEGORY_OPTIONS}
                       onChange={setSpecCategory}
                       placeholder="Velg kategori"
+                      disabled={editorReadOnly}
                       triggerClassName="py-2 text-xs"
                     />
                   </div>
@@ -625,6 +675,7 @@ export function DocumentEditorWorkbench({
                       value={specAuthor}
                       onChange={(e) => setSpecAuthor(e.target.value)}
                       placeholder="Navn eller rolle"
+                      disabled={editorReadOnly}
                     />
                   </div>
 
@@ -638,6 +689,7 @@ export function DocumentEditorWorkbench({
                       options={SIGNATURE_OPTIONS}
                       onChange={setSpecSignature}
                       placeholder="Velg krav"
+                      disabled={editorReadOnly}
                       triggerClassName="py-2 text-xs"
                     />
                   </div>
@@ -652,6 +704,7 @@ export function DocumentEditorWorkbench({
                       value={specCompliance}
                       onChange={(e) => setSpecCompliance(e.target.value)}
                       placeholder="F.eks. AML kap. 2, internkontrollforskriften § 5 …"
+                      disabled={editorReadOnly}
                     />
                   </div>
 
@@ -665,6 +718,7 @@ export function DocumentEditorWorkbench({
                       type="datetime-local"
                       value={specValidFrom}
                       onChange={(e) => setSpecValidFrom(e.target.value)}
+                      disabled={editorReadOnly}
                     />
                     <p className="mt-1 text-xs text-neutral-500">
                       Sist aktivitet i redaktør: <span className="font-medium text-neutral-700">{lastEditorActivity}</span>
@@ -694,6 +748,7 @@ export function DocumentEditorWorkbench({
                         type="button"
                         variant="secondary"
                         className="mt-2 w-full"
+                        disabled={editorReadOnly}
                         onClick={() => restoreHistoryEntry(h)}
                       >
                         Gjenopprett denne versjonen
@@ -774,7 +829,7 @@ export function DocumentEditorWorkbench({
               <Button
                 type="button"
                 variant="primary"
-                disabled={saving || !persistDirty}
+                disabled={saving || !persistDirty || editorReadOnly}
                 onClick={() => void handleSavePersist()}
               >
                 {saving ? 'Lagrer…' : 'Lagre'}
@@ -794,19 +849,42 @@ export function DocumentEditorWorkbench({
         </div>
       </div>
     ) : mode === 'persist' ? (
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {persistDirty ? <Badge variant="draft">Ulagrede endringer</Badge> : <Badge variant="signed">Lagret</Badge>}
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
-          {onExit ? (
-            <Button type="button" variant="secondary" onClick={onExit}>
-              Tilbake
-            </Button>
-          ) : null}
-          <Button type="button" variant="primary" disabled={saving || !persistDirty} onClick={() => void handleSavePersist()}>
-            {saving ? 'Lagrer…' : 'Lagre'}
-          </Button>
+      <div className="mb-4 space-y-3">
+        {editorReadOnly && originalPage ? (
+          <div className="rounded-lg border border-amber-200/90 bg-amber-50/90 px-3 py-2.5 text-sm text-amber-950">
+            <p className="font-medium">Skrivetilgang i mappen er begrenset</p>
+            <p className="mt-1 text-xs text-amber-900/90">
+              Du kan lese dokumentet her, men ikke lagre endringer før en administrator gir deg skrivetilgang på mappen.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+              <Button type="button" variant="secondary" size="sm" onClick={() => setAccessReqOpen(true)}>
+                Be om tilgang
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {editorReadOnly ? (
+              <Badge variant="neutral">Kun lese</Badge>
+            ) : persistDirty ? (
+              <Badge variant="draft">Ulagrede endringer</Badge>
+            ) : (
+              <Badge variant="signed">Lagret</Badge>
+            )}
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
+            {onExit ? (
+              <Button type="button" variant="secondary" onClick={onExit}>
+                Tilbake
+              </Button>
+            ) : null}
+            {!editorReadOnly ? (
+              <Button type="button" variant="primary" disabled={saving || !persistDirty} onClick={() => void handleSavePersist()}>
+                {saving ? 'Lagrer…' : 'Lagre'}
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
     ) : null
@@ -820,6 +898,47 @@ export function DocumentEditorWorkbench({
       ) : null}
       {headerBlock}
       {body}
+      <DocumentAccessRequestDialog
+        open={accessReqOpen && Boolean(folderWriteBlocked && originalPage && user?.id && profile)}
+        title="Be om skrivetilgang"
+        documentLabel={originalPage?.title ?? 'Dokument'}
+        subLabel={
+          originalPage
+            ? `Mappe: ${docs.spaces.find((s) => s.id === originalPage.spaceId)?.title ?? originalPage.spaceId}`
+            : undefined
+        }
+        busy={accessReqBusy}
+        error={accessReqErr}
+        done={accessReqDone}
+        onClose={() => {
+          if (accessReqBusy) return
+          setAccessReqOpen(false)
+          setAccessReqErr(null)
+          setAccessReqDone(false)
+        }}
+        onSubmit={async ({ justification, accessScope, duration }) => {
+          if (!originalPage || !user?.id || !profile) return
+          setAccessReqErr(null)
+          setAccessReqBusy(true)
+          try {
+            await createWikiAccessRequest({
+              resourceType: 'document',
+              spaceId: originalPage.spaceId,
+              pageId: originalPage.id,
+              title: originalPage.title,
+              justification,
+              accessScope,
+              duration,
+              requesterName: profile.display_name ?? '',
+            })
+            setAccessReqDone(true)
+          } catch (err) {
+            setAccessReqErr(err instanceof Error ? err.message : 'Kunne ikke sende søknad.')
+          } finally {
+            setAccessReqBusy(false)
+          }
+        }}
+      />
     </>
   )
 }

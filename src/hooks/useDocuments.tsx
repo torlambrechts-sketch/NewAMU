@@ -60,12 +60,22 @@ function mapSpaceAccessGrant(row: {
   space_id: string
   grant_type: string
   subject_id: string
+  can_read?: boolean | null
+  can_create?: boolean | null
+  can_write?: boolean | null
+  can_archive?: boolean | null
+  can_delete?: boolean | null
 }): WikiSpaceAccessGrant {
   return {
     id: row.id,
     spaceId: row.space_id,
     grantType: row.grant_type as WikiSpaceGrantType,
     subjectId: row.subject_id,
+    canRead: row.can_read !== false,
+    canCreate: Boolean(row.can_create),
+    canWrite: Boolean(row.can_write),
+    canArchive: Boolean(row.can_archive),
+    canDelete: Boolean(row.can_delete),
   }
 }
 
@@ -594,7 +604,9 @@ function useDocumentsStore() {
             .order('slug'),
           supabase
             .from('wiki_space_access_grants')
-            .select('id, space_id, grant_type, subject_id')
+            .select(
+              'id, space_id, grant_type, subject_id, can_read, can_create, can_write, can_archive, can_delete',
+            )
             .eq('organization_id', orgId),
           supabase
             .from('wiki_document_access_requests')
@@ -1481,9 +1493,21 @@ function useDocumentsStore() {
   )
 
   const addWikiSpaceAccessGrant = useCallback(
-    async (spaceId: string, grantType: WikiSpaceGrantType, subjectId: string) => {
+    async (
+      spaceId: string,
+      grantType: WikiSpaceGrantType,
+      subjectId: string,
+      caps?: Partial<
+        Pick<WikiSpaceAccessGrant, 'canRead' | 'canCreate' | 'canWrite' | 'canArchive' | 'canDelete'>
+      >,
+    ) => {
       const sid = subjectId.trim()
       if (!spaceId || !sid) return
+      const canRead = caps?.canRead !== false
+      const canCreate = Boolean(caps?.canCreate)
+      const canWrite = Boolean(caps?.canWrite)
+      const canArchive = Boolean(caps?.canArchive)
+      const canDelete = Boolean(caps?.canDelete)
       if (!useRemote) {
         if (!orgId) return
         const id = crypto.randomUUID()
@@ -1491,24 +1515,76 @@ function useDocumentsStore() {
           const dedup = prev.filter(
             (g) => !(g.spaceId === spaceId && g.grantType === grantType && g.subjectId === sid),
           )
-          const next = [...dedup, { id, spaceId, grantType, subjectId: sid }]
+          const next = [
+            ...dedup,
+            {
+              id,
+              spaceId,
+              grantType,
+              subjectId: sid,
+              canRead,
+              canCreate,
+              canWrite,
+              canArchive,
+              canDelete,
+            },
+          ]
           saveWikiSpaceGrantsToStorage(orgId, next)
           return next
         })
         return
       }
       if (!supabase || !orgId) return
-      const { data, error: e } = await supabase
+      const payload = {
+        organization_id: orgId,
+        space_id: spaceId,
+        grant_type: grantType,
+        subject_id: sid,
+        can_read: canRead,
+        can_create: canCreate,
+        can_write: canWrite,
+        can_archive: canArchive,
+        can_delete: canDelete,
+      }
+      let data:
+        | {
+            id: string
+            space_id: string
+            grant_type: string
+            subject_id: string
+            can_read?: boolean | null
+            can_create?: boolean | null
+            can_write?: boolean | null
+            can_archive?: boolean | null
+            can_delete?: boolean | null
+          }
+        | null = null
+      const ins = await supabase
         .from('wiki_space_access_grants')
-        .insert({
-          organization_id: orgId,
-          space_id: spaceId,
-          grant_type: grantType,
-          subject_id: sid,
-        })
-        .select('id, space_id, grant_type, subject_id')
+        .insert(payload)
+        .select(
+          'id, space_id, grant_type, subject_id, can_read, can_create, can_write, can_archive, can_delete',
+        )
         .single()
-      if (e) throw e
+      if (ins.error && String(ins.error.code) === '42703') {
+        const legacy = await supabase
+          .from('wiki_space_access_grants')
+          .insert({
+            organization_id: orgId,
+            space_id: spaceId,
+            grant_type: grantType,
+            subject_id: sid,
+          })
+          .select('id, space_id, grant_type, subject_id')
+          .single()
+        if (legacy.error) throw legacy.error
+        data = legacy.data
+      } else if (ins.error) {
+        throw ins.error
+      } else {
+        data = ins.data
+      }
+      if (!data) return
       const mapped = mapSpaceAccessGrant(data as Parameters<typeof mapSpaceAccessGrant>[0])
       setWikiSpaceAccessGrants((prev) => {
         if (prev.some((g) => g.id === mapped.id)) return prev
@@ -1675,7 +1751,14 @@ function useDocumentsStore() {
       if (!useRemote) {
         if (!orgId) throw new Error('Mangler organisasjon.')
         if (decision === 'approved') {
-          await addWikiSpaceAccessGrant(req.spaceId, 'user', req.requesterId)
+          const editLike = req.accessScope === 'edit'
+          await addWikiSpaceAccessGrant(req.spaceId, 'user', req.requesterId, {
+            canRead: true,
+            canCreate: editLike,
+            canWrite: editLike,
+            canArchive: editLike,
+            canDelete: false,
+          })
         }
         const reviewedAt = new Date().toISOString()
         setWikiAccessRequests((prev) => {
@@ -1698,7 +1781,14 @@ function useDocumentsStore() {
       if (!supabase || !orgId) throw new Error('Ikke tilkoblet.')
 
       if (decision === 'approved') {
-        await addWikiSpaceAccessGrant(req.spaceId, 'user', req.requesterId)
+        const editLike = req.accessScope === 'edit'
+        await addWikiSpaceAccessGrant(req.spaceId, 'user', req.requesterId, {
+          canRead: true,
+          canCreate: editLike,
+          canWrite: editLike,
+          canArchive: editLike,
+          canDelete: false,
+        })
       }
 
       const { error: e } = await supabase

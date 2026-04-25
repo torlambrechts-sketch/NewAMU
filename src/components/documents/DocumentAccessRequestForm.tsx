@@ -30,6 +30,8 @@ type Props = {
     duration: WikiAccessRequestDuration
   }) => void | Promise<void>
   onCancel?: () => void
+  /** When true, skip outer card chrome (for use inside dialogs). */
+  embedded?: boolean
 }
 
 export function DocumentAccessRequestForm({
@@ -39,6 +41,7 @@ export function DocumentAccessRequestForm({
   error,
   onSubmit,
   onCancel,
+  embedded = false,
 }: Props) {
   const [justification, setJustification] = useState('')
   const [accessScope, setAccessScope] = useState<WikiAccessRequestScope>('read')
@@ -54,8 +57,12 @@ export function DocumentAccessRequestForm({
     })
   }
 
-  return (
-    <ModuleSectionCard className="overflow-hidden border border-neutral-200/90 p-0 shadow-sm">
+  const shellClass = embedded
+    ? 'overflow-visible rounded-lg border border-neutral-200/90 shadow-sm'
+    : 'overflow-visible border border-neutral-200/90 p-0 shadow-sm'
+
+  const inner = (
+    <>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium uppercase tracking-wide text-neutral-600">
         <span className="inline-flex items-center gap-1.5 text-emerald-900">
           <Shield className="size-3.5 shrink-0" aria-hidden />
@@ -125,6 +132,12 @@ export function DocumentAccessRequestForm({
           </Button>
         </div>
       </form>
-    </ModuleSectionCard>
+    </>
   )
+
+  if (embedded) {
+    return <div className={shellClass}>{inner}</div>
+  }
+
+  return <ModuleSectionCard className={shellClass}>{inner}</ModuleSectionCard>
 }
