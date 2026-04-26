@@ -628,6 +628,7 @@ export function useAmu() {
           | 'minutes_draft'
           | 'meeting_chair_user_id'
           | 'chair_signed_at'
+          | 'distributed_at'
         >
       >,
     ) => {
@@ -642,7 +643,14 @@ export function useAmu() {
       setError(null)
       try {
         const current = await getMeeting(meetingId)
-        if (!assertCanMutateSigned(current, 'endre')) return null
+        const keys = Object.keys(patch) as (keyof typeof patch)[]
+        const onlyDistributedAt =
+          keys.length === 1 && keys[0] === 'distributed_at' && patch.distributed_at !== undefined
+        if (!onlyDistributedAt && !assertCanMutateSigned(current, 'endre')) return null
+        if (onlyDistributedAt && (!current || !isSignedMeeting(current.status))) {
+          setError('Distribusjon kan bare bekreftes for signerte møter.')
+          return null
+        }
 
         const dbPatch: Record<string, unknown> = {}
         if (patch.title !== undefined) dbPatch.title = patch.title
@@ -652,6 +660,7 @@ export function useAmu() {
         if (patch.minutes_draft !== undefined) dbPatch.minutes_draft = patch.minutes_draft
         if (patch.meeting_chair_user_id !== undefined) dbPatch.meeting_chair_user_id = patch.meeting_chair_user_id
         if (patch.chair_signed_at !== undefined) dbPatch.chair_signed_at = patch.chair_signed_at
+        if (patch.distributed_at !== undefined) dbPatch.distributed_at = patch.distributed_at
 
         const { data, error: upErr } = await supabase
           .from('amu_meetings')

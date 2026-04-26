@@ -22,6 +22,8 @@ export interface AmuMeeting {
   meeting_chair_user_id: string | null
   /** Møteleders signaturtidspunkt */
   chair_signed_at: string | null
+  /** Når signert referat ble bekreftet distribuert (AML §7-2(6)) */
+  distributed_at: string | null
   created_at: string
   updated_at: string
 }

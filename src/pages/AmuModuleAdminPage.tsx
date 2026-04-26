@@ -331,6 +331,11 @@ export function AmuModuleAdminPage({
 
       {tab === 'arbeidsflyt' && (
         <div className="max-w-4xl space-y-3">
+          <InfoBox>
+            <strong>AML §7-2(6) — Distribusjonsplikten:</strong> Signerte referater skal gjøres tilgjengelige for alle
+            arbeidstakere. Sett opp en arbeidsflyt for <strong>ON_AMU_MEETING_SIGNED</strong> for å sende e-post
+            automatisk til AMU-deltakere og/eller publisere en lenke på intranett.
+          </InfoBox>
           <p className="text-sm text-neutral-600">
             <strong>ON_AMU_MEETING_SCHEDULED</strong> utløses når møtet har status planlagt (f.eks. e-post/Teams til deltakere).{' '}
             <strong>ON_AMU_MEETING_SIGNED</strong> utløses når referat er signert (f.eks. distribuere minutter).

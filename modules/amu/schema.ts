@@ -21,6 +21,7 @@ export const AmuMeetingSchema = z.object({
   minutes_draft: z.string().nullable(),
   meeting_chair_user_id: z.string().uuid().nullable(),
   chair_signed_at: z.string().nullable(),
+  distributed_at: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 })
@@ -99,6 +100,7 @@ export const AmuMeetingDbRowSchema = z
     minutes_draft: z.string().nullable().optional(),
     meeting_chair_user_id: z.string().uuid().nullable().optional(),
     chair_signed_at: z.string().nullable().optional(),
+    distributed_at: z.string().nullable().optional(),
     created_at: z.string(),
     updated_at: z.string(),
   })
@@ -112,5 +114,6 @@ export function parseAmuMeetingFromDb(raw: unknown): AmuMeeting {
     minutes_draft: row.minutes_draft ?? null,
     meeting_chair_user_id: row.meeting_chair_user_id ?? null,
     chair_signed_at: row.chair_signed_at ?? null,
+    distributed_at: row.distributed_at ?? null,
   })
 }
