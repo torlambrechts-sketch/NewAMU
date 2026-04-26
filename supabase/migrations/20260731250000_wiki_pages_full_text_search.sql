@@ -1,19 +1,18 @@
 -- Full-text search for wiki pages (title, summary, block text as plain text).
 -- SECURITY INVOKER on search RPC so existing wiki_pages RLS applies.
+--
+-- Note: A generated column cannot reference another generated column (42P17).
+-- We use a single search_vector column with the blocks→plain text logic inlined.
+
+drop function if exists public.search_wiki_pages(uuid, text, int);
+
+drop index if exists public.wiki_pages_search_vector_idx;
+
+alter table public.wiki_pages drop column if exists search_vector;
+alter table public.wiki_pages drop column if exists search_blocks_plain;
 
 alter table public.wiki_pages
-  add column if not exists search_blocks_plain text
-  generated always as (
-    regexp_replace(
-      regexp_replace(coalesce(blocks::text, ''), '<[^>]+>', ' ', 'g'),
-      '\s+',
-      ' ',
-      'g'
-    )
-  ) stored;
-
-alter table public.wiki_pages
-  add column if not exists search_vector tsvector
+  add column search_vector tsvector
   generated always as (
     to_tsvector(
       'norwegian',
@@ -21,7 +20,12 @@ alter table public.wiki_pages
         || ' '
         || coalesce(summary, '')
         || ' '
-        || coalesce(search_blocks_plain, '')
+        || regexp_replace(
+          regexp_replace(coalesce(blocks::text, ''), '<[^>]+>', ' ', 'g'),
+          '\s+',
+          ' ',
+          'g'
+        )
     )
   ) stored;
 
@@ -30,8 +34,6 @@ create index if not exists wiki_pages_search_vector_idx
 
 create index if not exists wiki_pages_org_search_idx
   on public.wiki_pages (organization_id);
-
-drop function if exists public.search_wiki_pages(uuid, text, int);
 
 create or replace function public.search_wiki_pages(
   p_organization_id uuid,
