@@ -167,11 +167,20 @@ export const ROUTE_PERMISSION_ANY: { pathPrefix: string; permissions: Permission
 
 export const DASHBOARD_PERMISSION: PermissionKey = 'module.view.dashboard'
 
+/** App «home» routes: same gate as `/documents` — users with only document access must reach `/` and `/app`. */
+export const WORKPLACE_HOME_PERMISSIONS: PermissionKey[] = [
+  'module.view.dashboard',
+  'documents.view',
+  'documents.edit',
+  'documents.manage',
+]
+
 export type RoutePermissionRequirement = PermissionKey | PermissionKey[]
 
 export function permissionForPath(pathname: string): RoutePermissionRequirement {
   if (pathname === '/workspace/revisjonslogg') return DASHBOARD_PERMISSION
-  if (pathname === '/' || pathname === '' || pathname === '/profile') return DASHBOARD_PERMISSION
+  if (pathname === '/' || pathname === '' || pathname === '/app') return WORKPLACE_HOME_PERMISSIONS
+  if (pathname === '/profile') return DASHBOARD_PERMISSION
   const anyHit = ROUTE_PERMISSION_ANY.find(
     (r) => pathname === r.pathPrefix || pathname.startsWith(`${r.pathPrefix}/`),
   )

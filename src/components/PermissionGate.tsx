@@ -35,7 +35,7 @@ export function PermissionGate() {
       can('workflows.manage') ||
       profile?.is_org_admin === true
     if (!allowedWorkflow) {
-      return <Navigate to="/" replace state={{ accessDenied: 'module.view.workflow' }} />
+      return <Navigate to="/home" replace state={{ accessDenied: 'module.view.workflow' }} />
     }
     return <Outlet />
   }
@@ -55,7 +55,7 @@ export function PermissionGate() {
     const canEnterModule =
       can('module.view.dashboard') || can('documents.view') || can('documents.edit') || can('documents.manage')
     if (!canEnterModule) {
-      return <Navigate to="/" replace state={{ accessDenied: 'documents' }} />
+      return <Navigate to="/home" replace state={{ accessDenied: 'documents' }} />
     }
     return <Outlet />
   }
@@ -66,7 +66,7 @@ export function PermissionGate() {
   }
   const allowed = Array.isArray(required) ? required.some((k) => can(k)) : can(required)
   if (!allowed) {
-    return <Navigate to="/" replace state={{ accessDenied: required }} />
+    return <Navigate to="/home" replace state={{ accessDenied: required }} />
   }
 
   return <Outlet />
