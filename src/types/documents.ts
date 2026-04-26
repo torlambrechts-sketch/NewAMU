@@ -219,6 +219,17 @@ export type AuditLedgerEntry = {
   snapshot?: string
 }
 
+/** Row from `search_wiki_pages` RPC (mapped on the client). */
+export type WikiDocumentSearchResult = {
+  id: string
+  title: string
+  summary: string | null
+  status: PageStatus
+  spaceId: string
+  updatedAt: string
+  rank: number
+}
+
 // ─── Compliance receipts ──────────────────────────────────────────────────────
 
 export type ComplianceReceipt = {

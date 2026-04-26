@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom'
+import { DocumentsSearchHotkey } from '../../src/components/documents/DocumentsSearchHotkey'
 import { DocumentsShellEmbeddedProvider } from './DocumentsShellContext'
 
 /**
@@ -8,6 +9,7 @@ import { DocumentsShellEmbeddedProvider } from './DocumentsShellContext'
 export function DocumentsWikiOutlet() {
   return (
     <DocumentsShellEmbeddedProvider>
+      <DocumentsSearchHotkey />
       <Outlet />
     </DocumentsShellEmbeddedProvider>
   )
