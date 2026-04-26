@@ -385,15 +385,17 @@ export function AmuDetailView({
   }, [amu, meetingId])
 
   const openNewAgendaPanel = useCallback(() => {
+    const maxIndex =
+      agenda.length === 0 ? 0 : Math.max(...agenda.map((a) => a.order_index)) + 1
     setAgendaForm({
       title: '',
       description: '',
-      order_index: agenda.length,
+      order_index: maxIndex,
       source_module: '',
       source_id_raw: '',
     })
     setAgendaPanel({ mode: 'new' })
-  }, [agenda.length])
+  }, [agenda])
 
   const openEditAgenda = useCallback((item: AmuAgendaItem) => {
     setAgendaForm({
@@ -461,6 +463,61 @@ export function AmuDetailView({
       }
     },
     [amu],
+  )
+
+  const reorderAgenda = useCallback(
+    async (itemId: string, direction: 'up' | 'down') => {
+      const sorted = [...agenda].sort((a, b) =>
+        a.order_index !== b.order_index ? a.order_index - b.order_index : a.id.localeCompare(b.id),
+      )
+      const idx = sorted.findIndex((a) => a.id === itemId)
+      if (idx < 0) return
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+      if (swapIdx < 0 || swapIdx >= sorted.length) return
+
+      const current = sorted[idx]
+      const swap = sorted[swapIdx]
+      const currentNewIndex = swap.order_index
+      const swapNewIndex = current.order_index
+
+      setAgenda((prev) =>
+        prev
+          .map((x) => {
+            if (x.id === current.id) return { ...x, order_index: currentNewIndex }
+            if (x.id === swap.id) return { ...x, order_index: swapNewIndex }
+            return x
+          })
+          .sort((p, q) => p.order_index - q.order_index),
+      )
+
+      const [updCurrent, updSwap] = await Promise.all([
+        amu.updateAgendaItem(current.id, { order_index: currentNewIndex }),
+        amu.updateAgendaItem(swap.id, { order_index: swapNewIndex }),
+      ])
+
+      if (updCurrent && updSwap) {
+        setAgenda((prev) =>
+          prev
+            .map((a) => {
+              if (a.id === updCurrent.id) return updCurrent
+              if (a.id === updSwap.id) return updSwap
+              return a
+            })
+            .sort((a, b) => a.order_index - b.order_index),
+        )
+      } else {
+        setAgenda((prev) =>
+          prev
+            .map((x) => {
+              if (x.id === current.id) return { ...x, order_index: swapNewIndex }
+              if (x.id === swap.id) return { ...x, order_index: currentNewIndex }
+              return x
+            })
+            .sort((p, q) => p.order_index - q.order_index),
+        )
+      }
+    },
+    [agenda, amu],
   )
 
   const fixOpenDecision = useCallback(
@@ -762,6 +819,7 @@ export function AmuDetailView({
             onOpenNew={openNewAgendaPanel}
             onOpenEdit={openEditAgenda}
             onDelete={(id) => void deleteAgenda(id)}
+            onReorder={(id, dir) => void reorderAgenda(id, dir)}
           />
         </div>
       )}
@@ -951,17 +1009,6 @@ export function AmuDetailView({
               rows={4}
               value={agendaForm.description}
               onChange={(e) => setAgendaForm((f) => ({ ...f, description: e.target.value }))}
-            />
-          </div>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-agg-ord">
-              Rekkefølge (0 = først)
-            </label>
-            <StandardInput
-              id="amu-agg-ord"
-              type="number"
-              value={agendaForm.order_index}
-              onChange={(e) => setAgendaForm((f) => ({ ...f, order_index: Number(e.target.value) }))}
             />
           </div>
           <div className={WPSTD_FORM_ROW_GRID}>

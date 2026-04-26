@@ -1,6 +1,7 @@
-import { FileText, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, FileText, Plus, Trash2 } from 'lucide-react'
 import { ModuleRecordsTableShell } from '../../src/components/module/ModuleRecordsTableShell'
 import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../../src/components/module/moduleTableKit'
+import { useMemo } from 'react'
 import { Button } from '../../src/components/ui/Button'
 import type { AmuAgendaItem } from './types'
 
@@ -17,6 +18,7 @@ export type AmuAgendaPlanningTableProps = {
   onOpenNew: () => void
   onOpenEdit: (item: AmuAgendaItem) => void
   onDelete: (id: string) => void | Promise<void>
+  onReorder: (itemId: string, direction: 'up' | 'down') => void | Promise<void>
 }
 
 export function AmuAgendaPlanningTable({
@@ -29,7 +31,16 @@ export function AmuAgendaPlanningTable({
   onOpenNew,
   onOpenEdit,
   onDelete,
+  onReorder,
 }: AmuAgendaPlanningTableProps) {
+  const sortedAgenda = useMemo(
+    () =>
+      [...agenda].sort((a, b) =>
+        a.order_index !== b.order_index ? a.order_index - b.order_index : a.id.localeCompare(b.id),
+      ),
+    [agenda],
+  )
+
   const headerActions = (
     <div className="flex flex-wrap gap-2">
       <Button
@@ -103,10 +114,10 @@ export function AmuAgendaPlanningTable({
               </td>
             </tr>
           ) : (
-            agenda.map((a) => (
+            sortedAgenda.map((a, index) => (
               <tr key={a.id} className={MODULE_TABLE_TR_BODY}>
                 <td className="whitespace-nowrap px-5 py-4 align-middle text-neutral-600">
-                  {a.order_index + 1}
+                  {index + 1}
                 </td>
                 <td className="px-5 py-4 align-middle text-neutral-900">
                   <div className="font-medium">{a.title}</div>
@@ -119,6 +130,24 @@ export function AmuAgendaPlanningTable({
                 </td>
                 <td className="whitespace-nowrap px-5 py-4 text-right align-middle">
                   <div className="inline-flex flex-wrap items-center justify-end gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      disabled={readOnly || !canManage || index === 0}
+                      onClick={() => void onReorder(a.id, 'up')}
+                      icon={<ArrowUp className="h-4 w-4" />}
+                      aria-label="Flytt opp"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      disabled={readOnly || !canManage || index === sortedAgenda.length - 1}
+                      onClick={() => void onReorder(a.id, 'down')}
+                      icon={<ArrowDown className="h-4 w-4" />}
+                      aria-label="Flytt ned"
+                    />
                     <Button
                       type="button"
                       variant="ghost"
