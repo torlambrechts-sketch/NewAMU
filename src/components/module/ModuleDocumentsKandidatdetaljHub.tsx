@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Archive, Eye, Folder, FolderPlus, Pencil, Plus, Search, Upload } from 'lucide-react'
+import { Archive, ChevronDown, ChevronRight, Eye, Folder, FolderPlus, Pencil, Plus, Search, Upload } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { WikiPage, WikiSpace } from '../../types/documents'
@@ -27,6 +27,14 @@ import {
   wikiSpaceHasRestrictedAccess,
 } from '../../lib/wikiSpaceAccessGrants'
 import { canBypassWikiFolderGrants, canEditWikiDocuments } from '../../lib/documentsAccess'
+import {
+  buildSpaceTree,
+  getSpacePath,
+  wikiSpaceCollectDescendantIds,
+  wikiSpaceDepthFromRoot,
+  wikiSpaceMaxDescendantEdgeDistance,
+  type SpaceTreeNode,
+} from '../../lib/wikiSpaceTree'
 
 /** Beige nav — matches layout-reference `RefCandidateDetailPaneBlock`. */
 const BEIGE_NAV = '#EDE4D3'
@@ -107,12 +115,14 @@ export function ModuleDocumentsKandidatdetaljHub({
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [newCategory, setNewCategory] = useState<WikiSpace['category']>('hms_handbook')
+  const [newParentSpaceId, setNewParentSpaceId] = useState<string>('')
   const [savingFolder, setSavingFolder] = useState(false)
 
   const [editSpace, setEditSpace] = useState<WikiSpace | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editDesc, setEditDesc] = useState('')
   const [editCategory, setEditCategory] = useState<WikiSpace['category']>('hms_handbook')
+  const [editParentSpaceId, setEditParentSpaceId] = useState<string>('')
   const [savingEditSpace, setSavingEditSpace] = useState(false)
 
   const [archiveSpaceTarget, setArchiveSpaceTarget] = useState<WikiSpace | null>(null)
@@ -158,25 +168,6 @@ export function ModuleDocumentsKandidatdetaljHub({
     window.addEventListener('dragend', clear)
     return () => window.removeEventListener('dragend', clear)
   }, [canEditDocs])
-
-  const openNewFolderFromShell = useCallback(() => {
-    setNewCategory(centerContent === 'templates' ? 'template_library' : 'hms_handbook')
-    setNewFolderOpen(true)
-  }, [centerContent])
-  useDocumentsHubActionsRegister(openNewFolderFromShell)
-
-  const openNewTemplateFolderFromLibrary = useCallback(() => {
-    setNewCategory('template_library')
-    setNewFolderOpen(true)
-  }, [])
-
-  const toggleNewFolderPanel = useCallback(() => {
-    setNewFolderOpen((open) => {
-      const next = !open
-      if (next) setNewCategory(centerContent === 'templates' ? 'template_library' : 'hms_handbook')
-      return next
-    })
-  }, [centerContent])
 
   const activeSpaces = useMemo(() => docs.spaces.filter((s) => s.status === 'active'), [docs.spaces])
 
@@ -245,6 +236,96 @@ export function ModuleDocumentsKandidatdetaljHub({
     )
   }, [spacesForNavFiltered, folderQuery])
 
+  const spaceTreeForNav = useMemo(() => buildSpaceTree(filteredSpaces), [filteredSpaces])
+
+  const [expandedFolderIds, setExpandedFolderIds] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    if (!selectedSpaceId) return
+    const path = getSpacePath(selectedSpaceId, spacesForNavFiltered)
+    setExpandedFolderIds((prev) => {
+      const next = { ...prev }
+      for (let i = 0; i < path.length - 1; i++) next[path[i]!.id] = true
+      return next
+    })
+  }, [selectedSpaceId, spacesForNavFiltered])
+
+  const validParentIdsForCreate = useMemo(
+    () =>
+      new Set(
+        spacesForNavFiltered
+          .filter((s) => wikiSpaceDepthFromRoot(s.id, spacesForNavFiltered) < 3)
+          .map((s) => s.id),
+      ),
+    [spacesForNavFiltered],
+  )
+
+  const parentSelectOptionsForNew = useMemo((): SelectOption[] => {
+    const opts: SelectOption[] = [{ value: '', label: 'Rot (ingen overmappe)' }]
+    for (const s of spacesForNavFiltered) {
+      if (!validParentIdsForCreate.has(s.id)) continue
+      const label = getSpacePath(s.id, spacesForNavFiltered)
+        .map((x) => x.title)
+        .join(' / ')
+      opts.push({ value: s.id, label })
+    }
+    return opts
+  }, [spacesForNavFiltered, validParentIdsForCreate])
+
+  const editInvalidParentIds = useMemo(() => {
+    if (!editSpace) return new Set<string>()
+    const d = new Set<string>([editSpace.id])
+    for (const id of wikiSpaceCollectDescendantIds(editSpace.id, spacesForNavFiltered)) d.add(id)
+    return d
+  }, [editSpace, spacesForNavFiltered])
+
+  const parentSelectOptionsForEdit = useMemo((): SelectOption[] => {
+    if (!editSpace) return []
+    const opts: SelectOption[] = [{ value: '', label: 'Rot (ingen overmappe)' }]
+    const maxDesc = wikiSpaceMaxDescendantEdgeDistance(editSpace.id, spacesForNavFiltered)
+    for (const s of spacesForNavFiltered) {
+      if (editInvalidParentIds.has(s.id)) continue
+      const newDepthSelf = wikiSpaceDepthFromRoot(s.id, spacesForNavFiltered) + 1
+      if (newDepthSelf > 3) continue
+      if (newDepthSelf + maxDesc > 3) continue
+      const label = getSpacePath(s.id, spacesForNavFiltered)
+        .map((x) => x.title)
+        .join(' / ')
+      opts.push({ value: s.id, label })
+    }
+    return opts
+  }, [editSpace, spacesForNavFiltered, editInvalidParentIds])
+
+  const defaultParentIdForNewFolder = useMemo(() => {
+    const sel = selectedSpaceId ?? ''
+    if (!sel) return ''
+    return wikiSpaceDepthFromRoot(sel, spacesForNavFiltered) < 3 ? sel : ''
+  }, [selectedSpaceId, spacesForNavFiltered])
+
+  const openNewFolderFromShell = useCallback(() => {
+    setNewCategory(centerContent === 'templates' ? 'template_library' : 'hms_handbook')
+    setNewParentSpaceId(defaultParentIdForNewFolder)
+    setNewFolderOpen(true)
+  }, [centerContent, defaultParentIdForNewFolder])
+  useDocumentsHubActionsRegister(openNewFolderFromShell)
+
+  const openNewTemplateFolderFromLibrary = useCallback(() => {
+    setNewCategory('template_library')
+    setNewParentSpaceId(defaultParentIdForNewFolder)
+    setNewFolderOpen(true)
+  }, [defaultParentIdForNewFolder])
+
+  const toggleNewFolderPanel = useCallback(() => {
+    setNewFolderOpen((open) => {
+      const next = !open
+      if (next) {
+        setNewCategory(centerContent === 'templates' ? 'template_library' : 'hms_handbook')
+        setNewParentSpaceId(defaultParentIdForNewFolder)
+      }
+      return next
+    })
+  }, [centerContent, defaultParentIdForNewFolder])
+
   const pagesForTable = useMemo(() => {
     const q = pageQuery.trim().toLowerCase()
     let list: WikiPage[]
@@ -283,6 +364,14 @@ export function ModuleDocumentsKandidatdetaljHub({
 
   const spaceById = useMemo(() => new Map(docs.spaces.map((s) => [s.id, s])), [docs.spaces])
 
+  const pageCountBySpaceId = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const p of docs.pages) {
+      m.set(p.spaceId, (m.get(p.spaceId) ?? 0) + 1)
+    }
+    return m
+  }, [docs.pages])
+
   const targetSpaceIdForActions = selectedSpaceId ?? spacesForNavFiltered[0]?.id ?? null
 
   const uploadTargetSpace = useMemo(() => {
@@ -303,6 +392,7 @@ export function ModuleDocumentsKandidatdetaljHub({
     setEditTitle(s.title)
     setEditDesc(s.description)
     setEditCategory(s.category)
+    setEditParentSpaceId(s.parentSpaceId ?? '')
   }, [])
 
   const handleCreateFolder = async (e: React.FormEvent) => {
@@ -311,9 +401,20 @@ export function ModuleDocumentsKandidatdetaljHub({
     setSavingFolder(true)
     setUiError(null)
     try {
-      const sp = await docs.createSpace(newTitle, newDesc, newCategory, CATEGORY_ICONS[newCategory])
+      const parentId = newParentSpaceId.trim() || undefined
+      if (parentId && !validParentIdsForCreate.has(parentId)) {
+        throw new Error('Valgt overmappe tillater ikke nye undermapper (maks. 3 nivåer).')
+      }
+      const sp = await docs.createSpace(
+        newTitle,
+        newDesc,
+        newCategory,
+        CATEGORY_ICONS[newCategory],
+        parentId ?? null,
+      )
       setNewTitle('')
       setNewDesc('')
+      setNewParentSpaceId('')
       setNewFolderOpen(false)
       setSelectedSpaceId(sp.id)
     } catch (err) {
@@ -329,10 +430,23 @@ export function ModuleDocumentsKandidatdetaljHub({
     setSavingEditSpace(true)
     setUiError(null)
     try {
+      const nextParent = editParentSpaceId.trim() || null
+      const prevParent = editSpace.parentSpaceId ?? null
+      if (nextParent !== prevParent) {
+        if (nextParent && editInvalidParentIds.has(nextParent)) {
+          throw new Error('Ugyldig overmappe (kan ikke flytte en mappe inn i seg selv eller undermapper).')
+        }
+        const maxDesc = wikiSpaceMaxDescendantEdgeDistance(editSpace.id, spacesForNavFiltered)
+        const newDepthSelf = nextParent ? wikiSpaceDepthFromRoot(nextParent, spacesForNavFiltered) + 1 : 1
+        if (newDepthSelf > 3 || newDepthSelf + maxDesc > 3) {
+          throw new Error('Flyttingen bryter maks. 3 nivåer av mapper.')
+        }
+      }
       await docs.updateSpace(editSpace.id, {
         title: editTitle.trim(),
         description: editDesc.trim(),
         category: editCategory,
+        parentSpaceId: nextParent,
       })
       setEditSpace(null)
     } catch (err) {
@@ -643,6 +757,13 @@ export function ModuleDocumentsKandidatdetaljHub({
                 onChange={(v) => setNewCategory(v as WikiSpace['category'])}
               />
             </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="hub-new-parent">
+                Overmappe (valgfritt)
+              </label>
+              <SearchableSelect value={newParentSpaceId} options={parentSelectOptionsForNew} onChange={(v) => setNewParentSpaceId(v)} />
+              <p className="mt-1 text-[11px] text-neutral-400">Maks. tre nivåer (rot + to undernivåer).</p>
+            </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setNewFolderOpen(false)}>
                 Avbryt
@@ -677,62 +798,25 @@ export function ModuleDocumentsKandidatdetaljHub({
               active={selectedSpaceId == null}
               onSelect={() => setSelectedSpaceId(null)}
             />
-            {filteredSpaces.map((space) => {
-              const count = docs.pages.filter((p) => p.spaceId === space.id).length
-              const dropOn = canEditDocs && folderWriteOk(space.id)
-              const canEditThisFolder = canEditDocs && folderWriteOk(space.id)
-              const canArchiveThisFolder = canEditDocs && folderArchiveOk(space.id)
-              return (
-                <NavFolderRow
-                  key={space.id}
-                  label={space.title}
-                  sub={`${CATEGORY_LABELS[space.category]} · ${count} sider`}
-                  active={selectedSpaceId === space.id}
-                  highlightDrop={dropOn && dropHighlightSpaceId === space.id}
-                  onSelect={() => setSelectedSpaceId(space.id)}
-                  onDragOver={dropOn ? (e) => onFolderDragOver(e, space.id) : undefined}
-                  onDrop={dropOn ? (e) => void onFolderDrop(e, space.id) : undefined}
-                  actions={
-                    canEditThisFolder || canArchiveThisFolder ? (
-                      <>
-                        {canEditThisFolder ? (
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 text-neutral-500 hover:text-neutral-800"
-                            title="Rediger mappe"
-                            aria-label={`Rediger mappe ${space.title}`}
-                            onClick={(ev) => {
-                              ev.stopPropagation()
-                              openEditSpace(space)
-                            }}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                        ) : null}
-                        {canArchiveThisFolder ? (
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 text-neutral-500 hover:text-neutral-900"
-                            title="Arkiver mappe"
-                            aria-label={`Arkiver mappe ${space.title}`}
-                            onClick={(ev) => {
-                              ev.stopPropagation()
-                              setArchiveSpaceTarget(space)
-                            }}
-                          >
-                            <Archive className="h-3.5 w-3.5" />
-                          </Button>
-                        ) : null}
-                      </>
-                    ) : undefined
-                  }
-                />
-              )
-            })}
+            <HubFolderTreeRows
+              nodes={spaceTreeForNav}
+              depth={0}
+              expandedFolderIds={expandedFolderIds}
+              onToggleExpand={(id) =>
+                setExpandedFolderIds((prev) => ({ ...prev, [id]: !(prev[id] ?? false) }))
+              }
+              selectedSpaceId={selectedSpaceId}
+              onSelectSpace={(id) => setSelectedSpaceId(id)}
+              dropHighlightSpaceId={dropHighlightSpaceId}
+              canEditDocs={canEditDocs}
+              folderWriteOk={folderWriteOk}
+              folderArchiveOk={folderArchiveOk}
+              openEditSpace={openEditSpace}
+              setArchiveSpaceTarget={setArchiveSpaceTarget}
+              onFolderDragOver={onFolderDragOver}
+              onFolderDrop={onFolderDrop}
+              pageCountBySpaceId={pageCountBySpaceId}
+            />
             {filteredSpaces.length === 0 ? (
               <p className="px-3 py-4 text-center text-xs text-neutral-500">Ingen mapper matcher søket.</p>
             ) : null}
@@ -945,6 +1029,12 @@ export function ModuleDocumentsKandidatdetaljHub({
                 </label>
                 <SearchableSelect value={editCategory} options={categoryOptions} onChange={(v) => setEditCategory(v as WikiSpace['category'])} />
               </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="hub-edit-parent">
+                  Overmappe
+                </label>
+                <SearchableSelect value={editParentSpaceId} options={parentSelectOptionsForEdit} onChange={(v) => setEditParentSpaceId(v)} />
+              </div>
               <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
                 <Button type="button" variant="secondary" onClick={() => setEditSpace(null)}>
                   Avbryt
@@ -1050,6 +1140,143 @@ export function ModuleDocumentsKandidatdetaljHub({
         }}
       />
     </div>
+  )
+}
+
+function HubFolderTreeRows({
+  nodes,
+  depth,
+  expandedFolderIds,
+  onToggleExpand,
+  selectedSpaceId,
+  onSelectSpace,
+  dropHighlightSpaceId,
+  canEditDocs,
+  folderWriteOk,
+  folderArchiveOk,
+  openEditSpace,
+  setArchiveSpaceTarget,
+  onFolderDragOver,
+  onFolderDrop,
+  pageCountBySpaceId,
+}: {
+  nodes: SpaceTreeNode[]
+  depth: number
+  expandedFolderIds: Record<string, boolean>
+  onToggleExpand: (id: string) => void
+  selectedSpaceId: string | null
+  onSelectSpace: (id: string) => void
+  dropHighlightSpaceId: string | null
+  canEditDocs: boolean
+  folderWriteOk: (spaceId: string) => boolean
+  folderArchiveOk: (spaceId: string) => boolean
+  openEditSpace: (s: WikiSpace) => void
+  setArchiveSpaceTarget: (s: WikiSpace) => void
+  onFolderDragOver: (e: DragEvent, spaceId: string) => void
+  onFolderDrop: (e: DragEvent, spaceId: string) => Promise<void>
+  pageCountBySpaceId: Map<string, number>
+}) {
+  return (
+    <>
+      {nodes.map((node) => {
+        const hasChildren = node.children.length > 0
+        const expanded = expandedFolderIds[node.id] ?? false
+        const count = pageCountBySpaceId.get(node.id) ?? 0
+        const dropOn = canEditDocs && folderWriteOk(node.id)
+        const canEditThisFolder = canEditDocs && folderWriteOk(node.id)
+        const canArchiveThisFolder = canEditDocs && folderArchiveOk(node.id)
+        return (
+          <div key={node.id}>
+            <div className="flex items-stretch" style={{ marginLeft: depth * 14 }}>
+              {hasChildren ? (
+                <button
+                  type="button"
+                  className="mt-0.5 flex h-9 w-8 shrink-0 items-center justify-center rounded text-neutral-500 hover:bg-white/50 hover:text-neutral-800"
+                  aria-expanded={expanded}
+                  aria-label={expanded ? 'Skjul undermapper' : 'Vis undermapper'}
+                  onClick={(ev) => {
+                    ev.stopPropagation()
+                    onToggleExpand(node.id)
+                  }}
+                >
+                  {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </button>
+              ) : (
+                <span className="w-8 shrink-0" aria-hidden />
+              )}
+              <div className="min-w-0 flex-1">
+                <NavFolderRow
+                  label={node.title}
+                  sub={`${CATEGORY_LABELS[node.category]} · ${count} sider`}
+                  active={selectedSpaceId === node.id}
+                  highlightDrop={dropOn && dropHighlightSpaceId === node.id}
+                  onSelect={() => onSelectSpace(node.id)}
+                  onDragOver={dropOn ? (e) => onFolderDragOver(e, node.id) : undefined}
+                  onDrop={dropOn ? (e) => void onFolderDrop(e, node.id) : undefined}
+                  actions={
+                    canEditThisFolder || canArchiveThisFolder ? (
+                      <>
+                        {canEditThisFolder ? (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-neutral-500 hover:text-neutral-800"
+                            title="Rediger mappe"
+                            aria-label={`Rediger mappe ${node.title}`}
+                            onClick={(ev) => {
+                              ev.stopPropagation()
+                              openEditSpace(node)
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : null}
+                        {canArchiveThisFolder ? (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-neutral-500 hover:text-neutral-900"
+                            title="Arkiver mappe"
+                            aria-label={`Arkiver mappe ${node.title}`}
+                            onClick={(ev) => {
+                              ev.stopPropagation()
+                              setArchiveSpaceTarget(node)
+                            }}
+                          >
+                            <Archive className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : null}
+                      </>
+                    ) : undefined
+                  }
+                />
+              </div>
+            </div>
+            {hasChildren && expanded ? (
+              <HubFolderTreeRows
+                nodes={node.children}
+                depth={depth + 1}
+                expandedFolderIds={expandedFolderIds}
+                onToggleExpand={onToggleExpand}
+                selectedSpaceId={selectedSpaceId}
+                onSelectSpace={onSelectSpace}
+                dropHighlightSpaceId={dropHighlightSpaceId}
+                canEditDocs={canEditDocs}
+                folderWriteOk={folderWriteOk}
+                folderArchiveOk={folderArchiveOk}
+                openEditSpace={openEditSpace}
+                setArchiveSpaceTarget={setArchiveSpaceTarget}
+                onFolderDragOver={onFolderDragOver}
+                onFolderDrop={onFolderDrop}
+                pageCountBySpaceId={pageCountBySpaceId}
+              />
+            ) : null}
+          </div>
+        )
+      })}
+    </>
   )
 }
 

@@ -6,29 +6,34 @@
 
 // ─── Content blocks ───────────────────────────────────────────────────────────
 
-export type TextBlock = {
+/** Stable id for editor ordering / drag-and-drop; optional on legacy JSON from DB */
+export type ContentBlockInstance = {
+  instanceId?: string
+}
+
+export type TextBlock = ContentBlockInstance & {
   kind: 'text'
   body: string  // sanitised HTML from the rich-text editor
 }
 
-export type HeadingBlock = {
+export type HeadingBlock = ContentBlockInstance & {
   kind: 'heading'
   level: 1 | 2 | 3
   text: string
 }
 
-export type AlertBlock = {
+export type AlertBlock = ContentBlockInstance & {
   kind: 'alert'
   /** 'info' | 'warning' | 'danger' | 'tip' */
   variant: 'info' | 'warning' | 'danger' | 'tip'
   text: string
 }
 
-export type DividerBlock = {
+export type DividerBlock = ContentBlockInstance & {
   kind: 'divider'
 }
 
-export type LawRefBlock = {
+export type LawRefBlock = ContentBlockInstance & {
   kind: 'law_ref'
   /** Short reference, e.g. "IK-forskriften §5 nr. 1b" */
   ref: string
@@ -36,7 +41,7 @@ export type LawRefBlock = {
   url?: string
 }
 
-export type ImageBlock = {
+export type ImageBlock = ContentBlockInstance & {
   kind: 'image'
   url: string
   caption?: string
@@ -49,7 +54,7 @@ export type ImageBlock = {
  * Dynamic module block — the content engine lazy-loads a named component
  * and passes the params object to it.
  */
-export type ModuleBlock = {
+export type ModuleBlock = ContentBlockInstance & {
   kind: 'module'
   /**
    * Registered module names:
@@ -142,6 +147,10 @@ export type WikiPage = {
   createdAt: string
   updatedAt: string
   authorId: string
+  /** When true, publish must go through reviewer approval (P2.1). */
+  reviewRequired?: boolean
+  /** Bruker-id for godkjenner når `reviewRequired` er satt. */
+  reviewerId?: string | null
 }
 
 /** Immutable snapshot when a version was published (audit) */
@@ -179,6 +188,8 @@ export type WikiSpace = {
   status: 'active' | 'archived'
   /** Org AMU folder — published pages visible to all members (server RLS). */
   isAmuSpace?: boolean
+  /** Optional parent folder (max depth 3 including root). */
+  parentSpaceId?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -205,13 +216,76 @@ export type AuditLedgerEntry = {
   id: string
   pageId: string
   pageTitle: string
-  action: 'created' | 'updated' | 'published' | 'archived' | 'acknowledged' | 'annual_review_completed'
+  action:
+    | 'created'
+    | 'updated'
+    | 'published'
+    | 'archived'
+    | 'acknowledged'
+    | 'annual_review_completed'
+    | 'submitted_for_review'
+    | 'approved'
+    | 'changes_requested'
   userId: string
   fromVersion?: number
   toVersion: number
   at: string
   /** Partial diff snapshot */
   snapshot?: string
+}
+
+/** Row from `search_wiki_pages` RPC (mapped on the client). */
+export type WikiDocumentSearchResult = {
+  id: string
+  title: string
+  summary: string | null
+  status: PageStatus
+  spaceId: string
+  updatedAt: string
+  rank: number
+}
+
+export type WikiReviewRequestStatus = 'pending' | 'approved' | 'changes_requested'
+
+export type WikiReviewRequest = {
+  id: string
+  pageId: string
+  pageVersion: number
+  requesterId: string
+  reviewerId: string
+  status: WikiReviewRequestStatus
+  reviewerComment: string | null
+  createdAt: string
+  resolvedAt: string | null
+}
+
+export type WikiPageComment = {
+  id: string
+  pageId: string
+  blockIndex: number
+  body: string
+  authorId: string
+  authorName: string
+  resolved: boolean
+  createdAt: string
+}
+
+export type WikiMentionNotification = {
+  id: string
+  recipientUserId: string
+  actorUserId: string
+  actorName: string
+  pageId: string | null
+  context: 'editor' | 'comment'
+  snippet: string
+  createdAt: string
+  readAt: string | null
+}
+
+export type WikiPageViewStats = {
+  pageId: string
+  uniqueViewers: number
+  viewsLast30: number
 }
 
 // ─── Compliance receipts ──────────────────────────────────────────────────────

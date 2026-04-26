@@ -1,6 +1,8 @@
+import { Fragment, type ReactNode } from 'react'
 import { ExternalLink } from 'lucide-react'
 import type { ContentBlock, WikiPageLang } from '../../types/documents'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
+import { headingAnchorId } from '../../lib/wikiPageLinks'
 import { LiveOrgChart } from './modules/LiveOrgChart'
 import { LiveRiskFeed } from './modules/LiveRiskFeed'
 import { ActionButton } from './modules/ActionButton'
@@ -13,6 +15,8 @@ type Props = {
   pageVersion: number
   /** Document primary language (BCP 47 short) */
   lang?: WikiPageLang
+  /** Rendered after each block (e.g. comments). */
+  blockFooter?: (blockIndex: number) => ReactNode
 }
 
 const alertStyles = {
@@ -28,17 +32,22 @@ function isAlertVariant(v: unknown): v is keyof typeof alertStyles {
   return v === 'info' || v === 'warning' || v === 'danger' || v === 'tip'
 }
 
-export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb' }: Props) {
+export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb', blockFooter }: Props) {
+  const headingCounts = new Map<string, number>()
   return (
     <article lang={lang} className="space-y-4">
       {blocks.map((block, i) => {
         if (!block || typeof block !== 'object' || !('kind' in block)) {
           return (
-            <p key={i} className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              Ugyldig innholdsblokk (mangler type).
-            </p>
+            <Fragment key={i}>
+              <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Ugyldig innholdsblokk (mangler type).
+              </p>
+              {blockFooter?.(i)}
+            </Fragment>
           )
         }
+        let node: ReactNode
         switch (block.kind) {
           case 'heading': {
             const level = block.level === 1 || block.level === 2 || block.level === 3 ? block.level : 2
@@ -49,31 +58,36 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb' }: 
                 : level === 2
                   ? 'text-lg font-semibold text-neutral-800 mt-5 mb-1'
                   : 'text-base font-semibold text-neutral-700 mt-4 mb-1'
-            return (
-              <Tag key={i} className={cls}>
-                {typeof block.text === 'string' ? block.text : ''}
+            const text = typeof block.text === 'string' ? block.text : ''
+            const baseKey = text.toLowerCase().replace(/\s+/g, ' ').trim()
+            const occ = headingCounts.get(baseKey) ?? 0
+            headingCounts.set(baseKey, occ + 1)
+            const hid = headingAnchorId(text, occ)
+            node = (
+              <Tag id={hid} className={cls}>
+                {text}
               </Tag>
             )
+            break
           }
 
           case 'text':
-            return (
+            node = (
               <article
-                key={i}
                 className="prose prose-sm max-w-none text-neutral-800 [&_a]:text-[#1a3d32] [&_a]:underline [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-neutral-200 [&_td]:px-3 [&_td]:py-1.5 [&_td]:text-sm [&_th]:border [&_th]:border-neutral-200 [&_th]:bg-neutral-50 [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-neutral-500"
                 dangerouslySetInnerHTML={{
                   __html: sanitizeLearningHtml(typeof block.body === 'string' ? block.body : ''),
                 }}
               />
             )
+            break
 
           case 'alert': {
             const variant = isAlertVariant(block.variant) ? block.variant : 'info'
             const role = variant === 'danger' || variant === 'warning' ? 'alert' : 'status'
             const live = variant === 'danger' ? 'assertive' : 'polite'
-            return (
+            node = (
               <div
-                key={i}
                 role={role}
                 aria-live={live}
                 className={`rounded-lg border px-4 py-3 text-sm ${alertStyles[variant]}`}
@@ -82,16 +96,18 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb' }: 
                 {typeof block.text === 'string' ? block.text : ''}
               </div>
             )
+            break
           }
 
           case 'divider':
-            return <hr key={i} className="my-4 border-neutral-200" aria-hidden />
+            node = <hr className="my-4 border-neutral-200" aria-hidden />
+            break
 
           case 'law_ref': {
             const refCode = typeof block.ref === 'string' ? block.ref : ''
             const desc = typeof block.description === 'string' ? block.description : ''
-            return (
-              <div key={i} className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
+            node = (
+              <div className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
                 <span className="mt-0.5 shrink-0 rounded bg-[#1a3d32]/10 px-1.5 py-0.5 font-mono text-xs text-[#1a3d32]">
                   {refCode}
                 </span>
@@ -109,6 +125,7 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb' }: 
                 ) : null}
               </div>
             )
+            break
           }
 
           case 'image': {
@@ -118,43 +135,44 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb' }: 
             const width = block.width === 'wide' || block.width === 'medium' ? block.width : 'full'
             const maxW = width === 'medium' ? 'max-w-xl' : width === 'wide' ? 'max-w-3xl' : 'max-w-full'
             if (!url) {
-              return (
-                <p key={i} className="text-sm text-neutral-500">
+              node = (
+                <p className="text-sm text-neutral-500">
                   Bildeblokk mangler URL.
                 </p>
               )
+              break
             }
-            return (
-              <figure key={i} className={`my-4 ${maxW} mx-auto`}>
+            node = (
+              <figure className={`my-4 ${maxW} mx-auto`}>
                 <img src={url} alt={alt || caption || 'Illustrasjon'} className="h-auto w-full rounded-lg border border-neutral-200" />
                 {caption ? <figcaption className="mt-2 text-center text-sm text-neutral-600">{caption}</figcaption> : null}
               </figure>
             )
+            break
           }
 
           case 'module': {
             const p = block.params ?? {}
             switch (block.moduleName) {
               case 'live_org_chart':
-                return (
+                node = (
                   <LiveOrgChart
-                    key={i}
                     showAMU={p.showAMU !== false}
                     showVerneombud={p.showVerneombud !== false}
                   />
                 )
+                break
               case 'live_risk_feed':
-                return (
+                node = (
                   <LiveRiskFeed
-                    key={i}
                     maxItems={typeof p.maxItems === 'number' ? p.maxItems : 3}
                     showDepartment={p.showDepartment !== false}
                   />
                 )
+                break
               case 'action_button':
-                return (
+                node = (
                   <ActionButton
-                    key={i}
                     label={typeof p.label === 'string' ? p.label : undefined}
                     route={typeof p.route === 'string' ? p.route : undefined}
                     variant={
@@ -164,20 +182,20 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb' }: 
                     }
                   />
                 )
+                break
               case 'acknowledgement_footer':
-                return (
-                  <AcknowledgementFooter
-                    key={i}
-                    pageId={pageId}
-                    pageVersion={pageVersion}
-                  />
+                node = (
+                  <div id="wiki-ack-footer" className="scroll-mt-24">
+                    <AcknowledgementFooter pageId={pageId} pageVersion={pageVersion} />
+                  </div>
                 )
+                break
               case 'emergency_stop_procedure':
-                return <EmergencyStopProcedure key={i} />
+                node = <EmergencyStopProcedure />
+                break
               default:
-                return (
+                node = (
                   <div
-                    key={i}
                     className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
                   >
                     Ukjent dynamisk modul:{' '}
@@ -186,13 +204,14 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb' }: 
                     </code>
                   </div>
                 )
+                break
             }
+            break
           }
 
           default:
-            return (
+            node = (
               <div
-                key={i}
                 className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
               >
                 Ukjent blokktype:{' '}
@@ -202,6 +221,12 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb' }: 
               </div>
             )
         }
+        return (
+          <Fragment key={i}>
+            {node}
+            {blockFooter?.(i)}
+          </Fragment>
+        )
       })}
     </article>
   )

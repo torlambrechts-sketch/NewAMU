@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { createBrowserRouter, createRoutesFromElements, Navigate, Route, RouterProvider } from 'react-router-dom'
 import { OrgSetupProvider } from './context/OrgSetupProvider'
 import { UiThemeProvider } from './context/UiThemeProvider'
 import { I18nProvider } from './context/I18nProvider'
@@ -69,6 +69,7 @@ import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { AnnualReviewPage } from './pages/documents/AnnualReviewPage'
 import { InspectionArbeidstilsynetExportPage } from './pages/documents/InspectionArbeidstilsynetExportPage'
 import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
+import { DocumentReviewsPage } from './pages/documents/DocumentReviewsPage'
 import { DocumentEditorTestPage } from './pages/documents/DocumentEditorTestPage'
 import { DocumentKandidatdetaljLayoutTestPage } from './pages/documents/DocumentKandidatdetaljLayoutTestPage'
 import { WikiPageReferenceEditor } from './pages/documents/WikiPageReferenceEditor'
@@ -125,13 +126,9 @@ import { SurveyModuleAdminPage } from './pages/SurveyModuleAdminPage'
 import { SurveyDetailPage } from './pages/SurveyDetailPage'
 import { SurveyRespondPage } from './pages/SurveyRespondPage'
 
-function App() {
-  return (
-    <BrowserRouter>
-      <OrgSetupProvider>
-        <UiThemeProvider>
-        <I18nProvider>
-          <Routes>
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <>
             <Route path="/hrm" element={<Navigate to="/hrm/employees" replace />} />
             <Route path="/hrm/employees" element={<HrmEmployees />} />
             <Route path="/hrm/salary" element={<HrmSalary />} />
@@ -304,6 +301,7 @@ function App() {
                           }
                         />
                         <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
+                        <Route path="documents/reviews" element={<DocumentReviewsPage />} />
                         <Route
                           path="documents/aarsgjennomgang"
                           element={
@@ -340,11 +338,19 @@ function App() {
             </Route>
 
             <Route path="*" element={<Navigate to="/404" replace />} />
-          </Routes>
+    </>,
+  ),
+)
+
+function App() {
+  return (
+    <OrgSetupProvider>
+      <UiThemeProvider>
+        <I18nProvider>
+          <RouterProvider router={router} />
         </I18nProvider>
-        </UiThemeProvider>
-      </OrgSetupProvider>
-    </BrowserRouter>
+      </UiThemeProvider>
+    </OrgSetupProvider>
   )
 }
 

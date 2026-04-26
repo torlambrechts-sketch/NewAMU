@@ -10,6 +10,7 @@ import { documentsModuleShellStyle } from '../../src/lib/documentsModuleShellSty
 import { DocumentsHubActionsProvider, useDocumentsHubActions } from './DocumentsHubActionsContext'
 import { DocumentsShellEmbeddedProvider } from './DocumentsShellContext'
 import { DocumentsHubSecondaryNav } from '../../src/components/documents/DocumentsHubSecondaryNav'
+import { DocumentsSearchHotkey } from '../../src/components/documents/DocumentsSearchHotkey'
 import { apiFetchAnnualReview } from '../../src/api/wikiAnnualReview'
 
 function DocumentsShellHeaderActions({ canEditDocs, onDocumentsHub }: { canEditDocs: boolean; onDocumentsHub: boolean }) {
@@ -110,6 +111,7 @@ function DocumentsModuleShellBody() {
 
   return (
     <div className="docs-module-shell" style={documentsModuleShellStyle(profile)}>
+      <DocumentsSearchHotkey />
       <ModulePageShell
         breadcrumb={[{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE }]}
         title={DOCUMENTS_MODULE_TITLE}

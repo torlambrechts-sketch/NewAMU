@@ -5,6 +5,47 @@ import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { ModuleSectionCard, MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../../components/module'
 import { Button } from '../../components/ui/Button'
+import type { OrganizationMemberRow, ProfileRow } from '../../types/organization'
+import type { AcknowledgementAudience, WikiPage } from '../../types/documents'
+
+type AckAudienceTally = { leaderCount: number; safetyRepCount: number }
+
+function getAckAudienceCount(page: WikiPage, members: OrganizationMemberRow[], tally: AckAudienceTally | null): number {
+  const aud: AcknowledgementAudience = page.acknowledgementAudience ?? 'all_employees'
+  switch (aud) {
+    case 'all_employees':
+      return members.length
+    case 'leaders_only':
+      if (tally == null) return members.length
+      return tally.leaderCount
+    case 'safety_reps_only':
+      if (tally == null) return members.length
+      return tally.safetyRepCount
+    case 'department': {
+      const deptId = page.acknowledgementDepartmentId
+      if (!deptId) return members.length
+      return members.filter((m) => m.department_id === deptId).length
+    }
+    default:
+      return members.length
+  }
+}
+
+function AckProgressBar({ signed, total }: { signed: number; total: number }) {
+  const pct = total === 0 ? 0 : Math.round((signed / total) * 100)
+  const colour = pct >= 90 ? 'bg-emerald-500' : pct >= 60 ? 'bg-amber-400' : 'bg-red-500'
+  const textColour = pct >= 90 ? 'text-emerald-700' : pct >= 60 ? 'text-amber-700' : 'text-red-700'
+  return (
+    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+      <div className="h-2 min-w-[6rem] max-w-[10rem] flex-1 overflow-hidden rounded-full bg-neutral-200 sm:flex-initial sm:w-24">
+        <div className={`h-full rounded-full ${colour}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className={`text-xs font-medium tabular-nums ${textColour}`}>
+        {signed} av {total} signert ({pct} %)
+      </span>
+    </div>
+  )
+}
 
 function subscribeClock(cb: () => void) {
   const id = window.setInterval(cb, 60_000)
@@ -27,9 +68,40 @@ function useBodyScrollLock(active: boolean) {
 
 export function ComplianceDashboard() {
   const docs = useDocuments()
-  const { members } = useOrgSetupContext()
+  const { members, supabase, organization, isAdmin, can } = useOrgSetupContext()
   const [panelRef, setPanelRef] = useState<string | null>(null)
+  const [ackAudienceTally, setAckAudienceTally] = useState<AckAudienceTally | null>(null)
   const nowMs = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
+
+  useEffect(() => {
+    if (!supabase || !organization?.id) {
+      setAckAudienceTally(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('is_org_admin, learning_metadata')
+        .eq('organization_id', organization.id)
+      if (cancelled) return
+      if (error || !data) {
+        setAckAudienceTally({ leaderCount: 0, safetyRepCount: 0 })
+        return
+      }
+      let leaderCount = 0
+      let safetyRepCount = 0
+      for (const row of data as Pick<ProfileRow, 'is_org_admin' | 'learning_metadata'>[]) {
+        if (row.is_org_admin === true) leaderCount += 1
+        const meta = row.learning_metadata
+        if (meta && meta.is_safety_rep === true) safetyRepCount += 1
+      }
+      setAckAudienceTally({ leaderCount, safetyRepCount })
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, organization?.id])
 
   const employeeCount = members.length
   const amuSpace = useMemo(
@@ -90,19 +162,50 @@ export function ComplianceDashboard() {
     amuCompliance.annualReportOk &&
     amuCompliance.protocolRecentOk
 
+  const [viewCounts, setViewCounts] = useState<Map<string, number>>(() => new Map())
+  const showViewAgg = Boolean(isAdmin || can('documents.manage'))
+
+  useEffect(() => {
+    if (!showViewAgg) {
+      setViewCounts(new Map())
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const rows = await docs.fetchOrgPageViewCounts()
+        if (cancelled) return
+        const m = new Map<string, number>()
+        for (const r of rows) m.set(r.pageId, r.uniqueViewers)
+        setViewCounts(m)
+      } catch {
+        if (!cancelled) setViewCounts(new Map())
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [showViewAgg, docs.fetchOrgPageViewCounts])
+
   const coverage = docs.legalCoverage.map((item) => {
-    const coveredBy = docs.pages.filter((p) => {
-      if (p.status !== 'published') return false
-      return item.templateIds.some((tid) => {
-        const tpl = docs.pageTemplates.find((t) => t.id === tid)
-        if (!tpl) return false
-        if (tid === 'tpl-verneombud-mandat') {
-          return p.legalRefs.some((r) => r === 'AML §6-1' || r.startsWith('AML §6-1'))
-        }
-        return tpl.page.legalRefs.some((r) => p.legalRefs.includes(r))
+    const coveredBy = docs.pages
+      .filter((p) => {
+        if (p.status !== 'published') return false
+        return item.templateIds.some((tid) => {
+          const tpl = docs.pageTemplates.find((t) => t.id === tid)
+          if (!tpl) return false
+          if (tid === 'tpl-verneombud-mandat') {
+            return p.legalRefs.some((r) => r === 'AML §6-1' || r.startsWith('AML §6-1'))
+          }
+          return tpl.page.legalRefs.some((r) => p.legalRefs.includes(r))
+        })
       })
-    })
-    const stale = coveredBy.some((p) => {
+      .map((p) => {
+        const ackCount = docs.receipts.filter((r) => r.pageId === p.id && r.pageVersion === p.version).length
+        const viewCount = showViewAgg ? viewCounts.get(p.id) ?? 0 : null
+        return { page: p, ackCount, viewCount }
+      })
+    const stale = coveredBy.some(({ page: p }) => {
       if (!p.nextRevisionDueAt) return false
       return new Date(p.nextRevisionDueAt).getTime() < nowMs
     })
@@ -357,7 +460,7 @@ export function ComplianceDashboard() {
                       <span className="text-amber-700">—</span>
                     ) : (
                       <ul className="space-y-1">
-                        {c.coveredBy.map((p) => (
+                        {c.coveredBy.map(({ page: p }) => (
                           <li key={p.id}>
                             {p.nextRevisionDueAt ? (
                               new Date(p.nextRevisionDueAt).toLocaleDateString('no-NO')
@@ -373,12 +476,25 @@ export function ComplianceDashboard() {
                   <td className="px-4 py-3">
                     {c.coveredBy.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
-                        {c.coveredBy.map((p) => (
+                        {c.coveredBy.map(({ page: p, ackCount, viewCount }) => (
                           <span
                             key={p.id}
                             className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800"
+                            title={
+                              showViewAgg
+                                ? `Signert: ${ackCount} av ${employeeCount} · Unike visninger: ${viewCount}`
+                                : `Signert: ${ackCount} av ${employeeCount}`
+                            }
                           >
                             {p.title}
+                            {p.requiresAcknowledgement ? (
+                              <span className="ml-1 text-[10px] text-emerald-900/80">
+                                ({ackCount}/{employeeCount})
+                              </span>
+                            ) : null}
+                            {showViewAgg ? (
+                              <span className="ml-1 text-[10px] text-emerald-900/70">· {viewCount} visninger</span>
+                            ) : null}
                           </span>
                         ))}
                       </div>
@@ -397,7 +513,7 @@ export function ComplianceDashboard() {
         <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3">
           <h2 className="font-semibold text-neutral-900">Compliance-kvitteringer</h2>
           <p className="text-xs text-neutral-500">
-            Sider som krever «Lest og forstått»-signatur, og antall registrerte kvitteringer.
+            Sider som krever «Lest og forstått»-signatur — andel signert mot målgruppe for gjeldende versjon.
           </p>
         </div>
         {docs.pages.filter((p) => p.requiresAcknowledgement && p.status === 'published').length === 0 ? (
@@ -409,7 +525,7 @@ export function ComplianceDashboard() {
                 <tr>
                   <th className={MODULE_TABLE_TH}>Side</th>
                   <th className={MODULE_TABLE_TH}>Versjon</th>
-                  <th className={MODULE_TABLE_TH}>Kvitteringer</th>
+                  <th className={MODULE_TABLE_TH}>Signering</th>
                   <th className={MODULE_TABLE_TH}>Siste signatur</th>
                 </tr>
               </thead>
@@ -417,8 +533,11 @@ export function ComplianceDashboard() {
                 {docs.pages
                   .filter((p) => p.requiresAcknowledgement && p.status === 'published')
                   .map((p) => {
-                    const recs = docs.receipts.filter((r) => r.pageId === p.id)
-                    const last = recs.sort((a, b) => b.acknowledgedAt.localeCompare(a.acknowledgedAt))[0]
+                    const recsForVersion = docs.receipts.filter((r) => r.pageId === p.id && r.pageVersion === p.version)
+                    const signedUnique = new Set(recsForVersion.map((r) => r.userId)).size
+                    const audienceTotal = getAckAudienceCount(p, members, ackAudienceTally)
+                    const last = [...recsForVersion].sort((a, b) => b.acknowledgedAt.localeCompare(a.acknowledgedAt))[0]
+                    const showReminder = audienceTotal > 0 && signedUnique < audienceTotal
                     return (
                       <tr key={p.id} className={MODULE_TABLE_TR_BODY}>
                         <td className="px-4 py-3">
@@ -428,15 +547,22 @@ export function ComplianceDashboard() {
                         </td>
                         <td className="px-4 py-3 text-xs text-neutral-500">v{p.version}</td>
                         <td className="px-4 py-3">
-                          <span
-                            className={`rounded-md border px-2 py-0.5 text-xs font-medium ${
-                              recs.length > 0
-                                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                                : 'border-amber-200 bg-amber-50 text-amber-800'
-                            }`}
-                          >
-                            {recs.length} signert
-                          </span>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                            <AckProgressBar signed={signedUnique} total={audienceTotal} />
+                            {showReminder ? (
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                className="w-fit shrink-0 text-xs"
+                                onClick={() => {
+                                  console.log('Send påminnelse (utkast):', p.id, p.title)
+                                }}
+                              >
+                                Send påminnelse
+                              </Button>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-xs text-neutral-500">
                           {last
@@ -505,7 +631,7 @@ export function ComplianceDashboard() {
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Publiserte sider</p>
                   <ul className="mt-2 space-y-2">
-                    {panelRow.coveredBy.map((p) => (
+                    {panelRow.coveredBy.map(({ page: p, ackCount, viewCount }) => (
                       <li key={p.id}>
                         <Link to={`/documents/page/${p.id}`} className="font-medium text-[#1a3d32] hover:underline">
                           {p.title}
@@ -516,6 +642,14 @@ export function ComplianceDashboard() {
                             ? new Date(p.nextRevisionDueAt).toLocaleDateString('no-NO')
                             : 'Ikke satt'}
                         </p>
+                        {p.requiresAcknowledgement ? (
+                          <p className="text-xs text-neutral-500">
+                            Sett av {ackCount} av {employeeCount} ansatte
+                            {showViewAgg ? ` · unike visninger: ${viewCount}` : ''}
+                          </p>
+                        ) : showViewAgg ? (
+                          <p className="text-xs text-neutral-500">Unike visninger: {viewCount}</p>
+                        ) : null}
                       </li>
                     ))}
                   </ul>

@@ -660,6 +660,7 @@ export function DocumentEditorWorkbench({
                 <p className="mt-6 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
                   Utfyllbare felt for
                 </p>
+                <p className="mt-1 text-xs text-neutral-400">Tilgjengelig i en fremtidig versjon</p>
                 <div className="mt-2">
                   <SearchableSelect
                     value={recipient}
@@ -673,27 +674,16 @@ export function DocumentEditorWorkbench({
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   {FIELD_TILES.map((f) => {
                     const Icon = f.icon
-                    const fieldHtml: Record<string, string> = {
-                      text: `<p><strong>${recipient === 'employer' ? 'Arbeidsgiver' : 'Arbeidstaker'} — ${f.label}:</strong> <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u></p>`,
-                      signature: `<p><strong>Signatur (${recipient === 'employer' ? 'arbeidsgiver' : 'arbeidstaker'}):</strong> <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u> &nbsp; Dato: <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u></p>`,
-                      initials: `<p><strong>Initialer:</strong> <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u></p>`,
-                      date: `<p><strong>Dato:</strong> <u>&nbsp;&nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u></p>`,
-                      checkbox: `<p>☐ &nbsp;${f.label}</p>`,
-                      radio: `<p>○ &nbsp;Alternativ 1 &nbsp;&nbsp;&nbsp; ○ &nbsp;Alternativ 2</p>`,
-                    }
                     return (
-                      <Button
+                      <div
                         key={f.id}
-                        type="button"
-                        variant="secondary"
-                        className="h-auto flex-col gap-1 border border-orange-100 bg-orange-50/80 py-2.5 hover:bg-orange-50"
-                        disabled={editorReadOnly}
-                        onClick={() => insertSectionHtml(fieldHtml[f.id] ?? `<p>${f.label}</p>`)}
-                        title={`Sett inn ${f.label}`}
+                        className="flex h-auto cursor-not-allowed flex-col gap-1 rounded-lg border border-neutral-200 bg-neutral-50/80 p-2.5 opacity-50"
+                        title="Kommer snart"
+                        aria-disabled="true"
                       >
-                        <Icon className="h-4 w-4 text-orange-800/90" />
-                        <span className="text-[11px] font-medium text-neutral-800">{f.label}</span>
-                      </Button>
+                        <Icon className="h-4 w-4 text-neutral-500" aria-hidden />
+                        <span className="text-[11px] font-medium text-neutral-600">{f.label}</span>
+                      </div>
                     )
                   })}
                 </div>

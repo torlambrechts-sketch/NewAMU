@@ -6,11 +6,14 @@
  * source and requires an interactive CLI; this implementation follows the same editor stack (StarterKit, Link,
  * Placeholder) with our layout instead.
  */
-import { useEffect, useRef } from 'react'
-import type { Editor } from '@tiptap/core'
-import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import type { AnyExtension, Editor } from '@tiptap/core'
+import { EditorContent, ReactRenderer, useEditor, useEditorState } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
+import Underline from '@tiptap/extension-underline'
+import Mention from '@tiptap/extension-mention'
+import type { SuggestionKeyDownProps, SuggestionProps } from '@tiptap/suggestion'
 import { twMerge } from 'tailwind-merge'
 import {
   Bold,
@@ -27,11 +30,14 @@ import {
   Quote,
   Redo2,
   Strikethrough,
-  Underline,
+  Underline as UnderlineIcon,
   Undo2,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { normalizeModuleHtml } from '../../lib/richTextDisplay'
+
+export type WikiLinkPageOption = { id: string; title: string }
+export type WikiMentionProfileOption = { id: string; label: string }
 
 type Props = {
   value: string
@@ -44,7 +50,61 @@ type Props = {
   readOnly?: boolean
   /** Fires when the editor instance is ready; called with `null` on unmount. */
   onEditorReady?: (editor: Editor | null) => void
+  /** For `[[` internal wiki links (P3.3). */
+  wikiLinkPages?: WikiLinkPageOption[]
+  /** For `@` mentions (P3.4). */
+  mentionProfiles?: WikiMentionProfileOption[]
+  /** After blur, emit latest HTML for mention notifications (optional). */
+  onEditorBlurHtml?: (html: string) => void
 }
+
+function MentionListInner(
+  props: SuggestionProps<WikiMentionProfileOption>,
+  ref: React.Ref<{ onKeyDown: (p: SuggestionKeyDownProps) => boolean }>,
+) {
+  const [selected, setSelected] = useState(0)
+  const items = props.items
+  useEffect(() => setSelected(0), [items])
+  useImperativeHandle(ref, () => ({
+    onKeyDown: ({ event }: SuggestionKeyDownProps) => {
+      if (event.key === 'ArrowUp') {
+        setSelected((s) => (s + items.length - 1) % items.length)
+        return true
+      }
+      if (event.key === 'ArrowDown') {
+        setSelected((s) => (s + 1) % items.length)
+        return true
+      }
+      if (event.key === 'Enter') {
+        props.command(items[selected])
+        return true
+      }
+      return false
+    },
+  }))
+  if (!items.length) {
+    return <div className="rounded border border-neutral-200 bg-white p-2 text-xs text-neutral-500">Ingen treff</div>
+  }
+  return (
+    <div className="max-h-48 min-w-[200px] overflow-y-auto rounded border border-neutral-200 bg-white py-1 shadow-lg">
+      {items.map((item, idx) => (
+        <button
+          key={item.id}
+          type="button"
+          className={`flex w-full px-3 py-1.5 text-left text-xs ${
+            idx === selected ? 'bg-[#1a3d32]/10 font-medium text-[#1a3d32]' : 'text-neutral-800 hover:bg-neutral-50'
+          }`}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => props.command(item)}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+const MentionList = forwardRef(MentionListInner)
 
 function TipTapMinimalToolbar({ editor }: { editor: NonNullable<ReturnType<typeof useEditor>> }) {
   const state = useEditorState({
@@ -179,7 +239,7 @@ function TipTapToolbar({ editor }: { editor: NonNullable<ReturnType<typeof useEd
         type="button"
         variant={underline ? 'primary' : 'secondary'}
         size="sm"
-        icon={<Underline className="h-3.5 w-3.5" />}
+        icon={<UnderlineIcon className="h-3.5 w-3.5" />}
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         aria-pressed={underline}
       />
@@ -279,6 +339,14 @@ function TipTapToolbar({ editor }: { editor: NonNullable<ReturnType<typeof useEd
   )
 }
 
+function escapeHtml(s: string) {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 export function TipTapRichTextEditor({
   value,
   onChange,
@@ -287,31 +355,122 @@ export function TipTapRichTextEditor({
   toolbar = 'full',
   readOnly = false,
   onEditorReady,
+  wikiLinkPages,
+  mentionProfiles,
+  onEditorBlurHtml,
 }: Props) {
   const lastEmitted = useRef<string | null>(null)
   const onChangeRef = useRef(onChange)
   const onEditorReadyRef = useRef(onEditorReady)
+  const onEditorBlurHtmlRef = useRef(onEditorBlurHtml)
+  const [wikiLinkPickAnchor, setWikiLinkPickAnchor] = useState<number | null>(null)
+  const [wikiLinkPickRect, setWikiLinkPickRect] = useState<DOMRect | null>(null)
+  const [wikiLinkQuery, setWikiLinkQuery] = useState('')
   useEffect(() => {
     onChangeRef.current = onChange
   }, [onChange])
   useEffect(() => {
     onEditorReadyRef.current = onEditorReady
   }, [onEditorReady])
+  useEffect(() => {
+    onEditorBlurHtmlRef.current = onEditorBlurHtml
+  }, [onEditorBlurHtml])
 
-  const editor = useEditor({
-    editable: !readOnly,
-    extensions: [
+  const extensions = useMemo((): AnyExtension[] => {
+    const base: AnyExtension[] = [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
         link: { openOnClick: false, HTMLAttributes: { class: 'text-[#1a3d32] underline underline-offset-2' } },
       }),
+      Underline,
       Placeholder.configure({ placeholder }),
-    ],
+    ]
+    if (mentionProfiles && mentionProfiles.length > 0 && !readOnly) {
+      base.push(
+        Mention.configure({
+          HTMLAttributes: {
+            class: 'mention-chip rounded bg-[#1a3d32]/10 px-1 py-0.5 text-[#1a3d32] font-medium',
+            'data-mention': 'true',
+          },
+          renderText({ node }) {
+            return `@${node.attrs.label ?? node.attrs.id ?? ''}`
+          },
+          renderHTML({ node }) {
+            return [
+              'span',
+              {
+                'data-mention': 'true',
+                'data-user-id': node.attrs.id,
+                class: 'mention-chip rounded bg-[#1a3d32]/10 px-1 py-0.5 text-[#1a3d32] font-medium',
+              },
+              `@${node.attrs.label ?? node.attrs.id ?? ''}`,
+            ]
+          },
+          suggestions: [
+            {
+              char: '@',
+              items: ({ query }: { query: string }) => {
+                const q = query.toLowerCase()
+                return mentionProfiles.filter((m) => m.label.toLowerCase().includes(q)).slice(0, 12)
+              },
+              render: () => {
+                let component: ReactRenderer<
+                  { onKeyDown: (p: SuggestionKeyDownProps) => boolean },
+                  SuggestionProps<WikiMentionProfileOption>
+                > | null = null
+                function place(el: HTMLElement, rect: (() => DOMRect | null) | null | undefined) {
+                  const r = rect?.() ?? null
+                  if (!r) return
+                  el.style.position = 'fixed'
+                  el.style.left = `${r.left}px`
+                  el.style.top = `${r.bottom + 4}px`
+                  el.style.zIndex = '100'
+                }
+                return {
+                  onStart: (props) => {
+                    const inst = new ReactRenderer<
+                      { onKeyDown: (p: SuggestionKeyDownProps) => boolean },
+                      SuggestionProps<WikiMentionProfileOption>
+                    >(MentionList, { props, editor: props.editor })
+                    component = inst
+                    const el = inst.element as HTMLElement
+                    document.body.appendChild(el)
+                    place(el, props.clientRect)
+                  },
+                  onUpdate(props) {
+                    component?.updateProps(props)
+                    if (component?.element) place(component.element as HTMLElement, props.clientRect)
+                  },
+                  onKeyDown(props) {
+                    if (props.event.key === 'Escape') return true
+                    const refObj = component?.ref as { onKeyDown?: (p: SuggestionKeyDownProps) => boolean } | null
+                    return refObj?.onKeyDown?.(props) ?? false
+                  },
+                  onExit() {
+                    component?.element.remove()
+                    component?.destroy()
+                  },
+                }
+              },
+            },
+          ],
+        }),
+      )
+    }
+    return base
+  }, [placeholder, mentionProfiles, readOnly])
+
+  const editor = useEditor({
+    editable: !readOnly,
+    extensions,
     content: normalizeModuleHtml(value ?? ''),
     editorProps: {
       attributes: {
         class: 'tiptap-editor-root min-h-[220px] max-w-none px-3 py-3 text-sm leading-relaxed text-neutral-800 outline-none focus:outline-none',
       },
+    },
+    onBlur: ({ editor: ed }) => {
+      onEditorBlurHtmlRef.current?.(ed.getHTML())
     },
     onUpdate: ({ editor: ed }) => {
       const html = ed.getHTML()
@@ -324,6 +483,43 @@ export function TipTapRichTextEditor({
     if (!editor) return
     editor.setEditable(!readOnly)
   }, [editor, readOnly])
+
+  useEffect(() => {
+    if (!editor || readOnly || !wikiLinkPages?.length) {
+      setWikiLinkPickAnchor(null)
+      setWikiLinkPickRect(null)
+      return
+    }
+    const sync = () => {
+      const { from } = editor.state.selection
+      const $from = editor.state.doc.resolve(from)
+      const parent = $from.parent
+      const textBefore = parent.textBetween(0, $from.parentOffset, '\ufffc', '\ufffc')
+      const openIdx = textBefore.lastIndexOf('[[')
+      if (openIdx < 0) {
+        setWikiLinkPickAnchor(null)
+        setWikiLinkPickRect(null)
+        return
+      }
+      const afterOpen = textBefore.slice(openIdx + 2)
+      if (afterOpen.includes(']]')) {
+        setWikiLinkPickAnchor(null)
+        setWikiLinkPickRect(null)
+        return
+      }
+      const anchor = $from.start() + openIdx
+      setWikiLinkPickAnchor(anchor)
+      setWikiLinkQuery(afterOpen)
+      const coords = editor.view.coordsAtPos(from)
+      setWikiLinkPickRect(new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top))
+    }
+    editor.on('transaction', sync)
+    editor.on('selectionUpdate', sync)
+    return () => {
+      editor.off('transaction', sync)
+      editor.off('selectionUpdate', sync)
+    }
+  }, [editor, readOnly, wikiLinkPages])
 
   // Sync external value (e.g. hydration, undo outside editor) without fighting local typing
   useEffect(() => {
@@ -355,6 +551,12 @@ export function TipTapRichTextEditor({
     )
   }
 
+  const filteredWikiPages = useMemo(() => {
+    if (!wikiLinkPages) return []
+    const q = wikiLinkQuery.toLowerCase()
+    return wikiLinkPages.filter((p) => p.title.toLowerCase().includes(q)).slice(0, 20)
+  }, [wikiLinkPages, wikiLinkQuery])
+
   return (
     <div
       className={twMerge(
@@ -376,6 +578,52 @@ export function TipTapRichTextEditor({
       {!readOnly && toolbar === 'full' ? <TipTapToolbar editor={editor} /> : null}
       {!readOnly && toolbar === 'minimal' ? <TipTapMinimalToolbar editor={editor} /> : null}
       <EditorContent editor={editor} />
+      {wikiLinkPickAnchor != null && wikiLinkPickRect && wikiLinkPages?.length ? (
+        <div
+          className="fixed z-[100] w-72 rounded-lg border border-neutral-200 bg-white p-2 shadow-xl"
+          style={{ left: wikiLinkPickRect.left, top: wikiLinkPickRect.bottom + 4 }}
+        >
+          <p className="mb-1 text-[11px] font-medium text-neutral-500">Velg dokument (intern lenke)</p>
+          <ul className="max-h-48 overflow-y-auto text-xs">
+            {filteredWikiPages.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  className="w-full truncate rounded px-2 py-1.5 text-left hover:bg-neutral-50"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    const to = editor.state.selection.from
+                    editor
+                      .chain()
+                      .focus()
+                      .deleteRange({ from: wikiLinkPickAnchor, to })
+                      .insertContentAt(
+                        wikiLinkPickAnchor,
+                        `<a href="/documents/page/${p.id}">${escapeHtml(p.title)}</a>`,
+                      )
+                      .run()
+                    setWikiLinkPickAnchor(null)
+                    setWikiLinkPickRect(null)
+                  }}
+                >
+                  {p.title}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            className="mt-2 w-full text-xs text-neutral-500 underline"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              setWikiLinkPickAnchor(null)
+              setWikiLinkPickRect(null)
+            }}
+          >
+            Avbryt
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }

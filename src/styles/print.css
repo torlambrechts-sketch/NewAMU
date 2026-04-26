@@ -1,0 +1,31 @@
+@media print {
+  nav,
+  aside,
+  header,
+  [data-print-hide],
+  .no-print {
+    display: none !important;
+  }
+  [data-print-only] {
+    display: block !important;
+  }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 11pt;
+    color: #000;
+    background: #fff;
+  }
+  h1,
+  h2,
+  h3 {
+    page-break-after: avoid;
+  }
+  table,
+  figure {
+    page-break-inside: avoid;
+  }
+  a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 9pt;
+  }
+}
