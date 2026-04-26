@@ -1,32 +1,36 @@
 # AMU Implementation Queue — Cursor Instructions
 
-## How to use this file
+## Status: fullført
 
-1. Open this file in Cursor.
-2. Start at **Step 1** in the queue below.
-3. Open the listed spec file and copy its **entire content**.
-4. Paste it into a **new Cursor Composer session** (Cmd/Ctrl + I → new session).
-5. Let Cursor implement everything in that spec.
-6. Run `npm run build` — fix all errors before moving on.
-7. Commit with the message format shown.
-8. Move to the next step.
+Alle **11 steg** i køen er implementert og **merget til `main`** (inkl. avhengigheter P1.2→C_AMU-A, P1.4→C_AMU-D, P2.1→C_AMU-B). Spesifikasjonsfilene under `Claude/AMU/*.md` er fortsatt nyttige som referanse, men køen krever ikke lenger nye implementeringsøkter.
 
-**Never combine two spec files in one Cursor session** unless the spec
-explicitly says it depends on another (those are grouped below).
+**Etter deploy:** sørg for at migrasjonene er kjørt i målmiljøet:
+
+- `supabase/migrations/20260731270000_amu_chair_side.sql`
+- `supabase/migrations/20260731280000_amu_distributed_at.sql`
+
+---
+
+## How to use this file (historisk)
+
+Denne filen beskrev opprinnelig rekkefølgen for manuell implementering. Ved nye AMU-oppgaver: les `Claude/INSTRUCTIONS.md`, opprett egen spes eller issue, og følg vanlig git-/PR-flyt i repoet.
+
+1. Les `Claude/INSTRUCTIONS.md` først.
+2. Åpne aktuell spes ved behov (listen nedenfor).
+3. Kjør `npm run build` og rett feil før merge.
+4. Commit-meldinger som ble brukt, står fortsatt listet per steg (anbefalt format: `feat(amu): …` / `fix(compliance): …`).
+
+**Kombinering av spes:** ikke slå sammen to spes i én økt med mindre spes uttrykkelig krever det (avhengigheter er gruppert nedenfor).
 
 ---
 
 ## Before you start
 
-Read this file first — do not skip it:
+Les alltid:
 
 ```
 Claude/INSTRUCTIONS.md
 ```
-
-It contains the mandatory anti-hallucination rules that apply to every session.
-Paste those rules at the top of your first Cursor message if Cursor doesn't
-see the file automatically.
 
 ---
 
@@ -38,249 +42,187 @@ P1.4  ──►  C_AMU-D          (implement P1.4 before C_AMU-D)
 P2.1  ──►  C_AMU-B          (implement P2.1 before C_AMU-B)
 ```
 
-All other specs are independent of each other.
+Øvrige spes var uavhengige av hverandre (med unntak av kjedene over).
 
 ---
 
-## The queue
+## The queue (ferdig)
 
-### Step 1 — Fix broken UUID field (P0, do this first)
+### Step 1 — Fix broken UUID field (P0) — ferdig
 
-**File to paste into Cursor:**
-```
-Claude/AMU/P0.1_source_id_picker.md
-```
+**Spec:** `Claude/AMU/P0.1_source_id_picker.md`
 
-What it does: Replaces the non-functional raw UUID text input for `source_id`
-with a proper module-linked picker.
+Erstatter rå UUID-felt for `source_id` med modulkoblet plukker.
 
-Files Cursor will touch:
+Filer som ble berørt (inkl. faktisk sti der det avvek fra spes):
+
 - `modules/amu/AmuDetailView.tsx`
-- `modules/amu/AmuModuleAdminPage.tsx`
+- `src/pages/AmuModuleAdminPage.tsx` *(spes sa `modules/amu/AmuModuleAdminPage.tsx` — faktisk fil ligger under `src/pages/`)*  
 - `modules/amu/AmuAgendaPlanningTable.tsx`
 - `modules/amu/useAmu.ts`
 - `modules/amu/types.ts`
 
-Commit message: `feat(amu): replace raw UUID source-id field with module picker`
+Commit: `feat(amu): replace raw UUID source-id field with module picker`
 
 ---
 
-### Step 2 — Auto-save minutes
+### Step 2 — Auto-save minutes — ferdig
 
-**File to paste into Cursor:**
-```
-Claude/AMU/P1.1_minutes_autosave.md
-```
+**Spec:** `Claude/AMU/P1.1_minutes_autosave.md`
 
-What it does: Adds 2-second debounce auto-save to the referat textarea with a
-visual save indicator and a `beforeunload` warning.
+Auto-lagring av referat (debounce), indikator og `beforeunload`.
 
-Files Cursor will touch:
 - `modules/amu/AmuDetailView.tsx`
 
-Commit message: `feat(amu): add auto-save with debounce for meeting minutes`
+Commit: `feat(amu): add auto-save with debounce for meeting minutes`
 
 ---
 
-### Step 3 — Participant balance warning (required before Step 4)
+### Step 3 — Participant balance warning — ferdig
 
-**File to paste into Cursor:**
-```
-Claude/AMU/P1.2_participant_balance_warning.md
-```
+**Spec:** `Claude/AMU/P1.2_participant_balance_warning.md`
 
-What it does: Shows AML §7-3/§7-4 warnings when employer/employee
-representation is unbalanced or no safety deputy is present. Adds a fifth
-preflight checklist item.
+Advarsler AML §7-3/§7-4 og femte preflight-punkt.
 
-Files Cursor will touch:
 - `modules/amu/AmuParticipantsTable.tsx`
 - `modules/amu/AmuDetailView.tsx`
 
-Commit message: `feat(amu): add participant balance validation per AML §7-3`
+Commit: `feat(amu): add participant balance validation per AML §7-3`
 
 ---
 
-### Step 4 — Block signing on composition violation (depends on Step 3)
+### Step 4 — Block signing on composition violation — ferdig
 
-**File to paste into Cursor:**
-```
-Claude/AMU/C_AMU-A_rolle_balanse.md
-```
+**Spec:** `Claude/AMU/C_AMU-A_rolle_balanse.md`
 
-What it does: Disables the signing button when participant composition violates
-AML §7-3 or §7-4. Adds an explanatory InfoBox in the signature tab.
+Blokkerer signering ved brudd på sammensetning; InfoBox.
 
-> ⚠️ Do NOT start this step until Step 3 is committed and `npm run build`
-> exits 0. `participantBalanceOk` state must already exist.
-
-Files Cursor will touch:
 - `modules/amu/AmuDetailView.tsx`
 
-Commit message: `feat(amu): block signing when AML §7-3 composition violated`
+Commit: `feat(amu): block signing when AML §7-3 composition violated`
 
 ---
 
-### Step 5 — Agenda up/down reorder
+### Step 5 — Agenda up/down reorder — ferdig
 
-**File to paste into Cursor:**
-```
-Claude/AMU/P1.3_agenda_reorder.md
-```
+**Spec:** `Claude/AMU/P1.3_agenda_reorder.md`
 
-What it does: Replaces the manual `order_index` number field with up/down
-arrow buttons. Removes the numeric input from the agenda panel.
+Piler for rekkefølge; fjernet manuelt `order_index`-felt i panelet.
 
-Files Cursor will touch:
 - `modules/amu/AmuAgendaPlanningTable.tsx`
 - `modules/amu/AmuDetailView.tsx`
 
-Commit message: `feat(amu): replace order_index number input with reorder buttons`
+Commit: `feat(amu): replace order_index number input with reorder buttons`
 
 ---
 
-### Step 6 — PDF / print export of signed minutes (required before Step 11)
+### Step 6 — PDF / print export of signed minutes — ferdig
 
-**File to paste into Cursor:**
-```
-Claude/AMU/P1.4_meeting_pdf_export.md
-```
+**Spec:** `Claude/AMU/P1.4_meeting_pdf_export.md`
 
-What it does: Adds an "Eksporter referat" button that opens a print-optimised
-HTML page with `window.print()` — no new npm packages.
+«Eksporter referat» med print-vennlig HTML / `window.print()`.
 
-Files Cursor will touch:
 - `modules/amu/AmuDetailView.tsx`
 
-Commit message: `feat(amu): add print/PDF export for signed meeting minutes`
+Commit: `feat(amu): add print/PDF export for signed meeting minutes`
 
 ---
 
-### Step 7 — Annual cycle KPI and AML §7-3 frequency warning (required before Step 8)
+### Step 7 — Annual cycle KPI and AML §7-3 frequency warning — ferdig
 
-**File to paste into Cursor:**
-```
-Claude/AMU/P2.1_annual_cycle_kpi.md
-```
+**Spec:** `Claude/AMU/P2.1_annual_cycle_kpi.md`
 
-What it does: Adds a "Fullført i år" KPI card and a WarningBox when the org
-hasn't held 4 meetings in the current calendar year.
+KPI «Fullført i år» og varsel under terskel.
 
-Files Cursor will touch:
 - `modules/amu/AmuPage.tsx`
 
-Commit message: `feat(amu): add annual meeting frequency KPI and AML §7-3 warning`
+Commit: `feat(amu): add annual meeting frequency KPI and AML §7-3 warning`
 
 ---
 
-### Step 8 — Compliance dashboard meeting count fix (depends on Step 7)
+### Step 8 — Compliance dashboard meeting count — ferdig
 
-**File to paste into Cursor:**
-```
-Claude/AMU/C_AMU-B_motefrekvens.md
-```
+**Spec:** `Claude/AMU/C_AMU-B_motefrekvens.md`
 
-What it does: Updates the Compliance Dashboard to count meetings from
-`amu_meetings` (not wiki publications) and shows AML §7-3 status.
+Teller fra `amu_meetings`, ikke wiki-publikasjoner.
 
-> ⚠️ Read `src/pages/documents/ComplianceDashboard.tsx` in full before
-> Cursor edits it. The spec tells Cursor to search for existing AMU rows —
-> the exact line numbers depend on the current file.
-
-Files Cursor will touch:
 - `src/pages/documents/ComplianceDashboard.tsx`
 
-Commit message: `fix(compliance): use amu_meetings table for AMU frequency check`
+Commit: `fix(compliance): use amu_meetings table for AMU frequency check`
 
 ---
 
-### Step 9 — Show source case title in agenda
+### Step 9 — Show source case title in agenda — ferdig
 
-**File to paste into Cursor:**
-```
-Claude/AMU/P2.2_source_module_case_lookup.md
-```
+**Spec:** `Claude/AMU/P2.2_source_module_case_lookup.md`
 
-What it does: Fetches the actual case title from the linked module (e.g. avvik
-title) and displays it in the agenda table instead of just "Avvik".
+Viser faktisk sakstittel (f.eks. avvik) i agenda.
 
-Files Cursor will touch:
 - `modules/amu/useAmu.ts`
 - `modules/amu/AmuDetailView.tsx`
 
-Commit message: `feat(amu): display source module case title in agenda table`
+Commit: `feat(amu): display source module case title in agenda table`
 
 ---
 
-### Step 10 — Chair rotation tracking (AML §7-5)
+### Step 10 — Chair rotation tracking (AML §7-5) — ferdig
 
-**File to paste into Cursor:**
-```
-Claude/AMU/C_AMU-C_moteleder_rotasjon.md
-```
+**Spec:** `Claude/AMU/C_AMU-C_moteleder_rotasjon.md`
 
-What it does: Adds a `chair_side` column to `amu_meetings`, a side-selector in
-the signature tab, and an info panel in the admin page.
+Kolonne `chair_side`, velger i signering-fanen, info i admin.
 
-> ⚠️ This step requires a new migration file. Cursor must create it in
-> `supabase/migrations/` with a timestamp *after* `20260731120200`. Use the
-> current date/time in `YYYYMMDDHHMMSS` format.
+Migrasjon (faktisk filnavn):
 
-Files Cursor will touch:
-- `supabase/migrations/YYYYMMDDHHMMSS_amu_chair_side.sql` ← new file
+- `supabase/migrations/20260731270000_amu_chair_side.sql`
+
+Øvrige filer:
+
 - `modules/amu/types.ts`
 - `modules/amu/schema.ts`
 - `modules/amu/useAmu.ts`
 - `modules/amu/AmuDetailView.tsx`
 - `src/pages/AmuModuleAdminPage.tsx`
 
-Commit message: `feat(amu): track chair-side rotation per AML §7-5`
+Commit: `feat(amu): track chair-side rotation per AML §7-5`
 
 ---
 
-### Step 11 — Distribution confirmation (AML §7-2(6)) (depends on Step 6)
+### Step 11 — Distribution confirmation (AML §7-2(6)) — ferdig
 
-**File to paste into Cursor:**
-```
-Claude/AMU/C_AMU-D_referat_distribusjon.md
-```
+**Spec:** `Claude/AMU/C_AMU-D_referat_distribusjon.md`
 
-What it does: Adds a `distributed_at` timestamp to `amu_meetings`, a
-"Bekreft distribusjon" button in the signature tab, and a compliance InfoBox
-in the workflow admin tab.
+`distributed_at`, «Bekreft distribusjon», InfoBox i arbeidsflyt-fanen (admin).
 
-> ⚠️ This step requires a new migration file with a timestamp after the
-> Step 10 migration.
->
-> ⚠️ Do NOT start until Step 6 (PDF export) is committed — the spec assumes
-> the export button already exists next to the distribution confirmation.
+Migrasjon (faktisk filnavn):
 
-Files Cursor will touch:
-- `supabase/migrations/YYYYMMDDHHMMSS_amu_distributed_at.sql` ← new file
+- `supabase/migrations/20260731280000_amu_distributed_at.sql`
+
+Øvrige filer:
+
 - `modules/amu/types.ts`
 - `modules/amu/schema.ts`
 - `modules/amu/useAmu.ts`
 - `modules/amu/AmuDetailView.tsx`
 - `src/pages/AmuModuleAdminPage.tsx`
 
-Commit message: `feat(amu): add distribution confirmation stamp per AML §7-2(6)`
+Commit: `feat(amu): add distribution confirmation stamp per AML §7-2(6)`
 
 ---
 
 ## Summary table
 
-| Step | File | Priority | Depends on | Migration? |
-|------|------|----------|------------|------------|
-| 1 | P0.1_source_id_picker.md | P0 | — | No |
-| 2 | P1.1_minutes_autosave.md | P1 | — | No |
-| 3 | P1.2_participant_balance_warning.md | P1 | — | No |
-| 4 | C_AMU-A_rolle_balanse.md | Critical | Step 3 | No |
-| 5 | P1.3_agenda_reorder.md | P1 | — | No |
-| 6 | P1.4_meeting_pdf_export.md | P1 | — | No |
-| 7 | P2.1_annual_cycle_kpi.md | P2 | — | No |
-| 8 | C_AMU-B_motefrekvens.md | High | Step 7 | No |
-| 9 | P2.2_source_module_case_lookup.md | P2 | — | No |
-| 10 | C_AMU-C_moteleder_rotasjon.md | Medium | — | Yes |
-| 11 | C_AMU-D_referat_distribusjon.md | High | Step 6 | Yes |
+| Step | File | Priority | Depends on | Migration? | Status |
+|------|------|----------|------------|------------|--------|
+| 1 | P0.1_source_id_picker.md | P0 | — | No | Ferdig |
+| 2 | P1.1_minutes_autosave.md | P1 | — | No | Ferdig |
+| 3 | P1.2_participant_balance_warning.md | P1 | — | No | Ferdig |
+| 4 | C_AMU-A_rolle_balanse.md | Critical | Step 3 | No | Ferdig |
+| 5 | P1.3_agenda_reorder.md | P1 | — | No | Ferdig |
+| 6 | P1.4_meeting_pdf_export.md | P1 | — | No | Ferdig |
+| 7 | P2.1_annual_cycle_kpi.md | P2 | — | No | Ferdig |
+| 8 | C_AMU-B_motefrekvens.md | High | Step 7 | No | Ferdig |
+| 9 | P2.2_source_module_case_lookup.md | P2 | — | No | Ferdig |
+| 10 | C_AMU-C_moteleder_rotasjon.md | Medium | — | `20260731270000_amu_chair_side.sql` | Ferdig |
+| 11 | C_AMU-D_referat_distribusjon.md | High | Step 6 | `20260731280000_amu_distributed_at.sql` | Ferdig |
 
-**Total: 11 specs, 2 migration files, ~20 files touched.**
+**Totalt:** 11 spes, 2 migrasjoner, implementert og merget til `main`.
