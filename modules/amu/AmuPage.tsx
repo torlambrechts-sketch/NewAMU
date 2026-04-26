@@ -14,7 +14,7 @@ import { useAmu } from './useAmu'
 import { Badge, type BadgeVariant } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
 import { StandardInput } from '../../src/components/ui/Input'
-import { WarningBox } from '../../src/components/ui/AlertBox'
+import { InfoBox, WarningBox } from '../../src/components/ui/AlertBox'
 import type { AmuMeeting } from './types'
 
 const LIST_PATH = '/council/amu'
@@ -90,17 +90,39 @@ export function AmuPage({
     let scheduled = 0
     let active = 0
     let signed = 0
+    let completedThisYear = 0
+    const thisYear = new Date().getFullYear()
+
     for (const m of amu.meetings) {
       if (m.status === 'scheduled') scheduled++
       else if (m.status === 'active') active++
       else if (m.status === 'signed') signed++
+
+      if (
+        (m.status === 'completed' || m.status === 'signed') &&
+        new Date(`${m.date}T12:00:00`).getFullYear() === thisYear
+      ) {
+        completedThisYear++
+      }
     }
-    return [
-      { big: String(amu.meetings.length), title: 'Totalt møter', sub: 'Alle AMU-møter' },
-      { big: String(scheduled), title: 'Planlagt', sub: 'Ikke startet' },
-      { big: String(active), title: 'Aktivt', sub: 'Saksbehandling pågår' },
-      { big: String(signed), title: 'Signert', sub: 'Referat låst' },
-    ]
+
+    return {
+      cards: [
+        { big: String(amu.meetings.length), title: 'Totalt møter', sub: 'Alle AMU-møter' },
+        { big: String(scheduled), title: 'Planlagt', sub: 'Ikke startet' },
+        { big: String(active), title: 'Aktivt', sub: 'Saksbehandling pågår' },
+        { big: String(signed), title: 'Signert', sub: 'Referat låst' },
+        {
+          big: String(completedThisYear),
+          title: 'Fullført i år',
+          sub:
+            completedThisYear >= 4
+              ? `Lovkrav oppfylt for ${thisYear} (AML §7-3)`
+              : `${4 - completedThisYear} gjenstår for å oppfylle AML §7-3 (${thisYear})`,
+        },
+      ],
+      completedThisYear,
+    }
   }, [amu.meetings])
 
   const onCreate = useCallback(async () => {
@@ -148,8 +170,22 @@ export function AmuPage({
     <>
       {amu.error ? <WarningBox>{amu.error}</WarningBox> : null}
 
+      {!amu.loading &&
+        (kpiItems.completedThisYear < 4 ? (
+          <WarningBox>
+            <strong>AML §7-3 — møtefrekvens:</strong> AMU skal holde ordinære møter minst fire ganger per år. I{' '}
+            {new Date().getFullYear()} er {kpiItems.completedThisYear} møte(r) fullført (status fullført eller
+            signert). {4 - kpiItems.completedThisYear} møte(r) gjenstår for å oppfylle lovkravet.
+          </WarningBox>
+        ) : (
+          <InfoBox>
+            AML §7-3 møtefrekvens for {new Date().getFullYear()} er oppfylt ({kpiItems.completedThisYear} møter
+            fullført).
+          </InfoBox>
+        ))}
+
       <ModuleRecordsTableShell
-        kpiItems={kpiItems}
+        kpiItems={kpiItems.cards}
         title="Møter"
         description="Alle AMU-møter i virksomheten — sortert etter dato."
         headerActions={
