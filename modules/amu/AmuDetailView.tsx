@@ -91,6 +91,7 @@ export function AmuDetailView({
   const [agenda, setAgenda] = useState<AmuAgendaItem[]>([])
   const [decisionByAgenda, setDecisionByAgenda] = useState<Record<string, AmuDecision | null>>({})
   const [participants, setParticipants] = useState<AmuParticipant[]>([])
+  const [participantBalanceOk, setParticipantBalanceOk] = useState(false)
   const [assignable, setAssignable] = useState<AssignableUser[]>([])
   const [activeTab, setActiveTab] = useState<AmuTab>('information')
   const [loadTick, setLoadTick] = useState(0)
@@ -427,6 +428,10 @@ export function AmuDetailView({
     { ok: allDecided, label: `Alle saker har vedtak (${decidedCount}/${agenda.length})` },
     { ok: hasMinutes, label: 'Referat er fylt ut' },
     { ok: hasChair, label: 'Møteleder er valgt' },
+    {
+      ok: participantBalanceOk,
+      label: 'Lik representasjon begge sider, minst ett verneombud (AML §7-3 og §7-4)',
+    },
   ]
 
   // ── Page shell guards ──
@@ -612,6 +617,7 @@ export function AmuDetailView({
               }
               return false
             }}
+            onBalanceChange={setParticipantBalanceOk}
           />
 
           <AmuAgendaPlanningTable
