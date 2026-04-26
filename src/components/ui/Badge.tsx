@@ -13,7 +13,8 @@ const variantClassName: Record<
   | 'warning'
   | 'medium'
   | 'high'
-  | 'critical',
+  | 'critical'
+  | 'danger',
   string
 > = {
   draft: 'border-neutral-200 bg-neutral-100 text-neutral-700',
@@ -26,6 +27,7 @@ const variantClassName: Record<
   medium: 'border-yellow-200 bg-yellow-100 text-yellow-800',
   high: 'border-orange-200 bg-orange-100 text-orange-800',
   critical: 'border-red-200 bg-red-100 text-red-800',
+  danger: 'border-red-200 bg-red-100 text-red-800',
 }
 
 export type BadgeVariant = keyof typeof variantClassName
