@@ -104,6 +104,150 @@ function AvvikSourcePicker({
   )
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function buildPrintHtml(opts: {
+  title: string
+  dateLabel: string
+  location: string
+  participants: AmuParticipant[]
+  userLabel: (id: string) => string
+  agenda: AmuAgendaItem[]
+  decisionByAgenda: Record<string, AmuDecision | null>
+  minutesDraft: string
+  chairName: string | null
+  chairSignedAt: string | null
+}): string {
+  const {
+    title,
+    dateLabel,
+    location,
+    participants,
+    userLabel,
+    agenda,
+    decisionByAgenda,
+    minutesDraft,
+    chairName,
+    chairSignedAt,
+  } = opts
+
+  const roleLabel: Record<AmuParticipant['role'], string> = {
+    employer_rep: 'Arbeidsgivers representant',
+    employee_rep: 'Arbeidstakerrepresentant',
+    safety_deputy: 'Verneombud',
+    bht: 'BHT',
+    secretary: 'Referent',
+  }
+
+  const participantsHtml = participants
+    .map(
+      (p) =>
+        `<tr><td>${escapeHtml(userLabel(p.user_id))}</td><td>${escapeHtml(roleLabel[p.role])}</td>` +
+        `<td>${p.present ? 'Ja' : 'Nei'}</td></tr>`,
+    )
+    .join('')
+
+  const sortedAgenda = [...agenda].sort((a, b) =>
+    a.order_index !== b.order_index ? a.order_index - b.order_index : a.id.localeCompare(b.id),
+  )
+
+  const agendaHtml = sortedAgenda
+    .map((a, i) => {
+      const d = decisionByAgenda[a.id]
+      const desc = a.description
+        ? `<br><small>${escapeHtml(a.description)}</small>`
+        : ''
+      const decisionText = d?.decision_text?.trim() ? escapeHtml(d.decision_text) : '—'
+      return (
+        `<tr><td>${i + 1}</td><td><strong>${escapeHtml(a.title)}</strong>` +
+        desc +
+        `</td><td>${decisionText}</td></tr>`
+      )
+    })
+    .join('')
+
+  const signedLine = chairSignedAt
+    ? `Signert av ${chairName ? escapeHtml(chairName) : '—'} den ` +
+      escapeHtml(
+        new Date(chairSignedAt).toLocaleDateString('nb-NO', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }),
+      )
+    : ''
+
+  const safeTitle = escapeHtml(title)
+  const safeDate = escapeHtml(dateLabel)
+  const safeLoc = location ? escapeHtml(location) : ''
+  const minutesBody = minutesDraft.trim()
+    ? escapeHtml(minutesDraft)
+    : escapeHtml('(Ingen referattekst registrert)')
+  const genDate = escapeHtml(
+    new Date().toLocaleDateString('nb-NO', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }),
+  )
+
+  return `<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="UTF-8">
+<title>AMU-referat — ${safeTitle}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 12pt; margin: 2cm; color: #000; }
+  h1 { font-size: 18pt; margin-bottom: 4pt; }
+  h2 { font-size: 13pt; margin-top: 20pt; border-bottom: 1px solid #ccc; padding-bottom: 3pt; }
+  table { border-collapse: collapse; width: 100%; margin-top: 8pt; }
+  th { background: #f0f0f0; text-align: left; padding: 5pt 8pt; font-size: 10pt; }
+  td { padding: 5pt 8pt; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+  .meta { color: #555; font-size: 10pt; margin-bottom: 12pt; }
+  .minutes { white-space: pre-wrap; border: 1px solid #ccc; padding: 10pt; margin-top: 8pt; }
+  .footer { margin-top: 30pt; font-size: 10pt; color: #555; }
+  @media print {
+    body { margin: 1.5cm; }
+    a { text-decoration: none; color: inherit; }
+    @page { margin: 12mm; }
+  }
+</style>
+</head>
+<body>
+<h1>AMU-referat: ${safeTitle}</h1>
+<p class="meta">${safeDate}${safeLoc ? ' · ' + safeLoc : ''}</p>
+
+<h2>Deltakere</h2>
+<table>
+<thead><tr><th>Navn</th><th>Rolle</th><th>Til stede</th></tr></thead>
+<tbody>${participantsHtml}</tbody>
+</table>
+
+<h2>Saksliste og vedtak</h2>
+<table>
+<thead><tr><th>#</th><th>Sak</th><th>Vedtak</th></tr></thead>
+<tbody>${agendaHtml}</tbody>
+</table>
+
+<h2>Referat</h2>
+<div class="minutes">${minutesBody}</div>
+
+<div class="footer">
+  <p>${signedLine}</p>
+  <p>Generert fra Klarert den ${genDate}</p>
+</div>
+<script>window.addEventListener('load', () => setTimeout(() => window.print(), 500))</script>
+</body>
+</html>`
+}
+
 export function AmuDetailView({
   amu,
   meetingId,
@@ -961,6 +1105,38 @@ export function AmuDetailView({
                   Arkivert etter arbeidsmiljøloven § 7-2. Videre endringer krever nytt møte eller korrigering i
                   egen sak.
                 </p>
+              </div>
+            )}
+
+            {meeting.status === 'signed' && (
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    const html = buildPrintHtml({
+                      title: meeting.title,
+                      dateLabel: meetingDateLabel,
+                      location: meeting.location,
+                      participants,
+                      userLabel,
+                      agenda,
+                      decisionByAgenda,
+                      minutesDraft: meeting.minutes_draft ?? '',
+                      chairName: meeting.meeting_chair_user_id
+                        ? userLabel(meeting.meeting_chair_user_id)
+                        : null,
+                      chairSignedAt: meeting.chair_signed_at,
+                    })
+                    const w = window.open('', '_blank')
+                    if (w) {
+                      w.document.write(html)
+                      w.document.close()
+                    }
+                  }}
+                >
+                  Eksporter referat (PDF / utskrift)
+                </Button>
               </div>
             )}
           </div>
