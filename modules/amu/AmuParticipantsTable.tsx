@@ -1,9 +1,10 @@
-import { useCallback, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { Plus, Trash2, Users } from 'lucide-react'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { ModuleRecordsTableShell } from '../../src/components/module/ModuleRecordsTableShell'
 import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../../src/components/module/moduleTableKit'
+import { WarningBox } from '../../src/components/ui/AlertBox'
 import { Button } from '../../src/components/ui/Button'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { YesNoToggle } from '../../src/components/ui/FormToggles'
@@ -29,6 +30,7 @@ export type AmuParticipantsTableProps = {
   onUpdatePresent: (userId: string, present: boolean) => Promise<void>
   onRemove: (userId: string) => Promise<void>
   onAdd: (userId: string, role: AmuParticipantRole) => Promise<boolean>
+  onBalanceChange?: (balanceOk: boolean) => void
 }
 
 export function AmuParticipantsTable({
@@ -41,6 +43,7 @@ export function AmuParticipantsTable({
   onUpdatePresent,
   onRemove,
   onAdd,
+  onBalanceChange,
 }: AmuParticipantsTableProps) {
   const panelTitleId = useId()
   const [panelOpen, setPanelOpen] = useState(false)
@@ -79,8 +82,39 @@ export function AmuParticipantsTable({
     </Button>
   )
 
+  const employerCount = participants.filter((p) => p.role === 'employer_rep').length
+  const employeeCount = participants.filter(
+    (p) => p.role === 'employee_rep' || p.role === 'safety_deputy',
+  ).length
+  const hasSafetyDeputy = participants.some((p) => p.role === 'safety_deputy')
+  const isBalanced =
+    employerCount > 0 && employeeCount > 0 && employerCount === employeeCount
+
+  useEffect(() => {
+    onBalanceChange?.(isBalanced && hasSafetyDeputy)
+  }, [isBalanced, hasSafetyDeputy, onBalanceChange])
+
+  const showBalanceWarning = !readOnly && participants.length > 0 && !isBalanced
+  const showDeputyWarning = !readOnly && participants.length > 0 && !hasSafetyDeputy
+
   return (
     <>
+      {showBalanceWarning || showDeputyWarning ? (
+        <div className="mb-4 space-y-3">
+          {showBalanceWarning ? (
+            <WarningBox>
+              <strong>AML §7-3:</strong> AMU skal ha lik representasjon fra begge sider. Arbeidsgiver:{' '}
+              {employerCount}, Arbeidstaker (inkl. verneombud): {employeeCount}. Juster rollene nedenfor.
+            </WarningBox>
+          ) : null}
+          {showDeputyWarning ? (
+            <WarningBox>
+              <strong>AML §7-4:</strong> Minst ett verneombud skal delta i AMU-møtet. Ingen deltaker har rolle
+              «Verneombud».
+            </WarningBox>
+          ) : null}
+        </div>
+      ) : null}
       <ModuleRecordsTableShell
         title="Deltakere"
         description="Legg til brukere fra virksomheten med roller i møtet."
