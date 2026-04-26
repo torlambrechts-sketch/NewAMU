@@ -1,4 +1,4 @@
--- amu_compliance_status: legal_refs columns (shape matches app Zod schema)
+-- Match TypeScript amuComplianceStatusSchema (legal_refs placeholders until app fills them)
 create or replace view public.amu_compliance_status as
 select
   c.id                                                    as committee_id,
@@ -37,7 +37,10 @@ select
     where ar.committee_id = c.id
       and ar.year = extract(year from now())::int - 1
       and ar.status = 'signed'
-  )                                                       as annual_report_signed
+  )                                                       as annual_report_signed,
+
+  array[]::text[]                                       as legal_refs_satisfied,
+  array[]::text[]                                       as legal_refs_missing
 
 from public.amu_committees c
 left join public.amu_meetings  m  on m.committee_id = c.id
