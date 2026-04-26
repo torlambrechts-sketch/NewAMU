@@ -6,6 +6,7 @@ import {
   ClipboardList,
   FileText,
   Info,
+  Loader2,
   PenLine,
 } from 'lucide-react'
 import { WPSTD_FORM_FIELD_LABEL, WPSTD_FORM_ROW_GRID } from '../../src/components/layout/WorkplaceStandardFormPanel'
@@ -155,6 +156,10 @@ export function AmuDetailView({
   const [apResponsible, setApResponsible] = useState('')
 
   const [minutesDraft, setMinutesDraft] = useState('')
+  const [autoSaveStatus, setAutoSaveStatus] = useState<
+    'idle' | 'pending' | 'saving' | 'saved' | 'error'
+  >('idle')
+  const [prevMinutesDraft, setPrevMinutesDraft] = useState('')
   const [chairUserId, setChairUserId] = useState('')
 
   const agendaFormTitleId = useId()
@@ -171,6 +176,7 @@ export function AmuDetailView({
       setLocationDraft(m.location)
       setStatusDraft(m.status)
       setMinutesDraft(m.minutes_draft ?? '')
+      setPrevMinutesDraft(m.minutes_draft ?? '')
       setChairUserId(m.meeting_chair_user_id ?? profile?.id ?? '')
     } else {
       setDetailState('missing')
@@ -316,10 +322,58 @@ export function AmuDetailView({
     const next = await amu.updateMeeting(meeting.id, { minutes_draft: minutesDraft || null })
     if (next) {
       setMeeting(next)
+      setPrevMinutesDraft(minutesDraft)
+      setAutoSaveStatus('saved')
+      window.setTimeout(() => setAutoSaveStatus('idle'), 3000)
     }
     setLoadTick((x) => x + 1)
     setSaving(false)
   }, [amu, meeting, minutesDraft])
+
+  useEffect(() => {
+    if (readOnly || !amu.canManage || !meeting) return
+    if (minutesDraft === prevMinutesDraft) return
+
+    const meetingId = meeting.id
+    let cancelled = false
+    setAutoSaveStatus('pending')
+    const t = window.setTimeout(() => {
+      void (async () => {
+        if (cancelled) return
+        setAutoSaveStatus('saving')
+        const next = await amu.updateMeeting(meetingId, {
+          minutes_draft: minutesDraft || null,
+        })
+        if (cancelled) return
+        if (next) {
+          setMeeting(next)
+          setPrevMinutesDraft(minutesDraft)
+          setAutoSaveStatus('saved')
+          window.setTimeout(() => setAutoSaveStatus('idle'), 3000)
+        } else {
+          setAutoSaveStatus('error')
+        }
+      })()
+    }, 2000)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+    // prevMinutesDraft excluded: only react to minutesDraft edits
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [minutesDraft, readOnly, amu, amu.canManage, meeting?.id])
+
+  useEffect(() => {
+    const isDirty = minutesDraft !== prevMinutesDraft && !readOnly
+    if (!isDirty) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [minutesDraft, prevMinutesDraft, readOnly])
 
   const onGenerateDefaultAgenda = useCallback(async () => {
     const created = await amu.generateDefaultAgenda(meetingId)
@@ -738,8 +792,26 @@ export function AmuDetailView({
               className="resize-none"
             />
           </div>
-          {!readOnly && amu.canManage && (
-            <div className="border-t border-neutral-200 px-4 py-4 md:px-5">
+          <div className="border-t border-neutral-200 px-4 py-3 md:px-5 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-neutral-500">
+              {autoSaveStatus === 'pending' && 'Venter på å lagre…'}
+              {autoSaveStatus === 'saving' && (
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                  Lagrer…
+                </span>
+              )}
+              {autoSaveStatus === 'saved' && (
+                <span className="flex items-center gap-1.5 text-green-700">
+                  <CheckCircle2 className="h-3 w-3" aria-hidden />
+                  Alle endringer lagret
+                </span>
+              )}
+              {autoSaveStatus === 'error' && (
+                <span className="text-red-600">Auto-lagring feilet — bruk knappen</span>
+              )}
+            </span>
+            {!readOnly && amu.canManage && (
               <Button
                 type="button"
                 variant="primary"
@@ -748,8 +820,8 @@ export function AmuDetailView({
               >
                 {saving ? 'Lagrer…' : 'Lagre referat'}
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </ModuleSectionCard>
       )}
 
