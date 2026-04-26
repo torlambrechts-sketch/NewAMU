@@ -1116,34 +1116,76 @@ export function AmuDetailView({
             )}
 
             {meeting.status === 'signed' && (
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    const html = buildPrintHtml({
-                      title: meeting.title,
-                      dateLabel: meetingDateLabel,
-                      location: meeting.location,
-                      participants,
-                      userLabel,
-                      agenda,
-                      decisionByAgenda,
-                      minutesDraft: meeting.minutes_draft ?? '',
-                      chairName: meeting.meeting_chair_user_id
-                        ? userLabel(meeting.meeting_chair_user_id)
-                        : null,
-                      chairSignedAt: meeting.chair_signed_at,
-                    })
-                    const w = window.open('', '_blank')
-                    if (w) {
-                      w.document.write(html)
-                      w.document.close()
-                    }
-                  }}
-                >
-                  Eksporter referat (PDF / utskrift)
-                </Button>
+              <div className="rounded-xl border border-neutral-200 bg-white p-5">
+                <h3 className="text-sm font-semibold text-neutral-900">Distribusjon av referat (AML §7-2(6))</h3>
+                {meeting.distributed_at ? (
+                  <p className="mt-1 text-sm text-green-700">
+                    Distribuert bekreftet{' '}
+                    {new Date(meeting.distributed_at).toLocaleDateString('nb-NO', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </p>
+                ) : (
+                  <>
+                    <p className="mt-1 text-sm text-neutral-600">
+                      Referatet er ikke markert som distribuert. AML §7-2(6) krever at referatet gjøres tilgjengelig
+                      for alle arbeidstakere.
+                    </p>
+                    <p className="mt-2 text-xs text-neutral-500">
+                      Alle ansatte med tilgang til Klarert kan allerede lese dette referatet. Klikk nedenfor for å
+                      bekrefte distribusjon og loggføre tidspunktet.
+                    </p>
+                    {amu.canManage ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="mt-3"
+                        disabled={saving}
+                        onClick={async () => {
+                          setSaving(true)
+                          const next = await amu.updateMeeting(meeting.id, {
+                            distributed_at: new Date().toISOString(),
+                          })
+                          if (next) setMeeting(next)
+                          setSaving(false)
+                        }}
+                      >
+                        Bekreft distribusjon
+                      </Button>
+                    ) : null}
+                  </>
+                )}
+                <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-neutral-100 pt-4">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      const html = buildPrintHtml({
+                        title: meeting.title,
+                        dateLabel: meetingDateLabel,
+                        location: meeting.location,
+                        participants,
+                        userLabel,
+                        agenda,
+                        decisionByAgenda,
+                        minutesDraft: meeting.minutes_draft ?? '',
+                        chairName: meeting.meeting_chair_user_id
+                          ? userLabel(meeting.meeting_chair_user_id)
+                          : null,
+                        chairSignedAt: meeting.chair_signed_at,
+                      })
+                      const w = window.open('', '_blank')
+                      if (w) {
+                        w.document.write(html)
+                        w.document.close()
+                      }
+                    }}
+                  >
+                    Eksporter referat (PDF / utskrift)
+                  </Button>
+                </div>
               </div>
             )}
           </div>
