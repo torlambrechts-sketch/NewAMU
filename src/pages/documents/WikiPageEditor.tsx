@@ -8,6 +8,7 @@ import {
   ChevronUp,
   Eye,
   FileText,
+  Loader2,
   RotateCcw,
   Save,
   Settings,
@@ -160,6 +161,7 @@ export function WikiPageEditor() {
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveErrorSource, setSaveErrorSource] = useState<'lagre' | 'publiser' | null>(null)
   const saveErrorRef = useRef<HTMLDivElement>(null)
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
   const [pageLang, setPageLang] = useState<WikiPageLang>(() => original?.lang ?? 'nb')
@@ -313,10 +315,9 @@ export function WikiPageEditor() {
     markDirty()
   }
 
-  async function handleSave(): Promise<boolean> {
+  /** Persists draft to server; does not toggle `saving` or navigation. */
+  async function persistDraftToServer(): Promise<boolean> {
     if (!original) return false
-    setSaveError(null)
-    setSaving(true)
     const months = Math.max(1, parseInt(revisionMonths, 10) || 12)
     try {
       await docs.updatePage(original.id, {
@@ -343,14 +344,33 @@ export function WikiPageEditor() {
           : null,
         lang: pageLang,
       })
-      setDirty(false)
-      setSavedMsg(true)
       return true
     } catch (e) {
       const msg = getSupabaseErrorMessage(e)
       setSaveError(msg)
-      queueMicrotask(() => saveErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+      setSaveErrorSource('lagre')
       return false
+    }
+  }
+
+  function scrollSaveErrorIntoView() {
+    queueMicrotask(() => saveErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+  }
+
+  async function handleSave(): Promise<boolean> {
+    if (!original) return false
+    setSaveError(null)
+    setSaveErrorSource(null)
+    setSaving(true)
+    try {
+      const ok = await persistDraftToServer()
+      if (ok) {
+        setDirty(false)
+        setSavedMsg(true)
+      } else {
+        scrollSaveErrorIntoView()
+      }
+      return ok
     } finally {
       setSaving(false)
     }
@@ -386,13 +406,35 @@ export function WikiPageEditor() {
       )
       if (!ok) return
     }
+    setSaveError(null)
+    setSaveErrorSource(null)
+    setSaving(true)
     try {
-      const saved = await handleSave()
-      if (!saved) return
-      await docs.publishPage(original.id)
-      navigate(`/documents/page/${original.id}`)
-    } catch (e) {
-      setSaveError(getSupabaseErrorMessage(e))
+      const saved = await persistDraftToServer()
+      if (!saved) {
+        scrollSaveErrorIntoView()
+        return
+      }
+      setDirty(false)
+      setSavedMsg(true)
+      try {
+        await docs.publishPage(original.id)
+        navigate(`/documents/page/${original.id}`)
+      } catch (e) {
+        setSaveError(getSupabaseErrorMessage(e))
+        setSaveErrorSource('publiser')
+        scrollSaveErrorIntoView()
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleRetryAfterError() {
+    if (saveErrorSource === 'publiser') {
+      void handlePublish()
+    } else {
+      void handleSave()
     }
   }
 
@@ -427,14 +469,32 @@ export function WikiPageEditor() {
           <Badge variant={editorStatusBadgeVariant(original.status)} className="text-xs">
             {EDITOR_STATUS_LABEL[original.status]}
           </Badge>
-          <Button type="button" variant="secondary" disabled={saving} icon={<Eye className="h-4 w-4" />} onClick={() => navigate(`/documents/page/${original.id}`)}>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={saving}
+            icon={<Eye className="h-4 w-4" />}
+            onClick={() => navigate(`/documents/page/${original.id}`)}
+          >
             Forhåndsvis
           </Button>
-          <Button type="button" variant="secondary" disabled={saving || !dirty} icon={<Save className="h-4 w-4" />} onClick={() => void handleSave()}>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={saving || !dirty}
+            icon={saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Save className="h-4 w-4" aria-hidden />}
+            onClick={() => void handleSave()}
+          >
             {saving ? 'Lagrer…' : 'Lagre utkast'}
           </Button>
-          <Button type="button" variant="primary" disabled={saving} icon={<CheckCircle2 className="h-4 w-4" />} onClick={() => void handlePublish()}>
-            {saving ? 'Lagrer…' : 'Lagre og publiser'}
+          <Button
+            type="button"
+            variant="primary"
+            disabled={saving}
+            icon={saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <CheckCircle2 className="h-4 w-4" aria-hidden />}
+            onClick={() => void handlePublish()}
+          >
+            {saving ? 'Arbeider…' : 'Lagre og publiser'}
           </Button>
         </div>
       }
@@ -504,7 +564,7 @@ export function WikiPageEditor() {
                 variant="secondary"
                 size="sm"
                 icon={<RotateCcw className="size-3" aria-hidden />}
-                onClick={() => void handleSave()}
+                onClick={() => void handleRetryAfterError()}
                 className="shrink-0 border-amber-400 text-amber-900 hover:bg-amber-50"
               >
                 Prøv igjen
