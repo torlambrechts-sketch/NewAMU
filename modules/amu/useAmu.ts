@@ -229,6 +229,36 @@ export function useAmu() {
     }
   }, [supabase, orgId])
 
+  /** Tittel på koblet kilde (kun avvik); sykefravær/varsling returnerer null (personvern). */
+  const fetchSourceTitle = useCallback(
+    async (sourceModule: string, sourceId: string): Promise<string | null> => {
+      if (!supabase || !orgId) return null
+      const mod = sourceModule.trim()
+      if (mod === 'sick_leave' || mod === 'whistleblowing') {
+        return null
+      }
+      if (mod === 'avvik') {
+        try {
+          const { data, error: qErr } = await supabase
+            .from('deviations')
+            .select('title')
+            .eq('organization_id', orgId)
+            .eq('id', sourceId)
+            .maybeSingle()
+          if (qErr) throw qErr
+          if (!data) return '[Slettet avvik]'
+          const rec = data as Record<string, unknown>
+          const t = typeof rec.title === 'string' ? rec.title.trim() : ''
+          return t ? t : '[Uten tittel]'
+        } catch {
+          return '[Slettet avvik]'
+        }
+      }
+      return null
+    },
+    [supabase, orgId],
+  )
+
   const loadDefaultAgendaTemplate = useCallback(async (): Promise<AmuDefaultAgendaItem[]> => {
     if (!supabase || !orgId) return []
     try {
@@ -917,6 +947,7 @@ export function useAmu() {
       fetchWhistleblowingAgendaStats,
       fetchSickLeaveAgendaStats,
       loadAvvikOptions,
+      fetchSourceTitle,
       createMeeting,
       updateMeeting,
       updateAgendaItem,
@@ -948,6 +979,7 @@ export function useAmu() {
       fetchWhistleblowingAgendaStats,
       fetchSickLeaveAgendaStats,
       loadAvvikOptions,
+      fetchSourceTitle,
       createMeeting,
       updateMeeting,
       updateAgendaItem,

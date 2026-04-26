@@ -258,8 +258,7 @@ export function AmuDetailView({
   listPath: string
 }) {
   const navigate = useNavigate()
-  const { supabase, profile, organization } = useOrgSetupContext()
-  const orgId = organization?.id
+  const { supabase, profile } = useOrgSetupContext()
   const [meeting, setMeeting] = useState<AmuMeeting | null>(null)
   const [detailState, setDetailState] = useState<'loading' | 'ready' | 'missing'>('loading')
   const [agenda, setAgenda] = useState<AmuAgendaItem[]>([])
@@ -272,7 +271,7 @@ export function AmuDetailView({
   const [saving, setSaving] = useState(false)
   const [wStats, setWStats] = useState<{ open: number; closed: number } | null>(null)
   const [sStats, setSStats] = useState<{ active: number; partial: number; other: number } | null>(null)
-  const [agendaAvvikTitleByItemId, setAgendaAvvikTitleByItemId] = useState<Record<string, string>>({})
+  const [sourceTitleMap, setSourceTitleMap] = useState<Record<string, string>>({})
 
   const [titleDraft, setTitleDraft] = useState('')
   const [dateDraft, setDateDraft] = useState('')
@@ -332,7 +331,22 @@ export function AmuDetailView({
       amu.loadDecisionsForMeeting(meetingId),
       amu.loadParticipants(meetingId),
     ])
+    setSourceTitleMap({})
     setAgenda(items)
+    const titlesToFetch = items.filter((it) => it.source_module && it.source_id)
+    if (titlesToFetch.length > 0) {
+      const entries = await Promise.all(
+        titlesToFetch.map(async (it) => {
+          const title = await amu.fetchSourceTitle(it.source_module!, it.source_id!)
+          return [it.id, title] as [string, string | null]
+        }),
+      )
+      const map: Record<string, string> = {}
+      for (const [id, title] of entries) {
+        if (title !== null) map[id] = title
+      }
+      setSourceTitleMap(map)
+    }
     const dmap: Record<string, AmuDecision | null> = {}
     for (const d of decs) {
       dmap[d.agenda_item_id] = d
@@ -372,50 +386,6 @@ export function AmuDetailView({
     })()
   }, [amu, meetingId])
 
-  useEffect(() => {
-    if (!supabase || !orgId) {
-      setAgendaAvvikTitleByItemId({})
-      return
-    }
-    const need = agenda.filter((a) => a.source_module === 'avvik' && a.source_id)
-    const ids = [...new Set(need.map((a) => String(a.source_id)))]
-    if (ids.length === 0) {
-      setAgendaAvvikTitleByItemId({})
-      return
-    }
-    let cancelled = false
-    void (async () => {
-      const { data, error } = await supabase
-        .from('deviations')
-        .select('id, title')
-        .eq('organization_id', orgId)
-        .in('id', ids)
-      if (cancelled) return
-      if (error) {
-        setAgendaAvvikTitleByItemId({})
-        return
-      }
-      const titleByDeviationId: Record<string, string> = {}
-      for (const raw of data ?? []) {
-        if (!raw || typeof raw !== 'object') continue
-        const r = raw as Record<string, unknown>
-        if (typeof r.id !== 'string') continue
-        titleByDeviationId[r.id] =
-          typeof r.title === 'string' && r.title.trim() ? r.title : '(uten tittel)'
-      }
-      const byItem: Record<string, string> = {}
-      for (const a of need) {
-        if (!a.source_id) continue
-        const t = titleByDeviationId[a.source_id]
-        if (t) byItem[a.id] = t
-      }
-      setAgendaAvvikTitleByItemId(byItem)
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [supabase, orgId, agenda])
-
   const userLabel = useCallback(
     (id: string) => assignable.find((u) => u.id === id)?.displayName ?? id,
     [assignable],
@@ -426,11 +396,16 @@ export function AmuDetailView({
     [assignable],
   )
 
-  const sourceLabelForAgenda = useCallback((item: AmuAgendaItem) => {
-    return item.source_module
-      ? SOURCE_MODULE_OPTIONS.find((o) => o.value === item.source_module)?.label ?? item.source_module
-      : '—'
-  }, [])
+  const sourceLabelForAgenda = useCallback(
+    (item: AmuAgendaItem) => {
+      const resolved = sourceTitleMap[item.id]
+      if (resolved) return resolved
+      return item.source_module
+        ? SOURCE_MODULE_OPTIONS.find((o) => o.value === item.source_module)?.label ?? item.source_module
+        : '—'
+    },
+    [sourceTitleMap],
+  )
 
   const chairSelectOptions = useMemo(() => {
     const byId = new Map(participantOptions.map((o) => [o.value, o.label] as const))
@@ -958,7 +933,7 @@ export function AmuDetailView({
             readOnly={readOnly}
             canManage={amu.canManage}
             sourceLabel={sourceLabelForAgenda}
-            sourceTitleByItemId={agendaAvvikTitleByItemId}
+            sourceTitleByItemId={sourceTitleMap}
             onGenerateDefaultAgenda={() => void onGenerateDefaultAgenda()}
             onOpenNew={openNewAgendaPanel}
             onOpenEdit={openEditAgenda}
@@ -973,6 +948,7 @@ export function AmuDetailView({
           agenda={agenda}
           decisionByAgenda={decisionByAgenda}
           meetingStatus={meeting.status}
+          sourceLabel={sourceLabelForAgenda}
           onOpenDecision={fixOpenDecision}
           onGoToPlanning={() => setActiveTab('planlegging')}
         />
