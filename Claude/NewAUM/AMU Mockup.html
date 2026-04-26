@@ -1,0 +1,1494 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Klarert · AMU — Arbeidsmiljøutvalg</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --forest: #1a3d32;
+    --forest-dark: #14312a;
+    --forest-soft: #e7efe9;
+    --forest-line: #c5d3c8;
+    --bg: #f7f5ee;
+    --paper: #fbf9f3;
+    --ink: #1d1f1c;
+    --muted: #6b6f68;
+    --line: #e3ddcc;
+    --line-soft: #ede7d4;
+    --critical: #b3382a;
+    --critical-soft: #f8e3df;
+    --warn: #c98a2b;
+    --warn-soft: #f7ead0;
+    --ok: #2f7757;
+    --ok-soft: #d9ead8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  .serif { font-family: "Source Serif 4", Georgia, serif; }
+  /* App shell */
+  .app {
+    display: grid;
+    grid-template-columns: 232px 1fr;
+    min-height: 100vh;
+  }
+  /* Sidebar */
+  aside.nav {
+    background: var(--forest);
+    color: #fff;
+    padding: 22px 16px 24px;
+    display: flex; flex-direction: column; gap: 24px;
+    position: sticky; top: 0; height: 100vh;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-family: "Source Serif 4", serif;
+    font-size: 22px; letter-spacing: -0.2px; font-weight: 600;
+  }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 6px;
+    background: #fff;
+    display: grid; place-items: center;
+    color: var(--forest); font-weight: 700;
+    font-family: "Source Serif 4", serif;
+  }
+  .nav-section-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: rgba(255,255,255,0.55); margin-bottom: 6px;
+  }
+  .nav a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px; border-radius: 6px;
+    color: rgba(255,255,255,0.82); font-size: 13.5px;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .nav a:hover { background: rgba(255,255,255,0.06); color: #fff; }
+  .nav a.active { background: rgba(255,255,255,0.12); color: #fff; font-weight: 600; }
+  .nav a .ico { width: 16px; height: 16px; opacity: 0.85; }
+  .nav .badge { margin-left: auto; background: rgba(255,255,255,0.18); border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: 600; }
+  .nav .badge.danger { background: var(--critical); color: #fff; }
+  .nav .org {
+    margin-top: auto;
+    padding: 12px; border-radius: 8px;
+    background: rgba(255,255,255,0.08);
+    display: flex; align-items: center; gap: 10px; font-size: 12.5px;
+  }
+  .nav .org-mark {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: #fff; color: var(--forest); display: grid; place-items: center; font-weight: 700;
+  }
+  /* Main */
+  main {
+    background: var(--bg);
+    min-width: 0;
+  }
+  /* Header bar */
+  .topbar {
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 32px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .breadcrumb { font-size: 12.5px; color: var(--muted); }
+  .breadcrumb b { color: var(--ink); font-weight: 600; }
+  .topbar-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  /* Page header */
+  .page-head {
+    padding: 28px 32px 16px;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+  }
+  .page-head h1 {
+    font-family: "Source Serif 4", serif; font-weight: 600;
+    font-size: 32px; margin: 0; letter-spacing: -0.3px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .page-head .sub { color: var(--muted); margin-top: 4px; font-size: 13.5px; }
+  .compliance-strip {
+    margin-top: 14px; padding: 8px 12px;
+    background: var(--forest-soft);
+    border: 1px solid var(--forest-line);
+    border-left: 3px solid var(--forest);
+    border-radius: 4px;
+    font-size: 12.5px; color: var(--forest);
+    display: flex; align-items: center; gap: 8px;
+  }
+  /* Page tabs */
+  .page-tabs {
+    display: flex; gap: 2px;
+    padding: 0 32px;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+  }
+  .page-tabs button {
+    background: transparent; border: 0; cursor: pointer;
+    padding: 11px 14px;
+    font: inherit; font-size: 13.5px;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .page-tabs button:hover { color: var(--ink); }
+  .page-tabs button.active {
+    color: var(--forest);
+    border-bottom-color: var(--forest);
+    font-weight: 600;
+  }
+  .page-tabs .count {
+    background: var(--forest-soft); color: var(--forest);
+    border-radius: 999px; font-size: 11px; padding: 1px 7px; font-weight: 600;
+  }
+  .page-tabs button.active .count { background: var(--forest); color: #fff; }
+  .page-tabs .count.danger { background: var(--critical-soft); color: var(--critical); }
+  .page-tabs button.active .count.danger { background: var(--critical); color: #fff; }
+  /* Content padding */
+  .page-body { padding: 24px 32px 60px; }
+  /* Cards */
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .card-head {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .card-head h3 {
+    font-family: "Source Serif 4", serif; font-size: 17px;
+    font-weight: 600; margin: 0; letter-spacing: -0.1px;
+  }
+  .card-head .law {
+    font-size: 11.5px; color: var(--muted);
+    background: var(--bg); padding: 2px 7px; border-radius: 3px;
+    border: 1px solid var(--line);
+  }
+  .card-head .actions { margin-left: auto; display: flex; gap: 8px; }
+  .card-body { padding: 18px; }
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    border-radius: 6px; font: inherit; font-size: 13px; font-weight: 600;
+    padding: 7px 12px; cursor: pointer; border: 1px solid transparent;
+    transition: background 80ms ease;
+  }
+  .btn-primary { background: var(--forest); color: #fff; }
+  .btn-primary:hover { background: var(--forest-dark); }
+  .btn-secondary { background: #fff; color: var(--ink); border-color: var(--line); }
+  .btn-secondary:hover { background: var(--bg); }
+  .btn-ghost { background: transparent; color: var(--muted); }
+  .btn-ghost:hover { color: var(--ink); background: var(--bg); }
+  .btn-danger { background: var(--critical); color: #fff; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  /* Badges */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 9px;
+    font-size: 11.5px; font-weight: 600;
+    border-radius: 999px; border: 1px solid;
+    white-space: nowrap;
+  }
+  .badge-active   { background: #dde9f3; border-color: #b8cee0; color: #194365; }
+  .badge-scheduled{ background: #f1ebd9; border-color: #ddd0a3; color: #6b5717; }
+  .badge-completed{ background: var(--ok-soft); border-color: #b9d4ba; color: var(--ok); }
+  .badge-signed   { background: var(--ok-soft); border-color: #b9d4ba; color: var(--ok); }
+  .badge-draft    { background: #ece9dc; border-color: #d3cfb9; color: var(--muted); }
+  .badge-critical { background: var(--critical-soft); border-color: #e6b8af; color: var(--critical); }
+  .badge-warn     { background: var(--warn-soft); border-color: #ddc486; color: #7a5210; }
+  .badge-info     { background: #e0e9f1; border-color: #b4c8da; color: #1f4769; }
+  .badge-dot::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block;
+  }
+  /* KPI tiles row */
+  .kpi-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    margin-bottom: 20px;
+  }
+  .kpi {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .kpi.kpi-critical { border-left: 3px solid var(--critical); }
+  .kpi.kpi-warn { border-left: 3px solid var(--warn); }
+  .kpi.kpi-ok { border-left: 3px solid var(--ok); }
+  .kpi.kpi-info { border-left: 3px solid var(--forest); }
+  .kpi-label {
+    font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.7px;
+    color: var(--muted); margin-bottom: 4px;
+  }
+  .kpi-value {
+    font-family: "Source Serif 4", serif; font-size: 28px; font-weight: 600;
+    line-height: 1.1;
+  }
+  .kpi-value small { font-size: 14px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+  .kpi-foot { margin-top: 4px; font-size: 12px; color: var(--muted); }
+  .kpi-foot a { color: var(--forest); text-decoration: none; font-weight: 600; }
+  .kpi-foot a:hover { text-decoration: underline; }
+  /* Two-column layout */
+  .two-col { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; }
+  /* Critical list (right column) */
+  .alert-row {
+    padding: 12px 16px;
+    display: flex; align-items: flex-start; gap: 10px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .alert-row:last-child { border-bottom: 0; }
+  .alert-row:hover { background: var(--bg); }
+  .alert-icon {
+    width: 28px; height: 28px; border-radius: 6px;
+    display: grid; place-items: center; flex-shrink: 0;
+    font-size: 14px;
+  }
+  .alert-icon.critical { background: var(--critical-soft); color: var(--critical); }
+  .alert-icon.warn { background: var(--warn-soft); color: var(--warn); }
+  .alert-icon.info { background: var(--forest-soft); color: var(--forest); }
+  .alert-title { font-weight: 600; font-size: 13.5px; }
+  .alert-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .alert-due { font-size: 11.5px; margin-top: 4px; }
+  /* Schedule timeline */
+  .timeline {
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .meeting-item {
+    display: grid; grid-template-columns: 76px 1fr auto;
+    gap: 16px; padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    align-items: center;
+    cursor: pointer;
+  }
+  .meeting-item:hover { background: var(--bg); }
+  .meeting-item:last-child { border-bottom: 0; }
+  .meeting-date {
+    font-family: "Source Serif 4", serif;
+    text-align: center; padding: 6px 0; border-radius: 6px;
+    background: var(--bg); border: 1px solid var(--line);
+  }
+  .meeting-date .month { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+  .meeting-date .day { font-size: 22px; font-weight: 600; line-height: 1.1; }
+  .meeting-date.next { background: var(--forest); color: #fff; border-color: var(--forest); }
+  .meeting-date.next .month { color: rgba(255,255,255,0.75); }
+  .meeting-info .title { font-weight: 600; font-size: 14.5px; }
+  .meeting-info .meta { font-size: 12.5px; color: var(--muted); margin-top: 2px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .meeting-actions { display: flex; gap: 6px; align-items: center; }
+  /* Avatar */
+  .avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--forest); color: #fff;
+    display: grid; place-items: center; font-size: 11px; font-weight: 600;
+    border: 2px solid var(--paper); flex-shrink: 0;
+  }
+  .avatar-stack { display: flex; }
+  .avatar-stack .avatar + .avatar { margin-left: -8px; }
+  .avatar.alt { background: #6b8c7a; }
+  .avatar.alt2 { background: #8a6e3a; }
+  .avatar.alt3 { background: #6b6f68; }
+  .avatar-lg { width: 40px; height: 40px; font-size: 14px; }
+  .avatar-xl { width: 52px; height: 52px; font-size: 18px; }
+  /* Members table */
+  table.members {
+    width: 100%; border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  table.members th, table.members td {
+    text-align: left; padding: 11px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  table.members th {
+    font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--muted); font-weight: 600;
+    background: var(--bg);
+  }
+  table.members td.member-cell { display: flex; align-items: center; gap: 10px; }
+  table.members tr:hover td { background: var(--bg); }
+  /* Agenda preview */
+  .agenda-list { padding: 4px 0; }
+  .agenda-row {
+    display: grid; grid-template-columns: 28px 1fr auto;
+    gap: 12px; padding: 10px 18px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .agenda-row:last-child { border-bottom: 0; }
+  .agenda-num {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--forest-soft); color: var(--forest);
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 600;
+  }
+  .agenda-title { font-weight: 600; font-size: 13.5px; }
+  .agenda-source { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .agenda-source .law { background: var(--bg); padding: 1px 6px; border-radius: 3px; border: 1px solid var(--line); }
+  .auto-tag {
+    background: var(--forest-soft); color: var(--forest);
+    border: 1px solid var(--forest-line);
+    border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: 600;
+    display: inline-flex; gap: 4px; align-items: center;
+  }
+  /* Compliance progress meter */
+  .compliance-meter {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .compliance-row {
+    display: grid; grid-template-columns: 24px 1fr 70px;
+    gap: 10px; align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  .compliance-row:last-child { border-bottom: 0; }
+  .compliance-check {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 12px;
+  }
+  .compliance-check.ok { background: var(--ok-soft); color: var(--ok); }
+  .compliance-check.partial { background: var(--warn-soft); color: var(--warn); }
+  .compliance-check.miss { background: var(--critical-soft); color: var(--critical); }
+  .compliance-label { font-size: 13px; }
+  .compliance-label small { color: var(--muted); display: block; font-size: 11.5px; margin-top: 1px; }
+  .compliance-status { font-size: 11.5px; text-align: right; color: var(--muted); }
+  /* Progress bar */
+  .progress {
+    height: 6px; border-radius: 3px;
+    background: var(--bg);
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .progress > div { height: 100%; background: var(--forest); }
+  /* Hidden tabs */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  /* Meeting Room layout */
+  .meeting-layout {
+    display: grid; grid-template-columns: 1fr 320px; gap: 18px;
+    min-height: 600px;
+  }
+  .agenda-card-row {
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--paper); margin-bottom: 10px;
+  }
+  .agenda-card-row.active { border-color: var(--forest); box-shadow: 0 0 0 3px var(--forest-soft); }
+  .agenda-card-head {
+    padding: 10px 14px;
+    display: flex; gap: 12px; align-items: center;
+    cursor: pointer;
+  }
+  .agenda-card-head .num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--forest); color: #fff;
+    display: grid; place-items: center; font-weight: 600;
+  }
+  .agenda-card-row:not(.active) .agenda-card-head .num {
+    background: var(--bg); color: var(--muted); border: 1px solid var(--line);
+  }
+  .agenda-card-body {
+    padding: 0 14px 14px;
+    border-top: 1px dashed var(--line);
+  }
+  .decision-box {
+    background: var(--forest-soft);
+    border: 1px solid var(--forest-line);
+    border-radius: 6px; padding: 10px 12px;
+    margin-top: 10px;
+  }
+  .decision-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.7px; color: var(--forest); font-weight: 700; margin-bottom: 4px; }
+  .minutes-box {
+    border: 1px solid var(--line); border-radius: 6px;
+    background: #fff; padding: 12px;
+    font-family: "Source Serif 4", serif;
+    font-size: 14px; line-height: 1.55; color: var(--ink);
+    min-height: 120px;
+  }
+  .participants-rail .par-row {
+    padding: 8px 0; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .participants-rail .par-row:last-child { border-bottom: 0; }
+  .par-info { flex: 1; min-width: 0; }
+  .par-name { font-weight: 600; font-size: 13px; }
+  .par-role { font-size: 11.5px; color: var(--muted); }
+  .par-status { font-size: 11px; }
+  .check {
+    width: 16px; height: 16px; border-radius: 4px;
+    border: 1.5px solid var(--line);
+    display: inline-grid; place-items: center;
+    background: #fff;
+  }
+  .check.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  /* Year report ring */
+  .ring-wrap { display: flex; align-items: center; gap: 16px; }
+  .ring {
+    --p: 75; --c: var(--forest); --bg2: var(--line);
+    width: 72px; height: 72px; border-radius: 50%;
+    background: conic-gradient(var(--c) calc(var(--p) * 1%), var(--bg2) 0);
+    display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .ring::before {
+    content: ''; grid-area: 1/1;
+    width: 56px; height: 56px; background: var(--paper); border-radius: 50%;
+  }
+  .ring span {
+    grid-area: 1/1; font-family: "Source Serif 4", serif;
+    font-weight: 600; font-size: 18px; z-index: 1;
+  }
+  /* Helpers */
+  .hr-line { height: 1px; background: var(--line); margin: 14px 0; }
+  .row-link { cursor: pointer; }
+  /* Tweak panel button */
+  .legal-link {
+    color: var(--forest); text-decoration: none;
+    border-bottom: 1px dotted var(--forest);
+    font-size: inherit;
+  }
+  /* Icons */
+  svg.ico { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+  <div class="app">
+    <!-- ── Sidebar ─────────────────────────── -->
+    <aside class="nav">
+      <div class="brand">
+        <div class="brand-mark">K</div>
+        <div>Klarert</div>
+      </div>
+      <div>
+        <div class="nav-section-title">HMS &amp; samsvar</div>
+        <a><svg class="ico" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg> Hjem</a>
+        <a><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M19 21a7 7 0 00-14 0"/></svg> Internkontroll</a>
+        <a><svg class="ico" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> Inspeksjonsrunder <span class="badge">3</span></a>
+        <a><svg class="ico" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Avvik <span class="badge danger">5</span></a>
+        <a><svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg> Tiltaksplan</a>
+        <a><svg class="ico" viewBox="0 0 24 24"><path d="M12 1l9 4v6c0 5-3.8 9.7-9 11-5.2-1.3-9-6-9-11V5l9-4z"/></svg> Varsling</a>
+      </div>
+      <div>
+        <div class="nav-section-title">Medvirkning</div>
+        <a class="active"><svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="17" cy="7" r="4"/></svg> AMU <span class="badge">i dag</span></a>
+        <a><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Verneombud</a>
+        <a><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Valgperioder</a>
+        <a><svg class="ico" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> BHT</a>
+      </div>
+      <div class="org">
+        <div class="org-mark">N</div>
+        <div>
+          <div style="font-weight:600">Nordby Industri AS</div>
+          <div style="opacity:0.6; font-size:11.5px">218 ansatte · 3 enheter</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Main ────────────────────────────── -->
+    <main>
+      <div class="topbar">
+        <div class="breadcrumb">Medvirkning &nbsp;›&nbsp; <b>Arbeidsmiljøutvalg (AMU)</b></div>
+        <div class="topbar-right">
+          <button class="btn btn-secondary btn-sm">
+            <svg class="ico" viewBox="0 0 24 24"><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><path d="M21 21H3"/></svg>
+            Eksporter årsrapport
+          </button>
+          <button class="btn btn-primary btn-sm">
+            <svg class="ico" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nytt møte
+          </button>
+        </div>
+      </div>
+
+      <div class="page-head">
+        <h1>
+          Arbeidsmiljøutvalg
+          <span class="badge badge-active badge-dot">Lovpålagt · 218 ansatte</span>
+        </h1>
+        <div class="sub">Partsammensatt utvalg som behandler virksomhetens HMS-arbeid · møteperiode 2026</div>
+        <div class="compliance-strip">
+          <svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          AML <a class="legal-link">§ 7-1</a> · § 7-2 · § 7-3 · IK-forskriften § 5 — alle krav for inneværende periode er oppfylt.
+        </div>
+      </div>
+
+      <div class="page-tabs">
+        <button class="active" data-tab="overview">Oversikt</button>
+        <button data-tab="members">Medlemmer <span class="count">7</span></button>
+        <button data-tab="schedule">Møteplan <span class="count">4</span></button>
+        <button data-tab="meetingroom">Møterom <span class="count">i dag</span></button>
+        <button data-tab="critical">Kritiske saker <span class="count danger">5</span></button>
+        <button data-tab="report">Årsrapport</button>
+      </div>
+
+      <div class="page-body">
+
+        <!-- ────────── Tab: Oversikt ────────── -->
+        <section class="tab-panel active" id="tab-overview">
+          <!-- KPI row -->
+          <div class="kpi-row">
+            <div class="kpi kpi-info">
+              <div class="kpi-label">Møter i 2026</div>
+              <div class="kpi-value">2<small>/ 4</small></div>
+              <div class="kpi-foot">Lovkrav: 4 · neste 14. mai</div>
+            </div>
+            <div class="kpi kpi-ok">
+              <div class="kpi-label">Sammensetning</div>
+              <div class="kpi-value">7 <small>medlemmer</small></div>
+              <div class="kpi-foot">3 / 3 paritet · BHT representert</div>
+            </div>
+            <div class="kpi kpi-warn">
+              <div class="kpi-label">Saker til behandling</div>
+              <div class="kpi-value">12</div>
+              <div class="kpi-foot"><a>3 må avklares før 14. mai →</a></div>
+            </div>
+            <div class="kpi kpi-critical">
+              <div class="kpi-label">Kritiske aktiviteter</div>
+              <div class="kpi-value">5</div>
+              <div class="kpi-foot"><a>2 forsinket signering →</a></div>
+            </div>
+          </div>
+
+          <!-- Two-column main -->
+          <div class="two-col">
+            <div>
+              <!-- Next meeting card -->
+              <div class="card" style="margin-bottom: 18px;">
+                <div class="card-head">
+                  <h3>Neste møte — automatisk saksliste</h3>
+                  <span class="law">AML § 7-2</span>
+                  <div class="actions">
+                    <button class="btn btn-ghost btn-sm">Forhåndsvis</button>
+                    <button class="btn btn-primary btn-sm">Åpne møterom</button>
+                  </div>
+                </div>
+                <div style="padding: 18px; display: grid; grid-template-columns: 110px 1fr; gap: 18px; align-items: start;">
+                  <div class="meeting-date next" style="padding: 12px 0;">
+                    <div class="month">Mai</div>
+                    <div class="day" style="font-size:32px">14</div>
+                    <div style="font-size:11px; opacity:0.8; margin-top:2px">Tor · 13:00</div>
+                  </div>
+                  <div>
+                    <div style="font-family: 'Source Serif 4', serif; font-size: 19px; font-weight: 600;">
+                      AMU 2/2026 · Vårmøte
+                    </div>
+                    <div style="color: var(--muted); font-size: 13px; margin-top: 2px;">
+                      Hovedkontor Moss · Møterom Granaasen · også digitalt via Teams
+                    </div>
+                    <div style="margin-top: 12px;" class="avatar-stack">
+                      <div class="avatar" title="Tor Halvorsen">TH</div>
+                      <div class="avatar alt" title="Ingrid Vik">IV</div>
+                      <div class="avatar alt2" title="Marius Lie">ML</div>
+                      <div class="avatar alt3" title="Silje Rud">SR</div>
+                      <div class="avatar" title="Eva Nilsen" style="background:#3a6e63">EN</div>
+                      <div class="avatar alt2" title="BHT-rep">B</div>
+                      <div class="avatar alt3" title="Sekretær">+1</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Auto-built agenda preview -->
+                <div style="padding: 0 18px 8px; display: flex; align-items: center; gap: 8px;">
+                  <span class="auto-tag">
+                    <svg class="ico" viewBox="0 0 24 24" style="width:11px;height:11px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    Saksliste generert automatisk
+                  </span>
+                  <span style="font-size: 12px; color: var(--muted);">basert på lovkrav, åpne saker og utvalgets standardliste</span>
+                  <button class="btn btn-ghost btn-sm" style="margin-left:auto">Rediger</button>
+                </div>
+
+                <div class="agenda-list">
+                  <div class="agenda-row">
+                    <div class="agenda-num">1</div>
+                    <div>
+                      <div class="agenda-title">Godkjenning av innkalling og saksliste</div>
+                      <div class="agenda-source">Standard · <span class="law">§ 7-2 (4)</span></div>
+                    </div>
+                    <span class="badge badge-info">Standard</span>
+                  </div>
+                  <div class="agenda-row">
+                    <div class="agenda-num">2</div>
+                    <div>
+                      <div class="agenda-title">Gjennomgang av referat AMU 1/2026</div>
+                      <div class="agenda-source">Standard</div>
+                    </div>
+                    <span class="badge badge-info">Standard</span>
+                  </div>
+                  <div class="agenda-row">
+                    <div class="agenda-num">3</div>
+                    <div>
+                      <div class="agenda-title">Oppfølging — Maskinvern presse B3</div>
+                      <div class="agenda-source">Avvik AV-2026-0118 · <span class="badge badge-critical" style="margin-left:4px">kritisk</span></div>
+                    </div>
+                    <span class="auto-tag">Auto</span>
+                  </div>
+                  <div class="agenda-row">
+                    <div class="agenda-num">4</div>
+                    <div>
+                      <div class="agenda-title">Sykefraværsstatistikk Q1 2026</div>
+                      <div class="agenda-source">BHT-bidrag · <span class="law">§ 7-2 (2)d</span> · anonymisert</div>
+                    </div>
+                    <span class="auto-tag">Auto</span>
+                  </div>
+                  <div class="agenda-row">
+                    <div class="agenda-num">5</div>
+                    <div>
+                      <div class="agenda-title">Resultater medarbeiderundersøkelse 2026</div>
+                      <div class="agenda-source">HMS-plan · <span class="law">§ 7-2 (2)e</span></div>
+                    </div>
+                    <span class="auto-tag">Auto</span>
+                  </div>
+                  <div class="agenda-row">
+                    <div class="agenda-num">6</div>
+                    <div>
+                      <div class="agenda-title">Vernerunde — funn fra Q2 2026</div>
+                      <div class="agenda-source">3 inspeksjonsrunder · 4 åpne avvik</div>
+                    </div>
+                    <span class="auto-tag">Auto</span>
+                  </div>
+                  <div class="agenda-row">
+                    <div class="agenda-num">7</div>
+                    <div>
+                      <div class="agenda-title">Varslingssaker — aggregert statistikk</div>
+                      <div class="agenda-source">Anonymisert · 2 åpne · <span class="law">§ 2 A-3</span></div>
+                    </div>
+                    <span class="auto-tag">Auto</span>
+                  </div>
+                  <div class="agenda-row">
+                    <div class="agenda-num">8</div>
+                    <div>
+                      <div class="agenda-title">Eventuelt</div>
+                      <div class="agenda-source">Standard</div>
+                    </div>
+                    <span class="badge badge-info">Standard</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Lovkrav kompliance -->
+              <div class="card">
+                <div class="card-head">
+                  <h3>Lovkrav inneværende år</h3>
+                  <span class="law">AML kap. 7 · IK § 5</span>
+                  <div class="actions"><button class="btn btn-ghost btn-sm">Vis dokumentasjon</button></div>
+                </div>
+                <div class="card-body">
+                  <div class="compliance-meter">
+                    <div class="compliance-row">
+                      <div class="compliance-check ok">✓</div>
+                      <div class="compliance-label">
+                        Partssammensatt sammensetning · arbeidsgiver- og arbeidstakersiden likt representert
+                        <small>3 / 3 fra hver side · valgt 1. jan 2026 — periode ut 31. des 2027</small>
+                      </div>
+                      <div class="compliance-status">§ 7-1 ✓</div>
+                    </div>
+                    <div class="compliance-row">
+                      <div class="compliance-check ok">✓</div>
+                      <div class="compliance-label">
+                        Bedriftshelsetjenesten har representant uten stemmerett
+                        <small>Stamina Helse AS · Eva Nilsen · møter ved behov</small>
+                      </div>
+                      <div class="compliance-status">§ 7-1 ✓</div>
+                    </div>
+                    <div class="compliance-row">
+                      <div class="compliance-check partial">!</div>
+                      <div class="compliance-label">
+                        Minimum 4 møter per år
+                        <small>2 av 4 gjennomført · 14. mai planlagt · Q4-møte ikke berammet</small>
+                      </div>
+                      <div class="compliance-status">2 / 4</div>
+                    </div>
+                    <div class="compliance-row">
+                      <div class="compliance-check ok">✓</div>
+                      <div class="compliance-label">
+                        Behandlet HMS-plan og vernetiltak
+                        <small>HMS-plan 2026 vedtatt i AMU 1/2026 · 12 punkter</small>
+                      </div>
+                      <div class="compliance-status">§ 7-2 (2)a ✓</div>
+                    </div>
+                    <div class="compliance-row">
+                      <div class="compliance-check ok">✓</div>
+                      <div class="compliance-label">
+                        Behandlet rapporter om yrkessykdom og skader
+                        <small>Q1 2026 gjennomgått · 1 yrkesskade rapportert til NAV</small>
+                      </div>
+                      <div class="compliance-status">§ 7-2 (2)b ✓</div>
+                    </div>
+                    <div class="compliance-row">
+                      <div class="compliance-check ok">✓</div>
+                      <div class="compliance-label">
+                        Behandlet aggregerte sykefraværstall (anonymisert)
+                        <small>Q1 2026 · 4,8 % · BHT involvert i analyse</small>
+                      </div>
+                      <div class="compliance-status">§ 7-2 (2)d ✓</div>
+                    </div>
+                    <div class="compliance-row">
+                      <div class="compliance-check miss">×</div>
+                      <div class="compliance-label">
+                        Årsrapport 2025 — ikke arkivert
+                        <small>Skal signeres av leder + nestleder · frist 31. mars var passert</small>
+                      </div>
+                      <div class="compliance-status"><a class="legal-link">Fullfør →</a></div>
+                    </div>
+                    <div class="compliance-row">
+                      <div class="compliance-check ok">✓</div>
+                      <div class="compliance-label">
+                        Opplæring av AMU-medlemmer (40 t)
+                        <small>6 av 6 stemmeberettigede har gyldig HMS-kurs</small>
+                      </div>
+                      <div class="compliance-status">§ 6-5 ✓</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right column -->
+            <div>
+              <div class="card" style="margin-bottom: 18px;">
+                <div class="card-head">
+                  <h3>Kritiske aktiviteter</h3>
+                  <span class="badge badge-critical">5 åpne</span>
+                </div>
+                <div>
+                  <div class="alert-row">
+                    <div class="alert-icon critical">⚠</div>
+                    <div style="flex:1; min-width: 0;">
+                      <div class="alert-title">Maskinvern presse B3 — fortsatt ikke utbedret</div>
+                      <div class="alert-meta">Avvik AV-2026-0118 · meldt 3 dager siden · risiko 16</div>
+                      <div class="alert-due"><span class="badge badge-critical">Forsinket 6 dager</span></div>
+                    </div>
+                  </div>
+                  <div class="alert-row">
+                    <div class="alert-icon critical">!</div>
+                    <div style="flex:1;">
+                      <div class="alert-title">Varslingssak VS-2026-007 — avventer beslutning</div>
+                      <div class="alert-meta">Anonym · åpnet 11 dager siden · ekstern utreder tildelt</div>
+                      <div class="alert-due" style="color: var(--muted);">Frist svar varsler: 9. mai</div>
+                    </div>
+                  </div>
+                  <div class="alert-row">
+                    <div class="alert-icon warn">⏱</div>
+                    <div style="flex:1;">
+                      <div class="alert-title">Mangler signatur · referat AMU 1/2026</div>
+                      <div class="alert-meta">Møteleder må signere — Tor Halvorsen</div>
+                      <div class="alert-due"><span class="badge badge-warn">Påminnelse sendt</span></div>
+                    </div>
+                  </div>
+                  <div class="alert-row">
+                    <div class="alert-icon warn">⏱</div>
+                    <div style="flex:1;">
+                      <div class="alert-title">3 inspeksjonsrunder mangler oppfølging</div>
+                      <div class="alert-meta">Hall A · Hall B · Lager · 4 åpne avvik samlet</div>
+                      <div class="alert-due" style="color: var(--muted);">Tas opp som sak 6 i neste møte</div>
+                    </div>
+                  </div>
+                  <div class="alert-row">
+                    <div class="alert-icon info">i</div>
+                    <div style="flex:1;">
+                      <div class="alert-title">Q4-møte 2026 ikke berammet</div>
+                      <div class="alert-meta">Lovkrav: minst 4 møter per år</div>
+                      <div class="alert-due"><a class="legal-link">Beram nå →</a></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick year report -->
+              <div class="card">
+                <div class="card-head">
+                  <h3>Årsrapport 2026</h3>
+                  <span class="law">§ 7-2 (6)</span>
+                </div>
+                <div class="card-body">
+                  <div class="ring-wrap">
+                    <div class="ring" style="--p: 38;"><span>38%</span></div>
+                    <div>
+                      <div style="font-weight: 600;">Underveis i 2026</div>
+                      <div style="font-size: 12.5px; color: var(--muted); margin-top: 4px;">
+                        Sammenstilles automatisk fra møtereferat,<br/>
+                        avvik, varsling og sykefravær.
+                      </div>
+                    </div>
+                  </div>
+                  <div class="hr-line"></div>
+                  <div style="font-size: 12.5px; color: var(--muted); margin-bottom: 4px;">Sist endret 4. mai · av Marius Lie</div>
+                  <button class="btn btn-secondary btn-sm" style="width: 100%; justify-content: center;">Åpne kladd</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ────────── Tab: Medlemmer ────────── -->
+        <section class="tab-panel" id="tab-members">
+          <div style="display: grid; grid-template-columns: 1fr 320px; gap: 18px; margin-bottom: 18px;">
+            <div class="card">
+              <div class="card-head">
+                <h3>AMU-medlemmer · valgperiode 2026 – 2027</h3>
+                <span class="law">§ 7-1</span>
+                <div class="actions">
+                  <button class="btn btn-ghost btn-sm">Eksporter</button>
+                  <button class="btn btn-secondary btn-sm">Legg til medlem</button>
+                </div>
+              </div>
+              <table class="members">
+                <thead>
+                  <tr>
+                    <th>Medlem</th>
+                    <th>Side</th>
+                    <th>Rolle</th>
+                    <th>Verv</th>
+                    <th>HMS-kurs</th>
+                    <th>Frammøte</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="member-cell"><div class="avatar">TH</div><div><div style="font-weight:600">Tor Halvorsen</div><div style="font-size:11.5px;color:var(--muted)">Verksmester</div></div></td>
+                    <td><span class="badge badge-info">Arbeidstaker</span></td>
+                    <td>Hovedverneombud</td>
+                    <td><b>Leder</b><br/><small style="color:var(--muted)">2026 (rotere 2027)</small></td>
+                    <td><span class="badge badge-completed">40t · gyldig</span></td>
+                    <td>4 / 4</td>
+                    <td><button class="btn btn-ghost btn-sm">…</button></td>
+                  </tr>
+                  <tr>
+                    <td class="member-cell"><div class="avatar alt">IV</div><div><div style="font-weight:600">Ingrid Vik</div><div style="font-size:11.5px;color:var(--muted)">Operatør · Hall B</div></div></td>
+                    <td><span class="badge badge-info">Arbeidstaker</span></td>
+                    <td>Verneombud</td>
+                    <td>Medlem</td>
+                    <td><span class="badge badge-completed">40t · gyldig</span></td>
+                    <td>4 / 4</td>
+                    <td><button class="btn btn-ghost btn-sm">…</button></td>
+                  </tr>
+                  <tr>
+                    <td class="member-cell"><div class="avatar alt3">SR</div><div><div style="font-weight:600">Silje Rud</div><div style="font-size:11.5px;color:var(--muted)">Lagerformann</div></div></td>
+                    <td><span class="badge badge-info">Arbeidstaker</span></td>
+                    <td>Tillitsvalgt</td>
+                    <td>Medlem</td>
+                    <td><span class="badge badge-completed">40t · gyldig</span></td>
+                    <td>3 / 4</td>
+                    <td><button class="btn btn-ghost btn-sm">…</button></td>
+                  </tr>
+                  <tr>
+                    <td class="member-cell"><div class="avatar alt2">ML</div><div><div style="font-weight:600">Marius Lie</div><div style="font-size:11.5px;color:var(--muted)">HMS-leder</div></div></td>
+                    <td><span class="badge badge-warn">Arbeidsgiver</span></td>
+                    <td>HMS-koordinator</td>
+                    <td><b>Nestleder</b><br/><small style="color:var(--muted)">2026 (rotere 2027)</small></td>
+                    <td><span class="badge badge-completed">40t · gyldig</span></td>
+                    <td>4 / 4</td>
+                    <td><button class="btn btn-ghost btn-sm">…</button></td>
+                  </tr>
+                  <tr>
+                    <td class="member-cell"><div class="avatar alt2">KB</div><div><div style="font-weight:600">Kristin Berge</div><div style="font-size:11.5px;color:var(--muted)">Personalsjef</div></div></td>
+                    <td><span class="badge badge-warn">Arbeidsgiver</span></td>
+                    <td>HR-leder</td>
+                    <td>Medlem</td>
+                    <td><span class="badge badge-completed">40t · gyldig</span></td>
+                    <td>3 / 4</td>
+                    <td><button class="btn btn-ghost btn-sm">…</button></td>
+                  </tr>
+                  <tr>
+                    <td class="member-cell"><div class="avatar alt2">JM</div><div><div style="font-weight:600">Jens Moe</div><div style="font-size:11.5px;color:var(--muted)">Driftsleder</div></div></td>
+                    <td><span class="badge badge-warn">Arbeidsgiver</span></td>
+                    <td>Driftsansvarlig</td>
+                    <td>Medlem</td>
+                    <td><span class="badge badge-warn">Utløper 30. juni</span></td>
+                    <td>2 / 4</td>
+                    <td><button class="btn btn-ghost btn-sm">…</button></td>
+                  </tr>
+                  <tr style="background: var(--bg);">
+                    <td class="member-cell"><div class="avatar" style="background:#3a6e63">EN</div><div><div style="font-weight:600">Eva Nilsen</div><div style="font-size:11.5px;color:var(--muted)">Stamina Helse AS</div></div></td>
+                    <td><span class="badge badge-completed">BHT</span></td>
+                    <td>Bedriftshelse</td>
+                    <td>Uten stemmerett</td>
+                    <td>—</td>
+                    <td>2 / 4</td>
+                    <td><button class="btn btn-ghost btn-sm">…</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div>
+              <div class="card" style="margin-bottom: 18px;">
+                <div class="card-head"><h3>Krav til sammensetning</h3></div>
+                <div class="card-body" style="font-size: 13px;">
+                  <p style="margin: 0 0 10px"><b>AML § 7-1.</b> Virksomhet med <b>50 eller flere</b> ansatte plikter å opprette AMU. AMU skal ha lik representasjon fra arbeidsgiver- og arbeidstakersiden.</p>
+                  <ul style="margin: 0 0 10px; padding-left: 18px; color: var(--muted);">
+                    <li>3 fra arbeidsgiver ✓</li>
+                    <li>3 fra arbeidstaker (inkl. hovedverneombud) ✓</li>
+                    <li>BHT representant uten stemmerett ✓</li>
+                  </ul>
+                  <p style="margin: 0; color: var(--muted);">Leder/nestleder veksler mellom partene hvert år.</p>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-head"><h3>Frammøte 2026</h3></div>
+                <div class="card-body">
+                  <div class="compliance-row">
+                    <div class="compliance-check ok">✓</div>
+                    <div class="compliance-label">AMU 1/2026 — 7. feb<small>7 av 7 til stede</small></div>
+                    <div class="compliance-status">100%</div>
+                  </div>
+                  <div class="compliance-row">
+                    <div class="compliance-check partial">!</div>
+                    <div class="compliance-label">AMU 2/2026 — 14. mai<small>Påmeldt: 6 · BHT bekrefter</small></div>
+                    <div class="compliance-status">86%</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ────────── Tab: Møteplan ────────── -->
+        <section class="tab-panel" id="tab-schedule">
+          <div class="two-col">
+            <div class="card">
+              <div class="card-head">
+                <h3>Møteplan 2026</h3>
+                <span class="law">≥ 4 møter / år</span>
+                <div class="actions"><button class="btn btn-secondary btn-sm">Importer kalender</button></div>
+              </div>
+              <div class="timeline">
+                <div class="meeting-item">
+                  <div class="meeting-date">
+                    <div class="month">Feb</div>
+                    <div class="day">07</div>
+                  </div>
+                  <div class="meeting-info">
+                    <div class="title">AMU 1/2026 · Vintermøte <span class="badge badge-signed" style="margin-left:6px">Signert</span></div>
+                    <div class="meta">
+                      <span>Møterom Granaasen</span>
+                      <span>7 / 7 til stede</span>
+                      <span>8 saker · 3 vedtak</span>
+                    </div>
+                  </div>
+                  <div class="meeting-actions">
+                    <button class="btn btn-ghost btn-sm">Referat</button>
+                  </div>
+                </div>
+                <div class="meeting-item">
+                  <div class="meeting-date next">
+                    <div class="month">Mai</div>
+                    <div class="day">14</div>
+                  </div>
+                  <div class="meeting-info">
+                    <div class="title">AMU 2/2026 · Vårmøte <span class="badge badge-active" style="margin-left:6px">I dag</span></div>
+                    <div class="meta">
+                      <span>Møterom Granaasen + Teams</span>
+                      <span>Påmeldt 6 / 7</span>
+                      <span>8 saker · saksliste klar</span>
+                    </div>
+                  </div>
+                  <div class="meeting-actions">
+                    <button class="btn btn-primary btn-sm">Åpne møterom</button>
+                  </div>
+                </div>
+                <div class="meeting-item">
+                  <div class="meeting-date">
+                    <div class="month">Sep</div>
+                    <div class="day">10</div>
+                  </div>
+                  <div class="meeting-info">
+                    <div class="title">AMU 3/2026 · Høstmøte <span class="badge badge-scheduled" style="margin-left:6px">Berammet</span></div>
+                    <div class="meta">
+                      <span>Møterom Granaasen</span>
+                      <span>Innkalling sendes 27. aug</span>
+                      <span>Saksliste tom — forslag mottas</span>
+                    </div>
+                  </div>
+                  <div class="meeting-actions">
+                    <button class="btn btn-ghost btn-sm">Detaljer</button>
+                  </div>
+                </div>
+                <div class="meeting-item" style="background: var(--critical-soft);">
+                  <div class="meeting-date" style="background: #f0d6d2; border-color: #e6b8af; color: var(--critical);">
+                    <div class="month">Q4</div>
+                    <div class="day">?</div>
+                  </div>
+                  <div class="meeting-info">
+                    <div class="title">AMU 4/2026 · ikke berammet <span class="badge badge-critical" style="margin-left:6px">Lovkrav</span></div>
+                    <div class="meta">
+                      <span>Foreslått: tor 12. nov</span>
+                      <span>Må berammes for å oppfylle § 7-2</span>
+                    </div>
+                  </div>
+                  <div class="meeting-actions">
+                    <button class="btn btn-primary btn-sm">Beram nå</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div class="card" style="margin-bottom: 18px;">
+                <div class="card-head"><h3>Tidligere møter</h3></div>
+                <div class="card-body" style="padding: 4px 0;">
+                  <div class="alert-row">
+                    <div class="alert-icon info">📜</div>
+                    <div style="flex:1;">
+                      <div class="alert-title">AMU 4/2025 — Desember-møte</div>
+                      <div class="alert-meta">12. des · 7 deltakere · 11 saker · signert</div>
+                    </div>
+                  </div>
+                  <div class="alert-row">
+                    <div class="alert-icon info">📜</div>
+                    <div style="flex:1;">
+                      <div class="alert-title">AMU 3/2025 — Høstmøte</div>
+                      <div class="alert-meta">15. sep · 6 deltakere · 9 saker · signert</div>
+                    </div>
+                  </div>
+                  <div class="alert-row">
+                    <div class="alert-icon info">📜</div>
+                    <div style="flex:1;">
+                      <div class="alert-title">AMU 2/2025 — Vårmøte</div>
+                      <div class="alert-meta">22. mai · 7 deltakere · 8 saker · signert</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-head"><h3>Foreslå sak til neste møte</h3></div>
+                <div class="card-body">
+                  <textarea placeholder="Beskriv saken (alle ansatte kan foreslå saker)…" style="width:100%; min-height: 80px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font: inherit; font-size: 13px;"></textarea>
+                  <div style="display: flex; gap: 8px; margin-top: 8px;">
+                    <select style="flex:1; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font: inherit; font-size: 12.5px;">
+                      <option>AMU 3/2026 (Sep)</option>
+                      <option>AMU 4/2026 (Nov)</option>
+                    </select>
+                    <button class="btn btn-primary btn-sm">Send forslag</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ────────── Tab: Møterom ────────── -->
+        <section class="tab-panel" id="tab-meetingroom">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+            <div style="font-family: 'Source Serif 4', serif; font-size: 22px; font-weight: 600;">AMU 2/2026 — Vårmøte</div>
+            <span class="badge badge-active badge-dot">Pågår nå · 13:18</span>
+            <div style="margin-left: auto; display: flex; gap: 8px;">
+              <button class="btn btn-secondary btn-sm">Pause møte</button>
+              <button class="btn btn-primary btn-sm">Avslutt og signer referat</button>
+            </div>
+          </div>
+
+          <div class="meeting-layout">
+            <div>
+              <!-- Agenda items as expandable rows -->
+              <div class="agenda-card-row">
+                <div class="agenda-card-head">
+                  <div class="num">✓</div>
+                  <div style="flex:1;"><b>1. Godkjenning av innkalling og saksliste</b><br/><small style="color:var(--muted)">Vedtak: Saksliste godkjent uten merknader · 7-0</small></div>
+                  <span class="badge badge-completed">Vedtatt</span>
+                </div>
+              </div>
+              <div class="agenda-card-row">
+                <div class="agenda-card-head">
+                  <div class="num">✓</div>
+                  <div style="flex:1;"><b>2. Gjennomgang av referat AMU 1/2026</b><br/><small style="color:var(--muted)">Vedtak: Referatet godkjent · uten endringer</small></div>
+                  <span class="badge badge-completed">Vedtatt</span>
+                </div>
+              </div>
+              <div class="agenda-card-row active">
+                <div class="agenda-card-head">
+                  <div class="num">3</div>
+                  <div style="flex:1;"><b>3. Oppfølging — Maskinvern presse B3</b><br/><small style="color:var(--muted)">Avvik AV-2026-0118 · risiko 16 · ML innleder</small></div>
+                  <span class="badge badge-active badge-dot">Aktiv</span>
+                </div>
+                <div class="agenda-card-body">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0;">
+                    <div>
+                      <div style="font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Bakgrunn fra avvik</div>
+                      <div style="font-size: 13px; line-height: 1.5;">Vernedeksel skadet og ikke forsvarlig festet. Pressen ble tatt ut av drift av verneombud Ingrid Vik den 4. mai. Ny deksel bestilt 5. mai, leveringstid 10 virkedager.</div>
+                    </div>
+                    <div>
+                      <div style="font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Lenker</div>
+                      <div style="font-size: 13px; display: flex; flex-direction: column; gap: 4px;">
+                        <a class="legal-link">Avvik AV-2026-0118 ↗</a>
+                        <a class="legal-link">Tiltakspunkt TP-2026-022 ↗</a>
+                        <a class="legal-link">Risikovurdering RVU-018 ↗</a>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Notater fra møtet</div>
+                  <div class="minutes-box">IV: Operatører er informert. Ingen produksjon på presse B3 før utbedring.<br/>ML: Vil involvere BHT for ergonomisk vurdering når nytt deksel monteres.<br/>TH: Foreslår at AMU følger opp på neste møte 10. sep.</div>
+
+                  <div class="decision-box">
+                    <div class="decision-label">Vedtak — knyttes til tiltaksplan</div>
+                    <div style="font-size: 14px; font-family: 'Source Serif 4', serif;">AMU vedtar at presse B3 forblir ute av drift inntil nytt vernedeksel er montert og funksjonstestet. Marius Lie er ansvarlig for oppfølging og rapporterer status til AMU 3/2026.</div>
+                    <div style="display: flex; gap: 8px; margin-top: 10px; align-items:center; font-size: 12px; color: var(--muted);">
+                      <span>Stemmeresultat: 6 for · 0 mot · 1 avholdende</span>
+                      <span>·</span>
+                      <span>Ansvarlig: Marius Lie · Frist: 10. sep 2026</span>
+                    </div>
+                  </div>
+
+                  <div style="display:flex; gap: 8px; margin-top: 12px;">
+                    <button class="btn btn-secondary btn-sm">Forrige sak</button>
+                    <button class="btn btn-primary btn-sm">Bekreft vedtak og gå videre</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="agenda-card-row">
+                <div class="agenda-card-head">
+                  <div class="num">4</div>
+                  <div style="flex:1;"><b>4. Sykefraværsstatistikk Q1 2026</b><br/><small style="color:var(--muted)">BHT: Eva Nilsen presenterer · anonymisert</small></div>
+                  <span class="badge badge-scheduled">Står for tur</span>
+                </div>
+              </div>
+              <div class="agenda-card-row">
+                <div class="agenda-card-head">
+                  <div class="num">5</div>
+                  <div style="flex:1;"><b>5. Resultater medarbeiderundersøkelse 2026</b><br/><small style="color:var(--muted)">Kristin Berge innleder · 87 % svarprosent</small></div>
+                  <span class="badge badge-draft">Venter</span>
+                </div>
+              </div>
+              <div class="agenda-card-row">
+                <div class="agenda-card-head">
+                  <div class="num">6</div>
+                  <div style="flex:1;"><b>6. Vernerunde — funn fra Q2 2026</b><br/><small style="color:var(--muted)">3 runder · 4 åpne avvik</small></div>
+                  <span class="badge badge-draft">Venter</span>
+                </div>
+              </div>
+              <div class="agenda-card-row">
+                <div class="agenda-card-head">
+                  <div class="num">7</div>
+                  <div style="flex:1;"><b>7. Varslingssaker — aggregert statistikk</b><br/><small style="color:var(--muted)">Anonymisert · 2 åpne · § 2 A-3</small></div>
+                  <span class="badge badge-draft">Venter</span>
+                </div>
+              </div>
+              <div class="agenda-card-row">
+                <div class="agenda-card-head">
+                  <div class="num">8</div>
+                  <div style="flex:1;"><b>8. Eventuelt</b></div>
+                  <span class="badge badge-draft">Venter</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Side rail -->
+            <div class="participants-rail">
+              <div class="card" style="margin-bottom: 14px;">
+                <div class="card-head"><h3>Deltakere</h3></div>
+                <div style="padding: 6px 14px;">
+                  <div class="par-row">
+                    <div class="avatar">TH</div>
+                    <div class="par-info"><div class="par-name">Tor Halvorsen</div><div class="par-role">Leder · Hovedverneombud</div></div>
+                    <div class="check on">✓</div>
+                  </div>
+                  <div class="par-row">
+                    <div class="avatar alt">IV</div>
+                    <div class="par-info"><div class="par-name">Ingrid Vik</div><div class="par-role">Verneombud</div></div>
+                    <div class="check on">✓</div>
+                  </div>
+                  <div class="par-row">
+                    <div class="avatar alt3">SR</div>
+                    <div class="par-info"><div class="par-name">Silje Rud</div><div class="par-role">Tillitsvalgt</div></div>
+                    <div class="check on">✓</div>
+                  </div>
+                  <div class="par-row">
+                    <div class="avatar alt2">ML</div>
+                    <div class="par-info"><div class="par-name">Marius Lie</div><div class="par-role">Nestleder · HMS-leder</div></div>
+                    <div class="check on">✓</div>
+                  </div>
+                  <div class="par-row">
+                    <div class="avatar alt2">KB</div>
+                    <div class="par-info"><div class="par-name">Kristin Berge</div><div class="par-role">Personalsjef</div></div>
+                    <div class="check on">✓</div>
+                  </div>
+                  <div class="par-row" style="opacity: 0.55;">
+                    <div class="avatar alt2">JM</div>
+                    <div class="par-info"><div class="par-name">Jens Moe</div><div class="par-role">Driftsleder · meldt forfall</div></div>
+                    <div class="check">—</div>
+                  </div>
+                  <div class="par-row">
+                    <div class="avatar" style="background:#3a6e63">EN</div>
+                    <div class="par-info"><div class="par-name">Eva Nilsen</div><div class="par-role">BHT (uten stemmerett)</div></div>
+                    <div class="check on">✓</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-head"><h3>Møtetid</h3></div>
+                <div class="card-body">
+                  <div style="display: flex; gap: 14px; align-items: baseline;">
+                    <div style="font-family: 'Source Serif 4', serif; font-size: 28px; font-weight: 600;">00:18</div>
+                    <div style="color: var(--muted); font-size: 12px;">av estimert 02:00</div>
+                  </div>
+                  <div class="progress" style="margin-top: 8px;"><div style="width: 15%"></div></div>
+                  <div class="hr-line"></div>
+                  <div style="font-size: 12.5px; color: var(--muted);">2 av 8 saker behandlet · på rute</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ────────── Tab: Kritiske saker ────────── -->
+        <section class="tab-panel" id="tab-critical">
+          <div class="kpi-row" style="grid-template-columns: repeat(3, 1fr);">
+            <div class="kpi kpi-critical"><div class="kpi-label">Avvik · åpne</div><div class="kpi-value">5</div><div class="kpi-foot">2 kritiske · 3 forsinkede</div></div>
+            <div class="kpi kpi-warn"><div class="kpi-label">Varsler · åpne</div><div class="kpi-value">2</div><div class="kpi-foot">aggregert · ingen PII</div></div>
+            <div class="kpi kpi-warn"><div class="kpi-label">Manglende signaturer</div><div class="kpi-value">3</div><div class="kpi-foot">2 referat · 1 årsrapport</div></div>
+          </div>
+
+          <div class="card" style="margin-bottom: 18px;">
+            <div class="card-head">
+              <h3>Avvik som AMU må behandle</h3>
+              <span class="law">§ 7-2 (2)b/c</span>
+              <div class="actions"><button class="btn btn-ghost btn-sm">Filtrer</button></div>
+            </div>
+            <table class="members">
+              <thead><tr><th>Sak</th><th>Type</th><th>Risiko</th><th>Status</th><th>Eier</th><th>Frist</th><th></th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>Maskinvern presse B3</b><br/><small style="color:var(--muted)">AV-2026-0118 · meldt 4. mai</small></td>
+                  <td>Maskinsikkerhet</td>
+                  <td><span class="badge badge-critical">16 · kritisk</span></td>
+                  <td><span class="badge badge-warn">Forsinket 6 dager</span></td>
+                  <td>Marius Lie</td>
+                  <td>Tatt ut av drift</td>
+                  <td><button class="btn btn-secondary btn-sm">Åpne</button></td>
+                </tr>
+                <tr>
+                  <td><b>Hørselsvern ikke i bruk · sliperi</b><br/><small style="color:var(--muted)">AV-2026-0117 · vernerunde Hall B</small></td>
+                  <td>PVU</td>
+                  <td><span class="badge badge-warn">9 · høy</span></td>
+                  <td><span class="badge badge-active">Tiltak pågår</span></td>
+                  <td>Tor Halvorsen</td>
+                  <td>20. mai</td>
+                  <td><button class="btn btn-secondary btn-sm">Åpne</button></td>
+                </tr>
+                <tr>
+                  <td><b>Lekkasje · kjølesystem produksjon</b><br/><small style="color:var(--muted)">AV-2026-0114 · 2 uker gammelt</small></td>
+                  <td>Anlegg</td>
+                  <td><span class="badge badge-warn">12 · høy</span></td>
+                  <td><span class="badge badge-warn">Forsinket 2 dager</span></td>
+                  <td>Jens Moe</td>
+                  <td>3. mai</td>
+                  <td><button class="btn btn-secondary btn-sm">Åpne</button></td>
+                </tr>
+                <tr>
+                  <td><b>Pappavfall blokkerer rømningsvei</b><br/><small style="color:var(--muted)">AV-2026-0119 · vernerunde 4. mai</small></td>
+                  <td>Brann/rømning</td>
+                  <td><span class="badge badge-info">6 · middels</span></td>
+                  <td><span class="badge badge-active">Bestilt tømming</span></td>
+                  <td>Silje Rud</td>
+                  <td>9. mai</td>
+                  <td><button class="btn btn-secondary btn-sm">Åpne</button></td>
+                </tr>
+                <tr>
+                  <td><b>Belysning — pakkeavdeling</b><br/><small style="color:var(--muted)">AV-2026-0115</small></td>
+                  <td>Arbeidsmiljø</td>
+                  <td><span class="badge badge-info">4 · lav</span></td>
+                  <td><span class="badge badge-active">Tiltak pågår</span></td>
+                  <td>Jens Moe</td>
+                  <td>30. mai</td>
+                  <td><button class="btn btn-secondary btn-sm">Åpne</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="two-col">
+            <div class="card">
+              <div class="card-head">
+                <h3>Varslingssaker — aggregert</h3>
+                <span class="law">§ 2 A-3 · ingen PII</span>
+              </div>
+              <div class="card-body">
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
+                  <div style="text-align: center; padding: 16px; background: var(--bg); border-radius: 6px;">
+                    <div style="font-family: 'Source Serif 4', serif; font-size: 32px; font-weight: 600; color: var(--critical);">2</div>
+                    <div style="font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">åpne</div>
+                  </div>
+                  <div style="text-align: center; padding: 16px; background: var(--bg); border-radius: 6px;">
+                    <div style="font-family: 'Source Serif 4', serif; font-size: 32px; font-weight: 600; color: var(--ok);">7</div>
+                    <div style="font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">behandlet 2026</div>
+                  </div>
+                </div>
+                <div class="hr-line"></div>
+                <p style="font-size: 12.5px; color: var(--muted); margin: 0;">
+                  AMU mottar kun aggregerte tall uten persondata, jf. <a class="legal-link">AML § 2 A-3</a>. Kontaktperson for varsling: <b>Tor Halvorsen</b>.
+                </p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <h3>Manglende signaturer</h3>
+                <span class="law">§ 7-2</span>
+              </div>
+              <div class="card-body" style="padding: 4px 0;">
+                <div class="alert-row">
+                  <div class="alert-icon warn">✍</div>
+                  <div style="flex:1;">
+                    <div class="alert-title">Referat AMU 1/2026</div>
+                    <div class="alert-meta">Møteleder Tor Halvorsen · sendt for signering 12. feb</div>
+                  </div>
+                  <button class="btn btn-secondary btn-sm">Påminn</button>
+                </div>
+                <div class="alert-row">
+                  <div class="alert-icon warn">✍</div>
+                  <div style="flex:1;">
+                    <div class="alert-title">Årsrapport 2025</div>
+                    <div class="alert-meta">Mangler signatur fra leder &amp; nestleder · forsinket 5 uker</div>
+                  </div>
+                  <button class="btn btn-primary btn-sm">Åpne</button>
+                </div>
+                <div class="alert-row">
+                  <div class="alert-icon warn">✍</div>
+                  <div style="flex:1;">
+                    <div class="alert-title">Vedtak — Tiltakspunkt TP-2026-019</div>
+                    <div class="alert-meta">Vedtatt i AMU 1/2026 · venter på leders bekreftelse</div>
+                  </div>
+                  <button class="btn btn-secondary btn-sm">Påminn</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ────────── Tab: Årsrapport ────────── -->
+        <section class="tab-panel" id="tab-report">
+          <div class="two-col">
+            <div class="card">
+              <div class="card-head">
+                <h3>Årsrapport · 2026 (kladd)</h3>
+                <span class="law">§ 7-2 (6)</span>
+                <div class="actions">
+                  <button class="btn btn-secondary btn-sm">Eksporter PDF</button>
+                  <button class="btn btn-primary btn-sm">Send til signering</button>
+                </div>
+              </div>
+              <div class="card-body" style="padding: 0;">
+                <div style="padding: 20px 24px; border-bottom: 1px solid var(--line);">
+                  <div style="font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px;">§ 1 Sammensetning og møtevirksomhet</div>
+                  <p style="margin: 8px 0 0; font-family: 'Source Serif 4', serif; font-size: 15px; line-height: 1.6;">
+                    AMU i Nordby Industri AS består av 6 stemmeberettigede medlemmer fordelt likt mellom arbeidsgiver- og arbeidstakersiden, samt en representant fra bedriftshelsetjenesten Stamina Helse AS uten stemmerett. Utvalget har avholdt <b>2 av 4 planlagte møter</b> så langt i 2026, alle med beslutningsdyktig flertall.
+                  </p>
+                </div>
+                <div style="padding: 20px 24px; border-bottom: 1px solid var(--line);">
+                  <div style="font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px;">§ 2 HMS-arbeid</div>
+                  <p style="margin: 8px 0 0; font-family: 'Source Serif 4', serif; font-size: 15px; line-height: 1.6;">
+                    AMU har behandlet <b>HMS-plan 2026</b> med 12 prioriterte tiltakspunkter. Det er gjennomført <b>3 inspeksjonsrunder</b> i Q1 og Q2, hvorav alle er signert av leder og verneombud. Risikovurderingen er oppdatert i februar.
+                  </p>
+                </div>
+                <div style="padding: 20px 24px; border-bottom: 1px solid var(--line);">
+                  <div style="font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px;">§ 3 Avvik og yrkesskader</div>
+                  <p style="margin: 8px 0 0; font-family: 'Source Serif 4', serif; font-size: 15px; line-height: 1.6;">
+                    Det er registrert <b>14 avvik</b> hittil i 2026, hvorav 2 vurderes som kritiske. Én yrkesskade er rapportert til NAV (mindre kuttskade · 5. mars). Pågående: utbedring av maskinvern presse B3.
+                  </p>
+                </div>
+                <div style="padding: 20px 24px; border-bottom: 1px solid var(--line);">
+                  <div style="font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px;">§ 4 Sykefravær</div>
+                  <p style="margin: 8px 0 0; font-family: 'Source Serif 4', serif; font-size: 15px; line-height: 1.6;">
+                    Samlet sykefravær Q1 2026: <b>4,8 %</b> (mot 5,2 % samme periode 2025). BHT har bistått i analyse av langtidsfravær.
+                  </p>
+                </div>
+                <div style="padding: 20px 24px;">
+                  <div style="font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px;">§ 5 Varsling og medvirkning</div>
+                  <p style="margin: 8px 0 0; font-family: 'Source Serif 4', serif; font-size: 15px; line-height: 1.6;">
+                    Mottatt 9 varslingssaker hittil, hvorav 7 er behandlet og 2 er åpne. Tall er rapportert i aggregert form i tråd med AML § 2 A-3.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div class="card" style="margin-bottom: 18px;">
+                <div class="card-head"><h3>Kildedata · auto-trukket</h3></div>
+                <div class="card-body" style="padding: 4px 0;">
+                  <div class="agenda-row" style="padding: 10px 14px;">
+                    <div class="agenda-num">📋</div>
+                    <div><div class="agenda-title">Møtereferat</div><div class="agenda-source">2 av 4 møter</div></div>
+                    <span class="badge badge-completed">2/2</span>
+                  </div>
+                  <div class="agenda-row" style="padding: 10px 14px;">
+                    <div class="agenda-num">⚠</div>
+                    <div><div class="agenda-title">Avvik og hendelser</div><div class="agenda-source">14 totalt · 2 kritiske</div></div>
+                    <span class="badge badge-completed">14</span>
+                  </div>
+                  <div class="agenda-row" style="padding: 10px 14px;">
+                    <div class="agenda-num">📊</div>
+                    <div><div class="agenda-title">Sykefraværstall</div><div class="agenda-source">Q1 2026 (Q2 ventes)</div></div>
+                    <span class="badge badge-warn">1/2</span>
+                  </div>
+                  <div class="agenda-row" style="padding: 10px 14px;">
+                    <div class="agenda-num">🛡</div>
+                    <div><div class="agenda-title">Varslingssaker</div><div class="agenda-source">9 · aggregert</div></div>
+                    <span class="badge badge-completed">9</span>
+                  </div>
+                  <div class="agenda-row" style="padding: 10px 14px;">
+                    <div class="agenda-num">✓</div>
+                    <div><div class="agenda-title">Inspeksjonsrunder</div><div class="agenda-source">3 av 4 planlagte</div></div>
+                    <span class="badge badge-completed">3/4</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-head"><h3>Versjoner</h3></div>
+                <div class="card-body" style="padding: 4px 0;">
+                  <div class="alert-row">
+                    <div class="alert-icon info">📄</div>
+                    <div style="flex:1;"><div class="alert-title">2025 — signert</div><div class="alert-meta">12. feb 2026 · TH + ML</div></div>
+                  </div>
+                  <div class="alert-row">
+                    <div class="alert-icon info">📄</div>
+                    <div style="flex:1;"><div class="alert-title">2024 — signert</div><div class="alert-meta">28. feb 2025 · LB + KB</div></div>
+                  </div>
+                  <div class="alert-row">
+                    <div class="alert-icon info">📄</div>
+                    <div style="flex:1;"><div class="alert-title">2023 — signert</div><div class="alert-meta">11. mar 2024</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Tab switching
+    const buttons = document.querySelectorAll('.page-tabs button');
+    const panels = document.querySelectorAll('.tab-panel');
+    function activate(tab) {
+      buttons.forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+      panels.forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
+      try { localStorage.setItem('amu-tab', tab); } catch (e) {}
+    }
+    buttons.forEach(b => b.addEventListener('click', () => activate(b.dataset.tab)));
+    try {
+      const saved = localStorage.getItem('amu-tab');
+      if (saved && document.getElementById('tab-' + saved)) activate(saved);
+    } catch (e) {}
+
+    // Quick deeplinks: card buttons that should jump to a tab
+    document.querySelectorAll('[data-jump]').forEach(el => {
+      el.addEventListener('click', () => activate(el.dataset.jump));
+    });
+  </script>
+</body>
+</html>
