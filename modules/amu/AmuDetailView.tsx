@@ -305,6 +305,7 @@ export function AmuDetailView({
   >('idle')
   const [prevMinutesDraft, setPrevMinutesDraft] = useState('')
   const [chairUserId, setChairUserId] = useState('')
+  const [chairSide, setChairSide] = useState<'employer' | 'employee' | ''>('')
 
   const agendaFormTitleId = useId()
   const decisionFormTitleId = useId()
@@ -322,6 +323,7 @@ export function AmuDetailView({
       setMinutesDraft(m.minutes_draft ?? '')
       setPrevMinutesDraft(m.minutes_draft ?? '')
       setChairUserId(m.meeting_chair_user_id ?? profile?.id ?? '')
+      setChairSide(m.chair_side ?? '')
     } else {
       setDetailState('missing')
       setMeeting(null)
@@ -716,14 +718,17 @@ export function AmuDetailView({
       return
     }
     setSaving(true)
-    await amu.updateMeeting(meeting.id, { meeting_chair_user_id: chairUserId || null })
+    await amu.updateMeeting(meeting.id, {
+      meeting_chair_user_id: chairUserId || null,
+      chair_side: chairSide === 'employer' || chairSide === 'employee' ? chairSide : null,
+    })
     const signed = await amu.signMeetingAsChair(meeting.id, chairUserId)
     if (signed) {
       setMeeting(signed)
     }
     setLoadTick((x) => x + 1)
     setSaving(false)
-  }, [amu, chairUserId, meeting])
+  }, [amu, chairUserId, chairSide, meeting])
 
   // ── Pre-flight checks for signing ──
   const hasAgenda = agenda.length > 0
@@ -1042,6 +1047,32 @@ export function AmuDetailView({
                 />
               </div>
             )}
+
+            {!readOnly && (
+              <div className={WPSTD_FORM_ROW_GRID}>
+                <span className={WPSTD_FORM_FIELD_LABEL}>Møteleder representerer (AML §7-5)</span>
+                <SearchableSelect
+                  value={chairSide}
+                  options={[
+                    { value: '', label: 'Ikke angitt' },
+                    { value: 'employer', label: 'Arbeidsgiversiden' },
+                    { value: 'employee', label: 'Arbeidstakersiden' },
+                  ]}
+                  onChange={(v) => setChairSide(v === 'employer' || v === 'employee' ? v : '')}
+                  disabled={!amu.canManage}
+                />
+              </div>
+            )}
+
+            {meeting.chair_side && readOnly ? (
+              <p className="text-sm text-neutral-700">
+                Møteledet av:{' '}
+                <strong>
+                  {meeting.chair_side === 'employer' ? 'Arbeidsgiversiden' : 'Arbeidstakersiden'}
+                </strong>{' '}
+                (AML §7-5)
+              </p>
+            ) : null}
 
             <ModuleSignatureCard
               title="Møteleder"

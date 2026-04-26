@@ -1,6 +1,9 @@
 /** AMU møter — `date` tilsvarer kolonnen `meeting_date` i databasen. */
 export type AmuMeetingStatus = 'scheduled' | 'active' | 'completed' | 'signed'
 
+/** Hvilken side møteleder representerer — AML §7-5 */
+export type AmuMeetingChairSide = 'employer' | 'employee'
+
 export type AmuParticipantRole =
   | 'employer_rep'
   | 'employee_rep'
@@ -20,6 +23,8 @@ export interface AmuMeeting {
   minutes_draft: string | null
   /** Valgt møteleder (referat / signatur) */
   meeting_chair_user_id: string | null
+  /** Arbeidsgiver- eller arbeidstakersiden som leder (AML §7-5) */
+  chair_side: AmuMeetingChairSide | null
   /** Møteleders signaturtidspunkt */
   chair_signed_at: string | null
   created_at: string

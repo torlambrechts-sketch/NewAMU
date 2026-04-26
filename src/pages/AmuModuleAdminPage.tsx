@@ -180,6 +180,14 @@ export function AmuModuleAdminPage({
               saksliste» i et møte. Uten rader i tabellen får brukeren beskjed om å konfigurere listen her først.
             </InfoBox>
             <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
+              <h3 className="text-sm font-semibold text-neutral-900">Møtelederrotasjon (AML §7-5)</h3>
+              <p className="mt-1 text-sm text-neutral-600">
+                Ledervervet skal veksle mellom arbeidsgiver- og arbeidstakersiden for ett år om gangen. Registrer hvilken
+                side som leder hvert møte i signeringsfanen. Systemet varsler ikke automatisk om rotasjonsplikten — dette
+                er organisasjonens ansvar å overholde.
+              </p>
+            </div>
+            <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
               <h3 className="text-sm font-semibold text-neutral-900">Rettigheter</h3>
               <p className="mt-1 text-sm text-neutral-600">
                 Kun brukere med <strong>amu.manage</strong> (eller org-administrator) kan endre disse innstillingene.
