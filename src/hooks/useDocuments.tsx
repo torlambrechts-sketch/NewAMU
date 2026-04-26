@@ -18,6 +18,7 @@ import type {
 } from '../types/documents'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
+import { ensureContentBlockInstanceIds, stripContentBlockInstanceIds } from '../lib/wikiContentBlocks'
 import {
   LEGAL_COVERAGE as STATIC_LEGAL_COVERAGE,
   PAGE_TEMPLATES as STATIC_PAGE_TEMPLATES,
@@ -311,7 +312,7 @@ function mapPage(
     retainMaximumYears: row.retain_maximum_years ?? null,
     archivedAt: row.archived_at ?? null,
     scheduledDeletionAt: row.scheduled_deletion_at ?? null,
-    blocks: (Array.isArray(row.blocks) ? row.blocks : []) as ContentBlock[],
+    blocks: ensureContentBlockInstanceIds((Array.isArray(row.blocks) ? row.blocks : []) as ContentBlock[]),
     version: row.version,
     authorId: row.author_id ?? authorFallback,
     createdAt: row.created_at,
@@ -381,7 +382,7 @@ function mapPageVersion(row: {
     requiresAcknowledgement: row.requires_acknowledgement,
     acknowledgementAudience: (row.acknowledgement_audience ?? 'all_employees') as AcknowledgementAudience,
     acknowledgementDepartmentId: row.acknowledgement_department_id ?? null,
-    blocks: (Array.isArray(row.blocks) ? row.blocks : []) as ContentBlock[],
+    blocks: ensureContentBlockInstanceIds((Array.isArray(row.blocks) ? row.blocks : []) as ContentBlock[]),
     nextRevisionDueAt: row.next_revision_due_at ?? null,
     revisionIntervalMonths: row.revision_interval_months ?? 12,
     frozenAt: row.frozen_at,
@@ -967,7 +968,10 @@ function useDocumentsStore() {
           acknowledgement_audience: opts?.acknowledgementAudience ?? 'all_employees',
           acknowledgement_department_id: opts?.acknowledgementDepartmentId ?? null,
           revision_interval_months: opts?.revisionIntervalMonths ?? 12,
-          blocks: blocks as unknown as Record<string, unknown>[],
+          blocks: stripContentBlockInstanceIds(ensureContentBlockInstanceIds(blocks)) as unknown as Record<
+            string,
+            unknown
+          >[],
           version: 1,
           author_id: userId,
         }
@@ -1029,7 +1033,7 @@ function useDocumentsStore() {
             : opts?.templateId === 'tpl-behandlingsprotokoll'
               ? '[FYLL INN: oppbevaring per aktivitet, jf. behandlingsprotokollen]'
               : null,
-        blocks,
+        blocks: ensureContentBlockInstanceIds(blocks),
         version: 1,
         createdAt: now,
         updatedAt: now,
@@ -1088,7 +1092,7 @@ function useDocumentsStore() {
         if (patch.title !== undefined) dbPatch.title = patch.title
         if (patch.summary !== undefined) dbPatch.summary = patch.summary
         if (patch.status !== undefined) dbPatch.status = patch.status
-        if (patch.blocks !== undefined) dbPatch.blocks = patch.blocks
+        if (patch.blocks !== undefined) dbPatch.blocks = stripContentBlockInstanceIds(patch.blocks)
         if (patch.legalRefs !== undefined) dbPatch.legal_refs = patch.legalRefs
         if (patch.lang !== undefined) dbPatch.lang = patch.lang
         if (patch.requiresAcknowledgement !== undefined) {
@@ -1923,7 +1927,7 @@ function useDocumentsStore() {
       if (!tpl) throw new Error('Mal tpl-aarsgjennomgang ikke funnet.')
       const title = tpl.page.title.replace('[ÅR]', String(year))
       const summary = (tpl.page.summary ?? '').replace('[ÅR]', String(year))
-      const blocks = JSON.parse(JSON.stringify(tpl.page.blocks)) as typeof tpl.page.blocks
+      const blocks = JSON.parse(JSON.stringify(tpl.page.blocks)) as ContentBlock[]
       for (const b of blocks) {
         if (b.kind === 'heading' && 'text' in b && typeof b.text === 'string') {
           b.text = b.text.replace('[ÅR]', String(year))
@@ -1932,7 +1936,7 @@ function useDocumentsStore() {
           b.body = b.body.replace(/\[ÅR\]/g, String(year))
         }
       }
-      const page = await createPage(hms.id, title, tpl.page.template, blocks, {
+      const page = await createPage(hms.id, title, tpl.page.template, ensureContentBlockInstanceIds(blocks), {
         legalRefs: tpl.page.legalRefs,
         requiresAcknowledgement: tpl.page.requiresAcknowledgement ?? false,
         summary,

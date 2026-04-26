@@ -6,29 +6,34 @@
 
 // ─── Content blocks ───────────────────────────────────────────────────────────
 
-export type TextBlock = {
+/** Stable id for editor ordering / drag-and-drop; optional on legacy JSON from DB */
+export type ContentBlockInstance = {
+  instanceId?: string
+}
+
+export type TextBlock = ContentBlockInstance & {
   kind: 'text'
   body: string  // sanitised HTML from the rich-text editor
 }
 
-export type HeadingBlock = {
+export type HeadingBlock = ContentBlockInstance & {
   kind: 'heading'
   level: 1 | 2 | 3
   text: string
 }
 
-export type AlertBlock = {
+export type AlertBlock = ContentBlockInstance & {
   kind: 'alert'
   /** 'info' | 'warning' | 'danger' | 'tip' */
   variant: 'info' | 'warning' | 'danger' | 'tip'
   text: string
 }
 
-export type DividerBlock = {
+export type DividerBlock = ContentBlockInstance & {
   kind: 'divider'
 }
 
-export type LawRefBlock = {
+export type LawRefBlock = ContentBlockInstance & {
   kind: 'law_ref'
   /** Short reference, e.g. "IK-forskriften §5 nr. 1b" */
   ref: string
@@ -36,7 +41,7 @@ export type LawRefBlock = {
   url?: string
 }
 
-export type ImageBlock = {
+export type ImageBlock = ContentBlockInstance & {
   kind: 'image'
   url: string
   caption?: string
@@ -49,7 +54,7 @@ export type ImageBlock = {
  * Dynamic module block — the content engine lazy-loads a named component
  * and passes the params object to it.
  */
-export type ModuleBlock = {
+export type ModuleBlock = ContentBlockInstance & {
   kind: 'module'
   /**
    * Registered module names:

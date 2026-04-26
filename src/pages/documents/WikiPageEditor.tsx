@@ -1,5 +1,15 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type HTMLAttributes,
+  type ReactNode,
+} from 'react'
+import { useBlocker, useNavigate, useParams } from 'react-router-dom'
 import {
   Accessibility,
   AlertTriangle,
@@ -8,12 +18,25 @@ import {
   ChevronUp,
   Eye,
   FileText,
+  GripVertical,
   RotateCcw,
   Save,
   Settings,
   Trash2,
 } from 'lucide-react'
-import { useDirtyGuard } from '../../hooks/useDirtyGuard'
+import {
+  closestCenter,
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core'
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { TipTapRichTextEditor } from '../../components/documents/TipTapRichTextEditor'
@@ -38,6 +61,7 @@ import {
 } from '../../data/wikiPiiLegalBasisSuggestions'
 import { runWikiWcagHeuristics } from '../../lib/wikiA11yHeuristics'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
+import { ensureContentBlockInstanceIds } from '../../lib/wikiContentBlocks'
 import { ToggleSwitch } from '../../components/ui/FormToggles'
 
 type AddKind = ContentBlock['kind']
@@ -102,15 +126,24 @@ const EDITOR_STATUS_LABEL: Record<'draft' | 'published' | 'archived', string> = 
 }
 
 function emptyBlock(kind: AddKind): ContentBlock {
+  const instanceId = crypto.randomUUID()
   switch (kind) {
-    case 'heading': return { kind: 'heading', level: 2, text: 'Ny overskrift' }
-    case 'text': return { kind: 'text', body: '<p>Skriv her…</p>' }
-    case 'alert': return { kind: 'alert', variant: 'info', text: 'Tekst her' }
-    case 'divider': return { kind: 'divider' }
-    case 'law_ref': return { kind: 'law_ref', ref: '', description: '' }
-    case 'image': return { kind: 'image', url: '', alt: '', caption: '', width: 'full' }
-    case 'module': return { kind: 'module', moduleName: 'live_org_chart', params: {} }
-    default: return { kind: 'text', body: '' }
+    case 'heading':
+      return { kind: 'heading', level: 2, text: 'Ny overskrift', instanceId }
+    case 'text':
+      return { kind: 'text', body: '<p>Skriv her…</p>', instanceId }
+    case 'alert':
+      return { kind: 'alert', variant: 'info', text: 'Tekst her', instanceId }
+    case 'divider':
+      return { kind: 'divider', instanceId }
+    case 'law_ref':
+      return { kind: 'law_ref', ref: '', description: '', instanceId }
+    case 'image':
+      return { kind: 'image', url: '', alt: '', caption: '', width: 'full', instanceId }
+    case 'module':
+      return { kind: 'module', moduleName: 'live_org_chart', params: {}, instanceId }
+    default:
+      return { kind: 'text', body: '', instanceId }
   }
 }
 
@@ -157,6 +190,9 @@ export function WikiPageEditor() {
   )
   const [retentionAutoFilled, setRetentionAutoFilled] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
+  const [overBlockId, setOverBlockId] = useState<string | null>(null)
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -178,7 +214,7 @@ export function WikiPageEditor() {
     queueMicrotask(() => {
       setTitle(o.title ?? '')
       setSummary(o.summary ?? '')
-      setBlocks(Array.isArray(o.blocks) ? o.blocks : [])
+      setBlocks(ensureContentBlockInstanceIds(Array.isArray(o.blocks) ? o.blocks : []))
       setLegalRefs((Array.isArray(o.legalRefs) ? o.legalRefs : []).join(', '))
       setRequiresAck(o.requiresAcknowledgement ?? false)
       setAckAudience(o.acknowledgementAudience ?? 'all_employees')
@@ -224,7 +260,53 @@ export function WikiPageEditor() {
     return [{ value: '', label: 'Velg avdeling…' }, ...departments.map((d) => ({ value: d.id, label: d.name }))]
   }, [departments])
 
-  useDirtyGuard(dirty)
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) => dirty && currentLocation.pathname !== nextLocation.pathname,
+  )
+
+  useEffect(() => {
+    if (!dirty) return
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault()
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [dirty])
+
+  function adjustSelectedIndexAfterMove(selected: number | null, from: number, to: number): number | null {
+    if (selected == null) return null
+    if (selected === from) return to
+    if (from < to) {
+      if (selected > from && selected <= to) return selected - 1
+    } else if (from > to) {
+      if (selected >= to && selected < from) return selected + 1
+    }
+    return selected
+  }
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveBlockId(String(event.active.id))
+  }, [])
+
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    setOverBlockId(event.over ? String(event.over.id) : null)
+  }, [])
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    setActiveBlockId(null)
+    setOverBlockId(null)
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    setBlocks((prev) => {
+      const from = prev.findIndex((b) => b.instanceId === active.id)
+      const to = prev.findIndex((b) => b.instanceId === over.id)
+      if (from < 0 || to < 0) return prev
+      setSelectedIdx((si) => adjustSelectedIndexAfterMove(si, from, to))
+      setDirty(true)
+      setSavedMsg(false)
+      return arrayMove(prev, from, to)
+    })
+  }, [])
 
   if (pageHydrateError && !original) {
     return (
@@ -563,21 +645,53 @@ export function WikiPageEditor() {
           </div>
         </ModuleSectionCard>
 
-        <div className="space-y-2">
-          {blocks.map((block, idx) => (
-            <BlockItem
-              key={idx}
-              block={block}
-              selected={selectedIdx === idx}
-              onSelect={() => setSelectedIdx(idx === selectedIdx ? null : idx)}
-              onUpdate={(patch) => updateBlock(idx, patch)}
-              onRemove={() => removeBlock(idx)}
-              onMove={(dir) => moveBlock(idx, dir)}
-              isFirst={idx === 0}
-              isLast={idx === blocks.length - 1}
-            />
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => {
+            setActiveBlockId(null)
+            setOverBlockId(null)
+          }}
+        >
+          <SortableContext items={blocks.map((b) => b.instanceId ?? '')} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {blocks.map((block, idx) => (
+                <SortableBlockRow key={block.instanceId ?? `legacy-${idx}`} id={block.instanceId ?? `legacy-${idx}`}>
+                  {(dragHandleProps) => (
+                    <BlockItem
+                      block={block}
+                      selected={selectedIdx === idx}
+                      onSelect={() => setSelectedIdx(idx === selectedIdx ? null : idx)}
+                      onUpdate={(patch) => updateBlock(idx, patch)}
+                      onRemove={() => removeBlock(idx)}
+                      onMove={(dir) => moveBlock(idx, dir)}
+                      isFirst={idx === 0}
+                      isLast={idx === blocks.length - 1}
+                      dragHandleProps={dragHandleProps}
+                      dropHighlight={overBlockId === block.instanceId && activeBlockId !== block.instanceId}
+                    />
+                  )}
+                </SortableBlockRow>
+              ))}
+            </div>
+          </SortableContext>
+          <DragOverlay dropAnimation={null}>
+            {activeBlockId ? (
+              <div className="rounded-xl border border-neutral-300 bg-white/90 p-4 shadow-xl">
+                <p className="text-sm text-neutral-500">
+                  Blokk{' '}
+                  {Math.max(
+                    0,
+                    blocks.findIndex((b) => b.instanceId === activeBlockId),
+                  ) + 1}
+                </p>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
 
         <div className="flex flex-wrap gap-2 rounded-lg border border-dashed border-neutral-300 bg-white p-3">
           <span className="w-full text-xs font-medium text-neutral-400">Legg til blokk</span>
@@ -913,14 +1027,79 @@ export function WikiPageEditor() {
         </div>
       </div>
       )}
+
+      {blocker.state === 'blocked' ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="wiki-unsaved-dialog-title"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 id="wiki-unsaved-dialog-title" className="text-base font-semibold text-neutral-900">
+              Ulagrede endringer
+            </h2>
+            <p className="mt-2 text-sm text-neutral-600">
+              Du har endringer som ikke er lagret. Hvis du forlater siden nå, vil endringene gå tapt.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => blocker.reset?.()}
+                className="rounded-lg border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+              >
+                Bli på siden
+              </button>
+              <button
+                type="button"
+                onClick={() => blocker.proceed?.()}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Forlat siden
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </ModulePageShell>
+  )
+}
+
+function SortableBlockRow({
+  id,
+  children,
+}: {
+  id: string
+  children: (dragHandleProps: HTMLAttributes<HTMLElement>) => ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 10 : undefined,
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ ...listeners, ...attributes })}
+    </div>
   )
 }
 
 // ─── Block item (editor row) ──────────────────────────────────────────────────
 
 function BlockItem({
-  block, selected, onSelect, onUpdate, onRemove, onMove, isFirst, isLast,
+  block,
+  selected,
+  onSelect,
+  onUpdate,
+  onRemove,
+  onMove,
+  isFirst,
+  isLast,
+  dragHandleProps,
+  dropHighlight,
 }: {
   block: ContentBlock
   selected: boolean
@@ -930,6 +1109,8 @@ function BlockItem({
   onMove: (dir: -1 | 1) => void
   isFirst: boolean
   isLast: boolean
+  dragHandleProps: HTMLAttributes<HTMLElement>
+  dropHighlight?: boolean
 }) {
   const kindLabel: Record<ContentBlock['kind'], string> = {
     heading: 'Overskrift', text: 'Tekst', alert: 'Varselboks',
@@ -938,8 +1119,17 @@ function BlockItem({
   const deleteLabel = `Slett blokk: ${kindLabel[block.kind]}`
 
   return (
-    <div className={`rounded-none border bg-white shadow-sm ${selected ? 'border-[#1a3d32]' : 'border-neutral-200'}`}>
+    <div
+      className={`rounded-none border bg-white shadow-sm ${selected ? 'border-[#1a3d32]' : 'border-neutral-200'} ${dropHighlight ? 'ring-2 ring-[#1a3d32]/40 ring-offset-2' : ''}`}
+    >
       <div className="flex items-center gap-2 px-3 py-2">
+        <span
+          className="inline-flex shrink-0 touch-none text-neutral-400"
+          {...dragHandleProps}
+          aria-label="Dra for å flytte blokk"
+        >
+          <GripVertical className="size-4 cursor-grab active:cursor-grabbing" aria-hidden />
+        </span>
         <button
           type="button"
           onClick={onSelect}

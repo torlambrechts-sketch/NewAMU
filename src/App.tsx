@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { createBrowserRouter, createRoutesFromElements, Navigate, Route, RouterProvider } from 'react-router-dom'
 import { OrgSetupProvider } from './context/OrgSetupProvider'
 import { UiThemeProvider } from './context/UiThemeProvider'
 import { I18nProvider } from './context/I18nProvider'
@@ -125,13 +125,9 @@ import { SurveyModuleAdminPage } from './pages/SurveyModuleAdminPage'
 import { SurveyDetailPage } from './pages/SurveyDetailPage'
 import { SurveyRespondPage } from './pages/SurveyRespondPage'
 
-function App() {
-  return (
-    <BrowserRouter>
-      <OrgSetupProvider>
-        <UiThemeProvider>
-        <I18nProvider>
-          <Routes>
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <>
             <Route path="/hrm" element={<Navigate to="/hrm/employees" replace />} />
             <Route path="/hrm/employees" element={<HrmEmployees />} />
             <Route path="/hrm/salary" element={<HrmSalary />} />
@@ -340,11 +336,19 @@ function App() {
             </Route>
 
             <Route path="*" element={<Navigate to="/404" replace />} />
-          </Routes>
+    </>,
+  ),
+)
+
+function App() {
+  return (
+    <OrgSetupProvider>
+      <UiThemeProvider>
+        <I18nProvider>
+          <RouterProvider router={router} />
         </I18nProvider>
-        </UiThemeProvider>
-      </OrgSetupProvider>
-    </BrowserRouter>
+      </UiThemeProvider>
+    </OrgSetupProvider>
   )
 }
 
