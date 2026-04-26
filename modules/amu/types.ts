@@ -48,6 +48,12 @@ export interface AmuAgendaItem {
   updated_at: string
 }
 
+/** Alternativ i koblet avvik-velger (tabellen `deviations` i databasen). */
+export interface AvvikOption {
+  id: string
+  title: string
+}
+
 export interface AmuDecision {
   id: string
   agenda_item_id: string

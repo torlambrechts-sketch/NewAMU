@@ -56,7 +56,6 @@ export function AmuModuleAdminPage({
   const [newDescription, setNewDescription] = useState('')
   const [newOrder, setNewOrder] = useState('0')
   const [newSource, setNewSource] = useState('')
-  const [newSourceId, setNewSourceId] = useState('')
 
   const loadRows = useCallback(async () => {
     if (!canManage) return
@@ -87,23 +86,12 @@ export function AmuModuleAdminPage({
     async (r: AmuDefaultAgendaItem) => {
       setSavingId(r.id)
       const sm = (r.source_module && String(r.source_module).trim()) || null
-      const idRaw = (r.source_id && String(r.source_id).trim()) || ''
-      let source_id: string | null = null
-      if (idRaw) {
-        const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-        if (!uuidRe.test(idRaw)) {
-          amu.setError('Kilde-ID må være en gyldig UUID.')
-          setSavingId(null)
-          return
-        }
-        source_id = idRaw
-      }
       const updated = await amu.updateDefaultAgendaTemplateRow(r.id, {
         title: r.title.trim() || 'Uten tittel',
         description: r.description,
         order_index: r.order_index,
         source_module: sm,
-        source_id,
+        source_id: null,
       })
       if (updated) {
         setRows((list) => list.map((x) => (x.id === updated.id ? updated : x)).sort((a, b) => a.order_index - b.order_index))
@@ -121,22 +109,12 @@ export function AmuModuleAdminPage({
     const oi = Number.parseInt(newOrder, 10)
     const order_index = Number.isFinite(oi) ? oi : 0
     const sm = newSource.trim()
-    const idTrim = newSourceId.trim()
-    let source_id: string | null = null
-    if (idTrim) {
-      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-      if (!uuidRe.test(idTrim)) {
-        amu.setError('Kilde-ID må være en gyldig UUID.')
-        return
-      }
-      source_id = idTrim
-    }
     const created = await amu.createDefaultAgendaTemplateRow({
       title: newTitle.trim(),
       description: newDescription,
       order_index,
       source_module: sm ? sm : null,
-      source_id,
+      source_id: null,
     })
     if (created) {
       setRows((list) => [...list, created].sort((a, b) => a.order_index - b.order_index))
@@ -144,9 +122,8 @@ export function AmuModuleAdminPage({
       setNewDescription('')
       setNewOrder('0')
       setNewSource('')
-      setNewSourceId('')
     }
-  }, [amu, newTitle, newDescription, newOrder, newSource, newSourceId])
+  }, [amu, newTitle, newDescription, newOrder, newSource])
 
   const removeRow = useCallback(
     async (id: string) => {
@@ -255,25 +232,10 @@ export function AmuModuleAdminPage({
                 <div className={WPSTD_FORM_ROW_GRID}>
                   <div>
                     <div className={WPSTD_FORM_FIELD_LABEL}>Kildepunkt (valgfritt)</div>
-                    <p className="text-sm text-neutral-600">Polymorf kobling til f.eks. avvik- eller fraværsmodulen.</p>
+                    <p className="text-sm text-neutral-600">Angir hvilken modul saken dreier seg om. Konkrete avvik kobles i møtevisningen, ikke her.</p>
                   </div>
                   <div>
                     <SearchableSelect value={newSource} options={SOURCE_OPTIONS} onChange={setNewSource} />
-                  </div>
-                </div>
-                <div className={WPSTD_FORM_ROW_GRID}>
-                  <div>
-                    <div className={WPSTD_FORM_FIELD_LABEL}>Kilde-ID (valgfri)</div>
-                    <p className="text-sm text-neutral-600">UUID til konkret post når saken skal peke på et bestemt avvik el.l.</p>
-                  </div>
-                  <div>
-                    <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-def-sid">UUID</label>
-                    <StandardInput
-                      id="amu-def-sid"
-                      value={newSourceId}
-                      onChange={(e) => setNewSourceId(e.target.value)}
-                      placeholder="00000000-0000-0000-0000-000000000000"
-                    />
                   </div>
                 </div>
               </div>
@@ -305,7 +267,6 @@ export function AmuModuleAdminPage({
                       <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500 w-20">#</th>
                       <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">Sak</th>
                       <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500 w-32">Kilde</th>
-                      <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500 w-40">Kilde-ID</th>
                       <th className="bg-neutral-50 px-5 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-neutral-500" />
                     </tr>
                   </thead>
@@ -317,6 +278,13 @@ export function AmuModuleAdminPage({
                         saving={savingId === r.id}
                         onChange={(path, val) => {
                           setRows((list) => list.map((x) => (x.id === r.id ? { ...x, [path]: val } : x)))
+                        }}
+                        onSourceModuleChange={(v) => {
+                          setRows((list) =>
+                            list.map((x) =>
+                              x.id === r.id ? { ...x, source_module: v || null, source_id: null } : x,
+                            ),
+                          )
                         }}
                         onSave={() => void saveRow(r)}
                         onDelete={() => void removeRow(r.id)}
@@ -380,12 +348,14 @@ function DefaultAgendaEditRow({
   row,
   saving,
   onChange,
+  onSourceModuleChange,
   onSave,
   onDelete,
 }: {
   row: AmuDefaultAgendaItem
   saving: boolean
   onChange: (path: keyof AmuDefaultAgendaItem, val: string | number | null) => void
+  onSourceModuleChange: (moduleValue: string) => void
   onSave: () => void
   onDelete: () => void
 }) {
@@ -409,15 +379,7 @@ function DefaultAgendaEditRow({
         <SearchableSelect
           value={row.source_module ?? ''}
           options={SOURCE_OPTIONS}
-          onChange={(v) => onChange('source_module', v || null)}
-        />
-      </td>
-      <td className="align-top px-5 py-3">
-        <StandardInput
-          className="max-w-[11rem] font-mono text-xs"
-          value={row.source_id ?? ''}
-          onChange={(e) => onChange('source_id', e.target.value || null)}
-          placeholder="Valgfri UUID"
+          onChange={(v) => onSourceModuleChange(v)}
         />
       </td>
       <td className="align-top px-5 py-3 text-right">

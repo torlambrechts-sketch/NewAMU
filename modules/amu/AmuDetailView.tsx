@@ -29,7 +29,7 @@ import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { AmuAgendaPlanningTable } from './AmuAgendaPlanningTable'
 import { AmuMeetingRoomTab } from './AmuMeetingRoomTab'
 import { AmuParticipantsTable } from './AmuParticipantsTable'
-import type { AmuAgendaItem, AmuDecision, AmuMeeting, AmuParticipant } from './types'
+import type { AmuAgendaItem, AmuDecision, AmuMeeting, AmuParticipant, AvvikOption } from './types'
 import type { AmuHookState } from './useAmu'
 
 type AmuTab = 'information' | 'planlegging' | 'meeting_room' | 'minutes' | 'signature'
@@ -75,6 +75,34 @@ function isMeetingReadOnly(m: AmuMeeting) {
   return m.status === 'signed'
 }
 
+function AvvikSourcePicker({
+  value,
+  onChange,
+  loadOptions,
+}: {
+  value: string
+  onChange: (id: string) => void
+  loadOptions: () => Promise<AvvikOption[]>
+}) {
+  const [opts, setOpts] = useState<{ value: string; label: string }[]>([])
+  useEffect(() => {
+    void (async () => {
+      const raw = await loadOptions()
+      setOpts([
+        { value: '', label: 'Velg avvik (valgfri)' },
+        ...raw.map((r) => ({ value: r.id, label: r.title })),
+      ])
+    })()
+  }, [loadOptions])
+
+  return (
+    <div className={WPSTD_FORM_ROW_GRID}>
+      <span className={WPSTD_FORM_FIELD_LABEL}>Koble til avvik</span>
+      <SearchableSelect value={value} options={opts} onChange={onChange} />
+    </div>
+  )
+}
+
 export function AmuDetailView({
   amu,
   meetingId,
@@ -85,7 +113,8 @@ export function AmuDetailView({
   listPath: string
 }) {
   const navigate = useNavigate()
-  const { supabase, profile } = useOrgSetupContext()
+  const { supabase, profile, organization } = useOrgSetupContext()
+  const orgId = organization?.id
   const [meeting, setMeeting] = useState<AmuMeeting | null>(null)
   const [detailState, setDetailState] = useState<'loading' | 'ready' | 'missing'>('loading')
   const [agenda, setAgenda] = useState<AmuAgendaItem[]>([])
@@ -97,6 +126,7 @@ export function AmuDetailView({
   const [saving, setSaving] = useState(false)
   const [wStats, setWStats] = useState<{ open: number; closed: number } | null>(null)
   const [sStats, setSStats] = useState<{ active: number; partial: number; other: number } | null>(null)
+  const [agendaAvvikTitleByItemId, setAgendaAvvikTitleByItemId] = useState<Record<string, string>>({})
 
   const [titleDraft, setTitleDraft] = useState('')
   const [dateDraft, setDateDraft] = useState('')
@@ -191,6 +221,50 @@ export function AmuDetailView({
     })()
   }, [amu, meetingId])
 
+  useEffect(() => {
+    if (!supabase || !orgId) {
+      setAgendaAvvikTitleByItemId({})
+      return
+    }
+    const need = agenda.filter((a) => a.source_module === 'avvik' && a.source_id)
+    const ids = [...new Set(need.map((a) => String(a.source_id)))]
+    if (ids.length === 0) {
+      setAgendaAvvikTitleByItemId({})
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const { data, error } = await supabase
+        .from('deviations')
+        .select('id, title')
+        .eq('organization_id', orgId)
+        .in('id', ids)
+      if (cancelled) return
+      if (error) {
+        setAgendaAvvikTitleByItemId({})
+        return
+      }
+      const titleByDeviationId: Record<string, string> = {}
+      for (const raw of data ?? []) {
+        if (!raw || typeof raw !== 'object') continue
+        const r = raw as Record<string, unknown>
+        if (typeof r.id !== 'string') continue
+        titleByDeviationId[r.id] =
+          typeof r.title === 'string' && r.title.trim() ? r.title : '(uten tittel)'
+      }
+      const byItem: Record<string, string> = {}
+      for (const a of need) {
+        if (!a.source_id) continue
+        const t = titleByDeviationId[a.source_id]
+        if (t) byItem[a.id] = t
+      }
+      setAgendaAvvikTitleByItemId(byItem)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, orgId, agenda])
+
   const userLabel = useCallback(
     (id: string) => assignable.find((u) => u.id === id)?.displayName ?? id,
     [assignable],
@@ -280,15 +354,19 @@ export function AmuDetailView({
   const saveAgendaFromPanel = useCallback(async () => {
     if (!agendaPanel) return
     const sm = agendaForm.source_module.trim()
-    const idTrim = agendaForm.source_id_raw.trim()
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     let sourceId: string | null = null
-    if (idTrim) {
-      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-      if (!uuidRe.test(idTrim)) {
-        amu.setError('Kilde-ID må være en gyldig UUID når den er fylt ut.')
-        return
+    if (sm === 'avvik') {
+      const idTrim = agendaForm.source_id_raw.trim()
+      if (idTrim) {
+        if (!uuidRe.test(idTrim)) {
+          amu.setError('Velg et gyldig avvik fra listen.')
+          return
+        }
+        sourceId = idTrim
       }
-      sourceId = idTrim
+    } else if (sm === 'sick_leave' || sm === 'whistleblowing') {
+      sourceId = null
     }
     if (agendaPanel.mode === 'new') {
       const row = await amu.insertAgendaItem(meetingId, {
@@ -619,6 +697,7 @@ export function AmuDetailView({
             readOnly={readOnly}
             canManage={amu.canManage}
             sourceLabel={sourceLabelForAgenda}
+            sourceTitleByItemId={agendaAvvikTitleByItemId}
             onGenerateDefaultAgenda={() => void onGenerateDefaultAgenda()}
             onOpenNew={openNewAgendaPanel}
             onOpenEdit={openEditAgenda}
@@ -803,20 +882,29 @@ export function AmuDetailView({
             <SearchableSelect
               value={agendaForm.source_module}
               options={SOURCE_MODULE_OPTIONS}
-              onChange={(v) => setAgendaForm((f) => ({ ...f, source_module: v }))}
+              onChange={(v) =>
+                setAgendaForm((f) => ({
+                  ...f,
+                  source_module: v,
+                  source_id_raw: v === 'avvik' ? f.source_id_raw : '',
+                }))
+              }
             />
           </div>
-          <div className={WPSTD_FORM_ROW_GRID}>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-agg-sid">
-              Kilde-ID (UUID, valgfri)
-            </label>
-            <StandardInput
-              id="amu-agg-sid"
+          {agendaForm.source_module === 'avvik' ? (
+            <AvvikSourcePicker
               value={agendaForm.source_id_raw}
-              onChange={(e) => setAgendaForm((f) => ({ ...f, source_id_raw: e.target.value }))}
-              placeholder="00000000-0000-0000-0000-000000000000"
+              onChange={(id) => setAgendaForm((f) => ({ ...f, source_id_raw: id }))}
+              loadOptions={amu.loadAvvikOptions}
             />
-          </div>
+          ) : null}
+          {agendaForm.source_module === 'sick_leave' ||
+          agendaForm.source_module === 'whistleblowing' ? (
+            <InfoBox>
+              Individuelle saker fra denne modulen kan ikke kobles direkte av personvernhensyn. Kun
+              aggregerte tall vises i møtesammenheng.
+            </InfoBox>
+          ) : null}
         </div>
       </SlidePanel>
 

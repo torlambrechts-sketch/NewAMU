@@ -20,6 +20,7 @@ import type {
   AmuParticipant,
   AmuSickLeavePrivacyStats,
   AmuWhistleblowingPrivacyStats,
+  AvvikOption,
 } from './types'
 
 type AmuPrivacyRpcWhistle = { open?: number; closed?: number }
@@ -200,6 +201,33 @@ export function useAmu() {
       return null
     }
   }, [supabase])
+
+  /** Åpne avvik for org — valgfri modul; ved feil returneres tom liste uten global feilmelding. */
+  const loadAvvikOptions = useCallback(async (): Promise<AvvikOption[]> => {
+    if (!supabase || !orgId) return []
+    const openStatuses = ['open', 'in_progress', 'rapportert', 'under_behandling', 'tiltak_iverksatt'] as const
+    try {
+      const { data, error: qErr } = await supabase
+        .from('deviations')
+        .select('id, title')
+        .eq('organization_id', orgId)
+        .in('status', [...openStatuses])
+        .order('created_at', { ascending: false })
+        .limit(200)
+      if (qErr) throw qErr
+      const out: AvvikOption[] = []
+      for (const raw of data ?? []) {
+        if (!raw || typeof raw !== 'object') continue
+        const rec = raw as Record<string, unknown>
+        if (typeof rec.id !== 'string') continue
+        const title = typeof rec.title === 'string' && rec.title.trim() ? rec.title : '(uten tittel)'
+        out.push({ id: rec.id, title })
+      }
+      return out
+    } catch {
+      return []
+    }
+  }, [supabase, orgId])
 
   const loadDefaultAgendaTemplate = useCallback(async (): Promise<AmuDefaultAgendaItem[]> => {
     if (!supabase || !orgId) return []
@@ -888,6 +916,7 @@ export function useAmu() {
       generateDefaultAgenda,
       fetchWhistleblowingAgendaStats,
       fetchSickLeaveAgendaStats,
+      loadAvvikOptions,
       createMeeting,
       updateMeeting,
       updateAgendaItem,
@@ -918,6 +947,7 @@ export function useAmu() {
       generateDefaultAgenda,
       fetchWhistleblowingAgendaStats,
       fetchSickLeaveAgendaStats,
+      loadAvvikOptions,
       createMeeting,
       updateMeeting,
       updateAgendaItem,

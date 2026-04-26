@@ -11,6 +11,8 @@ export type AmuAgendaPlanningTableProps = {
   readOnly: boolean
   canManage: boolean
   sourceLabel: (item: AmuAgendaItem) => string
+  /** Når satt (f.eks. koblet avvik-tittel), overstyrer «Kilde»-kolonnen for gitt agenda-rad-id. */
+  sourceTitleByItemId?: Record<string, string>
   onGenerateDefaultAgenda: () => void | Promise<void>
   onOpenNew: () => void
   onOpenEdit: (item: AmuAgendaItem) => void
@@ -22,6 +24,7 @@ export function AmuAgendaPlanningTable({
   readOnly,
   canManage,
   sourceLabel,
+  sourceTitleByItemId,
   onGenerateDefaultAgenda,
   onOpenNew,
   onOpenEdit,
@@ -112,7 +115,7 @@ export function AmuAgendaPlanningTable({
                   ) : null}
                 </td>
                 <td className="whitespace-nowrap px-5 py-4 align-middle text-neutral-600">
-                  {sourceLabel(a)}
+                  {sourceTitleByItemId?.[a.id] ?? sourceLabel(a)}
                 </td>
                 <td className="whitespace-nowrap px-5 py-4 text-right align-middle">
                   <div className="inline-flex flex-wrap items-center justify-end gap-1">
