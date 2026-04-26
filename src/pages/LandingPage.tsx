@@ -118,7 +118,7 @@ export function LandingPage() {
       {/* ── Navbar ──────────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-black/8 bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 md:px-8">
-          <Link to="/" aria-label="Klarert — til forsiden">
+          <Link to="/home" aria-label="Klarert — til forsiden">
             <Logo size={24} />
           </Link>
           <nav aria-label="Primær navigasjon" className="hidden items-center gap-6 text-sm font-medium text-neutral-700 md:flex">

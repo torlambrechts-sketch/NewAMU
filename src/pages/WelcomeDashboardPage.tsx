@@ -60,8 +60,8 @@ export function WelcomeDashboardPage() {
         key: 'home',
         label: 'Hjem',
         icon: Home,
-        active: pathname === '/' || pathname === '',
-        onClick: () => navigate('/'),
+        active: pathname === '/' || pathname === '' || pathname === '/app',
+        onClick: () => navigate('/app'),
       },
       {
         key: 'classic',

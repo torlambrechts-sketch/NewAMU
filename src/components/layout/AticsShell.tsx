@@ -912,7 +912,7 @@ export function AticsShell() {
           {/* Logo */}
           <div className="flex h-14 shrink-0 items-center justify-center border-b border-white/10">
             <NavLink
-              to="/"
+              to="/app"
               aria-label={t('shell.homeAria')}
               className="flex items-center justify-center rounded-lg p-1.5 hover:bg-white/10"
             >
@@ -1155,7 +1155,7 @@ export function AticsShell() {
         <div className="mx-auto max-w-[1400px] px-4 py-2 md:px-8 md:py-3">
           <div className="flex items-center justify-between gap-2 md:hidden">
             <div className="flex min-w-0 shrink-0 items-center gap-2">
-              <NavLink to="/" className="flex shrink-0 items-center gap-2" aria-label={t('shell.homeAria')}>
+              <NavLink to="/app" className="flex shrink-0 items-center gap-2" aria-label={t('shell.homeAria')}>
                 <KlarertLogo size={28} variant="onDark" />
               </NavLink>
               <button
@@ -1181,7 +1181,7 @@ export function AticsShell() {
           {/* md+: single row — logo · groups · utilities */}
           <div className="hidden items-center justify-between gap-4 md:flex">
             <div className="flex shrink-0 items-center gap-2">
-              <NavLink to="/" className="flex items-center gap-2" aria-label={t('shell.homeAria')}>
+              <NavLink to="/app" className="flex items-center gap-2" aria-label={t('shell.homeAria')}>
                 <KlarertLogo size={28} variant="onDark" />
               </NavLink>
               <button

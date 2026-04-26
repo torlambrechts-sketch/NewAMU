@@ -142,9 +142,9 @@ const router = createBrowserRouter(
             <Route path="/varsle/:slug" element={<PublicWhistlePage />} />
             <Route path="/anonym-aml/:slug" element={<PublicAnonymousAmlPage />} />
             <Route path="/survey-respond/:campaignId" element={<SurveyRespondPage />} />
-            {/* Landing page — root URL, public */}
-            <Route index element={<LandingPage />} />
-            <Route path="/landing" element={<Navigate to="/" replace />} />
+            {/* Public marketing page — must NOT use `index` here: authenticated app home is `index` under PermissionGate below. */}
+            <Route path="/home" element={<LandingPage />} />
+            <Route path="/landing" element={<Navigate to="/home" replace />} />
 
             <Route element={<OrgGate />}>
               <Route path="platform-admin" element={<PlatformAdminLayout />}>

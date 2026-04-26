@@ -12,7 +12,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
   const supabase = getSupabaseBrowserClient()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const redirect = searchParams.get('redirect') || '/'
+  const redirect = searchParams.get('redirect') || '/app'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
