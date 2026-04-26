@@ -843,6 +843,14 @@ export function AmuDetailView({
           <div className="space-y-6 p-5 md:p-6">
             {meeting.status !== 'signed' && <ModulePreflightChecklist items={preflight} />}
 
+            {!participantBalanceOk && !readOnly && (
+              <InfoBox>
+                <strong>AML §7-3 og §7-4:</strong> Signering er blokkert fordi representasjonen ikke er i balanse.
+                Gå til Planlegging-fanen og juster roller slik at begge sider har like mange representanter og minst
+                ett verneombud er inkludert.
+              </InfoBox>
+            )}
+
             {!readOnly && (
               <div className={WPSTD_FORM_ROW_GRID}>
                 <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-chair">
@@ -879,6 +887,7 @@ export function AmuDetailView({
                 !allDecided ||
                 !hasMinutes ||
                 !hasChair ||
+                !participantBalanceOk ||
                 saving
               }
               busy={saving}
