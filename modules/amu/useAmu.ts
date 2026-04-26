@@ -627,6 +627,7 @@ export function useAmu() {
           | 'status'
           | 'minutes_draft'
           | 'meeting_chair_user_id'
+          | 'chair_side'
           | 'chair_signed_at'
         >
       >,
@@ -651,6 +652,7 @@ export function useAmu() {
         if (patch.status !== undefined) dbPatch.status = patch.status
         if (patch.minutes_draft !== undefined) dbPatch.minutes_draft = patch.minutes_draft
         if (patch.meeting_chair_user_id !== undefined) dbPatch.meeting_chair_user_id = patch.meeting_chair_user_id
+        if (patch.chair_side !== undefined) dbPatch.chair_side = patch.chair_side
         if (patch.chair_signed_at !== undefined) dbPatch.chair_signed_at = patch.chair_signed_at
 
         const { data, error: upErr } = await supabase

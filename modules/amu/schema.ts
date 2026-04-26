@@ -20,6 +20,7 @@ export const AmuMeetingSchema = z.object({
   status: AmuMeetingStatusSchema,
   minutes_draft: z.string().nullable(),
   meeting_chair_user_id: z.string().uuid().nullable(),
+  chair_side: z.enum(['employer', 'employee']).nullable(),
   chair_signed_at: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -98,6 +99,7 @@ export const AmuMeetingDbRowSchema = z
     status: AmuMeetingStatusSchema,
     minutes_draft: z.string().nullable().optional(),
     meeting_chair_user_id: z.string().uuid().nullable().optional(),
+    chair_side: z.enum(['employer', 'employee']).nullable().optional(),
     chair_signed_at: z.string().nullable().optional(),
     created_at: z.string(),
     updated_at: z.string(),
@@ -106,11 +108,15 @@ export const AmuMeetingDbRowSchema = z
 
 export function parseAmuMeetingFromDb(raw: unknown): AmuMeeting {
   const row = AmuMeetingDbRowSchema.parse(raw)
+  const side = row.chair_side
+  const chair_side =
+    side === 'employer' || side === 'employee' ? side : null
   return AmuMeetingSchema.parse({
     ...row,
     date: row.meeting_date,
     minutes_draft: row.minutes_draft ?? null,
     meeting_chair_user_id: row.meeting_chair_user_id ?? null,
+    chair_side,
     chair_signed_at: row.chair_signed_at ?? null,
   })
 }
