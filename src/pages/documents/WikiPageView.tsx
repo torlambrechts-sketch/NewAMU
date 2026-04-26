@@ -19,7 +19,8 @@ import { DocumentAccessRequestForm } from '../../components/documents/DocumentAc
 import { DocumentAccessRequestDialog } from '../../components/documents/DocumentAccessRequestDialog'
 import { Tabs } from '../../components/ui/Tabs'
 import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
-import type { PageStatus } from '../../types/documents'
+import type { PageStatus, WikiPage, WikiPageVersionSnapshot } from '../../types/documents'
+import { WikiVersionDiff } from '../../components/documents/WikiVersionDiff'
 import {
   canViewWikiSpace,
   folderAllowsWritePageInSpace,
@@ -55,6 +56,27 @@ const STATUS_LABEL: Record<PageStatus, string> = {
 
 type DetailTab = 'informasjon' | 'innhold' | 'versjoner'
 
+function publishedPageToSnapshot(page: WikiPage): WikiPageVersionSnapshot {
+  return {
+    id: `current:${page.id}`,
+    pageId: page.id,
+    version: page.version,
+    title: page.title,
+    summary: page.summary ?? '',
+    status: page.status,
+    template: page.template,
+    legalRefs: Array.isArray(page.legalRefs) ? page.legalRefs : [],
+    lang: page.lang,
+    requiresAcknowledgement: page.requiresAcknowledgement,
+    acknowledgementAudience: page.acknowledgementAudience ?? 'all_employees',
+    acknowledgementDepartmentId: page.acknowledgementDepartmentId ?? null,
+    blocks: Array.isArray(page.blocks) ? page.blocks : [],
+    nextRevisionDueAt: page.nextRevisionDueAt ?? null,
+    revisionIntervalMonths: page.revisionIntervalMonths ?? 12,
+    frozenAt: page.updatedAt,
+  }
+}
+
 export function WikiPageView() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
@@ -80,6 +102,7 @@ export function WikiPageView() {
   const [editAccessBusy, setEditAccessBusy] = useState(false)
   const [editAccessErr, setEditAccessErr] = useState<string | null>(null)
   const [editAccessDone, setEditAccessDone] = useState(false)
+  const [diffVersion, setDiffVersion] = useState<WikiPageVersionSnapshot | null>(null)
 
   const page = docs.pages.find((p) => p.id === pageId)
   const space = page ? docs.spaces.find((s) => s.id === page.spaceId) : null
@@ -98,6 +121,10 @@ export function WikiPageView() {
   useEffect(() => {
     void ensurePageLoaded(pageId)
   }, [ensurePageLoaded, pageId])
+
+  useEffect(() => {
+    setDiffVersion(null)
+  }, [pageId])
 
   const folderRestricted =
     page && space
@@ -163,6 +190,8 @@ export function WikiPageView() {
   const showSignBadge = page ? page.requiresAcknowledgement && docs.acknowledgementRequiredForMe(page) : false
   const versions = page ? docs.versionsForPage(page.id) : []
   const versionCount = versions.length
+  const currentPublishedSnapshot =
+    page && page.status === 'published' ? publishedPageToSnapshot(page) : null
   const due = page?.nextRevisionDueAt ? new Date(page.nextRevisionDueAt) : null
   const daysToDue = due ? Math.ceil((due.getTime() - timeNow) / (24 * 60 * 60 * 1000)) : null
   const revisionSoon = due != null && daysToDue != null && daysToDue <= 60
@@ -553,15 +582,41 @@ export function WikiPageView() {
                 {versions.map((v) => (
                   <li
                     key={v.id}
-                    className="flex flex-wrap items-baseline justify-between gap-2 border-b border-neutral-100 pb-2 last:border-0"
+                    className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 pb-2 last:border-0"
                   >
-                    <span className="font-medium text-neutral-800">
-                      v{v.version} — {v.title}
-                    </span>
-                    <span className="text-xs text-neutral-500">{new Date(v.frozenAt).toLocaleString('no-NO')}</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="font-medium text-neutral-800">
+                        v{v.version} — {v.title}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-neutral-500">
+                        {new Date(v.frozenAt).toLocaleString('no-NO')}
+                      </span>
+                    </div>
+                    {currentPublishedSnapshot && v.version < currentPublishedSnapshot.version ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="shrink-0 text-xs text-[#1a3d32] underline"
+                        onClick={() => setDiffVersion(v)}
+                      >
+                        Sammenlign
+                      </Button>
+                    ) : null}
                   </li>
                 ))}
               </ul>
+              {diffVersion && currentPublishedSnapshot ? (
+                <div className="mt-6 border-t border-neutral-100 pt-4">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-neutral-900">Endringer</h3>
+                    <Button type="button" variant="ghost" size="sm" className="text-xs text-neutral-600" onClick={() => setDiffVersion(null)}>
+                      Lukk
+                    </Button>
+                  </div>
+                  <WikiVersionDiff versionA={diffVersion} versionB={currentPublishedSnapshot} />
+                </div>
+              ) : null}
             </>
           )}
         </ModuleSectionCard>
