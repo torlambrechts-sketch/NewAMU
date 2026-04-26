@@ -4,6 +4,6 @@ import DOMPurify from 'dompurify'
 export function sanitizeLearningHtml(html: string): string {
   return DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
-    ADD_ATTR: ['target', 'rel'],
+    ADD_ATTR: ['target', 'rel', 'data-mention', 'data-user-id'],
   })
 }

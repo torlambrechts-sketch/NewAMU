@@ -27,7 +27,7 @@ function useBodyScrollLock(active: boolean) {
 
 export function ComplianceDashboard() {
   const docs = useDocuments()
-  const { members } = useOrgSetupContext()
+  const { members, isAdmin, can } = useOrgSetupContext()
   const [panelRef, setPanelRef] = useState<string | null>(null)
   const nowMs = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
 
@@ -90,19 +90,50 @@ export function ComplianceDashboard() {
     amuCompliance.annualReportOk &&
     amuCompliance.protocolRecentOk
 
+  const [viewCounts, setViewCounts] = useState<Map<string, number>>(() => new Map())
+  const showViewAgg = Boolean(isAdmin || can('documents.manage'))
+
+  useEffect(() => {
+    if (!showViewAgg) {
+      setViewCounts(new Map())
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const rows = await docs.fetchOrgPageViewCounts()
+        if (cancelled) return
+        const m = new Map<string, number>()
+        for (const r of rows) m.set(r.pageId, r.uniqueViewers)
+        setViewCounts(m)
+      } catch {
+        if (!cancelled) setViewCounts(new Map())
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [showViewAgg, docs.fetchOrgPageViewCounts])
+
   const coverage = docs.legalCoverage.map((item) => {
-    const coveredBy = docs.pages.filter((p) => {
-      if (p.status !== 'published') return false
-      return item.templateIds.some((tid) => {
-        const tpl = docs.pageTemplates.find((t) => t.id === tid)
-        if (!tpl) return false
-        if (tid === 'tpl-verneombud-mandat') {
-          return p.legalRefs.some((r) => r === 'AML §6-1' || r.startsWith('AML §6-1'))
-        }
-        return tpl.page.legalRefs.some((r) => p.legalRefs.includes(r))
+    const coveredBy = docs.pages
+      .filter((p) => {
+        if (p.status !== 'published') return false
+        return item.templateIds.some((tid) => {
+          const tpl = docs.pageTemplates.find((t) => t.id === tid)
+          if (!tpl) return false
+          if (tid === 'tpl-verneombud-mandat') {
+            return p.legalRefs.some((r) => r === 'AML §6-1' || r.startsWith('AML §6-1'))
+          }
+          return tpl.page.legalRefs.some((r) => p.legalRefs.includes(r))
+        })
       })
-    })
-    const stale = coveredBy.some((p) => {
+      .map((p) => {
+        const ackCount = docs.receipts.filter((r) => r.pageId === p.id && r.pageVersion === p.version).length
+        const viewCount = showViewAgg ? viewCounts.get(p.id) ?? 0 : null
+        return { page: p, ackCount, viewCount }
+      })
+    const stale = coveredBy.some(({ page: p }) => {
       if (!p.nextRevisionDueAt) return false
       return new Date(p.nextRevisionDueAt).getTime() < nowMs
     })
@@ -357,7 +388,7 @@ export function ComplianceDashboard() {
                       <span className="text-amber-700">—</span>
                     ) : (
                       <ul className="space-y-1">
-                        {c.coveredBy.map((p) => (
+                        {c.coveredBy.map(({ page: p }) => (
                           <li key={p.id}>
                             {p.nextRevisionDueAt ? (
                               new Date(p.nextRevisionDueAt).toLocaleDateString('no-NO')
@@ -373,12 +404,25 @@ export function ComplianceDashboard() {
                   <td className="px-4 py-3">
                     {c.coveredBy.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
-                        {c.coveredBy.map((p) => (
+                        {c.coveredBy.map(({ page: p, ackCount, viewCount }) => (
                           <span
                             key={p.id}
                             className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800"
+                            title={
+                              showViewAgg
+                                ? `Signert: ${ackCount} av ${employeeCount} · Unike visninger: ${viewCount}`
+                                : `Signert: ${ackCount} av ${employeeCount}`
+                            }
                           >
                             {p.title}
+                            {p.requiresAcknowledgement ? (
+                              <span className="ml-1 text-[10px] text-emerald-900/80">
+                                ({ackCount}/{employeeCount})
+                              </span>
+                            ) : null}
+                            {showViewAgg ? (
+                              <span className="ml-1 text-[10px] text-emerald-900/70">· {viewCount} visninger</span>
+                            ) : null}
                           </span>
                         ))}
                       </div>
@@ -505,7 +549,7 @@ export function ComplianceDashboard() {
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Publiserte sider</p>
                   <ul className="mt-2 space-y-2">
-                    {panelRow.coveredBy.map((p) => (
+                    {panelRow.coveredBy.map(({ page: p, ackCount, viewCount }) => (
                       <li key={p.id}>
                         <Link to={`/documents/page/${p.id}`} className="font-medium text-[#1a3d32] hover:underline">
                           {p.title}
@@ -516,6 +560,14 @@ export function ComplianceDashboard() {
                             ? new Date(p.nextRevisionDueAt).toLocaleDateString('no-NO')
                             : 'Ikke satt'}
                         </p>
+                        {p.requiresAcknowledgement ? (
+                          <p className="text-xs text-neutral-500">
+                            Sett av {ackCount} av {employeeCount} ansatte
+                            {showViewAgg ? ` · unike visninger: ${viewCount}` : ''}
+                          </p>
+                        ) : showViewAgg ? (
+                          <p className="text-xs text-neutral-500">Unike visninger: {viewCount}</p>
+                        ) : null}
                       </li>
                     ))}
                   </ul>

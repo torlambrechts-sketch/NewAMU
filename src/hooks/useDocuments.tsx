@@ -13,12 +13,15 @@ import type {
   WikiPageLang,
   WikiPageVersionSnapshot,
   WikiRetentionCategoryRow,
+  WikiReviewRequest,
   WikiSpace,
   WikiSpaceItem,
 } from '../types/documents'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { ensureContentBlockInstanceIds, stripContentBlockInstanceIds } from '../lib/wikiContentBlocks'
+import { extractWikiInternalPageIdsFromBlocks } from '../lib/wikiPageLinks'
+import { wikiSpaceDepthFromRoot } from '../lib/wikiSpaceTree'
 import {
   LEGAL_COVERAGE as STATIC_LEGAL_COVERAGE,
   PAGE_TEMPLATES as STATIC_PAGE_TEMPLATES,
@@ -237,6 +240,7 @@ function mapSpace(row: {
   created_at: string
   updated_at: string
   is_amu_space?: boolean | null
+  parent_space_id?: string | null
 }): WikiSpace {
   return {
     id: row.id,
@@ -246,6 +250,7 @@ function mapSpace(row: {
     icon: row.icon ?? '📁',
     status: row.status as WikiSpace['status'],
     isAmuSpace: row.is_amu_space ?? undefined,
+    parentSpaceId: row.parent_space_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -280,6 +285,8 @@ function mapPage(
     retain_maximum_years?: number | null
     archived_at?: string | null
     scheduled_deletion_at?: string | null
+    review_required?: boolean | null
+    reviewer_id?: string | null
   },
   authorFallback: string,
 ): WikiPage {
@@ -317,6 +324,8 @@ function mapPage(
     authorId: row.author_id ?? authorFallback,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    reviewRequired: row.review_required ?? false,
+    reviewerId: row.reviewer_id ?? null,
   }
 }
 
@@ -386,6 +395,30 @@ function mapPageVersion(row: {
     nextRevisionDueAt: row.next_revision_due_at ?? null,
     revisionIntervalMonths: row.revision_interval_months ?? 12,
     frozenAt: row.frozen_at,
+  }
+}
+
+function mapWikiReviewRequest(row: {
+  id: string
+  page_id: string
+  page_version: number
+  requester_id: string
+  reviewer_id: string
+  status: string
+  reviewer_comment: string | null
+  created_at: string
+  resolved_at: string | null
+}): WikiReviewRequest {
+  return {
+    id: row.id,
+    pageId: row.page_id,
+    pageVersion: row.page_version,
+    requesterId: row.requester_id,
+    reviewerId: row.reviewer_id,
+    status: row.status as WikiReviewRequest['status'],
+    reviewerComment: row.reviewer_comment,
+    createdAt: row.created_at,
+    resolvedAt: row.resolved_at,
   }
 }
 
@@ -528,6 +561,7 @@ function useDocumentsStore() {
   const [retentionCategories, setRetentionCategories] = useState<WikiRetentionCategoryRow[]>([])
   const [wikiSpaceAccessGrants, setWikiSpaceAccessGrants] = useState<WikiSpaceAccessGrant[]>([])
   const [wikiAccessRequests, setWikiAccessRequests] = useState<WikiDocumentAccessRequest[]>([])
+  const [wikiReviewRequests, setWikiReviewRequests] = useState<WikiReviewRequest[]>([])
   const [loading, setLoading] = useState(useRemote)
   const [error, setError] = useState<string | null>(null)
   /** Deep-link / stale cache: fetch one page by id when missing from state */
@@ -590,6 +624,7 @@ function useDocumentsStore() {
           retRes,
           grantsRes,
           accessReqRes,
+          reviewReqRes,
           data,
         ] = await Promise.all([
           supabase.from('wiki_legal_coverage_items').select('ref, label, template_ids, max_revision_months').order('ref'),
@@ -611,6 +646,12 @@ function useDocumentsStore() {
             .eq('organization_id', orgId),
           supabase
             .from('wiki_document_access_requests')
+            .select('*')
+            .eq('organization_id', orgId)
+            .order('created_at', { ascending: false })
+            .limit(200),
+          supabase
+            .from('wiki_review_requests')
             .select('*')
             .eq('organization_id', orgId)
             .order('created_at', { ascending: false })
@@ -646,6 +687,16 @@ function useDocumentsStore() {
           setWikiAccessRequests([])
         } else {
           setWikiAccessRequests((accessReqRes.data ?? []).map((r) => mapWikiAccessRequest(r as Parameters<typeof mapWikiAccessRequest>[0])))
+        }
+
+        if (reviewReqRes.error) {
+          const msg = reviewReqRes.error.message?.toLowerCase() ?? ''
+          if (!msg.includes('wiki_review_requests') && !msg.includes('does not exist')) {
+            throw reviewReqRes.error
+          }
+          setWikiReviewRequests([])
+        } else {
+          setWikiReviewRequests((reviewReqRes.data ?? []).map((r) => mapWikiReviewRequest(r as Parameters<typeof mapWikiReviewRequest>[0])))
         }
 
         setLegalCoverage(
@@ -852,9 +903,21 @@ function useDocumentsStore() {
   )
 
   const createSpace = useCallback(
-    async (title: string, description: string, category: WikiSpace['category'], icon: string) => {
+    async (
+      title: string,
+      description: string,
+      category: WikiSpace['category'],
+      icon: string,
+      parentSpaceId?: string | null,
+    ) => {
       const now = new Date().toISOString()
       if (useRemote && supabase && orgId && userId) {
+        if (parentSpaceId) {
+          const parentDepth = wikiSpaceDepthFromRoot(parentSpaceId, remoteState.spaces)
+          if (parentDepth >= 3) {
+            throw new Error('Maksimalt 3 nivåer av mapper er tillatt.')
+          }
+        }
         const id = crypto.randomUUID()
         const row = {
           id,
@@ -864,6 +927,7 @@ function useDocumentsStore() {
           category,
           icon,
           status: 'active' as const,
+          parent_space_id: parentSpaceId ?? null,
         }
         const { data, error: e } = await supabase.from('wiki_spaces').insert(row).select('*').single()
         if (e) throw e
@@ -882,13 +946,14 @@ function useDocumentsStore() {
         category,
         icon,
         status: 'active',
+        parentSpaceId: parentSpaceId ?? undefined,
         createdAt: now,
         updatedAt: now,
       }
       setLocalState((s) => ({ ...s, spaces: [...s.spaces, space] }))
       return space
     },
-    [useRemote, supabase, orgId, userId],
+    [useRemote, supabase, orgId, userId, remoteState.spaces],
   )
 
   const updateSpace = useCallback(
@@ -900,6 +965,7 @@ function useDocumentsStore() {
         if (patch.category !== undefined) dbPatch.category = patch.category
         if (patch.icon !== undefined) dbPatch.icon = patch.icon
         if (patch.status !== undefined) dbPatch.status = patch.status
+        if (patch.parentSpaceId !== undefined) dbPatch.parent_space_id = patch.parentSpaceId
         const { error: e } = await supabase.from('wiki_spaces').update(dbPatch).eq('id', id).eq('organization_id', orgId)
         if (e) throw e
         await refreshDocuments()
@@ -948,6 +1014,8 @@ function useDocumentsStore() {
           | 'acknowledgementDepartmentId'
           | 'revisionIntervalMonths'
           | 'nextRevisionDueAt'
+          | 'reviewRequired'
+          | 'reviewerId'
         >
       > & { templateId?: string },
     ) => {
@@ -974,6 +1042,8 @@ function useDocumentsStore() {
           >[],
           version: 1,
           author_id: userId,
+          review_required: opts?.reviewRequired ?? false,
+          reviewer_id: opts?.reviewerId ?? null,
         }
         if (opts?.templateId === 'tpl-personvern-ansatt') {
           pageRow.contains_pii = true
@@ -1038,6 +1108,8 @@ function useDocumentsStore() {
         createdAt: now,
         updatedAt: now,
         authorId: authorFallback,
+        reviewRequired: opts?.reviewRequired ?? false,
+        reviewerId: opts?.reviewerId ?? null,
       }
       const entry = ledgerEntryLocal(page, 'created')
       setLocalState((s) => ({
@@ -1077,6 +1149,8 @@ function useDocumentsStore() {
           | 'retainMinimumYears'
           | 'retainMaximumYears'
           | 'archivedAt'
+          | 'reviewRequired'
+          | 'reviewerId'
         >
       >,
     ) => {
@@ -1092,6 +1166,8 @@ function useDocumentsStore() {
         if (patch.title !== undefined) dbPatch.title = patch.title
         if (patch.summary !== undefined) dbPatch.summary = patch.summary
         if (patch.status !== undefined) dbPatch.status = patch.status
+        if (patch.reviewRequired !== undefined) dbPatch.review_required = patch.reviewRequired
+        if (patch.reviewerId !== undefined) dbPatch.reviewer_id = patch.reviewerId
         if (patch.blocks !== undefined) dbPatch.blocks = stripContentBlockInstanceIds(patch.blocks)
         if (patch.legalRefs !== undefined) dbPatch.legal_refs = patch.legalRefs
         if (patch.lang !== undefined) dbPatch.lang = patch.lang
@@ -1157,10 +1233,16 @@ function useDocumentsStore() {
   )
 
   const publishPage = useCallback(
-    async (id: string) => {
+    async (id: string, opts?: { skipReviewPendingCheck?: boolean }) => {
       if (useRemote && supabase && orgId && userId) {
         const old = remoteState.pages.find((p) => p.id === id)
         if (!old) return
+        const pendingReview = wikiReviewRequests.some(
+          (r) => r.pageId === id && r.status === 'pending' && r.pageVersion === old.version,
+        )
+        if (!opts?.skipReviewPendingCheck && old.reviewRequired && pendingReview) {
+          throw new Error('Dokumentet venter på godkjenning og kan ikke publiseres ennå.')
+        }
         const fromVersion = old.version
         const nextVersion = old.version + 1
         const interval = old.revisionIntervalMonths ?? 12
@@ -1203,6 +1285,22 @@ function useDocumentsStore() {
         if (e) throw e
         const page = mapPage(data as Parameters<typeof mapPage>[0], authorFallback)
         await insertLedgerRemote(page, 'published', fromVersion)
+        const linkTargets = extractWikiInternalPageIdsFromBlocks(page.blocks).filter((tid) => tid !== page.id)
+        const { error: delLinksErr } = await supabase.from('wiki_page_links').delete().eq('source_page_id', page.id)
+        if (delLinksErr && !String(delLinksErr.message).toLowerCase().includes('does not exist')) {
+          console.warn('wiki_page_links delete:', delLinksErr.message)
+        }
+        if (linkTargets.length > 0) {
+          const rows = linkTargets.map((tid) => ({
+            organization_id: orgId,
+            source_page_id: page.id,
+            target_page_id: tid,
+          }))
+          const { error: insLinksErr } = await supabase.from('wiki_page_links').insert(rows)
+          if (insLinksErr && !String(insLinksErr.message).toLowerCase().includes('does not exist')) {
+            console.warn('wiki_page_links insert:', insLinksErr.message)
+          }
+        }
         setRemoteState((s) => {
           const next = { ...s, pages: s.pages.map((p) => (p.id === id ? page : p)) }
           if (orgId && userId) writeSnap(orgId, userId, next)
@@ -1256,7 +1354,177 @@ function useDocumentsStore() {
         }
       })
     },
-    [useRemote, supabase, orgId, userId, remoteState.pages, authorFallback, insertLedgerRemote, refreshDocuments, ledgerEntryLocal],
+    [
+      useRemote,
+      supabase,
+      orgId,
+      userId,
+      remoteState.pages,
+      wikiReviewRequests,
+      authorFallback,
+      insertLedgerRemote,
+      refreshDocuments,
+      ledgerEntryLocal,
+    ],
+  )
+
+  const fetchPageBacklinks = useCallback(
+    async (pageId: string): Promise<string[]> => {
+      if (!useRemote || !supabase || !orgId) return []
+      const { data, error: e } = await supabase
+        .from('wiki_page_links')
+        .select('source_page_id')
+        .eq('organization_id', orgId)
+        .eq('target_page_id', pageId)
+      if (e) {
+        if (String(e.message).toLowerCase().includes('does not exist')) return []
+        throw e
+      }
+      return (data ?? []).map((r) => (r as { source_page_id: string }).source_page_id)
+    },
+    [useRemote, supabase, orgId],
+  )
+
+  const fetchOrgPageViewCounts = useCallback(async () => {
+    if (!useRemote || !supabase || !orgId) return [] as { pageId: string; uniqueViewers: number; viewsLast30: number }[]
+    const { data, error: e } = await supabase.rpc('wiki_org_page_view_counts', { p_organization_id: orgId })
+    if (e) {
+      if (String(e.message).toLowerCase().includes('does not exist')) return []
+      throw e
+    }
+    const rows = Array.isArray(data) ? data : []
+    return rows.map((r) => ({
+      pageId: String((r as { page_id: string }).page_id),
+      uniqueViewers: Number((r as { unique_viewers: number }).unique_viewers) || 0,
+      viewsLast30: Number((r as { views_last_30: number }).views_last_30) || 0,
+    }))
+  }, [useRemote, supabase, orgId])
+
+  const notifyWikiMentions = useCallback(
+    async (input: {
+      html: string
+      pageId: string | null
+      context: 'editor' | 'comment'
+      actorName: string
+    }) => {
+      if (!useRemote || !supabase || !orgId || !userId) return
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(input.html, 'text/html')
+      const chips = doc.querySelectorAll('[data-mention][data-user-id]')
+      const recipientIds = new Set<string>()
+      chips.forEach((el) => {
+        const id = el.getAttribute('data-user-id')
+        if (id && id !== userId) recipientIds.add(id)
+      })
+      if (recipientIds.size === 0) return
+      const snippet = input.html.replace(/<[^>]+>/g, ' ').trim().slice(0, 200)
+      const rows = [...recipientIds].map((rid) => ({
+        organization_id: orgId,
+        recipient_user_id: rid,
+        actor_user_id: userId,
+        actor_name: input.actorName.trim() || 'Bruker',
+        page_id: input.pageId,
+        context: input.context,
+        snippet,
+      }))
+      const { error: e } = await supabase.from('wiki_mention_notifications').insert(rows)
+      if (e && !String(e.message).toLowerCase().includes('does not exist')) {
+        console.warn('wiki_mention_notifications:', e.message)
+      }
+    },
+    [useRemote, supabase, orgId, userId],
+  )
+
+  const submitForReview = useCallback(
+    async (pageId: string) => {
+      if (!useRemote || !supabase || !orgId || !userId) return
+      const page = remoteState.pages.find((p) => p.id === pageId)
+      if (!page) throw new Error('Fant ikke dokumentet.')
+      if (!page.reviewRequired) throw new Error('Godkjenning er ikke aktivert for dette dokumentet.')
+      if (!page.reviewerId) throw new Error('Velg en godkjenner før du sender til godkjenning.')
+      const { data, error: e } = await supabase
+        .from('wiki_review_requests')
+        .insert({
+          organization_id: orgId,
+          page_id: pageId,
+          page_version: page.version,
+          requester_id: userId,
+          reviewer_id: page.reviewerId,
+          status: 'pending',
+        })
+        .select('*')
+        .single()
+      if (e) throw e
+      const row = mapWikiReviewRequest(data as Parameters<typeof mapWikiReviewRequest>[0])
+      setWikiReviewRequests((prev) => [row, ...prev.filter((r) => !(r.pageId === pageId && r.status === 'pending'))])
+      await insertLedgerRemote(page, 'submitted_for_review', page.version)
+      void refreshDocuments().catch((err) => setError(getSupabaseErrorMessage(err)))
+    },
+    [
+      useRemote,
+      supabase,
+      orgId,
+      userId,
+      remoteState.pages,
+      insertLedgerRemote,
+      refreshDocuments,
+    ],
+  )
+
+  const approveReviewRequest = useCallback(
+    async (requestId: string) => {
+      if (!useRemote || !supabase || !orgId || !userId) return
+      const req = wikiReviewRequests.find((r) => r.id === requestId)
+      if (!req || req.status !== 'pending') throw new Error('Fant ikke ventende godkjenning.')
+      const pageBefore = remoteState.pages.find((p) => p.id === req.pageId)
+      if (pageBefore) await insertLedgerRemote(pageBefore, 'approved', pageBefore.version)
+      await publishPage(req.pageId, { skipReviewPendingCheck: true })
+      const { error: e } = await supabase
+        .from('wiki_review_requests')
+        .update({
+          status: 'approved',
+          resolved_at: new Date().toISOString(),
+        })
+        .eq('id', requestId)
+        .eq('organization_id', orgId)
+      if (e) throw e
+      setWikiReviewRequests((prev) =>
+        prev.map((r) => (r.id === requestId ? { ...r, status: 'approved', resolvedAt: new Date().toISOString() } : r)),
+      )
+      void refreshDocuments().catch((err) => setError(getSupabaseErrorMessage(err)))
+    },
+    [useRemote, supabase, orgId, userId, wikiReviewRequests, publishPage, remoteState.pages, insertLedgerRemote, refreshDocuments],
+  )
+
+  const requestReviewChanges = useCallback(
+    async (requestId: string, comment: string) => {
+      if (!useRemote || !supabase || !orgId || !userId) return
+      const trimmed = comment.trim()
+      if (!trimmed) throw new Error('Skriv en kort tilbakemelding.')
+      const req = wikiReviewRequests.find((r) => r.id === requestId)
+      if (!req || req.status !== 'pending') throw new Error('Fant ikke ventende godkjenning.')
+      const { error: e } = await supabase
+        .from('wiki_review_requests')
+        .update({
+          status: 'changes_requested',
+          reviewer_comment: trimmed,
+          resolved_at: new Date().toISOString(),
+        })
+        .eq('id', requestId)
+        .eq('organization_id', orgId)
+      if (e) throw e
+      setWikiReviewRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId
+            ? { ...r, status: 'changes_requested', reviewerComment: trimmed, resolvedAt: new Date().toISOString() }
+            : r,
+        ),
+      )
+      const page = remoteState.pages.find((p) => p.id === req.pageId)
+      if (page) await insertLedgerRemote(page, 'changes_requested', page.version)
+      void refreshDocuments().catch((err) => setError(getSupabaseErrorMessage(err)))
+    },
+    [useRemote, supabase, orgId, userId, wikiReviewRequests, remoteState.pages, insertLedgerRemote, refreshDocuments],
   )
 
   const archivePage = useCallback(
@@ -1987,6 +2255,7 @@ function useDocumentsStore() {
     pageVersions: state.pageVersions,
     wikiSpaceAccessGrants,
     wikiAccessRequests,
+    wikiReviewRequests,
     addWikiSpaceAccessGrant,
     removeWikiSpaceAccessGrant,
     resolvePageMetaForAccessRequest,
@@ -2021,6 +2290,12 @@ function useDocumentsStore() {
     createPage,
     updatePage,
     publishPage,
+    submitForReview,
+    approveReviewRequest,
+    requestReviewChanges,
+    fetchPageBacklinks,
+    fetchOrgPageViewCounts,
+    notifyWikiMentions,
     archivePage,
     deletePage,
     acknowledge,

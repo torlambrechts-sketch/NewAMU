@@ -13,6 +13,7 @@ type Props = {
 /**
  * Primary navigation for the Dokumenter module (single `HubMenu1Bar` under `ModulePageShell`).
  * One menu line: Dokumenter, Malbibliotek, Samsvar, (Årsgjennomgang), Innstillinger.
+ * Nested **folder** hierarchy (expand/collapse) lives in `ModuleDocumentsKandidatdetaljHub` sidebar, not here.
  */
 export function DocumentsHubSecondaryNav({ canManage, annualReviewBadgeDot }: Props) {
   const documentsHomeMatch = useMatch({ path: '/documents', end: true })

@@ -19,6 +19,8 @@ import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { PageStatus } from '../../types/documents'
 import { canViewWikiSpace, wikiSpaceHasRestrictedAccess } from '../../lib/wikiSpaceAccessGrants'
 import { canBypassWikiFolderGrants, canEditWikiDocuments } from '../../lib/documentsAccess'
+import { getSpacePath } from '../../lib/wikiSpaceTree'
+import type { WorkplaceBreadcrumbItem } from '../../components/layout/WorkplacePageHeading1'
 
 const STATUS_LABEL: Record<PageStatus, string> = {
   published: 'Publisert',
@@ -82,6 +84,20 @@ export function WikiSpaceView() {
   const panelRef = useRef<HTMLDivElement>(null)
 
   const space = docs.spaces.find((s) => s.id === spaceId)
+
+  const spaceBreadcrumbItems = useMemo((): WorkplaceBreadcrumbItem[] => {
+    if (!space) {
+      return [{ label: 'HMS' }, { label: DOCUMENTS_MODULE_TITLE, to: '/documents' }]
+    }
+    const path = getSpacePath(space.id, docs.spaces)
+    return [
+      { label: 'HMS' },
+      { label: DOCUMENTS_MODULE_TITLE, to: '/documents' },
+      ...path.slice(0, -1).map((s) => ({ label: s.title, to: `/documents/space/${s.id}` })),
+      { label: space.title },
+    ]
+  }, [space, docs.spaces])
+
   const itemsInSpace = useMemo(
     () => docs.spaceItems.filter((i) => i.spaceId === spaceId),
     [docs.spaceItems, spaceId],
@@ -179,11 +195,7 @@ export function WikiSpaceView() {
     if (showAccessRequestGate) {
       return (
         <ModulePageShell
-          breadcrumb={[
-            { label: 'HMS' },
-            { label: DOCUMENTS_MODULE_TITLE, to: '/documents' },
-            { label: space.title },
-          ]}
+          breadcrumb={spaceBreadcrumbItems}
           title="Begrenset tilgang"
           description={
             <p className="max-w-3xl text-sm text-neutral-600">
@@ -233,11 +245,7 @@ export function WikiSpaceView() {
 
     return (
       <ModulePageShell
-        breadcrumb={[
-          { label: 'HMS' },
-          { label: DOCUMENTS_MODULE_TITLE, to: '/documents' },
-          { label: space.title },
-        ]}
+        breadcrumb={spaceBreadcrumbItems}
         title="Ingen tilgang"
         description={
           <p className="max-w-3xl text-sm text-neutral-600">Du har ikke tilgang til dokumenter i denne mappen.</p>
@@ -316,11 +324,7 @@ export function WikiSpaceView() {
 
   return (
     <ModulePageShell
-      breadcrumb={[
-        { label: 'HMS' },
-        { label: DOCUMENTS_MODULE_TITLE, to: '/documents' },
-        { label: space.title },
-      ]}
+      breadcrumb={spaceBreadcrumbItems}
       title={space.title}
       description={
         <p className="max-w-3xl text-sm text-neutral-600">

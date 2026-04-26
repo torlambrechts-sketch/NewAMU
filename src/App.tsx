@@ -69,6 +69,7 @@ import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { AnnualReviewPage } from './pages/documents/AnnualReviewPage'
 import { InspectionArbeidstilsynetExportPage } from './pages/documents/InspectionArbeidstilsynetExportPage'
 import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
+import { DocumentReviewsPage } from './pages/documents/DocumentReviewsPage'
 import { DocumentEditorTestPage } from './pages/documents/DocumentEditorTestPage'
 import { DocumentKandidatdetaljLayoutTestPage } from './pages/documents/DocumentKandidatdetaljLayoutTestPage'
 import { WikiPageReferenceEditor } from './pages/documents/WikiPageReferenceEditor'
@@ -300,6 +301,7 @@ const router = createBrowserRouter(
                           }
                         />
                         <Route path="documents/templates" element={<DocumentTemplatesSettings />} />
+                        <Route path="documents/reviews" element={<DocumentReviewsPage />} />
                         <Route
                           path="documents/aarsgjennomgang"
                           element={

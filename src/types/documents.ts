@@ -147,6 +147,10 @@ export type WikiPage = {
   createdAt: string
   updatedAt: string
   authorId: string
+  /** When true, publish must go through reviewer approval (P2.1). */
+  reviewRequired?: boolean
+  /** Bruker-id for godkjenner når `reviewRequired` er satt. */
+  reviewerId?: string | null
 }
 
 /** Immutable snapshot when a version was published (audit) */
@@ -184,6 +188,8 @@ export type WikiSpace = {
   status: 'active' | 'archived'
   /** Org AMU folder — published pages visible to all members (server RLS). */
   isAmuSpace?: boolean
+  /** Optional parent folder (max depth 3 including root). */
+  parentSpaceId?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -210,7 +216,16 @@ export type AuditLedgerEntry = {
   id: string
   pageId: string
   pageTitle: string
-  action: 'created' | 'updated' | 'published' | 'archived' | 'acknowledged' | 'annual_review_completed'
+  action:
+    | 'created'
+    | 'updated'
+    | 'published'
+    | 'archived'
+    | 'acknowledged'
+    | 'annual_review_completed'
+    | 'submitted_for_review'
+    | 'approved'
+    | 'changes_requested'
   userId: string
   fromVersion?: number
   toVersion: number
@@ -228,6 +243,49 @@ export type WikiDocumentSearchResult = {
   spaceId: string
   updatedAt: string
   rank: number
+}
+
+export type WikiReviewRequestStatus = 'pending' | 'approved' | 'changes_requested'
+
+export type WikiReviewRequest = {
+  id: string
+  pageId: string
+  pageVersion: number
+  requesterId: string
+  reviewerId: string
+  status: WikiReviewRequestStatus
+  reviewerComment: string | null
+  createdAt: string
+  resolvedAt: string | null
+}
+
+export type WikiPageComment = {
+  id: string
+  pageId: string
+  blockIndex: number
+  body: string
+  authorId: string
+  authorName: string
+  resolved: boolean
+  createdAt: string
+}
+
+export type WikiMentionNotification = {
+  id: string
+  recipientUserId: string
+  actorUserId: string
+  actorName: string
+  pageId: string | null
+  context: 'editor' | 'comment'
+  snippet: string
+  createdAt: string
+  readAt: string | null
+}
+
+export type WikiPageViewStats = {
+  pageId: string
+  uniqueViewers: number
+  viewsLast30: number
 }
 
 // ─── Compliance receipts ──────────────────────────────────────────────────────
