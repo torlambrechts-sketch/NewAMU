@@ -97,6 +97,7 @@ export function AmuDetailView({
   const [saving, setSaving] = useState(false)
   const [wStats, setWStats] = useState<{ open: number; closed: number } | null>(null)
   const [sStats, setSStats] = useState<{ active: number; partial: number; other: number } | null>(null)
+  const [sourceTitleMap, setSourceTitleMap] = useState<Record<string, string>>({})
 
   const [titleDraft, setTitleDraft] = useState('')
   const [dateDraft, setDateDraft] = useState('')
@@ -151,7 +152,22 @@ export function AmuDetailView({
       amu.loadDecisionsForMeeting(meetingId),
       amu.loadParticipants(meetingId),
     ])
+    setSourceTitleMap({})
     setAgenda(items)
+    const titlesToFetch = items.filter((it) => it.source_module && it.source_id)
+    if (titlesToFetch.length > 0) {
+      const entries = await Promise.all(
+        titlesToFetch.map(async (it) => {
+          const title = await amu.fetchSourceTitle(it.source_module!, it.source_id!)
+          return [it.id, title] as [string, string | null]
+        }),
+      )
+      const map: Record<string, string> = {}
+      for (const [id, title] of entries) {
+        if (title !== null) map[id] = title
+      }
+      setSourceTitleMap(map)
+    }
     const dmap: Record<string, AmuDecision | null> = {}
     for (const d of decs) {
       dmap[d.agenda_item_id] = d
@@ -201,11 +217,16 @@ export function AmuDetailView({
     [assignable],
   )
 
-  const sourceLabelForAgenda = useCallback((item: AmuAgendaItem) => {
-    return item.source_module
-      ? SOURCE_MODULE_OPTIONS.find((o) => o.value === item.source_module)?.label ?? item.source_module
-      : '—'
-  }, [])
+  const sourceLabelForAgenda = useCallback(
+    (item: AmuAgendaItem) => {
+      const resolved = sourceTitleMap[item.id]
+      if (resolved) return resolved
+      return item.source_module
+        ? SOURCE_MODULE_OPTIONS.find((o) => o.value === item.source_module)?.label ?? item.source_module
+        : '—'
+    },
+    [sourceTitleMap],
+  )
 
   const chairSelectOptions = useMemo(() => {
     const byId = new Map(participantOptions.map((o) => [o.value, o.label] as const))
@@ -632,6 +653,7 @@ export function AmuDetailView({
           agenda={agenda}
           decisionByAgenda={decisionByAgenda}
           meetingStatus={meeting.status}
+          sourceLabel={sourceLabelForAgenda}
           onOpenDecision={fixOpenDecision}
           onGoToPlanning={() => setActiveTab('planlegging')}
         />

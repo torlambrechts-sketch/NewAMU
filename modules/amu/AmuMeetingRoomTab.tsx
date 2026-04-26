@@ -11,6 +11,8 @@ export type AmuMeetingRoomTabProps = {
   agenda: AmuAgendaItem[]
   decisionByAgenda: Record<string, AmuDecision | null>
   meetingStatus: AmuMeeting['status']
+  /** Vises under sakstekst når kilde er satt (samme logikk som planleggingstabellen). */
+  sourceLabel?: (item: AmuAgendaItem) => string
   onOpenDecision: (item: AmuAgendaItem) => void
   onGoToPlanning: () => void
 }
@@ -19,6 +21,7 @@ export function AmuMeetingRoomTab({
   agenda,
   decisionByAgenda,
   meetingStatus,
+  sourceLabel,
   onOpenDecision,
   onGoToPlanning,
 }: AmuMeetingRoomTabProps) {
@@ -73,6 +76,11 @@ export function AmuMeetingRoomTab({
                     <div className="font-medium text-neutral-900">{a.title}</div>
                     {a.description ? (
                       <div className="mt-0.5 line-clamp-2 text-xs text-neutral-500">{a.description}</div>
+                    ) : null}
+                    {a.source_module && sourceLabel ? (
+                      <div className="mt-1 text-xs text-neutral-600">
+                        Kilde: {sourceLabel(a)}
+                      </div>
                     ) : null}
                   </td>
                   <td className="whitespace-nowrap px-5 py-4 align-middle">
