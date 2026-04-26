@@ -71,6 +71,8 @@ export function ComplianceDashboard() {
   const { members, supabase, organization, isAdmin, can } = useOrgSetupContext()
   const [panelRef, setPanelRef] = useState<string | null>(null)
   const [ackAudienceTally, setAckAudienceTally] = useState<AckAudienceTally | null>(null)
+  /** Antall fullførte/signerte AMU-møter i inneværende kalenderår (`amu_meetings`). */
+  const [amuMeetingCountThisYear, setAmuMeetingCountThisYear] = useState<number | null>(null)
   const nowMs = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
 
   useEffect(() => {
@@ -104,6 +106,33 @@ export function ComplianceDashboard() {
   }, [supabase, organization?.id])
 
   const employeeCount = members.length
+
+  useEffect(() => {
+    if (employeeCount < 50 || !supabase || !organization?.id) {
+      setAmuMeetingCountThisYear(null)
+      return
+    }
+    let cancelled = false
+    const yr = new Date().getFullYear()
+    void (async () => {
+      const { data, error } = await supabase
+        .from('amu_meetings')
+        .select('id, status, meeting_date')
+        .eq('organization_id', organization.id)
+        .in('status', ['completed', 'signed'])
+        .gte('meeting_date', `${yr}-01-01`)
+        .lt('meeting_date', `${yr + 1}-01-01`)
+      if (cancelled) return
+      if (error) {
+        setAmuMeetingCountThisYear(0)
+        return
+      }
+      setAmuMeetingCountThisYear(data?.length ?? 0)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [employeeCount, supabase, organization?.id])
   const amuSpace = useMemo(
     () => docs.spaces.find((s) => s.isAmuSpace === true || /amu/i.test(s.title)),
     [docs.spaces],
@@ -161,6 +190,9 @@ export function ComplianceDashboard() {
     amuCompliance.hasAmuSpace &&
     amuCompliance.annualReportOk &&
     amuCompliance.protocolRecentOk
+
+  const amuMeetingCount = amuMeetingCountThisYear ?? 0
+  const amuFrequencyOk = amuMeetingCount >= 4
 
   const [viewCounts, setViewCounts] = useState<Map<string, number>>(() => new Map())
   const showViewAgg = Boolean(isAdmin || can('documents.manage'))
@@ -329,24 +361,28 @@ export function ComplianceDashboard() {
 
           <div
             className={`rounded-xl border px-4 py-3 text-sm ${
-              amuCompliance.meetingsPublishedLast12m >= 4
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-                : 'border-amber-200 bg-amber-50 text-amber-950'
+              amuMeetingCountThisYear === null
+                ? 'border-neutral-200 bg-neutral-50 text-neutral-800'
+                : amuFrequencyOk
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                  : 'border-amber-200 bg-amber-50 text-amber-950'
             }`}
           >
             <p className="font-medium">AMU-møtefrekvens (AML §7-3)</p>
             <p className="mt-1 text-neutral-800">
-              {amuCompliance.meetingsPublishedLast12m} av 4 planlagte AMU-møter protokollert siste år
-              {amuSpace ? (
-                <span className="text-neutral-600">
-                  {' '}
-                  (publiseringer i «{amuSpace.title}», fra aktivitetslogg)
-                </span>
-              ) : null}
+              {amuMeetingCountThisYear === null ? (
+                <>Henter fullførte AMU-møter for {new Date().getFullYear()} …</>
+              ) : (
+                <>
+                  {amuMeetingCount} fullførte eller signerte AMU-møter i kalenderår {new Date().getFullYear()} (krav:
+                  minst fire etter AML §7-3).
+                </>
+              )}
             </p>
-            {amuCompliance.meetingsPublishedLast12m < 4 ? (
-              <p className="mt-2 text-xs text-amber-900">
-                Virksomheter med AMU bør dokumentere minst fire møter i året. Opprett/publiser protokoller i AMU-mappen.
+            {amuMeetingCountThisYear !== null && amuMeetingCount < 4 ? (
+              <p className="mt-1 text-xs text-neutral-500">
+                AML §7-3: {4 - amuMeetingCount} møte(r) gjenstår for å oppfylle lovkravet om minst fire ordinære
+                AMU-møter per kalenderår. Registrer og fullfør møter i AMU-modulen slik at gjennomføring dokumenteres.
               </p>
             ) : null}
           </div>
