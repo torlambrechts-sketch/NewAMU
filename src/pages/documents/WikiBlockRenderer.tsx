@@ -151,6 +151,58 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb', bl
             break
           }
 
+          case 'table': {
+            const headers = Array.isArray(block.headers) ? block.headers : []
+            const rows = Array.isArray(block.rows) ? block.rows : []
+            const caption = typeof block.caption === 'string' ? block.caption.trim() : ''
+            const colCount = Math.max(1, headers.length)
+            const paddedHeaders = [...headers]
+            while (paddedHeaders.length < colCount) paddedHeaders.push('')
+            const paddedRows = rows.map((row) => {
+              const r = Array.isArray(row) ? [...row] : []
+              while (r.length < colCount) r.push('')
+              return r.slice(0, colCount)
+            })
+            node = (
+              <figure className="my-4 overflow-x-auto">
+                <table className="w-full min-w-max border-collapse text-sm">
+                  {caption ? (
+                    <caption className="mb-2 px-1 text-left text-xs text-neutral-500">{caption}</caption>
+                  ) : null}
+                  <thead>
+                    <tr className="border-b-2 border-neutral-300 bg-neutral-50">
+                      {paddedHeaders.map((h, hi) => (
+                        <th key={hi} scope="col" className="px-3 py-2 text-left font-semibold text-neutral-900">
+                          {h || `\u00a0`}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paddedRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={colCount} className="px-3 py-2 text-neutral-500">
+                          Ingen rader.
+                        </td>
+                      </tr>
+                    ) : (
+                      paddedRows.map((row, ri) => (
+                        <tr key={ri} className="border-b border-neutral-100 even:bg-neutral-50/80">
+                          {row.map((cell, ci) => (
+                            <td key={ci} className="px-3 py-2 text-neutral-800">
+                              {cell}
+                            </td>
+                          ))}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </figure>
+            )
+            break
+          }
+
           case 'module': {
             const p = block.params ?? {}
             switch (block.moduleName) {

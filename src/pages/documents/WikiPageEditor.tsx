@@ -5,11 +5,14 @@ import {
   useMemo,
   useRef,
   useState,
+  useId,
+  type ChangeEvent,
   type CSSProperties,
   type HTMLAttributes,
   type ReactNode,
 } from 'react'
 import { useBlocker, useNavigate, useParams } from 'react-router-dom'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   Accessibility,
   AlertTriangle,
@@ -24,6 +27,7 @@ import {
   Save,
   Settings,
   Trash2,
+  Upload,
 } from 'lucide-react'
 import {
   closestCenter,
@@ -54,7 +58,7 @@ import { Badge } from '../../components/ui/Badge'
 import { WarningBox } from '../../components/ui/AlertBox'
 import { Tabs } from '../../components/ui/Tabs'
 import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
-import type { AcknowledgementAudience, ContentBlock, ModuleBlock, WikiPageLang } from '../../types/documents'
+import type { AcknowledgementAudience, ContentBlock, ModuleBlock, TableBlock, WikiPageLang } from '../../types/documents'
 import {
   GDPR_ART6_SUGGESTIONS,
   GDPR_ART9_SUGGESTIONS,
@@ -74,6 +78,7 @@ const ADD_BLOCKS: { kind: AddKind; label: string; icon: string }[] = [
   { kind: 'divider', label: 'Skillelinje', icon: '—' },
   { kind: 'law_ref', label: 'Lovhenvisning', icon: '§' },
   { kind: 'image', label: 'Bilde', icon: '🖼' },
+  { kind: 'table', label: 'Tabell', icon: '▦' },
   { kind: 'module', label: 'Dynamisk widget', icon: '⚡' },
 ]
 
@@ -141,6 +146,16 @@ function emptyBlock(kind: AddKind): ContentBlock {
       return { kind: 'law_ref', ref: '', description: '', instanceId }
     case 'image':
       return { kind: 'image', url: '', alt: '', caption: '', width: 'full', instanceId }
+    case 'table':
+      return {
+        kind: 'table',
+        headers: ['Kolonne 1', 'Kolonne 2', 'Kolonne 3'],
+        rows: [
+          ['', '', ''],
+          ['', '', ''],
+        ],
+        instanceId,
+      }
     case 'module':
       return { kind: 'module', moduleName: 'live_org_chart', params: {}, instanceId }
     default:
@@ -732,6 +747,8 @@ export function WikiPageEditor() {
                       isLast={idx === blocks.length - 1}
                       dragHandleProps={dragHandleProps}
                       dropHighlight={overBlockId === block.instanceId && activeBlockId !== block.instanceId}
+                      supabase={supabase}
+                      orgId={organization?.id ?? null}
                     />
                   )}
                 </SortableBlockRow>
@@ -1160,6 +1177,8 @@ function BlockItem({
   isLast,
   dragHandleProps,
   dropHighlight,
+  supabase,
+  orgId,
 }: {
   block: ContentBlock
   selected: boolean
@@ -1171,10 +1190,18 @@ function BlockItem({
   isLast: boolean
   dragHandleProps: HTMLAttributes<HTMLElement>
   dropHighlight?: boolean
+  supabase: SupabaseClient | null
+  orgId: string | null
 }) {
   const kindLabel: Record<ContentBlock['kind'], string> = {
-    heading: 'Overskrift', text: 'Tekst', alert: 'Varselboks',
-    divider: 'Skillelinje', law_ref: 'Lovhenvisning', image: 'Bilde', module: 'Dynamisk widget',
+    heading: 'Overskrift',
+    text: 'Tekst',
+    alert: 'Varselboks',
+    divider: 'Skillelinje',
+    law_ref: 'Lovhenvisning',
+    image: 'Bilde',
+    table: 'Tabell',
+    module: 'Dynamisk widget',
   }
   const deleteLabel = `Slett blokk: ${kindLabel[block.kind]}`
 
@@ -1231,14 +1258,255 @@ function BlockItem({
 
       {selected && (
         <div className="border-t border-neutral-100 px-3 pb-3 pt-3">
-          <BlockEditor block={block} onUpdate={onUpdate} />
+          <BlockEditor block={block} onUpdate={onUpdate} supabase={supabase} orgId={orgId} />
         </div>
       )}
     </div>
   )
 }
 
-function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: Partial<ContentBlock>) => void }) {
+function ImageBlockFields({
+  block,
+  onUpdate,
+  supabase,
+  orgId,
+}: {
+  block: Extract<ContentBlock, { kind: 'image' }>
+  onUpdate: (p: Partial<ContentBlock>) => void
+  supabase: SupabaseClient | null
+  orgId: string | null
+}) {
+  const uid = useId()
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !supabase || !orgId) {
+      if (!orgId) setUploadError('Organisasjon er ikke lastet. Prøv igjen om et øyeblikk.')
+      return
+    }
+    setUploadError(null)
+    setUploading(true)
+    try {
+      const url = await uploadWikiImageToStorage(supabase, orgId, file)
+      onUpdate({ url } as Partial<ContentBlock>)
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Opplasting feilet.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-neutral-300 px-3 py-2 text-sm text-neutral-500 hover:border-neutral-400">
+        {uploading ? (
+          <span className="flex items-center gap-2 text-xs text-neutral-600">
+            <Loader2 className="size-4 animate-spin shrink-0" aria-hidden />
+            Laster opp…
+          </span>
+        ) : (
+          <>
+            <Upload className="size-4 shrink-0" aria-hidden />
+            <span className="text-xs">Last opp bilde (maks 5 MB)</span>
+          </>
+        )}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="sr-only"
+          disabled={uploading || !supabase || !orgId}
+          onChange={(ev) => void handleFileChange(ev)}
+        />
+      </label>
+      {uploadError ? <p className="text-xs text-red-600">{uploadError}</p> : null}
+      <label className="text-xs font-medium text-neutral-500" htmlFor={`${uid}-wiki-img-url`}>
+        Bilde-URL (alternativ)
+      </label>
+      <StandardInput
+        id={`${uid}-wiki-img-url`}
+        value={block.url}
+        disabled={uploading}
+        onChange={(e) => onUpdate({ url: e.target.value } as Partial<ContentBlock>)}
+        placeholder="https://…"
+      />
+      <label className="text-xs font-medium text-neutral-500" htmlFor={`${uid}-wiki-img-alt`}>
+        Alt-tekst
+      </label>
+      <StandardInput
+        id={`${uid}-wiki-img-alt`}
+        value={block.alt ?? ''}
+        disabled={uploading}
+        onChange={(e) => onUpdate({ alt: e.target.value } as Partial<ContentBlock>)}
+        placeholder="Beskriv bildet for skjermlesere"
+      />
+      <label className="text-xs font-medium text-neutral-500" htmlFor={`${uid}-wiki-img-cap`}>
+        Bildetekst (valgfritt)
+      </label>
+      <StandardInput
+        id={`${uid}-wiki-img-cap`}
+        value={block.caption ?? ''}
+        disabled={uploading}
+        onChange={(e) => onUpdate({ caption: e.target.value } as Partial<ContentBlock>)}
+      />
+      <div>
+        <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor={`${uid}-wiki-img-width`}>
+          Bredde
+        </label>
+        <SearchableSelect
+          value={block.width ?? 'full'}
+          options={IMAGE_WIDTH_OPTIONS}
+          disabled={uploading}
+          onChange={(v) => onUpdate({ width: v as 'full' | 'wide' | 'medium' } as Partial<ContentBlock>)}
+        />
+      </div>
+    </div>
+  )
+}
+
+function TableBlockFields({
+  block,
+  onUpdate,
+}: {
+  block: TableBlock
+  onUpdate: (p: Partial<ContentBlock>) => void
+}) {
+  const uid = useId()
+  const colCount = block.headers.length
+  const setHeader = (i: number, v: string) => {
+    const headers = block.headers.map((h, idx) => (idx === i ? v : h))
+    onUpdate({ headers } as Partial<ContentBlock>)
+  }
+  const setCell = (ri: number, ci: number, v: string) => {
+    const rows = block.rows.map((row, r) =>
+      r === ri ? row.map((c, cidx) => (cidx === ci ? v : c)) : [...row],
+    )
+    onUpdate({ rows } as Partial<ContentBlock>)
+  }
+  const addColumn = () => {
+    onUpdate({
+      headers: [...block.headers, `Kolonne ${block.headers.length + 1}`],
+      rows: block.rows.map((row) => [...row, '']),
+    } as Partial<ContentBlock>)
+  }
+  const removeColumn = () => {
+    if (block.headers.length <= 1) return
+    onUpdate({
+      headers: block.headers.slice(0, -1),
+      rows: block.rows.map((row) => row.slice(0, -1)),
+    } as Partial<ContentBlock>)
+  }
+  const addRow = () => {
+    onUpdate({
+      rows: [...block.rows, Array(colCount).fill('') as string[]],
+    } as Partial<ContentBlock>)
+  }
+  const removeRow = () => {
+    if (block.rows.length <= 1) return
+    onUpdate({ rows: block.rows.slice(0, -1) } as Partial<ContentBlock>)
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor={`${uid}-wiki-table-cap`}>
+          Tabelloverskrift (valgfritt)
+        </label>
+        <StandardInput
+          id={`${uid}-wiki-table-cap`}
+          value={block.caption ?? ''}
+          onChange={(e) => onUpdate({ caption: e.target.value } as Partial<ContentBlock>)}
+          placeholder="Kort beskrivelse av tabellen"
+        />
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-neutral-200">
+        <table className="w-full min-w-max border-collapse text-sm">
+          <thead>
+            <tr className="bg-neutral-50">
+              {block.headers.map((h, hi) => (
+                <th key={hi} className="border-b border-neutral-200 p-0">
+                  <StandardInput
+                    value={h}
+                    onChange={(e) => setHeader(hi, e.target.value)}
+                    className="rounded-none border-0 bg-transparent font-semibold"
+                    placeholder={`Kolonne ${hi + 1}`}
+                  />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {block.rows.map((row, ri) => (
+              <tr key={ri} className="border-b border-neutral-100 last:border-0">
+                {row.map((cell, ci) => (
+                  <td key={ci} className="p-0">
+                    <StandardInput
+                      value={cell}
+                      onChange={(e) => setCell(ri, ci, e.target.value)}
+                      className="rounded-none border-0"
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="secondary" size="sm" onClick={addColumn}>
+          Legg til kolonne
+        </Button>
+        <Button type="button" variant="secondary" size="sm" onClick={removeColumn} disabled={block.headers.length <= 1}>
+          Fjern kolonne
+        </Button>
+        <Button type="button" variant="secondary" size="sm" onClick={addRow}>
+          Legg til rad
+        </Button>
+        <Button type="button" variant="secondary" size="sm" onClick={removeRow} disabled={block.rows.length <= 1}>
+          Fjern rad
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+async function uploadWikiImageToStorage(
+  supabase: SupabaseClient,
+  orgId: string,
+  file: File,
+): Promise<string> {
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error('Filen er for stor. Maksimal størrelse er 5 MB.')
+  }
+  const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+  if (!ALLOWED.includes(file.type)) {
+    throw new Error('Filtypen støttes ikke. Bruk JPEG, PNG, WebP eller GIF.')
+  }
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+  const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext) ? ext : 'jpg'
+  const path = `${orgId}/wiki-images/${crypto.randomUUID()}.${safeExt}`
+  const { error } = await supabase.storage.from('wiki_space_files').upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+  })
+  if (error) throw new Error(`Opplasting feilet: ${error.message}`)
+  const { data } = supabase.storage.from('wiki_space_files').getPublicUrl(path)
+  return data.publicUrl
+}
+
+function BlockEditor({
+  block,
+  onUpdate,
+  supabase,
+  orgId,
+}: {
+  block: ContentBlock
+  onUpdate: (p: Partial<ContentBlock>) => void
+  supabase: SupabaseClient | null
+  orgId: string | null
+}) {
   if (block.kind === 'heading') return (
     <div className="space-y-2">
       <div className="flex gap-2">
@@ -1290,46 +1558,10 @@ function BlockEditor({ block, onUpdate }: { block: ContentBlock; onUpdate: (p: P
 
   if (block.kind === 'divider') return <p className="text-xs text-neutral-400">Visuell skillelinje — ingen innstillinger.</p>
 
-  if (block.kind === 'image') return (
-    <div className="space-y-2">
-      <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-img-url">
-        Bilde-URL
-      </label>
-      <StandardInput
-        id="wiki-img-url"
-        value={block.url}
-        onChange={(e) => onUpdate({ url: e.target.value } as Partial<ContentBlock>)}
-        placeholder="https://…"
-      />
-      <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-img-alt">
-        Alt-tekst
-      </label>
-      <StandardInput
-        id="wiki-img-alt"
-        value={block.alt ?? ''}
-        onChange={(e) => onUpdate({ alt: e.target.value } as Partial<ContentBlock>)}
-        placeholder="Beskriv bildet for skjermlesere"
-      />
-      <label className="text-xs font-medium text-neutral-500" htmlFor="wiki-img-cap">
-        Bildetekst (valgfritt)
-      </label>
-      <StandardInput
-        id="wiki-img-cap"
-        value={block.caption ?? ''}
-        onChange={(e) => onUpdate({ caption: e.target.value } as Partial<ContentBlock>)}
-      />
-      <div>
-        <label className="mb-1 block text-xs font-medium text-neutral-500" htmlFor="wiki-img-width">
-          Bredde
-        </label>
-        <SearchableSelect
-          value={block.width ?? 'full'}
-          options={IMAGE_WIDTH_OPTIONS}
-          onChange={(v) => onUpdate({ width: v as 'full' | 'wide' | 'medium' } as Partial<ContentBlock>)}
-        />
-      </div>
-    </div>
-  )
+  if (block.kind === 'image')
+    return <ImageBlockFields block={block} onUpdate={onUpdate} supabase={supabase} orgId={orgId} />
+
+  if (block.kind === 'table') return <TableBlockFields block={block} onUpdate={onUpdate} />
 
   if (block.kind === 'law_ref') return (
     <div className="space-y-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3">

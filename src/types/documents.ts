@@ -50,6 +50,13 @@ export type ImageBlock = ContentBlockInstance & {
   width?: 'full' | 'wide' | 'medium'
 }
 
+export type TableBlock = ContentBlockInstance & {
+  kind: 'table'
+  headers: string[]
+  rows: string[][]
+  caption?: string
+}
+
 /**
  * Dynamic module block — the content engine lazy-loads a named component
  * and passes the params object to it.
@@ -73,7 +80,15 @@ export type ModuleBlock = ContentBlockInstance & {
   params?: Record<string, string | number | boolean>
 }
 
-export type ContentBlock = TextBlock | HeadingBlock | AlertBlock | DividerBlock | LawRefBlock | ImageBlock | ModuleBlock
+export type ContentBlock =
+  | TextBlock
+  | HeadingBlock
+  | AlertBlock
+  | DividerBlock
+  | LawRefBlock
+  | ImageBlock
+  | TableBlock
+  | ModuleBlock
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 

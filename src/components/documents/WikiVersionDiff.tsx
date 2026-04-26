@@ -14,6 +14,12 @@ function blockToText(block: ContentBlock): string {
       return `${block.ref}: ${block.description}`
     case 'image':
       return block.caption ?? ''
+    case 'table': {
+      const cap = block.caption?.trim() ? `${block.caption}\n` : ''
+      const head = block.headers.join('\t')
+      const body = block.rows.map((r) => r.join('\t')).join('\n')
+      return `${cap}${head}\n${body}`
+    }
     case 'divider':
       return '───'
     case 'module':

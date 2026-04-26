@@ -11,12 +11,19 @@ export function extractWikiInternalPageIdsFromHtml(html: string): string[] {
 }
 
 export function extractWikiInternalPageIdsFromBlocks(
-  blocks: { kind: string; body?: string }[],
+  blocks: { kind: string; body?: string; rows?: string[][] }[],
 ): string[] {
   const ids = new Set<string>()
   for (const b of blocks) {
     if (b.kind === 'text' && typeof b.body === 'string') {
       for (const id of extractWikiInternalPageIdsFromHtml(b.body)) ids.add(id)
+    }
+    if (b.kind === 'table' && Array.isArray(b.rows)) {
+      for (const row of b.rows) {
+        for (const cell of row) {
+          for (const id of extractWikiInternalPageIdsFromHtml(cell)) ids.add(id)
+        }
+      }
     }
   }
   return [...ids]

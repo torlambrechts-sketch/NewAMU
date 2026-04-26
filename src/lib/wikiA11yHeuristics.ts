@@ -76,6 +76,15 @@ export function runWikiWcagHeuristics(blocks: ContentBlock[]): string[] {
         if (!alt) warnings.push(`${label} (Bilde): Mangler alt-tekst.`)
         break
       }
+      case 'table': {
+        if (!Array.isArray(block.headers) || block.headers.length === 0) {
+          warnings.push(`${label} (Tabell): Mangler kolonneoverskrifter.`)
+        }
+        if (!Array.isArray(block.rows) || block.rows.length === 0) {
+          warnings.push(`${label} (Tabell): Tabellen har ingen datarader.`)
+        }
+        break
+      }
       default:
         break
     }
