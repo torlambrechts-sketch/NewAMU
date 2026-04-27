@@ -15,11 +15,15 @@ import {
   LAYOUT_TABLE1_POSTINGS_TH,
   LAYOUT_TABLE1_POSTINGS_TD,
 } from '../../src/components/layout/layoutTable1PostingsKit'
-import { ModulePageShell, ModulePageEmpty, ModuleSectionCard } from '../../src/components/module'
-import { WarningBox } from '../../src/components/ui/AlertBox'
+import {
+  ModuleLegalBanner,
+  ModulePageShell,
+  ModulePageEmpty,
+  ModuleSectionCard,
+} from '../../src/components/module'
+import { InfoBox, WarningBox } from '../../src/components/ui/AlertBox'
 import { Badge } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
-import { ComplianceBanner } from '../../src/components/ui/ComplianceBanner'
 import { YesNoToggle } from '../../src/components/ui/FormToggles'
 import { StandardInput } from '../../src/components/ui/Input'
 import { SearchableSelect, type SelectOption } from '../../src/components/ui/SearchableSelect'
@@ -33,6 +37,7 @@ import { buildAnalyticsByQuestionId } from './surveyAnalytics'
 import { QUESTION_TYPE_OPTIONS, questionTypeLabel, surveyStatusBadgeVariant, surveyStatusLabel } from './surveyLabels'
 import { SurveyAmuTab } from './tabs/SurveyAmuTab'
 import { SurveyTiltakTab } from './tabs/SurveyTiltakTab'
+import { SURVEY_DETAIL_EXTRA_LEGAL_REFERENCES, SURVEY_MODULE_LEGAL_REFERENCES } from './surveyLegalReferences'
 import type { OrgSurveyQuestionRow, SurveyAmuReviewRow, SurveyQuestionType, SurveyRow } from './types'
 
 type DetailTab = 'oversikt' | 'bygger' | 'svar' | 'analyse' | 'amu' | 'tiltak'
@@ -393,11 +398,11 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
   )
 
   return (
-    <div className="mx-auto max-w-5xl w-full space-y-6">
-      <ComplianceBanner title="Personvern (GDPR)">
-        Resultater vises kun for spørsmål med {threshold} eller flere svar. Fritekst-svar vises aldri i klartekst (GDPR
-        Art. 9). Grupper under terskelen vises som skjult.
-      </ComplianceBanner>
+    <div className="w-full space-y-6">
+      <InfoBox>
+        Resultater vises kun for spørsmål med {threshold} eller flere svar. Fritekst svar vises aldri i klartekst
+        (særlige kategorier, GDPR). Grupper under terskelen vises som skjult.
+      </InfoBox>
 
       {survey.questions.length === 0 ? (
         <TabEmpty message="Ingen spørsmål å analysere. Legg til spørsmål i byggeren." />
@@ -608,6 +613,11 @@ export function SurveyDetailView({ supabase }: Props) {
   const isLocked = !!(s && (s.status === 'active' || s.status === 'closed'))
   const panelTitleId = 'survey-question-panel-title'
 
+  const legalReferences = useMemo(
+    () => [...SURVEY_MODULE_LEGAL_REFERENCES, ...SURVEY_DETAIL_EXTRA_LEGAL_REFERENCES],
+    [],
+  )
+
   if (!surveyId) {
     return <ModulePageEmpty title="Mangler undersøkelses-ID" onBack={() => navigate('/survey')} backLabel="Tilbake til listen" />
   }
@@ -625,11 +635,7 @@ export function SurveyDetailView({ supabase }: Props) {
   if (!s) {
     return (
       <ModulePageShell
-        breadcrumb={[
-          { label: 'Arbeidsplass', to: '/workspace' },
-          { label: 'Undersøkelser', to: '/survey' },
-          { label: 'Laster' },
-        ]}
+        breadcrumb={[{ label: 'HMS' }, { label: 'Undersøkelser', to: '/survey' }, { label: 'Laster' }]}
         title="Laster…"
         description="Henter detaljer."
         headerActions={
@@ -649,11 +655,7 @@ export function SurveyDetailView({ supabase }: Props) {
   return (
     <>
       <ModulePageShell
-        breadcrumb={[
-          { label: 'Arbeidsplass', to: '/workspace' },
-          { label: 'Undersøkelser', to: '/survey' },
-          { label: s.title },
-        ]}
+        breadcrumb={[{ label: 'HMS' }, { label: 'Undersøkelser', to: '/survey' }, { label: s.title }]}
         title={s.title}
         description={s.description ?? 'Detaljert visning — innstillinger, spørsmål, svar og analyse.'}
         headerActions={
@@ -665,16 +667,23 @@ export function SurveyDetailView({ supabase }: Props) {
         tabs={<Tabs className="w-full md:w-auto" items={tabs} activeId={tab} onChange={(id) => setTab(id as DetailTab)} />}
         loading={false}
       >
-        <div className="mx-auto max-w-5xl w-full space-y-6">
+        <div className="w-full space-y-6">
           <div className="mb-2 flex flex-wrap items-center gap-3 border-b border-neutral-200 pb-4">
             <Badge variant={surveyStatusBadgeVariant(s.status)}>{surveyStatusLabel(s.status)}</Badge>
             {s.is_anonymous ? <Badge variant="info">Anonym</Badge> : <Badge variant="neutral">Identifisert</Badge>}
           </div>
 
-          <ComplianceBanner title="Arbeidsmiljøloven Kap. 4 — Psykososialt arbeidsmiljø">
-            Systematisk kartlegging støtter vurdering av psykososiale forhold. Ved anonyme undersøkelser knyttes ikke svar
-            til identifiserbare brukere i databasen (GDPR).
-          </ComplianceBanner>
+          <ModuleLegalBanner
+            title="Regelverk for denne undersøkelsen"
+            intro={
+              <p>
+                {s.survey_type === 'external'
+                  ? 'Leverandørundersøkelsen støtter dokumentasjonskrav (åpenhetsloven, internkontroll).'
+                  : 'Ansattundersøkelsen støtter systematisk kartlegging av arbeidsmiljø (AML kap. 4) og følges opp i AMU etter behov.'}
+              </p>
+            }
+            references={legalReferences}
+          />
 
           {survey.error ? <WarningBox>{survey.error}</WarningBox> : null}
 

@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Ghost, Building2 } from 'lucide-react'
+import { LayoutScoreStatRow } from '../../../src/components/layout/LayoutScoreStatRow'
 import { LayoutTable1PostingsShell } from '../../../src/components/layout/LayoutTable1PostingsShell'
 import {
   LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
@@ -9,7 +10,6 @@ import {
 } from '../../../src/components/layout/layoutTable1PostingsKit'
 import { Badge } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
-import { ComplianceBanner } from '../../../src/components/ui/ComplianceBanner'
 import { InfoBox } from '../../../src/components/ui/AlertBox'
 import type { SurveyRow } from '../types'
 import { surveyStatusBadgeVariant, surveyStatusLabel } from '../surveyLabels'
@@ -32,13 +32,18 @@ export function SurveyLeverandorerTab({ surveys, loading, canManage, onNewExtern
 
   const active = external.filter((s) => s.status === 'active').length
   const closed = external.filter((s) => s.status === 'closed' || s.status === 'archived').length
+  const drafts = external.filter((s) => s.status === 'draft').length
+
+  const kpiItems = [
+    { big: String(active), title: 'Aktive', sub: 'Åpen innsamling' },
+    { big: String(closed), title: 'Fullførte', sub: 'Lukket eller arkivert' },
+    { big: String(drafts), title: 'Kladder', sub: 'Ikke publisert' },
+    { big: String(external.length), title: 'Totalt', sub: 'Leverandørundersøkelser' },
+  ]
 
   return (
     <div className="space-y-6">
-      <ComplianceBanner title="Åpenhetsloven § 4 · IK-forskriften § 5 — Leverandørdokumentasjon">
-        Virksomheter er pliktig å innhente og dokumentere HMS-erklæringer fra leverandører og
-        underleverandører. Egenerklæringen lagres som vedlegg til internkontrollsystemet.
-      </ComplianceBanner>
+      <LayoutScoreStatRow items={kpiItems} columns={4} />
 
       {external.length === 0 && !loading ? (
         <InfoBox>

@@ -5,7 +5,6 @@ import { Button } from '../../../src/components/ui/Button'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { StandardTextarea } from '../../../src/components/ui/Textarea'
 import { Badge } from '../../../src/components/ui/Badge'
-import { ComplianceBanner } from '../../../src/components/ui/ComplianceBanner'
 import { InfoBox, WarningBox } from '../../../src/components/ui/AlertBox'
 import {
   WPSTD_FORM_FIELD_LABEL,
@@ -79,10 +78,10 @@ export function SurveyAmuTab({ survey, s }: SurveyDetailTab) {
 
   return (
     <div className="space-y-6">
-      <ComplianceBanner title="AML § 7-2, IK-forskriften § 5 — AMU">
-        Resultater fra organisasjonsundersøkelser skal presenteres for Arbeidsmiljøutvalget (AMU) og vernombud.
-        Protokoll fra gjennomgangen undertegnes av AMU-leder og vernombud og arkiveres.
-      </ComplianceBanner>
+      <InfoBox>
+        Protokoll signeres av AMU-leder og vernombud når undersøkelsen er ferdigstilt for AMU — se regelverksoversikten
+        øverst på siden.
+      </InfoBox>
 
       {survey.error && <WarningBox>{survey.error}</WarningBox>}
 

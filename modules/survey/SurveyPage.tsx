@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { Loader2, Plus, Settings } from 'lucide-react'
-import { ModulePageShell } from '../../src/components/module'
+import {
+  ClipboardList,
+  LayoutGrid,
+  Loader2,
+  Package,
+  Plus,
+  Settings,
+  Truck,
+} from 'lucide-react'
+import { ModuleLegalBanner, ModulePageShell } from '../../src/components/module'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { Button } from '../../src/components/ui/Button'
@@ -20,6 +28,7 @@ import { SurveyOversiktModuleTab } from './tabs/SurveyOversiktModuleTab'
 import { SurveyKampanjerTab } from './tabs/SurveyKampanjerTab'
 import { SurveyMalerTab } from './tabs/SurveyMalerTab'
 import { SurveyLeverandorerTab } from './tabs/SurveyLeverandorerTab'
+import { SURVEY_MODULE_LEGAL_REFERENCES } from './surveyLegalReferences'
 
 type Props = { supabase: SupabaseClient | null }
 
@@ -142,38 +151,53 @@ export function SurveyPage({ supabase }: Props) {
 
   const isExternal = surveyType === 'external'
 
-  const moduleTabs: TabItem[] = useMemo(() => [
-    { id: 'oversikt', label: 'Oversikt' },
-    {
-      id: 'kampanjer',
-      label: 'Kampanjer',
-      badgeCount: survey.surveys.length > 0 ? survey.surveys.length : undefined,
-    },
-    { id: 'maler', label: 'Maler' },
-    {
-      id: 'leverandorer',
-      label: 'Leverandører',
-      badgeCount: survey.surveys.filter((s) => s.survey_type === 'external').length || undefined,
-    },
-  ], [survey.surveys])
+  const moduleTabs: TabItem[] = useMemo(
+    () => [
+      { id: 'oversikt', label: 'Oversikt', icon: LayoutGrid },
+      {
+        id: 'kampanjer',
+        label: 'Kampanjer',
+        icon: ClipboardList,
+        badgeCount: survey.surveys.length > 0 ? survey.surveys.length : undefined,
+      },
+      { id: 'maler', label: 'Maler', icon: Package },
+      {
+        id: 'leverandorer',
+        label: 'Leverandører',
+        icon: Truck,
+        badgeCount: survey.surveys.filter((s) => s.survey_type === 'external').length || undefined,
+      },
+    ],
+    [survey.surveys],
+  )
 
   return (
     <>
       <ModulePageShell
-        breadcrumb={[{ label: 'Arbeidsplass', to: '/workspace' }, { label: 'Undersøkelser' }]}
+        breadcrumb={[{ label: 'HMS' }, { label: 'Undersøkelser' }]}
         title="Undersøkelser"
         description="Kartlegg arbeidsmiljø, mål psykososiale forhold, og innhent dokumentasjon fra leverandører."
         headerActions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {survey.canManage && (
               <>
-                <Button type="button" variant="primary" size="sm" onClick={() => openPanel('internal')}>
-                  <Plus className="h-4 w-4" aria-hidden />
-                  Ny undersøkelse
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon={<Settings className="h-4 w-4" />}
+                  onClick={() => navigate('/survey/admin')}
+                >
+                  <span className="hidden sm:inline">Innstillinger</span>
                 </Button>
-                <Button type="button" variant="secondary" size="sm" onClick={() => navigate('/survey/admin')}>
-                  <Settings className="h-4 w-4" aria-hidden />
-                  Innstillinger
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  icon={<Plus className="h-4 w-4" />}
+                  onClick={() => openPanel('internal')}
+                >
+                  Ny undersøkelse
                 </Button>
               </>
             )}
@@ -182,54 +206,59 @@ export function SurveyPage({ supabase }: Props) {
         tabs={
           <Tabs
             className="w-full md:w-auto"
+            overflow="scroll"
             items={moduleTabs}
             activeId={tab}
             onChange={(id) => setTab(id as ModuleTab)}
           />
         }
       >
-        <div className="mx-auto max-w-5xl w-full">
-          {survey.error && <WarningBox>{survey.error}</WarningBox>}
+        <ModuleLegalBanner
+          title="Organisasjonsundersøkelser"
+          intro={
+            <p>
+              Kartlegging av arbeidsmiljø, psykososiale forhold og leverandørdokumentasjon forankres i
+              arbeidsmiljøloven, personvernregelverket og — for leverandører — åpenhetsloven.
+            </p>
+          }
+          references={SURVEY_MODULE_LEGAL_REFERENCES}
+        />
 
-          {survey.loading && survey.surveys.length === 0 ? (
-            <div className="flex items-center justify-center gap-2 py-16 text-sm text-neutral-500">
-              <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-              Laster undersøkelser…
-            </div>
-          ) : (
-            <>
-              {tab === 'oversikt' && (
-                <SurveyOversiktModuleTab
-                  surveys={survey.surveys}
-                  loading={survey.loading}
-                  onNewSurvey={() => openPanel('internal')}
-                />
-              )}
-              {tab === 'kampanjer' && (
-                <SurveyKampanjerTab
-                  surveys={survey.surveys}
-                  loading={survey.loading}
-                  canManage={survey.canManage}
-                  onNewSurvey={() => openPanel('internal')}
-                />
-              )}
-              {tab === 'maler' && (
-                <SurveyMalerTab
-                  onUseTemplate={handleUseTemplate}
-                  canManage={survey.canManage}
-                />
-              )}
-              {tab === 'leverandorer' && (
-                <SurveyLeverandorerTab
-                  surveys={survey.surveys}
-                  loading={survey.loading}
-                  canManage={survey.canManage}
-                  onNewExternalSurvey={() => openPanel('external')}
-                />
-              )}
-            </>
-          )}
-        </div>
+        {survey.error && <WarningBox>{survey.error}</WarningBox>}
+
+        {survey.loading && survey.surveys.length === 0 ? (
+          <div className="flex items-center justify-center gap-2 py-16 text-sm text-neutral-500">
+            <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+            Laster undersøkelser…
+          </div>
+        ) : (
+          <>
+            {tab === 'oversikt' && (
+              <SurveyOversiktModuleTab
+                surveys={survey.surveys}
+                loading={survey.loading}
+                onNewSurvey={() => openPanel('internal')}
+              />
+            )}
+            {tab === 'kampanjer' && (
+              <SurveyKampanjerTab
+                surveys={survey.surveys}
+                loading={survey.loading}
+                canManage={survey.canManage}
+                onNewSurvey={() => openPanel('internal')}
+              />
+            )}
+            {tab === 'maler' && <SurveyMalerTab onUseTemplate={handleUseTemplate} canManage={survey.canManage} />}
+            {tab === 'leverandorer' && (
+              <SurveyLeverandorerTab
+                surveys={survey.surveys}
+                loading={survey.loading}
+                canManage={survey.canManage}
+                onNewExternalSurvey={() => openPanel('external')}
+              />
+            )}
+          </>
+        )}
       </ModulePageShell>
 
       <SlidePanel

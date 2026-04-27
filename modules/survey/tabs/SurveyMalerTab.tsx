@@ -1,5 +1,4 @@
 import { Button } from '../../../src/components/ui/Button'
-import { ComplianceBanner } from '../../../src/components/ui/ComplianceBanner'
 import { ALL_SURVEY_TEMPLATES } from '../../../src/data/surveyTemplates'
 
 type Props = {
@@ -58,11 +57,6 @@ const SPECIAL_INTERNAL = ALL_SURVEY_TEMPLATES.filter((t) =>
 export function SurveyMalerTab({ onUseTemplate, canManage }: Props) {
   return (
     <div className="space-y-6">
-      <ComplianceBanner title="AML § 4-3 — Validerte kartleggingsverktøy">
-        Bruk anerkjente instrumenter (QPS Nordic, ARK) for psykososialt arbeidsmiljø. Leverandørskjemaer
-        dekker krav i Åpenhetsloven § 4 og IK-forskriften § 5.
-      </ComplianceBanner>
-
       <SectionHeading
         label="Validerte ansattundersøkelser"
         description="Vitenskapelig dokumenterte instrumenter — anbefalt for systematisk kartlegging"

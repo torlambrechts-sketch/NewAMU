@@ -4,7 +4,6 @@ import { LayoutScoreStatRow } from '../../../src/components/layout/LayoutScoreSt
 import { ModuleSectionCard } from '../../../src/components/module'
 import { Badge } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
-import { ComplianceBanner } from '../../../src/components/ui/ComplianceBanner'
 import type { SurveyRow } from '../types'
 import { surveyStatusBadgeVariant, surveyStatusLabel } from '../surveyLabels'
 
@@ -52,11 +51,6 @@ export function SurveyOversiktModuleTab({ surveys, loading, onNewSurvey }: Props
 
   return (
     <div className="space-y-6">
-      <ComplianceBanner title="AML § 3-1 (2)c · § 4-3 · § 7-2 (2)e — Kartlegging og medvirkning">
-        Systematisk kartlegging av psykososialt arbeidsmiljø er påkrevd. Resultater presenteres for AMU og
-        vernombud, og følges opp med handlingsplan (IK-forskriften § 5).
-      </ComplianceBanner>
-
       <LayoutScoreStatRow items={kpiItems} columns={4} />
 
       {active.length > 0 && (

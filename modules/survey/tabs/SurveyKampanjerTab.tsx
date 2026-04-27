@@ -1,13 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Ghost } from 'lucide-react'
-import { LayoutTable1PostingsShell } from '../../../src/components/layout/LayoutTable1PostingsShell'
+import { ChevronRight, Ghost, Search } from 'lucide-react'
 import {
-  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
-  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
-  LAYOUT_TABLE1_POSTINGS_TH,
-  LAYOUT_TABLE1_POSTINGS_TD,
-} from '../../../src/components/layout/layoutTable1PostingsKit'
+  ModuleRecordsTableShell,
+  MODULE_TABLE_TH,
+  MODULE_TABLE_TR_BODY,
+} from '../../../src/components/module'
 import { Badge } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
 import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
@@ -72,36 +70,26 @@ export function SurveyKampanjerTab({ surveys, loading, canManage, onNewSurvey }:
     return true
   })
 
+  const kpiItems = useMemo(() => {
+    const active = surveys.filter((s) => s.status === 'active').length
+    const drafts = surveys.filter((s) => s.status === 'draft').length
+    const external = surveys.filter((s) => s.survey_type === 'external').length
+    return [
+      { big: String(active), title: 'Aktive', sub: 'Publisert og åpen' },
+      { big: String(drafts), title: 'Kladder', sub: 'Ikke publisert' },
+      { big: String(external), title: 'Leverandør', sub: 'Eksterne undersøkelser' },
+      { big: String(surveys.length), title: 'Totalt', sub: 'Alle kampanjer' },
+    ]
+  }, [surveys])
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        <div className="flex-1" style={{ minWidth: '180px' }}>
-          <StandardInput
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Søk i kampanjer…"
-          />
-        </div>
-        <div style={{ minWidth: '140px' }}>
-          <SearchableSelect
-            value={filterType}
-            options={TYPE_OPTIONS}
-            onChange={setFilterType}
-          />
-        </div>
-        <div style={{ minWidth: '140px' }}>
-          <SearchableSelect
-            value={filterStatus}
-            options={STATUS_OPTIONS}
-            onChange={setFilterStatus}
-          />
-        </div>
-      </div>
-
-      <LayoutTable1PostingsShell
-        wrap
+      <ModuleRecordsTableShell
+        kpiItems={kpiItems}
+        kpiRowProps={{ columns: 4 }}
         title="Kampanjer"
         description="Alle organisasjonsundersøkelser — ansatte og leverandører."
+        titleTypography="sans"
         headerActions={
           canManage ? (
             <Button type="button" variant="primary" size="sm" onClick={onNewSurvey}>
@@ -109,7 +97,40 @@ export function SurveyKampanjerTab({ surveys, loading, canManage, onNewSurvey }:
             </Button>
           ) : null
         }
-        toolbar={<span className="text-xs text-neutral-500">{filtered.length} kampanjer</span>}
+        toolbar={
+          <div className="flex w-full flex-wrap items-center gap-2">
+            <div className="relative min-w-[200px] flex-1">
+              <label className="sr-only" htmlFor="survey-campaign-search">
+                Søk
+              </label>
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"
+                aria-hidden
+              />
+              <StandardInput
+                id="survey-campaign-search"
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Søk i tittel…"
+                className="py-2 pl-10"
+              />
+            </div>
+            <div className="min-w-[140px]">
+              <SearchableSelect value={filterType} options={TYPE_OPTIONS} onChange={setFilterType} />
+            </div>
+            <div className="min-w-[140px]">
+              <SearchableSelect value={filterStatus} options={STATUS_OPTIONS} onChange={setFilterStatus} />
+            </div>
+          </div>
+        }
+        footer={
+          <span className="text-neutral-500">
+            {search.trim() || filterType || filterStatus
+              ? `${filtered.length} treff`
+              : `Viser ${filtered.length} kampanjer`}
+          </span>
+        }
       >
         {loading && filtered.length === 0 ? (
           <div className="py-12 text-center text-sm text-neutral-400">Laster…</div>
@@ -129,60 +150,45 @@ export function SurveyKampanjerTab({ surveys, loading, canManage, onNewSurvey }:
           </div>
         ) : (
           <div className="overflow-x-auto w-full">
-            <table className="w-full text-left text-sm whitespace-nowrap">
+            <table className="w-full min-w-[700px] border-collapse text-left text-sm">
               <thead>
-                <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-                  <th className={LAYOUT_TABLE1_POSTINGS_TH}>Kampanje</th>
-                  <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type</th>
-                  <th className={LAYOUT_TABLE1_POSTINGS_TH}>Periode</th>
-                  <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
-                  <th className={`${LAYOUT_TABLE1_POSTINGS_TH} text-right`}>Handling</th>
+                <tr>
+                  <th className={MODULE_TABLE_TH}>Kampanje</th>
+                  <th className={MODULE_TABLE_TH}>Type</th>
+                  <th className={MODULE_TABLE_TH}>Periode</th>
+                  <th className={MODULE_TABLE_TH}>Status</th>
+                  <th className={`w-8 ${MODULE_TABLE_TH}`} aria-hidden />
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((s) => (
-                  <tr key={s.id} className={LAYOUT_TABLE1_POSTINGS_BODY_ROW}>
-                    <td className={LAYOUT_TABLE1_POSTINGS_TD}>
-                      <span
-                        className="cursor-pointer font-medium text-[#1a3d32] hover:underline"
-                        onClick={() => navigate(`/survey/${s.id}`)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => e.key === 'Enter' && navigate(`/survey/${s.id}`)}
-                      >
-                        {s.title}
-                      </span>
+                  <tr
+                    key={s.id}
+                    className={`${MODULE_TABLE_TR_BODY} cursor-pointer`}
+                    onClick={() => navigate(`/survey/${s.id}`)}
+                  >
+                    <td className="px-5 py-4 align-middle">
+                      <span className="font-medium text-neutral-900">{s.title}</span>
                       {s.description && (
-                        <span className="ml-1 block max-w-md truncate text-xs text-neutral-500">
-                          {s.description}
-                        </span>
+                        <span className="ml-1 block max-w-md truncate text-xs text-neutral-500">{s.description}</span>
                       )}
-                      {s.vendor_name && (
-                        <span className="block text-xs text-neutral-400">{s.vendor_name}</span>
-                      )}
+                      {s.vendor_name && <span className="block text-xs text-neutral-400">{s.vendor_name}</span>}
                     </td>
-                    <td className={LAYOUT_TABLE1_POSTINGS_TD}>
-                      <Badge variant={surveyTypeBadgeVariant(s.survey_type)}>
+                    <td className="px-5 py-4 align-middle">
+                      <Badge variant={surveyTypeBadgeVariant(s.survey_type)} className="text-xs">
                         {surveyTypeLabel(s.survey_type)}
                       </Badge>
                     </td>
-                    <td className={`${LAYOUT_TABLE1_POSTINGS_TD} text-xs text-neutral-500`}>
+                    <td className="px-5 py-4 align-middle text-xs text-neutral-600">
                       <DateRange s={s} />
                     </td>
-                    <td className={LAYOUT_TABLE1_POSTINGS_TD}>
-                      <Badge variant={surveyStatusBadgeVariant(s.status)}>
+                    <td className="px-5 py-4 align-middle">
+                      <Badge variant={surveyStatusBadgeVariant(s.status)} className="text-xs">
                         {surveyStatusLabel(s.status)}
                       </Badge>
                     </td>
-                    <td className={`${LAYOUT_TABLE1_POSTINGS_TD} text-right`}>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => navigate(`/survey/${s.id}`)}
-                      >
-                        Åpne
-                      </Button>
+                    <td className="w-8 px-3 py-4 align-middle text-neutral-300">
+                      <ChevronRight className="h-4 w-4" aria-hidden />
                     </td>
                   </tr>
                 ))}
@@ -190,7 +196,7 @@ export function SurveyKampanjerTab({ surveys, loading, canManage, onNewSurvey }:
             </table>
           </div>
         )}
-      </LayoutTable1PostingsShell>
+      </ModuleRecordsTableShell>
     </div>
   )
 }

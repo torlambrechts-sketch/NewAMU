@@ -112,7 +112,7 @@ export function SurveyModuleAdminPage() {
     return (
       <ModulePageShell
         breadcrumb={[
-          { label: 'Arbeidsplass', to: '/workspace' },
+          { label: 'HMS' },
           { label: 'Undersøkelser', to: '/survey' },
           { label: 'Modulinnstillinger' },
         ]}
@@ -129,7 +129,7 @@ export function SurveyModuleAdminPage() {
   return (
     <ModulePageShell
       breadcrumb={[
-        { label: 'Arbeidsplass', to: '/workspace' },
+        { label: 'HMS' },
         { label: 'Undersøkelser', to: '/survey' },
         { label: 'Modulinnstillinger' },
       ]}

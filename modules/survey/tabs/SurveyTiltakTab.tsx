@@ -3,8 +3,7 @@ import { CheckSquare, Plus, Loader2 } from 'lucide-react'
 import { ModuleSectionCard } from '../../../src/components/module'
 import { Button } from '../../../src/components/ui/Button'
 import { Badge } from '../../../src/components/ui/Badge'
-import { ComplianceBanner } from '../../../src/components/ui/ComplianceBanner'
-import { WarningBox } from '../../../src/components/ui/AlertBox'
+import { InfoBox, WarningBox } from '../../../src/components/ui/AlertBox'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { StandardTextarea } from '../../../src/components/ui/Textarea'
 import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
@@ -142,10 +141,10 @@ export function SurveyTiltakTab({ survey, s }: SurveyDetailTab) {
 
   return (
     <div className="space-y-6">
-      <ComplianceBanner title="AML § 3-1, IK-forskriften § 5 — Handlingsplan">
-        Tiltak skal iverksettes der undersøkelsesresultater avdekker avvik. Handlingsplaner presenteres for AMU og
-        vernombud. Auto-genererte planer opprettes der score er under grenseverdien.
-      </ComplianceBanner>
+      <InfoBox>
+        Oppfølgingstiltak kobles til funn i undersøkelsen. Juridisk forankring vises i regelverkspanelet på
+        detaljsiden.
+      </InfoBox>
 
       {survey.error && <WarningBox>{survey.error}</WarningBox>}
 
