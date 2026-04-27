@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Apply all SQL files under supabase/migrations/ (recursive, including archive/)
 # in lexical order by filename (timestamp prefix YYYYMMDDHHMMSS_...).
-# Convention: new migrations live in supabase/migrations/; older chain stays in archive/.
+# Convention: new migrations go in supabase/migrations/*.sql only — do not add new SQL under archive/.
 # Requires: psql (postgresql-client) and a Postgres connection URL in the environment.
 #
 # Reads the first non-empty value among:

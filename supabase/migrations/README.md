@@ -1,8 +1,8 @@
 # SQL migrations
 
-**New migrations** — add timestamped `*.sql` files **in this directory** (`supabase/migrations/`), not under `archive/`, so the folder stays easy to scan.
+**New migrations** — add timestamped `*.sql` files in **`supabase/migrations/`** (convention: at repo root of this folder, e.g. `20260801120000_my_change.sql`), **not** under **`archive/`**. **Do not add or update** SQL in `supabase/migrations/archive/`; that tree is the historical chain only. New work is always a new file with a timestamp after the latest migration in the tree.
 
-**Historical migrations** — older SQL lives under **`archive/`**. `scripts/apply-migrations.sh` still discovers **all** `*.sql` files under `supabase/migrations/` recursively and runs them sorted by **basename** (timestamp prefix), so load order is unchanged.
+**`archive/`** — legacy chain kept for reference and for `apply-migrations` compatibility on old clones. New environments should still apply; treat as read-only when developing.
 
 They are **not** “run once then forgotten”: new environments still apply the full chain in filename order (`YYYYMMDDHHMMSS_...`).
 
