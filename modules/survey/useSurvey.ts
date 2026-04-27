@@ -7,6 +7,7 @@ import { parseSurveyModuleSettings } from './surveyAdminSettingsSchema'
 import type {
   SurveyRow,
   SurveyStatus,
+  SurveyType,
   OrgSurveyQuestionRow,
   OrgSurveyResponseRow,
   OrgSurveyAnswerRow,
@@ -46,6 +47,11 @@ type CreateSurveyInput = {
   title: string
   description?: string | null
   is_anonymous?: boolean
+  survey_type?: SurveyType
+  start_date?: string | null
+  end_date?: string | null
+  vendor_name?: string | null
+  vendor_org_number?: string | null
 }
 
 type UpsertQuestionInput = {
@@ -395,6 +401,11 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
             description: input.description ?? null,
             is_anonymous: anonymous ?? false,
             status: 'draft',
+            survey_type: input.survey_type ?? 'internal',
+            start_date: input.start_date ?? null,
+            end_date: input.end_date ?? null,
+            vendor_name: input.vendor_name ?? null,
+            vendor_org_number: input.vendor_org_number ?? null,
           })
           .select()
           .single()
@@ -412,7 +423,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
   )
 
   const updateSurvey = useCallback(
-    async (surveyId: string, patch: Partial<Pick<SurveyRow, 'title' | 'description' | 'is_anonymous' | 'status' | 'published_at' | 'closed_at'>>) => {
+    async (surveyId: string, patch: Partial<Pick<SurveyRow, 'title' | 'description' | 'is_anonymous' | 'status' | 'published_at' | 'closed_at' | 'survey_type' | 'start_date' | 'end_date' | 'vendor_name' | 'vendor_org_number'>>) => {
       if (!supabase) return false
       if (!requireManage()) return false
       const oid = assertOrg()

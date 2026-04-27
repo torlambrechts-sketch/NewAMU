@@ -5,6 +5,8 @@ import { z } from 'zod'
 
 export type SurveyStatus = 'draft' | 'active' | 'closed' | 'archived'
 
+export type SurveyType = 'internal' | 'external' | 'pulse' | 'exit' | 'onboarding'
+
 export type SurveyQuestionType = 'rating_1_to_5' | 'text' | 'multiple_choice'
 
 export type SurveyActionPlanStatus = 'open' | 'in_progress' | 'closed'
@@ -17,6 +19,7 @@ export type SurveyPillar =
   | 'custom'
 
 const SurveyStatusSchema = z.enum(['draft', 'active', 'closed', 'archived'])
+const SurveyTypeSchema = z.enum(['internal', 'external', 'pulse', 'exit', 'onboarding'])
 const SurveyQuestionTypeSchema = z.enum(['rating_1_to_5', 'text', 'multiple_choice'])
 const SurveyActionPlanStatusSchema = z.enum(['open', 'in_progress', 'closed'])
 const SurveyPillarSchema = z.enum(['psychosocial', 'physical', 'organization', 'safety_culture', 'custom'])
@@ -28,9 +31,14 @@ export type SurveyRow = {
   title: string
   description: string | null
   status: SurveyStatus
+  survey_type: SurveyType
   is_anonymous: boolean
   published_at: string | null
   closed_at: string | null
+  start_date: string | null
+  end_date: string | null
+  vendor_name: string | null
+  vendor_org_number: string | null
   anonymity_threshold: number
   amu_review_required: boolean
   action_threshold: number
@@ -46,9 +54,14 @@ export const SurveyRowSchema = z.object({
   title: z.string(),
   description: z.string().nullable(),
   status: SurveyStatusSchema,
+  survey_type: SurveyTypeSchema.default('internal'),
   is_anonymous: z.boolean(),
   published_at: z.string().nullable(),
   closed_at: z.string().nullable(),
+  start_date: z.string().nullable().default(null),
+  end_date: z.string().nullable().default(null),
+  vendor_name: z.string().nullable().default(null),
+  vendor_org_number: z.string().nullable().default(null),
   anonymity_threshold: z.number().int().positive().default(5),
   amu_review_required: z.boolean().default(true),
   action_threshold: z.number().int().min(0).max(100).default(60),
@@ -271,6 +284,7 @@ export function parseSurveyActionPlanRow(
 }
 
 export const surveyStatusEnum = SurveyStatusSchema
+export const surveyTypeEnum = SurveyTypeSchema
 export const questionTypeEnum = SurveyQuestionTypeSchema
 export const surveyActionPlanStatusEnum = SurveyActionPlanStatusSchema
 export const surveyPillarEnum = SurveyPillarSchema
@@ -294,4 +308,12 @@ export const ACTION_PLAN_STATUS_LABEL: Record<SurveyActionPlanStatus, string> = 
   open: 'Åpen',
   in_progress: 'Pågår',
   closed: 'Lukket',
+}
+
+export const SURVEY_TYPE_LABEL: Record<SurveyType, string> = {
+  internal: 'Ansatte',
+  external: 'Leverandør',
+  pulse: 'Puls',
+  exit: 'Sluttsamtale',
+  onboarding: 'Onboarding',
 }
