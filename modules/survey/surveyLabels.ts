@@ -32,15 +32,45 @@ export function surveyTypeLabel(type: SurveyType): string {
 }
 
 export function questionTypeLabel(t: SurveyQuestionType): string {
-  if (t === 'rating_1_to_5') return 'Vurdering 1–5'
-  if (t === 'text') return 'Fritekst'
-  return 'Flervalg'
+  switch (t) {
+    case 'rating_1_to_5':
+      return 'Vurdering 1–5'
+    case 'rating_1_to_10':
+      return 'Vurdering 0–10'
+    case 'text':
+      return 'Fritekst'
+    case 'yes_no':
+      return 'Ja / nei'
+    case 'multiple_choice':
+      return 'Flervalg (knapper)'
+    case 'single_select':
+      return 'Enkeltvalg'
+    case 'multi_select':
+      return 'Flervalg (flere)'
+    default:
+      return t
+  }
 }
 
 export const QUESTION_TYPE_OPTIONS: { value: SurveyQuestionType; label: string }[] = [
   { value: 'rating_1_to_5', label: 'Vurdering 1–5' },
+  { value: 'rating_1_to_10', label: 'Vurdering 0–10' },
   { value: 'text', label: 'Fritekst' },
-  { value: 'multiple_choice', label: 'Flervalg' },
+  { value: 'yes_no', label: 'Ja / nei' },
+  { value: 'multiple_choice', label: 'Flervalg (knapper)' },
+  { value: 'single_select', label: 'Enkeltvalg (liste)' },
+  { value: 'multi_select', label: 'Flervalg (kryss av flere)' },
+]
+
+/** Spørsmålstyper som kan trekkes inn fra paletten i byggeren (rekkefølge = UI). */
+export const SURVEY_BUILDER_PALETTE: { type: SurveyQuestionType; label: string; hint: string }[] = [
+  { type: 'text', label: 'Fritekst', hint: 'Åpent svar' },
+  { type: 'multiple_choice', label: 'Flervalg', hint: 'Ja/Nei eller egne alternativer' },
+  { type: 'single_select', label: 'Enkeltvalg', hint: 'Ett av flere' },
+  { type: 'multi_select', label: 'Flervalg flere', hint: 'Kryss av flere' },
+  { type: 'yes_no', label: 'Ja / nei', hint: 'To knapper' },
+  { type: 'rating_1_to_5', label: 'Skala 1–5', hint: 'Likert' },
+  { type: 'rating_1_to_10', label: 'Skala 0–10', hint: 'NPS-lignende' },
 ]
 
 export const SURVEY_TYPE_OPTIONS: { value: SurveyType; label: string }[] = [

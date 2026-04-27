@@ -1,20 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ArrowLeft, EyeOff, Ghost, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, EyeOff, Ghost, Trash2 } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
-import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
-import {
-  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
-  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
-  LAYOUT_TABLE1_POSTINGS_TH,
-  LAYOUT_TABLE1_POSTINGS_TD,
-} from '../../src/components/layout/layoutTable1PostingsKit'
 import {
   ModuleLegalBanner,
   ModulePageShell,
@@ -33,8 +26,16 @@ import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { SURVEY_K_ANONYMITY_MIN } from '../../src/lib/orgSurveyKAnonymity'
 import { useSurvey } from './useSurvey'
 import type { UseSurveyState } from './useSurvey'
+import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
+import {
+  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
+  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
+  LAYOUT_TABLE1_POSTINGS_TH,
+  LAYOUT_TABLE1_POSTINGS_TD,
+} from '../../src/components/layout/layoutTable1PostingsKit'
 import { buildAnalyticsByQuestionId } from './surveyAnalytics'
-import { QUESTION_TYPE_OPTIONS, questionTypeLabel, surveyStatusBadgeVariant, surveyStatusLabel } from './surveyLabels'
+import { QUESTION_TYPE_OPTIONS, surveyStatusBadgeVariant, surveyStatusLabel } from './surveyLabels'
+import { SurveyBuilderStage } from './SurveyBuilderStage'
 import { SurveyAmuTab } from './tabs/SurveyAmuTab'
 import { SurveyTiltakTab } from './tabs/SurveyTiltakTab'
 import { SURVEY_DETAIL_EXTRA_LEGAL_REFERENCES, SURVEY_MODULE_LEGAL_REFERENCES } from './surveyLegalReferences'
@@ -219,115 +220,35 @@ function OversiktTab({
 
 function ByggerTab({
   survey,
-  s,
+  surveyId,
   isLocked,
   openNewQuestion,
   openEditQuestion,
 }: {
   survey: UseSurveyState
-  s: SurveyRow
+  surveyId: string
   isLocked: boolean
   openNewQuestion: () => void
   openEditQuestion: (q: OrgSurveyQuestionRow) => void
 }) {
-  return (
-    <div>
-      {survey.questions.length === 0 && !isLocked ? (
-        <TabEmpty
-          message="Ingen spørsmål lagt til enda. Legg til spørsmål for å bygge undersøkelsen."
-          footer={
-            survey.canManage ? (
-              <Button type="button" variant="primary" onClick={openNewQuestion}>
-                <Plus className="h-4 w-4" aria-hidden />
-                Legg til spørsmål
-              </Button>
-            ) : null
-          }
-        />
-      ) : null}
-      {survey.questions.length === 0 && isLocked ? (
-        <TabEmpty message="Ingen spørsmål i denne undersøkelsen. Kontakt administrator for å få lagt inn spørsmål (gjelder særlig eldre utkast)." />
-      ) : null}
+  if (!survey.canManage) {
+    return (
+      <TabEmpty message="Du har ikke tilgang til å redigere spørsmål. Kontakt en administrator med survey.manage." />
+    )
+  }
 
-      {survey.questions.length > 0 || survey.canManage ? (
-        <LayoutTable1PostingsShell
-          wrap={false}
-          title="Spørsmål"
-          description="Rekkefølge, type og veiledning til deltakere. Redigering i eget panel — ikke inne i tabellen."
-          headerActions={
-            survey.canManage && !isLocked ? (
-              <Button type="button" variant="primary" size="sm" onClick={openNewQuestion}>
-                <Plus className="h-4 w-4" aria-hidden />
-                Legg til
-              </Button>
-            ) : isLocked ? (
-              <span className="text-xs text-neutral-500">Spørsmål er låst (publisert/lukket)</span>
-            ) : null
-          }
-          toolbar={
-            <span className="text-xs text-neutral-500">{survey.questions.length} spørsmål · sortert etter indeks</span>
-          }
-        >
-          {survey.questions.length === 0 ? null : (
-            <div className="overflow-x-auto w-full">
-              <table className="w-full text-left text-sm whitespace-nowrap">
-                <thead>
-                  <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>#</th>
-                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Spørsmål</th>
-                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type</th>
-                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Må fylles</th>
-                    <th className={`${LAYOUT_TABLE1_POSTINGS_TH} text-right`}>Handlinger</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {survey.questions.map((q) => (
-                    <tr key={q.id} className={LAYOUT_TABLE1_POSTINGS_BODY_ROW}>
-                      <td className={LAYOUT_TABLE1_POSTINGS_TD}>{q.order_index}</td>
-                      <td className={LAYOUT_TABLE1_POSTINGS_TD}>
-                        <span className="whitespace-normal text-neutral-900">{q.question_text}</span>
-                      </td>
-                      <td className={LAYOUT_TABLE1_POSTINGS_TD}>
-                        <Badge variant="info">{questionTypeLabel(q.question_type)}</Badge>
-                      </td>
-                      <td className={LAYOUT_TABLE1_POSTINGS_TD}>{q.is_required ? 'Ja' : 'Nei'}</td>
-                      <td className={`${LAYOUT_TABLE1_POSTINGS_TD} text-right`}>
-                        {survey.canManage && !isLocked ? (
-                          <div className="inline-flex items-center justify-end gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              title="Rediger"
-                              onClick={() => openEditQuestion(q)}
-                            >
-                              <Pencil className="h-4 w-4" aria-hidden />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="text-red-600 hover:text-red-800"
-                              title="Slett"
-                              onClick={() => {
-                                void survey.deleteQuestion(q.id, s.id)
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" aria-hidden />
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-neutral-400">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </LayoutTable1PostingsShell>
+  return (
+    <div className="space-y-4">
+      {isLocked ? (
+        <InfoBox>Undersøkelsen er publisert eller lukket — spørsmål kan ikke legges til eller endres.</InfoBox>
       ) : null}
+      <SurveyBuilderStage
+        survey={survey}
+        surveyId={surveyId}
+        isLocked={isLocked}
+        onEditQuestion={openEditQuestion}
+        onAddQuestion={openNewQuestion}
+      />
     </div>
   )
 }
@@ -412,9 +333,12 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
         survey.questions.map((q) => {
           const a = analyticsByQuestion[q.id]
           const n =
-            q.question_type === 'rating_1_to_5'
+            q.question_type === 'rating_1_to_5' || q.question_type === 'rating_1_to_10'
               ? a?.numbers.length ?? 0
-              : q.question_type === 'multiple_choice'
+              : q.question_type === 'multiple_choice' ||
+                  q.question_type === 'yes_no' ||
+                  q.question_type === 'single_select' ||
+                  q.question_type === 'multi_select'
                 ? Object.values(a?.choiceCounts ?? {}).reduce((sum, v) => sum + v, 0)
                 : 0
 
@@ -453,7 +377,11 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
             )
           }
 
-          if (q.question_type === 'rating_1_to_5') {
+          if (q.question_type === 'rating_1_to_5' || q.question_type === 'rating_1_to_10') {
+            const cfg = q.config as { scaleMin?: number; scaleMax?: number } | undefined
+            const smin = cfg?.scaleMin ?? (q.question_type === 'rating_1_to_10' ? 0 : 1)
+            const smax = cfg?.scaleMax ?? (q.question_type === 'rating_1_to_10' ? 10 : 5)
+            const span = Math.max(1, smax - smin)
             const avg = n > 0 ? a!.numbers.reduce((x, y) => x + y, 0) / n : 0
             return (
               <div
@@ -468,7 +396,7 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
                   <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-neutral-100">
                     <div
                       className="h-full rounded-full bg-[#1a3d32]"
-                      style={{ width: `${Math.min(100, (avg / 5) * 100)}%` }}
+                      style={{ width: `${Math.min(100, ((avg - smin) / span) * 100)}%` }}
                     />
                   </div>
                 ) : null}
@@ -514,7 +442,10 @@ export function SurveyDetailView({ supabase }: Props) {
   const [qType, setQType] = useState<SurveyQuestionType>('rating_1_to_5')
   const [qOrder, setQOrder] = useState('0')
   const [qRequired, setQRequired] = useState(true)
+  const [qOptionsLines, setQOptionsLines] = useState('')
+  const [qConfigJson, setQConfigJson] = useState('{}')
   const [qSaving, setQSaving] = useState(false)
+  const [questionPanelError, setQuestionPanelError] = useState<string | null>(null)
 
   const { loadSurveyDetail } = survey
   useEffect(() => {
@@ -574,6 +505,8 @@ export function SurveyDetailView({ supabase }: Props) {
     setQType('rating_1_to_5')
     setQOrder(String(survey.questions.length))
     setQRequired(true)
+    setQOptionsLines('')
+    setQConfigJson('{}')
     setPanelOpen(true)
   }, [s, surveyId, survey.questions.length])
 
@@ -583,10 +516,18 @@ export function SurveyDetailView({ supabase }: Props) {
     setQType(q.question_type)
     setQOrder(String(q.order_index))
     setQRequired(q.is_required)
+    const opts = (q.config as { options?: string[] } | undefined)?.options
+    setQOptionsLines(Array.isArray(opts) ? opts.join('\n') : '')
+    try {
+      setQConfigJson(JSON.stringify(q.config ?? {}, null, 2))
+    } catch {
+      setQConfigJson('{}')
+    }
     setPanelOpen(true)
   }, [])
 
   const closePanel = useCallback(() => {
+    setQuestionPanelError(null)
     setPanelOpen(false)
     setEditingQ(null)
   }, [])
@@ -595,6 +536,25 @@ export function SurveyDetailView({ supabase }: Props) {
     if (!s || !surveyId || !qText.trim()) return
     const order = Number.parseInt(qOrder, 10)
     if (!Number.isFinite(order)) return
+    let config: Record<string, unknown> = {}
+    try {
+      const parsed = JSON.parse(qConfigJson || '{}') as unknown
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        config = parsed as Record<string, unknown>
+      }
+    } catch {
+      setQuestionPanelError('Ugyldig JSON i avansert konfigurasjon.')
+      return
+    }
+    const optionTypes: SurveyQuestionType[] = ['multiple_choice', 'single_select', 'multi_select']
+    if (optionTypes.includes(qType)) {
+      const opts = qOptionsLines
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+      config = { ...config, options: opts.length > 0 ? opts : ['Alternativ 1', 'Alternativ 2'] }
+    }
+    setQuestionPanelError(null)
     setQSaving(true)
     const row = await survey.upsertQuestion({
       id: editingQ?.id,
@@ -605,10 +565,11 @@ export function SurveyDetailView({ supabase }: Props) {
       isRequired: qRequired,
       isMandatory: editingQ?.is_mandatory,
       mandatoryLaw: editingQ?.mandatory_law,
+      config,
     })
     setQSaving(false)
     if (row) closePanel()
-  }, [s, surveyId, qText, qType, qOrder, qRequired, editingQ, survey, closePanel])
+  }, [s, surveyId, qText, qType, qOrder, qRequired, qOptionsLines, qConfigJson, editingQ, survey, closePanel])
 
   const isLocked = !!(s && (s.status === 'active' || s.status === 'closed'))
   const panelTitleId = 'survey-question-panel-title'
@@ -694,7 +655,7 @@ export function SurveyDetailView({ supabase }: Props) {
           {tab === 'bygger' && (
             <ByggerTab
               survey={survey}
-              s={s}
+              surveyId={s.id}
               isLocked={isLocked}
               openNewQuestion={openNewQuestion}
               openEditQuestion={openEditQuestion}
@@ -713,7 +674,10 @@ export function SurveyDetailView({ supabase }: Props) {
 
       <SlidePanel
         open={panelOpen}
-        onClose={closePanel}
+        onClose={() => {
+          setQuestionPanelError(null)
+          closePanel()
+        }}
         titleId={panelTitleId}
         title={editingQ ? 'Rediger spørsmål' : 'Nytt spørsmål'}
         footer={
@@ -728,6 +692,7 @@ export function SurveyDetailView({ supabase }: Props) {
         }
       >
         <div className="space-y-5">
+          {questionPanelError ? <WarningBox>{questionPanelError}</WarningBox> : null}
           <div>
             <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="q-text">
               Spørsmålstekst
@@ -762,6 +727,55 @@ export function SurveyDetailView({ supabase }: Props) {
               <YesNoToggle value={qRequired} onChange={(v) => setQRequired(v)} />
             </div>
           </div>
+
+          {(['multiple_choice', 'single_select', 'multi_select'] as SurveyQuestionType[]).includes(qType) ? (
+            <div>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="q-opts">
+                Alternativer (én per linje)
+              </label>
+              <StandardTextarea
+                id="q-opts"
+                value={qOptionsLines}
+                onChange={(e) => setQOptionsLines(e.target.value)}
+                rows={5}
+                placeholder="Ja&#10;Nei&#10;Vet ikke"
+              />
+            </div>
+          ) : null}
+
+          <div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="q-config-json">
+              Avansert (JSON: skala, ankere …)
+            </label>
+            <StandardTextarea
+              id="q-config-json"
+              value={qConfigJson}
+              onChange={(e) => setQConfigJson(e.target.value)}
+              rows={6}
+              className="font-mono text-xs"
+              placeholder='{"scaleMin":1,"scaleMax":5,"anchors":{"low":"…","high":"…"}}'
+            />
+            <p className="mt-1 text-xs text-neutral-500">
+              Tom <code className="rounded bg-neutral-100 px-1">{'{}'}</code> er tillatt. Alternativer for flervalg settes over.
+            </p>
+          </div>
+
+          {editingQ && survey.canManage && !editingQ.is_mandatory ? (
+            <div className="border-t border-neutral-100 pt-4">
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-red-600 hover:text-red-800"
+                onClick={() => {
+                  void survey.deleteQuestion(editingQ.id, surveyId!)
+                  closePanel()
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" aria-hidden />
+                Slett spørsmål
+              </Button>
+            </div>
+          ) : null}
         </div>
       </SlidePanel>
     </>
