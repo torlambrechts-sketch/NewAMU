@@ -1,8 +1,0 @@
-export { SurveyModuleView } from './SurveyModuleView'
-export { SurveyAnalysisPage } from './SurveyAnalysisPage'
-export { SurveyRespondForm } from './SurveyResponsesTab'
-export { useSurveyLegacy } from './useSurveyLegacy'
-export type { SurveyModuleState, CreateCampaignPayload, UpsertQuestionPayload } from './useSurveyLegacy'
-export { useSurvey } from '../../../modules/survey'
-export type { UseSurveyState } from '../../../modules/survey'
-export * from './types'

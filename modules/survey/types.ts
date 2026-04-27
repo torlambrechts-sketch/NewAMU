@@ -1,10 +1,26 @@
-// Enterprise survey (AML Kap. 4) — row types mirroring Supabase.
-// Note: table names in DB are `org_survey_questions`, `org_survey_responses`, `org_survey_answers`
-// to avoid collision with legacy `survey_questions` / `survey_responses` (QPS/psykososial modul).
+import { z } from 'zod'
 
-export type SurveyStatus = 'draft' | 'active' | 'closed'
+// Enterprise survey (AML Kap. 4) — row types mirroring Supabase.
+// tabeller: `org_survey_questions`, `org_survey_responses`, `org_survey_answers` (i motsetning til eldre QPS-tabeller)
+
+export type SurveyStatus = 'draft' | 'active' | 'closed' | 'archived'
 
 export type SurveyQuestionType = 'rating_1_to_5' | 'text' | 'multiple_choice'
+
+export type SurveyActionPlanStatus = 'open' | 'in_progress' | 'closed'
+
+export type SurveyPillar =
+  | 'psychosocial'
+  | 'physical'
+  | 'organization'
+  | 'safety_culture'
+  | 'custom'
+
+const SurveyStatusSchema = z.enum(['draft', 'active', 'closed', 'archived'])
+const SurveyQuestionTypeSchema = z.enum(['rating_1_to_5', 'text', 'multiple_choice'])
+const SurveyActionPlanStatusSchema = z.enum(['open', 'in_progress', 'closed'])
+const SurveyPillarSchema = z.enum(['psychosocial', 'physical', 'organization', 'safety_culture', 'custom'])
+const MandatoryLawSchema = z.enum(['AML_4_3', 'AML_4_4', 'AML_6_2']).nullable()
 
 export type SurveyRow = {
   id: string
@@ -15,8 +31,39 @@ export type SurveyRow = {
   is_anonymous: boolean
   published_at: string | null
   closed_at: string | null
+  anonymity_threshold: number
+  amu_review_required: boolean
+  action_threshold: number
+  recurrence_months: number | null
+  next_scheduled_at: string | null
   created_at: string
   updated_at: string
+}
+
+export const SurveyRowSchema = z.object({
+  id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  title: z.string(),
+  description: z.string().nullable(),
+  status: SurveyStatusSchema,
+  is_anonymous: z.boolean(),
+  published_at: z.string().nullable(),
+  closed_at: z.string().nullable(),
+  anonymity_threshold: z.number().int().positive().default(5),
+  amu_review_required: z.boolean().default(true),
+  action_threshold: z.number().int().min(0).max(100).default(60),
+  recurrence_months: z.number().int().min(1).max(120).nullable().default(null),
+  next_scheduled_at: z.string().nullable().default(null),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+export function parseSurveyRow(
+  raw: unknown,
+): { success: true; data: SurveyRow } | { success: false } {
+  const r = SurveyRowSchema.safeParse(raw)
+  if (r.success) return { success: true, data: r.data }
+  return { success: false }
 }
 
 export type OrgSurveyQuestionRow = {
@@ -27,8 +74,32 @@ export type OrgSurveyQuestionRow = {
   question_type: SurveyQuestionType
   order_index: number
   is_required: boolean
+  is_mandatory: boolean
+  mandatory_law: 'AML_4_3' | 'AML_4_4' | 'AML_6_2' | null
   created_at: string
   updated_at: string
+}
+
+export const OrgSurveyQuestionRowSchema = z.object({
+  id: z.string().uuid(),
+  survey_id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  question_text: z.string(),
+  question_type: SurveyQuestionTypeSchema,
+  order_index: z.number().int(),
+  is_required: z.boolean(),
+  is_mandatory: z.boolean().default(false),
+  mandatory_law: MandatoryLawSchema.default(null),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+export function parseOrgSurveyQuestionRow(
+  raw: unknown,
+): { success: true; data: OrgSurveyQuestionRow } | { success: false } {
+  const r = OrgSurveyQuestionRowSchema.safeParse(raw)
+  if (r.success) return { success: true, data: r.data }
+  return { success: false }
 }
 
 export type OrgSurveyResponseRow = {
@@ -39,6 +110,24 @@ export type OrgSurveyResponseRow = {
   submitted_at: string
   created_at: string
   updated_at: string
+}
+
+export const OrgSurveyResponseRowSchema = z.object({
+  id: z.string().uuid(),
+  survey_id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  user_id: z.string().uuid().nullable(),
+  submitted_at: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+export function parseOrgSurveyResponseRow(
+  raw: unknown,
+): { success: true; data: OrgSurveyResponseRow } | { success: false } {
+  const r = OrgSurveyResponseRowSchema.safeParse(raw)
+  if (r.success) return { success: true, data: r.data }
+  return { success: false }
 }
 
 export type OrgSurveyAnswerRow = {
@@ -52,6 +141,25 @@ export type OrgSurveyAnswerRow = {
   updated_at: string
 }
 
+export const OrgSurveyAnswerRowSchema = z.object({
+  id: z.string().uuid(),
+  response_id: z.string().uuid(),
+  question_id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  answer_value: z.number().nullable(),
+  answer_text: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+export function parseOrgSurveyAnswerRow(
+  raw: unknown,
+): { success: true; data: OrgSurveyAnswerRow } | { success: false } {
+  const r = OrgSurveyAnswerRowSchema.safeParse(raw)
+  if (r.success) return { success: true, data: r.data }
+  return { success: false }
+}
+
 export type SurveyQuestionBankRow = {
   id: string
   organization_id: string
@@ -60,4 +168,130 @@ export type SurveyQuestionBankRow = {
   question_type: SurveyQuestionType
   created_at: string
   updated_at: string
+}
+
+export const SurveyQuestionBankRowSchema = z.object({
+  id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  category: z.string(),
+  question_text: z.string(),
+  question_type: SurveyQuestionTypeSchema,
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+export function parseSurveyQuestionBankRow(
+  raw: unknown,
+): { success: true; data: SurveyQuestionBankRow } | { success: false } {
+  const r = SurveyQuestionBankRowSchema.safeParse(raw)
+  if (r.success) return { success: true, data: r.data }
+  return { success: false }
+}
+
+export type SurveyAmuReviewRow = {
+  id: string
+  organization_id: string
+  survey_id: string
+  meeting_date: string | null
+  agenda_item: string | null
+  protocol_text: string | null
+  amu_chair_name: string | null
+  amu_chair_signed_at: string | null
+  vo_name: string | null
+  vo_signed_at: string | null
+  created_at: string
+  updated_at: string
+  created_by: string | null
+}
+
+export const SurveyAmuReviewRowSchema = z.object({
+  id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  survey_id: z.string().uuid(),
+  meeting_date: z.string().nullable(),
+  agenda_item: z.string().nullable(),
+  protocol_text: z.string().nullable(),
+  amu_chair_name: z.string().nullable(),
+  amu_chair_signed_at: z.string().nullable(),
+  vo_name: z.string().nullable(),
+  vo_signed_at: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  created_by: z.string().uuid().nullable(),
+})
+
+export function parseSurveyAmuReviewRow(
+  raw: unknown,
+): { success: true; data: SurveyAmuReviewRow } | { success: false } {
+  const r = SurveyAmuReviewRowSchema.safeParse(raw)
+  if (r.success) return { success: true, data: r.data }
+  return { success: false }
+}
+
+export type SurveyActionPlanRow = {
+  id: string
+  organization_id: string
+  survey_id: string
+  category: string
+  pillar: SurveyPillar
+  title: string
+  description: string | null
+  score: number | null
+  status: SurveyActionPlanStatus
+  responsible: string | null
+  due_date: string | null
+  created_at: string
+  updated_at: string
+  created_by: string | null
+}
+
+export const SurveyActionPlanRowSchema = z.object({
+  id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  survey_id: z.string().uuid(),
+  category: z.string(),
+  pillar: SurveyPillarSchema,
+  title: z.string(),
+  description: z.string().nullable(),
+  score: z.number().nullable(),
+  status: SurveyActionPlanStatusSchema,
+  responsible: z.string().nullable(),
+  due_date: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  created_by: z.string().uuid().nullable(),
+})
+
+export function parseSurveyActionPlanRow(
+  raw: unknown,
+): { success: true; data: SurveyActionPlanRow } | { success: false } {
+  const r = SurveyActionPlanRowSchema.safeParse(raw)
+  if (r.success) return { success: true, data: r.data }
+  return { success: false }
+}
+
+export const surveyStatusEnum = SurveyStatusSchema
+export const questionTypeEnum = SurveyQuestionTypeSchema
+export const surveyActionPlanStatusEnum = SurveyActionPlanStatusSchema
+export const surveyPillarEnum = SurveyPillarSchema
+
+export const SURVEY_STATUS_LABEL: Record<SurveyStatus, string> = {
+  draft: 'Kladd',
+  active: 'Aktiv',
+  closed: 'Lukket',
+  archived: 'Arkivert',
+}
+
+export const SURVEY_PILLAR_LABEL: Record<SurveyPillar, string> = {
+  psychosocial: 'Psykososialt arbeidsmiljø',
+  physical: 'Fysisk arbeidsmiljø',
+  organization: 'Organisasjon og samarbeid',
+  safety_culture: 'Sikkerhetskultur',
+  custom: 'Egendefinert',
+}
+
+export const ACTION_PLAN_STATUS_LABEL: Record<SurveyActionPlanStatus, string> = {
+  open: 'Åpen',
+  in_progress: 'Pågår',
+  closed: 'Lukket',
 }

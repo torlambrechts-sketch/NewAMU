@@ -4,12 +4,14 @@ import type { SurveyQuestionType, SurveyStatus } from './types'
 export function surveyStatusBadgeVariant(status: SurveyStatus): BadgeVariant {
   if (status === 'draft') return 'neutral'
   if (status === 'active') return 'success'
+  if (status === 'archived') return 'neutral'
   return 'warning'
 }
 
 export function surveyStatusLabel(status: SurveyStatus): string {
   if (status === 'draft') return 'Kladd'
   if (status === 'active') return 'Aktiv'
+  if (status === 'archived') return 'Arkivert'
   return 'Lukket'
 }
 
