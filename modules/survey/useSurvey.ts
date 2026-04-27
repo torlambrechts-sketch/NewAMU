@@ -12,6 +12,10 @@ import type {
   OrgSurveyAnswerRow,
   SurveyQuestionBankRow,
   SurveyQuestionType,
+  SurveyAmuReviewRow,
+  SurveyActionPlanRow,
+  SurveyPillar,
+  SurveyActionPlanStatus,
 } from './types'
 import {
   parseSurveyRow,
@@ -19,6 +23,8 @@ import {
   parseOrgSurveyResponseRow,
   parseOrgSurveyAnswerRow,
   parseSurveyQuestionBankRow,
+  parseSurveyAmuReviewRow,
+  parseSurveyActionPlanRow,
 } from './types'
 
 type Supabase = SupabaseClient
@@ -49,6 +55,8 @@ type UpsertQuestionInput = {
   questionType: SurveyQuestionType
   orderIndex: number
   isRequired: boolean
+  isMandatory?: boolean
+  mandatoryLaw?: 'AML_4_3' | 'AML_4_4' | 'AML_6_2' | null
 }
 
 export type UseSurveyState = {
@@ -88,6 +96,28 @@ export type UseSurveyState = {
   refresh: () => Promise<void>
   loadQuestionBank: () => Promise<void>
   dispatchOnSurveyResponseSubmitted: (surveyId: string) => Promise<void>
+  amuReview: SurveyAmuReviewRow | null
+  actionPlans: SurveyActionPlanRow[]
+  loadAmuReview: (surveyId: string) => Promise<void>
+  upsertAmuReview: (
+    surveyId: string,
+    patch: Partial<Pick<SurveyAmuReviewRow, 'meeting_date' | 'agenda_item' | 'protocol_text'>>,
+  ) => Promise<SurveyAmuReviewRow | null>
+  signAmuChair: (reviewId: string, name: string) => Promise<boolean>
+  signVo: (reviewId: string, name: string) => Promise<boolean>
+  loadActionPlans: (surveyId: string) => Promise<void>
+  upsertActionPlan: (input: {
+    id?: string
+    surveyId: string
+    category: string
+    pillar: SurveyPillar
+    title: string
+    description?: string | null
+    score?: number | null
+    responsible?: string | null
+    due_date?: string | null
+  }) => Promise<SurveyActionPlanRow | null>
+  updateActionPlanStatus: (id: string, status: SurveyActionPlanStatus) => Promise<void>
 }
 
 type UseSurveyInput = { supabase: Supabase | null }
@@ -106,6 +136,8 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
   const [questionBank, setQuestionBank] = useState<SurveyQuestionBankRow[]>([])
   const [selectedSurvey, setSelectedSurvey] = useState<SurveyRow | null>(null)
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null)
+  const [amuReview, setAmuReview] = useState<SurveyAmuReviewRow | null>(null)
+  const [actionPlans, setActionPlans] = useState<SurveyActionPlanRow[]>([])
 
   const clearError = useCallback(() => setError(null), [])
 
@@ -166,6 +198,51 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     }
   }, [supabase, assertOrg])
 
+  const loadAmuReview = useCallback(
+    async (surveyId: string) => {
+      if (!supabase) return
+      const oid = assertOrg()
+      if (!oid) return
+      const { data, error: e } = await supabase
+        .from('survey_amu_reviews')
+        .select('*')
+        .eq('survey_id', surveyId)
+        .eq('organization_id', oid)
+        .maybeSingle()
+      if (e) {
+        setError(getSupabaseErrorMessage(e))
+        return
+      }
+      if (!data) {
+        setAmuReview(null)
+        return
+      }
+      const p = parseSurveyAmuReviewRow(data)
+      setAmuReview(p.success ? p.data : null)
+    },
+    [supabase, assertOrg],
+  )
+
+  const loadActionPlans = useCallback(
+    async (surveyId: string) => {
+      if (!supabase) return
+      const oid = assertOrg()
+      if (!oid) return
+      const { data, error: e } = await supabase
+        .from('survey_action_plans')
+        .select('*')
+        .eq('survey_id', surveyId)
+        .eq('organization_id', oid)
+        .order('created_at', { ascending: true })
+      if (e) {
+        setError(getSupabaseErrorMessage(e))
+        return
+      }
+      setActionPlans(collect(data, parseSurveyActionPlanRow))
+    },
+    [supabase, assertOrg],
+  )
+
   const loadSurveyDetail = useCallback(
     async (surveyId: string) => {
       if (!supabase) return
@@ -221,13 +298,15 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           if (aErr) throw aErr
           setAnswers(collect(aData, parseOrgSurveyAnswerRow))
         }
+        await loadAmuReview(surveyId)
+        await loadActionPlans(surveyId)
       } catch (err) {
         setError(getSupabaseErrorMessage(err))
       } finally {
         setLoading(false)
       }
     },
-    [supabase, assertOrg],
+    [supabase, assertOrg, loadAmuReview, loadActionPlans],
   )
 
   const refresh = useCallback(async () => {
@@ -375,6 +454,8 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           question_type: input.questionType,
           order_index: input.orderIndex,
           is_required: input.isRequired,
+          is_mandatory: input.isMandatory ?? false,
+          mandatory_law: input.mandatoryLaw ?? null,
         }
         const q = input.id
           ? supabase
@@ -425,6 +506,11 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
         return
       }
       if (!ensureQuestionEditable(parsed.data)) return
+      const qToDelete = questions.find((q) => q.id === questionId)
+      if (qToDelete?.is_mandatory) {
+        setError('Dette spørsmålet er lovpålagt (AML § 4-3) og kan ikke slettes.')
+        return
+      }
       setError(null)
       try {
         const { error: e } = await supabase
@@ -438,7 +524,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
         setError(getSupabaseErrorMessage(err))
       }
     },
-    [supabase, assertOrg, requireManage, ensureQuestionEditable],
+    [supabase, assertOrg, requireManage, ensureQuestionEditable, questions],
   )
 
   const insertQuestionFromBank = useCallback(
@@ -539,6 +625,174 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           .eq('organization_id', oid)
         if (e) throw e
         setQuestionBank((prev) => prev.filter((b) => b.id !== id))
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+      }
+    },
+    [supabase, assertOrg, requireManage],
+  )
+
+  const upsertAmuReview = useCallback(
+    async (
+      surveyId: string,
+      patch: Partial<Pick<SurveyAmuReviewRow, 'meeting_date' | 'agenda_item' | 'protocol_text'>>,
+    ): Promise<SurveyAmuReviewRow | null> => {
+      if (!supabase) return null
+      if (!requireManage()) return null
+      const oid = assertOrg()
+      if (!oid) return null
+      setError(null)
+      try {
+        const { data, error: e } = await supabase
+          .from('survey_amu_reviews')
+          .upsert(
+            { survey_id: surveyId, organization_id: oid, ...patch },
+            { onConflict: 'survey_id' },
+          )
+          .select()
+          .single()
+        if (e) throw e
+        const pr = parseSurveyAmuReviewRow(data)
+        if (!pr.success) throw new Error('Ugyldig svar fra database')
+        setAmuReview(pr.data)
+        return pr.data
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return null
+      }
+    },
+    [supabase, assertOrg, requireManage],
+  )
+
+  const signAmuChair = useCallback(
+    async (reviewId: string, name: string): Promise<boolean> => {
+      if (!supabase) return false
+      const oid = assertOrg()
+      if (!oid) return false
+      setError(null)
+      try {
+        const { data, error: e } = await supabase
+          .from('survey_amu_reviews')
+          .update({
+            amu_chair_name: name.trim(),
+            amu_chair_signed_at: new Date().toISOString(),
+          })
+          .eq('id', reviewId)
+          .eq('organization_id', oid)
+          .select()
+          .single()
+        if (e) throw e
+        const p = parseSurveyAmuReviewRow(data)
+        if (p.success) setAmuReview(p.data)
+        return true
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return false
+      }
+    },
+    [supabase, assertOrg],
+  )
+
+  const signVo = useCallback(
+    async (reviewId: string, name: string): Promise<boolean> => {
+      if (!supabase) return false
+      const oid = assertOrg()
+      if (!oid) return false
+      setError(null)
+      try {
+        const { data, error: e } = await supabase
+          .from('survey_amu_reviews')
+          .update({
+            vo_name: name.trim(),
+            vo_signed_at: new Date().toISOString(),
+          })
+          .eq('id', reviewId)
+          .eq('organization_id', oid)
+          .select()
+          .single()
+        if (e) throw e
+        const p = parseSurveyAmuReviewRow(data)
+        if (p.success) setAmuReview(p.data)
+        return true
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return false
+      }
+    },
+    [supabase, assertOrg],
+  )
+
+  const upsertActionPlan = useCallback(
+    async (input: {
+      id?: string
+      surveyId: string
+      category: string
+      pillar: SurveyPillar
+      title: string
+      description?: string | null
+      score?: number | null
+      responsible?: string | null
+      due_date?: string | null
+    }): Promise<SurveyActionPlanRow | null> => {
+      if (!supabase) return null
+      if (!requireManage()) return null
+      const oid = assertOrg()
+      if (!oid) return null
+      setError(null)
+      try {
+        const body = {
+          organization_id: oid,
+          survey_id: input.surveyId,
+          category: input.category,
+          pillar: input.pillar,
+          title: input.title,
+          description: input.description ?? null,
+          score: input.score ?? null,
+          responsible: input.responsible ?? null,
+          due_date: input.due_date ?? null,
+        }
+        const q = input.id
+          ? supabase
+              .from('survey_action_plans')
+              .update(body)
+              .eq('id', input.id)
+              .eq('organization_id', oid)
+              .select()
+              .single()
+          : supabase.from('survey_action_plans').insert(body).select().single()
+        const { data, error: e } = await q
+        if (e) throw e
+        const p = parseSurveyActionPlanRow(data)
+        if (!p.success) throw new Error('Ugyldig svar fra database')
+        setActionPlans((prev) => {
+          const i = prev.findIndex((x) => x.id === p.data.id)
+          if (i < 0) return [...prev, p.data].sort((a, b) => a.created_at.localeCompare(b.created_at))
+          return prev.map((x) => (x.id === p.data.id ? p.data : x))
+        })
+        return p.data
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return null
+      }
+    },
+    [supabase, assertOrg, requireManage],
+  )
+
+  const updateActionPlanStatus = useCallback(
+    async (id: string, status: SurveyActionPlanStatus) => {
+      if (!supabase) return
+      if (!requireManage()) return
+      const oid = assertOrg()
+      if (!oid) return
+      setError(null)
+      try {
+        const { error: e } = await supabase
+          .from('survey_action_plans')
+          .update({ status })
+          .eq('id', id)
+          .eq('organization_id', oid)
+        if (e) throw e
+        setActionPlans((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)))
       } catch (err) {
         setError(getSupabaseErrorMessage(err))
       }
@@ -701,5 +955,14 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     clearError,
     refresh,
     loadQuestionBank,
+    amuReview,
+    actionPlans,
+    loadAmuReview,
+    upsertAmuReview,
+    signAmuChair,
+    signVo,
+    loadActionPlans,
+    upsertActionPlan,
+    updateActionPlanStatus,
   }
 }
