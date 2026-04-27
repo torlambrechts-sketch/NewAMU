@@ -12,7 +12,7 @@ import { Badge } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
 import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
 import { StandardInput } from '../../../src/components/ui/Input'
-import type { SurveyRow, SurveyStatus, SurveyType } from '../types'
+import type { SurveyRow } from '../types'
 import {
   surveyStatusBadgeVariant,
   surveyStatusLabel,
