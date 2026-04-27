@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Eye, Pencil, Plus, Search, Upload, X } from 'lucide-react'
+import { Archive, Eye, Pencil, Plus, Search, Upload, X } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import {
@@ -616,15 +616,21 @@ export function WikiSpaceView() {
                           <Pencil className="h-4 w-4" />
                         </Button>
                       ) : null}
+                      {canEditDocs && panelPage.status !== 'archived' ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="icon"
+                          title="Arkiver"
+                          aria-label={`Arkiver ${panelPage.title}`}
+                          onClick={() => void docs.archivePage(panelPage.id)}
+                          icon={<Archive className="h-4 w-4" aria-hidden />}
+                        />
+                      ) : null}
                     </div>
                     {canEditDocs && panelPage.status === 'draft' ? (
                       <Button type="button" variant="secondary" className="w-full" onClick={() => void docs.publishPage(panelPage.id)}>
                         Publiser
-                      </Button>
-                    ) : null}
-                    {canEditDocs && panelPage.status !== 'archived' ? (
-                      <Button type="button" variant="secondary" className="w-full" onClick={() => void docs.archivePage(panelPage.id)}>
-                        Arkiver
                       </Button>
                     ) : null}
                   </div>

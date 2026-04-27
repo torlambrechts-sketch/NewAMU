@@ -977,12 +977,13 @@ export function ModuleDocumentsKandidatdetaljHub({
                                   <Button
                                     type="button"
                                     variant="secondary"
+                                    size="icon"
+                                    title="Arkiver"
+                                    aria-label={`Arkiver ${page.title}`}
                                     disabled={busy}
-                                    icon={<Archive className="h-4 w-4" aria-hidden />}
                                     onClick={() => setArchivePageTarget(page)}
-                                  >
-                                    Arkiver
-                                  </Button>
+                                    icon={<Archive className="h-4 w-4" aria-hidden />}
+                                  />
                                 ) : null}
                               </>
                             ) : null}
