@@ -1,5 +1,7 @@
 -- Match TypeScript amuComplianceStatusSchema (legal_refs placeholders until app fills them)
-create or replace view public.amu_compliance_status as
+drop view if exists public.amu_compliance_status cascade;
+
+create view public.amu_compliance_status as
 select
   c.id                                                    as committee_id,
   extract(year from now())::int                           as year,

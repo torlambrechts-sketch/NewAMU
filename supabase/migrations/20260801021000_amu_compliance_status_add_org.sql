@@ -1,5 +1,8 @@
 -- amu_compliance_status: legal_refs columns (shape matches app Zod schema)
-create or replace view public.amu_compliance_status as
+-- Must DROP+CREATE: CREATE OR REPLACE cannot remove columns from an existing view (42P16).
+drop view if exists public.amu_compliance_status cascade;
+
+create view public.amu_compliance_status as
 select
   c.id                                                    as committee_id,
   extract(year from now())::int                           as year,

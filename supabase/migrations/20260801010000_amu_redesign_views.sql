@@ -1,9 +1,10 @@
 -- AMU redesign — reporting views (depends on 20260801000000_amu_redesign_tables.sql)
 
+-- Note: do not use CREATE OR REPLACE to remove columns from an existing view (42P16).
+-- Column list matches useAmu / amu_compliance_status view (no organization_id here).
 create or replace view public.amu_compliance_status as
 select
   c.id                                                    as committee_id,
-  c.organization_id,
   extract(year from now())::int                           as year,
 
   c.min_meetings_per_year                                 as meetings_required,
@@ -44,7 +45,7 @@ select
 from public.amu_committees c
 left join public.amu_meetings  m  on m.committee_id = c.id
 left join public.amu_members   mb on mb.committee_id = c.id
-group by c.id, c.organization_id, c.min_meetings_per_year;
+group by c.id, c.min_meetings_per_year;
 
 create or replace view public.amu_meeting_summary as
 select
