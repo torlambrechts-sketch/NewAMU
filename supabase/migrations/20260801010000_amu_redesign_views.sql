@@ -1,8 +1,10 @@
 -- AMU redesign — reporting views (depends on 20260801000000_amu_redesign_tables.sql)
 
--- Note: do not use CREATE OR REPLACE to remove columns from an existing view (42P16).
--- Column list matches useAmu / amu_compliance_status view (no organization_id here).
-create or replace view public.amu_compliance_status as
+-- Note: CREATE OR REPLACE can error if column 2+ change identity (42P16 rename) or drop columns.
+-- Use DROP+CREATE for this view; safe on first run (IF EXISTS).
+drop view if exists public.amu_compliance_status cascade;
+
+create view public.amu_compliance_status as
 select
   c.id                                                    as committee_id,
   extract(year from now())::int                           as year,
