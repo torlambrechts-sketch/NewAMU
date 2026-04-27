@@ -74,6 +74,8 @@ export type UseSurveyState = {
   selectedSurveyId: string | null
   loadSurveys: () => Promise<void>
   loadSurveyDetail: (surveyId: string) => Promise<void>
+  /** Laster kun aktiv undersøkelse + spørsmål (for svarside uten org-kontekst, f.eks. /survey-respond). */
+  loadActiveSurveyForRespondent: (surveyId: string) => Promise<void>
   setSelectedSurveyId: (id: string | null) => void
   createSurvey: (input: CreateSurveyInput) => Promise<SurveyRow | null>
   updateSurvey: (surveyId: string, patch: Partial<Pick<SurveyRow, 'title' | 'description' | 'is_anonymous' | 'status' | 'published_at' | 'closed_at'>>) => Promise<boolean>
@@ -307,6 +309,54 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
       }
     },
     [supabase, assertOrg, loadAmuReview, loadActionPlans],
+  )
+
+  const loadActiveSurveyForRespondent = useCallback(
+    async (surveyId: string) => {
+      if (!supabase) {
+        setError('Supabase er ikke konfigurert.')
+        return
+      }
+      if (orgId) {
+        await loadSurveyDetail(surveyId)
+        return
+      }
+      setLoading(true)
+      setError(null)
+      setSelectedSurveyId(surveyId)
+      setAmuReview(null)
+      setActionPlans([])
+      setResponses([])
+      setAnswers([])
+      try {
+        const { data: s, error: se } = await supabase
+          .from('surveys')
+          .select('*')
+          .eq('id', surveyId)
+          .eq('status', 'active')
+          .single()
+        if (se) throw se
+        const p = parseSurveyRow(s)
+        if (!p.success) throw new Error('Ugyldig svar fra database')
+        setSelectedSurvey(p.data)
+
+        const { data: qData, error: qe } = await supabase
+          .from('org_survey_questions')
+          .select('*')
+          .eq('survey_id', surveyId)
+          .eq('organization_id', p.data.organization_id)
+          .order('order_index', { ascending: true })
+        if (qe) throw qe
+        setQuestions(collect(qData, parseOrgSurveyQuestionRow))
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        setSelectedSurvey(null)
+        setQuestions([])
+      } finally {
+        setLoading(false)
+      }
+    },
+    [supabase, orgId, loadSurveyDetail],
   )
 
   const refresh = useCallback(async () => {
@@ -807,25 +857,42 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
       answers: Array<{ questionId: string; answerValue: number | null; answerText: string | null }>
     }): Promise<OrgSurveyResponseRow | null> => {
       if (!supabase) return null
-      const oid = assertOrg()
-      if (!oid) return null
       setError(null)
       try {
-        const { data: s, error: se } = await supabase
-          .from('surveys')
-          .select('*')
-          .eq('id', args.surveyId)
-          .eq('organization_id', oid)
-          .single()
-        if (se) throw se
-        const survey = parseSurveyRow(s)
-        if (!survey.success) throw new Error('Ugyldig svar fra database')
-        if (survey.data.status !== 'active') {
+        let surveyRow: SurveyRow
+        let oid: string
+        if (orgId) {
+          const { data: s, error: se } = await supabase
+            .from('surveys')
+            .select('*')
+            .eq('id', args.surveyId)
+            .eq('organization_id', orgId)
+            .single()
+          if (se) throw se
+          const parsed = parseSurveyRow(s)
+          if (!parsed.success) throw new Error('Ugyldig svar fra database')
+          surveyRow = parsed.data
+          oid = orgId
+        } else {
+          const { data: s, error: se } = await supabase
+            .from('surveys')
+            .select('*')
+            .eq('id', args.surveyId)
+            .eq('status', 'active')
+            .single()
+          if (se) throw se
+          const parsed = parseSurveyRow(s)
+          if (!parsed.success) throw new Error('Ugyldig svar fra database')
+          surveyRow = parsed.data
+          oid = surveyRow.organization_id
+        }
+
+        if (surveyRow.status !== 'active') {
           setError('Undersøkelsen er ikke åpen for svar.')
           return null
         }
 
-        const effectiveUserId = survey.data.is_anonymous ? null : args.userId
+        const effectiveUserId = surveyRow.is_anonymous ? null : args.userId
 
         const { data: resp, error: re } = await supabase
           .from('org_survey_responses')
@@ -850,15 +917,17 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
         const { error: ae } = await supabase.from('org_survey_answers').insert(answerRows)
         if (ae) throw ae
 
-        setResponses((p) => [pr.data, ...p])
-        await loadSurveyDetail(args.surveyId)
+        if (orgId) {
+          setResponses((p) => [pr.data, ...p])
+          await loadSurveyDetail(args.surveyId)
+        }
         return pr.data
       } catch (err) {
         setError(getSupabaseErrorMessage(err))
         return null
       }
     },
-    [supabase, assertOrg, loadSurveyDetail],
+    [supabase, orgId, loadSurveyDetail],
   )
 
   const dispatchOnSurveyPublished = useCallback(
@@ -938,6 +1007,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     selectedSurveyId,
     loadSurveys,
     loadSurveyDetail,
+    loadActiveSurveyForRespondent,
     setSelectedSurveyId,
     createSurvey,
     updateSurvey,
