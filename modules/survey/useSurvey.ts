@@ -133,6 +133,7 @@ export type UseSurveyState = {
   updateActionPlanStatus: (id: string, status: SurveyActionPlanStatus) => Promise<void>
   /** System + org templates from `survey_template_catalog` */
   templateCatalog: SurveyTemplateCatalogRow[]
+  templateCatalogLoading: boolean
   loadTemplateCatalog: () => Promise<void>
   /** Legg til spørsmål fra database-mal (kladd-undersøkelse). */
   applyTemplateToSurvey: (surveyId: string, templateId: string) => Promise<boolean>
@@ -168,6 +169,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
   const [amuReview, setAmuReview] = useState<SurveyAmuReviewRow | null>(null)
   const [actionPlans, setActionPlans] = useState<SurveyActionPlanRow[]>([])
   const [templateCatalog, setTemplateCatalog] = useState<SurveyTemplateCatalogRow[]>([])
+  const [templateCatalogLoading, setTemplateCatalogLoading] = useState(false)
 
   const clearError = useCallback(() => setError(null), [])
 
@@ -1035,6 +1037,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     const oid = assertOrg()
     if (!oid) return
     setError(null)
+    setTemplateCatalogLoading(true)
     try {
       const { data: sys, error: e1 } = await supabase
         .from('survey_template_catalog')
@@ -1057,6 +1060,8 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
       setTemplateCatalog(collect(merged, parseCatalogRow))
     } catch (err) {
       setError(getSupabaseErrorMessage(err))
+    } finally {
+      setTemplateCatalogLoading(false)
     }
   }, [supabase, assertOrg])
 
@@ -1257,6 +1262,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     upsertActionPlan,
     updateActionPlanStatus,
     templateCatalog,
+    templateCatalogLoading,
     loadTemplateCatalog,
     applyTemplateToSurvey,
     saveOrgTemplate,
