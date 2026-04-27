@@ -40,6 +40,7 @@ export function SurveyModuleAdminPage() {
   const orgId = organization?.id
   const canManage = isAdmin || can('survey.manage')
   const survey = useSurvey({ supabase })
+  const { loadQuestionBank } = survey
 
   const [settings, setSettings] = useState<SurveyModuleSettings>(() => parseSurveyModuleSettings({}))
   const [settingsLoading, setSettingsLoading] = useState(true)
@@ -70,9 +71,9 @@ export function SurveyModuleAdminPage() {
   useEffect(() => {
     if (canManage && orgId) {
       void loadSettings()
-      void survey.loadQuestionBank()
+      void loadQuestionBank()
     }
-  }, [canManage, orgId, loadSettings, survey.loadQuestionBank])
+  }, [canManage, orgId, loadSettings, loadQuestionBank])
 
   const handleSaveSettings = useCallback(async () => {
     if (!supabase || !orgId) return

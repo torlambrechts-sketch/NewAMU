@@ -122,9 +122,10 @@ export function SurveyRespondPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
+  const { loadActiveSurveyForRespondent } = survey
   useEffect(() => {
-    if (surveyId) void survey.loadActiveSurveyForRespondent(surveyId)
-  }, [surveyId, survey.loadActiveSurveyForRespondent])
+    if (surveyId) void loadActiveSurveyForRespondent(surveyId)
+  }, [surveyId, loadActiveSurveyForRespondent])
 
   const setAnswer = useCallback(
     (qId: string, val: { value: number | null; text: string | null }) => {

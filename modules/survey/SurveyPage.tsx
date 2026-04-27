@@ -72,9 +72,10 @@ export function SurveyPage({ supabase }: Props) {
     [selectedTemplate],
   )
 
+  const { loadSurveys } = survey
   useEffect(() => {
-    void survey.loadSurveys()
-  }, [survey.loadSurveys])
+    void loadSurveys()
+  }, [loadSurveys])
 
   const handleCreate = useCallback(async () => {
     if (!title.trim()) return

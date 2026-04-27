@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ArrowLeft, EyeOff, Ghost, Pencil, Plus, Trash2 } from 'lucide-react'
@@ -88,22 +88,22 @@ function AnalyseBar({ label, valuePct }: { label: string; valuePct: number }) {
 function OversiktTab({
   survey,
   s,
-  titleEdit,
-  setTitleEdit,
-  descEdit,
-  setDescEdit,
-  savingMeta,
-  saveMetadata,
 }: {
   survey: UseSurveyState
   s: SurveyRow
-  titleEdit: string
-  setTitleEdit: (v: string) => void
-  descEdit: string
-  setDescEdit: (v: string) => void
-  savingMeta: boolean
-  saveMetadata: () => Promise<void>
 }) {
+  const [titleEdit, setTitleEdit] = useState(s.title)
+  const [descEdit, setDescEdit] = useState(s.description ?? '')
+  const [savingMeta, setSavingMeta] = useState(false)
+
+  const saveMetadata = useCallback(async () => {
+    if (!titleEdit.trim()) return
+    setSavingMeta(true)
+    const ok = await survey.updateSurvey(s.id, { title: titleEdit.trim(), description: descEdit.trim() || null })
+    setSavingMeta(false)
+    if (ok) void survey.loadSurveyDetail(s.id)
+  }, [s.id, titleEdit, descEdit, survey])
+
   return (
     <div className="space-y-6">
       <ModuleSectionCard className="p-5 md:p-6">
@@ -500,10 +500,8 @@ export function SurveyDetailView({ supabase }: Props) {
   const orgId = organization?.id
   const survey = useSurvey({ supabase })
   const [tab, setTab] = useState<DetailTab>('oversikt')
-  const [titleEdit, setTitleEdit] = useState('')
-  const [descEdit, setDescEdit] = useState('')
-  const [savingMeta, setSavingMeta] = useState(false)
   const [nameByUserId, setNameByUserId] = useState<Record<string, string>>({})
+  const profileFetchId = useRef(0)
 
   const [panelOpen, setPanelOpen] = useState(false)
   const [editingQ, setEditingQ] = useState<OrgSurveyQuestionRow | null>(null)
@@ -513,9 +511,10 @@ export function SurveyDetailView({ supabase }: Props) {
   const [qRequired, setQRequired] = useState(true)
   const [qSaving, setQSaving] = useState(false)
 
+  const { loadSurveyDetail } = survey
   useEffect(() => {
-    if (surveyId) void survey.loadSurveyDetail(surveyId)
-  }, [surveyId, survey.loadSurveyDetail])
+    if (surveyId) void loadSurveyDetail(surveyId)
+  }, [surveyId, loadSurveyDetail])
 
   const s: SurveyRow | null = survey.selectedSurvey
 
@@ -530,27 +529,22 @@ export function SurveyDetailView({ supabase }: Props) {
   )
 
   useEffect(() => {
-    if (s) {
-      setTitleEdit(s.title)
-      setDescEdit(s.description ?? '')
-    }
-  }, [s])
-
-  useEffect(() => {
     if (!supabase || !orgId || !surveyId) return
     const uids = [...new Set(survey.responses.map((r) => r.user_id).filter((x): x is string => x != null))]
+    const requestId = ++profileFetchId.current
     if (uids.length === 0) {
-      setNameByUserId({})
+      queueMicrotask(() => {
+        if (requestId === profileFetchId.current) setNameByUserId({})
+      })
       return
     }
-    let cancelled = false
     void (async () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, display_name')
         .eq('organization_id', orgId)
         .in('id', uids)
-      if (cancelled) return
+      if (requestId !== profileFetchId.current) return
       if (error) {
         return
       }
@@ -561,9 +555,6 @@ export function SurveyDetailView({ supabase }: Props) {
       }
       setNameByUserId(next)
     })()
-    return () => {
-      cancelled = true
-    }
   }, [supabase, orgId, surveyId, survey.responses])
 
   const questionTypeOptions: SelectOption[] = useMemo(
@@ -613,14 +604,6 @@ export function SurveyDetailView({ supabase }: Props) {
     setQSaving(false)
     if (row) closePanel()
   }, [s, surveyId, qText, qType, qOrder, qRequired, editingQ, survey, closePanel])
-
-  const saveMetadata = useCallback(async () => {
-    if (!s || !surveyId || !titleEdit.trim()) return
-    setSavingMeta(true)
-    const ok = await survey.updateSurvey(surveyId, { title: titleEdit.trim(), description: descEdit.trim() || null })
-    setSavingMeta(false)
-    if (ok) void survey.loadSurveyDetail(surveyId)
-  }, [s, surveyId, titleEdit, descEdit, survey])
 
   const isLocked = !!(s && (s.status === 'active' || s.status === 'closed'))
   const panelTitleId = 'survey-question-panel-title'
@@ -696,16 +679,7 @@ export function SurveyDetailView({ supabase }: Props) {
           {survey.error ? <WarningBox>{survey.error}</WarningBox> : null}
 
           {tab === 'oversikt' && (
-            <OversiktTab
-              survey={survey}
-              s={s}
-              titleEdit={titleEdit}
-              setTitleEdit={setTitleEdit}
-              descEdit={descEdit}
-              setDescEdit={setDescEdit}
-              savingMeta={savingMeta}
-              saveMetadata={saveMetadata}
-            />
+            <OversiktTab key={s.id} survey={survey} s={s} />
           )}
 
           {tab === 'bygger' && (
