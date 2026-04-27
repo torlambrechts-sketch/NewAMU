@@ -177,7 +177,8 @@ alter table public.amu_meetings
   add column if not exists completed_at timestamptz,
   add column if not exists signed_at timestamptz;
 
--- Generated year from scheduled_at (one column; not separate from scheduled_at)
+-- Calendar year from scheduled_at (must be immutable for GENERATED: plain extract(timestamptz) is STABLE)
+-- Normalize to timestamp at UTC, then extract year.
 do $$
 begin
   if not exists (
@@ -185,7 +186,7 @@ begin
     where table_schema = 'public' and table_name = 'amu_meetings' and column_name = 'year'
   ) then
     alter table public.amu_meetings
-      add column year int generated always as (extract(year from scheduled_at)::int) stored;
+      add column year int generated always as (extract(year from (scheduled_at at time zone 'UTC'))::int) stored;
   end if;
 end $$;
 
