@@ -1,37 +1,38 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, GitBranch, ListChecks, Settings } from 'lucide-react'
-import { ModulePageShell } from '../components/module/ModulePageShell'
-import { Tabs as UITabs } from '../components/ui/Tabs'
+import { ArrowLeft, Plus, Trash2, GitBranch } from 'lucide-react'
+import { SlidePanel } from '../components/layout/SlidePanel'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
 } from '../components/layout/WorkplaceStandardFormPanel'
+import { LayoutTable1PostingsShell } from '../components/layout/LayoutTable1PostingsShell'
 import {
   LAYOUT_TABLE1_POSTINGS_BODY_ROW,
   LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
   LAYOUT_TABLE1_POSTINGS_TH,
   LAYOUT_TABLE1_POSTINGS_TD,
 } from '../components/layout/layoutTable1PostingsKit'
-import { WorkflowRulesTab } from '../components/workflow/WorkflowRulesTab'
-import { SURVEY_WORKFLOW_TRIGGER_EVENTS } from '../components/workflow/workflowTriggerRegistry'
+import { ModulePageShell, ModuleSectionCard } from '../components/module'
+import { WarningBox } from '../components/ui/AlertBox'
+import { Button } from '../components/ui/Button'
+import { ComplianceBanner } from '../components/ui/ComplianceBanner'
+import { StandardInput } from '../components/ui/Input'
+import { SearchableSelect, type SelectOption } from '../components/ui/SearchableSelect'
+import { StandardTextarea } from '../components/ui/Textarea'
+import { YesNoToggle } from '../components/ui/FormToggles'
+import { Badge } from '../components/ui/Badge'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { fetchOrgModulePayload, upsertOrgModulePayload } from '../lib/orgModulePayload'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { useSurvey } from '../../modules/survey'
 import { QUESTION_TYPE_OPTIONS, questionTypeLabel } from '../../modules/survey/surveyLabels'
 import { parseSurveyModuleSettings, type SurveyModuleSettings } from '../../modules/survey/surveyAdminSettingsSchema'
-import { WarningBox } from '../components/ui/AlertBox'
-import { Button } from '../components/ui/Button'
-import { StandardInput } from '../components/ui/Input'
-import { SearchableSelect, type SelectOption } from '../components/ui/SearchableSelect'
-import { StandardTextarea } from '../components/ui/Textarea'
-import { YesNoToggle } from '../components/ui/FormToggles'
 import type { SurveyQuestionBankRow, SurveyQuestionType } from '../../modules/survey/types'
+import { WorkflowRulesTab } from '../components/workflow/WorkflowRulesTab'
+import { SURVEY_WORKFLOW_TRIGGER_EVENTS } from '../components/workflow/workflowTriggerRegistry'
 
 const SETTINGS_KEY = 'survey_settings' as const
-
-type AdminTab = 'generelt' | 'sporsmalsbank' | 'arbeidsflyt'
 
 export function SurveyModuleAdminPage() {
   const navigate = useNavigate()
@@ -40,19 +41,16 @@ export function SurveyModuleAdminPage() {
   const canManage = isAdmin || can('survey.manage')
   const survey = useSurvey({ supabase })
 
-  const [tab, setTab] = useState<AdminTab>('generelt')
   const [settings, setSettings] = useState<SurveyModuleSettings>(() => parseSurveyModuleSettings({}))
   const [settingsLoading, setSettingsLoading] = useState(true)
-  const [settingsSaveBusy, setSettingsSaveBusy] = useState(false)
+  const [savingSettings, setSavingSettings] = useState(false)
   const [settingsError, setSettingsError] = useState<string | null>(null)
 
-  const [bankForm, setBankForm] = useState<{
-    id?: string
-    category: string
-    questionText: string
-    questionType: SurveyQuestionType
-  }>({ category: '', questionText: '', questionType: 'rating_1_to_5' })
-  const [bankSaving, setBankSaving] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+  const [qbCategory, setQbCategory] = useState('')
+  const [qbText, setQbText] = useState('')
+  const [qbType, setQbType] = useState<SurveyQuestionType>('rating_1_to_5')
+  const [qbSaving, setQbSaving] = useState(false)
 
   const typeOptions: SelectOption[] = QUESTION_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))
 
@@ -70,235 +68,170 @@ export function SurveyModuleAdminPage() {
   }, [supabase, orgId])
 
   useEffect(() => {
-    if (canManage) {
+    if (canManage && orgId) {
       void loadSettings()
       void survey.loadQuestionBank()
     }
-  }, [canManage, loadSettings, survey.loadQuestionBank])
+  }, [canManage, orgId, loadSettings, survey.loadQuestionBank])
 
-  const saveSettings = useCallback(async () => {
+  const handleSaveSettings = useCallback(async () => {
     if (!supabase || !orgId) return
-    setSettingsSaveBusy(true)
+    setSavingSettings(true)
     setSettingsError(null)
     try {
-      await upsertOrgModulePayload(supabase, orgId, SETTINGS_KEY, settings)
+      await upsertOrgModulePayload(supabase, orgId, SETTINGS_KEY, {
+        default_anonymous: settings.default_anonymous ?? false,
+        intro_html: settings.intro_html?.trim() || undefined,
+      })
     } catch (e) {
       setSettingsError(getSupabaseErrorMessage(e))
     } finally {
-      setSettingsSaveBusy(false)
+      setSavingSettings(false)
     }
   }, [supabase, orgId, settings])
 
-  const saveBankRow = useCallback(async () => {
-    if (!bankForm.category.trim() || !bankForm.questionText.trim()) return
-    setBankSaving(true)
+  const handleSaveBank = useCallback(async () => {
+    if (!qbCategory.trim() || !qbText.trim()) return
+    setQbSaving(true)
     const row = await survey.upsertQuestionBank({
-      id: bankForm.id,
-      category: bankForm.category.trim(),
-      questionText: bankForm.questionText.trim(),
-      questionType: bankForm.questionType,
+      category: qbCategory.trim(),
+      questionText: qbText.trim(),
+      questionType: qbType,
     })
-    setBankSaving(false)
+    setQbSaving(false)
     if (row) {
-      setBankForm({ category: '', questionText: '', questionType: 'rating_1_to_5' })
+      setShowAdd(false)
+      setQbCategory('')
+      setQbText('')
+      setQbType('rating_1_to_5')
     }
-  }, [bankForm, survey])
-
-  const startEditBank = useCallback((row: SurveyQuestionBankRow) => {
-    setTab('sporsmalsbank')
-    setBankForm({
-      id: row.id,
-      category: row.category,
-      questionText: row.question_text,
-      questionType: row.question_type,
-    })
-  }, [])
-
-  const clearBankForm = useCallback(() => {
-    setBankForm({ category: '', questionText: '', questionType: 'rating_1_to_5' })
-  }, [])
+  }, [qbCategory, qbText, qbType, survey])
 
   if (!canManage) {
     return (
       <ModulePageShell
         breadcrumb={[
-          { label: 'HMS' },
+          { label: 'Arbeidsplass', to: '/workspace' },
           { label: 'Undersøkelser', to: '/survey' },
-          { label: 'Innstillinger' },
+          { label: 'Modulinnstillinger' },
         ]}
-        title="Innstillinger: undersøkelser"
+        title="Modulinnstillinger — Undersøkelser"
+        description="Konfigurer standardinnstillinger og administrer spørsmålsbanken for hele virksomheten."
       >
         <WarningBox>
-          Du har ikke tilgang til undersøkelsesmodulens innstillinger. Kontakt administrator.
+          Du har ikke tilgang til modulinnstillinger. Krever rollen «survey.manage» eller administrator.
         </WarningBox>
       </ModulePageShell>
     )
   }
 
-  const tabsUiItems = [
-    { id: 'generelt', label: 'Generelt', icon: Settings },
-    { id: 'sporsmalsbank', label: 'Spørsmålsbank', icon: ListChecks },
-    { id: 'arbeidsflyt', label: 'Arbeidsflyt', icon: GitBranch },
-  ]
-
-  const showHookError = survey.error
-  const showSettingsError = settingsError
-
   return (
     <ModulePageShell
       breadcrumb={[
-        { label: 'HMS' },
+        { label: 'Arbeidsplass', to: '/workspace' },
         { label: 'Undersøkelser', to: '/survey' },
-        { label: 'Innstillinger' },
+        { label: 'Modulinnstillinger' },
       ]}
-      title="Innstillinger: undersøkelser"
-      description="Globale valg, gjenbrukbare spørsmål og arbeidsflyt for modulen."
+      title="Modulinnstillinger — Undersøkelser"
+      description="Konfigurer standardinnstillinger og administrer spørsmålsbanken for hele virksomheten."
       headerActions={
-        <Button
-          type="button"
-          variant="secondary"
-          icon={<ArrowLeft className="h-4 w-4" />}
-          onClick={() => navigate('/survey')}
-        >
-          Tilbake til modul
+        <Button type="button" variant="secondary" size="sm" onClick={() => navigate('/survey')}>
+          <ArrowLeft className="h-4 w-4" />
+          Tilbake
         </Button>
       }
-      tabs={
-        <UITabs
-          items={tabsUiItems}
-          activeId={tab}
-          onChange={(id) => setTab(id as AdminTab)}
-          overflow="scroll"
-        />
-      }
     >
-      {showSettingsError ? <WarningBox>{showSettingsError}</WarningBox> : null}
-      {showHookError ? <WarningBox>{showHookError}</WarningBox> : null}
+      <div className="space-y-6">
+        <ComplianceBanner title="Modul for kartlegging">
+          Innhold og standarder lagres for organisasjonen. Kun administratorer og personer med
+          «survey.manage» endrer disse innstillingene.
+        </ComplianceBanner>
 
-      {tab === 'generelt' && (
-          <div className="space-y-6">
-            {settingsLoading ? <p className="text-sm text-neutral-500">Laster innstillinger…</p> : null}
+        {settingsError && <WarningBox>{settingsError}</WarningBox>}
+        {survey.error && <WarningBox>{survey.error}</WarningBox>}
+
+        <ModuleSectionCard className="p-5 md:p-6">
+          <h2 className="text-lg font-semibold text-neutral-900">Generelle innstillinger</h2>
+          {settingsLoading ? <p className="mt-2 text-sm text-neutral-500">Laster innstillinger…</p> : null}
+          <div className="mt-6 space-y-8">
             <div className={WPSTD_FORM_ROW_GRID}>
               <div>
-                <p className="text-sm font-medium text-neutral-800">Introduksjonstekst (valgfritt)</p>
+                <p className="text-sm font-medium text-neutral-800">Standardinnstilling — anonymitet</p>
                 <p className="mt-1 text-sm text-neutral-600">
-                  Valgfri intern veiledning til HMS/HR ved bruk av modulen (lagres som tekst).
+                  Nye undersøkelser starter med denne innstillingen. Den kan overstyres per undersøkelse.
                 </p>
               </div>
               <div>
-                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sv-admin-intro">
-                  Tekst
+                <span className={WPSTD_FORM_FIELD_LABEL}>Anonym som standard</span>
+                <div className="mt-2 max-w-xs">
+                  <YesNoToggle
+                    value={settings.default_anonymous ?? false}
+                    onChange={(v) => setSettings((p) => ({ ...p, default_anonymous: v }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className={WPSTD_FORM_ROW_GRID}>
+              <div>
+                <p className="text-sm font-medium text-neutral-800">Innledningsekst</p>
+                <p className="mt-1 text-sm text-neutral-600">
+                  HTML-tekst som vises for administratorer (lagres sammen med modulens innstillinger). Kan
+                  inneholde enkle formateringskoder.
+                </p>
+              </div>
+              <div>
+                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="intro-html">
+                  Innledning (HTML)
                 </label>
                 <StandardTextarea
-                  id="sv-admin-intro"
-                  rows={6}
+                  id="intro-html"
+                  rows={5}
                   value={settings.intro_html ?? ''}
                   onChange={(e) => setSettings((p) => ({ ...p, intro_html: e.target.value }))}
-                  placeholder="Kort veiledning til arbeidsgiver om kartlegging etter kapittel 4 i AML …"
+                  placeholder="<p>Kjære medarbeider…</p>"
                 />
-                <p className="mt-1 text-xs text-neutral-500">
-                  Standard for nye undersøkelser: anonymitet kan overstyres i hver enkelt undersøkelse.
-                </p>
-                <div className="mt-4 max-w-sm">
-                  <span className={WPSTD_FORM_FIELD_LABEL}>Nye undersøkelser: standard anonym</span>
-                  <p className="text-xs text-neutral-500">Påminnelse; faktisk lagring per undersøkelse forblir kilden.</p>
-                  <div className="mt-2">
-                    <YesNoToggle
-                      value={settings.default_anonymous ?? false}
-                      onChange={(v) => setSettings((p) => ({ ...p, default_anonymous: v }))}
-                    />
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <Button type="button" variant="primary" disabled={settingsSaveBusy} onClick={() => void saveSettings()}>
-                    {settingsSaveBusy ? 'Lagrer…' : 'Lagre innstillinger'}
-                  </Button>
-                </div>
               </div>
             </div>
+
+            <Button type="button" variant="primary" disabled={savingSettings} onClick={() => void handleSaveSettings()}>
+              {savingSettings ? 'Lagrer…' : 'Lagre innstillinger'}
+            </Button>
           </div>
-        )}
+        </ModuleSectionCard>
 
-        {tab === 'sporsmalsbank' && (
-          <div className="space-y-6">
-            <p className="text-sm text-neutral-600">
-              Fyll inn fritekst for kategorier (f.eks. &quot;Belastning&quot; eller &quot;Ledelse&quot;). Ingen forhåndsdefinert liste.
-            </p>
-            <div className="rounded-lg border border-neutral-200/90 bg-white p-4" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-              <h3 className="text-sm font-semibold text-neutral-900">
-                {bankForm.id ? 'Rediger spørsmål i banken' : 'Nytt spørsmål i banken'}
-              </h3>
-              <div className="mt-4 space-y-4">
-                <div>
-                  <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sv-bank-cat">
-                    Kategori
-                  </label>
-                  <StandardInput
-                    id="sv-bank-cat"
-                    value={bankForm.category}
-                    onChange={(e) => setBankForm((b) => ({ ...b, category: e.target.value }))}
-                    placeholder="Egen kategori, f.eks. Psykososialt klima"
-                  />
-                </div>
-                <div>
-                  <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sv-bank-q">
-                    Spørsmålstekst
-                  </label>
-                  <StandardTextarea
-                    id="sv-bank-q"
-                    rows={3}
-                    value={bankForm.questionText}
-                    onChange={(e) => setBankForm((b) => ({ ...b, questionText: e.target.value }))}
-                    placeholder="Hvordan opplever du arbeidspresset?"
-                  />
-                </div>
-                <div>
-                  <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sv-bank-type">
-                    Spørsmålstype
-                  </label>
-                  <SearchableSelect
-                    value={bankForm.questionType}
-                    options={typeOptions}
-                    onChange={(v) => setBankForm((b) => ({ ...b, questionType: v as SurveyQuestionType }))}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="primary"
-                    disabled={bankSaving}
-                    onClick={() => void saveBankRow()}
-                  >
-                    {bankSaving ? 'Lagrer…' : bankForm.id ? 'Oppdater' : 'Legg til i banken'}
-                  </Button>
-                  {bankForm.id ? (
-                    <Button type="button" variant="secondary" onClick={clearBankForm}>
-                      Avbryt redigering
-                    </Button>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      void survey.loadQuestionBank()
-                    }}
-                  >
-                    Oppdater liste
-                  </Button>
-                </div>
-              </div>
-            </div>
+        <ModuleSectionCard className="p-5 md:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold text-neutral-900">Spørsmålsbank</h2>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                setQbCategory('')
+                setQbText('')
+                setQbType('rating_1_to_5')
+                setShowAdd(true)
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Legg til
+            </Button>
+          </div>
 
+          <LayoutTable1PostingsShell
+            wrap={false}
+            title="Gjenbrukbare spørsmål"
+            description="Bruk disse når du bygger nye undersøkelser (hent fra bank i byggeren)."
+            toolbar={<span className="text-xs text-neutral-500">{survey.questionBank.length} spørsmål</span>}
+          >
             {survey.loading && survey.questionBank.length === 0 ? (
-              <p className="text-sm text-neutral-500">Laster spørsmålsbank…</p>
+              <p className="py-8 text-center text-sm text-neutral-500">Laster…</p>
             ) : survey.questionBank.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-sm text-neutral-500">
-                <p>Ingen gjenbrukbare spørsmål i banken ennå.</p>
-                <p className="max-w-md">Opprett forslag over som kan hentes inn når byggeren får støtte for &quot;fra bank&quot; i undersøkelsen.</p>
-              </div>
+              <p className="py-8 text-center text-sm text-neutral-500">Ingen spørsmål i banken ennå.</p>
             ) : (
-              <div className="min-w-0 overflow-x-auto">
-                <table className="w-full text-left text-sm">
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-left text-sm whitespace-nowrap">
                   <thead>
                     <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
                       <th className={LAYOUT_TABLE1_POSTINGS_TH}>Kategori</th>
@@ -308,29 +241,35 @@ export function SurveyModuleAdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {survey.questionBank.map((r) => (
+                    {survey.questionBank.map((r: SurveyQuestionBankRow) => (
                       <tr key={r.id} className={LAYOUT_TABLE1_POSTINGS_BODY_ROW}>
                         <td className={LAYOUT_TABLE1_POSTINGS_TD}>{r.category}</td>
                         <td className={LAYOUT_TABLE1_POSTINGS_TD}>
                           <span className="whitespace-normal text-neutral-900">{r.question_text}</span>
                         </td>
-                        <td className={LAYOUT_TABLE1_POSTINGS_TD}>{questionTypeLabel(r.question_type)}</td>
+                        <td className={LAYOUT_TABLE1_POSTINGS_TD}>
+                          <Badge variant="neutral">{questionTypeLabel(r.question_type)}</Badge>
+                        </td>
                         <td className={`${LAYOUT_TABLE1_POSTINGS_TD} text-right`}>
-                          <div className="inline-flex items-center justify-end gap-1">
-                            <Button type="button" variant="secondary" size="sm" onClick={() => startEditBank(r)}>
-                              Rediger
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => {
-                                void survey.deleteQuestionBank(r.id)
-                              }}
-                            >
-                              Slett
-                            </Button>
-                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              if (
+                                typeof window !== 'undefined' &&
+                                !window.confirm('Slette spørsmålet fra banken?')
+                              ) {
+                                return
+                              }
+                              void survey.deleteQuestionBank(r.id)
+                            }}
+                            aria-label={`Slett spørsmål: ${r.question_text.slice(0, 40)}…`}
+                            title="Slett"
+                            className="text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -338,24 +277,74 @@ export function SurveyModuleAdminPage() {
                 </table>
               </div>
             )}
-          </div>
-        )}
+          </LayoutTable1PostingsShell>
+        </ModuleSectionCard>
 
-      {tab === 'arbeidsflyt' && (
-        <div className="space-y-4">
-          <p className="text-sm text-neutral-600">
-            Hendelser: <code className="text-xs">ON_SURVEY_PUBLISHED</code>, <code className="text-xs">ON_SURVEY_CLOSED</code>,{' '}
-            <code className="text-xs">ON_SURVEY_RESPONSE_SUBMITTED</code> — kobles til databasetrigger og{' '}
-            <code className="text-xs">workflow_dispatch_db_event</code>. Manuell gjenkalling av de samme hendelsene kan gjøres fra undersøkelsens
-            detaljvisning når det trengs.
-          </p>
+        <ModuleSectionCard className="p-5 md:p-6">
+          <div className="mb-3 flex items-center gap-2">
+            <GitBranch className="h-5 w-5 text-[#1a3d32]" />
+            <h2 className="text-lg font-semibold text-neutral-900">Arbeidsflyt</h2>
+          </div>
+          <p className="mb-4 text-sm text-neutral-600">Koble hendelser for undersøkelsesmodulen til e-postregler.</p>
           <WorkflowRulesTab
             supabase={supabase}
             module="survey"
             triggerEvents={SURVEY_WORKFLOW_TRIGGER_EVENTS.map((e) => ({ value: e.value, label: e.label }))}
           />
+        </ModuleSectionCard>
+      </div>
+
+      <SlidePanel
+        open={showAdd}
+        onClose={() => setShowAdd(false)}
+        title="Nytt spørsmål i bank"
+        titleId="qbank-panel-title"
+        footer={
+          <div className="flex w-full flex-wrap items-center justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setShowAdd(false)}>
+              Avbryt
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={qbSaving || !qbText.trim() || !qbCategory.trim()}
+              onClick={() => void handleSaveBank()}
+            >
+              {qbSaving ? 'Lagrer…' : 'Lagre'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          <div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="qb-cat">
+              Kategori (obligatorisk)
+            </label>
+            <StandardInput
+              id="qb-cat"
+              value={qbCategory}
+              onChange={(e) => setQbCategory(e.target.value)}
+              placeholder="F.eks. Jobbkrav"
+            />
+          </div>
+          <div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="qb-text">
+              Spørsmålstekst (obligatorisk)
+            </label>
+            <StandardTextarea id="qb-text" value={qbText} onChange={(e) => setQbText(e.target.value)} rows={3} />
+          </div>
+          <div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="qb-type">
+              Type
+            </label>
+            <SearchableSelect
+              value={qbType}
+              options={typeOptions}
+              onChange={(v) => setQbType(v as SurveyQuestionType)}
+            />
+          </div>
         </div>
-      )}
+      </SlidePanel>
     </ModulePageShell>
   )
 }
