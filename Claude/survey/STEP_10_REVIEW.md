@@ -1,6 +1,8 @@
-# Step 10 — Self-Review & Legacy Cleanup
+# Step 10 — Self-Review, Compliance Audit & Legacy Cleanup
 
 This is a checklist-only step. No new code. Run through every item and fix before reporting done.
+
+**Read `Claude/survey/COMPLIANCE.md` in full before starting this step.**
 
 ---
 
@@ -141,6 +143,51 @@ Each must return zero matches.
 
 ---
 
+## 7b. Norwegian Labour Law Compliance Audit
+
+Run each check. All must be ✓ before marking done.
+
+### GDPR / Personvern
+- [ ] **k-Anonymitet**: `s.anonymity_threshold` (never < `SURVEY_K_ANONYMITY_MIN = 5`) applied before showing any result in Analyse tab
+- [ ] **Fritekst suppression**: `question_type = 'text'` results show count ONLY — no content visible in UI
+- [ ] **Anonymous respond**: `submitResponse` called with `userId: user?.id ?? null` — never hardcoded `null`
+- [ ] **Non-anon gate**: respond page shows login-required message when `!user && !survey.is_anonymous`
+- [ ] **ComplianceBanner on respond page** states whether survey is anonymous or identified
+- [ ] **Respondent retraction notice** shown on respond page for non-anonymous surveys
+- [ ] **Suppressed results** shown as `<EyeOff />` + "Skjult (n<5)" — never as empty row
+
+### AML § 4-3 — Psykososialt arbeidsmiljø
+- [ ] `is_mandatory = true` set on questions flagged with AML § 4-3 keywords during template seeding
+- [ ] Mandatory questions display `<Badge variant="danger">AML § 4-3</Badge>` in Bygger tab
+- [ ] Delete button for mandatory questions shows error «Lovpålagt — kan ikke slettes» instead of deleting
+- [ ] At least one HMS-klima or Edmondson template question in the question bank covers trakassering, integritet, medvirkning, sikkerhet, psykososial belastning
+
+### AML § 7-2 — AMU-presentasjonsplikt
+- [ ] AMU-gjennomgang tab shows `<ComplianceBanner refs={['AML § 7-2', 'IK-forskriften § 5']}>`
+- [ ] `survey_amu_reviews` row blocks further edits once both `amu_chair_signed_at` and `vo_signed_at` are set (DB RLS + UI)
+- [ ] Pre-flight checklist in AMU tab includes: "Protokolltekst er skrevet", "Møtedato er registrert", "Undersøkelsen er lukket"
+- [ ] Both signature cards rendered in AMU tab
+
+### IK-forskriften § 5 — Systematisk HMS-arbeid og dokumentasjon
+- [ ] `surveys.action_threshold` column exists in DB (migration STEP_01)
+- [ ] Handlingsplan tab shows compliance banner referencing AML § 3-1 and IK-f § 5
+- [ ] Action plans are NOT deletable when `status = 'closed'` (DB RLS policy)
+- [ ] `surveys.status = 'archived'` blocks DELETE via RLS policy in STEP_01 migration
+
+### AML § 3-1 — Systematisk kartleggingssyklus
+- [ ] `surveys.recurrence_months` column exists in DB
+- [ ] Admin settings page allows setting `recurrence_months` (even if just a number input)
+
+### Mandatory DB columns (verify in migration file)
+```bash
+# Run against your Supabase project or local migration
+grep -n 'anonymity_threshold\|amu_review_required\|action_threshold\|recurrence_months' \
+  supabase/migrations/20260801100000_survey_additions.sql
+```
+All four must appear.
+
+---
+
 ## 8. Smoke-test (manual)
 
 Walk through these scenarios in the browser after all steps are deployed:
@@ -148,15 +195,24 @@ Walk through these scenarios in the browser after all steps are deployed:
 | Scenario | Expected |
 |---|---|
 | Admin visits `/survey` | List page with `ModulePageShell`, template picker, compliance banner |
-| Admin creates a survey from UWES-9 template | Survey created, 9 questions seeded, redirected to detail |
-| Admin publishes the survey | Status changes to Aktiv, question editor locked |
-| Respondent visits `/survey/respond/:id` | Questions rendered, submit works, confirmation shown |
-| Admin closes survey | Status changes to Lukket |
-| Admin opens AMU tab | Protocol form shown, pre-flight checklist present |
-| Admin fills + saves protocol, signs both | Both signed = form disabled, banner = "Fullført" |
-| Admin opens Handlingsplan tab | Empty state shown (no auto plans yet) |
-| Admin manually adds action plan | Row appears in Åpne tiltak with red left border |
-| Admin changes status to "Pågår" | Border changes to orange |
+| Admin creates a survey from HMS-klima template | Survey created, questions seeded, mandatory ones show `AML § 4-3` badge |
+| Admin tries to delete a mandatory question | Error «Lovpålagt — kan ikke slettes» shown, question remains |
+| Admin publishes the survey | Status = Aktiv, question editor locked |
+| **Unauthenticated** user visits respond page for **anonymous** survey | Form shown without login requirement |
+| **Unauthenticated** user visits respond page for **non-anonymous** survey | Login-required message shown, no form |
+| Authenticated respondent submits a non-anonymous survey | `org_survey_responses.user_id` = user's UUID in DB |
+| Authenticated respondent submits an anonymous survey | `org_survey_responses.user_id` = NULL in DB |
+| Admin opens Analyse tab with < 5 responses | `<EyeOff>` suppression shown for all numeric questions |
+| Admin opens Analyse tab with ≥ 5 responses | Scores shown; text questions show count only |
+| Admin opens text question results | Count shown; **no individual text answers visible** |
+| Admin closes survey | Status = Lukket |
+| Admin opens AMU tab | Pre-flight checklist + protocol form shown |
+| Admin fills protocol, saves, signs both | Both signed = form disabled, "Fullført" banner |
+| Admin tries to edit signed AMU protocol | Fields disabled (DB RLS blocks update) |
+| Admin opens Handlingsplan tab | Empty state shown |
+| Admin manually adds action plan | Row with red left border in Åpne tiltak |
+| Admin changes action plan to "Pågår" | Orange border |
+| Admin archives survey (future) | DELETE blocked by RLS (`status = 'archived'`) |
 | Admin opens module settings | Settings load, question bank shown |
 
 ---

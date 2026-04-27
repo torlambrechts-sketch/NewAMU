@@ -34,6 +34,7 @@ import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
 } from '../../../src/components/layout/WorkplaceStandardFormPanel'
+import type { UseSurveyState } from '../useSurvey'   // needed by ActionPlanRow sub-component
 import type { SurveyDetailTab } from './types'
 import type { SurveyActionPlanRow, SurveyActionPlanStatus, SurveyPillar } from '../types'
 import { ACTION_PLAN_STATUS_LABEL, SURVEY_PILLAR_LABEL } from '../types'

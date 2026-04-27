@@ -139,9 +139,69 @@ Extract to `SvarTab` component. Content unchanged. Pass `nameByUserId` as a prop
 
 ---
 
-## Analyse tab (inline — keep current content)
+## Analyse tab (inline — REQUIRES k-anonymity upgrade)
 
-Extract to `AnalyseTab` component. Content unchanged.
+Extract to `AnalyseTab` component. The current content renders raw averages with no GDPR suppression. This **must** be upgraded:
+
+```tsx
+import { SURVEY_K_ANONYMITY_MIN } from '../../../src/lib/orgSurveyKAnonymity'
+import { EyeOff } from 'lucide-react'
+
+function AnalyseTab({ survey, s }: SurveyDetailTab) {
+  const threshold = s.anonymity_threshold ?? SURVEY_K_ANONYMITY_MIN  // never go below 5
+
+  return (
+    <div className="space-y-6">
+      <ComplianceBanner refs={['GDPR Art. 25', 'GDPR Art. 9']}>
+        Resultater vises kun for spørsmål med {threshold} eller flere svar. Fritekst-svar vises aldri
+        i klartekst. Grupper under grenseverdien vises som skjult.
+      </ComplianceBanner>
+
+      {survey.questions.map((q) => {
+        const a = analyticsByQuestion[q.id]
+        const n = q.question_type === 'rating_1_to_5'
+          ? (a?.numbers.length ?? 0)
+          : q.question_type === 'multiple_choice'
+            ? Object.values(a?.choiceCounts ?? {}).reduce((s, v) => s + v, 0)
+            : 0
+
+        // GDPR suppression: never show results for groups below threshold
+        if (q.question_type !== 'text' && n < threshold) {
+          return (
+            <div key={q.id} className="rounded-lg border border-neutral-200 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
+              <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
+              <div className="mt-3 flex items-center gap-2 text-sm text-neutral-400">
+                <EyeOff className="h-4 w-4" />
+                <span>Skjult — under {threshold} svar (n={n}). GDPR Art. 25.</span>
+              </div>
+            </div>
+          )
+        }
+
+        // Text questions: show count ONLY, never the content
+        if (q.question_type === 'text') {
+          return (
+            <div key={q.id} className="rounded-lg border border-neutral-200 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
+              <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
+              <p className="mt-2 text-sm text-neutral-500">
+                Fritekst · {a?.textCount ?? 0} utfylt svar. Individuelle svar vises ikke (GDPR).
+              </p>
+            </div>
+          )
+        }
+
+        // ... existing rating / multiple_choice rendering unchanged
+      })}
+    </div>
+  )
+}
+```
+
+**Rules for AnalyseTab:**
+- `threshold = Math.max(s.anonymity_threshold, SURVEY_K_ANONYMITY_MIN)` — never allow threshold < 5
+- Text questions: always show count only, never content
+- `n < threshold` → show `<EyeOff>` suppression card, never show data
+- `n >= threshold` → show chart/bar as before
 
 ---
 

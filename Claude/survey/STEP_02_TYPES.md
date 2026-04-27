@@ -50,6 +50,12 @@ export type SurveyRow = {
   is_anonymous: boolean
   published_at: string | null
   closed_at: string | null
+  // Compliance columns added in STEP_01 migration (default values set in DB)
+  anonymity_threshold: number          // GDPR Art. 25 — default 5
+  amu_review_required: boolean         // AML § 7-2 (2)e — default true
+  action_threshold: number             // IK-f § 5 — default 60
+  recurrence_months: number | null     // AML § 3-1 — null = no cycle set
+  next_scheduled_at: string | null
   created_at: string
   updated_at: string
 }
@@ -62,6 +68,9 @@ export type OrgSurveyQuestionRow = {
   question_type: SurveyQuestionType
   order_index: number
   is_required: boolean
+  // AML § 4-3: legally mandatory questions cannot be deleted
+  is_mandatory: boolean
+  mandatory_law: 'AML_4_3' | 'AML_4_4' | 'AML_6_2' | null
   created_at: string
   updated_at: string
 }
@@ -156,6 +165,12 @@ export const SurveyRowSchema = z.object({
   is_anonymous: z.boolean(),
   published_at: z.string().nullable(),
   closed_at: z.string().nullable(),
+  // Compliance columns — have DB defaults so older rows pass with .default()
+  anonymity_threshold: z.number().int().positive().default(5),
+  amu_review_required: z.boolean().default(true),
+  action_threshold: z.number().int().min(0).max(100).default(60),
+  recurrence_months: z.number().int().min(1).max(120).nullable().default(null),
+  next_scheduled_at: z.string().nullable().default(null),
   created_at: z.string(),
   updated_at: z.string(),
 })
@@ -165,6 +180,26 @@ export function parseSurveyRow(raw: unknown): { success: true; data: SurveyRow }
   if (r.success) return { success: true, data: r.data }
   return { success: false }
 }
+```
+
+For `OrgSurveyQuestionRow`, the schema must include the mandatory-question columns:
+
+```ts
+const MandatoryLawSchema = z.enum(['AML_4_3', 'AML_4_4', 'AML_6_2']).nullable()
+
+export const OrgSurveyQuestionRowSchema = z.object({
+  id: z.string().uuid(),
+  survey_id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  question_text: z.string(),
+  question_type: SurveyQuestionTypeSchema,
+  order_index: z.number().int(),
+  is_required: z.boolean(),
+  is_mandatory: z.boolean().default(false),
+  mandatory_law: MandatoryLawSchema.default(null),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
 ```
 
 Write schemas and parsers for all 7 row types:

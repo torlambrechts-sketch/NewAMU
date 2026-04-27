@@ -36,10 +36,10 @@ Required: the URL is `/survey/respond/:surveyId` (check `src/App.tsx` for the ac
       )}
     </div>
 
-    <ComplianceBanner refs={['GDPR', 'AML § 4-3']}>
+    <ComplianceBanner refs={['GDPR Art. 25', 'AML § 4-3']}>
       {survey.selectedSurvey?.is_anonymous
-        ? 'Dine svar er helt anonyme — ingen bruker-ID lagres i databasen.'
-        : 'Dine svar er koblet til din bruker og er kun synlig for administrator.'}
+        ? 'Dine svar er helt anonyme — ingen bruker-ID lagres i databasen. Individuelle svar kan ikke knyttes til deg.'
+        : 'Dine svar er koblet til din bruker og er kun synlig for administrator. Du kan trekke tilbake svaret ditt ved å kontakte administrator innen 30 dager.'}
     </ComplianceBanner>
 
     {survey.error && <WarningBox>{survey.error}</WarningBox>}
@@ -194,6 +194,13 @@ const allRequiredFilled = survey.questions
 ### Submit handler
 
 ```ts
+// GDPR critical: get current user ID from context.
+// The hook applies is_anonymous check: if survey is anonymous, user_id is stored as null.
+// If survey is non-anonymous, user_id IS stored — so we MUST pass the real ID here.
+// Passing null for non-anonymous surveys = silent GDPR violation (identified responses
+// become effectively anonymous without consent or documentation).
+const { user } = useOrgSetupContext()
+
 const handleSubmit = async () => {
   if (!surveyId) return
   setSubmitting(true)
@@ -204,7 +211,8 @@ const handleSubmit = async () => {
   }))
   const result = await survey.submitResponse({
     surveyId,
-    userId: null,   // hook determines actual userId based on is_anonymous
+    // Pass authenticated user ID; hook zeroes it out when survey.is_anonymous = true
+    userId: user?.id ?? null,
     answers: answerRows,
   })
   setSubmitting(false)
@@ -212,18 +220,38 @@ const handleSubmit = async () => {
 }
 ```
 
-### Loading the survey
+### Loading the survey and auth
 
 ```ts
 const { surveyId } = useParams<{ surveyId: string }>()  // or campaignId — match existing route
+const { user } = useOrgSetupContext()
 
 useEffect(() => {
   if (surveyId) void survey.loadSurveyDetail(surveyId)
 }, [surveyId, survey.loadSurveyDetail])
 ```
 
-If the survey is not `active`, show an `<InfoBox variant="warning">`:
+Import `useOrgSetupContext` from `'../hooks/useOrgSetupContext'`.
+
+**Non-anonymous + not logged in (GDPR gate):**
+If survey `is_anonymous = false` and `user` is null, block submission:
+
+```tsx
+if (!user && survey.selectedSurvey && !survey.selectedSurvey.is_anonymous) {
+  return (
+    <div className="min-h-screen bg-[#F9F7F2] py-12 px-4">
+      <div className="mx-auto max-w-2xl">
+        <InfoBox variant="warning">
+          Du må være innlogget for å svare på denne undersøkelsen. Anonyme undersøkelser kan besvares uten innlogging.
+        </InfoBox>
+      </div>
+    </div>
+  )
+}
 ```
+
+If the survey is not `active`, show:
+```tsx
 <InfoBox variant="warning">Denne undersøkelsen er ikke åpen for svar.</InfoBox>
 ```
 
@@ -233,10 +261,14 @@ If the survey is not `active`, show an `<InfoBox variant="warning">`:
 
 - [ ] Only one raw `<button>` exists: inside `RatingScale`, documented with exception comment
 - [ ] All other interactive elements use design-system components
-- [ ] `<ComplianceBanner>` shows correct anonymity message based on `is_anonymous`
-- [ ] Required questions are validated before submit
-- [ ] Submitted state shows confirmation message (not just nothing)
-- [ ] Non-active survey shows warning banner instead of form
+- [ ] `<ComplianceBanner refs={['GDPR Art. 25', 'AML § 4-3']}>` shows correct anonymity message
+- [ ] **GDPR critical**: `userId: user?.id ?? null` passed to `submitResponse` (NOT hardcoded `null`)
+- [ ] **GDPR gate**: non-anonymous survey + unauthenticated user = login required message, no form
+- [ ] `useOrgSetupContext` imported and `user` destructured
+- [ ] Required questions validated before submit (`allRequiredFilled` check)
+- [ ] Mandatory questions (`q.is_mandatory`) show `<Badge variant="danger">AML § 4-3</Badge>` next to question text
+- [ ] Submitted state shows Norwegian confirmation message
+- [ ] Non-active survey shows `<InfoBox variant="warning">` instead of form
 - [ ] `src/modules/survey/SurveyResponsesTab.tsx` deleted
 
 ## Commit

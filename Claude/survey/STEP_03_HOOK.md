@@ -25,6 +25,49 @@ The `src/modules/survey/useSurveyLegacy.ts` also has `seedQpsNordic` and `create
 
 ## What to write
 
+### `UpsertQuestionInput` extension
+
+The existing `UpsertQuestionInput` type in `useSurvey.ts` must be extended with mandatory-question fields. Read the current type in `modules/survey/useSurvey.ts` first, then add:
+
+```ts
+type UpsertQuestionInput = {
+  id?: string
+  surveyId: string
+  questionText: string
+  questionType: SurveyQuestionType
+  orderIndex: number
+  isRequired: boolean
+  isMandatory?: boolean        // AML § 4-3 — defaults to false
+  mandatoryLaw?: 'AML_4_3' | 'AML_4_4' | 'AML_6_2' | null
+}
+```
+
+Inside `upsertQuestion`, include these fields in the `row` object sent to Supabase:
+
+```ts
+const row = {
+  survey_id: input.surveyId,
+  organization_id: oid,
+  question_text: input.questionText,
+  question_type: input.questionType,
+  order_index: input.orderIndex,
+  is_required: input.isRequired,
+  is_mandatory: input.isMandatory ?? false,
+  mandatory_law: input.mandatoryLaw ?? null,
+}
+```
+
+Also block deletion of mandatory questions in `deleteQuestion`:
+
+```ts
+// Prevent deletion of legally mandatory questions
+const qToDelete = questions.find((q) => q.id === questionId)
+if (qToDelete?.is_mandatory) {
+  setError('Dette spørsmålet er lovpålagt (AML § 4-3) og kan ikke slettes.')
+  return
+}
+```
+
 ### State shape additions
 
 Add to the `UseSurveyState` exported type (existing state is unchanged — only append):

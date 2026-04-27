@@ -114,7 +114,25 @@ Two-column form grid (same pattern as `modules/amu/tabs/ScheduleTab.tsx`):
 
 ### Template seeding logic
 
+The seeding loop must also set `is_mandatory = true` for HMS-mandatory questions.
+`upsertQuestion` must accept `isMandatory` and `mandatoryLaw` — verify these are added in STEP_03.
+
 ```ts
+// AML § 4-3 mandatory question indicators — match against template question text
+// These 5 phrases indicate a legally mandatory question per AML § 4-3
+const AML_4_3_MANDATORY_KEYWORDS = [
+  'trakassering',
+  'integritet',
+  'medvirkning',
+  'sikkerhet',
+  'psykososial',
+] as const
+
+function isMandatoryAml4_3(text: string): boolean {
+  const lower = text.toLowerCase()
+  return AML_4_3_MANDATORY_KEYWORDS.some((k) => lower.includes(k))
+}
+
 const handleCreate = useCallback(async () => {
   if (!title.trim()) return
   setCreating(true)
@@ -123,36 +141,43 @@ const handleCreate = useCallback(async () => {
     description: description.trim() || null,
     is_anonymous: isAnonymous,
   })
-  if (row && selectedTemplate) {
+
+  if (!row) {
+    setCreating(false)
+    return   // createSurvey already set error; stop — no partial survey left dangling
+  }
+
+  if (selectedTemplate) {
     const tpl = ALL_SURVEY_TEMPLATES.find((t) => t.id === selectedTemplate)
     if (tpl) {
       for (let i = 0; i < tpl.questions.length; i++) {
         const q = tpl.questions[i]
-        // Map template question type to SurveyQuestionType
         const qType: SurveyQuestionType =
           q.type === 'likert_5' || q.type === 'likert_7' || q.type === 'scale_10'
             ? 'rating_1_to_5'
             : q.type === 'yes_no'
               ? 'multiple_choice'
               : 'text'
+        const mandatory = isMandatoryAml4_3(q.text)
         await survey.upsertQuestion({
           surveyId: row.id,
           questionText: q.text,
           questionType: qType,
           orderIndex: i,
           isRequired: q.required,
+          isMandatory: mandatory,
+          mandatoryLaw: mandatory ? 'AML_4_3' : null,
         })
       }
     }
   }
+
   setCreating(false)
-  if (row) {
-    setTitle('')
-    setDescription('')
-    setSelectedTemplate('')
-    setIsAnonymous(false)
-    navigate(`/survey/${row.id}`)
-  }
+  setTitle('')
+  setDescription('')
+  setSelectedTemplate('')
+  setIsAnonymous(false)
+  navigate(`/survey/${row.id}`)
 }, [title, description, isAnonymous, selectedTemplate, survey, navigate])
 ```
 
