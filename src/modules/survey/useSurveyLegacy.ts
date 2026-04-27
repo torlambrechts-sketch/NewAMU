@@ -7,8 +7,8 @@ import type {
   SurveyActionPlanRow,
   SurveyAmuReviewRow,
   SurveyPillar,
-} from './types'
-import { normaliseLikert5, normaliseLikert7 } from './types'
+} from '../../data/survey'
+import { normaliseLikert5, normaliseLikert7 } from '../../data/survey'
 import {
   SurveyCampaignRowSchema,
   SurveyQuestionRowSchema,
@@ -289,7 +289,7 @@ export function useSurveyLegacy({ supabase }: Input): SurveyModuleState {
   const seedQpsNordic = useCallback(
     async (campaignId: string, pillar?: SurveyPillar) => {
       if (!supabase) return
-      const { QPS_NORDIC_QUESTIONS } = await import('./types')
+      const { QPS_NORDIC_QUESTIONS } = await import('../../data/survey')
       const filtered = pillar ? QPS_NORDIC_QUESTIONS.filter((q) => q.pillar === pillar) : QPS_NORDIC_QUESTIONS
       for (let i = 0; i < filtered.length; i++) {
         const q = filtered[i]

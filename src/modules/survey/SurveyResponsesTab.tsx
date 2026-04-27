@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { Copy, CheckCircle, Lock } from 'lucide-react'
 import type { SurveyModuleState } from './useSurveyLegacy'
-import type { SurveyCampaignRow, SurveyQuestionRow } from './types'
+import type { SurveyCampaignRow, SurveyQuestionRow } from '../../data/survey'
 
 const BTN_PRIMARY =
   'rounded-lg bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white hover:bg-[#14312a] transition-colors disabled:opacity-40'

@@ -19,11 +19,11 @@ import {
   parseOrgSurveyResponseRow,
   parseOrgSurveyAnswerRow,
   parseSurveyQuestionBankRow,
-} from './schema'
+} from './types'
 
 type Supabase = SupabaseClient
 
-function collect<T>(rows: unknown[] | null | undefined, parse: (r: unknown) => { success: boolean; data?: T }): T[] {
+function collect<T>(rows: unknown[] | null | undefined, parse: (r: unknown) => { success: true; data: T } | { success: false }): T[] {
   const out: T[] = []
   for (const raw of rows ?? []) {
     const p = parse(raw)

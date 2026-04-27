@@ -8,7 +8,7 @@ import { SurveyResponsesTab } from './SurveyResponsesTab'
 import { SurveyResultsTab } from './SurveyResultsTab'
 import { SurveyActionTab } from './SurveyActionTab'
 import { SurveyAmuTab } from './SurveyAmuTab'
-import { STATUS_COLOR, STATUS_LABEL, PILLAR_LABEL, PILLAR_COLOR } from './types'
+import { STATUS_COLOR, STATUS_LABEL, PILLAR_LABEL, PILLAR_COLOR } from '../../data/survey'
 
 type Tab = 'builder' | 'responses' | 'results' | 'actions' | 'amu'
 

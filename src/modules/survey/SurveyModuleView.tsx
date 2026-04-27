@@ -3,8 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { ClipboardList, Plus, Calendar, ChevronRight, AlertTriangle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useSurveyLegacy } from './useSurveyLegacy'
-import type { SurveyCampaignRow, SurveyPillar } from './types'
-import { PILLAR_LABEL, PILLAR_COLOR, STATUS_LABEL, STATUS_COLOR } from './types'
+import type { SurveyCampaignRow, SurveyPillar } from '../../data/survey'
+import { PILLAR_LABEL, PILLAR_COLOR, STATUS_LABEL, STATUS_COLOR } from '../../data/survey'
 
 const BTN_PRIMARY =
   'rounded-lg bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white hover:bg-[#14312a] transition-colors disabled:opacity-40'
