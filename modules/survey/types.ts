@@ -7,7 +7,14 @@ export type SurveyStatus = 'draft' | 'active' | 'closed' | 'archived'
 
 export type SurveyType = 'internal' | 'external' | 'pulse' | 'exit' | 'onboarding'
 
-export type SurveyQuestionType = 'rating_1_to_5' | 'text' | 'multiple_choice'
+export type SurveyQuestionType =
+  | 'rating_1_to_5'
+  | 'rating_1_to_10'
+  | 'text'
+  | 'yes_no'
+  | 'single_select'
+  | 'multi_select'
+  | 'multiple_choice'
 
 export type SurveyActionPlanStatus = 'open' | 'in_progress' | 'closed'
 
@@ -20,7 +27,15 @@ export type SurveyPillar =
 
 const SurveyStatusSchema = z.enum(['draft', 'active', 'closed', 'archived'])
 const SurveyTypeSchema = z.enum(['internal', 'external', 'pulse', 'exit', 'onboarding'])
-const SurveyQuestionTypeSchema = z.enum(['rating_1_to_5', 'text', 'multiple_choice'])
+const SurveyQuestionTypeSchema = z.enum([
+  'rating_1_to_5',
+  'rating_1_to_10',
+  'text',
+  'yes_no',
+  'single_select',
+  'multi_select',
+  'multiple_choice',
+])
 const SurveyActionPlanStatusSchema = z.enum(['open', 'in_progress', 'closed'])
 const SurveyPillarSchema = z.enum(['psychosocial', 'physical', 'organization', 'safety_culture', 'custom'])
 const MandatoryLawSchema = z.enum(['AML_4_3', 'AML_4_4', 'AML_6_2']).nullable()
@@ -89,6 +104,8 @@ export type OrgSurveyQuestionRow = {
   is_required: boolean
   is_mandatory: boolean
   mandatory_law: 'AML_4_3' | 'AML_4_4' | 'AML_6_2' | null
+  /** UI/skjema (skala, alternativer, underkategori) */
+  config: Record<string, unknown>
   created_at: string
   updated_at: string
 }
@@ -103,6 +120,7 @@ export const OrgSurveyQuestionRowSchema = z.object({
   is_required: z.boolean(),
   is_mandatory: z.boolean().default(false),
   mandatory_law: MandatoryLawSchema.default(null),
+  config: z.preprocess((v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {}), z.record(z.string(), z.unknown())),
   created_at: z.string(),
   updated_at: z.string(),
 })
@@ -179,6 +197,7 @@ export type SurveyQuestionBankRow = {
   category: string
   question_text: string
   question_type: SurveyQuestionType
+  config: Record<string, unknown>
   created_at: string
   updated_at: string
 }
@@ -189,6 +208,7 @@ export const SurveyQuestionBankRowSchema = z.object({
   category: z.string(),
   question_text: z.string(),
   question_type: SurveyQuestionTypeSchema,
+  config: z.preprocess((v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {}), z.record(z.string(), z.unknown())),
   created_at: z.string(),
   updated_at: z.string(),
 })

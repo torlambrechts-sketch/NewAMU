@@ -27,6 +27,9 @@ import {
   parseSurveyAmuReviewRow,
   parseSurveyActionPlanRow,
 } from './types'
+import { parseCatalogRow } from './surveyTemplateCatalogTypes'
+import type { SurveyTemplateCatalogRow } from './surveyTemplateCatalogTypes'
+import { catalogQuestionToUpsert } from './surveyTemplateApply'
 
 type Supabase = SupabaseClient
 
@@ -63,6 +66,7 @@ type UpsertQuestionInput = {
   isRequired: boolean
   isMandatory?: boolean
   mandatoryLaw?: 'AML_4_3' | 'AML_4_4' | 'AML_6_2' | null
+  config?: Record<string, unknown>
 }
 
 export type UseSurveyState = {
@@ -95,6 +99,7 @@ export type UseSurveyState = {
     category: string
     questionText: string
     questionType: SurveyQuestionType
+    config?: Record<string, unknown>
   }) => Promise<SurveyQuestionBankRow | null>
   deleteQuestionBank: (id: string) => Promise<void>
   submitResponse: (args: { surveyId: string; userId: string | null; answers: Array<{ questionId: string; answerValue: number | null; answerText: string | null }> }) => Promise<OrgSurveyResponseRow | null>
@@ -126,6 +131,22 @@ export type UseSurveyState = {
     due_date?: string | null
   }) => Promise<SurveyActionPlanRow | null>
   updateActionPlanStatus: (id: string, status: SurveyActionPlanStatus) => Promise<void>
+  /** System + org templates from `survey_template_catalog` */
+  templateCatalog: SurveyTemplateCatalogRow[]
+  loadTemplateCatalog: () => Promise<void>
+  /** Legg til spørsmål fra database-mal (kladd-undersøkelse). */
+  applyTemplateToSurvey: (surveyId: string, templateId: string) => Promise<boolean>
+  /** Lagre organisasjonsspesifikk mal (for import / egen definisjon). */
+  saveOrgTemplate: (input: {
+    id?: string
+    name: string
+    shortName?: string | null
+    description?: string | null
+    category?: string
+    audience?: SurveyTemplateCatalogRow['audience']
+    body: SurveyTemplateCatalogRow['body']
+  }) => Promise<SurveyTemplateCatalogRow | null>
+  deleteOrgTemplate: (templateId: string) => Promise<void>
 }
 
 type UseSurveyInput = { supabase: Supabase | null }
@@ -146,6 +167,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null)
   const [amuReview, setAmuReview] = useState<SurveyAmuReviewRow | null>(null)
   const [actionPlans, setActionPlans] = useState<SurveyActionPlanRow[]>([])
+  const [templateCatalog, setTemplateCatalog] = useState<SurveyTemplateCatalogRow[]>([])
 
   const clearError = useCallback(() => setError(null), [])
 
@@ -517,6 +539,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           is_required: input.isRequired,
           is_mandatory: input.isMandatory ?? false,
           mandatory_law: input.mandatoryLaw ?? null,
+          config: input.config ?? {},
         }
         const q = input.id
           ? supabase
@@ -620,6 +643,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           questionType: br.data.question_type,
           orderIndex: nextOrder,
           isRequired: true,
+          config: br.data.config ?? {},
         })
       } catch (err) {
         setError(getSupabaseErrorMessage(err))
@@ -635,6 +659,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
       category: string
       questionText: string
       questionType: SurveyQuestionType
+      config?: Record<string, unknown>
     }): Promise<SurveyQuestionBankRow | null> => {
       if (!supabase) return null
       if (!requireManage()) return null
@@ -647,6 +672,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           category: row.category,
           question_text: row.questionText,
           question_type: row.questionType,
+          config: row.config ?? {},
         }
         const q = row.id
           ? supabase
@@ -1004,6 +1030,191 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     [supabase, assertOrg, requireManage],
   )
 
+  const loadTemplateCatalog = useCallback(async () => {
+    if (!supabase) return
+    const oid = assertOrg()
+    if (!oid) return
+    setError(null)
+    try {
+      const { data: sys, error: e1 } = await supabase
+        .from('survey_template_catalog')
+        .select('*')
+        .eq('is_system', true)
+        .eq('is_active', true)
+        .is('organization_id', null)
+        .order('category', { ascending: true })
+        .order('name', { ascending: true })
+      if (e1) throw e1
+      const { data: orgRows, error: e2 } = await supabase
+        .from('survey_template_catalog')
+        .select('*')
+        .eq('organization_id', oid)
+        .eq('is_active', true)
+        .order('category', { ascending: true })
+        .order('name', { ascending: true })
+      if (e2) throw e2
+      const merged = [...(sys ?? []), ...(orgRows ?? [])]
+      setTemplateCatalog(collect(merged, parseCatalogRow))
+    } catch (err) {
+      setError(getSupabaseErrorMessage(err))
+    }
+  }, [supabase, assertOrg])
+
+  const applyTemplateToSurvey = useCallback(
+    async (surveyId: string, templateId: string): Promise<boolean> => {
+      if (!supabase) return false
+      if (!requireManage()) return false
+      const oid = assertOrg()
+      if (!oid) return false
+      setError(null)
+      try {
+        const { data: t, error: te } = await supabase
+          .from('survey_template_catalog')
+          .select('*')
+          .eq('id', templateId)
+          .maybeSingle()
+        if (te) throw te
+        if (!t) {
+          setError('Mal ikke funnet.')
+          return false
+        }
+        if (t.organization_id != null && t.organization_id !== oid) {
+          setError('Ingen tilgang til denne malen.')
+          return false
+        }
+        if (t.organization_id == null && !t.is_system) {
+          setError('Ugyldig mal.')
+          return false
+        }
+        const pr = parseCatalogRow(t)
+        if (!pr.success) {
+          setError('Ugyldig maldata.')
+          return false
+        }
+        const { data: s, error: se } = await supabase
+          .from('surveys')
+          .select('*')
+          .eq('id', surveyId)
+          .eq('organization_id', oid)
+          .single()
+        if (se) throw se
+        const sp = parseSurveyRow(s)
+        if (!sp.success) throw new Error('Ugyldig undersøkelse')
+        if (sp.data.status !== 'draft') {
+          setError('Mal kan bare brukes på undersøkelser i kladd.')
+          return false
+        }
+        const questions = pr.data.body.questions ?? []
+        for (let i = 0; i < questions.length; i++) {
+          const cq = questions[i]!
+          const map = catalogQuestionToUpsert(cq, i)
+          const lower = cq.text.toLowerCase()
+          const mandatory =
+            ['trakassering', 'integritet', 'medvirkning', 'sikkerhet', 'psykososial'].some((k) => lower.includes(k))
+          const row = await upsertQuestion({
+            surveyId,
+            questionText: map.questionText,
+            questionType: map.questionType,
+            orderIndex: map.orderIndex,
+            isRequired: map.isRequired,
+            isMandatory: mandatory,
+            mandatoryLaw: mandatory ? 'AML_4_3' : null,
+            config: map.config,
+          })
+          if (!row) return false
+        }
+        await loadSurveyDetail(surveyId)
+        return true
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return false
+      }
+    },
+    [supabase, assertOrg, requireManage, upsertQuestion, loadSurveyDetail],
+  )
+
+  const saveOrgTemplate = useCallback(
+    async (input: {
+      id?: string
+      name: string
+      shortName?: string | null
+      description?: string | null
+      category?: string
+      audience?: SurveyTemplateCatalogRow['audience']
+      body: SurveyTemplateCatalogRow['body']
+    }): Promise<SurveyTemplateCatalogRow | null> => {
+      if (!supabase) return null
+      if (!requireManage()) return null
+      const oid = assertOrg()
+      if (!oid) return null
+      setError(null)
+      try {
+        const base = {
+          organization_id: oid,
+          is_system: false,
+          name: input.name,
+          short_name: input.shortName ?? null,
+          description: input.description ?? null,
+          source: 'Organisasjon',
+          use_case: 'Egen mal',
+          category: input.category ?? 'custom',
+          audience: input.audience ?? 'internal',
+          estimated_minutes: 5,
+          recommend_anonymous: true,
+          scoring_note: null,
+          law_ref: null,
+          body: input.body,
+          is_active: true,
+        }
+        const newId =
+          typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.randomUUID === 'function'
+            ? globalThis.crypto.randomUUID()
+            : `tpl-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+        const q = input.id
+          ? supabase
+              .from('survey_template_catalog')
+              .update(base)
+              .eq('id', input.id)
+              .eq('organization_id', oid)
+              .select()
+              .single()
+          : supabase.from('survey_template_catalog').insert({ ...base, id: newId }).select().single()
+        const { data, error: e } = await q
+        if (e) throw e
+        const p = parseCatalogRow(data)
+        if (!p.success) throw new Error('Ugyldig svar')
+        await loadTemplateCatalog()
+        return p.data
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return null
+      }
+    },
+    [supabase, assertOrg, requireManage, loadTemplateCatalog],
+  )
+
+  const deleteOrgTemplate = useCallback(
+    async (templateId: string) => {
+      if (!supabase) return
+      if (!requireManage()) return
+      const oid = assertOrg()
+      if (!oid) return
+      setError(null)
+      try {
+        const { error: e } = await supabase
+          .from('survey_template_catalog')
+          .delete()
+          .eq('id', templateId)
+          .eq('organization_id', oid)
+        if (e) throw e
+        setTemplateCatalog((prev) => prev.filter((t) => t.id !== templateId))
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+      }
+    },
+    [supabase, assertOrg, requireManage],
+  )
+
   return {
     loading,
     error,
@@ -1045,5 +1256,10 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     loadActionPlans,
     upsertActionPlan,
     updateActionPlanStatus,
+    templateCatalog,
+    loadTemplateCatalog,
+    applyTemplateToSurvey,
+    saveOrgTemplate,
+    deleteOrgTemplate,
   }
 }
