@@ -1,6 +1,7 @@
 -- Survey module additions: compliance columns, AMU review + action plans, anon RLS,
 -- org auto-fill, updated_at, audit (audit_log_change, aligned with hse_audit_log).
--- Additive only — core tables from archive/20260730130000_enterprise_survey_module.sql.
+-- Additive only — requires prior migration 20260730130000_enterprise_survey_module.sql
+-- (archived copy also kept under migrations/archive/ for reference).
 
 -- ── 0a. surveys — compliance columns + status 'archived' ----------------------------
 
