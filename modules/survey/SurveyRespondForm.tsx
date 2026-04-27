@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { CheckCircle } from 'lucide-react'
-import type { SurveyQuestionRow } from '../../data/survey'
+import type { SurveyQuestionRow } from '../../src/data/survey'
 
 type RespondProps = { supabase: SupabaseClient | null; campaignId: string }
 
@@ -12,6 +12,7 @@ type Answer = {
   answerBool: boolean | null
 }
 
+/** Midlertidig skjema mot eldre survey_responses / survey_questions. Erstattes i steg 8. */
 export function SurveyRespondForm({ supabase, campaignId }: RespondProps) {
   const [questions, setQuestions] = useState<SurveyQuestionRow[]>([])
   const [answers, setAnswers] = useState<Record<string, Answer>>({})

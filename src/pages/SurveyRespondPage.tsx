@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
-import { SurveyRespondForm } from '../modules/survey/SurveyResponsesTab'
+import { SurveyRespondForm } from '../../modules/survey/SurveyRespondForm'
 
 export function SurveyRespondPage() {
   const { campaignId } = useParams<{ campaignId: string }>()
