@@ -127,7 +127,7 @@ export function LandingPage() {
         {/* Navbar */}
         <header className="sticky top-0 z-50 border-b border-white/10" style={{ background: FOREST }}>
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 md:px-8">
-            <Link to="/home" aria-label="Klarert — til forsiden">
+            <Link to="/" aria-label="Klarert — til forsiden">
               <KlarertLogo size={24} variant="onDark" />
             </Link>
             <nav className="hidden items-center gap-7 text-sm font-medium text-white/70 md:flex">

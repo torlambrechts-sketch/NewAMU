@@ -165,9 +165,10 @@ const router = createBrowserRouter(
             <Route path="/varsle/:slug" element={<PublicWhistlePage />} />
             <Route path="/anonym-aml/:slug" element={<PublicAnonymousAmlPage />} />
             <Route path="/survey-respond/:campaignId" element={<SurveyRespondPage />} />
-            {/* Public marketing page — must NOT use `index` here: authenticated app home is `index` under PermissionGate below. */}
-            <Route path="/home" element={<LandingPage />} />
-            <Route path="/landing" element={<Navigate to="/home" replace />} />
+            {/* Public marketing / landing page — root "/" for all visitors */}
+            <Route index element={<LandingPage />} />
+            <Route path="/home" element={<Navigate to="/" replace />} />
+            <Route path="/landing" element={<Navigate to="/" replace />} />
 
             <Route element={<OrgGate />}>
               <Route path="platform-admin" element={<PlatformAdminLayout />}>
@@ -200,7 +201,6 @@ const router = createBrowserRouter(
                         </WorkplacePublishedComposerProvider>
                       }
                     >
-                      <Route index element={<WelcomeDashboardPage />} />
                       <Route path="app" element={<WelcomeDashboardPage />} />
                       <Route path="dashboard/classic" element={<ProjectDashboard />} />
                       <Route path="tasks" element={<TasksPage />} />
