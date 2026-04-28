@@ -21,6 +21,10 @@ function audienceLabel(row: SurveyDistributionRow): string {
     const n = row.audience_team_ids?.length ?? 0
     return n === 0 ? 'Team (ingen valgt)' : `${n} team`
   }
+  if (row.audience_type === 'locations') {
+    const n = row.audience_location_ids?.length ?? 0
+    return n === 0 ? 'Lokasjoner (ingen valgt)' : `${n} lokasjon(er)`
+  }
   const n = row.audience_department_ids?.length ?? 0
   return n === 0 ? 'Avdelinger (ingen valgt)' : `${n} avdeling(er)`
 }
@@ -50,16 +54,21 @@ function TabEmpty({ message }: { message: string }) {
 }
 
 export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
-  const { departments, orgProfiles, teams } = useOrgSetupContext()
+  const { departments, orgProfiles, teams, locations } = useOrgSetupContext()
   const [label, setLabel] = useState('')
-  const [audience, setAudience] = useState<'all' | 'departments' | 'teams'>('all')
+  const [audience, setAudience] = useState<'all' | 'departments' | 'teams' | 'locations'>('all')
   const [deptSelection, setDeptSelection] = useState<string[]>([])
   const [teamSelection, setTeamSelection] = useState<string[]>([])
+  const [locationSelection, setLocationSelection] = useState<string[]>([])
+  const [scheduledAt, setScheduledAt] = useState('')
   const [creating, setCreating] = useState(false)
   const [genId, setGenId] = useState<string | null>(null)
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const [sendId, setSendId] = useState<string | null>(null)
   const [remindId, setRemindId] = useState<string | null>(null)
+  const [manualDistId, setManualDistId] = useState<string>('')
+  const [manualProfileIds, setManualProfileIds] = useState<string[]>([])
+  const [manualBusy, setManualBusy] = useState(false)
 
   const nameByProfileId = useMemo(() => {
     const m: Record<string, string> = {}
@@ -80,6 +89,7 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
       { value: 'all', label: 'Hele organisasjonen' },
       { value: 'departments', label: 'Valgte avdelinger' },
       { value: 'teams', label: 'Valgte team' },
+      { value: 'locations', label: 'Valgte lokasjoner (katalog)' },
     ],
     [],
   )
@@ -171,14 +181,25 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                     value={audience}
                     options={audienceOptions}
                     onChange={(v) => {
-                      const t = v as 'all' | 'departments' | 'teams'
+                      const t = v as 'all' | 'departments' | 'teams' | 'locations'
                       setAudience(t)
                       if (t === 'all') {
                         setDeptSelection([])
                         setTeamSelection([])
+                        setLocationSelection([])
                       }
-                      if (t === 'departments') setTeamSelection([])
-                      if (t === 'teams') setDeptSelection([])
+                      if (t === 'departments') {
+                        setTeamSelection([])
+                        setLocationSelection([])
+                      }
+                      if (t === 'teams') {
+                        setDeptSelection([])
+                        setLocationSelection([])
+                      }
+                      if (t === 'locations') {
+                        setDeptSelection([])
+                        setTeamSelection([])
+                      }
                     }}
                   />
                 </div>
@@ -187,8 +208,8 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                 <div>
                   <p className={WPSTD_FORM_FIELD_LABEL}>Team</p>
                   <p className="mb-2 text-xs text-neutral-500">
-                    Medlemmer med e-post i katalogen kobles til brukerprofil etter e-post. Uten match blir de ikke
-                    inkludert.
+                    Medlemmer kobles til innlogget bruker via <strong>bruker-ID</strong> på rad i medarbeiderkatalogen,
+                    eller via matchende e-post.
                   </p>
                   {teams.length === 0 ? (
                     <p className="text-sm text-amber-800">Ingen team er opprettet i organisasjonen.</p>
@@ -210,6 +231,40 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                                 }}
                               />
                               {t.name}
+                            </label>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
+              {audience === 'locations' ? (
+                <div>
+                  <p className={WPSTD_FORM_FIELD_LABEL}>Lokasjoner</p>
+                  <p className="mb-2 text-xs text-neutral-500">
+                    Medarbeidere i katalogen med valgt lokasjon. Samme kobling som for team.
+                  </p>
+                  {locations.length === 0 ? (
+                    <p className="text-sm text-amber-800">Ingen lokasjoner er registrert.</p>
+                  ) : (
+                    <ul className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-neutral-200 p-3">
+                      {locations.map((loc) => {
+                        const checked = locationSelection.includes(loc.id)
+                        return (
+                          <li key={loc.id}>
+                            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
+                              <input
+                                type="checkbox"
+                                className="rounded border-neutral-300"
+                                checked={checked}
+                                onChange={() => {
+                                  setLocationSelection((prev) =>
+                                    checked ? prev.filter((id) => id !== loc.id) : [...prev, loc.id],
+                                  )
+                                }}
+                              />
+                              {loc.name}
                             </label>
                           </li>
                         )
@@ -252,6 +307,21 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                   )}
                 </div>
               ) : null}
+              <div>
+                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="dist-sched">
+                  Planlagt første e-post (valgfritt, lokal tid)
+                </label>
+                <p className="mb-1 text-xs text-neutral-500">
+                  Krever Supabase-cron som kaller Edge-funksjon med hemmelighet (se README). Tom = kun manuell «Send
+                  e-post».
+                </p>
+                <StandardInput
+                  id="dist-sched"
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                />
+              </div>
               <Button
                 type="button"
                 variant="primary"
@@ -259,22 +329,32 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                   creating ||
                   (audience === 'departments' && deptSelection.length === 0) ||
                   (audience === 'teams' && teamSelection.length === 0) ||
+                  (audience === 'locations' && locationSelection.length === 0) ||
                   survey.distributionsLoading
                 }
                 onClick={async () => {
                   setCreating(true)
                   try {
+                    let iso: string | null = null
+                    if (scheduledAt.trim()) {
+                      const d = new Date(scheduledAt)
+                      if (!Number.isNaN(d.getTime())) iso = d.toISOString()
+                    }
                     const row = await survey.createDistribution({
                       surveyId: s.id,
                       label: label.trim() || null,
                       audienceType: audience,
                       departmentIds: audience === 'departments' ? deptSelection : undefined,
                       teamIds: audience === 'teams' ? teamSelection : undefined,
+                      locationIds: audience === 'locations' ? locationSelection : undefined,
+                      scheduledInitialSendAt: iso,
                     })
                     if (row) {
                       setLabel('')
                       setDeptSelection([])
                       setTeamSelection([])
+                      setLocationSelection([])
+                      setScheduledAt('')
                     }
                   } finally {
                     setCreating(false)
@@ -292,6 +372,74 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
               </Button>
             </div>
           </div>
+        </div>
+      </ModuleSectionCard>
+
+      <ModuleSectionCard className="p-5 md:p-6">
+        <p className="text-sm font-medium text-neutral-800">Legg til manuelle mottakere</p>
+        <p className="mt-1 text-sm text-neutral-600">
+          Velg profiler fra organisasjonen og legg dem til en eksisterende distribusjon (også etter generering).
+        </p>
+        <div className="mt-4 space-y-3">
+          <div>
+            <span className={WPSTD_FORM_FIELD_LABEL}>Distribusjon</span>
+            <SearchableSelect
+              value={manualDistId}
+              options={survey.distributions.map((d) => ({
+                value: d.id,
+                label: d.label?.trim() || d.id.slice(0, 8),
+              }))}
+              onChange={setManualDistId}
+              placeholder="Velg distribusjon…"
+            />
+          </div>
+          <div>
+            <p className={WPSTD_FORM_FIELD_LABEL}>Profiler</p>
+            {orgProfiles.length === 0 ? (
+              <p className="text-sm text-amber-800">Ingen profiler i organisasjonen.</p>
+            ) : (
+              <ul className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-neutral-200 p-3">
+                {orgProfiles.map((p) => {
+                  const checked = manualProfileIds.includes(p.id)
+                  const label = `${p.display_name || p.email || p.id}${p.email ? ` · ${p.email}` : ''}`
+                  return (
+                    <li key={p.id}>
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
+                        <input
+                          type="checkbox"
+                          className="rounded border-neutral-300"
+                          checked={checked}
+                          onChange={() => {
+                            setManualProfileIds((prev) =>
+                              checked ? prev.filter((id) => id !== p.id) : [...prev, p.id],
+                            )
+                          }}
+                        />
+                        {label}
+                      </label>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={manualBusy || !manualDistId || manualProfileIds.length === 0}
+            onClick={async () => {
+              setManualBusy(true)
+              try {
+                await survey.addManualInvitations(manualDistId, s.id, manualProfileIds)
+                setManualProfileIds([])
+              } finally {
+                setManualBusy(false)
+              }
+            }}
+          >
+            {manualBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Legg til valgte
+          </Button>
         </div>
       </ModuleSectionCard>
 

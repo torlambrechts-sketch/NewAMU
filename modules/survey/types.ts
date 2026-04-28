@@ -303,7 +303,7 @@ export function parseSurveyActionPlanRow(
   return { success: false }
 }
 
-export type SurveyAudienceType = 'all' | 'departments' | 'teams'
+export type SurveyAudienceType = 'all' | 'departments' | 'teams' | 'locations'
 
 export type SurveyDistributionStatus = 'draft' | 'generated' | 'completed' | 'cancelled'
 
@@ -315,6 +315,9 @@ export type SurveyDistributionRow = {
   audience_type: SurveyAudienceType
   audience_department_ids: string[] | null
   audience_team_ids: string[]
+  audience_location_ids: string[]
+  scheduled_initial_send_at: string | null
+  initial_send_started_at: string | null
   status: SurveyDistributionStatus
   invite_count: number
   created_at: string
@@ -327,9 +330,12 @@ const SurveyDistributionRowSchema = z.object({
   organization_id: z.string().uuid(),
   survey_id: z.string().uuid(),
   label: z.string().nullable(),
-  audience_type: z.enum(['all', 'departments', 'teams']),
+  audience_type: z.enum(['all', 'departments', 'teams', 'locations']),
   audience_department_ids: z.array(z.string().uuid()).nullable(),
   audience_team_ids: z.array(z.string().uuid()).nullable().optional(),
+  audience_location_ids: z.array(z.string().uuid()).nullable().optional(),
+  scheduled_initial_send_at: z.string().nullable().optional(),
+  initial_send_started_at: z.string().nullable().optional(),
   status: z.enum(['draft', 'generated', 'completed', 'cancelled']),
   invite_count: z.number().int().nonnegative(),
   created_at: z.string(),
@@ -338,6 +344,9 @@ const SurveyDistributionRowSchema = z.object({
 }).transform((row) => ({
   ...row,
   audience_team_ids: row.audience_team_ids ?? [],
+  audience_location_ids: row.audience_location_ids ?? [],
+  scheduled_initial_send_at: row.scheduled_initial_send_at ?? null,
+  initial_send_started_at: row.initial_send_started_at ?? null,
 }))
 
 export function parseSurveyDistributionRow(
@@ -363,6 +372,9 @@ export type SurveyInvitationRow = {
   email_sent_at: string | null
   email_send_error: string | null
   reminder_sent_at: string | null
+  reminder_count?: number
+  resend_email_id: string | null
+  email_delivery_status: string | null
   status: SurveyInvitationStatus
   response_id: string | null
   created_at: string
@@ -381,6 +393,9 @@ const SurveyInvitationRowSchema = z.object({
   email_sent_at: z.string().nullable().optional(),
   email_send_error: z.string().nullable().optional(),
   reminder_sent_at: z.string().nullable().optional(),
+  reminder_count: z.number().int().nonnegative().optional(),
+  resend_email_id: z.string().nullable().optional(),
+  email_delivery_status: z.string().nullable().optional(),
   status: z.enum(['pending', 'completed']),
   response_id: z.string().uuid().nullable(),
   created_at: z.string(),
@@ -391,6 +406,9 @@ const SurveyInvitationRowSchema = z.object({
   email_sent_at: row.email_sent_at ?? null,
   email_send_error: row.email_send_error ?? null,
   reminder_sent_at: row.reminder_sent_at ?? null,
+  reminder_count: row.reminder_count ?? 0,
+  resend_email_id: row.resend_email_id ?? null,
+  email_delivery_status: row.email_delivery_status ?? null,
 }))
 
 export function parseSurveyInvitationRow(

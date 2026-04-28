@@ -38,6 +38,7 @@ import {
   Workflow,
 } from 'lucide-react'
 import { NotificationTray } from '../notifications/NotificationTray'
+import { SurveyPendingInvitesBanner } from '../../../modules/survey/SurveyPendingInvitesBanner'
 import { useI18n } from '../../hooks/useI18n'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PermissionKey } from '../../lib/permissionKeys'
@@ -1082,6 +1083,7 @@ export function AticsShell() {
           </header>
 
           <main className="flex-1 overflow-y-auto bg-transparent">
+            <SurveyPendingInvitesBanner />
             <Outlet />
           </main>
         </div>

@@ -165,6 +165,14 @@ export function SurveyModuleAdminPage() {
       await upsertOrgModulePayload(supabase, orgId, SETTINGS_KEY, {
         default_anonymous: settings.default_anonymous ?? false,
         intro_html: settings.intro_html?.trim() || undefined,
+        invite_email_subject_template: settings.invite_email_subject_template?.trim() || undefined,
+        invite_email_html_template: settings.invite_email_html_template?.trim() || undefined,
+        reminder_email_subject_template: settings.reminder_email_subject_template?.trim() || undefined,
+        reminder_email_html_template: settings.reminder_email_html_template?.trim() || undefined,
+        max_reminders_per_invitation: settings.max_reminders_per_invitation,
+        reminder_min_hours_since_last: settings.reminder_min_hours_since_last,
+        email_send_delay_ms: settings.email_send_delay_ms,
+        response_rate_threshold_pct: settings.response_rate_threshold_pct,
       })
     } catch (e) {
       setSettingsError(getSupabaseErrorMessage(e))

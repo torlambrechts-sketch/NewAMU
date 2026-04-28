@@ -122,6 +122,8 @@ export type UseSurveyState = {
   refresh: () => Promise<void>
   loadQuestionBank: () => Promise<void>
   dispatchOnSurveyResponseSubmitted: (surveyId: string) => Promise<void>
+  /** Når svarandel mot distribusjonsinvitasjoner når terskel i modulinnstillinger — én arbeidsflyt per økt. */
+  maybeDispatchSurveyResponseThreshold: (surveyId: string) => Promise<void>
   amuReview: SurveyAmuReviewRow | null
   actionPlans: SurveyActionPlanRow[]
   loadAmuReview: (surveyId: string) => Promise<void>
@@ -173,11 +175,15 @@ export type UseSurveyState = {
   createDistribution: (input: {
     surveyId: string
     label?: string | null
-    audienceType: 'all' | 'departments' | 'teams'
+    audienceType: 'all' | 'departments' | 'teams' | 'locations'
     departmentIds?: string[]
     teamIds?: string[]
+    locationIds?: string[]
+    scheduledInitialSendAt?: string | null
   }) => Promise<SurveyDistributionRow | null>
   generateInvitations: (distributionId: string, surveyId: string) => Promise<boolean>
+  addManualInvitations: (distributionId: string, surveyId: string, profileIds: string[]) => Promise<boolean>
+  exportDistributionCsv: (surveyId: string, distributionId: string) => Promise<void>
   /** Sender ventende invitasjoner på e-post via Edge Function `send-survey-invites` (krever Resend). */
   sendInvitationEmails: (distributionId: string, surveyId: string) => Promise<{ sent: number; failed: number } | null>
   /** Påminnelse kun til de som fortsatt har status «venter» og som har fått første e-post. */
@@ -360,6 +366,53 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     [supabase, assertOrg],
   )
 
+  const maybeDispatchSurveyResponseThreshold = useCallback(
+    async (surveyId: string) => {
+      if (!supabase) return
+      if (!requireManage()) return
+      const oid = assertOrg()
+      if (!oid) return
+      try {
+        const raw = await fetchOrgModulePayload<Record<string, unknown>>(supabase, oid, 'survey_settings')
+        const st = parseSurveyModuleSettings(raw ?? {})
+        const threshold = st.response_rate_threshold_pct ?? 0
+        if (!threshold || threshold <= 0) return
+
+        const { count: total, error: te } = await supabase
+          .from('survey_invitations')
+          .select('*', { count: 'exact', head: true })
+          .eq('survey_id', surveyId)
+          .eq('organization_id', oid)
+        if (te || !total || total === 0) return
+
+        const { count: done, error: de } = await supabase
+          .from('survey_invitations')
+          .select('*', { count: 'exact', head: true })
+          .eq('survey_id', surveyId)
+          .eq('organization_id', oid)
+          .eq('status', 'completed')
+        if (de || done == null) return
+
+        const pct = Math.floor((done / total) * 100)
+        if (pct < threshold) return
+
+        const sessKey = `survey_threshold_evt:${surveyId}:${threshold}`
+        if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(sessKey)) return
+
+        const { error: e } = await supabase.rpc('workflow_dispatch_survey_event', {
+          p_organization_id: oid,
+          p_event: 'ON_SURVEY_RESPONSE_RATE_THRESHOLD',
+          p_survey_id: surveyId,
+        })
+        if (e) throw e
+        if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(sessKey, '1')
+      } catch {
+        /* non-blocking */
+      }
+    },
+    [supabase, assertOrg, requireManage],
+  )
+
   const loadSurveyDetail = useCallback(
     async (surveyId: string) => {
       if (!supabase) return
@@ -419,13 +472,14 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
         await loadActionPlans(surveyId)
         await loadDistributions(surveyId)
         await loadInvitations(surveyId)
+        void maybeDispatchSurveyResponseThreshold(surveyId)
       } catch (err) {
         setError(getSupabaseErrorMessage(err))
       } finally {
         setLoading(false)
       }
     },
-    [supabase, assertOrg, loadAmuReview, loadActionPlans, loadDistributions, loadInvitations],
+    [supabase, assertOrg, loadAmuReview, loadActionPlans, loadDistributions, loadInvitations, maybeDispatchSurveyResponseThreshold],
   )
 
   const loadActiveSurveyForRespondent = useCallback(
@@ -1409,9 +1463,11 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     async (input: {
       surveyId: string
       label?: string | null
-      audienceType: 'all' | 'departments' | 'teams'
+      audienceType: 'all' | 'departments' | 'teams' | 'locations'
       departmentIds?: string[]
       teamIds?: string[]
+      locationIds?: string[]
+      scheduledInitialSendAt?: string | null
     }): Promise<SurveyDistributionRow | null> => {
       if (!supabase) return null
       if (!requireManage()) return null
@@ -1422,6 +1478,8 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
         const audience_department_ids =
           input.audienceType === 'departments' ? (input.departmentIds ?? []).filter(Boolean) : []
         const audience_team_ids = input.audienceType === 'teams' ? (input.teamIds ?? []).filter(Boolean) : []
+        const audience_location_ids =
+          input.audienceType === 'locations' ? (input.locationIds ?? []).filter(Boolean) : []
         const row = {
           organization_id: oid,
           survey_id: input.surveyId,
@@ -1429,6 +1487,8 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           audience_type: input.audienceType,
           audience_department_ids: audience_department_ids.length > 0 ? audience_department_ids : [],
           audience_team_ids: audience_team_ids.length > 0 ? audience_team_ids : [],
+          audience_location_ids: audience_location_ids.length > 0 ? audience_location_ids : [],
+          scheduled_initial_send_at: input.scheduledInitialSendAt?.trim() || null,
           status: 'draft' as const,
           invite_count: 0,
           created_by: user?.id ?? null,
@@ -1446,6 +1506,8 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     },
     [supabase, assertOrg, requireManage, user?.id],
   )
+
+  const normEmail = (e: string | null | undefined) => (e ?? '').trim().toLowerCase()
 
   const generateInvitations = useCallback(
     async (distributionId: string, surveyId: string): Promise<boolean> => {
@@ -1478,8 +1540,35 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
 
         type P = { id: string; email: string | null; department_id: string | null }
         const profiles = (profRows ?? []) as P[]
+        const profileById = new Map(profiles.map((p) => [p.id, p]))
+        const profileByEmail = new Map<string, P>()
+        for (const p of profiles) {
+          const k = normEmail(p.email)
+          if (k && !profileByEmail.has(k)) profileByEmail.set(k, p)
+        }
 
         let filtered: P[]
+
+        const resolveMembersToProfiles = (
+          members: Array<{ email: string | null; user_id: string | null }>,
+        ): P[] => {
+          const seen = new Set<string>()
+          const out: P[] = []
+          for (const m of members) {
+            let prof: P | undefined
+            if (m.user_id) {
+              prof = profileById.get(m.user_id)
+            }
+            if (!prof) {
+              const k = normEmail(m.email)
+              if (k) prof = profileByEmail.get(k)
+            }
+            if (!prof || seen.has(prof.id)) continue
+            seen.add(prof.id)
+            out.push(prof)
+          }
+          return out
+        }
 
         if (dist.data.audience_type === 'teams') {
           const teamIds = new Set(dist.data.audience_team_ids ?? [])
@@ -1489,29 +1578,33 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           }
           const { data: memRows, error: me } = await supabase
             .from('organization_members')
-            .select('email, team_id')
+            .select('email, team_id, user_id')
             .eq('organization_id', oid)
           if (me) throw me
-          type M = { email: string | null; team_id: string | null }
+          type M = { email: string | null; team_id: string | null; user_id: string | null }
           const members = ((memRows ?? []) as M[]).filter(
-            (m) => m.team_id != null && teamIds.has(m.team_id) && Boolean(m.email?.trim()),
+            (m) => m.team_id != null && teamIds.has(m.team_id) && (Boolean(m.email?.trim()) || Boolean(m.user_id)),
           )
-          const norm = (e: string) => e.trim().toLowerCase()
-          const emailToProfileId = new Map<string, string>()
-          for (const p of profiles) {
-            if (!p.email?.trim()) continue
-            const k = norm(p.email)
-            if (!emailToProfileId.has(k)) emailToProfileId.set(k, p.id)
+          filtered = resolveMembersToProfiles(members)
+        } else if (dist.data.audience_type === 'locations') {
+          const locIds = new Set(dist.data.audience_location_ids ?? [])
+          if (locIds.size === 0) {
+            setError('Ingen lokasjon valgt.')
+            return false
           }
-          const seenProfile = new Set<string>()
-          filtered = []
-          for (const m of members) {
-            const pid = emailToProfileId.get(norm(m.email!))
-            if (!pid || seenProfile.has(pid)) continue
-            seenProfile.add(pid)
-            const prof = profiles.find((x) => x.id === pid)
-            if (prof) filtered.push(prof)
-          }
+          const { data: memRows, error: me } = await supabase
+            .from('organization_members')
+            .select('email, location_id, user_id')
+            .eq('organization_id', oid)
+          if (me) throw me
+          type M = { email: string | null; location_id: string | null; user_id: string | null }
+          const members = ((memRows ?? []) as M[]).filter(
+            (m) =>
+              m.location_id != null &&
+              locIds.has(m.location_id) &&
+              (Boolean(m.email?.trim()) || Boolean(m.user_id)),
+          )
+          filtered = resolveMembersToProfiles(members)
         } else {
           const deptIds = new Set(dist.data.audience_department_ids ?? [])
           filtered =
@@ -1523,8 +1616,10 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
         if (filtered.length === 0) {
           setError(
             dist.data.audience_type === 'teams'
-              ? 'Ingen innloggede brukere matcher team-medlemmer (kobling via e-post i medarbeiderkatalog og profil).'
-              : 'Ingen mottakere matcher målgruppen.',
+              ? 'Ingen innloggede brukere matcher utvalgte team (kobling via bruker-ID eller e-post i katalog og profil).'
+              : dist.data.audience_type === 'locations'
+                ? 'Ingen innloggede brukere matcher utvalgte lokasjoner (kobling via bruker-ID eller e-post).'
+                : 'Ingen mottakere matcher målgruppen.',
           )
           return false
         }
@@ -1562,6 +1657,137 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
       }
     },
     [supabase, assertOrg, requireManage, loadDistributions, loadInvitations],
+  )
+
+  const addManualInvitations = useCallback(
+    async (distributionId: string, surveyId: string, profileIds: string[]): Promise<boolean> => {
+      if (!supabase) return false
+      if (!requireManage()) return false
+      const oid = assertOrg()
+      if (!oid) return false
+      const ids = [...new Set(profileIds.filter(Boolean))]
+      if (ids.length === 0) return false
+      setError(null)
+      try {
+        const { data: distRaw, error: de } = await supabase
+          .from('survey_distributions')
+          .select('*')
+          .eq('id', distributionId)
+          .eq('survey_id', surveyId)
+          .eq('organization_id', oid)
+          .single()
+        if (de) throw de
+        const dist = parseSurveyDistributionRow(distRaw)
+        if (!dist.success) throw new Error('Ugyldig distribusjon')
+        if (dist.data.status === 'cancelled') {
+          setError('Distribusjonen er avbrutt.')
+          return false
+        }
+
+        const { data: existingRows, error: exErr } = await supabase
+          .from('survey_invitations')
+          .select('profile_id')
+          .eq('distribution_id', distributionId)
+        if (exErr) throw exErr
+        const existing = new Set((existingRows ?? []).map((r: { profile_id: string }) => r.profile_id))
+
+        const { data: profRows, error: pe } = await supabase
+          .from('profiles')
+          .select('id, email, department_id')
+          .eq('organization_id', oid)
+          .in('id', ids)
+        if (pe) throw pe
+        const profiles = (profRows ?? []) as Array<{ id: string; email: string | null; department_id: string | null }>
+        const toAdd = profiles.filter((p) => !existing.has(p.id))
+        if (toAdd.length === 0) {
+          setError('Alle valgte er allerede på listen.')
+          return false
+        }
+
+        const invitationRows = toAdd.map((p) => ({
+          organization_id: oid,
+          survey_id: surveyId,
+          distribution_id: distributionId,
+          profile_id: p.id,
+          department_id: p.department_id,
+          email_snapshot: p.email,
+          status: 'pending' as const,
+          access_token: randomSurveyInvitationToken(),
+        }))
+        const { error: insErr } = await supabase.from('survey_invitations').insert(invitationRows)
+        if (insErr) throw insErr
+
+        const { count, error: cErr } = await supabase
+          .from('survey_invitations')
+          .select('*', { count: 'exact', head: true })
+          .eq('distribution_id', distributionId)
+        if (cErr) throw cErr
+
+        const { error: upErr } = await supabase
+          .from('survey_distributions')
+          .update({
+            invite_count: count ?? dist.data.invite_count + toAdd.length,
+            status: 'generated',
+          })
+          .eq('id', distributionId)
+          .eq('organization_id', oid)
+        if (upErr) throw upErr
+
+        await loadDistributions(surveyId)
+        await loadInvitations(surveyId)
+        return true
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return false
+      }
+    },
+    [supabase, assertOrg, requireManage, loadDistributions, loadInvitations],
+  )
+
+  const exportDistributionCsv = useCallback(
+    async (surveyId: string, distributionId: string) => {
+      const invs = invitations.filter((i) => i.distribution_id === distributionId && i.survey_id === surveyId)
+      const dist = distributions.find((d) => d.id === distributionId)
+      const header = [
+        'distribution_label',
+        'profile_id',
+        'email',
+        'department_id',
+        'status',
+        'email_sent_at',
+        'reminder_sent_at',
+        'reminder_count',
+        'email_delivery_status',
+        'completed',
+      ]
+      const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
+      const lines = [
+        header.join(','),
+        ...invs.map((i) =>
+          [
+            escape(dist?.label?.trim() ?? ''),
+            i.profile_id,
+            escape(i.email_snapshot ?? ''),
+            i.department_id ?? '',
+            i.status,
+            i.email_sent_at ?? '',
+            i.reminder_sent_at ?? '',
+            String(i.reminder_count ?? 0),
+            escape(i.email_delivery_status ?? ''),
+            i.status === 'completed' ? 'yes' : 'no',
+          ].join(','),
+        ),
+      ]
+      const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `survey-distribusjon-${distributionId.slice(0, 8)}.csv`
+      a.rel = 'noopener'
+      a.click()
+      URL.revokeObjectURL(url)
+    },
+    [assertOrg, invitations, distributions],
   )
 
   const sendInvitationEmails = useCallback(
@@ -1644,6 +1870,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     dispatchOnSurveyPublished,
     dispatchOnSurveyClosed,
     dispatchOnSurveyResponseSubmitted,
+    maybeDispatchSurveyResponseThreshold,
     clearError,
     refresh,
     loadQuestionBank,
@@ -1671,5 +1898,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     generateInvitations,
     sendInvitationEmails,
     sendInvitationReminders,
+    addManualInvitations,
+    exportDistributionCsv,
   }
 }

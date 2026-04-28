@@ -54,6 +54,8 @@ export const SURVEY_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_SURVEY_PUBLISHED', label: 'Undersøkelse publisert' },
   { value: 'ON_SURVEY_CLOSED', label: 'Undersøkelse lukket' },
   { value: 'ON_SURVEY_RESPONSE_SUBMITTED', label: 'Svar innsendt' },
+  { value: 'ON_SURVEY_ALL_INVITATIONS_COMPLETED', label: 'Alle invitasjoner besvart (ingen ventende)' },
+  { value: 'ON_SURVEY_RESPONSE_RATE_THRESHOLD', label: 'Svarandel nådd (terskel)' },
 ] as const
 
 const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
