@@ -46,6 +46,20 @@ export function PermissionGate() {
     path.includes('/wiki-edit') ||
     (path.includes('/documents/templates/org/') && path.includes('/edit'))
 
+  const isSurveyTemplateEditorPath = path.startsWith('/survey/templates/org/')
+
+  if (isSurveyTemplateEditorPath) {
+    const canEditTemplate = profile?.is_org_admin === true || can('survey.manage')
+    if (!canEditTemplate) {
+      return <Navigate to="/survey" replace state={{ accessDenied: 'survey.manage' }} />
+    }
+    const canEnterModule = can('module.view.survey')
+    if (!canEnterModule) {
+      return <Navigate to="/home" replace state={{ accessDenied: 'module.view.survey' }} />
+    }
+    return <Outlet />
+  }
+
   if (isDocumentsPath && isDocumentsEditorPath) {
     const canOpenEditor =
       profile?.is_org_admin === true || can('documents.manage') || can('documents.edit')

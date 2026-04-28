@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   ClipboardList,
@@ -44,6 +44,7 @@ function isMandatoryAml4_3(text: string): boolean {
 
 export function SurveyPage({ supabase }: Props) {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const survey = useSurvey({ supabase })
   const [tab, setTab] = useState<ModuleTab>('oversikt')
 
@@ -102,6 +103,13 @@ export function SurveyPage({ supabase }: Props) {
   useEffect(() => {
     void loadSurveys()
   }, [loadSurveys])
+
+  const tabFromUrl = searchParams.get('tab')
+  useEffect(() => {
+    if (tabFromUrl === 'maler' || tabFromUrl === 'kampanjer' || tabFromUrl === 'leverandorer' || tabFromUrl === 'oversikt') {
+      setTab(tabFromUrl)
+    }
+  }, [tabFromUrl])
 
   useEffect(() => {
     if (tab === 'maler') void loadTemplateCatalog()
@@ -266,7 +274,18 @@ export function SurveyPage({ supabase }: Props) {
             overflow="scroll"
             items={moduleTabs}
             activeId={tab}
-            onChange={(id) => setTab(id as ModuleTab)}
+            onChange={(id) => {
+              const next = id as ModuleTab
+              setTab(next)
+              setSearchParams(
+                (prev) => {
+                  const p = new URLSearchParams(prev)
+                  p.set('tab', next)
+                  return p
+                },
+                { replace: true },
+              )
+            }}
           />
         }
       >
@@ -310,6 +329,15 @@ export function SurveyPage({ supabase }: Props) {
                 templates={survey.templateCatalog}
                 loading={survey.templateCatalogLoading}
                 onUseTemplate={handleUseTemplate}
+                onNewTemplate={() => navigate('/survey/templates/org/new')}
+                onEditTemplate={(id) => {
+                  const t = survey.templateCatalog.find((x) => x.id === id)
+                  if (t?.is_system) {
+                    navigate(`/survey/templates/org/new?from=${encodeURIComponent(id)}`)
+                  } else {
+                    navigate(`/survey/templates/org/${encodeURIComponent(id)}`)
+                  }
+                }}
                 canManage={survey.canManage}
               />
             )}

@@ -130,6 +130,7 @@ import { RosModuleAdminPage }    from './pages/RosModuleAdminPage'
 import { RosAnalysisDetailPage } from './pages/RosAnalysisDetailPage'
 import { SurveyModulePage } from './pages/SurveyModulePage'
 import { SurveyModuleAdminPage } from './pages/SurveyModuleAdminPage'
+import { SurveyOrgTemplateEditorPage } from './pages/SurveyOrgTemplateEditorPage'
 import { SurveyDetailPage } from './pages/SurveyDetailPage'
 import { SurveyRespondPage } from './pages/SurveyRespondPage'
 
@@ -265,6 +266,8 @@ const router = createBrowserRouter(
                       <Route path="ros/:rosId"  element={<RosAnalysisDetailPage />} />
                       <Route path="survey" element={<SurveyModulePage />} />
                       <Route path="survey/admin" element={<SurveyModuleAdminPage />} />
+                      <Route path="survey/templates/org/new" element={<SurveyOrgTemplateEditorPage />} />
+                      <Route path="survey/templates/org/:templateId" element={<SurveyOrgTemplateEditorPage />} />
                       <Route path="survey/:surveyId" element={<SurveyDetailPage />} />
                       {/* Admin: module overview + RBAC */}
                       <Route path="admin/modules" element={<ModuleAdminPage />} />

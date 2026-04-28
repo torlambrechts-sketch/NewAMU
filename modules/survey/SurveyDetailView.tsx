@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ArrowLeft, EyeOff, Ghost, Trash2 } from 'lucide-react'
+import { ArrowLeft, EyeOff, Ghost, Save, Trash2 } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
@@ -39,6 +39,7 @@ import { SurveyBuilderStage } from './SurveyBuilderStage'
 import { SurveyAmuTab } from './tabs/SurveyAmuTab'
 import { SurveyTiltakTab } from './tabs/SurveyTiltakTab'
 import { SURVEY_DETAIL_EXTRA_LEGAL_REFERENCES, SURVEY_MODULE_LEGAL_REFERENCES } from './surveyLegalReferences'
+import { orgQuestionToCatalogQuestion } from './surveyTemplateCatalogHelpers'
 import type { OrgSurveyQuestionRow, SurveyAmuReviewRow, SurveyQuestionType, SurveyRow } from './types'
 
 type DetailTab = 'oversikt' | 'bygger' | 'svar' | 'analyse' | 'amu' | 'tiltak'
@@ -446,6 +447,7 @@ export function SurveyDetailView({ supabase }: Props) {
   const [qConfigJson, setQConfigJson] = useState('{}')
   const [qSaving, setQSaving] = useState(false)
   const [questionPanelError, setQuestionPanelError] = useState<string | null>(null)
+  const [templateSaving, setTemplateSaving] = useState(false)
 
   const { loadSurveyDetail } = survey
   useEffect(() => {
@@ -571,6 +573,34 @@ export function SurveyDetailView({ supabase }: Props) {
     if (row) closePanel()
   }, [s, surveyId, qText, qType, qOrder, qRequired, qOptionsLines, qConfigJson, editingQ, survey, closePanel])
 
+  const saveAsOrgTemplate = useCallback(async () => {
+    if (!s || !surveyId || !survey.canManage) return
+    if (s.status !== 'draft') return
+    if (survey.questions.length === 0) return
+    const defaultName = s.title.trim() || 'Organisasjonsmal'
+    const nameInput =
+      typeof window !== 'undefined' ? window.prompt('Navn på organisasjonsmal:', defaultName) : defaultName
+    if (nameInput == null) return
+    const name = nameInput.trim()
+    if (!name) return
+    setTemplateSaving(true)
+    const sorted = [...survey.questions].sort((a, b) => a.order_index - b.order_index)
+    const body = {
+      version: 1 as const,
+      questions: sorted.map((q, i) => orgQuestionToCatalogQuestion(q, i)),
+    }
+    const row = await survey.saveOrgTemplate({
+      name,
+      shortName: null,
+      description: s.description,
+      category: 'custom',
+      audience: s.survey_type === 'external' ? 'external' : 'internal',
+      body,
+    })
+    setTemplateSaving(false)
+    if (row) navigate(`/survey/templates/org/${row.id}`)
+  }, [s, surveyId, survey, navigate])
+
   const isLocked = !!(s && (s.status === 'active' || s.status === 'closed'))
   const panelTitleId = 'survey-question-panel-title'
 
@@ -651,6 +681,26 @@ export function SurveyDetailView({ supabase }: Props) {
           {tab === 'oversikt' && (
             <OversiktTab key={s.id} survey={survey} s={s} />
           )}
+
+          {tab === 'bygger' && survey.canManage && s.status === 'draft' && !isLocked ? (
+            <div className="rounded-lg border border-[#1a3d32]/20 bg-[#f7faf8] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-neutral-700">
+                  Lagre denne spørsmålslisten som gjenbrukbar mal under Maler.
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={templateSaving || survey.questions.length === 0}
+                  onClick={() => void saveAsOrgTemplate()}
+                >
+                  <Save className="h-4 w-4" aria-hidden />
+                  {templateSaving ? 'Lagrer mal…' : 'Lagre som organisasjonsmal'}
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           {tab === 'bygger' && (
             <ByggerTab
