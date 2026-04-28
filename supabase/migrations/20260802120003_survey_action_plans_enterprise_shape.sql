@@ -90,14 +90,39 @@ create trigger survey_action_plans_before_insert
   before insert on public.survey_action_plans
   for each row execute function public.survey_action_plans_before_insert();
 
-drop trigger if exists survey_action_plans_set_updated_at on public.survey_action_plans;
-create trigger survey_action_plans_set_updated_at
-  before update on public.survey_action_plans
-  for each row execute function public.set_updated_at();
+-- set_updated_at / audit_log_change are created in 20260801100000_survey_additions.sql — skip if not deployed yet
+do $trig$
+begin
+  if exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname = 'set_updated_at'
+      and pg_function_is_visible(p.oid)
+  ) then
+    execute 'drop trigger if exists survey_action_plans_set_updated_at on public.survey_action_plans';
+    execute '
+      create trigger survey_action_plans_set_updated_at
+        before update on public.survey_action_plans
+        for each row execute function public.set_updated_at()';
+  end if;
 
-drop trigger if exists survey_action_plans_audit on public.survey_action_plans;
-create trigger survey_action_plans_audit
-  after insert or update or delete on public.survey_action_plans
-  for each row execute function public.audit_log_change();
+  if exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname = 'audit_log_change'
+      and pg_function_is_visible(p.oid)
+  ) then
+    execute 'drop trigger if exists survey_action_plans_audit on public.survey_action_plans';
+    execute '
+      create trigger survey_action_plans_audit
+        after insert or update or delete on public.survey_action_plans
+        for each row execute function public.audit_log_change()';
+  end if;
+end;
+$trig$;
 
 notify pgrst, 'reload schema';
