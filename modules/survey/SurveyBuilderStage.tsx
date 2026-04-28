@@ -4,10 +4,12 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  pointerWithin,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
@@ -166,6 +168,15 @@ export function SurveyBuilderStage({ survey, surveyId, isLocked, onEditQuestion,
 
   const [activeId, setActiveId] = useState<string | null>(null)
 
+  const collisionDetection = useCallback<CollisionDetection>((args) => {
+    const draggingPalette = String(args.active.id).startsWith(PALETTE_PREFIX)
+    if (draggingPalette) {
+      const within = pointerWithin(args)
+      if (within.length > 0) return within
+    }
+    return closestCenter(args)
+  }, [])
+
   const onDragStart = useCallback((e: DragStartEvent) => {
     setActiveId(String(e.active.id))
   }, [])
@@ -174,13 +185,15 @@ export function SurveyBuilderStage({ survey, surveyId, isLocked, onEditQuestion,
     async (e: DragEndEvent) => {
       setActiveId(null)
       const { active, over } = e
-      if (!over) return
       const aid = String(active.id)
+
+      // Palette → stage: insert even when collision misses the droppable (pointerWithin helps; this is a fallback).
       if (aid.startsWith(PALETTE_PREFIX)) {
         if (isLocked) return
         const type = aid.slice(PALETTE_PREFIX.length) as SurveyQuestionType
         const { questionText, config } = defaultQuestionPayload(type)
         const nextIndex = items.length
+
         const row = await survey.upsertQuestion({
           surveyId,
           questionText,
@@ -190,9 +203,11 @@ export function SurveyBuilderStage({ survey, surveyId, isLocked, onEditQuestion,
           config,
         })
         if (!row) return
+
+        if (!over) return
+
         const overId = String(over.id)
-        if (overId === STAGE_ID) return
-        if (overId === row.id) return
+        if (overId === STAGE_ID || overId === row.id) return
         if (itemIds.includes(overId)) {
           const at = itemIds.indexOf(overId)
           if (at >= 0) {
@@ -202,6 +217,8 @@ export function SurveyBuilderStage({ survey, surveyId, isLocked, onEditQuestion,
         }
         return
       }
+
+      if (!over) return
       if (isLocked) return
       if (active.id === over.id) return
       const oldIndex = itemIds.indexOf(String(active.id))
@@ -216,7 +233,7 @@ export function SurveyBuilderStage({ survey, surveyId, isLocked, onEditQuestion,
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={collisionDetection}
       onDragStart={onDragStart}
       onDragEnd={(ev) => void onDragEnd(ev)}
       onDragCancel={() => setActiveId(null)}

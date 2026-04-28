@@ -598,10 +598,19 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
         return false
       }
       if (!ensureQuestionEditable(parsed.data)) return false
-      const existingIds = new Set(questions.filter((q) => q.survey_id === surveyId).map((q) => q.id))
-      if (orderedQuestionIds.length !== existingIds.size) return false
+      const { data: qRows, error: qe } = await supabase
+        .from('org_survey_questions')
+        .select('id')
+        .eq('survey_id', surveyId)
+        .eq('organization_id', oid)
+      if (qe) {
+        setError(getSupabaseErrorMessage(qe))
+        return false
+      }
+      const dbIds = new Set((qRows ?? []).map((r: { id: string }) => r.id))
+      if (orderedQuestionIds.length !== dbIds.size) return false
       for (const id of orderedQuestionIds) {
-        if (!existingIds.has(id)) return false
+        if (!dbIds.has(id)) return false
       }
       setError(null)
       try {
@@ -632,7 +641,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
         return false
       }
     },
-    [supabase, assertOrg, requireManage, ensureQuestionEditable, questions],
+    [supabase, assertOrg, requireManage, ensureQuestionEditable],
   )
 
   const deleteQuestion = useCallback(
