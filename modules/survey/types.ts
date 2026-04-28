@@ -355,6 +355,8 @@ export type SurveyInvitationRow = {
   email_snapshot: string | null
   /** Opaque secret for personal survey link (?invite=) — null before migration or legacy rows */
   access_token: string | null
+  email_sent_at: string | null
+  email_send_error: string | null
   status: SurveyInvitationStatus
   response_id: string | null
   created_at: string
@@ -370,6 +372,8 @@ const SurveyInvitationRowSchema = z.object({
   department_id: z.string().uuid().nullable(),
   email_snapshot: z.string().nullable(),
   access_token: z.string().min(1).nullable().optional(),
+  email_sent_at: z.string().nullable().optional(),
+  email_send_error: z.string().nullable().optional(),
   status: z.enum(['pending', 'completed']),
   response_id: z.string().uuid().nullable(),
   created_at: z.string(),
@@ -377,6 +381,8 @@ const SurveyInvitationRowSchema = z.object({
 }).transform((row) => ({
   ...row,
   access_token: row.access_token ?? null,
+  email_sent_at: row.email_sent_at ?? null,
+  email_send_error: row.email_send_error ?? null,
 }))
 
 export function parseSurveyInvitationRow(

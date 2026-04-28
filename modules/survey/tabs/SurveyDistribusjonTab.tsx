@@ -53,6 +53,7 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
   const [creating, setCreating] = useState(false)
   const [genId, setGenId] = useState<string | null>(null)
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
+  const [sendId, setSendId] = useState<string | null>(null)
 
   const nameByProfileId = useMemo(() => {
     const m: Record<string, string> = {}
@@ -139,8 +140,8 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
             <p className="text-sm font-medium text-neutral-800">Ny distribusjon</p>
             <p className="mt-1 text-sm text-neutral-600">
               Definer en målgruppe (hele org. eller utvalgte avdelinger) og generer mottakere basert på profiler i
-              organisasjonen. Hver mottaker får en personlig lenke (kopier og send i e-post eller chat). Faktisk
-              e-postutsendelse fra systemet er ikke implementert ennå.
+              organisasjonen. Hver mottaker får en personlig lenke — kopier den manuelt eller bruk «Send e-post»
+              (Supabase Edge Function + Resend).
             </p>
             <div className="mt-4 space-y-4">
               <div className={WPSTD_FORM_ROW_GRID}>
@@ -296,6 +297,34 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                         )}
                       </Button>
                     ) : null}
+                    {(dist.status === 'generated' || dist.status === 'completed') && invs.length > 0 ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="primary"
+                        disabled={sendId === dist.id}
+                        onClick={async () => {
+                          setSendId(dist.id)
+                          try {
+                            await survey.sendInvitationEmails(dist.id, s.id)
+                          } finally {
+                            setSendId(null)
+                          }
+                        }}
+                      >
+                        {sendId === dist.id ? (
+                          <>
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+                            Sender…
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                            Send e-post
+                          </>
+                        )}
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
                 {invs.length > 0 ? (
@@ -307,6 +336,7 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                           <th className="px-4 py-2 font-medium">E-post (øyeblikksbilde)</th>
                           <th className="px-4 py-2 font-medium">Avdeling</th>
                           <th className="px-4 py-2 font-medium">Status</th>
+                          <th className="px-4 py-2 font-medium">E-post sendt</th>
                           <th className="px-4 py-2 font-medium">Lenke</th>
                         </tr>
                       </thead>
@@ -324,6 +354,19 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                               <Badge variant={inv.status === 'completed' ? 'success' : 'neutral'}>
                                 {inv.status === 'completed' ? 'Levert' : 'Venter'}
                               </Badge>
+                            </td>
+                            <td className="px-4 py-2.5 text-xs text-neutral-600">
+                              {inv.email_sent_at ? (
+                                <span title={inv.email_send_error ?? undefined}>
+                                  {new Date(inv.email_sent_at).toLocaleString('nb-NO')}
+                                </span>
+                              ) : inv.email_send_error ? (
+                                <span className="text-amber-800" title={inv.email_send_error}>
+                                  Feilet
+                                </span>
+                              ) : (
+                                '—'
+                              )}
                             </td>
                             <td className="px-4 py-2.5">
                               {inv.access_token && inv.status === 'pending' ? (

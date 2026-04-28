@@ -54,6 +54,16 @@ npm run db:migrate
 
 Tabeller og **Row Level Security (RLS)** må settes opp i Supabase før klienten trygt kan lese/skrive data.
 
+### Undersøkelser — e-postinvitasjoner (Edge Function)
+
+Etter migrasjon **`20260802120008_survey_invitation_email_tracking.sql`** kan administratorer med **survey.manage** sende ventende invitasjoner fra fanen **Distribusjon**.
+
+1. Deploy Edge Function **`send-survey-invites`** fra `supabase/functions/send-survey-invites/` (`supabase functions deploy send-survey-invites`).
+2. **Supabase → Edge Functions → Secrets:** `RESEND_API_KEY` (påkrevd), `PUBLIC_APP_URL` (f.eks. `https://app.dittdomene.no` — brukes i lenker), valgfritt `RESEND_FROM` (f.eks. `Klarert <klarert@dittdomene.no>`) og de innebygde `SUPABASE_URL` / `SUPABASE_ANON_KEY` hvis de ikke settes automatisk.
+3. [Resend](https://resend.com): opprett API-nøkkel og bekreft avsenderdomene / bruk testdomene for utvikling.
+
+Funksjonen bruker innlogget brukers JWT (samme som nettleseren) og RPC **`survey_check_distribution_send_access`** før sending.
+
 ### Organisasjon og onboarding (database)
 
 1. Kjør SQL fra `supabase/migrations/archive/20260401120000_org_structure.sql`, deretter **`archive/20260402120000_rbac_invites.sql`**, **`archive/20260402120100_org_creation_admin_roles.sql`**, og ved **500-feil på `/profiles`**: **`archive/20260405120000_fix_profiles_rls_no_recursion.sql`**. Ved org.nr. som allerede finnes: **`archive/20260405130000_create_org_join_if_exists.sql`**. Ved behov: **`archive/20260405140000_org_rpc_user_facing_messages.sql`**, **`archive/20260405150000_profiles_update_rls_split.sql`**, **`archive/20260405160000_profiles_rls_no_subquery_recursion.sql`**, **`archive/20260404180000_profile_full_name_metadata.sql`**.

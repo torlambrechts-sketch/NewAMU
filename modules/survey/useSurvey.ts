@@ -177,6 +177,8 @@ export type UseSurveyState = {
     departmentIds?: string[]
   }) => Promise<SurveyDistributionRow | null>
   generateInvitations: (distributionId: string, surveyId: string) => Promise<boolean>
+  /** Sender ventende invitasjoner på e-post via Edge Function `send-survey-invites` (krever Resend). */
+  sendInvitationEmails: (distributionId: string, surveyId: string) => Promise<{ sent: number; failed: number } | null>
 }
 
 type UseSurveyInput = { supabase: Supabase | null }
@@ -1516,6 +1518,31 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     [supabase, assertOrg, requireManage, loadDistributions, loadInvitations],
   )
 
+  const sendInvitationEmails = useCallback(
+    async (distributionId: string, surveyId: string): Promise<{ sent: number; failed: number } | null> => {
+      if (!supabase) return null
+      if (!requireManage()) return null
+      const oid = assertOrg()
+      if (!oid) return null
+      setError(null)
+      try {
+        const { data, error: fnErr } = await supabase.functions.invoke('send-survey-invites', {
+          body: { distribution_id: distributionId, survey_id: surveyId },
+        })
+        if (fnErr) throw fnErr
+        const summary = data as { summary?: { sent?: number; failed?: number } } | null
+        const sent = summary?.summary?.sent ?? 0
+        const failed = summary?.summary?.failed ?? 0
+        await loadInvitations(surveyId)
+        return { sent, failed }
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return null
+      }
+    },
+    [supabase, assertOrg, requireManage, loadInvitations],
+  )
+
   return {
     loading,
     error,
@@ -1571,5 +1598,6 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     loadInvitations,
     createDistribution,
     generateInvitations,
+    sendInvitationEmails,
   }
 }
