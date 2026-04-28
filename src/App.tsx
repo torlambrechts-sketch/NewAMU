@@ -266,7 +266,7 @@ const router = createBrowserRouter(
                       <Route path="ros/:rosId"  element={<RosAnalysisDetailPage />} />
                       <Route path="survey" element={<SurveyModulePage />} />
                       <Route path="survey/admin" element={<SurveyModuleAdminPage />} />
-                      <Route path="survey/templates/org/new" element={<SurveyOrgTemplateEditorPage />} />
+                      {/* Single route so :templateId is set for `new` (static route left no params → "Mangler mal-ID"). */}
                       <Route path="survey/templates/org/:templateId" element={<SurveyOrgTemplateEditorPage />} />
                       <Route path="survey/:surveyId" element={<SurveyDetailPage />} />
                       {/* Admin: module overview + RBAC */}

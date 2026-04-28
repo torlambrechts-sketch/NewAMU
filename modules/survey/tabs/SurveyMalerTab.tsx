@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Pencil, Search } from 'lucide-react'
+import { Pencil, Plus, Search } from 'lucide-react'
 import { Button } from '../../../src/components/ui/Button'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
@@ -91,9 +91,17 @@ export function SurveyMalerTab({
           </p>
         </div>
         {canManage ? (
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <Button type="button" variant="secondary" size="sm" onClick={onNewTemplate}>
-              Ny tom mal
+          <div className="flex shrink-0">
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              className="shrink-0"
+              aria-label="Ny tom mal"
+              title="Ny tom mal"
+              onClick={onNewTemplate}
+            >
+              <Plus className="h-4 w-4" aria-hidden />
             </Button>
           </div>
         ) : null}
@@ -187,18 +195,34 @@ function TemplateCard({
   const orgBadge = !t.is_system && t.organization_id ? 'Egen mal' : null
   const recommended = t.id === 'tpl-uwes' || t.id === 'tpl-qps-nordic'
 
+  const cardUse = canManage ? onUse : undefined
+
   return (
     <div
       className={[
         'flex flex-col gap-3 rounded-xl border bg-white p-4 transition-all hover:-translate-y-px',
         recommended ? 'border-[#1a3d32] ring-2 ring-[#e7efe9]' : 'border-neutral-200 hover:border-neutral-300',
+        canManage ? 'cursor-pointer' : '',
       ].join(' ')}
+      role={canManage ? 'button' : undefined}
+      tabIndex={canManage ? 0 : undefined}
+      onClick={cardUse}
+      onKeyDown={
+        canManage
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onUse()
+              }
+            }
+          : undefined
+      }
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#e7efe9] text-sm font-bold text-[#1a3d32]">
           {icon}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="font-semibold text-neutral-900">{t.name}</p>
           {t.source && <p className="truncate text-xs text-neutral-500">{t.source}</p>}
           {recommended && <p className="text-xs font-semibold text-[#1a3d32]">⭐ Anbefalt</p>}
@@ -208,6 +232,20 @@ function TemplateCard({
             </span>
           )}
         </div>
+        {canManage ? (
+          <button
+            type="button"
+            className="shrink-0 rounded-lg p-2 text-neutral-500 transition hover:bg-neutral-100 hover:text-[#1a3d32]"
+            aria-label={t.is_system ? 'Ny mal fra denne' : 'Rediger mal'}
+            title={t.is_system ? 'Ny mal fra denne' : 'Rediger mal'}
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit()
+            }}
+          >
+            <Pencil className="h-4 w-4" aria-hidden />
+          </button>
+        ) : null}
       </div>
 
       {t.description && <p className="flex-1 text-xs leading-relaxed text-neutral-600">{t.description}</p>}
@@ -244,17 +282,9 @@ function TemplateCard({
         )}
       </div>
 
-      {canManage && (
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Button type="button" variant="primary" size="sm" onClick={onUse}>
-            Bruk mal
-          </Button>
-          <Button type="button" variant="secondary" size="sm" onClick={onEdit}>
-            <Pencil className="mr-1 h-3.5 w-3.5" aria-hidden />
-            {t.is_system ? 'Ny fra mal' : 'Rediger'}
-          </Button>
-        </div>
-      )}
+      {canManage ? (
+        <p className="pt-0.5 text-[10px] text-neutral-400">Klikk kortet for å bruke mal i ny undersøkelse</p>
+      ) : null}
     </div>
   )
 }
