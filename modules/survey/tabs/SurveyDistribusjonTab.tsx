@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Loader2, Mail, Users } from 'lucide-react'
+import { Check, Link2, Loader2, Mail, Users } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
@@ -13,6 +13,7 @@ import { SearchableSelect, type SelectOption } from '../../../src/components/ui/
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 import type { UseSurveyState } from '../useSurvey'
 import type { SurveyDistributionRow, SurveyInvitationRow, SurveyRow } from '../types'
+import { buildSurveyRespondUrl } from '../surveyInviteLink'
 
 function audienceLabel(row: SurveyDistributionRow): string {
   if (row.audience_type === 'all') return 'Alle ansatte med profil'
@@ -51,6 +52,7 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
   const [deptSelection, setDeptSelection] = useState<string[]>([])
   const [creating, setCreating] = useState(false)
   const [genId, setGenId] = useState<string | null>(null)
+  const [copiedToken, setCopiedToken] = useState<string | null>(null)
 
   const nameByProfileId = useMemo(() => {
     const m: Record<string, string> = {}
@@ -84,6 +86,20 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
     return m
   }, [survey.invitations])
 
+  const copyPersonalLink = async (token: string | null) => {
+    if (!token) return
+    const url = buildSurveyRespondUrl(s.id, token)
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiedToken(token)
+      window.setTimeout(() => {
+        setCopiedToken((t) => (t === token ? null : t))
+      }, 2000)
+    } catch {
+      /* ignore */
+    }
+  }
+
   if (!survey.canManage) {
     return <TabEmpty message="Du har ikke tilgang til å se distribusjon. Krever survey.manage eller administrator." />
   }
@@ -92,11 +108,22 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
     <div className="space-y-6">
       {s.is_anonymous ? (
         <InfoBox>
-          Denne undersøkelsen er satt som anonym. Svar lagres uten bruker-ID, så kobling mellom mottakerliste og
-          enkelt­svar i «Svar»-fanen vises ikke. Mottakerlisten brukes likevel til oversikt over hvem som var invitert og
-          antall som har levert.
+          <p>
+            Denne undersøkelsen er anonym — ingen bruker-ID på svar, så «Svar»-fanen viser ikke hvem som svarte.
+            For å oppdatere mottakerlisten (<strong>venter / levert</strong>) må hver person åpne sin{' '}
+            <strong>personlige lenke</strong> med <code className="rounded bg-neutral-100 px-1">?invite=…</code>.
+            Uten den telles ikke svaret på riktig mottaker.
+          </p>
+          <p className="mt-2 text-sm">
+            Lenken styrer hvilken plass i mottakerlisten som fullføres — del den kun med riktig person.
+          </p>
         </InfoBox>
-      ) : null}
+      ) : (
+        <InfoBox>
+          Innloggede brukere kobles automatisk til sin profil. Personlige lenker er valgfrie, men nyttige til e-post
+          eller chat (samme kobling som uten lenke når brukeren er innlogget).
+        </InfoBox>
+      )}
 
       {s.status === 'draft' ? (
         <WarningBox>
@@ -112,7 +139,8 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
             <p className="text-sm font-medium text-neutral-800">Ny distribusjon</p>
             <p className="mt-1 text-sm text-neutral-600">
               Definer en målgruppe (hele org. eller utvalgte avdelinger) og generer mottakere basert på profiler i
-              organisasjonen. E-postutsendelse og lenker kommer i et senere steg.
+              organisasjonen. Hver mottaker får en personlig lenke (kopier og send i e-post eller chat). Faktisk
+              e-postutsendelse fra systemet er ikke implementert ennå.
             </p>
             <div className="mt-4 space-y-4">
               <div className={WPSTD_FORM_ROW_GRID}>
@@ -279,6 +307,7 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                           <th className="px-4 py-2 font-medium">E-post (øyeblikksbilde)</th>
                           <th className="px-4 py-2 font-medium">Avdeling</th>
                           <th className="px-4 py-2 font-medium">Status</th>
+                          <th className="px-4 py-2 font-medium">Lenke</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -295,6 +324,30 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                               <Badge variant={inv.status === 'completed' ? 'success' : 'neutral'}>
                                 {inv.status === 'completed' ? 'Levert' : 'Venter'}
                               </Badge>
+                            </td>
+                            <td className="px-4 py-2.5">
+                              {inv.access_token && inv.status === 'pending' ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 gap-1.5 px-2 text-xs"
+                                  onClick={() => void copyPersonalLink(inv.access_token)}
+                                >
+                                  {copiedToken === inv.access_token ? (
+                                    <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
+                                  ) : (
+                                    <Link2 className="h-3.5 w-3.5" aria-hidden />
+                                  )}
+                                  {copiedToken === inv.access_token ? 'Kopiert' : 'Kopier lenke'}
+                                </Button>
+                              ) : inv.access_token && inv.status === 'completed' ? (
+                                <span className="text-xs text-neutral-400">—</span>
+                              ) : (
+                                <span className="text-xs text-amber-800" title="Generer mottakere på nytt etter migrasjon">
+                                  Mangler token
+                                </span>
+                              )}
                             </td>
                           </tr>
                         ))}

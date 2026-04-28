@@ -353,6 +353,8 @@ export type SurveyInvitationRow = {
   profile_id: string
   department_id: string | null
   email_snapshot: string | null
+  /** Opaque secret for personal survey link (?invite=) — null before migration or legacy rows */
+  access_token: string | null
   status: SurveyInvitationStatus
   response_id: string | null
   created_at: string
@@ -367,11 +369,15 @@ const SurveyInvitationRowSchema = z.object({
   profile_id: z.string().uuid(),
   department_id: z.string().uuid().nullable(),
   email_snapshot: z.string().nullable(),
+  access_token: z.string().min(1).nullable().optional(),
   status: z.enum(['pending', 'completed']),
   response_id: z.string().uuid().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
-})
+}).transform((row) => ({
+  ...row,
+  access_token: row.access_token ?? null,
+}))
 
 export function parseSurveyInvitationRow(
   raw: unknown,

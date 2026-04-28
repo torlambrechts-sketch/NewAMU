@@ -34,6 +34,7 @@ import {
 import { parseCatalogRow } from './surveyTemplateCatalogTypes'
 import type { SurveyTemplateCatalogRow } from './surveyTemplateCatalogTypes'
 import { catalogQuestionToUpsert } from './surveyTemplateApply'
+import { randomSurveyInvitationToken } from './surveyInviteLink'
 
 type Supabase = SupabaseClient
 
@@ -108,7 +109,13 @@ export type UseSurveyState = {
     config?: Record<string, unknown>
   }) => Promise<SurveyQuestionBankRow | null>
   deleteQuestionBank: (id: string) => Promise<void>
-  submitResponse: (args: { surveyId: string; userId: string | null; answers: Array<{ questionId: string; answerValue: number | null; answerText: string | null }> }) => Promise<OrgSurveyResponseRow | null>
+  submitResponse: (args: {
+    surveyId: string
+    userId: string | null
+    answers: Array<{ questionId: string; answerValue: number | null; answerText: string | null }>
+    /** Personal invitation token from ?invite= — links this response to the correct invitation row */
+    invitationToken?: string | null
+  }) => Promise<OrgSurveyResponseRow | null>
   dispatchOnSurveyPublished: (surveyId: string) => Promise<void>
   dispatchOnSurveyClosed: (surveyId: string) => Promise<void>
   clearError: () => void
@@ -1039,6 +1046,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
       surveyId: string
       userId: string | null
       answers: Array<{ questionId: string; answerValue: number | null; answerText: string | null }>
+      invitationToken?: string | null
     }): Promise<OrgSurveyResponseRow | null> => {
       if (!supabase) return null
       setError(null)
@@ -1091,17 +1099,19 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
         const pr = parseOrgSurveyResponseRow(resp)
         if (!pr.success) throw new Error('Ugyldig svar fra database')
 
-        const answerRows = args.answers.map((a) => ({
-          response_id: pr.data.id,
-          question_id: a.questionId,
-          organization_id: oid,
-          answer_value: a.answerValue,
-          answer_text: a.answerText,
-        }))
-        const { error: ae } = await supabase.from('org_survey_answers').insert(answerRows)
-        if (ae) throw ae
-
-        if (effectiveUserId) {
+        const token = args.invitationToken?.trim() ?? ''
+        if (token.length > 0) {
+          const { data: ok, error: rpcErr } = await supabase.rpc('survey_complete_invitation_for_response', {
+            p_response_id: pr.data.id,
+            p_access_token: token,
+          })
+          if (rpcErr) throw rpcErr
+          if (!ok) {
+            await supabase.from('org_survey_responses').delete().eq('id', pr.data.id)
+            setError('Kunne ikke koble svaret til invitasjonen. Sjekk at lenken er riktig og ikke allerede brukt.')
+            return null
+          }
+        } else if (effectiveUserId) {
           const { error: ie } = await supabase
             .from('survey_invitations')
             .update({ status: 'completed', response_id: pr.data.id })
@@ -1111,6 +1121,16 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
             .eq('status', 'pending')
           if (ie) throw ie
         }
+
+        const answerRows = args.answers.map((a) => ({
+          response_id: pr.data.id,
+          question_id: a.questionId,
+          organization_id: oid,
+          answer_value: a.answerValue,
+          answer_text: a.answerText,
+        }))
+        const { error: ae } = await supabase.from('org_survey_answers').insert(answerRows)
+        if (ae) throw ae
 
         if (orgId) {
           setResponses((p) => [pr.data, ...p])
@@ -1469,6 +1489,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           department_id: p.department_id,
           email_snapshot: p.email,
           status: 'pending' as const,
+          access_token: randomSurveyInvitationToken(),
         }))
 
         const { error: insErr } = await supabase.from('survey_invitations').insert(invitationRows)

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { CheckCircle, Loader2 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { ComplianceBanner } from '../components/ui/ComplianceBanner'
@@ -224,6 +224,8 @@ function answerSatisfied(q: OrgSurveyQuestionRow, a: { value: number | null; tex
 
 export function SurveyRespondPage() {
   const { campaignId: surveyId } = useParams<{ campaignId: string }>()
+  const [searchParams] = useSearchParams()
+  const inviteToken = searchParams.get('invite')?.trim() ?? ''
   const { user } = useOrgSetupContext()
   const supabase = getSupabaseBrowserClient()
   const survey = useSurvey({ supabase })
@@ -258,6 +260,7 @@ export function SurveyRespondPage() {
       surveyId,
       userId: user?.id ?? null,
       answers: answerRows,
+      invitationToken: inviteToken || undefined,
     })
     setSubmitting(false)
     if (result) setSubmitted(true)
@@ -282,11 +285,14 @@ export function SurveyRespondPage() {
     )
   }
 
-  if (!user && survey.selectedSurvey && !survey.selectedSurvey.is_anonymous) {
+  if (!user && survey.selectedSurvey && !survey.selectedSurvey.is_anonymous && !inviteToken) {
     return (
       <div className="min-h-screen bg-[#F9F7F2] py-12 px-4">
         <div className="mx-auto max-w-2xl">
-          <InfoBox>Du må være innlogget for å svare på denne undersøkelsen. Anonyme undersøkelser kan besvares uten innlogging.</InfoBox>
+          <InfoBox>
+            Du må være innlogget for å svare på denne undersøkelsen, eller åpne den personlige lenken du fikk tilsendt
+            (invite). Anonyme undersøkelser kan besvares uten innlogging.
+          </InfoBox>
         </div>
       </div>
     )
@@ -297,6 +303,24 @@ export function SurveyRespondPage() {
       <div className="min-h-screen bg-[#F9F7F2] py-12 px-4">
         <div className="mx-auto max-w-2xl">
           <p className="text-center text-sm text-neutral-600">Fant ikke undersøkelsen eller den er ikke tilgjengelig.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user && !survey.selectedSurvey.is_anonymous && inviteToken) {
+    return (
+      <div className="min-h-screen bg-[#F9F7F2] py-12 px-4">
+        <div className="mx-auto max-w-2xl space-y-4">
+          <InfoBox>
+            Denne undersøkelsen er ikke anonym. For å bruke den personlige lenken må du være innlogget med samme konto som
+            profilen som ble invitert — logg inn og åpne lenken på nytt.
+          </InfoBox>
+          <p className="text-center text-sm text-neutral-600">
+            <a href="/login" className="font-medium text-[#1a3d32] underline">
+              Gå til innlogging
+            </a>
+          </p>
         </div>
       </div>
     )
