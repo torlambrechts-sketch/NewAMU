@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Search } from 'lucide-react'
+import { Pencil, Search } from 'lucide-react'
 import { Button } from '../../../src/components/ui/Button'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
@@ -11,6 +11,8 @@ type Props = {
   templates: SurveyTemplateCatalogRow[]
   loading: boolean
   onUseTemplate: (templateId: string) => void
+  onNewTemplate: () => void
+  onEditTemplate: (templateId: string) => void
   canManage: boolean
 }
 
@@ -22,7 +24,14 @@ function questionCount(t: SurveyTemplateCatalogRow): number {
   return t.body?.questions?.length ?? 0
 }
 
-export function SurveyMalerTab({ templates, loading, onUseTemplate, canManage }: Props) {
+export function SurveyMalerTab({
+  templates,
+  loading,
+  onUseTemplate,
+  onNewTemplate,
+  onEditTemplate,
+  canManage,
+}: Props) {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [audience, setAudience] = useState('')
@@ -74,11 +83,20 @@ export function SurveyMalerTab({ templates, loading, onUseTemplate, canManage }:
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-sm font-medium text-neutral-800">Maler</p>
-        <p className="mt-1 text-sm text-neutral-600">
-          Velg et utgangspunkt for undersøkelsen. Listen kommer fra databasen (system- og egenorganisasjonsmaler).
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-neutral-800">Maler</p>
+          <p className="mt-1 text-sm text-neutral-600">
+            Velg et utgangspunkt for undersøkelsen. Listen kommer fra databasen (system- og egenorganisasjonsmaler).
+          </p>
+        </div>
+        {canManage ? (
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={onNewTemplate}>
+              Ny tom mal
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       <div className="relative">
@@ -139,7 +157,13 @@ export function SurveyMalerTab({ templates, loading, onUseTemplate, canManage }:
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((t) => (
-            <TemplateCard key={t.id} template={t} canManage={canManage} onUse={() => onUseTemplate(t.id)} />
+            <TemplateCard
+              key={t.id}
+              template={t}
+              canManage={canManage}
+              onUse={() => onUseTemplate(t.id)}
+              onEdit={() => onEditTemplate(t.id)}
+            />
           ))}
         </div>
       )}
@@ -151,10 +175,12 @@ function TemplateCard({
   template: t,
   canManage,
   onUse,
+  onEdit,
 }: {
   template: SurveyTemplateCatalogRow
   canManage: boolean
   onUse: () => void
+  onEdit: () => void
 }) {
   const icon = (t.short_name ?? t.name).slice(0, 2).toUpperCase()
   const nQ = questionCount(t)
@@ -219,9 +245,13 @@ function TemplateCard({
       </div>
 
       {canManage && (
-        <div className="flex gap-2 pt-1">
+        <div className="flex flex-wrap gap-2 pt-1">
           <Button type="button" variant="primary" size="sm" onClick={onUse}>
             Bruk mal
+          </Button>
+          <Button type="button" variant="secondary" size="sm" onClick={onEdit}>
+            <Pencil className="mr-1 h-3.5 w-3.5" aria-hidden />
+            {t.is_system ? 'Ny fra mal' : 'Rediger'}
           </Button>
         </div>
       )}
