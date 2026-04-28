@@ -6,7 +6,12 @@ import { twMerge } from 'tailwind-merge'
 
 export type SelectOption = { value: string; label: string; suffix?: ReactNode }
 
-type MenuPos = { top: number; left: number; width: number; maxHeight: number }
+type MenuPos = {
+  top: number
+  left: number
+  width: number
+  maxHeight: number
+}
 
 export function SearchableSelect({
   value,
@@ -38,20 +43,47 @@ export function SearchableSelect({
     ? options.filter((o) => o.label.toLowerCase().includes(filter.toLowerCase()))
     : options
 
+  /** Approximate height of filter row in px — keep in sync with padding + input */
+  const FILTER_BAR_PX = 52
+
   const updateMenuPosition = useCallback(() => {
     const el = wrapRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
     const gap = 4
+    const edgePad = 8
     const maxList = 208
-    const below = rect.bottom + gap
-    const spaceBelow = window.innerHeight - below - 8
-    setMenuPos({
-      top: below,
-      left: rect.left,
-      width: rect.width,
-      maxHeight: Math.min(maxList, Math.max(120, spaceBelow)),
-    })
+    const minList = 72
+
+    const spaceBelow = Math.max(0, window.innerHeight - rect.bottom - gap - edgePad)
+    const spaceAbove = Math.max(0, rect.top - gap - edgePad)
+
+    const availBelow = Math.max(0, spaceBelow - FILTER_BAR_PX)
+    const availAbove = Math.max(0, spaceAbove - FILTER_BAR_PX)
+
+    const openAbove =
+      (availAbove > availBelow && availAbove >= 48) ||
+      (availBelow < minList && availAbove >= minList && availAbove > availBelow)
+
+    if (openAbove) {
+      const bodyMax = Math.min(maxList, Math.max(minList, availAbove))
+      const totalH = FILTER_BAR_PX + bodyMax
+      const top = rect.top - gap - totalH
+      setMenuPos({
+        top: Math.max(edgePad, top),
+        left: rect.left,
+        width: rect.width,
+        maxHeight: bodyMax,
+      })
+    } else {
+      const bodyMax = Math.min(maxList, availBelow < minList ? availBelow : Math.max(minList, availBelow))
+      setMenuPos({
+        top: rect.bottom + gap,
+        left: rect.left,
+        width: rect.width,
+        maxHeight: bodyMax,
+      })
+    }
   }, [])
 
   useLayoutEffect(() => {
@@ -127,7 +159,7 @@ export function SearchableSelect({
                 top: menuPos.top,
                 left: menuPos.left,
                 width: menuPos.width,
-                maxHeight: menuPos.maxHeight + 48,
+                maxHeight: menuPos.maxHeight + FILTER_BAR_PX,
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
