@@ -303,6 +303,84 @@ export function parseSurveyActionPlanRow(
   return { success: false }
 }
 
+export type SurveyAudienceType = 'all' | 'departments'
+
+export type SurveyDistributionStatus = 'draft' | 'generated' | 'completed' | 'cancelled'
+
+export type SurveyDistributionRow = {
+  id: string
+  organization_id: string
+  survey_id: string
+  label: string | null
+  audience_type: SurveyAudienceType
+  audience_department_ids: string[] | null
+  status: SurveyDistributionStatus
+  invite_count: number
+  created_at: string
+  updated_at: string
+  created_by: string | null
+}
+
+const SurveyDistributionRowSchema = z.object({
+  id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  survey_id: z.string().uuid(),
+  label: z.string().nullable(),
+  audience_type: z.enum(['all', 'departments']),
+  audience_department_ids: z.array(z.string().uuid()).nullable(),
+  status: z.enum(['draft', 'generated', 'completed', 'cancelled']),
+  invite_count: z.number().int().nonnegative(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  created_by: z.string().uuid().nullable(),
+})
+
+export function parseSurveyDistributionRow(
+  raw: unknown,
+): { success: true; data: SurveyDistributionRow } | { success: false } {
+  const r = SurveyDistributionRowSchema.safeParse(raw)
+  if (r.success) return { success: true, data: r.data }
+  return { success: false }
+}
+
+export type SurveyInvitationStatus = 'pending' | 'completed'
+
+export type SurveyInvitationRow = {
+  id: string
+  organization_id: string
+  survey_id: string
+  distribution_id: string
+  profile_id: string
+  department_id: string | null
+  email_snapshot: string | null
+  status: SurveyInvitationStatus
+  response_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+const SurveyInvitationRowSchema = z.object({
+  id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  survey_id: z.string().uuid(),
+  distribution_id: z.string().uuid(),
+  profile_id: z.string().uuid(),
+  department_id: z.string().uuid().nullable(),
+  email_snapshot: z.string().nullable(),
+  status: z.enum(['pending', 'completed']),
+  response_id: z.string().uuid().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+export function parseSurveyInvitationRow(
+  raw: unknown,
+): { success: true; data: SurveyInvitationRow } | { success: false } {
+  const r = SurveyInvitationRowSchema.safeParse(raw)
+  if (r.success) return { success: true, data: r.data }
+  return { success: false }
+}
+
 export const surveyStatusEnum = SurveyStatusSchema
 export const surveyTypeEnum = SurveyTypeSchema
 export const questionTypeEnum = SurveyQuestionTypeSchema

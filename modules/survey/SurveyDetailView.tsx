@@ -37,17 +37,28 @@ import { buildAnalyticsByQuestionId } from './surveyAnalytics'
 import { QUESTION_TYPE_OPTIONS, surveyStatusBadgeVariant, surveyStatusLabel } from './surveyLabels'
 import { SurveyBuilderStage } from './SurveyBuilderStage'
 import { SurveyAmuTab } from './tabs/SurveyAmuTab'
+import { SurveyDistribusjonTab } from './tabs/SurveyDistribusjonTab'
 import { SurveyTiltakTab } from './tabs/SurveyTiltakTab'
 import { SURVEY_DETAIL_EXTRA_LEGAL_REFERENCES, SURVEY_MODULE_LEGAL_REFERENCES } from './surveyLegalReferences'
 import { orgQuestionToCatalogQuestion } from './surveyTemplateCatalogHelpers'
 import type { OrgSurveyQuestionRow, SurveyAmuReviewRow, SurveyQuestionType, SurveyRow } from './types'
 
-type DetailTab = 'oversikt' | 'bygger' | 'svar' | 'analyse' | 'amu' | 'tiltak'
+type DetailTab = 'oversikt' | 'bygger' | 'distribusjon' | 'svar' | 'analyse' | 'amu' | 'tiltak'
 
-function buildTabs(responseCount: number, actionCount: number, amuReview: SurveyAmuReviewRow | null): TabItem[] {
+function buildTabs(
+  responseCount: number,
+  actionCount: number,
+  amuReview: SurveyAmuReviewRow | null,
+  pendingInvites: number,
+): TabItem[] {
   return [
     { id: 'oversikt', label: 'Oversikt' },
     { id: 'bygger', label: 'Bygger' },
+    {
+      id: 'distribusjon',
+      label: 'Distribusjon',
+      badgeCount: pendingInvites > 0 ? pendingInvites : undefined,
+    },
     { id: 'svar', label: 'Svar', badgeCount: responseCount > 0 ? responseCount : undefined },
     { id: 'analyse', label: 'Analyse' },
     {
@@ -456,14 +467,20 @@ export function SurveyDetailView({ supabase }: Props) {
 
   const s: SurveyRow | null = survey.selectedSurvey
 
+  const pendingInviteCount = useMemo(
+    () => survey.invitations.filter((i) => i.status === 'pending').length,
+    [survey.invitations],
+  )
+
   const tabs = useMemo(
     () =>
       buildTabs(
         survey.responses.length,
         survey.actionPlans.filter((p) => p.status !== 'closed').length,
         survey.amuReview,
+        pendingInviteCount,
       ),
-    [survey.responses.length, survey.actionPlans, survey.amuReview],
+    [survey.responses.length, survey.actionPlans, survey.amuReview, pendingInviteCount],
   )
 
   useEffect(() => {
@@ -711,6 +728,8 @@ export function SurveyDetailView({ supabase }: Props) {
               openEditQuestion={openEditQuestion}
             />
           )}
+
+          {tab === 'distribusjon' && <SurveyDistribusjonTab survey={survey} s={s} />}
 
           {tab === 'svar' && <SvarTab survey={survey} s={s} nameByUserId={nameByUserId} />}
 
