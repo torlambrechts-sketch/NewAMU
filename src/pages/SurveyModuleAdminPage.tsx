@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, GitBranch } from 'lucide-react'
+import { ArrowLeft, Download, GitBranch, Loader2, Plus, Trash2, Upload } from 'lucide-react'
 import { SlidePanel } from '../components/layout/SlidePanel'
 import {
   WPSTD_FORM_FIELD_LABEL,
@@ -14,7 +14,7 @@ import {
   LAYOUT_TABLE1_POSTINGS_TD,
 } from '../components/layout/layoutTable1PostingsKit'
 import { ModulePageShell, ModuleSectionCard } from '../components/module'
-import { WarningBox } from '../components/ui/AlertBox'
+import { InfoBox, WarningBox } from '../components/ui/AlertBox'
 import { Button } from '../components/ui/Button'
 import { ComplianceBanner } from '../components/ui/ComplianceBanner'
 import { StandardInput } from '../components/ui/Input'
@@ -25,6 +25,10 @@ import { Badge } from '../components/ui/Badge'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { fetchOrgModulePayload, upsertOrgModulePayload } from '../lib/orgModulePayload'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
+import {
+  buildSurveyOrgTemplateExport,
+  parseSurveyOrgTemplateExport,
+} from '../lib/surveyTemplateJsonImportExport'
 import { useSurvey } from '../../modules/survey'
 import { QUESTION_TYPE_OPTIONS, questionTypeLabel } from '../../modules/survey/surveyLabels'
 import { parseSurveyModuleSettings, type SurveyModuleSettings } from '../../modules/survey/surveyAdminSettingsSchema'
@@ -53,7 +57,22 @@ export function SurveyModuleAdminPage() {
   const [qbType, setQbType] = useState<SurveyQuestionType>('rating_1_to_5')
   const [qbSaving, setQbSaving] = useState(false)
 
+  const templateImportRef = useRef<HTMLInputElement>(null)
+  const [jsonBusy, setJsonBusy] = useState(false)
+  const [jsonErr, setJsonErr] = useState<string | null>(null)
+  const [exportTemplateId, setExportTemplateId] = useState('')
+
   const typeOptions: SelectOption[] = QUESTION_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))
+
+  const orgTemplates = useMemo(
+    () => survey.templateCatalog.filter((t) => !t.is_system),
+    [survey.templateCatalog],
+  )
+
+  const templateExportOptions: SelectOption[] = useMemo(
+    () => orgTemplates.map((t) => ({ value: t.id, label: t.name })),
+    [orgTemplates],
+  )
 
   const loadSettings = useCallback(async () => {
     if (!supabase || !orgId) return
@@ -69,11 +88,74 @@ export function SurveyModuleAdminPage() {
   }, [supabase, orgId])
 
   useEffect(() => {
+    if (!exportTemplateId && templateExportOptions.length > 0) setExportTemplateId(templateExportOptions[0]!.value)
+  }, [exportTemplateId, templateExportOptions])
+
+  useEffect(() => {
     if (canManage && orgId) {
       void loadSettings()
       void loadQuestionBank()
+      void survey.loadTemplateCatalog()
     }
-  }, [canManage, orgId, loadSettings, loadQuestionBank])
+  }, [canManage, orgId, loadSettings, loadQuestionBank, survey.loadTemplateCatalog])
+
+  function downloadJson(filename: string, data: unknown) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.rel = 'noopener'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function handleExportTemplateJson() {
+    setJsonErr(null)
+    const tpl = orgTemplates.find((t) => t.id === exportTemplateId)
+    if (!tpl) {
+      setJsonErr('Velg en egenorganisasjonsmal å eksportere, eller opprett en under Maler først.')
+      return
+    }
+    const safe = tpl.id.replace(/[^a-zA-Z0-9-_]/g, '-').slice(0, 40)
+    downloadJson(`survey-org-template-${safe}.json`, buildSurveyOrgTemplateExport(tpl))
+  }
+
+  async function handleImportTemplateFile(f: File) {
+    setJsonErr(null)
+    setJsonBusy(true)
+    try {
+      const text = await f.text()
+      const parsed = parseSurveyOrgTemplateExport(JSON.parse(text) as unknown)
+      if (!parsed) {
+        setJsonErr(
+          'Ugyldig fil — forventet klarert-survey-org-template-export-v1 (JSON med name, category, audience og body.questions).',
+        )
+        return
+      }
+      const t = parsed.template
+      const baseName = t.name.trim() || 'Importert mal'
+      const row = await survey.saveOrgTemplate({
+        name: `${baseName} (import)`,
+        shortName: t.short_name,
+        description: t.description,
+        category: t.category,
+        audience: t.audience,
+        estimatedMinutes: t.estimated_minutes,
+        recommendAnonymous: t.recommend_anonymous,
+        scoringNote: t.scoring_note,
+        lawRef: t.law_ref,
+        body: t.body,
+      })
+      if (row) {
+        setExportTemplateId(row.id)
+      }
+    } catch (e) {
+      setJsonErr(e instanceof Error ? e.message : 'Import av mal feilet.')
+    } finally {
+      setJsonBusy(false)
+    }
+  }
 
   const handleSaveSettings = useCallback(async () => {
     if (!supabase || !orgId) return
@@ -199,6 +281,103 @@ export function SurveyModuleAdminPage() {
               {savingSettings ? 'Lagrer…' : 'Lagre innstillinger'}
             </Button>
           </div>
+        </ModuleSectionCard>
+
+        <ModuleSectionCard className="p-5 md:p-6">
+          <h2 className="text-lg font-semibold text-neutral-900">Organisasjonsmaler — JSON</h2>
+          <p className="mt-1 text-sm text-neutral-600">
+            Eksporter og importer egendefinerte undersøkelsesmaler (ikke systemmaler). Filformatet er versjonert og kan
+            brukes til sikkerhetskopiering eller deling mellom miljøer.
+          </p>
+          <div className="mt-4">
+            <InfoBox>
+              Format: <code className="rounded bg-neutral-100 px-1 text-xs">klarert-survey-org-template-export-v1</code>
+              — samme struktur som ved eksport fra denne siden.
+            </InfoBox>
+          </div>
+
+          {jsonErr ? (
+            <div className="mt-4">
+              <WarningBox>{jsonErr}</WarningBox>
+            </div>
+          ) : null}
+
+          {survey.templateCatalogLoading && orgTemplates.length === 0 ? (
+            <p className="mt-4 flex items-center gap-2 text-sm text-neutral-500">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              Laster organisasjonsmaler…
+            </p>
+          ) : (
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              <div className="space-y-3 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
+                <p className="text-sm font-medium text-neutral-800">Eksporter</p>
+                <p className="text-xs text-neutral-600">Velg en egen mal og last ned JSON.</p>
+                <div>
+                  <span className={WPSTD_FORM_FIELD_LABEL}>Mal</span>
+                  <div className="mt-1.5">
+                    <SearchableSelect
+                      value={exportTemplateId}
+                      options={templateExportOptions}
+                      onChange={setExportTemplateId}
+                      disabled={templateExportOptions.length === 0 || jsonBusy}
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={templateExportOptions.length === 0 || jsonBusy}
+                  onClick={() => handleExportTemplateJson()}
+                >
+                  <Download className="h-4 w-4" aria-hidden />
+                  Last ned JSON
+                </Button>
+                {templateExportOptions.length === 0 ? (
+                  <p className="text-xs text-neutral-500">
+                    Ingen egne maler ennå. Opprett en under Undersøkelser → Maler, eller importer en fil til høyre.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
+                <p className="text-sm font-medium text-neutral-800">Importer</p>
+                <p className="text-xs text-neutral-600">
+                  Oppretter en ny organisasjonsmal med suffikset «(import)». Eksisterende maler overskrives ikke.
+                </p>
+                <input
+                  ref={templateImportRef}
+                  type="file"
+                  accept="application/json,.json"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    e.target.value = ''
+                    if (f) void handleImportTemplateFile(f)
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  disabled={jsonBusy}
+                  onClick={() => templateImportRef.current?.click()}
+                >
+                  {jsonBusy ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                      Importerer…
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4" aria-hidden />
+                      Velg JSON-fil
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </ModuleSectionCard>
 
         <ModuleSectionCard className="p-5 md:p-6">
