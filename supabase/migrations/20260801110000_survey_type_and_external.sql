@@ -13,3 +13,6 @@ alter table public.surveys
 -- Index: fast lookup of external/vendor surveys per org
 create index if not exists surveys_org_type_idx
   on public.surveys (organization_id, survey_type);
+
+-- Force PostgREST to reload its schema cache so the new columns are visible immediately
+notify pgrst, 'reload schema';
