@@ -148,6 +148,10 @@ export type UseSurveyState = {
     category?: string
     audience?: SurveyTemplateCatalogRow['audience']
     body: SurveyTemplateCatalogRow['body']
+    estimatedMinutes?: number
+    recommendAnonymous?: boolean
+    scoringNote?: string | null
+    lawRef?: string | null
   }) => Promise<SurveyTemplateCatalogRow | null>
   deleteOrgTemplate: (templateId: string) => Promise<void>
 }
@@ -1208,6 +1212,10 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
       category?: string
       audience?: SurveyTemplateCatalogRow['audience']
       body: SurveyTemplateCatalogRow['body']
+      estimatedMinutes?: number
+      recommendAnonymous?: boolean
+      scoringNote?: string | null
+      lawRef?: string | null
     }): Promise<SurveyTemplateCatalogRow | null> => {
       if (!supabase) return null
       if (!requireManage()) return null
@@ -1225,10 +1233,10 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           use_case: 'Egen mal',
           category: input.category ?? 'custom',
           audience: input.audience ?? 'internal',
-          estimated_minutes: 5,
-          recommend_anonymous: true,
-          scoring_note: null,
-          law_ref: null,
+          estimated_minutes: input.estimatedMinutes ?? 5,
+          recommend_anonymous: input.recommendAnonymous ?? true,
+          scoring_note: input.scoringNote ?? null,
+          law_ref: input.lawRef ?? null,
           body: input.body,
           is_active: true,
         }
