@@ -214,30 +214,30 @@ export function SurveyBuilderStage({ survey, surveyId, isLocked, onEditQuestion,
   )
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="text-sm font-semibold text-neutral-900">Spørsmål (rekkefølge)</p>
-            <p className="text-xs text-neutral-500">
-              Dra spørsmål for å endre rekkefølge. Slipp en type fra høyre på flaten under for å legge til.
-            </p>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={onDragStart}
+      onDragEnd={(ev) => void onDragEnd(ev)}
+      onDragCancel={() => setActiveId(null)}
+    >
+      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-neutral-900">Spørsmål (rekkefølge)</p>
+              <p className="text-xs text-neutral-500">
+                Dra spørsmål for å endre rekkefølge. Slipp en type fra høyre på flaten under for å legge til.
+              </p>
+            </div>
+            {!isLocked && survey.canManage ? (
+              <Button type="button" variant="secondary" size="sm" onClick={onAddQuestion}>
+                <Plus className="h-4 w-4" aria-hidden />
+                Manuelt spørsmål
+              </Button>
+            ) : null}
           </div>
-          {!isLocked && survey.canManage ? (
-            <Button type="button" variant="secondary" size="sm" onClick={onAddQuestion}>
-              <Plus className="h-4 w-4" aria-hidden />
-              Manuelt spørsmål
-            </Button>
-          ) : null}
-        </div>
 
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={onDragStart}
-          onDragEnd={(ev) => void onDragEnd(ev)}
-          onDragCancel={() => setActiveId(null)}
-        >
           <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
             <StageDropZone>
               {items.length === 0 ? (
@@ -263,32 +263,33 @@ export function SurveyBuilderStage({ survey, surveyId, isLocked, onEditQuestion,
               )}
             </StageDropZone>
           </SortableContext>
-          <DragOverlay dropAnimation={null}>
-            {activeId?.startsWith(PALETTE_PREFIX) ? (
-              <div className="rounded-lg border border-neutral-300 bg-white px-4 py-3 text-sm shadow-xl">
-                Nytt: {questionTypeLabel(activeId.slice(PALETTE_PREFIX.length) as SurveyQuestionType)}
-              </div>
-            ) : activeId ? (
-              <div className="rounded-lg border border-neutral-300 bg-white px-4 py-3 text-sm shadow-xl">
-                Flytter spørsmål…
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+        </div>
+
+        <aside className="lg:sticky lg:top-4 h-fit space-y-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Spørsmålstyper</p>
+            <p className="mt-1 text-xs text-neutral-500">Dra inn på skjemaet til venstre (som i wiki-redigering).</p>
+          </div>
+          <div className="space-y-2">
+            {SURVEY_BUILDER_PALETTE.map((p) => (
+              <PaletteItem key={p.type} type={p.type} label={p.label} hint={p.hint} disabled={isLocked} />
+            ))}
+          </div>
+          {isLocked ? <p className="text-xs text-amber-700">Publisert/lukket — spørsmål kan ikke endres.</p> : null}
+        </aside>
       </div>
 
-      <aside className="lg:sticky lg:top-4 h-fit space-y-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Spørsmålstyper</p>
-          <p className="mt-1 text-xs text-neutral-500">Dra inn på skjemaet til venstre (som i wiki-redigering).</p>
-        </div>
-        <div className="space-y-2">
-          {SURVEY_BUILDER_PALETTE.map((p) => (
-            <PaletteItem key={p.type} type={p.type} label={p.label} hint={p.hint} disabled={isLocked} />
-          ))}
-        </div>
-        {isLocked ? <p className="text-xs text-amber-700">Publisert/lukket — spørsmål kan ikke endres.</p> : null}
-      </aside>
-    </div>
+      <DragOverlay dropAnimation={null}>
+        {activeId?.startsWith(PALETTE_PREFIX) ? (
+          <div className="rounded-lg border border-neutral-300 bg-white px-4 py-3 text-sm shadow-xl">
+            Nytt: {questionTypeLabel(activeId.slice(PALETTE_PREFIX.length) as SurveyQuestionType)}
+          </div>
+        ) : activeId ? (
+          <div className="rounded-lg border border-neutral-300 bg-white px-4 py-3 text-sm shadow-xl">
+            Flytter spørsmål…
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   )
 }
