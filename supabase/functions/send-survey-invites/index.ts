@@ -1,9 +1,9 @@
 /**
- * Sends pending survey invitation emails via Resend.
- * Invoke with user JWT (Authorization: Bearer). Body: { distribution_id, survey_id }.
+ * Sends survey invitation emails via Resend.
+ * Invoke with user JWT. Body: { distribution_id, survey_id, mode?: 'initial' | 'reminder' }
  *
  * Secrets: SUPABASE_URL, SUPABASE_ANON_KEY, RESEND_API_KEY
- * Optional: RESEND_FROM (default Survey <onboarding@resend.dev>), PUBLIC_APP_URL (origin for links)
+ * Optional: RESEND_FROM, PUBLIC_APP_URL (link base)
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
@@ -19,6 +19,7 @@ type InviteRow = {
   access_token: string | null
   status: string
   email_sent_at: string | null
+  reminder_sent_at: string | null
 }
 
 function respondJson(body: unknown, status = 200): Response {
@@ -60,15 +61,17 @@ Deno.serve(async (req: Request) => {
     return respondJson({ error: 'Missing Authorization' }, 401)
   }
 
-  let body: { distribution_id?: string; survey_id?: string }
+  let body: { distribution_id?: string; survey_id?: string; mode?: string }
   try {
-    body = (await req.json()) as { distribution_id?: string; survey_id?: string }
+    body = (await req.json()) as { distribution_id?: string; survey_id?: string; mode?: string }
   } catch {
     return respondJson({ error: 'Invalid JSON' }, 400)
   }
 
   const distributionId = body.distribution_id?.trim()
   const surveyId = body.survey_id?.trim()
+  const mode = body.mode === 'reminder' ? 'reminder' : 'initial'
+
   if (!distributionId || !surveyId) {
     return respondJson({ error: 'distribution_id and survey_id required' }, 400)
   }
@@ -98,7 +101,9 @@ Deno.serve(async (req: Request) => {
 
   const { data: invites, error: invErr } = await supabase
     .from('survey_invitations')
-    .select('id, survey_id, email_snapshot, access_token, status, email_sent_at')
+    .select(
+      'id, survey_id, email_snapshot, access_token, status, email_sent_at, reminder_sent_at',
+    )
     .eq('distribution_id', distributionId)
     .eq('survey_id', surveyId)
     .eq('status', 'pending')
@@ -106,14 +111,21 @@ Deno.serve(async (req: Request) => {
     return respondJson({ error: invErr.message }, 500)
   }
 
-  const rows = (invites ?? []) as InviteRow[]
+  const rowsAll = (invites ?? []) as InviteRow[]
+
+  const rows =
+    mode === 'reminder'
+      ? rowsAll.filter((inv) => inv.email_sent_at != null)
+      : rowsAll
+
   const results: Array<{ id: string; ok: boolean; error?: string }> = []
 
   for (const inv of rows) {
-    if (inv.email_sent_at) {
+    if (mode === 'initial' && inv.email_sent_at) {
       results.push({ id: inv.id, ok: true })
       continue
     }
+
     const email = inv.email_snapshot?.trim()
     if (!email) {
       await supabase
@@ -133,11 +145,19 @@ Deno.serve(async (req: Request) => {
     }
 
     const link = buildRespondUrl(publicAppUrl, inv.survey_id, inv.access_token)
-    const subject = `Undersøkelse: ${title}`
+    const subject =
+      mode === 'reminder'
+        ? `Påminnelse: ${title}`
+        : `Undersøkelse: ${title}`
+
+    const intro =
+      mode === 'reminder'
+        ? `<p>Dette er en vennlig påminnelse — vi har ikke registrert svar fra deg ennå.</p>`
+        : `<p>Du er invitert til å svare på undersøkelsen <strong>${escapeHtml(title)}</strong>.</p>`
 
     const html = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;line-height:1.5">
 <p>Hei,</p>
-<p>Du er invitert til å svare på undersøkelsen <strong>${escapeHtml(title)}</strong>.</p>
+${intro}
 <p><a href="${escapeAttr(link)}">Åpne undersøkelse</a></p>
 <p style="font-size:12px;color:#666">Hvis knappen ikke virker, lim inn denne lenken i nettleseren:<br/>${escapeHtml(
       link,
@@ -167,10 +187,17 @@ Deno.serve(async (req: Request) => {
     }
 
     const sentAt = new Date().toISOString()
-    await supabase
-      .from('survey_invitations')
-      .update({ email_sent_at: sentAt, email_send_error: null })
-      .eq('id', inv.id)
+    if (mode === 'reminder') {
+      await supabase
+        .from('survey_invitations')
+        .update({ reminder_sent_at: sentAt, email_send_error: null })
+        .eq('id', inv.id)
+    } else {
+      await supabase
+        .from('survey_invitations')
+        .update({ email_sent_at: sentAt, email_send_error: null })
+        .eq('id', inv.id)
+    }
     results.push({ id: inv.id, ok: true })
   }
 
@@ -179,6 +206,7 @@ Deno.serve(async (req: Request) => {
 
   return respondJson({
     ok: true,
+    mode,
     summary: { total: rows.length, sent, failed },
     results,
   })

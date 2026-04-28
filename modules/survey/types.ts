@@ -303,7 +303,7 @@ export function parseSurveyActionPlanRow(
   return { success: false }
 }
 
-export type SurveyAudienceType = 'all' | 'departments'
+export type SurveyAudienceType = 'all' | 'departments' | 'teams'
 
 export type SurveyDistributionStatus = 'draft' | 'generated' | 'completed' | 'cancelled'
 
@@ -314,6 +314,7 @@ export type SurveyDistributionRow = {
   label: string | null
   audience_type: SurveyAudienceType
   audience_department_ids: string[] | null
+  audience_team_ids: string[]
   status: SurveyDistributionStatus
   invite_count: number
   created_at: string
@@ -326,14 +327,18 @@ const SurveyDistributionRowSchema = z.object({
   organization_id: z.string().uuid(),
   survey_id: z.string().uuid(),
   label: z.string().nullable(),
-  audience_type: z.enum(['all', 'departments']),
+  audience_type: z.enum(['all', 'departments', 'teams']),
   audience_department_ids: z.array(z.string().uuid()).nullable(),
+  audience_team_ids: z.array(z.string().uuid()).nullable().optional(),
   status: z.enum(['draft', 'generated', 'completed', 'cancelled']),
   invite_count: z.number().int().nonnegative(),
   created_at: z.string(),
   updated_at: z.string(),
   created_by: z.string().uuid().nullable(),
-})
+}).transform((row) => ({
+  ...row,
+  audience_team_ids: row.audience_team_ids ?? [],
+}))
 
 export function parseSurveyDistributionRow(
   raw: unknown,
@@ -357,6 +362,7 @@ export type SurveyInvitationRow = {
   access_token: string | null
   email_sent_at: string | null
   email_send_error: string | null
+  reminder_sent_at: string | null
   status: SurveyInvitationStatus
   response_id: string | null
   created_at: string
@@ -374,6 +380,7 @@ const SurveyInvitationRowSchema = z.object({
   access_token: z.string().min(1).nullable().optional(),
   email_sent_at: z.string().nullable().optional(),
   email_send_error: z.string().nullable().optional(),
+  reminder_sent_at: z.string().nullable().optional(),
   status: z.enum(['pending', 'completed']),
   response_id: z.string().uuid().nullable(),
   created_at: z.string(),
@@ -383,6 +390,7 @@ const SurveyInvitationRowSchema = z.object({
   access_token: row.access_token ?? null,
   email_sent_at: row.email_sent_at ?? null,
   email_send_error: row.email_send_error ?? null,
+  reminder_sent_at: row.reminder_sent_at ?? null,
 }))
 
 export function parseSurveyInvitationRow(

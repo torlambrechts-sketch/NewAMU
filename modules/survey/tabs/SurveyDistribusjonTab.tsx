@@ -17,6 +17,10 @@ import { buildSurveyRespondUrl } from '../surveyInviteLink'
 
 function audienceLabel(row: SurveyDistributionRow): string {
   if (row.audience_type === 'all') return 'Alle ansatte med profil'
+  if (row.audience_type === 'teams') {
+    const n = row.audience_team_ids?.length ?? 0
+    return n === 0 ? 'Team (ingen valgt)' : `${n} team`
+  }
   const n = row.audience_department_ids?.length ?? 0
   return n === 0 ? 'Avdelinger (ingen valgt)' : `${n} avdeling(er)`
 }
@@ -46,14 +50,16 @@ function TabEmpty({ message }: { message: string }) {
 }
 
 export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
-  const { departments, orgProfiles } = useOrgSetupContext()
+  const { departments, orgProfiles, teams } = useOrgSetupContext()
   const [label, setLabel] = useState('')
-  const [audience, setAudience] = useState<'all' | 'departments'>('all')
+  const [audience, setAudience] = useState<'all' | 'departments' | 'teams'>('all')
   const [deptSelection, setDeptSelection] = useState<string[]>([])
+  const [teamSelection, setTeamSelection] = useState<string[]>([])
   const [creating, setCreating] = useState(false)
   const [genId, setGenId] = useState<string | null>(null)
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const [sendId, setSendId] = useState<string | null>(null)
+  const [remindId, setRemindId] = useState<string | null>(null)
 
   const nameByProfileId = useMemo(() => {
     const m: Record<string, string> = {}
@@ -73,6 +79,7 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
     () => [
       { value: 'all', label: 'Hele organisasjonen' },
       { value: 'departments', label: 'Valgte avdelinger' },
+      { value: 'teams', label: 'Valgte team' },
     ],
     [],
   )
@@ -139,9 +146,9 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-neutral-800">Ny distribusjon</p>
             <p className="mt-1 text-sm text-neutral-600">
-              Definer en målgruppe (hele org. eller utvalgte avdelinger) og generer mottakere basert på profiler i
-              organisasjonen. Hver mottaker får en personlig lenke — kopier den manuelt eller bruk «Send e-post»
-              (Supabase Edge Function + Resend).
+              Målgruppe: hele org., avdelinger, eller team. Team: medlemmer hentes fra medarbeiderkatalogen; invitasjon
+              krever at innlogget bruker har samme e-post som i katalogen. Bruk «Send e-post» og «Påminnelse» når
+              Resend/Edge er satt opp.
             </p>
             <div className="mt-4 space-y-4">
               <div className={WPSTD_FORM_ROW_GRID}>
@@ -164,12 +171,53 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                     value={audience}
                     options={audienceOptions}
                     onChange={(v) => {
-                      setAudience(v as 'all' | 'departments')
-                      if (v === 'all') setDeptSelection([])
+                      const t = v as 'all' | 'departments' | 'teams'
+                      setAudience(t)
+                      if (t === 'all') {
+                        setDeptSelection([])
+                        setTeamSelection([])
+                      }
+                      if (t === 'departments') setTeamSelection([])
+                      if (t === 'teams') setDeptSelection([])
                     }}
                   />
                 </div>
               </div>
+              {audience === 'teams' ? (
+                <div>
+                  <p className={WPSTD_FORM_FIELD_LABEL}>Team</p>
+                  <p className="mb-2 text-xs text-neutral-500">
+                    Medlemmer med e-post i katalogen kobles til brukerprofil etter e-post. Uten match blir de ikke
+                    inkludert.
+                  </p>
+                  {teams.length === 0 ? (
+                    <p className="text-sm text-amber-800">Ingen team er opprettet i organisasjonen.</p>
+                  ) : (
+                    <ul className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-neutral-200 p-3">
+                      {teams.map((t) => {
+                        const checked = teamSelection.includes(t.id)
+                        return (
+                          <li key={t.id}>
+                            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
+                              <input
+                                type="checkbox"
+                                className="rounded border-neutral-300"
+                                checked={checked}
+                                onChange={() => {
+                                  setTeamSelection((prev) =>
+                                    checked ? prev.filter((id) => id !== t.id) : [...prev, t.id],
+                                  )
+                                }}
+                              />
+                              {t.name}
+                            </label>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
               {audience === 'departments' ? (
                 <div>
                   <p className={WPSTD_FORM_FIELD_LABEL}>Avdelinger</p>
@@ -210,6 +258,7 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                 disabled={
                   creating ||
                   (audience === 'departments' && deptSelection.length === 0) ||
+                  (audience === 'teams' && teamSelection.length === 0) ||
                   survey.distributionsLoading
                 }
                 onClick={async () => {
@@ -220,10 +269,12 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                       label: label.trim() || null,
                       audienceType: audience,
                       departmentIds: audience === 'departments' ? deptSelection : undefined,
+                      teamIds: audience === 'teams' ? teamSelection : undefined,
                     })
                     if (row) {
                       setLabel('')
                       setDeptSelection([])
+                      setTeamSelection([])
                     }
                   } finally {
                     setCreating(false)
@@ -252,6 +303,9 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
             const invs = byDistribution.get(dist.id) ?? []
             const done = invs.filter((i) => i.status === 'completed').length
             const pending = invs.filter((i) => i.status === 'pending').length
+            const canRemind =
+              (dist.status === 'generated' || dist.status === 'completed') &&
+              invs.some((i) => i.status === 'pending' && i.email_sent_at)
             const st = statusBadge(dist)
             return (
               <ModuleSectionCard key={dist.id} className="overflow-hidden p-0">
@@ -298,32 +352,59 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                       </Button>
                     ) : null}
                     {(dist.status === 'generated' || dist.status === 'completed') && invs.length > 0 ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="primary"
-                        disabled={sendId === dist.id}
-                        onClick={async () => {
-                          setSendId(dist.id)
-                          try {
-                            await survey.sendInvitationEmails(dist.id, s.id)
-                          } finally {
-                            setSendId(null)
-                          }
-                        }}
-                      >
-                        {sendId === dist.id ? (
-                          <>
-                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
-                            Sender…
-                          </>
-                        ) : (
-                          <>
-                            <Mail className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                            Send e-post
-                          </>
-                        )}
-                      </Button>
+                      <>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="primary"
+                          disabled={sendId === dist.id}
+                          onClick={async () => {
+                            setSendId(dist.id)
+                            try {
+                              await survey.sendInvitationEmails(dist.id, s.id)
+                            } finally {
+                              setSendId(null)
+                            }
+                          }}
+                        >
+                          {sendId === dist.id ? (
+                            <>
+                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+                              Sender…
+                            </>
+                          ) : (
+                            <>
+                              <Mail className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                              Send e-post
+                            </>
+                          )}
+                        </Button>
+                        {canRemind ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            disabled={remindId === dist.id}
+                            onClick={async () => {
+                              setRemindId(dist.id)
+                              try {
+                                await survey.sendInvitationReminders(dist.id, s.id)
+                              } finally {
+                                setRemindId(null)
+                              }
+                            }}
+                          >
+                            {remindId === dist.id ? (
+                              <>
+                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+                                Sender…
+                              </>
+                            ) : (
+                              'Påminnelse'
+                            )}
+                          </Button>
+                        ) : null}
+                      </>
                     ) : null}
                   </div>
                 </div>
@@ -337,6 +418,7 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                           <th className="px-4 py-2 font-medium">Avdeling</th>
                           <th className="px-4 py-2 font-medium">Status</th>
                           <th className="px-4 py-2 font-medium">E-post sendt</th>
+                          <th className="px-4 py-2 font-medium">Påminnelse</th>
                           <th className="px-4 py-2 font-medium">Lenke</th>
                         </tr>
                       </thead>
@@ -364,6 +446,13 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                                 <span className="text-amber-800" title={inv.email_send_error}>
                                   Feilet
                                 </span>
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-xs text-neutral-600">
+                              {inv.reminder_sent_at ? (
+                                new Date(inv.reminder_sent_at).toLocaleString('nb-NO')
                               ) : (
                                 '—'
                               )}

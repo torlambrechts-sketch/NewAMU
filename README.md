@@ -58,11 +58,15 @@ Tabeller og **Row Level Security (RLS)** må settes opp i Supabase før klienten
 
 Etter migrasjon **`20260802120008_survey_invitation_email_tracking.sql`** kan administratorer med **survey.manage** sende ventende invitasjoner fra fanen **Distribusjon**.
 
+Migrasjon **`20260802120009_survey_distribution_teams_and_reminders.sql`** legger til målgruppe **team** (kobling medarbeiderkatalog ↔ profil via e-post) og kolonne **reminder_sent_at** for påminnelser.
+
 1. Deploy Edge Function **`send-survey-invites`** fra `supabase/functions/send-survey-invites/` (`supabase functions deploy send-survey-invites`).
 2. **Supabase → Edge Functions → Secrets:** `RESEND_API_KEY` (påkrevd), `PUBLIC_APP_URL` (f.eks. `https://app.dittdomene.no` — brukes i lenker), valgfritt `RESEND_FROM` (f.eks. `Klarert <klarert@dittdomene.no>`) og de innebygde `SUPABASE_URL` / `SUPABASE_ANON_KEY` hvis de ikke settes automatisk.
 3. [Resend](https://resend.com): opprett API-nøkkel og bekreft avsenderdomene / bruk testdomene for utvikling.
 
 Funksjonen bruker innlogget brukers JWT (samme som nettleseren) og RPC **`survey_check_distribution_send_access`** før sending.
+
+- **`mode`:** utelatt eller **`initial`** sender første e-post til alle ventende uten `email_sent_at`. **`reminder`** sender kun til ventende som allerede har fått første e-post (`email_sent_at` satt) og oppdaterer `reminder_sent_at`.
 
 ### Organisasjon og onboarding (database)
 
