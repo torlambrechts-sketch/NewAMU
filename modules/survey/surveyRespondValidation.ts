@@ -188,8 +188,16 @@ export function validateAnswerFormat(q: OrgSurveyQuestionRow, a: { value: number
   }
 
   if (t === 'file_upload' && text) {
+    const trimmed = text.trim()
+    if (trimmed.startsWith('fileRef:')) {
+      const rest = trimmed.slice('fileRef:'.length).trim()
+      if (!/^survey_response_files\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/.+$/i.test(rest)) {
+        return 'Ugyldig filreferanse.'
+      }
+      return null
+    }
     const maxMb = typeof cfg.maxFileSizeMb === 'number' ? cfg.maxFileSizeMb : 10
-    const approxBytes = (text.length * 3) / 4
+    const approxBytes = (trimmed.length * 3) / 4
     if (approxBytes > maxMb * 1024 * 1024) return `Filen er for stor (maks ca. ${maxMb} MB).`
     return null
   }
@@ -225,11 +233,19 @@ export function answerMeetsRequiredContent(
   const t = q.question_type
   if (t === 'rating_1_to_5' || t === 'rating_1_to_10' || t === 'nps' || t === 'rating_visual') return a.value !== null
   if (t === 'likert_scale') return a.value !== null
-  if (t === 'text' || t === 'long_text' || t === 'short_text' || t === 'email' || t === 'signature') {
+  if (t === 'text' || t === 'long_text' || t === 'short_text' || t === 'email') {
     return Boolean(a.text?.trim())
   }
   if (t === 'number' || t === 'slider' || t === 'datetime') return Boolean(a.text?.trim())
-  if (t === 'file_upload') return Boolean(a.text?.trim())
+  if (t === 'file_upload') {
+    const x = a.text?.trim() ?? ''
+    return x.startsWith('fileRef:') || x.startsWith('data:')
+  }
+  if (t === 'signature') {
+    const x = a.text?.trim() ?? ''
+    if (x.startsWith('fileRef:')) return true
+    return Boolean(x)
+  }
   if (t === 'matrix') {
     const o = parseMatrixRankingJson(a.text ?? null)
     if (!o) return false

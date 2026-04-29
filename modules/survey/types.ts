@@ -212,6 +212,8 @@ export type OrgSurveyResponseRow = {
   survey_id: string
   organization_id: string
   user_id: string | null
+  /** Settes klient-side for anonyme undersøkelser — dedupe av flere innsendinger */
+  respondent_session_token: string | null
   submitted_at: string
   created_at: string
   updated_at: string
@@ -222,10 +224,14 @@ export const OrgSurveyResponseRowSchema = z.object({
   survey_id: z.string().uuid(),
   organization_id: z.string().uuid(),
   user_id: z.string().uuid().nullable(),
+  respondent_session_token: z.string().nullable().optional(),
   submitted_at: z.string(),
   created_at: z.string(),
   updated_at: z.string(),
-})
+}).transform((row) => ({
+  ...row,
+  respondent_session_token: row.respondent_session_token ?? null,
+}))
 
 export function parseOrgSurveyResponseRow(
   raw: unknown,

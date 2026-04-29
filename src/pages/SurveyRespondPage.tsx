@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef, type PointerEvent as ReactPointerEvent } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { CheckCircle, Loader2 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
@@ -101,6 +101,112 @@ function hasAnyAnswerContent(a: { value: number | null; text: string | null } | 
   if (!a) return false
   if (a.value != null && Number.isFinite(a.value)) return true
   return (a.text ?? '').trim().length > 0
+}
+
+function SignaturePad({
+  value,
+  onChange,
+}: {
+  value: string | null
+  onChange: (dataUrl: string | null) => void
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const drawingRef = useRef(false)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !value?.startsWith('data:image')) return
+    const img = new Image()
+    img.onload = () => {
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    }
+    img.src = value
+  }, [value])
+
+  const pos = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current
+    if (!canvas) return { x: 0, y: 0 }
+    const r = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / r.width
+    const scaleY = canvas.height / r.height
+    return {
+      x: (e.clientX - r.left) * scaleX,
+      y: (e.clientY - r.top) * scaleY,
+    }
+  }
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    drawingRef.current = true
+    const ctx = canvasRef.current?.getContext('2d')
+    if (!ctx) return
+    ctx.strokeStyle = '#1a3d32'
+    ctx.lineWidth = 2.5
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    const { x, y } = pos(e)
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+  }
+
+  const onPointerMove = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (!drawingRef.current) return
+    const ctx = canvasRef.current?.getContext('2d')
+    if (!ctx) return
+    const { x, y } = pos(e)
+    ctx.lineTo(x, y)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+  }
+
+  const endStroke = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (!drawingRef.current) return
+    drawingRef.current = false
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch {
+      /* ignore */
+    }
+    const canvas = canvasRef.current
+    if (!canvas) return
+    onChange(canvas.toDataURL('image/png'))
+  }
+
+  const clear = () => {
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !ctx) return
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    onChange(null)
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      <canvas
+        ref={canvasRef}
+        width={440}
+        height={180}
+        className="w-full max-w-md touch-none rounded-lg border border-neutral-200 bg-white"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endStroke}
+        onPointerCancel={endStroke}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="secondary" size="sm" onClick={clear}>
+          Tøm
+        </Button>
+      </div>
+      <p className="text-xs text-neutral-500">
+        Tegn signaturen her (mus eller finger). Den lagres som bilde når du sender inn — ikke som fri tekst.
+      </p>
+    </div>
+  )
 }
 
 function QuestionCard({
@@ -426,20 +532,13 @@ function QuestionCard({
             }}
           />
           <p className="mt-1 text-xs text-neutral-500">
-            Fil lagres som base64 i svaret (stor fil kan gi problemer — bruk små vedlegg).
+            Filen lastes opp til sikker lagring ved innsending (ikke som rå tekst i databasen). Hold filen liten (typisk under 10 MB).
           </p>
         </div>
       )}
 
       {q.question_type === 'signature' && (
-        <div className="mt-3">
-          <StandardTextarea
-            value={answer?.text ?? ''}
-            onChange={(e) => onChange({ value: null, text: e.target.value })}
-            rows={2}
-            placeholder="Skriv fullt navn som signatur"
-          />
-        </div>
+        <SignaturePad value={answer?.text ?? null} onChange={(url) => onChange({ value: null, text: url })} />
       )}
 
       {q.question_type === 'yes_no' && (

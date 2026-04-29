@@ -108,8 +108,9 @@ function buildTabs(
   actionCount: number,
   amuReview: SurveyAmuReviewRow | null,
   pendingInvites: number,
+  hideAmuAndTiltak: boolean,
 ): TabItem[] {
-  return [
+  const items: TabItem[] = [
     { id: 'oversikt', label: 'Oversikt' },
     { id: 'bygger', label: 'Bygger' },
     {
@@ -130,6 +131,10 @@ function buildTabs(
       badgeCount: actionCount > 0 ? actionCount : undefined,
     },
   ]
+  if (hideAmuAndTiltak) {
+    return items.filter((t) => t.id !== 'amu' && t.id !== 'tiltak')
+  }
+  return items
 }
 
 type Props = { supabase: SupabaseClient | null }
@@ -928,6 +933,9 @@ export function SurveyDetailView({ supabase }: Props) {
     [survey.invitations],
   )
 
+  const hideAmuAndTiltak =
+    s?.survey_type !== 'internal' || Boolean((s?.vendor_name ?? '').trim()) || Boolean((s?.vendor_org_number ?? '').trim())
+
   const tabs = useMemo(
     () =>
       buildTabs(
@@ -935,9 +943,17 @@ export function SurveyDetailView({ supabase }: Props) {
         survey.actionPlans.filter((p) => p.status !== 'closed').length,
         survey.amuReview,
         pendingInviteCount,
+        hideAmuAndTiltak,
       ),
-    [survey.responses.length, survey.actionPlans, survey.amuReview, pendingInviteCount],
+    [
+      survey.responses.length,
+      survey.actionPlans,
+      survey.amuReview,
+      pendingInviteCount,
+      hideAmuAndTiltak,
+    ],
   )
+
 
   useEffect(() => {
     if (!supabase || !orgId || !surveyId) return
@@ -1193,7 +1209,21 @@ export function SurveyDetailView({ supabase }: Props) {
             Tilbake
           </Button>
         }
-        tabs={<Tabs className="w-full md:w-auto" items={tabs} activeId={tab} onChange={(id) => setTab(id as DetailTab)} />}
+        tabs={
+          <Tabs
+            className="w-full md:w-auto"
+            items={tabs}
+            activeId={tab}
+            onChange={(id) => {
+              const next = id as DetailTab
+              if (hideAmuAndTiltak && (next === 'amu' || next === 'tiltak')) {
+                setTab('oversikt')
+                return
+              }
+              setTab(next)
+            }}
+          />
+        }
         loading={false}
       >
         <div className="w-full space-y-6">

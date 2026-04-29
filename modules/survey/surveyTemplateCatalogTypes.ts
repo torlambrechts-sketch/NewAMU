@@ -6,6 +6,10 @@ export type CatalogScaleType = z.infer<typeof CatalogScaleTypeSchema>
 
 export const CatalogQuestionTypeSchema = z.enum([
   'text',
+  'short_text',
+  'long_text',
+  'email',
+  'number',
   'likert_5',
   'likert_7',
   'scale_10',
@@ -13,6 +17,17 @@ export const CatalogQuestionTypeSchema = z.enum([
   'single_select',
   'multi_select',
   'multiple_choice',
+  'dropdown',
+  'image_choice',
+  'rating_visual',
+  'slider',
+  'likert_scale',
+  'matrix',
+  'ranking',
+  'nps',
+  'file_upload',
+  'datetime',
+  'signature',
 ])
 export type CatalogQuestionType = z.infer<typeof CatalogQuestionTypeSchema>
 
@@ -28,6 +43,9 @@ export const CatalogTemplateQuestionSchema = z.object({
   anchors: z.object({ low: z.string(), high: z.string() }).optional(),
   options: z.array(z.string()).optional(),
   scale: CatalogScaleTypeSchema.optional(),
+  rows: z.array(z.string()).optional(),
+  columns: z.array(z.string()).optional(),
+  items: z.array(z.string()).optional(),
 })
 export type CatalogTemplateQuestion = z.infer<typeof CatalogTemplateQuestionSchema>
 

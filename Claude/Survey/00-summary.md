@@ -14,55 +14,42 @@
 
 | # | Endring | Filer |
 |---|---------|--------|
-| 1 | **Oversikt — AMU compliance-kort** etter COMPLIANCE §4: sjekkliste (lukket undersøkelse, møtedato, AMU-leder sign., VO sign.), merking Oppfylt/Mangler, snarvei til AMU-fanen | `modules/survey/SurveyDetailView.tsx` |
-| 2 | **Bygger — kolonne «Lovkrav»** for obligatoriske spørsmål (`mandatory_law`, f.eks. AML § 4-3) i seksjonstabellen | `modules/survey/SurveySectionBuilder.tsx` |
-| 3 | **Liste — GDPR-banner** (`ComplianceBanner`) under regelverksbanner på modulens hovedside | `modules/survey/SurveyPage.tsx` |
-| 4 | **Database:** kolonne `audience_location_ids` m.fl. — migrasjon `supabase/migrations/20260802120012_survey_distributions_columns_repair.sql` | drift |
-| 5 | **Formål + AMU-oppsummering** på undersøkelsen (`survey_purpose`, `survey_amu_summary`), ny undersøkelse + Oversikt | `20260802120013_*`, `types`, `useSurvey`, `SurveyDetailView`, `SurveyPage` |
-| 6 | **Bygger — spørsmålsveiviser** — typekort, forslag fra formål, betinget visning uten JSON, avansert JSON kun org-admin | `SurveyQuestionFormFields`, `SurveyQuestionConditionEditor`, `surveyPurposeSuggestions` |
-| 7 | **Analyse** — CSV-eksport, forklaring på andeler, numerikk for slider/tall | `surveyExportCsv`, `surveyAnalytics`, `SurveyDetailView` |
-| 8 | **Fremdrift + bekreftelser** — stripe øverst, dialog ved publiser/lukk, workflow-knapper kun admin | `SurveyDetailView` |
-| 9 | **Prioritet 1 (del)** · **R20** — `loadSurveyDetail`: AMU, tiltak, distribusjoner og invitasjoner lastes parallelt etter kjernedata | `modules/survey/useSurvey.ts` |
-| 10 | **Prioritet 1 (del)** · **R1+R19** — `reorderQuestions` / `reorderSections` bruker parallelle oppdateringer (Promise.all) | `modules/survey/useSurvey.ts` |
-| 11 | **Prioritet 1 (del)** · **C2 + C8** — AMU-signatur via RPC (`survey_amu_review_sign_as_*`), navn fra `profiles`, kolonner `*_signed_by`; trigger låser protokoll etter første signatur | `20260802120014_*`, `types`, `useSurvey`, `SurveyAmuTab` |
+| 1–14 | *Se tidligere tabeller i git-historikk / forrige versjon av dette dokumentet* | — |
 
-| 12 | **R17** · Matrise og rangering i **Analyse** — aggregerte bar-diagram per rad/element; CSV med korte oppsummeringer | `surveyAnalytics.ts`, `surveyExportCsv.ts`, `SurveyDetailView.tsx`, `surveyRespondValidation.ts` |
-
-| 13 | **C1 + R5** · Lovkrav fra mal uten nøkkelord — `mandatoryFromCatalogQuestion`, `SurveyPage` fallback ved legacy-mal, HMS-mal med `mandatory_law: AML_4_3` på kjernelikert-spørsmål | `surveyMandatoryLaw.ts`, `SurveyPage.tsx`, `surveyTemplates.ts`, `applyTemplateToSurvey` |
-
-| 14 | **R1 (del)** · Distribusjon og invitasjoner ut i `useSurveyDistribution`; ryddet ubrukte imports i `useSurvey` | `useSurveyDistribution.ts`, `useSurvey.ts` |
+| 15 | **C10** · AMU- og Handlingsplan-faner skjules for ikke-interne undersøkelser og når leverandørnavn/org.nr er satt | `SurveyDetailView.tsx` |
+| 16 | **C4** · Eksterne/leverandørundersøkelser krever personlig lenke (`invite`) for anonyme eller ikke-innloggede; innlogget identifisert kan svare uten. RPC `survey_external_requires_personal_link` | `submitSurveyResponse.ts`, migrasjon `20260828120015_*` |
+| 17 | **C6** · Dedupe anonyme svar: kolonne `respondent_session_token`, unik indeks per undersøkelse, klient genererer stabil token per fane | migrasjon, `types`, `surveyRespondSession.ts`, `submitSurveyResponse.ts` |
+| 18 | **C3 (del)** · RPC `survey_question_choice_counts_for_org` — returnerer valgtelling kun når antall besvarelser ≥ `anonymity_threshold` (serverside gate for aggregater). *Analyse-fanen bruker fortsatt klientaggregater — koble til RPC ved behov for strengeste modell.* | migrasjon |
+| 19 | **Filopplasting** · Bucket `survey_response_files`, RLS; ved innsending lastes `data:` for fil/signatur opp og det lagres `fileRef:…` i `answer_text` | migrasjon, `surveyUploadDataUrl.ts`, `submitSurveyResponse.ts`, `surveyRespondValidation.ts`, `SurveyRespondPage.tsx` |
+| 20 | **Malbibliotek (del)** · Utvidet `CatalogQuestionTypeSchema`, full mapping i `catalogQuestionToUpsert`, rikere `orgQuestionToCatalogQuestion` inkl. obligatorisk lov fra rad | `surveyTemplateCatalogTypes.ts`, `surveyTemplateApply.ts`, `surveyTemplateCatalogHelpers.ts` |
+| 21 | **Signatur (del)** · Tegnflate (`canvas`) på svarskjema; PNG lagres via samme Storage-flyt som fil | `SurveyRespondPage.tsx` |
+| 22 | **R1 (del)** · `submitSurveyResponse` utskilt fra `useSurvey.ts` | `submitSurveyResponse.ts`, `useSurvey.ts` |
 
 ---
 
-## Kø — neste anbefalte steg (samkjørt med review v2)
+## Kø — gjenstår / neste anbefalte steg
 
-Prioritet 1 — **Kritisk korrekthet og analyse**
+Prioritet 1 — **Analyse og korrekthet**
 
-1. **R1** · Fortsett å splitte `useSurvey` (f.eks. `useSurveyQuestions`, AMU/tiltak) der det gir gevinst — filen er fortsatt stor.
+1. **C3 full** · Bruk `survey_question_choice_counts_for_org` (evt. tilsvarende for numerikk) i **Analyse**-fanen slik at aggregater ikke kan utledes fra råsvar i nettleseren før terskel er nådd — eller dokumenter hybrid og lukk bevisst.
 
-Prioritet 2 — **Etterlevelse og distribusjon**
+Prioritet 2 — **Refaktor og flyt**
 
-2. **C3** · k-anonymitet håndhevet serverside (view eller RPC som filtrerer før klient).
-3. **C6** · Dedupe anonyme svar (token mot `org_survey_responses` eller unik constraint der mulig).
-4. **C10** · Skjul AMU- og Tiltak-faner for eksterne/leverandørundersøkelser (`SurveyDetailView` `buildTabs`).
-5. **C4** · Full vendor-token-håndheving i invitasjons-/svarflyt (Edge + RLS).
+2. **R1** · Fortsett å splitte `useSurvey` (`useSurveyQuestions`, AMU/tiltak, evt. import/export).
 
-Prioritet 3 — **Personvern og drift**
+3. **Ekte forgreining** · Datamodell og UI utover `showIf` (spor/hopp mellom spørsmål).
 
-7. **Filopplasting → Supabase Storage** — ikke base64 i `org_survey_answers`.
-8. **Malbibliotek / `orgQuestionToCatalogQuestion`** — full støtte alle spørsmålstyper ved eksport/import.
-9. **Signatur** · Valgfri tegnflate (canvas) i tillegg til dagens tekst/RPC-flyt.
+Prioritet 3 — **Drift og kvalitet**
 
-Prioritet 4 — **Flyt, UX, STEP_10**
+4. **Cron** · Verifiser `scheduled_initial_send_at` og påminnelser i produksjon.
 
-10. **Ekte forgreining** utover `showIf` (spor/hopp mellom spørsmål — planlegg datamodell).
-11. **Cron** · Verifiser `scheduled_initial_send_at` og påminnelser i produksjon.
-12. Kjør sjekkliste `Claude/Survey/STEP_10_REVIEW.md` (rå HTML, engelske strenger).
+5. **STEP_10** · Kjør sjekkliste `Claude/Survey/STEP_10_REVIEW.md` (rå HTML, engelske strenger, design-system).
 
 ### Valgfritt / senere
 
-- **R17-forbedring** · Gjennomsnittsrang eller «gjennomsnittlig plass» som ekstra tall for rangering.
-- **Matrise** · Heatmap eller tabellvisning (CSV utvidet med alle celler, ikke bare topp).
+- **R17-forbedring** · Gjennomsnittsrang / gjennomsnittlig plass for rangeringsspørsmål.
+- **Matrise** · Heatmap, CSV med alle celler (ikke bare topp).
+- **C4 skjerping** · Produktvalg: skal identifiserte eksterne uten `invite` fortsatt kunne svare? (I dag: ja, for å matche «åpen lenke med innlogging».)
 
 ---
 
@@ -74,6 +61,7 @@ Prioritet 4 — **Flyt, UX, STEP_10**
 | `Could not find column 'survey_purpose'` | Kjør migrasjon `20260802120013_survey_purpose_and_amu_summary.sql` / `supabase db push`. |
 | `Could not find function survey_amu_review_sign_as_chair` | Kjør migrasjon `20260802120014_survey_amu_sign_identity_and_protocol_lock.sql` / `supabase db push`. |
 | `Could not find column 'amu_chair_signed_by'` | Kjør migrasjon `20260802120014_survey_amu_sign_identity_and_protocol_lock.sql` / `supabase db push`. |
+| `Could not find column 'respondent_session_token'` / bucket `survey_response_files` | Kjør `20260828120015_survey_storage_k_anon_vendor_session.sql` / `supabase db push`. |
 | PostgREST schema cache | `select pg_notify('pgrst', 'reload schema');` eller restart API. |
 
 ---
