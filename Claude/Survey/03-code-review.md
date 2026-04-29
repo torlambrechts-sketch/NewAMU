@@ -1,46 +1,33 @@
-# Survey Module — Code Review
+# Survey Module — Code Review (v2)
 *Perspective: Architecture, correctness, performance, security, maintainability*
-*Date: 2026-04-29*
+*Date: 2026-04-29 · Updated after main merge*
 
 ---
 
-## R1 · `useSurvey` is a 1334-line god-object
+## R1 · `useSurvey` god-object grew from 1 334 → 2 153 lines (worsened ❌)
 
-**File:** `useSurvey.ts` (entire file)
+**File:** `useSurvey.ts`
 
-The hook exports 33 methods and manages 14 independent state slices. This violates the AI_MODULE_SPEC anti-monolith rule (≤300 LOC per component/hook) and creates real-world problems:
+The main update added sections, distributions, and invitations — all inside the same hook. It now exports 40+ methods and manages 18 state slices. Every state update recreates the return object and triggers re-renders in all consumers. The `UseSurveyState` interface has become impossible to mock in tests.
 
-- Every call to any exported method recreates the return object, triggering re-renders in all consumers.
-- Tests and TypeScript type-checking must load the entire hook to test a single function.
-- The `UseSurveyState` exported type is a 33-member interface — impossible to satisfy in stubs.
+**Recommendation:** Split into four focused hooks and compose them in the view components:
 
-**Recommendation:** Split into three focused hooks:
-- `useSurveyList` — `loadSurveys`, `createSurvey`, `surveys` list state.
-- `useSurveyDetail` — `loadSurveyDetail`, `questions`, `responses`, `answers`, `upsertQuestion`, `reorderQuestions`, `deleteQuestion`.
-- `useSurveyCompliance` — `amuReview`, `actionPlans`, `upsertAmuReview`, `signAmuChair`, `signVo`, `upsertActionPlan`.
-
-`SurveyPage` uses `useSurveyList`; `SurveyDetailView` composes all three.
+| Hook | Responsibility |
+|------|---------------|
+| `useSurveyList` | `loadSurveys`, `createSurvey`, `surveys[]` |
+| `useSurveyDetail` | `loadSurveyDetail`, `questions`, `sections`, `upsertQuestion`, `upsertSection`, `reorderQuestions`, `reorderSections`, `deleteQuestion`, `deleteSection` |
+| `useSurveyCompliance` | `amuReview`, `actionPlans`, `upsertAmuReview`, `signAmuChair`, `signVo`, `upsertActionPlan`, `updateActionPlanStatus` |
+| `useSurveyDistribution` | `distributions`, `invitations`, `loadDistributions`, `loadInvitations`, `createDistribution`, `generateInvitations`, `sendInvitations`, `sendReminders` |
 
 ---
 
-## R2 · `reorderQuestions` makes N sequential database round trips
+## R2 · `reorderQuestions` N sequential DB calls — unchanged (open)
 
-**File:** `useSurvey.ts:604-612`
+**File:** `useSurvey.ts:762-828`
 
-```ts
-for (let i = 0; i < orderedQuestionIds.length; i++) {
-  const { error: e } = await supabase
-    .from('org_survey_questions')
-    .update({ order_index: i })
-    .eq('id', orderedQuestionIds[i]!)
-    ...
-  if (e) throw e
-}
-```
+The implementation did not change. For a 20-question survey, drag-and-drop fires 20 sequential HTTP requests. Any failure midway leaves order inconsistent.
 
-For a 20-question survey, this fires 20 sequential HTTP requests. Each drag-and-drop fires this entire chain. On a slow connection it takes several seconds and any failure partway leaves the order in an inconsistent state.
-
-**Recommendation:** Use a single batch upsert:
+**Fix:**
 ```ts
 const rows = orderedQuestionIds.map((id, i) => ({
   id,
@@ -48,218 +35,208 @@ const rows = orderedQuestionIds.map((id, i) => ({
   organization_id: oid,
   order_index: i,
 }))
-await supabase
+const { error } = await supabase
   .from('org_survey_questions')
   .upsert(rows, { onConflict: 'id' })
 ```
 
-Or add a `reorder_survey_questions(survey_id, ordered_ids)` Postgres function.
+---
+
+## R17 · `surveyAnalytics` handles only 7 of 22 question types (new — critical)
+
+**File:** `surveyAnalytics.ts`
+
+The analytics engine was written for the original 7 question types. After the main update introduced 15 new types, the analytics function is unaware of:
+
+`short_text`, `long_text`, `email`, `number`, `rating_visual`, `slider`, `dropdown`, `image_choice`, `likert_scale`, `matrix`, `ranking`, `nps`, `file_upload`, `datetime`, `signature`
+
+All 15 fall through to the default branch, producing empty `numbers[]`, `textCount: 0`, and `choiceCounts: {}`. The `AnalyseTab` then renders a blank card with "Ingen flervalgssvar registrert" for matrix questions, NPS scores, and slider values — completely wrong.
+
+**Recommendation:** Extend `buildAnalyticsByQuestionId` with branches for each new type:
+- `nps` / `rating_visual` / `likert_scale` / `slider` → treat as numeric (same as `rating_1_to_5`)
+- `number` → numeric
+- `short_text` / `long_text` / `email` / `signature` → textCount only
+- `dropdown` / `image_choice` → choiceCounts (same as `single_select`)
+- `datetime` / `file_upload` → textCount only (count submitted)
+- `matrix` / `ranking` → new aggregate structure (map of row → score distribution)
+
+The `AnalyseTab` also needs dedicated rendering components for `matrix`, `ranking`, and `nps`.
 
 ---
 
-## R3 · `applyTemplateToSurvey` makes N sequential upsert calls
+## R19 · `reorderSections` also N sequential DB calls (new — critical)
 
-**File:** `useSurvey.ts:1173-1190`
+**File:** `useSurvey.ts:979+`
 
-Same pattern as R2 — loops over `questions.length` and calls `upsertQuestion` sequentially. For a 30-question QPS-Nordic template, this makes 30 DB calls before the user sees any result. There is also no rollback if one question fails mid-loop.
+The same N-sequential-updates pattern from `reorderQuestions` was replicated in `reorderSections`. Each section drag fires one update per section.
 
-**Recommendation:** Batch-insert all questions in a single `.insert(rows)` call. The `org_survey_questions_before_insert` trigger will validate each row server-side.
-
----
-
-## R4 · `PaletteItem` uses raw `<button>` — violates AI_MODULE_SPEC rule 1
-
-**File:** `SurveyBuilderStage.tsx:53-68`
-
-```tsx
-<button
-  ref={setNodeRef}
-  type="button"
-  {...listeners}
-  {...attributes}
-  className={[...].join(' ')}
->
-```
-
-The spec prohibits raw HTML control elements; all interactive elements must use shared UI components (`Button`, `StandardInput`, etc.).
-
-**Recommendation:** The `Button` component needs a `ref` prop to support dnd-kit's `setNodeRef`. Add `React.forwardRef` to `Button` and pass `ref={setNodeRef}` to it, along with `{...listeners}` and `{...attributes}` via a spread.
+**Fix:** Same batch upsert approach as R2. Apply to both functions in the same PR.
 
 ---
 
-## R5 · `isMandatoryAml4_3` is duplicated
+## R20 · `loadSurveyDetail` doesn't load sections or distributions (new)
 
-**File:** `SurveyPage.tsx:38-43` and `useSurvey.ts:1179`
+**File:** `useSurvey.ts:437+`
 
-The same keyword array and matching logic exists in two places with no shared import. They will diverge silently.
+`loadSurveyDetail` fetches: survey, questions, responses, answers, AMU review, action plans — but not `surveySections` or `distributions`. When `SurveySectionBuilder` renders after `loadSurveyDetail`, `survey.surveySections` is empty until something triggers `loadSections`. This causes a flash of the "Uten seksjon" root view regardless of actual section structure.
 
-**Recommendation:** Export a single `isAml4_3Mandatory(text: string): boolean` function from a shared location (e.g. `modules/survey/surveyCompliance.ts`) and import it in both files.
-
----
-
-## R6 · `SurveyDetailView` exceeds spec size limit at 784 lines
-
-**File:** `SurveyDetailView.tsx` (entire file)
-
-Inline tab components (`OversiktTab`, `ByggerTab`, `SvarTab`, `AnalyseTab`) are defined within the same file as `SurveyDetailView`. Each is 50–100 lines and belongs in `tabs/`.
-
-**Recommendation:** Move each to its own file:
-- `tabs/SurveyOversiktDetailTab.tsx` (OversiktTab)
-- `tabs/SurveyByggerTab.tsx` (ByggerTab — wraps SurveyBuilderStage)
-- `tabs/SurveySvarTab.tsx` (SvarTab)
-- `tabs/SurveyAnalyseTab.tsx` (AnalyseTab)
-
-This also enables lazy loading each tab.
+**Recommendation:** Add `loadSections(surveyId)` and `loadDistributions(surveyId)` to the `Promise.all` inside `loadSurveyDetail`.
 
 ---
 
-## R7 · `loadSurveyDetail` chains 6 queries, answers are serial
+## R3 · `applyTemplateToSurvey` N sequential upserts (open)
 
-**File:** `useSurvey.ts:280-344`
+**File:** `useSurvey.ts:1548+`
 
-The function loads: survey, questions, responses (parallel), then conditionally fetches answers (serial after responses), then calls `loadAmuReview` and `loadActionPlans` (both serial). Critical path:
+Template application calls `upsertQuestion` in a loop. For a 30-question template, this is 30 sequential DB round trips with no rollback on failure.
 
-```
-survey → [questions + responses] → answers → AMU review → action plans
-```
+**Recommendation:** Batch-insert all questions in a single `.insert(rows)` call. The `org_survey_questions_before_insert` trigger validates each row server-side.
 
-Answers, AMU review, and action plans could all be fetched in parallel once `survey_id` and `org_id` are known.
+---
 
-**Recommendation:**
+## R4 · `PaletteDragItem` uses raw `<button>` — spec violation persists (open)
+
+**File:** `SurveySectionBuilder.tsx:108-126`
+
+The `SurveySectionBuilder` copied the same `<button>` pattern from `SurveyBuilderStage` rather than fixing it. The `SortableQuestionTableRow` drag handle (line ~200) also uses a raw `<button>`.
+
+**Fix:** Add `React.forwardRef` to the shared `Button` component to accept `ref`, then use `Button` in both palette and drag-handle positions. Pass `{...listeners}` and `{...attributes}` via spread.
+
+---
+
+## R5 · `isMandatoryAml4_3` duplicated — still (open)
+
+**File:** `SurveyPage.tsx` and `useSurvey.ts` (applyTemplateToSurvey)
+
+Two identical keyword arrays in two files. No change in main update.
+
+**Recommendation:** Export `isAml4_3Mandatory(text: string): boolean` from `modules/survey/surveyCompliance.ts` and import in both files. Prefer removing the function entirely in favour of template-body flags (see C1).
+
+---
+
+## R6 · `SurveyDetailView` grew to 926 lines (worsened ❌)
+
+**File:** `SurveyDetailView.tsx`
+
+`OversiktTab`, `ByggerTab`, `SvarTab`, and `AnalyseTab` are still defined inline. The file grew from 784 to 926 lines. The `ByggerTab` now also imports and wraps `SurveySectionBuilder`, making the component boundary even less clear.
+
+**Recommendation:** Move each tab to `tabs/`:
+- `tabs/SurveyOversiktDetailTab.tsx`
+- `tabs/SurveyByggerTab.tsx` (thin wrapper around `SurveySectionBuilder`)
+- `tabs/SurveySvarTab.tsx`
+- `tabs/SurveyAnalyseTab.tsx`
+
+---
+
+## R7 · `loadSurveyDetail` serial query chain (open)
+
+**File:** `useSurvey.ts`
+
+The load sequence is: survey → `[questions + responses]` parallel → answers (serial after responses) → AMU → action plans (both serial). With sections and distributions now also needed, the chain is even longer.
+
+**Recommendation:** Load survey first (to get `organization_id`), then fire all remaining queries in parallel:
 ```ts
-const [qRes, rRes, amuRes, actRes] = await Promise.all([
+const [qRes, rRes, secRes, amuRes, actRes, distRes] = await Promise.all([
   supabase.from('org_survey_questions')...,
   supabase.from('org_survey_responses')...,
+  supabase.from('survey_sections')...,
   supabase.from('survey_amu_reviews')...,
   supabase.from('survey_action_plans')...,
+  supabase.from('survey_distributions')...,
 ])
-// Then answers from response IDs
+// Then answers from response IDs (depends on rRes)
 ```
 
 ---
 
-## R8 · `handleCreate` legacy template path fires N sequential upserts
+## R8 · Legacy template path N sequential upserts (open)
 
-**File:** `SurveyPage.tsx:149-174`
+**File:** `SurveyPage.tsx` `handleCreate`
 
-The fallback path for legacy (`ALL_SURVEY_TEMPLATES`) questions:
+The `ALL_SURVEY_TEMPLATES` fallback still calls `upsertQuestion` in a loop. Now that the template catalog is seeded, this code path is effectively dead but still present and still slow if triggered.
+
+**Recommendation:** Mark the fallback with `// TODO: remove after all orgs have migrated to survey_template_catalog` and batch the inserts.
+
+---
+
+## R15 · Drag-insert race condition — moved to SurveySectionBuilder (open)
+
+**File:** `SurveySectionBuilder.tsx` `onDragEnd`
+
+The new section builder drops a palette item at `nextIndex = max(order_index) + 1`, then returns without attempting a move. This is safer than the old `SurveyBuilderStage` which tried to reorder immediately after insert. However, the `nextIndex` calculation uses `questionsInView` (client state), which may lag behind the DB after the async upsert if another user is editing simultaneously.
+
+**Low risk for single-user sessions** but worth noting for multi-admin orgs.
+
+---
+
+## R18 · `SurveyPendingInvitesBanner` makes 2 serial queries that could JOIN (new)
+
+**File:** `SurveyPendingInvitesBanner.tsx:17-44`
+
+The component first fetches `survey_invitations` for the current user, then fetches `surveys` for those IDs. Two round trips that could be collapsed to:
+
 ```ts
-for (let i = 0; i < tpl.questions.length; i++) {
-  await survey.upsertQuestion({ ... })
-}
+supabase
+  .from('survey_invitations')
+  .select('survey_id, surveys!inner(id, title, status)')
+  .eq('profile_id', user.id)
+  .eq('status', 'pending')
+  .eq('surveys.status', 'active')
 ```
 
-This runs serially, one request per question. For a 20-question template, the user waits for 20 sequential round trips before being navigated to the new survey.
-
-**Recommendation:** Add a `batchInsertQuestions` method to `useSurvey` that does a single `.insert(rows)`. The legacy code path should be removed entirely once the template catalog is fully seeded.
+Minor performance issue but adds latency on every page load for invited users.
 
 ---
 
-## R9 · `saveOrgTemplate` generates a pseudo-random ID unnecessarily
+## R9 · `saveOrgTemplate` pseudo-random ID fallback unnecessary (open)
 
-**File:** `useSurvey.ts:1235-1238`
+**File:** `useSurvey.ts:1621+`
 
-```ts
-const newId =
-  typeof globalThis.crypto !== 'undefined' && ...
-    ? globalThis.crypto.randomUUID()
-    : `tpl-${Date.now()}-${Math.random()...}`
-```
-
-Org-owned templates don't need a text primary key — that pattern exists for system templates like `tpl-uwes` where the ID is a stable slug. Org templates should let Postgres generate a UUID via `gen_random_uuid()`.
-
-**Recommendation:** For org templates, omit the `id` field from the insert. The `tpl-${Date.now()}` fallback is also unnecessary since `crypto.randomUUID` is available in all modern browsers and Node 18+.
+Org templates don't need a text primary key. The `tpl-${Date.now()}` fallback is only needed for system templates with stable slug IDs like `tpl-uwes`. For org templates, omit `id` from the insert and let Postgres generate a UUID.
 
 ---
 
-## R10 · `deleteQuestion` fires without optimistic update
+## R10 · Question delete has no optimistic update (open)
 
-**File:** `SurveyDetailView.tsx:763-772`, `useSurvey.ts:634-675`
+**File:** `SurveyDetailView.tsx`, `useSurvey.ts`
 
-When the user clicks "Slett spørsmål", the panel closes immediately (`closePanel()`), but the question row remains visible on the canvas until the async DB delete completes. On a slow connection this can take 1–2 seconds of confusion.
+When the user clicks "Slett spørsmål", the panel closes immediately but the question row stays visible until the DB delete completes. Optimistic removal would improve perceived responsiveness.
 
-**Recommendation:** Optimistically remove the question from local state before the DB call:
+**Recommendation:**
 ```ts
 setQuestions(prev => prev.filter(q => q.id !== questionId)) // optimistic
 const { error } = await supabase.from('org_survey_questions').delete()...
 if (error) {
-  setQuestions(prev => [...prev, qToDelete]) // rollback
-  setError(...)
+  setQuestions(prev => [...prev, qToDelete].sort(...)) // rollback
 }
 ```
 
 ---
 
-## R11 · `OversiktTab` in `SurveyDetailView` loses edits on survey reload
+## R11 · OversiktTab loses edits on survey reload (open)
 
-**File:** `SurveyDetailView.tsx:94-111`
+**File:** `SurveyDetailView.tsx` `OversiktTab`
 
-The `OversiktTab` component initializes `titleEdit` and `descEdit` from `s.title` and `s.description` at mount time only. If the parent reloads `selectedSurvey` (e.g. after publishing), local edits are preserved in state even though the server has a different value. The `key={s.id}` on the component means this only resets on survey ID change, not on metadata change.
+Local `titleEdit`/`descEdit` state is initialized from `s.title`/`s.description` at mount only. If `selectedSurvey` is updated by the parent (e.g. after publish), local edits persist silently. The `key={s.id}` only resets on survey ID change.
 
-**Recommendation:** Sync local edit state from the server value using a `useEffect` that fires when `s.title` or `s.description` changes, but only when the user is not actively editing (track a `isDirty` boolean).
-
----
-
-## R12 · Database: `surveys` status check constraint not enforced on core migration
-
-**Migration:** `20260101000000_enterprise_survey_module_core.sql:14-16`
-
-The initial `surveys` table only permits `'draft', 'active', 'closed'`. The `'archived'` status is added by `20260801100000_survey_additions.sql`. If migrations are applied in a new environment, the `'archived'` status is unavailable until the second migration runs — but TypeScript types already include it.
-
-**Recommendation:** This is already resolved by the migration order, but add a comment in the core migration: `-- 'archived' added in 20260801100000_survey_additions.sql` to make the dependency explicit.
+**Recommendation:** Sync from server value using a `useEffect` gated by an `isDirty` boolean.
 
 ---
 
-## R13 · `upsertAmuReview` conflict target may fail on multi-survey orgs
+## R14 · `created_by` never populated on AMU review insert (open)
 
-**File:** `useSurvey.ts:797-800`
+**File:** `useSurvey.ts` `upsertAmuReview`
 
-```ts
-.upsert(
-  { survey_id: surveyId, organization_id: oid, ...patch },
-  { onConflict: 'survey_id' },
-)
-```
+The upsert payload omits `created_by`. The column exists in `survey_amu_reviews` but is always `null`.
 
-The `unique (survey_id)` constraint on `survey_amu_reviews` is correct (one review per survey), but the `onConflict` in PostgREST must reference the exact constraint name. If the constraint is ever renamed or the unique index is rebuilt, this silently becomes an insert-only operation.
-
-**Recommendation:** Use `onConflict: 'survey_id'` as-is (correct for this schema) but add a comment. Also verify the constraint name matches the migration: `unique (survey_id)` creates an implicit index named `survey_amu_reviews_survey_id_key`.
+**Recommendation:** Either populate via a `BEFORE INSERT` trigger (`new.created_by := auth.uid()`) or pass it explicitly from the client.
 
 ---
 
-## R14 · TypeScript: `created_by` is never populated on AMU review insert
+## R16 · `surveyAdminSettingsSchema` parse error blocks all survey creation (open)
 
-**File:** `useSurvey.ts:797-800`, `types.ts:237`
+**File:** `useSurvey.ts` `createSurvey:586+`
 
-`SurveyAmuReviewRow` has `created_by: string | null` but the upsert payload never includes it:
-```ts
-.upsert({ survey_id, organization_id, ...patch }, ...)
-```
+If `parseSurveyModuleSettings` throws on a malformed org settings payload, `createSurvey` returns `null` and the user sees no explanation. No change in main update.
 
-`auth.uid()` is available server-side but not passed from the client. The field is always `null`.
-
-**Recommendation:** Either remove the column if it's not used, or include it via the database trigger (`survey_amu_reviews_before_insert` should set `new.created_by := auth.uid()`).
-
----
-
-## R15 · `SurveyBuilderStage`: drag from palette inserts at end, then tries to move
-
-**File:** `SurveyBuilderStage.tsx:183-202`
-
-When a palette item is dropped onto an existing question row, the code:
-1. Inserts the new question at `nextIndex` (end of list).
-2. Tries to reorder using the drop target's ID.
-
-But `reorderQuestions` validates that `orderedQuestionIds.length === existingIds.size`. After the insert, `existingIds` has `n+1` items but the reorder call passes `[...itemIds.slice(0, at), row.id, ...itemIds.slice(at)]` which is also `n+1`. This should work — but if the insert fails (DB error), the reorder still runs with a stale `itemIds` that doesn't include the new question, causing `existingIds.size` mismatch and silently returning `false`.
-
-**Recommendation:** Guard the reorder call inside the `if (!row) return` early exit. Already done, but the `existingIds` set is computed from `questions.filter(q => q.survey_id === surveyId)` which relies on state being updated synchronously after the insert — which `setQuestions` (async state update) does not guarantee. Add `await` on the insert and re-fetch `itemIds` from the updated state before reordering.
-
----
-
-## R16 · `surveyAdminSettingsSchema.ts` not reviewed — potential gap
-
-**File:** `surveyAdminSettingsSchema.ts`
-
-This file is imported in `useSurvey.ts:6` but was not included in the module file listing initially. The `default_anonymous` setting is read from org module payload during `createSurvey`. If the schema validation fails (wrong shape), `parseSurveyModuleSettings` may throw and block all survey creation.
-
-**Recommendation:** Review this file and ensure `parseSurveyModuleSettings` returns a safe default (e.g. `{ default_anonymous: false }`) on parse failure rather than throwing.
+**Recommendation:** Return a safe default `{ default_anonymous: false }` on parse failure rather than propagating the exception.
