@@ -1,6 +1,6 @@
 import type { OrgSurveyAnswerRow, OrgSurveyQuestionRow, SurveyQuestionType } from './types'
 
-/** One pass over answers; use in useMemo for stable references when questions/answers change. */
+/** Aggregate answers by question type — extended types fall back to text/choice patterns where applicable */
 export function buildAnalyticsByQuestionId(
   questions: OrgSurveyQuestionRow[],
   answers: OrgSurveyAnswerRow[],
@@ -37,17 +37,37 @@ export function buildAnalyticsByQuestionId(
     const bucket = byQ[a.question_id]
     if (!bucket) continue
     if (
-      (bucket.type === 'rating_1_to_5' || bucket.type === 'rating_1_to_10') &&
+      (bucket.type === 'rating_1_to_5' ||
+        bucket.type === 'rating_1_to_10' ||
+        bucket.type === 'nps' ||
+        bucket.type === 'rating_visual' ||
+        bucket.type === 'likert_scale') &&
       a.answer_value != null
     ) {
       bucket.numbers.push(Number(a.answer_value))
-    } else if (bucket.type === 'text' && a.answer_text && a.answer_text.trim()) {
+    } else if (
+      (bucket.type === 'text' ||
+        bucket.type === 'long_text' ||
+        bucket.type === 'short_text' ||
+        bucket.type === 'email' ||
+        bucket.type === 'number' ||
+        bucket.type === 'slider' ||
+        bucket.type === 'datetime' ||
+        bucket.type === 'signature' ||
+        bucket.type === 'file_upload' ||
+        bucket.type === 'matrix' ||
+        bucket.type === 'ranking') &&
+      a.answer_text &&
+      a.answer_text.trim()
+    ) {
       bucket.textCount += 1
     } else if (
       (bucket.type === 'multiple_choice' ||
         bucket.type === 'yes_no' ||
         bucket.type === 'single_select' ||
-        bucket.type === 'multi_select') &&
+        bucket.type === 'multi_select' ||
+        bucket.type === 'dropdown' ||
+        bucket.type === 'image_choice') &&
       a.answer_text
     ) {
       const k = a.answer_text.trim() || '(tomt)'

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { CheckCircle, Loader2 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
@@ -10,6 +10,9 @@ import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { useSurvey } from '../../modules/survey'
 import type { OrgSurveyQuestionRow } from '../../modules/survey/types'
+import { globalQuestionIdOrder } from '../../modules/survey/surveyQuestionGlobalOrder'
+import { StandardInput } from '../components/ui/Input'
+import { SearchableSelect } from '../components/ui/SearchableSelect'
 
 type AnswerMap = Record<string, { value: number | null; text: string | null }>
 
@@ -76,6 +79,17 @@ function optionList(q: OrgSurveyQuestionRow): string[] {
   return ['Ja', 'Nei', 'Vet ikke']
 }
 
+function parseAnswerJson(text: string | null | undefined): Record<string, string> | null {
+  if (!text?.trim()) return null
+  try {
+    const o = JSON.parse(text) as unknown
+    if (o && typeof o === 'object' && !Array.isArray(o)) return o as Record<string, string>
+  } catch {
+    /* ignore */
+  }
+  return null
+}
+
 function QuestionCard({
   question: q,
   idx,
@@ -93,6 +107,26 @@ function QuestionCard({
 
   const t = answer?.text ?? ''
   const multiSelected = new Set(t.split('|').map((s) => s.trim()).filter(Boolean))
+
+  const cfgObj = cfg as Record<string, unknown>
+  const matrixAnswer = q.question_type === 'matrix' ? parseAnswerJson(answer?.text ?? null) : null
+
+  const rankingItems =
+    q.question_type === 'ranking' && Array.isArray(cfgObj.items)
+      ? (cfgObj.items as string[]).filter((x) => typeof x === 'string')
+      : []
+
+  const setMatrixCell = (row: string, col: string) => {
+    const next = { ...(matrixAnswer ?? {}) }
+    next[row] = col
+    onChange({ value: null, text: JSON.stringify(next) })
+  }
+
+  const setRank = (item: string, rank: number) => {
+    const next = parseAnswerJson(answer?.text ?? null) ?? {}
+    next[item] = String(rank)
+    onChange({ value: null, text: JSON.stringify(next) })
+  }
 
   const toggleMulti = (opt: string) => {
     const next = new Set(multiSelected)
@@ -119,10 +153,20 @@ function QuestionCard({
         ) : null}
       </p>
 
-      {(q.question_type === 'rating_1_to_5' || q.question_type === 'rating_1_to_10') && (
+      {(q.question_type === 'rating_1_to_5' ||
+        q.question_type === 'rating_1_to_10' ||
+        q.question_type === 'likert_scale') && (
         <RatingScaleRange
-          min={sc.min}
-          max={sc.max}
+          min={
+            q.question_type === 'likert_scale' && typeof cfgObj.scaleMin === 'number'
+              ? cfgObj.scaleMin
+              : sc.min
+          }
+          max={
+            q.question_type === 'likert_scale' && typeof cfgObj.scaleMax === 'number'
+              ? cfgObj.scaleMax
+              : sc.max
+          }
           lowLabel={sc.low}
           highLabel={sc.high}
           value={answer?.value ?? null}
@@ -130,13 +174,246 @@ function QuestionCard({
         />
       )}
 
-      {q.question_type === 'text' && (
+      {q.question_type === 'nps' && (
+        <RatingScaleRange
+          min={0}
+          max={10}
+          lowLabel={typeof cfgObj.leftLabel === 'string' ? cfgObj.leftLabel : '0'}
+          highLabel={typeof cfgObj.rightLabel === 'string' ? cfgObj.rightLabel : '10'}
+          value={answer?.value ?? null}
+          onChange={(v) => onChange({ value: v, text: null })}
+        />
+      )}
+
+      {q.question_type === 'rating_visual' && (
+        <RatingScaleRange
+          min={1}
+          max={typeof cfgObj.scaleMax === 'number' ? cfgObj.scaleMax : 5}
+          lowLabel={
+            typeof cfgObj.anchors === 'object' && cfgObj.anchors && 'low' in (cfgObj.anchors as object)
+              ? String((cfgObj.anchors as { low?: string }).low ?? '1')
+              : '1'
+          }
+          highLabel={
+            typeof cfgObj.anchors === 'object' && cfgObj.anchors && 'high' in (cfgObj.anchors as object)
+              ? String((cfgObj.anchors as { high?: string }).high ?? String(cfgObj.scaleMax ?? 5))
+              : String(cfgObj.scaleMax ?? 5)
+          }
+          value={answer?.value ?? null}
+          onChange={(v) => onChange({ value: v, text: null })}
+        />
+      )}
+
+      {(q.question_type === 'short_text' || q.question_type === 'email') && (
+        <div className="mt-3">
+          <StandardInput
+            type={q.question_type === 'email' ? 'email' : 'text'}
+            value={answer?.text ?? ''}
+            onChange={(e) => onChange({ value: null, text: e.target.value })}
+            maxLength={
+              q.question_type === 'short_text' && typeof cfgObj.maxLength === 'number'
+                ? cfgObj.maxLength
+                : q.question_type === 'short_text'
+                  ? 255
+                  : undefined
+            }
+            className="w-full max-w-lg"
+          />
+        </div>
+      )}
+
+      {(q.question_type === 'text' || q.question_type === 'long_text') && (
         <div className="mt-3">
           <StandardTextarea
             value={answer?.text ?? ''}
             onChange={(e) => onChange({ value: null, text: e.target.value })}
-            rows={4}
+            rows={q.question_type === 'long_text' ? 8 : 4}
             placeholder="Skriv ditt svar her…"
+          />
+        </div>
+      )}
+
+      {q.question_type === 'number' && (
+        <div className="mt-3">
+          <StandardInput
+            type="number"
+            value={answer?.text ?? ''}
+            onChange={(e) => onChange({ value: null, text: e.target.value })}
+            min={typeof cfgObj.minValue === 'number' ? cfgObj.minValue : undefined}
+            max={typeof cfgObj.maxValue === 'number' ? cfgObj.maxValue : undefined}
+            step={
+              cfgObj.integerOnly === true
+                ? 1
+                : typeof cfgObj.step === 'number'
+                  ? cfgObj.step
+                  : undefined
+            }
+            className="max-w-xs"
+          />
+        </div>
+      )}
+
+      {q.question_type === 'slider' && (
+        <div className="mt-4 space-y-2">
+          <input
+            type="range"
+            className="w-full accent-[#1a3d32]"
+            min={typeof cfgObj.rangeStart === 'number' ? cfgObj.rangeStart : 0}
+            max={typeof cfgObj.rangeEnd === 'number' ? cfgObj.rangeEnd : 100}
+            step={typeof cfgObj.stepIncrement === 'number' ? cfgObj.stepIncrement : 1}
+            value={
+              answer?.text != null && answer.text !== ''
+                ? Number(answer.text)
+                : typeof cfgObj.rangeStart === 'number'
+                  ? cfgObj.rangeStart
+                  : 0
+            }
+            onChange={(e) => onChange({ value: null, text: e.target.value })}
+          />
+          <p className="text-center text-sm font-medium text-neutral-800">{answer?.text ?? '—'}</p>
+        </div>
+      )}
+
+      {q.question_type === 'dropdown' && (
+        <div className="mt-3 max-w-lg">
+          <SearchableSelect
+            value={answer?.text ?? ''}
+            options={opts.map((o) => ({ value: o, label: o }))}
+            onChange={(v) => onChange({ value: null, text: v || null })}
+          />
+        </div>
+      )}
+
+      {q.question_type === 'image_choice' && (
+        <div className="mt-3 flex flex-wrap gap-3">
+          {Array.isArray(cfgObj.choices)
+            ? (cfgObj.choices as { label?: string; image_url?: string }[]).map((c, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => onChange({ value: null, text: c.label ?? String(i) })}
+                  className={`flex max-w-[140px] flex-col gap-1 rounded-lg border-2 p-2 text-left text-xs transition ${
+                    answer?.text === (c.label ?? String(i))
+                      ? 'border-[#1a3d32] bg-[#f7faf8]'
+                      : 'border-neutral-200 hover:border-neutral-300'
+                  }`}
+                >
+                  {c.image_url ? (
+                    <img src={c.image_url} alt="" className="h-20 w-full rounded object-cover" />
+                  ) : (
+                    <div className="flex h-20 items-center justify-center bg-neutral-100 text-neutral-400">Bilde</div>
+                  )}
+                  <span className="font-medium">{c.label ?? `Valg ${i + 1}`}</span>
+                </button>
+              ))
+            : null}
+        </div>
+      )}
+
+      {q.question_type === 'matrix' && Array.isArray(cfgObj.rows) && Array.isArray(cfgObj.columns) ? (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[480px] border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className="border-b border-neutral-200 py-2 text-left" />
+                {(cfgObj.columns as string[]).map((col) => (
+                  <th key={col} className="border-b border-neutral-200 px-2 py-2 text-center font-medium">
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(cfgObj.rows as string[]).map((row) => (
+                <tr key={row}>
+                  <td className="border-b border-neutral-100 py-2 pr-2 align-middle">{row}</td>
+                  {(cfgObj.columns as string[]).map((col) => (
+                    <td key={`${row}-${col}`} className="border-b border-neutral-100 px-2 py-2 text-center">
+                      <input
+                        type="radio"
+                        name={`matrix-${q.id}-${row}`}
+                        className="size-4 border-neutral-300 text-[#1a3d32]"
+                        checked={matrixAnswer?.[row] === col}
+                        onChange={() => setMatrixCell(row, col)}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {q.question_type === 'ranking' && rankingItems.length > 0 ? (
+        <div className="mt-3 space-y-2">
+          <p className="text-xs text-neutral-500">Angi rangering (1 = høyest).</p>
+          {rankingItems.map((item) => (
+            <div key={item} className="flex flex-wrap items-center gap-2">
+              <span className="min-w-[120px] text-sm text-neutral-800">{item}</span>
+              <StandardInput
+                type="number"
+                min={1}
+                max={rankingItems.length}
+                className="w-20"
+                value={parseAnswerJson(answer?.text ?? null)?.[item] ?? ''}
+                onChange={(e) => setRank(item, Number(e.target.value) || 0)}
+              />
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {q.question_type === 'datetime' && (
+        <div className="mt-3">
+          <StandardInput
+            type={
+              cfgObj.mode === 'date'
+                ? 'date'
+                : cfgObj.mode === 'time'
+                  ? 'time'
+                  : 'datetime-local'
+            }
+            value={answer?.text ?? ''}
+            onChange={(e) => onChange({ value: null, text: e.target.value })}
+            className="max-w-md"
+          />
+        </div>
+      )}
+
+      {q.question_type === 'file_upload' && (
+        <div className="mt-3">
+          <input
+            type="file"
+            className="text-sm text-neutral-700"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (!f) {
+                onChange({ value: null, text: null })
+                return
+              }
+              const reader = new FileReader()
+              reader.onload = () => {
+                const r = reader.result
+                const s = typeof r === 'string' ? r : null
+                onChange({ value: null, text: s })
+              }
+              reader.readAsDataURL(f)
+            }}
+          />
+          <p className="mt-1 text-xs text-neutral-500">
+            Fil lagres som base64 i svaret (stor fil kan gi problemer — bruk små vedlegg).
+          </p>
+        </div>
+      )}
+
+      {q.question_type === 'signature' && (
+        <div className="mt-3">
+          <StandardTextarea
+            value={answer?.text ?? ''}
+            onChange={(e) => onChange({ value: null, text: e.target.value })}
+            rows={2}
+            placeholder="Skriv fullt navn som signatur"
           />
         </div>
       )}
@@ -213,9 +490,29 @@ function QuestionCard({
 function answerSatisfied(q: OrgSurveyQuestionRow, a: { value: number | null; text: string | null } | undefined): boolean {
   if (!q.is_required) return true
   if (!a) return false
-  if (q.question_type === 'rating_1_to_5' || q.question_type === 'rating_1_to_10') return a.value !== null
-  if (q.question_type === 'text') return Boolean(a.text?.trim())
-  if (q.question_type === 'multi_select') {
+  const t = q.question_type
+  if (t === 'rating_1_to_5' || t === 'rating_1_to_10' || t === 'nps' || t === 'rating_visual') return a.value !== null
+  if (t === 'likert_scale') return a.value !== null
+  if (t === 'text' || t === 'long_text' || t === 'short_text' || t === 'email' || t === 'signature') {
+    return Boolean(a.text?.trim())
+  }
+  if (t === 'number' || t === 'slider' || t === 'datetime') return Boolean(a.text?.trim())
+  if (t === 'file_upload') return Boolean(a.text?.trim())
+  if (t === 'matrix') {
+    const o = parseAnswerJson(a.text ?? null)
+    if (!o) return false
+    const cfg = q.config as { rows?: string[] }
+    const rows = Array.isArray(cfg.rows) ? cfg.rows : []
+    return rows.every((r) => typeof o[r] === 'string' && o[r]!.length > 0)
+  }
+  if (t === 'ranking') {
+    const o = parseAnswerJson(a.text ?? null)
+    if (!o) return false
+    const cfg = q.config as { items?: string[] }
+    const items = Array.isArray(cfg.items) ? cfg.items : []
+    return items.every((it) => o[it] != null && o[it] !== '')
+  }
+  if (t === 'multi_select') {
     const parts = (a.text ?? '').split('|').map((s) => s.trim()).filter(Boolean)
     return parts.length > 0
   }
@@ -235,6 +532,18 @@ export function SurveyRespondPage() {
   const [submitted, setSubmitted] = useState(false)
 
   const { loadActiveSurveyForRespondent } = survey
+  const orderedQuestions = useMemo(() => {
+    if (!surveyId) return []
+    const order = globalQuestionIdOrder(survey.questions, surveyId, survey.surveySections)
+    const m = new Map(survey.questions.map((q) => [q.id, q]))
+    return order.map((id) => m.get(id)).filter((q): q is OrgSurveyQuestionRow => q != null)
+  }, [survey.questions, survey.surveySections, surveyId])
+
+  const sectionTitleById = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const s of survey.surveySections) m[s.id] = s.title
+    return m
+  }, [survey.surveySections])
   useEffect(() => {
     if (surveyId) void loadActiveSurveyForRespondent(surveyId)
   }, [surveyId, loadActiveSurveyForRespondent])
@@ -246,12 +555,14 @@ export function SurveyRespondPage() {
     [],
   )
 
-  const allRequiredFilled = survey.questions.filter((q) => q.is_required).every((q) => answerSatisfied(q, answers[q.id]))
+  const allRequiredFilled = orderedQuestions
+    .filter((q) => q.is_required)
+    .every((q) => answerSatisfied(q, answers[q.id]))
 
   const handleSubmit = async () => {
     if (!surveyId) return
     setSubmitting(true)
-    const answerRows = survey.questions.map((q) => ({
+    const answerRows = orderedQuestions.map((q) => ({
       questionId: q.id,
       answerValue: answers[q.id]?.value ?? null,
       answerText: answers[q.id]?.text ?? null,
@@ -369,15 +680,23 @@ export function SurveyRespondPage() {
             }}
             className="space-y-6"
           >
-            {survey.questions.map((q, idx) => (
-              <QuestionCard
-                key={q.id}
-                question={q}
-                idx={idx}
-                answer={answers[q.id]}
-                onChange={(val) => setAnswer(q.id, val)}
-              />
-            ))}
+            {orderedQuestions.map((q, idx) => {
+              const prev = orderedQuestions[idx - 1]
+              const showSection =
+                survey.surveySections.length > 0 &&
+                (prev?.section_id ?? null) !== (q.section_id ?? null) &&
+                q.section_id != null
+              return (
+                <div key={q.id}>
+                  {showSection ? (
+                    <h2 className="mb-3 mt-8 text-sm font-semibold uppercase tracking-wide text-[#1a3d32]/90 first:mt-0">
+                      {sectionTitleById[q.section_id!] ?? 'Seksjon'}
+                    </h2>
+                  ) : null}
+                  <QuestionCard question={q} idx={idx} answer={answers[q.id]} onChange={(val) => setAnswer(q.id, val)} />
+                </div>
+              )
+            })}
             <Button type="submit" variant="primary" disabled={submitting || !allRequiredFilled}>
               {submitting ? (
                 <>

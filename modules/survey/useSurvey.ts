@@ -19,6 +19,7 @@ import type {
   SurveyActionPlanStatus,
   SurveyDistributionRow,
   SurveyInvitationRow,
+  SurveySectionRow,
 } from './types'
 import {
   parseSurveyRow,
@@ -30,6 +31,7 @@ import {
   parseSurveyActionPlanRow,
   parseSurveyDistributionRow,
   parseSurveyInvitationRow,
+  parseSurveySectionRow,
 } from './types'
 import { parseCatalogRow } from './surveyTemplateCatalogTypes'
 import type { SurveyTemplateCatalogRow } from './surveyTemplateCatalogTypes'
@@ -72,6 +74,7 @@ type UpsertQuestionInput = {
   isMandatory?: boolean
   mandatoryLaw?: 'AML_4_3' | 'AML_4_4' | 'AML_6_2' | null
   config?: Record<string, unknown>
+  sectionId?: string | null
 }
 
 export type UseSurveyState = {
@@ -82,6 +85,8 @@ export type UseSurveyState = {
   surveys: SurveyRow[]
   /** Questions for currently loaded survey (see `selectedSurveyId`) */
   questions: OrgSurveyQuestionRow[]
+  /** Builder sections (folders) for the loaded survey */
+  surveySections: SurveySectionRow[]
   responses: OrgSurveyResponseRow[]
   answers: OrgSurveyAnswerRow[]
   questionBank: SurveyQuestionBankRow[]
@@ -99,6 +104,15 @@ export type UseSurveyState = {
   upsertQuestion: (input: UpsertQuestionInput) => Promise<OrgSurveyQuestionRow | null>
   /** Oppdater kun rekkefølge (indeks 0..n-1) — kladd-undersøkelser. */
   reorderQuestions: (surveyId: string, orderedQuestionIds: string[]) => Promise<boolean>
+  upsertSection: (input: {
+    id?: string
+    surveyId: string
+    title: string
+    description?: string | null
+    orderIndex: number
+  }) => Promise<SurveySectionRow | null>
+  deleteSection: (sectionId: string, surveyId: string) => Promise<void>
+  reorderSections: (surveyId: string, orderedSectionIds: string[]) => Promise<boolean>
   deleteQuestion: (questionId: string, surveyId: string) => Promise<void>
   insertQuestionFromBank: (bankId: string, surveyId: string) => Promise<OrgSurveyQuestionRow | null>
   upsertQuestionBank: (row: {
@@ -201,6 +215,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
   const [error, setError] = useState<string | null>(null)
   const [surveys, setSurveys] = useState<SurveyRow[]>([])
   const [questions, setQuestions] = useState<OrgSurveyQuestionRow[]>([])
+  const [surveySections, setSurveySections] = useState<SurveySectionRow[]>([])
   const [responses, setResponses] = useState<OrgSurveyResponseRow[]>([])
   const [answers, setAnswers] = useState<OrgSurveyAnswerRow[]>([])
   const [questionBank, setQuestionBank] = useState<SurveyQuestionBankRow[]>([])
@@ -433,7 +448,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
         if (!p.success) throw new Error('Ugyldig svar fra database')
         setSelectedSurvey(p.data)
 
-        const [qRes, rRes] = await Promise.all([
+        const [qRes, rRes, secRes] = await Promise.all([
           supabase
             .from('org_survey_questions')
             .select('*')
@@ -446,9 +461,20 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
             .eq('survey_id', surveyId)
             .eq('organization_id', oid)
             .order('submitted_at', { ascending: false }),
+          supabase
+            .from('survey_sections')
+            .select('*')
+            .eq('survey_id', surveyId)
+            .eq('organization_id', oid)
+            .order('order_index', { ascending: true }),
         ])
         if (qRes.error) throw qRes.error
         if (rRes.error) throw rRes.error
+        if (secRes.error) {
+          setSurveySections([])
+        } else {
+          setSurveySections(collect(secRes.data, parseSurveySectionRow))
+        }
 
         const qRows = collect(qRes.data, parseOrgSurveyQuestionRow)
         setQuestions(qRows)
@@ -521,10 +547,23 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           .order('order_index', { ascending: true })
         if (qe) throw qe
         setQuestions(collect(qData, parseOrgSurveyQuestionRow))
+
+        const { data: secData, error: secErr } = await supabase
+          .from('survey_sections')
+          .select('*')
+          .eq('survey_id', surveyId)
+          .eq('organization_id', p.data.organization_id)
+          .order('order_index', { ascending: true })
+        if (!secErr && secData) {
+          setSurveySections(collect(secData, parseSurveySectionRow))
+        } else {
+          setSurveySections([])
+        }
       } catch (err) {
         setError(getSupabaseErrorMessage(err))
         setSelectedSurvey(null)
         setQuestions([])
+        setSurveySections([])
       } finally {
         setLoading(false)
       }
@@ -685,6 +724,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           is_mandatory: input.isMandatory ?? false,
           mandatory_law: input.mandatoryLaw ?? null,
           config: input.config ?? {},
+          section_id: input.sectionId === undefined ? null : input.sectionId,
         }
         const q = input.id
           ? supabase
@@ -822,6 +862,180 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
       }
     },
     [supabase, assertOrg, requireManage, ensureQuestionEditable, questions],
+  )
+
+  const upsertSection = useCallback(
+    async (input: {
+      id?: string
+      surveyId: string
+      title: string
+      description?: string | null
+      orderIndex: number
+    }): Promise<SurveySectionRow | null> => {
+      if (!supabase) return null
+      if (!requireManage()) return null
+      const oid = assertOrg()
+      if (!oid) return null
+      const { data: s, error: se } = await supabase
+        .from('surveys')
+        .select('*')
+        .eq('id', input.surveyId)
+        .eq('organization_id', oid)
+        .single()
+      if (se) {
+        setError(getSupabaseErrorMessage(se))
+        return null
+      }
+      const parsed = parseSurveyRow(s)
+      if (!parsed.success) {
+        setError('Ugyldig svar fra database')
+        return null
+      }
+      if (!ensureQuestionEditable(parsed.data)) return null
+      setError(null)
+      try {
+        const body = {
+          organization_id: oid,
+          survey_id: input.surveyId,
+          title: input.title.trim() || 'Seksjon',
+          description: input.description?.trim() || null,
+          order_index: input.orderIndex,
+        }
+        const q = input.id
+          ? supabase
+              .from('survey_sections')
+              .update(body)
+              .eq('id', input.id)
+              .eq('organization_id', oid)
+              .select()
+              .single()
+          : supabase.from('survey_sections').insert(body).select().single()
+        const { data, error: e } = await q
+        if (e) throw e
+        const p = parseSurveySectionRow(data)
+        if (!p.success) throw new Error('Ugyldig svar fra database')
+        setSurveySections((prev) => {
+          const i = prev.findIndex((x) => x.id === p.data.id)
+          if (i < 0) return [...prev, p.data].sort((a, b) => a.order_index - b.order_index)
+          return prev.map((x) => (x.id === p.data.id ? p.data : x)).sort((a, b) => a.order_index - b.order_index)
+        })
+        return p.data
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return null
+      }
+    },
+    [supabase, assertOrg, requireManage, ensureQuestionEditable],
+  )
+
+  const deleteSection = useCallback(
+    async (sectionId: string, surveyId: string) => {
+      if (!supabase) return
+      if (!requireManage()) return
+      const oid = assertOrg()
+      if (!oid) return
+      const { data: s, error: se } = await supabase
+        .from('surveys')
+        .select('*')
+        .eq('id', surveyId)
+        .eq('organization_id', oid)
+        .single()
+      if (se) {
+        setError(getSupabaseErrorMessage(se))
+        return
+      }
+      const parsed = parseSurveyRow(s)
+      if (!parsed.success) {
+        setError('Ugyldig svar fra database')
+        return
+      }
+      if (!ensureQuestionEditable(parsed.data)) return
+      setError(null)
+      try {
+        const { error: e } = await supabase
+          .from('survey_sections')
+          .delete()
+          .eq('id', sectionId)
+          .eq('survey_id', surveyId)
+          .eq('organization_id', oid)
+        if (e) throw e
+        setSurveySections((prev) => prev.filter((x) => x.id !== sectionId))
+        setQuestions((prev) =>
+          prev.map((q) => (q.section_id === sectionId ? { ...q, section_id: null } : q)),
+        )
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+      }
+    },
+    [supabase, assertOrg, requireManage, ensureQuestionEditable],
+  )
+
+  const reorderSections = useCallback(
+    async (surveyId: string, orderedSectionIds: string[]): Promise<boolean> => {
+      if (!supabase) return false
+      if (!requireManage()) return false
+      const oid = assertOrg()
+      if (!oid) return false
+      const { data: s, error: se } = await supabase
+        .from('surveys')
+        .select('*')
+        .eq('id', surveyId)
+        .eq('organization_id', oid)
+        .single()
+      if (se) {
+        setError(getSupabaseErrorMessage(se))
+        return false
+      }
+      const parsed = parseSurveyRow(s)
+      if (!parsed.success) {
+        setError('Ugyldig svar fra database')
+        return false
+      }
+      if (!ensureQuestionEditable(parsed.data)) return false
+      const { data: rows, error: re } = await supabase
+        .from('survey_sections')
+        .select('id')
+        .eq('survey_id', surveyId)
+        .eq('organization_id', oid)
+      if (re) {
+        setError(getSupabaseErrorMessage(re))
+        return false
+      }
+      const dbIds = new Set((rows ?? []).map((r: { id: string }) => r.id))
+      if (orderedSectionIds.length !== dbIds.size) return false
+      for (const id of orderedSectionIds) {
+        if (!dbIds.has(id)) return false
+      }
+      setError(null)
+      try {
+        for (let i = 0; i < orderedSectionIds.length; i++) {
+          const { error: e } = await supabase
+            .from('survey_sections')
+            .update({ order_index: i })
+            .eq('id', orderedSectionIds[i]!)
+            .eq('survey_id', surveyId)
+            .eq('organization_id', oid)
+          if (e) throw e
+        }
+        setSurveySections((prev) => {
+          const pos = new Map(orderedSectionIds.map((id, idx) => [id, idx]))
+          const mine = prev
+            .filter((x) => x.survey_id === surveyId)
+            .map((x) => {
+              const p = pos.get(x.id)
+              return p === undefined ? x : { ...x, order_index: p }
+            })
+            .sort((a, b) => a.order_index - b.order_index)
+          const others = prev.filter((x) => x.survey_id !== surveyId)
+          return [...others, ...mine]
+        })
+        return true
+      } catch (err) {
+        setError(getSupabaseErrorMessage(err))
+        return false
+      }
+    },
+    [supabase, assertOrg, requireManage, ensureQuestionEditable],
   )
 
   const insertQuestionFromBank = useCallback(
@@ -1847,6 +2061,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     orgId,
     surveys,
     questions,
+    surveySections,
     responses,
     answers,
     questionBank,
@@ -1862,6 +2077,9 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     closeSurvey,
     upsertQuestion,
     reorderQuestions,
+    upsertSection,
+    deleteSection,
+    reorderSections,
     deleteQuestion,
     insertQuestionFromBank,
     upsertQuestionBank,

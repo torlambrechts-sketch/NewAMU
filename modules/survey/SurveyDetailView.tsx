@@ -19,7 +19,6 @@ import { Badge } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
 import { YesNoToggle } from '../../src/components/ui/FormToggles'
 import { StandardInput } from '../../src/components/ui/Input'
-import { SearchableSelect, type SelectOption } from '../../src/components/ui/SearchableSelect'
 import { StandardTextarea } from '../../src/components/ui/Textarea'
 import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
@@ -33,15 +32,35 @@ import {
   LAYOUT_TABLE1_POSTINGS_TH,
   LAYOUT_TABLE1_POSTINGS_TD,
 } from '../../src/components/layout/layoutTable1PostingsKit'
+import { surveyStatusBadgeVariant, surveyStatusLabel } from './surveyLabels'
 import { buildAnalyticsByQuestionId } from './surveyAnalytics'
-import { QUESTION_TYPE_OPTIONS, surveyStatusBadgeVariant, surveyStatusLabel } from './surveyLabels'
-import { SurveyBuilderStage } from './SurveyBuilderStage'
+import { globalQuestionIdOrder } from './surveyQuestionGlobalOrder'
+import { SurveySectionBuilder } from './SurveySectionBuilder'
+import { SurveyQuestionFormFields, type QuestionDraft } from './SurveyQuestionFormFields'
+import { defaultQuestionPayload } from './surveyQuestionDefaults'
 import { SurveyAmuTab } from './tabs/SurveyAmuTab'
 import { SurveyDistribusjonTab } from './tabs/SurveyDistribusjonTab'
 import { SurveyTiltakTab } from './tabs/SurveyTiltakTab'
 import { SURVEY_DETAIL_EXTRA_LEGAL_REFERENCES, SURVEY_MODULE_LEGAL_REFERENCES } from './surveyLegalReferences'
 import { orgQuestionToCatalogQuestion } from './surveyTemplateCatalogHelpers'
 import type { OrgSurveyQuestionRow, SurveyAmuReviewRow, SurveyQuestionType, SurveyRow } from './types'
+
+function mergeQuestionConfig(
+  baseConfig: Record<string, unknown>,
+  extraJson: string,
+): { config: Record<string, unknown>; error: string | null } {
+  let extra: Record<string, unknown> = {}
+  try {
+    const parsed = JSON.parse(extraJson || '{}') as unknown
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      extra = parsed as Record<string, unknown>
+    }
+  } catch {
+    return { config: baseConfig, error: 'Ugyldig JSON i logikk/validering.' }
+  }
+  const cfg = { ...baseConfig, ...extra }
+  return { config: cfg, error: null }
+}
 
 type DetailTab = 'oversikt' | 'bygger' | 'distribusjon' | 'svar' | 'analyse' | 'amu' | 'tiltak'
 
@@ -240,7 +259,7 @@ function ByggerTab({
   survey: UseSurveyState
   surveyId: string
   isLocked: boolean
-  openNewQuestion: () => void
+  openNewQuestion: (sectionId: string | null) => void
   openEditQuestion: (q: OrgSurveyQuestionRow) => void
 }) {
   if (!survey.canManage) {
@@ -254,7 +273,7 @@ function ByggerTab({
       {isLocked ? (
         <InfoBox>Undersøkelsen er publisert eller lukket — spørsmål kan ikke legges til eller endres.</InfoBox>
       ) : null}
-      <SurveyBuilderStage
+      <SurveySectionBuilder
         survey={survey}
         surveyId={surveyId}
         isLocked={isLocked}
@@ -330,6 +349,18 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
     [survey.questions, survey.answers],
   )
 
+  const orderedQuestions = useMemo(() => {
+    const order = globalQuestionIdOrder(survey.questions, s.id, survey.surveySections)
+    const m = new Map(survey.questions.map((q) => [q.id, q]))
+    return order.map((id) => m.get(id)).filter((q): q is OrgSurveyQuestionRow => q != null)
+  }, [survey.questions, survey.surveySections, s.id])
+
+  const sectionTitleById = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const sec of survey.surveySections) map[sec.id] = sec.title
+    return map
+  }, [survey.surveySections])
+
   return (
     <div className="w-full space-y-6">
       <InfoBox>
@@ -342,94 +373,148 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
       ) : survey.answers.length === 0 && survey.responses.length === 0 ? (
         <TabEmpty message="Ingen svar å analysere ennå. Når deltakere svarer, oppdateres visningen her." />
       ) : (
-        survey.questions.map((q) => {
+        orderedQuestions.map((q, qi) => {
           const a = analyticsByQuestion[q.id]
-          const n =
-            q.question_type === 'rating_1_to_5' || q.question_type === 'rating_1_to_10'
-              ? a?.numbers.length ?? 0
-              : q.question_type === 'multiple_choice' ||
-                  q.question_type === 'yes_no' ||
-                  q.question_type === 'single_select' ||
-                  q.question_type === 'multi_select'
-                ? Object.values(a?.choiceCounts ?? {}).reduce((sum, v) => sum + v, 0)
-                : 0
+          const isNumeric =
+            q.question_type === 'rating_1_to_5' ||
+            q.question_type === 'rating_1_to_10' ||
+            q.question_type === 'nps' ||
+            q.question_type === 'rating_visual' ||
+            q.question_type === 'likert_scale'
+          const isChoice =
+            q.question_type === 'multiple_choice' ||
+            q.question_type === 'yes_no' ||
+            q.question_type === 'single_select' ||
+            q.question_type === 'multi_select' ||
+            q.question_type === 'dropdown' ||
+            q.question_type === 'image_choice'
+          const isTextLike =
+            q.question_type === 'text' ||
+            q.question_type === 'long_text' ||
+            q.question_type === 'short_text' ||
+            q.question_type === 'email' ||
+            q.question_type === 'number' ||
+            q.question_type === 'slider' ||
+            q.question_type === 'datetime' ||
+            q.question_type === 'signature' ||
+            q.question_type === 'file_upload' ||
+            q.question_type === 'matrix' ||
+            q.question_type === 'ranking'
 
-          if (q.question_type === 'text') {
+          const n = isNumeric
+            ? a?.numbers.length ?? 0
+            : isChoice
+              ? (Object.values(a?.choiceCounts ?? {}) as number[]).reduce(
+                  (sum, v) => sum + (typeof v === 'number' ? v : 0),
+                  0,
+                )
+              : 0
+
+          const prev = orderedQuestions[qi - 1]
+          const showSection =
+            survey.surveySections.length > 0 &&
+            (prev?.section_id ?? null) !== (q.section_id ?? null) &&
+            q.section_id != null
+
+          const sectionHeader =
+            showSection && q.section_id ? (
+              <h3 className="mb-2 mt-6 text-xs font-bold uppercase tracking-wide text-neutral-500 first:mt-0">
+                {sectionTitleById[q.section_id] ?? 'Seksjon'}
+              </h3>
+            ) : null
+
+          if (isTextLike) {
             const c = a?.textCount ?? 0
             return (
-              <div
-                key={q.id}
-                className="rounded-lg border border-neutral-200/90 bg-white p-5"
-                style={WORKPLACE_MODULE_CARD_SHADOW}
-              >
-                <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
-                <p className="mt-2 text-sm text-neutral-500">
-                  Fritekst · {c} utfylt svar. Individuelle svar vises ikke (GDPR).
-                </p>
-                {c === 0 ? <p className="mt-3 text-sm text-neutral-500">Ingen fritektsvar mottatt.</p> : null}
+              <div key={q.id}>
+                {sectionHeader}
+                <div className="rounded-lg border border-neutral-200/90 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
+                  <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
+                  <p className="mt-2 text-sm text-neutral-500">
+                    Strukturert/tekst · {c} utfylte svar. Detaljer vises ikke (GDPR).
+                  </p>
+                  {c === 0 ? <p className="mt-3 text-sm text-neutral-500">Ingen svar mottatt.</p> : null}
+                </div>
               </div>
             )
           }
 
           if (n < threshold) {
             return (
-              <div
-                key={q.id}
-                className="rounded-lg border border-neutral-200 bg-white p-5"
-                style={WORKPLACE_MODULE_CARD_SHADOW}
-              >
-                <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
-                <div className="mt-3 flex items-center gap-2 text-sm text-neutral-400">
-                  <EyeOff className="h-4 w-4" aria-hidden />
-                  <span>
-                    Skjult — under {threshold} svar (n={n}). GDPR Art. 25.
-                  </span>
+              <div key={q.id}>
+                {sectionHeader}
+                <div className="rounded-lg border border-neutral-200 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
+                  <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
+                  <div className="mt-3 flex items-center gap-2 text-sm text-neutral-400">
+                    <EyeOff className="h-4 w-4" aria-hidden />
+                    <span>
+                      Skjult — under {threshold} svar (n={n}). GDPR Art. 25.
+                    </span>
+                  </div>
                 </div>
               </div>
             )
           }
 
-          if (q.question_type === 'rating_1_to_5' || q.question_type === 'rating_1_to_10') {
+          if (isNumeric) {
             const cfg = q.config as { scaleMin?: number; scaleMax?: number } | undefined
-            const smin = cfg?.scaleMin ?? (q.question_type === 'rating_1_to_10' ? 0 : 1)
-            const smax = cfg?.scaleMax ?? (q.question_type === 'rating_1_to_10' ? 10 : 5)
+            let smin = cfg?.scaleMin ?? 1
+            let smax = cfg?.scaleMax ?? 5
+            if (q.question_type === 'nps' || q.question_type === 'rating_1_to_10') {
+              smin = cfg?.scaleMin ?? 0
+              smax = cfg?.scaleMax ?? 10
+            } else if (q.question_type === 'rating_1_to_5' || q.question_type === 'likert_scale') {
+              smin = cfg?.scaleMin ?? 1
+              smax = cfg?.scaleMax ?? 5
+            } else if (q.question_type === 'rating_visual') {
+              smin = 1
+              smax = typeof cfg?.scaleMax === 'number' ? cfg.scaleMax : 5
+            }
             const span = Math.max(1, smax - smin)
-            const avg = n > 0 ? a!.numbers.reduce((x, y) => x + y, 0) / n : 0
+            const avg = n > 0 && a ? a.numbers.reduce((x: number, y: number) => x + y, 0) / n : 0
             return (
-              <div
-                key={q.id}
-                className="rounded-lg border border-neutral-200/90 bg-white p-5"
-                style={WORKPLACE_MODULE_CARD_SHADOW}
-              >
+              <div key={q.id}>
+                {sectionHeader}
+                <div className="rounded-lg border border-neutral-200/90 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
+                  <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Gjennomsnitt {n > 0 ? `${avg.toFixed(2)} (n=${n})` : '—'}
+                  </p>
+                  {n === 0 ? (
+                    <p className="mt-3 text-sm text-neutral-500">Ingen numeriske svar for dette spørsmålet.</p>
+                  ) : null}
+                  {n > 0 ? (
+                    <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-neutral-100">
+                      <div
+                        className="h-full rounded-full bg-[#1a3d32]"
+                        style={{ width: `${Math.min(100, ((avg - smin) / span) * 100)}%` }}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            )
+          }
+
+          const entries = Object.entries(a?.choiceCounts ?? {}) as [string, number][]
+          const total = entries.reduce((s2, [, v]) => s2 + v, 0) || 1
+          return (
+            <div key={q.id}>
+              {sectionHeader}
+              <div className="rounded-lg border border-neutral-200/90 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
                 <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
-                <p className="mt-1 text-xs text-neutral-500">Gjennomsnitt {n > 0 ? `${avg.toFixed(2)} (n=${n})` : '—'}</p>
-                {n === 0 ? <p className="mt-3 text-sm text-neutral-500">Ingen numeriske svar for dette spørsmålet.</p> : null}
-                {n > 0 ? (
-                  <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-neutral-100">
-                    <div
-                      className="h-full rounded-full bg-[#1a3d32]"
-                      style={{ width: `${Math.min(100, ((avg - smin) / span) * 100)}%` }}
-                    />
+                <p className="mt-1 text-xs text-neutral-500">Valg · andel av svar</p>
+                {entries.length === 0 ? (
+                  <p className="mt-3 text-sm text-neutral-500">Ingen valgsvar registrert.</p>
+                ) : null}
+                {entries.length > 0 ? (
+                  <div className="mt-4 space-y-3">
+                    {entries
+                      .sort((x, y) => y[1] - x[1])
+                      .map(([k, v]) => <AnalyseBar key={k} label={k} valuePct={(v / total) * 100} />)}
                   </div>
                 ) : null}
               </div>
-            )
-          }
-
-          const entries = Object.entries(a?.choiceCounts ?? {})
-          const total = entries.reduce((s2, [, v]) => s2 + v, 0) || 1
-          return (
-            <div key={q.id} className="rounded-lg border border-neutral-200/90 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
-              <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
-              <p className="mt-1 text-xs text-neutral-500">Flervalg · andel av svar</p>
-              {entries.length === 0 ? <p className="mt-3 text-sm text-neutral-500">Ingen flervalgssvar registrert.</p> : null}
-              {entries.length > 0 ? (
-                <div className="mt-4 space-y-3">
-                  {entries
-                    .sort((x, y) => y[1] - x[1])
-                    .map(([k, v]) => <AnalyseBar key={k} label={k} valuePct={(v / total) * 100} />)}
-                </div>
-              ) : null}
             </div>
           )
         })
@@ -450,12 +535,16 @@ export function SurveyDetailView({ supabase }: Props) {
 
   const [panelOpen, setPanelOpen] = useState(false)
   const [editingQ, setEditingQ] = useState<OrgSurveyQuestionRow | null>(null)
-  const [qText, setQText] = useState('')
-  const [qType, setQType] = useState<SurveyQuestionType>('rating_1_to_5')
-  const [qOrder, setQOrder] = useState('0')
-  const [qRequired, setQRequired] = useState(true)
+  const [questionDraft, setQuestionDraft] = useState<QuestionDraft>({
+    questionText: '',
+    questionType: 'rating_1_to_5',
+    orderIndex: 0,
+    isRequired: true,
+    sectionId: null,
+    config: {},
+  })
   const [qOptionsLines, setQOptionsLines] = useState('')
-  const [qConfigJson, setQConfigJson] = useState('{}')
+  const [qConfigExtraJson, setQConfigExtraJson] = useState('{}')
   const [qSaving, setQSaving] = useState(false)
   const [questionPanelError, setQuestionPanelError] = useState<string | null>(null)
   const [templateSaving, setTemplateSaving] = useState(false)
@@ -512,35 +601,66 @@ export function SurveyDetailView({ supabase }: Props) {
     })()
   }, [supabase, orgId, surveyId, survey.responses])
 
-  const questionTypeOptions: SelectOption[] = useMemo(
-    () => QUESTION_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
-    [],
+  const sectionSelectOptions = useMemo(
+    () => survey.surveySections.map((sec) => ({ value: sec.id, label: sec.title })),
+    [survey.surveySections],
   )
 
-  const openNewQuestion = useCallback(() => {
-    if (!s || !surveyId) return
-    setEditingQ(null)
-    setQText('')
-    setQType('rating_1_to_5')
-    setQOrder(String(survey.questions.length))
-    setQRequired(true)
-    setQOptionsLines('')
-    setQConfigJson('{}')
-    setPanelOpen(true)
-  }, [s, surveyId, survey.questions.length])
+  const nextQuestionOrderIndex = useCallback(
+    (sectionId: string | null) => {
+      const list = survey.questions.filter(
+        (q) => q.survey_id === surveyId && (sectionId === null ? q.section_id == null : q.section_id === sectionId),
+      )
+      if (list.length === 0) return 0
+      return Math.max(...list.map((q) => q.order_index)) + 1
+    },
+    [survey.questions, surveyId],
+  )
+
+  const openNewQuestion = useCallback(
+    (sectionId: string | null = null) => {
+      if (!s || !surveyId) return
+      const baseType: SurveyQuestionType = 'rating_1_to_5'
+      const defaults = defaultQuestionPayload(baseType)
+      setEditingQ(null)
+      setQuestionDraft({
+        questionText: defaults.questionText,
+        questionType: baseType,
+        orderIndex: nextQuestionOrderIndex(sectionId),
+        isRequired: true,
+        sectionId,
+        config: defaults.config,
+      })
+      setQOptionsLines('')
+      setQConfigExtraJson('{}')
+      setPanelOpen(true)
+    },
+    [s, surveyId, nextQuestionOrderIndex],
+  )
 
   const openEditQuestion = useCallback((q: OrgSurveyQuestionRow) => {
     setEditingQ(q)
-    setQText(q.question_text)
-    setQType(q.question_type)
-    setQOrder(String(q.order_index))
-    setQRequired(q.is_required)
+    setQuestionDraft({
+      questionText: q.question_text,
+      questionType: q.question_type,
+      orderIndex: q.order_index,
+      isRequired: q.is_required,
+      sectionId: q.section_id ?? null,
+      config:
+        q.config && typeof q.config === 'object' && !Array.isArray(q.config)
+          ? { ...(q.config as Record<string, unknown>) }
+          : {},
+    })
     const opts = (q.config as { options?: string[] } | undefined)?.options
     setQOptionsLines(Array.isArray(opts) ? opts.join('\n') : '')
+    const cfg = q.config && typeof q.config === 'object' && !Array.isArray(q.config) ? { ...(q.config as object) } : {}
+    const logicJump = 'logic_jump' in cfg ? { logic_jump: (cfg as { logic_jump?: unknown }).logic_jump } : {}
+    const valRules =
+      'validation_rules' in cfg ? { validation_rules: (cfg as { validation_rules?: unknown }).validation_rules } : {}
     try {
-      setQConfigJson(JSON.stringify(q.config ?? {}, null, 2))
+      setQConfigExtraJson(JSON.stringify({ ...logicJump, ...valRules }, null, 2))
     } catch {
-      setQConfigJson('{}')
+      setQConfigExtraJson('{}')
     }
     setPanelOpen(true)
   }, [])
@@ -552,43 +672,49 @@ export function SurveyDetailView({ supabase }: Props) {
   }, [])
 
   const saveQuestion = useCallback(async () => {
-    if (!s || !surveyId || !qText.trim()) return
-    const order = Number.parseInt(qOrder, 10)
-    if (!Number.isFinite(order)) return
-    let config: Record<string, unknown> = {}
-    try {
-      const parsed = JSON.parse(qConfigJson || '{}') as unknown
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        config = parsed as Record<string, unknown>
-      }
-    } catch {
-      setQuestionPanelError('Ugyldig JSON i avansert konfigurasjon.')
-      return
-    }
-    const optionTypes: SurveyQuestionType[] = ['multiple_choice', 'single_select', 'multi_select']
-    if (optionTypes.includes(qType)) {
+    if (!s || !surveyId || !questionDraft.questionText.trim()) return
+    let baseConfig = { ...questionDraft.config }
+    const needsOpts = (
+      ['multiple_choice', 'single_select', 'multi_select', 'dropdown'] as SurveyQuestionType[]
+    ).includes(questionDraft.questionType)
+    if (needsOpts) {
       const opts = qOptionsLines
         .split('\n')
         .map((l) => l.trim())
         .filter(Boolean)
-      config = { ...config, options: opts.length > 0 ? opts : ['Alternativ 1', 'Alternativ 2'] }
+      baseConfig = { ...baseConfig, options: opts.length > 0 ? opts : ['Alternativ 1', 'Alternativ 2'] }
+    }
+    const merged = mergeQuestionConfig(baseConfig, qConfigExtraJson)
+    if (merged.error) {
+      setQuestionPanelError(merged.error)
+      return
     }
     setQuestionPanelError(null)
     setQSaving(true)
     const row = await survey.upsertQuestion({
       id: editingQ?.id,
       surveyId,
-      questionText: qText.trim(),
-      questionType: qType,
-      orderIndex: order,
-      isRequired: qRequired,
+      questionText: questionDraft.questionText.trim(),
+      questionType: questionDraft.questionType,
+      orderIndex: questionDraft.orderIndex,
+      isRequired: questionDraft.isRequired,
       isMandatory: editingQ?.is_mandatory,
       mandatoryLaw: editingQ?.mandatory_law,
-      config,
+      config: merged.config,
+      sectionId: questionDraft.sectionId,
     })
     setQSaving(false)
     if (row) closePanel()
-  }, [s, surveyId, qText, qType, qOrder, qRequired, qOptionsLines, qConfigJson, editingQ, survey, closePanel])
+  }, [
+    s,
+    surveyId,
+    questionDraft,
+    qOptionsLines,
+    qConfigExtraJson,
+    editingQ,
+    survey,
+    closePanel,
+  ])
 
   const saveAsOrgTemplate = useCallback(async () => {
     if (!s || !surveyId || !survey.canManage) return
@@ -754,7 +880,12 @@ export function SurveyDetailView({ supabase }: Props) {
             <Button type="button" variant="secondary" onClick={closePanel} disabled={qSaving}>
               Avbryt
             </Button>
-            <Button type="button" variant="primary" onClick={() => void saveQuestion()} disabled={qSaving || !qText.trim()}>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => void saveQuestion()}
+              disabled={qSaving || !questionDraft.questionText.trim()}
+            >
               {qSaving ? 'Lagrer…' : 'Lagre'}
             </Button>
           </div>
@@ -762,72 +893,15 @@ export function SurveyDetailView({ supabase }: Props) {
       >
         <div className="space-y-5">
           {questionPanelError ? <WarningBox>{questionPanelError}</WarningBox> : null}
-          <div>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="q-text">
-              Spørsmålstekst
-            </label>
-            <StandardTextarea id="q-text" value={qText} onChange={(e) => setQText(e.target.value)} rows={3} />
-          </div>
-          <div>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="q-type-sel">
-              Spørsmålstype
-            </label>
-            <SearchableSelect
-              value={qType}
-              options={questionTypeOptions}
-              onChange={(v) => setQType(v as SurveyQuestionType)}
-            />
-          </div>
-          <div>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="q-ord">
-              Sortering (indeks)
-            </label>
-            <StandardInput
-              id="q-ord"
-              type="number"
-              value={qOrder}
-              onChange={(e) => setQOrder(e.target.value)}
-              min={0}
-            />
-          </div>
-          <div>
-            <span className={WPSTD_FORM_FIELD_LABEL}>Må fylles ut</span>
-            <div className="mt-2 max-w-xs">
-              <YesNoToggle value={qRequired} onChange={(v) => setQRequired(v)} />
-            </div>
-          </div>
-
-          {(['multiple_choice', 'single_select', 'multi_select'] as SurveyQuestionType[]).includes(qType) ? (
-            <div>
-              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="q-opts">
-                Alternativer (én per linje)
-              </label>
-              <StandardTextarea
-                id="q-opts"
-                value={qOptionsLines}
-                onChange={(e) => setQOptionsLines(e.target.value)}
-                rows={5}
-                placeholder="Ja&#10;Nei&#10;Vet ikke"
-              />
-            </div>
-          ) : null}
-
-          <div>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="q-config-json">
-              Avansert (JSON: skala, ankere …)
-            </label>
-            <StandardTextarea
-              id="q-config-json"
-              value={qConfigJson}
-              onChange={(e) => setQConfigJson(e.target.value)}
-              rows={6}
-              className="font-mono text-xs"
-              placeholder='{"scaleMin":1,"scaleMax":5,"anchors":{"low":"…","high":"…"}}'
-            />
-            <p className="mt-1 text-xs text-neutral-500">
-              Tom <code className="rounded bg-neutral-100 px-1">{'{}'}</code> er tillatt. Alternativer for flervalg settes over.
-            </p>
-          </div>
+          <SurveyQuestionFormFields
+            draft={questionDraft}
+            onChange={(patch) => setQuestionDraft((d) => ({ ...d, ...patch }))}
+            sectionOptions={sectionSelectOptions}
+            optionsLines={qOptionsLines}
+            onOptionsLinesChange={setQOptionsLines}
+            configJson={qConfigExtraJson}
+            onConfigJsonChange={setQConfigExtraJson}
+          />
 
           {editingQ && survey.canManage && !editingQ.is_mandatory ? (
             <div className="border-t border-neutral-100 pt-4">

@@ -15,6 +15,21 @@ export type SurveyQuestionType =
   | 'single_select'
   | 'multi_select'
   | 'multiple_choice'
+  | 'short_text'
+  | 'long_text'
+  | 'email'
+  | 'number'
+  | 'rating_visual'
+  | 'slider'
+  | 'dropdown'
+  | 'image_choice'
+  | 'likert_scale'
+  | 'matrix'
+  | 'ranking'
+  | 'nps'
+  | 'file_upload'
+  | 'datetime'
+  | 'signature'
 
 export type SurveyActionPlanStatus = 'open' | 'in_progress' | 'closed'
 
@@ -35,6 +50,21 @@ const SurveyQuestionTypeSchema = z.enum([
   'single_select',
   'multi_select',
   'multiple_choice',
+  'short_text',
+  'long_text',
+  'email',
+  'number',
+  'rating_visual',
+  'slider',
+  'dropdown',
+  'image_choice',
+  'likert_scale',
+  'matrix',
+  'ranking',
+  'nps',
+  'file_upload',
+  'datetime',
+  'signature',
 ])
 const SurveyActionPlanStatusSchema = z.enum(['open', 'in_progress', 'closed'])
 const SurveyPillarSchema = z.enum(['psychosocial', 'physical', 'organization', 'safety_culture', 'custom'])
@@ -104,10 +134,40 @@ export type OrgSurveyQuestionRow = {
   is_required: boolean
   is_mandatory: boolean
   mandatory_law: 'AML_4_3' | 'AML_4_4' | 'AML_6_2' | null
+  /** Optional builder section (folder); null = root / legacy */
+  section_id: string | null
   /** UI/skjema (skala, alternativer, underkategori) */
   config: Record<string, unknown>
   created_at: string
   updated_at: string
+}
+
+export type SurveySectionRow = {
+  id: string
+  organization_id: string
+  survey_id: string
+  title: string
+  description: string | null
+  order_index: number
+  created_at: string
+  updated_at: string
+}
+
+export const SurveySectionRowSchema = z.object({
+  id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  survey_id: z.string().uuid(),
+  title: z.string(),
+  description: z.string().nullable(),
+  order_index: z.number().int(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+export function parseSurveySectionRow(raw: unknown): { success: true; data: SurveySectionRow } | { success: false } {
+  const r = SurveySectionRowSchema.safeParse(raw)
+  if (r.success) return { success: true, data: r.data }
+  return { success: false }
 }
 
 export const OrgSurveyQuestionRowSchema = z.object({
@@ -120,10 +180,14 @@ export const OrgSurveyQuestionRowSchema = z.object({
   is_required: z.boolean(),
   is_mandatory: z.boolean().default(false),
   mandatory_law: MandatoryLawSchema.default(null),
+  section_id: z.string().uuid().nullable().optional(),
   config: z.preprocess((v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {}), z.record(z.string(), z.unknown())),
   created_at: z.string(),
   updated_at: z.string(),
-})
+}).transform((row) => ({
+  ...row,
+  section_id: row.section_id ?? null,
+}))
 
 export function parseOrgSurveyQuestionRow(
   raw: unknown,
