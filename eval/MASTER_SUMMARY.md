@@ -2,18 +2,19 @@
 
 **Date:** 2026-04-29  
 **Module:** Klarert e-learning (`src/pages/learning/`, `src/hooks/useLearning.ts`)  
-**Evaluation passes:** Compliance · UI/UX · Developer  
+**Evaluation passes:** Compliance · UI/UX · Developer · End User / Visual Design  
 **Branch:** `claude/evaluate-elearning-module-avbIU`
 
 ---
 
 ## Overall verdict
 
-The module is **feature-complete and structurally sound** for a v1 product, but has meaningful gaps in three areas before it can be used in a regulated Norwegian workplace context:
+The module is **feature-complete and structurally sound** for a v1 product, but has meaningful gaps in four areas before it can be used as a polished, production-ready Norwegian workplace tool:
 
 1. **Legal compliance** — Certificate format does not meet Arbeidstilsynet documentation standards; leaderboard data may breach GDPR k-anonymity; no explicit legal basis notice.
 2. **UI/UX** — ~30 English strings remain in a Norwegian-language product; cards diverge from the Klarert design system; key accessibility attributes are missing.
 3. **Developer** — `useLearning.ts` is a 1,935-line monolith; one file-upload security gap; one missing DB filter; no route-level code splitting.
+4. **End user experience** — Dashboard shows admin KPIs to all users; certificate flow uses browser `alert()`; duplicate progress bar in player; quiz wrong-answer colours are missing; no completion celebration; flashcard card too tall on desktop; many raw enum values exposed to users.
 
 ---
 
@@ -25,10 +26,20 @@ The module is **feature-complete and structurally sound** for a v1 product, but 
 | GAP-C02 | Compliance | Verneombud 40h structured path | **Critical** | Medium |
 | GAP-C03 | Compliance | GDPR legal basis notice | **Critical** | Low |
 | GAP-DEV03 | Dev | File extension whitelist | **High** | Trivial |
+| GAP-UX03 | End user | Player: nav, duplicate bar, Norwegian strings | **High** | Low |
+| GAP-UX02 | End user | Dashboard role-split + English strings | **High** | Low |
+| GAP-UX05 | End user | Certificate UX overhaul (alert, name, placement) | **High** | Low |
+| GAP-UX07 | End user | Remaining English strings (Certs, Insights, etc.) | **High** | Low |
 | GAP-UI01 | UI | Norwegian language throughout | **High** | Low |
 | GAP-UI04 | UI | Compliance strip on dashboard | **High** | Low |
 | GAP-C04 | Compliance | IK-forskriften competence record export | High | Medium |
 | GAP-C05 | Compliance | AMU training tracking (§ 7-4) | High | Medium |
+| GAP-UX04 | End user | Quiz wrong-answer colour (red highlight) | Medium | Trivial |
+| GAP-UX06 | End user | Flashcard aspect ratio on desktop | Medium | Trivial |
+| GAP-UX08 | End user | `bg-white` → `bg-[#fbf9f3]` on all cards | Medium | Trivial |
+| GAP-UX01 | End user | Replace `#2D403A` magic colour with token | Medium | Trivial |
+| GAP-UX09 | End user | External training: status labels, alert, loading | Medium | Low |
+| GAP-UX11 | End user | `text-neutral-400` contrast fix | Medium | Trivial |
 | GAP-DEV04 | Dev | `organization_id` on ILT attendance | Medium | Trivial |
 | GAP-DEV02 | Dev | Batch reorderModules RPC | Medium | Low |
 | GAP-DEV05 | Dev | Pagination on participants/certificates | Medium | Low |
@@ -41,6 +52,7 @@ The module is **feature-complete and structurally sound** for a v1 product, but 
 | GAP-C08 | Compliance | Webhook URL encryption | Medium | Low |
 | GAP-DEV01 | Dev | Split useLearning monolith | Medium | High |
 | GAP-DEV06 | Dev | Route-level code splitting | Medium | Low |
+| GAP-UX10 | End user | Standardise empty states | Low | Trivial |
 | GAP-UI07 | UI | Image alt text | Medium | Trivial |
 | GAP-UI08 | UI | Module type labels Norwegian | Low | Trivial |
 | GAP-DEV07 | Dev | Abort controller for async state | Low | Low |
@@ -149,12 +161,16 @@ eval/
 │   ├── 03_course_player_ux.md
 │   ├── 04_accessibility.md
 │   └── 05_gaps_and_actions.md        ← GAP-UI01 to GAP-UI08 with Cursor prompts
-└── dev/
-    ├── 01_architecture.md
-    ├── 02_data_layer.md
-    ├── 03_security.md
-    ├── 04_performance.md
-    └── 05_gaps_and_actions.md        ← GAP-DEV01 to GAP-DEV08 with Cursor prompts
+├── dev/
+│   ├── 01_architecture.md
+│   ├── 02_data_layer.md
+│   ├── 03_security.md
+│   ├── 04_performance.md
+│   └── 05_gaps_and_actions.md        ← GAP-DEV01 to GAP-DEV08 with Cursor prompts
+└── ux/
+    ├── 01_end_user_experience.md      ← full end-user walkthrough
+    ├── 02_visual_design.md            ← visual design best practice audit
+    └── 03_gaps_and_actions.md        ← GAP-UX01 to GAP-UX11 with Cursor prompts
 ```
 
 ---
@@ -166,14 +182,23 @@ Run these gaps in order for maximum impact with minimum risk:
 ```
 1. GAP-DEV03  (file ext whitelist — security, trivial)
 2. GAP-DEV04  (ILT org_id filter — security, trivial)
-3. GAP-UI07   (image alt text — accessibility, trivial)
-4. GAP-UI08   (module type labels — i18n, trivial)
-5. GAP-UI05   (remove duplicate progress bar — UX, trivial)
-6. GAP-UI03   (progress bar ARIA — accessibility, trivial)
-7. GAP-UI02   (card bg colour — design system, trivial)
-8. GAP-UI01   (Norwegian strings — i18n, low effort)
-9. GAP-C01    (certificate fields — compliance, low effort)
-10. GAP-C03   (GDPR notice — legal, low effort)
+3. GAP-UX11   (text-neutral-400 contrast fix — a11y, trivial)
+4. GAP-UX01   (replace #2D403A with PIN_GREEN token — consistency, trivial)
+5. GAP-UX04   (quiz wrong-answer red highlight — clarity, trivial)
+6. GAP-UX06   (flashcard aspect ratio — layout, trivial)
+7. GAP-UI07   (image alt text — accessibility, trivial)
+8. GAP-UX08   (card bg colour — design system, trivial)
+9. GAP-UI05   (remove duplicate progress bar — UX, trivial)  ← covered by GAP-UX03
+10. GAP-UI03  (progress bar ARIA — accessibility, trivial)
+11. GAP-UX10  (standardise empty states — consistency, trivial)
+12. GAP-UX07  (Norwegian strings: Certs, Insights, Participants — i18n, low effort)
+13. GAP-UX03  (player: nav, remove dup bar, Norwegian strings — usability, low effort)
+14. GAP-UX02  (dashboard role-split + English strings — usability, low effort)
+15. GAP-UI01  (remaining Norwegian strings — i18n, low effort)
+16. GAP-UX09  (external training UX: status labels, alert, loading — usability, low effort)
+17. GAP-UX05  (certificate UX overhaul — user satisfaction, low effort)
+18. GAP-C01   (certificate mandatory fields — compliance, low effort)
+19. GAP-C03   (GDPR notice — legal, low effort)
 ```
 
 Each gap's Cursor prompt is self-contained — paste it directly into Cursor agent mode with no additional context needed.
