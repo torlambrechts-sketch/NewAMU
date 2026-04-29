@@ -51,9 +51,12 @@ type Props = {
   supabase: SupabaseClient | null
 }
 
-/** Aggregerte analyser med valg-/tall fra RPC der migrasjon er kjørt (C3 serverside gate). */
+/** k-anonymitet (terskel, RPC, «Skjult») gjelder kun anonyme undersøkelser. Identifiserte viser aggregater uten dette kravet. */
 export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
-  const threshold = Math.max(s.anonymity_threshold ?? SURVEY_K_ANONYMITY_MIN, SURVEY_K_ANONYMITY_MIN)
+  const kAnonApplies = s.is_anonymous
+  const minResponses = kAnonApplies
+    ? Math.max(s.anonymity_threshold ?? SURVEY_K_ANONYMITY_MIN, SURVEY_K_ANONYMITY_MIN)
+    : 1
   const responseCount = survey.responses.length
 
   const analyticsByQuestion = useMemo(
@@ -66,7 +69,7 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
   const [rpcWarn, setRpcWarn] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!supabase || survey.questions.length === 0 || responseCount < threshold) {
+    if (!kAnonApplies || !supabase || survey.questions.length === 0 || responseCount < minResponses) {
       queueMicrotask(() => {
         setRpcChoiceMap({})
         setRpcNumericMap({})
@@ -104,7 +107,7 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
       await Promise.all(
         survey.questions.map(async (q) => {
           if (choiceTypes.has(q.question_type)) {
-            const rows = await fetchSurveyChoiceCountsRpc(supabase, s.id, q.id, threshold)
+            const rows = await fetchSurveyChoiceCountsRpc(supabase, s.id, q.id, minResponses)
             if (cancelled) return
             if (rows === null) {
               anyErr = true
@@ -121,7 +124,7 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
             return
           }
           if (numericTypes.has(q.question_type)) {
-            const row = await fetchSurveyNumericStatsRpc(supabase, s.id, q.id, threshold)
+            const row = await fetchSurveyNumericStatsRpc(supabase, s.id, q.id, minResponses)
             if (cancelled) return
             if (row === null) {
               anyErr = true
@@ -142,7 +145,7 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
     return () => {
       cancelled = true
     }
-  }, [supabase, s.id, survey.questions, responseCount, threshold])
+  }, [kAnonApplies, supabase, s.id, survey.questions, responseCount, minResponses])
 
   const csvBlobUrl = useMemo(() => {
     if (survey.questions.length === 0) return null
@@ -151,12 +154,22 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
       questions: survey.questions,
       answers: survey.answers,
       sections: survey.surveySections,
-      analyticsOverride: responseCount >= threshold ? rpcChoiceMap : undefined,
-      numericOverride: responseCount >= threshold ? rpcNumericMap : undefined,
+      analyticsOverride: kAnonApplies && responseCount >= minResponses ? rpcChoiceMap : undefined,
+      numericOverride: kAnonApplies && responseCount >= minResponses ? rpcNumericMap : undefined,
     })
     const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' })
     return URL.createObjectURL(blob)
-  }, [s, survey.questions, survey.answers, survey.surveySections, rpcChoiceMap, rpcNumericMap, responseCount, threshold])
+  }, [
+    s,
+    survey.questions,
+    survey.answers,
+    survey.surveySections,
+    rpcChoiceMap,
+    rpcNumericMap,
+    kAnonApplies,
+    responseCount,
+    minResponses,
+  ])
 
   useEffect(() => {
     return () => {
@@ -182,7 +195,7 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
   }, [survey.surveySections])
 
   const choiceCountsFor = (q: OrgSurveyQuestionRow, client: Record<string, number>): Record<string, number> => {
-    if (responseCount < threshold) return client
+    if (!kAnonApplies || responseCount < minResponses) return client
     const rpc = rpcChoiceMap[q.id]
     if (rpc === undefined) return client
     if (rpc === null) return client
@@ -190,7 +203,7 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
   }
 
   const numericBlocked = (qid: string): boolean => {
-    if (responseCount < threshold) return false
+    if (!kAnonApplies || responseCount < minResponses) return false
     const st = rpcNumericMap[qid]
     return st !== undefined && st !== 'error' && st !== null && st.n === 0
   }
@@ -201,7 +214,15 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
     a: ReturnType<typeof buildAnalyticsByQuestionId>[string] | undefined,
   ): { avg: number; nEff: number } => {
     const st = rpcNumericMap[q.id]
-    if (responseCount >= threshold && st && st !== 'error' && st !== null && st.n > 0 && st.avg_val != null) {
+    if (
+      kAnonApplies &&
+      responseCount >= minResponses &&
+      st &&
+      st !== 'error' &&
+      st !== null &&
+      st.n > 0 &&
+      st.avg_val != null
+    ) {
       return { avg: Number(st.avg_val), nEff: st.n }
     }
     const nums = a?.numbers ?? []
@@ -214,9 +235,19 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-2">
           <InfoBox>
-            Resultater vises kun for spørsmål med minst {threshold} svar (personvern, k-anonymitet). Fritekst vises
-            aldri ordrett. Under terskelen vises «Skjult». Valg og tall kan hentes via databasefunksjon slik at rå
-            svar ikke må prosesseres i nettleseren når terskel er nådd.
+            {kAnonApplies ? (
+              <>
+                Denne undersøkelsen er <strong>anonym</strong>. For valg og tall gjelder minst {minResponses} svar per
+                spørsmål (k-anonymitet). Fritekst vises aldri ordrett. Under terskelen vises «Skjult». Aggregater kan
+                hentes via databasefunksjon slik at rå svar ikke må prosesseres i nettleseren når terskel er nådd.
+              </>
+            ) : (
+              <>
+                Denne undersøkelsen er <strong>identifisert</strong> (ikke anonym). Standard k-anonymitetsterskel for
+                analyse gjelder ikke; aggregater vises uten krav om minst fem svar per spørsmål. Fritekst vises fortsatt
+                ikke ordrett her (personvern).
+              </>
+            )}
           </InfoBox>
           {rpcWarn ? <p className="text-xs text-amber-800">{rpcWarn}</p> : null}
         </div>
@@ -288,7 +319,7 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
               </h3>
             ) : null
 
-          if (isMatrix && n >= threshold) {
+          if (isMatrix && n >= minResponses) {
             const cfg = q.config as { rows?: string[]; columns?: string[] } | undefined
             const rows = Array.isArray(cfg?.rows) ? cfg.rows : Object.keys(a?.matrixRowChoiceCounts ?? {})
             const columns =
@@ -393,7 +424,7 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
             )
           }
 
-          if (isRanking && n >= threshold) {
+          if (isRanking && n >= minResponses) {
             const cfg = q.config as { items?: string[] } | undefined
             const items = Array.isArray(cfg?.items) ? cfg.items : Object.keys(a?.rankingPositionCounts ?? {})
             const avgByItem = a?.rankingAverageByItem ?? {}
@@ -462,7 +493,7 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
             )
           }
 
-          if (n < threshold) {
+          if (kAnonApplies && n < minResponses) {
             return (
               <div key={q.id}>
                 {sectionHeader}
@@ -471,7 +502,7 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
                   <div className="mt-3 flex items-center gap-2 text-sm text-neutral-400">
                     <EyeOff className="h-4 w-4" aria-hidden />
                     <span>
-                      Skjult — under {threshold} svar (n={n}). GDPR Art. 25.
+                      Skjult — under {minResponses} svar (n={n}). k-anonymitet.
                     </span>
                   </div>
                 </div>
@@ -556,7 +587,8 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
           const total = entries.reduce((s2, [, v]) => s2 + v, 0) || 1
 
           const rpcEmptyBlocked =
-            responseCount >= threshold &&
+            kAnonApplies &&
+            responseCount >= minResponses &&
             isChoice &&
             rpcChoiceMap[q.id] !== undefined &&
             rpcChoiceMap[q.id] !== null &&
