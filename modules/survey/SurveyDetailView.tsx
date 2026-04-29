@@ -122,16 +122,34 @@ function AnalyseBar({ label, valuePct }: { label: string; valuePct: number }) {
   )
 }
 
+function amuComplianceSteps(s: SurveyRow, amu: SurveyAmuReviewRow | null) {
+  return [
+    { ok: s.status === 'closed', label: 'Undersøkelsen er lukket' },
+    { ok: Boolean(amu?.meeting_date?.trim()), label: 'Møtedato for AMU-gjennomgang er registrert' },
+    { ok: Boolean(amu?.amu_chair_signed_at), label: 'AMU-leder har signert protokoll' },
+    { ok: Boolean(amu?.vo_signed_at), label: 'Verneombud har signert protokoll' },
+  ]
+}
+
 function OversiktTab({
   survey,
   s,
+  onOpenAmuTab,
 }: {
   survey: UseSurveyState
   s: SurveyRow
+  onOpenAmuTab: () => void
 }) {
   const [titleEdit, setTitleEdit] = useState(s.title)
   const [descEdit, setDescEdit] = useState(s.description ?? '')
   const [savingMeta, setSavingMeta] = useState(false)
+
+  const amuGate = useMemo(() => {
+    if (s.survey_type !== 'internal' || !s.amu_review_required) return null
+    const steps = amuComplianceSteps(s, survey.amuReview)
+    const complete = steps.every((x) => x.ok)
+    return { steps, complete }
+  }, [s.survey_type, s.amu_review_required, s.status, survey.amuReview])
 
   const saveMetadata = useCallback(async () => {
     if (!titleEdit.trim()) return
@@ -201,6 +219,45 @@ function OversiktTab({
           </div>
         </div>
       </ModuleSectionCard>
+
+      {amuGate ? (
+        <ModuleSectionCard className="p-5 md:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-neutral-800">AMU og dokumentasjon (AML § 7-2)</p>
+              <p className="mt-1 text-sm text-neutral-600">
+                Resultatene regnes som fullstendig fulgt opp i AMU når alle punktene under er oppfylt. Aggregerte tall
+                leveres til AMU — ikke enkelt svar.
+              </p>
+            </div>
+            <Badge variant={amuGate.complete ? 'success' : 'warning'}>
+              {amuGate.complete ? 'Oppfylt' : 'Mangler'}
+            </Badge>
+          </div>
+          <ul className="mt-4 space-y-2 text-sm">
+            {amuGate.steps.map((step) => (
+              <li key={step.label} className="flex items-start gap-2">
+                <span className={step.ok ? 'text-emerald-600' : 'text-neutral-400'} aria-hidden>
+                  {step.ok ? '✓' : '○'}
+                </span>
+                <span className={step.ok ? 'text-neutral-800' : 'text-neutral-600'}>{step.label}</span>
+              </li>
+            ))}
+          </ul>
+          {!amuGate.complete ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button type="button" variant="secondary" size="sm" onClick={onOpenAmuTab}>
+                Gå til AMU-gjennomgang
+              </Button>
+            </div>
+          ) : null}
+        </ModuleSectionCard>
+      ) : s.survey_type === 'internal' && !s.amu_review_required ? (
+        <InfoBox>
+          AMU-gjennomgang er ikke påkrevd for denne undersøkelsen. Dokumenter likevel behandling i AMU dersom dere bruker
+          resultatene i årsrapport eller tiltaksplan.
+        </InfoBox>
+      ) : null}
 
       {survey.canManage && s.status === 'draft' ? (
         <ModuleSectionCard className="p-5 md:p-6">
@@ -822,7 +879,7 @@ export function SurveyDetailView({ supabase }: Props) {
           {survey.error ? <WarningBox>{survey.error}</WarningBox> : null}
 
           {tab === 'oversikt' && (
-            <OversiktTab key={s.id} survey={survey} s={s} />
+            <OversiktTab key={s.id} survey={survey} s={s} onOpenAmuTab={() => setTab('amu')} />
           )}
 
           {tab === 'bygger' && survey.canManage && s.status === 'draft' && !isLocked ? (

@@ -62,7 +62,7 @@ function SurveyQuestionsEmptyDropZone({ activePaletteDrop, disabled }: { activeP
   return (
     <tr ref={setNodeRef}>
       <td
-        colSpan={5}
+        colSpan={6}
         className={[
           'px-5 py-10 text-center text-sm transition',
           !disabled && isOver && activePaletteDrop
@@ -248,6 +248,15 @@ function SortableQuestionTableRow({
         <Badge variant="info" className="text-[10px]">
           {questionTypeLabel(q.question_type)}
         </Badge>
+      </td>
+      <td className="px-5 py-3">
+        {q.is_mandatory && q.mandatory_law ? (
+          <Badge variant="danger" className="text-[10px]">
+            {q.mandatory_law === 'AML_4_3' ? 'AML § 4-3' : q.mandatory_law}
+          </Badge>
+        ) : (
+          <span className="text-neutral-400">—</span>
+        )}
       </td>
       <td className="px-5 py-3 text-neutral-600">{q.is_required ? 'Ja' : 'Nei'}</td>
       <td className="px-5 py-3 text-neutral-500">{q.order_index}</td>
@@ -530,6 +539,7 @@ export function SurveySectionBuilder({ survey, surveyId, isLocked, onEditQuestio
                           </span>
                         </th>
                         <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Type</th>
+                        <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Lovkrav</th>
                         <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Påkrevd</th>
                         <th className={`${MODULE_TABLE_TH} text-sm normal-case font-semibold tracking-normal`}>Indeks</th>
                       </tr>
