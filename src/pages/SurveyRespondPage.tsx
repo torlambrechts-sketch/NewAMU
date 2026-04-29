@@ -11,6 +11,13 @@ import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { useSurvey } from '../../modules/survey'
 import type { OrgSurveyQuestionRow } from '../../modules/survey/types'
 import { globalQuestionIdOrder } from '../../modules/survey/surveyQuestionGlobalOrder'
+import {
+  isQuestionVisible,
+  validateAnswerFormat,
+  validateSurveyAnswersForSubmit,
+  isVisibleRequired,
+  answerMeetsRequiredContent,
+} from '../../modules/survey/surveyRespondValidation'
 import { StandardInput } from '../components/ui/Input'
 import { SearchableSelect } from '../components/ui/SearchableSelect'
 
@@ -90,17 +97,34 @@ function parseAnswerJson(text: string | null | undefined): Record<string, string
   return null
 }
 
+function hasAnyAnswerContent(a: { value: number | null; text: string | null } | undefined): boolean {
+  if (!a) return false
+  if (a.value != null && Number.isFinite(a.value)) return true
+  return (a.text ?? '').trim().length > 0
+}
+
 function QuestionCard({
   question: q,
   idx,
   answer,
   onChange,
+  hidden,
+  requiredError,
+  formatError,
+  showRequiredAsterisk,
 }: {
   question: OrgSurveyQuestionRow
   idx: number
   answer: { value: number | null; text: string | null } | undefined
   onChange: (val: { value: number | null; text: string | null }) => void
+  hidden?: boolean
+  requiredError?: boolean
+  formatError?: string | null
+  /** Synlig + påkrevd (etter showIf) */
+  showRequiredAsterisk?: boolean
 }) {
+  if (hidden) return null
+
   const cfg = q.config && typeof q.config === 'object' && !Array.isArray(q.config) ? q.config : {}
   const sc = scaleBounds(cfg as Record<string, unknown>)
   const opts = optionList(q)
@@ -141,11 +165,11 @@ function QuestionCard({
       <p className="text-sm font-medium text-neutral-800">
         <span className="mr-2 text-neutral-400">{idx + 1}.</span>
         {q.question_text}
-        {q.is_required && (
+        {showRequiredAsterisk ? (
           <span className="ml-1 text-red-500" title="Påkrevd">
             *
           </span>
-        )}
+        ) : null}
         {q.is_mandatory ? (
           <span className="ml-2 inline-flex align-middle">
             <Badge variant="danger">AML § 4-3</Badge>
@@ -483,40 +507,17 @@ function QuestionCard({
           ))}
         </div>
       )}
+      {requiredError ? (
+        <p className="mt-2 text-sm text-red-600" role="alert">
+          Dette feltet må besvares.
+        </p>
+      ) : formatError ? (
+        <p className="mt-2 text-sm text-red-600" role="alert">
+          {formatError}
+        </p>
+      ) : null}
     </div>
   )
-}
-
-function answerSatisfied(q: OrgSurveyQuestionRow, a: { value: number | null; text: string | null } | undefined): boolean {
-  if (!q.is_required) return true
-  if (!a) return false
-  const t = q.question_type
-  if (t === 'rating_1_to_5' || t === 'rating_1_to_10' || t === 'nps' || t === 'rating_visual') return a.value !== null
-  if (t === 'likert_scale') return a.value !== null
-  if (t === 'text' || t === 'long_text' || t === 'short_text' || t === 'email' || t === 'signature') {
-    return Boolean(a.text?.trim())
-  }
-  if (t === 'number' || t === 'slider' || t === 'datetime') return Boolean(a.text?.trim())
-  if (t === 'file_upload') return Boolean(a.text?.trim())
-  if (t === 'matrix') {
-    const o = parseAnswerJson(a.text ?? null)
-    if (!o) return false
-    const cfg = q.config as { rows?: string[] }
-    const rows = Array.isArray(cfg.rows) ? cfg.rows : []
-    return rows.every((r) => typeof o[r] === 'string' && o[r]!.length > 0)
-  }
-  if (t === 'ranking') {
-    const o = parseAnswerJson(a.text ?? null)
-    if (!o) return false
-    const cfg = q.config as { items?: string[] }
-    const items = Array.isArray(cfg.items) ? cfg.items : []
-    return items.every((it) => o[it] != null && o[it] !== '')
-  }
-  if (t === 'multi_select') {
-    const parts = (a.text ?? '').split('|').map((s) => s.trim()).filter(Boolean)
-    return parts.length > 0
-  }
-  return Boolean(a.text)
 }
 
 export function SurveyRespondPage() {
@@ -531,6 +532,9 @@ export function SurveyRespondPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [requiredHighlight, setRequiredHighlight] = useState<Record<string, boolean>>({})
+
   const { loadActiveSurveyForRespondent } = survey
   const orderedQuestions = useMemo(() => {
     if (!surveyId) return []
@@ -538,6 +542,11 @@ export function SurveyRespondPage() {
     const m = new Map(survey.questions.map((q) => [q.id, q]))
     return order.map((id) => m.get(id)).filter((q): q is OrgSurveyQuestionRow => q != null)
   }, [survey.questions, survey.surveySections, surveyId])
+
+  const visibleOrderedQuestions = useMemo(
+    () => orderedQuestions.filter((q) => isQuestionVisible(q, answers)),
+    [orderedQuestions, answers],
+  )
 
   const sectionTitleById = useMemo(() => {
     const m: Record<string, string> = {}
@@ -551,16 +560,39 @@ export function SurveyRespondPage() {
   const setAnswer = useCallback(
     (qId: string, val: { value: number | null; text: string | null }) => {
       setAnswers((prev) => ({ ...prev, [qId]: val }))
+      setFieldErrors((fe) => {
+        if (!fe[qId]) return fe
+        const next = { ...fe }
+        delete next[qId]
+        return next
+      })
+      setRequiredHighlight((rh) => {
+        if (!rh[qId]) return rh
+        const next = { ...rh }
+        delete next[qId]
+        return next
+      })
     },
     [],
   )
 
-  const allRequiredFilled = orderedQuestions
-    .filter((q) => q.is_required)
-    .every((q) => answerSatisfied(q, answers[q.id]))
 
   const handleSubmit = async () => {
     if (!surveyId) return
+    const v = validateSurveyAnswersForSubmit(orderedQuestions, answers)
+    if (!v.ok) {
+      setFieldErrors(v.fieldErrors)
+      const req: Record<string, boolean> = {}
+      for (const q of orderedQuestions) {
+        if (isVisibleRequired(q, answers) && !answerMeetsRequiredContent(q, answers[q.id])) {
+          req[q.id] = true
+        }
+      }
+      setRequiredHighlight(req)
+      return
+    }
+    setFieldErrors({})
+    setRequiredHighlight({})
     setSubmitting(true)
     const answerRows = orderedQuestions.map((q) => ({
       questionId: q.id,
@@ -571,6 +603,7 @@ export function SurveyRespondPage() {
       surveyId,
       userId: user?.id ?? null,
       answers: answerRows,
+      questions: orderedQuestions,
       invitationToken: inviteToken || undefined,
     })
     setSubmitting(false)
@@ -680,12 +713,19 @@ export function SurveyRespondPage() {
             }}
             className="space-y-6"
           >
-            {orderedQuestions.map((q, idx) => {
-              const prev = orderedQuestions[idx - 1]
+            {visibleOrderedQuestions.map((q, vIdx) => {
+              const prevVisible = visibleOrderedQuestions[vIdx - 1]
               const showSection =
                 survey.surveySections.length > 0 &&
-                (prev?.section_id ?? null) !== (q.section_id ?? null) &&
+                prevVisible != null &&
+                (prevVisible.section_id ?? null) !== (q.section_id ?? null) &&
                 q.section_id != null
+              const formatErr =
+                fieldErrors[q.id] && requiredHighlight[q.id] !== true
+                  ? fieldErrors[q.id]
+                  : !fieldErrors[q.id] && hasAnyAnswerContent(answers[q.id])
+                    ? validateAnswerFormat(q, answers[q.id])
+                    : null
               return (
                 <div key={q.id}>
                   {showSection ? (
@@ -693,11 +733,19 @@ export function SurveyRespondPage() {
                       {sectionTitleById[q.section_id!] ?? 'Seksjon'}
                     </h2>
                   ) : null}
-                  <QuestionCard question={q} idx={idx} answer={answers[q.id]} onChange={(val) => setAnswer(q.id, val)} />
+                  <QuestionCard
+                    question={q}
+                    idx={vIdx}
+                    answer={answers[q.id]}
+                    onChange={(val) => setAnswer(q.id, val)}
+                    showRequiredAsterisk={isVisibleRequired(q, answers)}
+                    requiredError={requiredHighlight[q.id] === true}
+                    formatError={formatErr}
+                  />
                 </div>
               )
             })}
-            <Button type="submit" variant="primary" disabled={submitting || !allRequiredFilled}>
+            <Button type="submit" variant="primary" disabled={submitting}>
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />

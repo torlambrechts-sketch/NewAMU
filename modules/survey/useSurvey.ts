@@ -37,6 +37,10 @@ import { parseCatalogRow } from './surveyTemplateCatalogTypes'
 import type { SurveyTemplateCatalogRow } from './surveyTemplateCatalogTypes'
 import { catalogQuestionToUpsert } from './surveyTemplateApply'
 import { randomSurveyInvitationToken } from './surveyInviteLink'
+import {
+  buildAnswersForPersistence,
+  validateSurveyAnswersForSubmit,
+} from './surveyRespondValidation'
 
 type Supabase = SupabaseClient
 
@@ -127,6 +131,8 @@ export type UseSurveyState = {
     surveyId: string
     userId: string | null
     answers: Array<{ questionId: string; answerValue: number | null; answerText: string | null }>
+    /** When provided, skips a DB fetch for validation (respond page). */
+    questions?: OrgSurveyQuestionRow[]
     /** Personal invitation token from ?invite= — links this response to the correct invitation row */
     invitationToken?: string | null
   }) => Promise<OrgSurveyResponseRow | null>
@@ -1319,6 +1325,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
       surveyId: string
       userId: string | null
       answers: Array<{ questionId: string; answerValue: number | null; answerText: string | null }>
+      questions?: OrgSurveyQuestionRow[]
       invitationToken?: string | null
     }): Promise<OrgSurveyResponseRow | null> => {
       if (!supabase) return null
@@ -1359,6 +1366,30 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
 
         const effectiveUserId = surveyRow.is_anonymous ? null : args.userId
 
+        let questionRows: OrgSurveyQuestionRow[]
+        if (args.questions && args.questions.length > 0) {
+          questionRows = args.questions.filter((q) => q.survey_id === args.surveyId && q.organization_id === oid)
+        } else {
+          const { data: qData, error: qe } = await supabase
+            .from('org_survey_questions')
+            .select('*')
+            .eq('survey_id', args.surveyId)
+            .eq('organization_id', oid)
+          if (qe) throw qe
+          questionRows = collect(qData, parseOrgSurveyQuestionRow)
+        }
+
+        const answerMap: Record<string, { value: number | null; text: string | null }> = {}
+        for (const row of args.answers) {
+          answerMap[row.questionId] = { value: row.answerValue, text: row.answerText }
+        }
+
+        const validation = validateSurveyAnswersForSubmit(questionRows, answerMap)
+        if (!validation.ok) {
+          setError(validation.errors[0] ?? 'Svarene kunne ikke valideres.')
+          return null
+        }
+
         const { data: resp, error: re } = await supabase
           .from('org_survey_responses')
           .insert({
@@ -1395,7 +1426,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           if (ie) throw ie
         }
 
-        const answerRows = args.answers.map((a) => ({
+        const answerRows = buildAnswersForPersistence(args.surveyId, questionRows, answerMap).map((a) => ({
           response_id: pr.data.id,
           question_id: a.questionId,
           organization_id: oid,

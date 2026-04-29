@@ -583,8 +583,12 @@ export function SurveyQuestionFormFields({
           Logikk og validering (JSON)
         </label>
         <p className="mb-1 text-xs text-neutral-500">
-          Bruk <code className="rounded bg-neutral-100 px-1">logic_jump</code> og{' '}
-          <code className="rounded bg-neutral-100 px-1">validation_rules</code> etter behov.
+          Betinget visning: <code className="rounded bg-neutral-100 px-1">showIf</code> eller{' '}
+          <code className="rounded bg-neutral-100 px-1">{'{ "logic_jump": { "showIf": { ... } } }'}</code> med{' '}
+          <code className="rounded bg-neutral-100 px-1">questionId</code>, og valgfritt{' '}
+          <code className="rounded bg-neutral-100 px-1">equals</code>, <code className="rounded bg-neutral-100 px-1">in</code>{' '}
+          eller <code className="rounded bg-neutral-100 px-1">answered</code>. Validering i{' '}
+          <code className="rounded bg-neutral-100 px-1">validation_rules</code>.
         </p>
         <StandardTextarea
           id="q-config-json"
@@ -592,7 +596,7 @@ export function SurveyQuestionFormFields({
           onChange={(e) => onConfigJsonChange(e.target.value)}
           rows={5}
           className="font-mono text-xs"
-          placeholder='{"logic_jump":{},"validation_rules":{}}'
+          placeholder='{"showIf":{"questionId":"…","equals":"Ja"},"validation_rules":{"maxLength":80}}'
         />
       </div>
     </div>
