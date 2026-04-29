@@ -1,4 +1,5 @@
 import type { OrgSurveyAnswerRow, OrgSurveyQuestionRow, SurveyRow, SurveySectionRow } from './types'
+import type { NumericStatsRow } from './surveyAnalyticsRpc'
 import { buildAnalyticsByQuestionId } from './surveyAnalytics'
 import { globalQuestionIdOrder } from './surveyQuestionGlobalOrder'
 
@@ -14,8 +15,11 @@ export function buildSurveyAnalyticsCsv(params: {
   questions: OrgSurveyQuestionRow[]
   answers: OrgSurveyAnswerRow[]
   sections: SurveySectionRow[]
+  /** Når satt (f.eks. fra RPC under k-anonymitet), overstyr valgtelling for eksport */
+  analyticsOverride?: Record<string, Record<string, number> | null | undefined>
+  numericOverride?: Record<string, NumericStatsRow | null | 'error' | undefined>
 }): string {
-  const { survey, questions, answers, sections } = params
+  const { survey, questions, answers, sections, analyticsOverride, numericOverride } = params
   const analyticsByQuestion = buildAnalyticsByQuestionId(questions, answers)
   const order = globalQuestionIdOrder(questions, survey.id, sections)
   const qMap = new Map(questions.map((q) => [q.id, q]))
@@ -30,10 +34,10 @@ export function buildSurveyAnalyticsCsv(params: {
     if (!q) continue
     const a = analyticsByQuestion[qid]
     const sectionLabel = q.section_id ? secTitle[q.section_id] ?? '' : 'Uten seksjon'
+    const rpcChoice = analyticsOverride?.[qid]
+    const rpcNum = numericOverride?.[qid]
     let metric = ''
     let note = ''
-    const nums = a?.numbers ?? []
-    const n = nums.length
     if (
       q.question_type === 'rating_1_to_5' ||
       q.question_type === 'rating_1_to_10' ||
@@ -42,13 +46,19 @@ export function buildSurveyAnalyticsCsv(params: {
       q.question_type === 'likert_scale' ||
       q.question_type === 'slider'
     ) {
-      const avg = n > 0 ? nums.reduce((x, y) => x + y, 0) / n : 0
+      const st = rpcNum && rpcNum !== 'error' ? rpcNum : null
+      const nums = a?.numbers ?? []
+      const n = st?.n ?? nums.length
+      const avg =
+        st?.avg_val != null ? Number(st.avg_val) : n > 0 ? nums.reduce((x, y) => x + y, 0) / n : 0
       metric = n > 0 ? `Snitt ${avg.toFixed(2)} (n=${n})` : 'Ingen tall'
       note = 'Gjennomsnitt av numeriske svar.'
     } else if (q.question_type === 'number') {
+      const st = rpcNum && rpcNum !== 'error' ? rpcNum : null
       const nums = a?.numbers ?? []
-      const n = nums.length
-      const avg = n > 0 ? nums.reduce((x, y) => x + y, 0) / n : 0
+      const n = st?.n ?? nums.length
+      const avg =
+        st?.avg_val != null ? Number(st.avg_val) : n > 0 ? nums.reduce((x, y) => x + y, 0) / n : 0
       metric = n > 0 ? `Snitt ${avg.toFixed(2)} (n=${n})` : 'Ingen tall'
       note = 'Gjennomsnitt av numeriske svar.'
     } else if (q.question_type === 'matrix') {
@@ -60,17 +70,33 @@ export function buildSurveyAnalyticsCsv(params: {
         if (top) parts.push(`${row}: mest "${top[0]}" (${Math.round((top[1] / total) * 100)}%)`)
       }
       metric = parts.length ? parts.slice(0, 6).join(' · ') : 'Ingen matrisesvar'
-      note = 'Per rad: hyppigste kolonne (aggregert).'
+      note = 'Per rad: hyppigste kolonne (aggregert). Full matrise: ekstra rader under.'
+      lines.push([q.question_text, q.question_type, sectionLabel, metric, note].map(csvEscapeCell).join(';'))
+      for (const [row, cols] of Object.entries(rowCounts)) {
+        const rowTotal = Object.values(cols).reduce((s, v) => s + v, 0) || 1
+        for (const [col, cnt] of Object.entries(cols)) {
+          lines.push(
+            [`${q.question_text} · ${row}`, 'matrise_celle', sectionLabel, `${col}: ${Math.round((cnt / rowTotal) * 100)}%`, 'Andel innen rad']
+              .map(csvEscapeCell)
+              .join(';'),
+          )
+        }
+      }
+      continue
     } else if (q.question_type === 'ranking') {
       const rankCounts = a?.rankingPositionCounts ?? {}
+      const avgMap = a?.rankingAverageByItem ?? {}
       const parts: string[] = []
       for (const [item, posMap] of Object.entries(rankCounts)) {
         const total = Object.values(posMap).reduce((s, v) => s + v, 0) || 1
         const topPos = Object.entries(posMap).sort((x, y) => y[1] - x[1])[0]
-        if (topPos) parts.push(`${item}: oftest plass ${topPos[0]} (${Math.round((topPos[1] / total) * 100)}%)`)
+        const avgItem = avgMap[item]
+        const avgStr =
+          avgItem != null && Number.isFinite(avgItem) ? ` · gj.sn.plass ${avgItem.toFixed(2)}` : ''
+        if (topPos) parts.push(`${item}: oftest plass ${topPos[0]} (${Math.round((topPos[1] / total) * 100)}%)${avgStr}`)
       }
-      metric = parts.length ? parts.slice(0, 6).join(' · ') : 'Ingen rangering'
-      note = 'Per element: vanligste rangering (aggregert).'
+      metric = parts.length ? parts.slice(0, 8).join(' · ') : 'Ingen rangering'
+      note = 'Per element: vanligste rangering + gj.sn. plass der tilgjengelig.'
     } else if (
       q.question_type === 'multiple_choice' ||
       q.question_type === 'yes_no' ||
@@ -79,7 +105,9 @@ export function buildSurveyAnalyticsCsv(params: {
       q.question_type === 'dropdown' ||
       q.question_type === 'image_choice'
     ) {
-      const entries = Object.entries(a?.choiceCounts ?? {})
+      const choiceSrc =
+        rpcChoice != null && Object.keys(rpcChoice).length > 0 ? rpcChoice : (a?.choiceCounts ?? {})
+      const entries = Object.entries(choiceSrc)
       const total = entries.reduce((s, [, v]) => s + v, 0)
       metric =
         total > 0

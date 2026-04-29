@@ -11,6 +11,7 @@ import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { useSurvey } from '../../modules/survey'
 import type { OrgSurveyQuestionRow } from '../../modules/survey/types'
 import { globalQuestionIdOrder } from '../../modules/survey/surveyQuestionGlobalOrder'
+import { hiddenQuestionIdsFromBranching } from '../../modules/survey/surveyBranching'
 import {
   isQuestionVisible,
   validateAnswerFormat,
@@ -642,10 +643,17 @@ export function SurveyRespondPage() {
     return order.map((id) => m.get(id)).filter((q): q is OrgSurveyQuestionRow => q != null)
   }, [survey.questions, survey.surveySections, surveyId])
 
-  const visibleOrderedQuestions = useMemo(
-    () => orderedQuestions.filter((q) => isQuestionVisible(q, answers)),
+  const branchHiddenIds = useMemo(
+    () => hiddenQuestionIdsFromBranching(orderedQuestions, answers),
     [orderedQuestions, answers],
   )
+
+  const visibleOrderedQuestions = useMemo(() => {
+    return orderedQuestions.filter((q) => {
+      if (branchHiddenIds.has(q.id)) return false
+      return isQuestionVisible(q, answers)
+    })
+  }, [orderedQuestions, answers, branchHiddenIds])
 
   const sectionTitleById = useMemo(() => {
     const m: Record<string, string> = {}
@@ -678,11 +686,11 @@ export function SurveyRespondPage() {
 
   const handleSubmit = async () => {
     if (!surveyId) return
-    const v = validateSurveyAnswersForSubmit(orderedQuestions, answers)
+    const v = validateSurveyAnswersForSubmit(visibleOrderedQuestions, answers)
     if (!v.ok) {
       setFieldErrors(v.fieldErrors)
       const req: Record<string, boolean> = {}
-      for (const q of orderedQuestions) {
+      for (const q of visibleOrderedQuestions) {
         if (isVisibleRequired(q, answers) && !answerMeetsRequiredContent(q, answers[q.id])) {
           req[q.id] = true
         }
@@ -693,7 +701,7 @@ export function SurveyRespondPage() {
     setFieldErrors({})
     setRequiredHighlight({})
     setSubmitting(true)
-    const answerRows = orderedQuestions.map((q) => ({
+    const answerRows = visibleOrderedQuestions.map((q) => ({
       questionId: q.id,
       answerValue: answers[q.id]?.value ?? null,
       answerText: answers[q.id]?.text ?? null,
@@ -702,7 +710,7 @@ export function SurveyRespondPage() {
       surveyId,
       userId: user?.id ?? null,
       answers: answerRows,
-      questions: orderedQuestions,
+      questions: visibleOrderedQuestions,
       invitationToken: inviteToken || undefined,
     })
     setSubmitting(false)

@@ -14,6 +14,7 @@ import { QUESTION_TYPE_OPTIONS, questionTypeLabel } from './surveyLabels'
 import type { SurveyQuestionType } from './types'
 import { configForTypeSwitch } from './surveyQuestionConfigHelpers'
 import { SurveyQuestionConditionEditor } from './SurveyQuestionConditionEditor'
+import { SurveyBranchingEditor } from './SurveyBranchingEditor'
 import type { PurposeSuggestion } from './surveyPurposeSuggestions'
 
 export type QuestionDraft = {
@@ -744,6 +745,13 @@ export function SurveyQuestionFormFields({
         configJson={configJson}
         onConfigJsonChange={onConfigJsonChange}
         questions={conditionQuestionOptions}
+        currentQuestionId={currentQuestionId}
+      />
+
+      <SurveyBranchingEditor
+        configJson={configJson}
+        onConfigJsonChange={onConfigJsonChange}
+        otherQuestions={conditionQuestionOptions}
         currentQuestionId={currentQuestionId}
       />
 

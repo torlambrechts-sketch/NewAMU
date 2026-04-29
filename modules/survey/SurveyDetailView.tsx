@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ArrowLeft, CheckCircle2, Download, EyeOff, Ghost, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Ghost, Save, Trash2 } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
-import { WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
 import {
   ModuleLegalBanner,
   ModulePageShell,
@@ -22,7 +21,6 @@ import { StandardInput } from '../../src/components/ui/Input'
 import { StandardTextarea } from '../../src/components/ui/Textarea'
 import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
-import { SURVEY_K_ANONYMITY_MIN } from '../../src/lib/orgSurveyKAnonymity'
 import { useSurvey } from './useSurvey'
 import type { UseSurveyState } from './useSurvey'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
@@ -33,7 +31,6 @@ import {
   LAYOUT_TABLE1_POSTINGS_TD,
 } from '../../src/components/layout/layoutTable1PostingsKit'
 import { surveyStatusBadgeVariant, surveyStatusLabel } from './surveyLabels'
-import { buildAnalyticsByQuestionId } from './surveyAnalytics'
 import { globalQuestionIdOrder } from './surveyQuestionGlobalOrder'
 import { SurveySectionBuilder } from './SurveySectionBuilder'
 import { SurveyQuestionFormFields, type QuestionDraft } from './SurveyQuestionFormFields'
@@ -44,7 +41,7 @@ import { SurveyTiltakTab } from './tabs/SurveyTiltakTab'
 import { SURVEY_DETAIL_EXTRA_LEGAL_REFERENCES, SURVEY_MODULE_LEGAL_REFERENCES } from './surveyLegalReferences'
 import { orgQuestionToCatalogQuestion } from './surveyTemplateCatalogHelpers'
 import { suggestionsForSurveyPurpose, type PurposeSuggestion } from './surveyPurposeSuggestions'
-import { buildSurveyAnalyticsCsv } from './surveyExportCsv'
+import { SurveyAnalyseTab } from './SurveyAnalyseTab'
 import type { OrgSurveyQuestionRow, SurveyAmuReviewRow, SurveyQuestionType, SurveyRow } from './types'
 
 function mergeQuestionConfig(
@@ -149,26 +146,6 @@ function TabEmpty({ message, footer }: { message: string; footer?: ReactNode }) 
   )
 }
 
-function AnalyseBar({ label, valuePct, sublabel }: { label: string; valuePct: number; sublabel?: string }) {
-  return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs text-neutral-600">
-        <span className="min-w-0 pr-2">
-          <span className="block truncate font-medium text-neutral-800">{label}</span>
-          {sublabel ? <span className="mt-0.5 block truncate text-[11px] font-normal text-neutral-500">{sublabel}</span> : null}
-        </span>
-        <span className="shrink-0 font-medium text-neutral-800">{Math.round(valuePct)}%</span>
-      </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-100">
-        <div
-          className="h-full rounded-full bg-[#1a3d32] transition-[width]"
-          style={{ width: `${Math.min(100, Math.max(0, valuePct))}%` }}
-        />
-      </div>
-    </div>
-  )
-}
-
 function amuComplianceSteps(s: SurveyRow, amu: SurveyAmuReviewRow | null) {
   return [
     { ok: s.status === 'closed', label: 'Undersøkelsen er lukket' },
@@ -195,19 +172,12 @@ function OversiktTab({
   const [amuSummaryEdit, setAmuSummaryEdit] = useState(s.survey_amu_summary ?? '')
   const [savingMeta, setSavingMeta] = useState(false)
 
-  useEffect(() => {
-    setTitleEdit(s.title)
-    setDescEdit(s.description ?? '')
-    setPurposeEdit(s.survey_purpose ?? '')
-    setAmuSummaryEdit(s.survey_amu_summary ?? '')
-  }, [s.id, s.title, s.description, s.survey_purpose, s.survey_amu_summary])
-
   const amuGate = useMemo(() => {
     if (s.survey_type !== 'internal' || !s.amu_review_required) return null
     const steps = amuComplianceSteps(s, survey.amuReview)
     const complete = steps.every((x) => x.ok)
     return { steps, complete }
-  }, [s.survey_type, s.amu_review_required, s.status, survey.amuReview])
+  }, [s, survey.amuReview])
 
   const saveMetadata = useCallback(async () => {
     if (!titleEdit.trim()) return
@@ -566,333 +536,6 @@ function SvarTab({
   )
 }
 
-function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
-  const threshold = Math.max(s.anonymity_threshold ?? SURVEY_K_ANONYMITY_MIN, SURVEY_K_ANONYMITY_MIN)
-  const analyticsByQuestion = useMemo(
-    () => buildAnalyticsByQuestionId(survey.questions, survey.answers),
-    [survey.questions, survey.answers],
-  )
-
-  const csvBlobUrl = useMemo(() => {
-    if (survey.questions.length === 0) return null
-    const csv = buildSurveyAnalyticsCsv({
-      survey: s,
-      questions: survey.questions,
-      answers: survey.answers,
-      sections: survey.surveySections,
-    })
-    const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' })
-    return URL.createObjectURL(blob)
-  }, [s, survey.questions, survey.answers, survey.surveySections])
-
-  useEffect(() => {
-    return () => {
-      if (csvBlobUrl) URL.revokeObjectURL(csvBlobUrl)
-    }
-  }, [csvBlobUrl])
-
-  const exportFileName = useMemo(() => {
-    const safe = s.title.replace(/[^\wæøåÆØÅ\- ]+/g, '').trim().slice(0, 60) || 'undersokelse'
-    return `analyse-${safe}.csv`
-  }, [s.title])
-
-  const orderedQuestions = useMemo(() => {
-    const order = globalQuestionIdOrder(survey.questions, s.id, survey.surveySections)
-    const m = new Map(survey.questions.map((q) => [q.id, q]))
-    return order.map((id) => m.get(id)).filter((q): q is OrgSurveyQuestionRow => q != null)
-  }, [survey.questions, survey.surveySections, s.id])
-
-  const sectionTitleById = useMemo(() => {
-    const map: Record<string, string> = {}
-    for (const sec of survey.surveySections) map[sec.id] = sec.title
-    return map
-  }, [survey.surveySections])
-
-  return (
-    <div className="w-full space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <InfoBox>
-            Resultater vises kun for spørsmål med minst {threshold} svar (personvern, k-anonymitet). Fritekst vises
-            aldri ordrett. Under terskelen vises «Skjult».
-          </InfoBox>
-        </div>
-        {csvBlobUrl ? (
-          <a
-            href={csvBlobUrl}
-            download={exportFileName}
-            className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-800 shadow-sm hover:bg-neutral-50"
-          >
-            <Download className="h-4 w-4" aria-hidden />
-            Last ned CSV (aggregater)
-          </a>
-        ) : null}
-      </div>
-
-      {survey.questions.length === 0 ? (
-        <TabEmpty message="Ingen spørsmål å analysere. Legg til spørsmål i byggeren." />
-      ) : survey.answers.length === 0 && survey.responses.length === 0 ? (
-        <TabEmpty message="Ingen svar å analysere ennå. Når deltakere svarer, oppdateres visningen her." />
-      ) : (
-        orderedQuestions.map((q, qi) => {
-          const a = analyticsByQuestion[q.id]
-          const isNumeric =
-            q.question_type === 'rating_1_to_5' ||
-            q.question_type === 'rating_1_to_10' ||
-            q.question_type === 'nps' ||
-            q.question_type === 'rating_visual' ||
-            q.question_type === 'likert_scale' ||
-            q.question_type === 'slider' ||
-            q.question_type === 'number'
-          const isChoice =
-            q.question_type === 'multiple_choice' ||
-            q.question_type === 'yes_no' ||
-            q.question_type === 'single_select' ||
-            q.question_type === 'multi_select' ||
-            q.question_type === 'dropdown' ||
-            q.question_type === 'image_choice'
-          const isMatrix = q.question_type === 'matrix'
-          const isRanking = q.question_type === 'ranking'
-          const isTextLike =
-            q.question_type === 'text' ||
-            q.question_type === 'long_text' ||
-            q.question_type === 'short_text' ||
-            q.question_type === 'email' ||
-            q.question_type === 'datetime' ||
-            q.question_type === 'signature' ||
-            q.question_type === 'file_upload'
-          const n = isNumeric
-            ? a?.numbers.length ?? 0
-            : isChoice
-              ? (Object.values(a?.choiceCounts ?? {}) as number[]).reduce(
-                  (sum, v) => sum + (typeof v === 'number' ? v : 0),
-                  0,
-                )
-              : isMatrix || isRanking
-                ? a?.textCount ?? 0
-                : 0
-
-          const prev = orderedQuestions[qi - 1]
-          const showSection =
-            survey.surveySections.length > 0 &&
-            (prev?.section_id ?? null) !== (q.section_id ?? null) &&
-            q.section_id != null
-
-          const sectionHeader =
-            showSection && q.section_id ? (
-              <h3 className="mb-2 mt-6 text-xs font-bold uppercase tracking-wide text-neutral-500 first:mt-0">
-                {sectionTitleById[q.section_id] ?? 'Seksjon'}
-              </h3>
-            ) : null
-
-          if (isMatrix && n >= threshold) {
-            const cfg = q.config as { rows?: string[]; columns?: string[] } | undefined
-            const rows = Array.isArray(cfg?.rows) ? cfg.rows : Object.keys(a?.matrixRowChoiceCounts ?? {})
-            const columns =
-              Array.isArray(cfg?.columns) && cfg.columns.length > 0
-                ? cfg.columns
-                : (() => {
-                    const set = new Set<string>()
-                    for (const inner of Object.values(a?.matrixRowChoiceCounts ?? {})) {
-                      for (const k of Object.keys(inner)) set.add(k)
-                    }
-                    return [...set].sort()
-                  })()
-            return (
-              <div key={q.id}>
-                {sectionHeader}
-                <div className="rounded-lg border border-neutral-200/90 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
-                  <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    Matrise · per rad vises andelen som valgte hver kolonne · n={n} besvarelser
-                  </p>
-                  {rows.length === 0 ? (
-                    <p className="mt-3 text-sm text-neutral-500">Ingen rader definert eller ingen svar.</p>
-                  ) : (
-                    <div className="mt-4 space-y-6">
-                      {rows.map((rowLabel) => {
-                        const counts = a?.matrixRowChoiceCounts?.[rowLabel] ?? {}
-                        const rowTotal = Object.values(counts).reduce((s, v) => s + v, 0) || 1
-                        return (
-                          <div key={rowLabel}>
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-600">{rowLabel}</p>
-                            <div className="space-y-3">
-                              {columns.map((col) => {
-                                const cnt = counts[col] ?? 0
-                                return (
-                                  <AnalyseBar
-                                    key={`${rowLabel}-${col}`}
-                                    label={col}
-                                    valuePct={(cnt / rowTotal) * 100}
-                                  />
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          }
-
-          if (isRanking && n >= threshold) {
-            const cfg = q.config as { items?: string[] } | undefined
-            const items = Array.isArray(cfg?.items) ? cfg.items : Object.keys(a?.rankingPositionCounts ?? {})
-            return (
-              <div key={q.id}>
-                {sectionHeader}
-                <div className="rounded-lg border border-neutral-200/90 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
-                  <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    Rangering · for hvert element: fordeling av plassering (1 = øverst) · n={n} besvarelser
-                  </p>
-                  {items.length === 0 ? (
-                    <p className="mt-3 text-sm text-neutral-500">Ingen elementer eller ingen svar.</p>
-                  ) : (
-                    <div className="mt-4 space-y-6">
-                      {items.map((itemLabel) => {
-                        const counts = a?.rankingPositionCounts?.[itemLabel] ?? {}
-                        const itemTotal = Object.values(counts).reduce((s, v) => s + v, 0) || 1
-                        const positions = Object.keys(counts).sort((x, y) => Number(x) - Number(y))
-                        return (
-                          <div key={itemLabel}>
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-600">{itemLabel}</p>
-                            <div className="space-y-3">
-                              {positions.map((pos) => {
-                                const cnt = counts[pos] ?? 0
-                                return (
-                                  <AnalyseBar
-                                    key={`${itemLabel}-${pos}`}
-                                    label={`Plass ${pos}`}
-                                    valuePct={(cnt / itemTotal) * 100}
-                                  />
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          }
-
-          if (isTextLike) {
-            const c = a?.textCount ?? 0
-            return (
-              <div key={q.id}>
-                {sectionHeader}
-                <div className="rounded-lg border border-neutral-200/90 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
-                  <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
-                  <p className="mt-2 text-sm text-neutral-500">
-                    Strukturert/tekst · {c} utfylte svar. Detaljer vises ikke (GDPR).
-                  </p>
-                  {c === 0 ? <p className="mt-3 text-sm text-neutral-500">Ingen svar mottatt.</p> : null}
-                </div>
-              </div>
-            )
-          }
-
-          if (n < threshold) {
-            return (
-              <div key={q.id}>
-                {sectionHeader}
-                <div className="rounded-lg border border-neutral-200 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
-                  <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
-                  <div className="mt-3 flex items-center gap-2 text-sm text-neutral-400">
-                    <EyeOff className="h-4 w-4" aria-hidden />
-                    <span>
-                      Skjult — under {threshold} svar (n={n}). GDPR Art. 25.
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )
-          }
-
-          if (isNumeric) {
-            const cfg = q.config as {
-              scaleMin?: number
-              scaleMax?: number
-              rangeStart?: number
-              rangeEnd?: number
-              minValue?: number
-              maxValue?: number
-            } | undefined
-            let smin = cfg?.scaleMin ?? 1
-            let smax = cfg?.scaleMax ?? 5
-            if (q.question_type === 'nps' || q.question_type === 'rating_1_to_10') {
-              smin = cfg?.scaleMin ?? 0
-              smax = cfg?.scaleMax ?? 10
-            } else if (q.question_type === 'rating_1_to_5' || q.question_type === 'likert_scale') {
-              smin = cfg?.scaleMin ?? 1
-              smax = cfg?.scaleMax ?? 5
-            } else if (q.question_type === 'slider') {
-              smin = typeof cfg?.rangeStart === 'number' ? cfg.rangeStart : 0
-              smax = typeof cfg?.rangeEnd === 'number' ? cfg.rangeEnd : 100
-            } else if (q.question_type === 'number') {
-              smin = typeof cfg?.minValue === 'number' ? cfg.minValue : 0
-              smax = typeof cfg?.maxValue === 'number' ? cfg.maxValue : 100
-            }
-            const span = Math.max(1, smax - smin)
-            const avg = n > 0 && a ? a.numbers.reduce((x: number, y: number) => x + y, 0) / n : 0
-            return (
-              <div key={q.id}>
-                {sectionHeader}
-                <div className="rounded-lg border border-neutral-200/90 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
-                  <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    Gjennomsnitt av tall • skala {smin}–{smax} • {n > 0 ? `n=${n}` : 'ingen svar'}
-                  </p>
-                  {n === 0 ? (
-                    <p className="mt-3 text-sm text-neutral-500">Ingen numeriske svar for dette spørsmålet.</p>
-                  ) : null}
-                  {n > 0 ? (
-                    <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-neutral-100">
-                      <div
-                        className="h-full rounded-full bg-[#1a3d32]"
-                        style={{ width: `${Math.min(100, ((avg - smin) / span) * 100)}%` }}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            )
-          }
-
-          const entries = Object.entries(a?.choiceCounts ?? {}) as [string, number][]
-          const total = entries.reduce((s2, [, v]) => s2 + v, 0) || 1
-          return (
-            <div key={q.id}>
-              {sectionHeader}
-              <div className="rounded-lg border border-neutral-200/90 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
-                <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
-                <p className="mt-1 text-xs text-neutral-500">
-                  Andel av alle som besvarte dette spørsmålet (summerer til 100 %).
-                </p>
-                {entries.length === 0 ? (
-                  <p className="mt-3 text-sm text-neutral-500">Ingen valgsvar registrert.</p>
-                ) : null}
-                {entries.length > 0 ? (
-                  <div className="mt-4 space-y-3">
-                    {entries
-                      .sort((x, y) => y[1] - x[1])
-                      .map(([k, v]) => <AnalyseBar key={k} label={k} valuePct={(v / total) * 100} />)}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          )
-        })
-      )}
-    </div>
-  )
-}
 
 export function SurveyDetailView({ supabase }: Props) {
   const { surveyId } = useParams<{ surveyId: string }>()
@@ -1271,7 +914,13 @@ export function SurveyDetailView({ supabase }: Props) {
           {survey.error ? <WarningBox>{survey.error}</WarningBox> : null}
 
           {tab === 'oversikt' && (
-            <OversiktTab key={s.id} survey={survey} s={s} onOpenAmuTab={() => setTab('amu')} isOrgAdmin={isOrgAdmin} />
+            <OversiktTab
+              key={`${s.id}:${s.updated_at}`}
+              survey={survey}
+              s={s}
+              onOpenAmuTab={() => setTab('amu')}
+              isOrgAdmin={isOrgAdmin}
+            />
           )}
 
           {tab === 'bygger' && survey.canManage && s.status === 'draft' && !isLocked ? (
@@ -1308,7 +957,7 @@ export function SurveyDetailView({ supabase }: Props) {
 
           {tab === 'svar' && <SvarTab survey={survey} s={s} nameByUserId={nameByUserId} />}
 
-          {tab === 'analyse' && <AnalyseTab survey={survey} s={s} />}
+          {tab === 'analyse' && <SurveyAnalyseTab survey={survey} s={s} supabase={supabase} />}
 
           {tab === 'amu' && <SurveyAmuTab survey={survey} s={s} />}
 

@@ -11,6 +11,8 @@ export type QuestionAnalyticsBucket = {
   matrixRowChoiceCounts: Record<string, Record<string, number>> | null
   /** Rangering: element → plassering (1,2,…) → antall */
   rankingPositionCounts: Record<string, Record<string, number>> | null
+  /** Gjennomsnittlig plass per element (lavere = viktigere) */
+  rankingAverageByItem: Record<string, number> | null
 }
 
 function bumpNested(
@@ -38,6 +40,7 @@ export function buildAnalyticsByQuestionId(
       choiceCounts: {},
       matrixRowChoiceCounts: q.question_type === 'matrix' ? {} : null,
       rankingPositionCounts: q.question_type === 'ranking' ? {} : null,
+      rankingAverageByItem: q.question_type === 'ranking' ? {} : null,
     }
   }
   const qById = new Map(questions.map((q) => [q.id, q]))
@@ -127,5 +130,22 @@ export function buildAnalyticsByQuestionId(
       bucket.choiceCounts[k] = (bucket.choiceCounts[k] ?? 0) + 1
     }
   }
+
+  for (const q of questions) {
+    const b = byQ[q.id]
+    if (!b || b.type !== 'ranking' || !b.rankingPositionCounts || !b.rankingAverageByItem) continue
+    for (const [item, posMap] of Object.entries(b.rankingPositionCounts)) {
+      let sum = 0
+      let w = 0
+      for (const [posStr, cnt] of Object.entries(posMap)) {
+        const pos = Number(posStr)
+        if (!Number.isFinite(pos) || cnt <= 0) continue
+        sum += pos * cnt
+        w += cnt
+      }
+      if (w > 0) b.rankingAverageByItem[item] = sum / w
+    }
+  }
+
   return byQ
 }
