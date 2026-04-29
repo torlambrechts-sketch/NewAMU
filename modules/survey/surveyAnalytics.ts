@@ -1,29 +1,34 @@
 import type { OrgSurveyAnswerRow, OrgSurveyQuestionRow, SurveyQuestionType } from './types'
+import { parseMatrixRankingJson } from './surveyRespondValidation'
+
+export type QuestionAnalyticsBucket = {
+  type: SurveyQuestionType
+  label: string
+  numbers: number[]
+  textCount: number
+  choiceCounts: Record<string, number>
+  /** Matrise: rad → valgt kolonne → antall svar */
+  matrixRowChoiceCounts: Record<string, Record<string, number>> | null
+  /** Rangering: element → plassering (1,2,…) → antall */
+  rankingPositionCounts: Record<string, Record<string, number>> | null
+}
+
+function bumpNested(
+  outer: Record<string, Record<string, number>>,
+  key1: string,
+  key2: string,
+): void {
+  if (!outer[key1]) outer[key1] = {}
+  const inner = outer[key1]!
+  inner[key2] = (inner[key2] ?? 0) + 1
+}
 
 /** Aggregate answers by question type — extended types fall back to text/choice patterns where applicable */
 export function buildAnalyticsByQuestionId(
   questions: OrgSurveyQuestionRow[],
   answers: OrgSurveyAnswerRow[],
-): Record<
-  string,
-  {
-    type: SurveyQuestionType
-    label: string
-    numbers: number[]
-    textCount: number
-    choiceCounts: Record<string, number>
-  }
-> {
-  const byQ: Record<
-    string,
-    {
-      type: SurveyQuestionType
-      label: string
-      numbers: number[]
-      textCount: number
-      choiceCounts: Record<string, number>
-    }
-  > = {}
+): Record<string, QuestionAnalyticsBucket> {
+  const byQ: Record<string, QuestionAnalyticsBucket> = {}
   for (const q of questions) {
     byQ[q.id] = {
       type: q.question_type,
@@ -31,11 +36,48 @@ export function buildAnalyticsByQuestionId(
       numbers: [],
       textCount: 0,
       choiceCounts: {},
+      matrixRowChoiceCounts: q.question_type === 'matrix' ? {} : null,
+      rankingPositionCounts: q.question_type === 'ranking' ? {} : null,
     }
   }
+  const qById = new Map(questions.map((q) => [q.id, q]))
   for (const a of answers) {
     const bucket = byQ[a.question_id]
     if (!bucket) continue
+    const qDef = qById.get(a.question_id)
+
+    if (bucket.type === 'matrix' && a.answer_text?.trim()) {
+      const o = parseMatrixRankingJson(a.answer_text)
+      if (o && Object.keys(o).length > 0) {
+        bucket.textCount += 1
+        const cfg = qDef?.config as { rows?: string[] } | undefined
+        const rows = Array.isArray(cfg?.rows) ? cfg.rows : Object.keys(o)
+        for (const row of rows) {
+          const col = o[row]
+          if (typeof col === 'string' && col.trim()) {
+            if (bucket.matrixRowChoiceCounts) bumpNested(bucket.matrixRowChoiceCounts, row, col.trim())
+          }
+        }
+      }
+      continue
+    }
+
+    if (bucket.type === 'ranking' && a.answer_text?.trim()) {
+      const o = parseMatrixRankingJson(a.answer_text)
+      if (o && Object.keys(o).length > 0) {
+        bucket.textCount += 1
+        const cfg = qDef?.config as { items?: string[] } | undefined
+        const items = Array.isArray(cfg?.items) ? cfg.items : Object.keys(o)
+        for (const it of items) {
+          const pos = o[it]
+          if (pos != null && String(pos).trim() !== '') {
+            if (bucket.rankingPositionCounts) bumpNested(bucket.rankingPositionCounts, it, String(pos).trim())
+          }
+        }
+      }
+      continue
+    }
+
     if (
       (bucket.type === 'rating_1_to_5' ||
         bucket.type === 'rating_1_to_10' ||
@@ -67,9 +109,7 @@ export function buildAnalyticsByQuestionId(
         bucket.type === 'email' ||
         bucket.type === 'datetime' ||
         bucket.type === 'signature' ||
-        bucket.type === 'file_upload' ||
-        bucket.type === 'matrix' ||
-        bucket.type === 'ranking') &&
+        bucket.type === 'file_upload') &&
       a.answer_text &&
       a.answer_text.trim()
     ) {

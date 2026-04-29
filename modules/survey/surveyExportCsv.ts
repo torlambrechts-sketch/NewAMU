@@ -45,6 +45,32 @@ export function buildSurveyAnalyticsCsv(params: {
       const avg = n > 0 ? nums.reduce((x, y) => x + y, 0) / n : 0
       metric = n > 0 ? `Snitt ${avg.toFixed(2)} (n=${n})` : 'Ingen tall'
       note = 'Gjennomsnitt av numeriske svar.'
+    } else if (q.question_type === 'number') {
+      const nums = a?.numbers ?? []
+      const n = nums.length
+      const avg = n > 0 ? nums.reduce((x, y) => x + y, 0) / n : 0
+      metric = n > 0 ? `Snitt ${avg.toFixed(2)} (n=${n})` : 'Ingen tall'
+      note = 'Gjennomsnitt av numeriske svar.'
+    } else if (q.question_type === 'matrix') {
+      const rowCounts = a?.matrixRowChoiceCounts ?? {}
+      const parts: string[] = []
+      for (const [row, cols] of Object.entries(rowCounts)) {
+        const total = Object.values(cols).reduce((s, v) => s + v, 0) || 1
+        const top = Object.entries(cols).sort((x, y) => y[1] - x[1])[0]
+        if (top) parts.push(`${row}: mest "${top[0]}" (${Math.round((top[1] / total) * 100)}%)`)
+      }
+      metric = parts.length ? parts.slice(0, 6).join(' · ') : 'Ingen matrisesvar'
+      note = 'Per rad: hyppigste kolonne (aggregert).'
+    } else if (q.question_type === 'ranking') {
+      const rankCounts = a?.rankingPositionCounts ?? {}
+      const parts: string[] = []
+      for (const [item, posMap] of Object.entries(rankCounts)) {
+        const total = Object.values(posMap).reduce((s, v) => s + v, 0) || 1
+        const topPos = Object.entries(posMap).sort((x, y) => y[1] - x[1])[0]
+        if (topPos) parts.push(`${item}: oftest plass ${topPos[0]} (${Math.round((topPos[1] / total) * 100)}%)`)
+      }
+      metric = parts.length ? parts.slice(0, 6).join(' · ') : 'Ingen rangering'
+      note = 'Per element: vanligste rangering (aggregert).'
     } else if (
       q.question_type === 'multiple_choice' ||
       q.question_type === 'yes_no' ||

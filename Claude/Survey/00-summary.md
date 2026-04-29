@@ -1,6 +1,6 @@
 # Survey-modul — oppsummering og implementasjonskø
 
-**Sist oppdatert:** 2026-04-30
+**Sist oppdatert:** 2026-05-01
 
 **Sti (main):** `Claude/Survey/` — med **stor S** (Linux skiller store og små bokstaver).
 
@@ -26,34 +26,40 @@
 | 10 | **Prioritet 1 (del)** · **R1+R19** — `reorderQuestions` / `reorderSections` bruker parallelle oppdateringer (Promise.all) | `modules/survey/useSurvey.ts` |
 | 11 | **Prioritet 1 (del)** · **C2 + C8** — AMU-signatur via RPC (`survey_amu_review_sign_as_*`), navn fra `profiles`, kolonner `*_signed_by`; trigger låser protokoll etter første signatur | `20260802120014_*`, `types`, `useSurvey`, `SurveyAmuTab` |
 
+| 12 | **R17** · Matrise og rangering i **Analyse** — aggregerte bar-diagram per rad/element; CSV med korte oppsummeringer | `surveyAnalytics.ts`, `surveyExportCsv.ts`, `SurveyDetailView.tsx`, `surveyRespondValidation.ts` |
+
 ---
 
 ## Kø — neste anbefalte steg (samkjørt med review v2)
 
 Prioritet 1 — **Kritisk korrekthet og analyse**
 
-1. **R17** · Utvid `surveyAnalytics` og analyse-UI for matrise/rangering (aggregerte visninger — ikke bare «tekst»).
-2. **R1** · Fortsett å splitte `useSurvey` i mindre moduler / hooks der det gir vedlikeholdsgevinst.
+1. **R1** · Split `useSurvey` i mindre moduler eller dedikerte hooks (`useSurveyQuestions`, `useSurveyDistribution`, …) der det gir gevinst — filen er fortsatt stor.
 
 Prioritet 2 — **Etterlevelse og distribusjon**
 
-3. **C1 + R5** · Erstatt nøkkelord-deteksjon AML § 4-3 med mal-flagg; én sannhetskilde.
-4. **C3** · k-anonymitet håndhevet serverside (view/RPC).
-5. **C6** · Dedupe anonyme svar (token / constraint).
-6. **C10** · Skjul AMU/Tiltak-faner for eksterne/leverandørundersøkelser.
-7. **C4** · Full vendor-token-håndheving i flyten.
+2. **C1 + R5** · Erstatt nøkkelord-deteksjon AML § 4-3 (`SurveyPage`, mal-import) med eksplisitt mal-flagg / databasefelt på spørsmål — én sannhetskilde.
+3. **C3** · k-anonymitet håndhevet serverside (view eller RPC som filtrerer før klient).
+4. **C6** · Dedupe anonyme svar (token mot `org_survey_responses` eller unik constraint der mulig).
+5. **C10** · Skjul AMU- og Tiltak-faner for eksterne/leverandørundersøkelser (`SurveyDetailView` `buildTabs`).
+6. **C4** · Full vendor-token-håndheving i invitasjons-/svarflyt (Edge + RLS).
 
-Prioritet 3 — **Personvern og drift (tidligere «egen» kø)**
+Prioritet 3 — **Personvern og drift**
 
-8. **Filopplasting → Supabase Storage** — ikke base64 i DB.
-9. **Malbibliotek / `orgQuestionToCatalogQuestion`** — bedre støtte alle typer ved eksport/import.
-10. **Signatur** · Valgfri tegnflate (canvas).
+7. **Filopplasting → Supabase Storage** — ikke base64 i `org_survey_answers`.
+8. **Malbibliotek / `orgQuestionToCatalogQuestion`** — full støtte alle spørsmålstyper ved eksport/import.
+9. **Signatur** · Valgfri tegnflate (canvas) i tillegg til dagens tekst/RPC-flyt.
 
 Prioritet 4 — **Flyt, UX, STEP_10**
 
-11. **Ekte forgreining** utover `showIf` (hopp/spor — delvis dekket av visuell betinget visning).
-12. **Cron** · Verifiser `scheduled_initial_send_at` og påminnelser i prod.
-13. Kjør sjekkliste `Claude/Survey/STEP_10_REVIEW.md` (rå HTML, engelske strenger).
+10. **Ekte forgreining** utover `showIf` (spor/hopp mellom spørsmål — planlegg datamodell).
+11. **Cron** · Verifiser `scheduled_initial_send_at` og påminnelser i produksjon.
+12. Kjør sjekkliste `Claude/Survey/STEP_10_REVIEW.md` (rå HTML, engelske strenger).
+
+### Valgfritt / senere
+
+- **R17-forbedring** · Gjennomsnittsrang eller «gjennomsnittlig plass» som ekstra tall for rangering.
+- **Matrise** · Heatmap eller tabellvisning (CSV utvidet med alle celler, ikke bare topp).
 
 ---
 

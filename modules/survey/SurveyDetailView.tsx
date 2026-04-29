@@ -144,11 +144,14 @@ function TabEmpty({ message, footer }: { message: string; footer?: ReactNode }) 
   )
 }
 
-function AnalyseBar({ label, valuePct }: { label: string; valuePct: number }) {
+function AnalyseBar({ label, valuePct, sublabel }: { label: string; valuePct: number; sublabel?: string }) {
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs text-neutral-600">
-        <span className="min-w-0 truncate pr-2">{label}</span>
+        <span className="min-w-0 pr-2">
+          <span className="block truncate font-medium text-neutral-800">{label}</span>
+          {sublabel ? <span className="mt-0.5 block truncate text-[11px] font-normal text-neutral-500">{sublabel}</span> : null}
+        </span>
         <span className="shrink-0 font-medium text-neutral-800">{Math.round(valuePct)}%</span>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-100">
@@ -643,6 +646,8 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
             q.question_type === 'multi_select' ||
             q.question_type === 'dropdown' ||
             q.question_type === 'image_choice'
+          const isMatrix = q.question_type === 'matrix'
+          const isRanking = q.question_type === 'ranking'
           const isTextLike =
             q.question_type === 'text' ||
             q.question_type === 'long_text' ||
@@ -650,10 +655,7 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
             q.question_type === 'email' ||
             q.question_type === 'datetime' ||
             q.question_type === 'signature' ||
-            q.question_type === 'file_upload' ||
-            q.question_type === 'matrix' ||
-            q.question_type === 'ranking'
-
+            q.question_type === 'file_upload'
           const n = isNumeric
             ? a?.numbers.length ?? 0
             : isChoice
@@ -661,7 +663,9 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
                   (sum, v) => sum + (typeof v === 'number' ? v : 0),
                   0,
                 )
-              : 0
+              : isMatrix || isRanking
+                ? a?.textCount ?? 0
+                : 0
 
           const prev = orderedQuestions[qi - 1]
           const showSection =
@@ -675,6 +679,103 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
                 {sectionTitleById[q.section_id] ?? 'Seksjon'}
               </h3>
             ) : null
+
+          if (isMatrix && n >= threshold) {
+            const cfg = q.config as { rows?: string[]; columns?: string[] } | undefined
+            const rows = Array.isArray(cfg?.rows) ? cfg.rows : Object.keys(a?.matrixRowChoiceCounts ?? {})
+            const columns =
+              Array.isArray(cfg?.columns) && cfg.columns.length > 0
+                ? cfg.columns
+                : (() => {
+                    const set = new Set<string>()
+                    for (const inner of Object.values(a?.matrixRowChoiceCounts ?? {})) {
+                      for (const k of Object.keys(inner)) set.add(k)
+                    }
+                    return [...set].sort()
+                  })()
+            return (
+              <div key={q.id}>
+                {sectionHeader}
+                <div className="rounded-lg border border-neutral-200/90 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
+                  <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Matrise · per rad vises andelen som valgte hver kolonne · n={n} besvarelser
+                  </p>
+                  {rows.length === 0 ? (
+                    <p className="mt-3 text-sm text-neutral-500">Ingen rader definert eller ingen svar.</p>
+                  ) : (
+                    <div className="mt-4 space-y-6">
+                      {rows.map((rowLabel) => {
+                        const counts = a?.matrixRowChoiceCounts?.[rowLabel] ?? {}
+                        const rowTotal = Object.values(counts).reduce((s, v) => s + v, 0) || 1
+                        return (
+                          <div key={rowLabel}>
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-600">{rowLabel}</p>
+                            <div className="space-y-3">
+                              {columns.map((col) => {
+                                const cnt = counts[col] ?? 0
+                                return (
+                                  <AnalyseBar
+                                    key={`${rowLabel}-${col}`}
+                                    label={col}
+                                    valuePct={(cnt / rowTotal) * 100}
+                                  />
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          }
+
+          if (isRanking && n >= threshold) {
+            const cfg = q.config as { items?: string[] } | undefined
+            const items = Array.isArray(cfg?.items) ? cfg.items : Object.keys(a?.rankingPositionCounts ?? {})
+            return (
+              <div key={q.id}>
+                {sectionHeader}
+                <div className="rounded-lg border border-neutral-200/90 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
+                  <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Rangering · for hvert element: fordeling av plassering (1 = øverst) · n={n} besvarelser
+                  </p>
+                  {items.length === 0 ? (
+                    <p className="mt-3 text-sm text-neutral-500">Ingen elementer eller ingen svar.</p>
+                  ) : (
+                    <div className="mt-4 space-y-6">
+                      {items.map((itemLabel) => {
+                        const counts = a?.rankingPositionCounts?.[itemLabel] ?? {}
+                        const itemTotal = Object.values(counts).reduce((s, v) => s + v, 0) || 1
+                        const positions = Object.keys(counts).sort((x, y) => Number(x) - Number(y))
+                        return (
+                          <div key={itemLabel}>
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-600">{itemLabel}</p>
+                            <div className="space-y-3">
+                              {positions.map((pos) => {
+                                const cnt = counts[pos] ?? 0
+                                return (
+                                  <AnalyseBar
+                                    key={`${itemLabel}-${pos}`}
+                                    label={`Plass ${pos}`}
+                                    valuePct={(cnt / itemTotal) * 100}
+                                  />
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          }
 
           if (isTextLike) {
             const c = a?.textCount ?? 0

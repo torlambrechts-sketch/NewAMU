@@ -1,6 +1,7 @@
 import type { OrgSurveyQuestionRow } from './types'
 
-function parseMatrixRankingJson(text: string | null | undefined): Record<string, string> | null {
+/** Brukes også av analyse (matrise / rangering). */
+export function parseMatrixRankingJson(text: string | null | undefined): Record<string, string> | null {
   if (!text?.trim()) return null
   try {
     const o = JSON.parse(text) as unknown
