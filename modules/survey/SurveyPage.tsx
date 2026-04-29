@@ -60,6 +60,7 @@ export function SurveyPage({ supabase }: Props) {
   const [vendorName, setVendorName] = useState('')
   const [vendorOrgNumber, setVendorOrgNumber] = useState('')
   const [selectedTemplate, setSelectedTemplate] = useState('')
+  const [purpose, setPurpose] = useState('')
   const [creating, setCreating] = useState(false)
 
   const templateOptions = useMemo(() => {
@@ -126,6 +127,7 @@ export function SurveyPage({ supabase }: Props) {
     setVendorName('')
     setVendorOrgNumber('')
     setSelectedTemplate('')
+    setPurpose('')
     setPanelOpen(true)
   }, [])
 
@@ -145,6 +147,7 @@ export function SurveyPage({ supabase }: Props) {
       end_date: endDate || null,
       vendor_name: vendorName.trim() || null,
       vendor_org_number: vendorOrgNumber.trim() || null,
+      survey_purpose: purpose.trim() || null,
     })
 
     if (!row) {
@@ -186,7 +189,7 @@ export function SurveyPage({ supabase }: Props) {
     setCreating(false)
     closePanel()
     navigate(`/survey/${row.id}`)
-  }, [title, description, isAnonymous, surveyType, startDate, endDate, vendorName, vendorOrgNumber, selectedTemplate, survey, closePanel, navigate])
+  }, [title, description, isAnonymous, surveyType, startDate, endDate, vendorName, vendorOrgNumber, purpose, selectedTemplate, survey, closePanel, navigate])
 
   const handleUseTemplate = useCallback(
     (templateId: string) => {
@@ -401,6 +404,23 @@ export function SurveyPage({ supabase }: Props) {
               value={surveyType}
               options={SURVEY_TYPE_OPTIONS}
               onChange={(v) => setSurveyType(v as SurveyType)}
+            />
+          </div>
+
+          <div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sv-purpose-create">
+              Formål med undersøkelsen
+            </label>
+            <p className="mb-1 text-xs text-neutral-500">
+              Beskriv kort hva dere vil måle — systemet foreslår deretter relevante spørsmål i byggeren (for eksempel
+              «psykososial», «AML», «leverandør»).
+            </p>
+            <StandardTextarea
+              id="sv-purpose-create"
+              value={purpose}
+              onChange={(e) => setPurpose(e.target.value)}
+              rows={2}
+              placeholder="F.eks. Kartlegge trivsel og belastning før AMU"
             />
           </div>
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ArrowLeft, EyeOff, Ghost, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Download, EyeOff, Ghost, Save, Trash2 } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
@@ -43,6 +43,8 @@ import { SurveyDistribusjonTab } from './tabs/SurveyDistribusjonTab'
 import { SurveyTiltakTab } from './tabs/SurveyTiltakTab'
 import { SURVEY_DETAIL_EXTRA_LEGAL_REFERENCES, SURVEY_MODULE_LEGAL_REFERENCES } from './surveyLegalReferences'
 import { orgQuestionToCatalogQuestion } from './surveyTemplateCatalogHelpers'
+import { suggestionsForSurveyPurpose, type PurposeSuggestion } from './surveyPurposeSuggestions'
+import { buildSurveyAnalyticsCsv } from './surveyExportCsv'
 import type { OrgSurveyQuestionRow, SurveyAmuReviewRow, SurveyQuestionType, SurveyRow } from './types'
 
 function mergeQuestionConfig(
@@ -56,13 +58,50 @@ function mergeQuestionConfig(
       extra = parsed as Record<string, unknown>
     }
   } catch {
-    return { config: baseConfig, error: 'Ugyldig JSON i logikk/validering.' }
+    return { config: baseConfig, error: 'Ugyldig JSON i teknisk konfigurasjon.' }
   }
   const cfg = { ...baseConfig, ...extra }
   return { config: cfg, error: null }
 }
 
+/** Fjerner felter som lagres i sidens JSON-sløyfe (showIf, logic_jump, validation_rules). */
+function configForQuestionForm(base: Record<string, unknown>): Record<string, unknown> {
+  const c = { ...base }
+  delete c.showIf
+  delete c.logic_jump
+  delete c.validation_rules
+  return c
+}
+
+function extraJsonFromStoredQuestionConfig(cfg: Record<string, unknown> | undefined): string {
+  if (!cfg || typeof cfg !== 'object') return '{}'
+  const o: Record<string, unknown> = {}
+  if (cfg.showIf != null) o.showIf = cfg.showIf
+  if (cfg.logic_jump != null) o.logic_jump = cfg.logic_jump
+  if (cfg.validation_rules != null) o.validation_rules = cfg.validation_rules
+  try {
+    return JSON.stringify(o, null, 2)
+  } catch {
+    return '{}'
+  }
+}
+
 type DetailTab = 'oversikt' | 'bygger' | 'distribusjon' | 'svar' | 'analyse' | 'amu' | 'tiltak'
+
+function surveyWorkflowSteps(params: {
+  status: SurveyRow['status']
+  responseCount: number
+}) {
+  const { status, responseCount } = params
+  const published = status === 'active' || status === 'closed' || status === 'archived'
+  return [
+    { id: 'draft', label: 'Kladd og spørsmål', done: published },
+    { id: 'pub', label: 'Publisert / åpen', done: published },
+    { id: 'resp', label: 'Mottar svar', done: responseCount > 0 },
+    { id: 'anl', label: 'Analyse', done: responseCount > 0 },
+    { id: 'closed', label: 'Lukket', done: status === 'closed' || status === 'archived' },
+  ]
+}
 
 function buildTabs(
   responseCount: number,
@@ -135,14 +174,25 @@ function OversiktTab({
   survey,
   s,
   onOpenAmuTab,
+  isOrgAdmin,
 }: {
   survey: UseSurveyState
   s: SurveyRow
   onOpenAmuTab: () => void
+  isOrgAdmin: boolean
 }) {
   const [titleEdit, setTitleEdit] = useState(s.title)
   const [descEdit, setDescEdit] = useState(s.description ?? '')
+  const [purposeEdit, setPurposeEdit] = useState(s.survey_purpose ?? '')
+  const [amuSummaryEdit, setAmuSummaryEdit] = useState(s.survey_amu_summary ?? '')
   const [savingMeta, setSavingMeta] = useState(false)
+
+  useEffect(() => {
+    setTitleEdit(s.title)
+    setDescEdit(s.description ?? '')
+    setPurposeEdit(s.survey_purpose ?? '')
+    setAmuSummaryEdit(s.survey_amu_summary ?? '')
+  }, [s.id, s.title, s.description, s.survey_purpose, s.survey_amu_summary])
 
   const amuGate = useMemo(() => {
     if (s.survey_type !== 'internal' || !s.amu_review_required) return null
@@ -154,10 +204,32 @@ function OversiktTab({
   const saveMetadata = useCallback(async () => {
     if (!titleEdit.trim()) return
     setSavingMeta(true)
-    const ok = await survey.updateSurvey(s.id, { title: titleEdit.trim(), description: descEdit.trim() || null })
+    const ok = await survey.updateSurvey(s.id, {
+      title: titleEdit.trim(),
+      description: descEdit.trim() || null,
+      survey_purpose: purposeEdit.trim() || null,
+      survey_amu_summary: amuSummaryEdit.trim() || null,
+    })
     setSavingMeta(false)
     if (ok) void survey.loadSurveyDetail(s.id)
-  }, [s.id, titleEdit, descEdit, survey])
+  }, [s.id, titleEdit, descEdit, purposeEdit, amuSummaryEdit, survey])
+
+  const amuBriefingText = useMemo(() => {
+    const lines: string[] = []
+    lines.push(`Undersøkelse: ${s.title}`)
+    if (purposeEdit.trim()) lines.push(`Formål: ${purposeEdit.trim()}`)
+    if (amuSummaryEdit.trim()) lines.push(`Oppsummering til AMU: ${amuSummaryEdit.trim()}`)
+    lines.push('')
+    lines.push('Status i portalen:')
+    for (const step of amuComplianceSteps(s, survey.amuReview)) {
+      lines.push(`${step.ok ? '✓' : '○'} ${step.label}`)
+    }
+    lines.push('')
+    lines.push(
+      'Personvern: presenter kun aggregerte tall for AMU. Ikke del enkeltvise fritekstsvar uten egen vurdering.',
+    )
+    return lines.join('\n')
+  }, [s, survey.amuReview, purposeEdit, amuSummaryEdit])
 
   return (
     <div className="space-y-6">
@@ -190,6 +262,38 @@ function OversiktTab({
                 value={descEdit}
                 onChange={(e) => setDescEdit(e.target.value)}
                 rows={4}
+                disabled={!survey.canManage || s.status === 'closed'}
+              />
+            </div>
+            <div>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sv-purpose">
+                Formål med undersøkelsen
+              </label>
+              <p className="text-xs text-neutral-500">
+                Skriv kort hva dere vil finne ut av — brukes til forslag når dere legger til spørsmål i byggeren (for
+                eksempel «psykososialt klima», «AML», «leverandør»).
+              </p>
+              <StandardTextarea
+                id="sv-purpose"
+                value={purposeEdit}
+                onChange={(e) => setPurposeEdit(e.target.value)}
+                rows={2}
+                disabled={!survey.canManage || s.status === 'closed'}
+                placeholder="F.eks. Kartlegge trivsel og belastning før årsrapport til AMU"
+              />
+            </div>
+            <div>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="sv-amu-sum">
+                Kort tekst til AMU / årsrapport (valgfritt)
+              </label>
+              <p className="text-xs text-neutral-500">
+                Kan limes inn som innledning når dere presenter tall — ikke personidentifiserende.
+              </p>
+              <StandardTextarea
+                id="sv-amu-sum"
+                value={amuSummaryEdit}
+                onChange={(e) => setAmuSummaryEdit(e.target.value)}
+                rows={3}
                 disabled={!survey.canManage || s.status === 'closed'}
               />
             </div>
@@ -249,8 +353,31 @@ function OversiktTab({
               <Button type="button" variant="secondary" size="sm" onClick={onOpenAmuTab}>
                 Gå til AMU-gjennomgang
               </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  void navigator.clipboard.writeText(amuBriefingText)
+                }}
+              >
+                Kopier AMU-utkast til utklippstavlen
+              </Button>
             </div>
-          ) : null}
+          ) : (
+            <div className="mt-4">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  void navigator.clipboard.writeText(amuBriefingText)
+                }}
+              >
+                Kopier AMU-utkast til utklippstavlen
+              </Button>
+            </div>
+          )}
         </ModuleSectionCard>
       ) : s.survey_type === 'internal' && !s.amu_review_required ? (
         <InfoBox>
@@ -266,18 +393,34 @@ function OversiktTab({
             Når du publiserer, låses spørsmålene. Svar kan samles inn mens undersøkelsen er aktiv.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button type="button" variant="primary" onClick={() => void survey.publishSurvey(s.id)}>
-              Publiser
-            </Button>
             <Button
               type="button"
-              variant="secondary"
+              variant="primary"
               onClick={() => {
-                void survey.dispatchOnSurveyPublished(s.id)
+                if (
+                  typeof window !== 'undefined' &&
+                  !window.confirm(
+                    'Vil du publisere undersøkelsen? Spørsmålene låses og kan ikke endres etterpå.',
+                  )
+                ) {
+                  return
+                }
+                void survey.publishSurvey(s.id)
               }}
             >
-              Kjør arbeidsflyt (publisert)
+              Publiser
             </Button>
+            {isOrgAdmin ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  void survey.dispatchOnSurveyPublished(s.id)
+                }}
+              >
+                Kjør arbeidsflyt (publisert)
+              </Button>
+            ) : null}
           </div>
         </ModuleSectionCard>
       ) : null}
@@ -287,18 +430,34 @@ function OversiktTab({
           <p className="text-sm font-medium text-amber-950">Lukk undersøkelsen</p>
           <p className="mt-1 text-sm text-amber-900/80">Lukk når innsamlingen er ferdig. Nye svar stoppes.</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" onClick={() => void survey.closeSurvey(s.id)}>
-              Lukk undersøkelse
-            </Button>
             <Button
               type="button"
-              variant="ghost"
+              variant="secondary"
               onClick={() => {
-                void survey.dispatchOnSurveyClosed(s.id)
+                if (
+                  typeof window !== 'undefined' &&
+                  !window.confirm(
+                    'Vil du lukke undersøkelsen? Ingen nye svar kan sendes inn etter lukking.',
+                  )
+                ) {
+                  return
+                }
+                void survey.closeSurvey(s.id)
               }}
             >
-              Kjør arbeidsflyt (lukket)
+              Lukk undersøkelse
             </Button>
+            {isOrgAdmin ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  void survey.dispatchOnSurveyClosed(s.id)
+                }}
+              >
+                Kjør arbeidsflyt (lukket)
+              </Button>
+            ) : null}
           </div>
         </ModuleSectionCard>
       ) : null}
@@ -406,6 +565,29 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
     [survey.questions, survey.answers],
   )
 
+  const csvBlobUrl = useMemo(() => {
+    if (survey.questions.length === 0) return null
+    const csv = buildSurveyAnalyticsCsv({
+      survey: s,
+      questions: survey.questions,
+      answers: survey.answers,
+      sections: survey.surveySections,
+    })
+    const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' })
+    return URL.createObjectURL(blob)
+  }, [s, survey.questions, survey.answers, survey.surveySections])
+
+  useEffect(() => {
+    return () => {
+      if (csvBlobUrl) URL.revokeObjectURL(csvBlobUrl)
+    }
+  }, [csvBlobUrl])
+
+  const exportFileName = useMemo(() => {
+    const safe = s.title.replace(/[^\wæøåÆØÅ\- ]+/g, '').trim().slice(0, 60) || 'undersokelse'
+    return `analyse-${safe}.csv`
+  }, [s.title])
+
   const orderedQuestions = useMemo(() => {
     const order = globalQuestionIdOrder(survey.questions, s.id, survey.surveySections)
     const m = new Map(survey.questions.map((q) => [q.id, q]))
@@ -420,10 +602,24 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
 
   return (
     <div className="w-full space-y-6">
-      <InfoBox>
-        Resultater vises kun for spørsmål med {threshold} eller flere svar. Fritekst svar vises aldri i klartekst
-        (særlige kategorier, GDPR). Grupper under terskelen vises som skjult.
-      </InfoBox>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <InfoBox>
+            Resultater vises kun for spørsmål med minst {threshold} svar (personvern, k-anonymitet). Fritekst vises
+            aldri ordrett. Under terskelen vises «Skjult».
+          </InfoBox>
+        </div>
+        {csvBlobUrl ? (
+          <a
+            href={csvBlobUrl}
+            download={exportFileName}
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-800 shadow-sm hover:bg-neutral-50"
+          >
+            <Download className="h-4 w-4" aria-hidden />
+            Last ned CSV (aggregater)
+          </a>
+        ) : null}
+      </div>
 
       {survey.questions.length === 0 ? (
         <TabEmpty message="Ingen spørsmål å analysere. Legg til spørsmål i byggeren." />
@@ -437,7 +633,9 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
             q.question_type === 'rating_1_to_10' ||
             q.question_type === 'nps' ||
             q.question_type === 'rating_visual' ||
-            q.question_type === 'likert_scale'
+            q.question_type === 'likert_scale' ||
+            q.question_type === 'slider' ||
+            q.question_type === 'number'
           const isChoice =
             q.question_type === 'multiple_choice' ||
             q.question_type === 'yes_no' ||
@@ -450,8 +648,6 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
             q.question_type === 'long_text' ||
             q.question_type === 'short_text' ||
             q.question_type === 'email' ||
-            q.question_type === 'number' ||
-            q.question_type === 'slider' ||
             q.question_type === 'datetime' ||
             q.question_type === 'signature' ||
             q.question_type === 'file_upload' ||
@@ -514,7 +710,14 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
           }
 
           if (isNumeric) {
-            const cfg = q.config as { scaleMin?: number; scaleMax?: number } | undefined
+            const cfg = q.config as {
+              scaleMin?: number
+              scaleMax?: number
+              rangeStart?: number
+              rangeEnd?: number
+              minValue?: number
+              maxValue?: number
+            } | undefined
             let smin = cfg?.scaleMin ?? 1
             let smax = cfg?.scaleMax ?? 5
             if (q.question_type === 'nps' || q.question_type === 'rating_1_to_10') {
@@ -523,9 +726,12 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
             } else if (q.question_type === 'rating_1_to_5' || q.question_type === 'likert_scale') {
               smin = cfg?.scaleMin ?? 1
               smax = cfg?.scaleMax ?? 5
-            } else if (q.question_type === 'rating_visual') {
-              smin = 1
-              smax = typeof cfg?.scaleMax === 'number' ? cfg.scaleMax : 5
+            } else if (q.question_type === 'slider') {
+              smin = typeof cfg?.rangeStart === 'number' ? cfg.rangeStart : 0
+              smax = typeof cfg?.rangeEnd === 'number' ? cfg.rangeEnd : 100
+            } else if (q.question_type === 'number') {
+              smin = typeof cfg?.minValue === 'number' ? cfg.minValue : 0
+              smax = typeof cfg?.maxValue === 'number' ? cfg.maxValue : 100
             }
             const span = Math.max(1, smax - smin)
             const avg = n > 0 && a ? a.numbers.reduce((x: number, y: number) => x + y, 0) / n : 0
@@ -535,7 +741,7 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
                 <div className="rounded-lg border border-neutral-200/90 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
                   <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
                   <p className="mt-1 text-xs text-neutral-500">
-                    Gjennomsnitt {n > 0 ? `${avg.toFixed(2)} (n=${n})` : '—'}
+                    Gjennomsnitt av tall • skala {smin}–{smax} • {n > 0 ? `n=${n}` : 'ingen svar'}
                   </p>
                   {n === 0 ? (
                     <p className="mt-3 text-sm text-neutral-500">Ingen numeriske svar for dette spørsmålet.</p>
@@ -560,7 +766,9 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
               {sectionHeader}
               <div className="rounded-lg border border-neutral-200/90 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
                 <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
-                <p className="mt-1 text-xs text-neutral-500">Valg · andel av svar</p>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Andel av alle som besvarte dette spørsmålet (summerer til 100 %).
+                </p>
                 {entries.length === 0 ? (
                   <p className="mt-3 text-sm text-neutral-500">Ingen valgsvar registrert.</p>
                 ) : null}
@@ -583,7 +791,8 @@ function AnalyseTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
 export function SurveyDetailView({ supabase }: Props) {
   const { surveyId } = useParams<{ surveyId: string }>()
   const navigate = useNavigate()
-  const { organization } = useOrgSetupContext()
+  const { organization, profile } = useOrgSetupContext()
+  const isOrgAdmin = profile?.is_org_admin === true
   const orgId = organization?.id
   const survey = useSurvey({ supabase })
   const [tab, setTab] = useState<DetailTab>('oversikt')
@@ -697,28 +906,21 @@ export function SurveyDetailView({ supabase }: Props) {
 
   const openEditQuestion = useCallback((q: OrgSurveyQuestionRow) => {
     setEditingQ(q)
+    const rawCfg =
+      q.config && typeof q.config === 'object' && !Array.isArray(q.config)
+        ? { ...(q.config as Record<string, unknown>) }
+        : {}
     setQuestionDraft({
       questionText: q.question_text,
       questionType: q.question_type,
       orderIndex: q.order_index,
       isRequired: q.is_required,
       sectionId: q.section_id ?? null,
-      config:
-        q.config && typeof q.config === 'object' && !Array.isArray(q.config)
-          ? { ...(q.config as Record<string, unknown>) }
-          : {},
+      config: configForQuestionForm(rawCfg),
     })
     const opts = (q.config as { options?: string[] } | undefined)?.options
     setQOptionsLines(Array.isArray(opts) ? opts.join('\n') : '')
-    const cfg = q.config && typeof q.config === 'object' && !Array.isArray(q.config) ? { ...(q.config as object) } : {}
-    const logicJump = 'logic_jump' in cfg ? { logic_jump: (cfg as { logic_jump?: unknown }).logic_jump } : {}
-    const valRules =
-      'validation_rules' in cfg ? { validation_rules: (cfg as { validation_rules?: unknown }).validation_rules } : {}
-    try {
-      setQConfigExtraJson(JSON.stringify({ ...logicJump, ...valRules }, null, 2))
-    } catch {
-      setQConfigExtraJson('{}')
-    }
+    setQConfigExtraJson(extraJsonFromStoredQuestionConfig(rawCfg))
     setPanelOpen(true)
   }, [])
 
@@ -730,7 +932,7 @@ export function SurveyDetailView({ supabase }: Props) {
 
   const saveQuestion = useCallback(async () => {
     if (!s || !surveyId || !questionDraft.questionText.trim()) return
-    let baseConfig = { ...questionDraft.config }
+    let baseConfig = configForQuestionForm({ ...questionDraft.config })
     const needsOpts = (
       ['multiple_choice', 'single_select', 'multi_select', 'dropdown'] as SurveyQuestionType[]
     ).includes(questionDraft.questionType)
@@ -801,6 +1003,41 @@ export function SurveyDetailView({ supabase }: Props) {
     if (row) navigate(`/survey/templates/org/${row.id}`)
   }, [s, surveyId, survey, navigate])
 
+  const purposeSuggestions = useMemo(
+    () =>
+      suggestionsForSurveyPurpose(
+        survey.selectedSurvey?.survey_purpose ?? null,
+        survey.selectedSurvey?.survey_type ?? 'internal',
+      ),
+    [survey.selectedSurvey?.survey_purpose, survey.selectedSurvey?.survey_type],
+  )
+
+  const conditionQuestionOptions = useMemo(() => {
+    if (!surveyId) return []
+    const order = globalQuestionIdOrder(survey.questions, surveyId, survey.surveySections)
+    const m = new Map(survey.questions.map((q) => [q.id, q]))
+    return order
+      .map((id) => m.get(id))
+      .filter((q): q is OrgSurveyQuestionRow => q != null)
+      .map((q) => ({ id: q.id, label: q.question_text || 'Uten tittel' }))
+  }, [survey.questions, survey.surveySections, surveyId])
+
+  const applyPurposeSuggestion = useCallback((p: PurposeSuggestion) => {
+    const payload = defaultQuestionPayload(p.questionType)
+    setQuestionDraft((d) => ({
+      ...d,
+      questionText: p.questionText,
+      questionType: p.questionType,
+      config: payload.config,
+    }))
+    if (['multiple_choice', 'single_select', 'multi_select', 'dropdown'].includes(p.questionType)) {
+      const opts = (payload.config as { options?: string[] }).options
+      setQOptionsLines(Array.isArray(opts) ? opts.join('\n') : '')
+    } else {
+      setQOptionsLines('')
+    }
+  }, [])
+
   const isLocked = !!(s && (s.status === 'active' || s.status === 'closed'))
   const panelTitleId = 'survey-question-panel-title'
 
@@ -864,6 +1101,30 @@ export function SurveyDetailView({ supabase }: Props) {
             {s.is_anonymous ? <Badge variant="info">Anonym</Badge> : <Badge variant="neutral">Identifisert</Badge>}
           </div>
 
+          <div className="rounded-xl border border-neutral-200/90 bg-[#faf9f6] p-4">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">Fremdrift</p>
+            <ol className="mt-3 flex flex-wrap gap-2">
+              {surveyWorkflowSteps({
+                status: s.status,
+                responseCount: survey.responses.length,
+              }).map((st, i, arr) => (
+                <li key={st.id} className="flex items-center gap-2 text-xs text-neutral-700">
+                  <span
+                    className={[
+                      'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold',
+                      st.done ? 'bg-emerald-600 text-white' : 'border border-neutral-300 bg-white text-neutral-500',
+                    ].join(' ')}
+                    aria-hidden
+                  >
+                    {st.done ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
+                  </span>
+                  <span className={st.done ? 'font-medium text-neutral-900' : ''}>{st.label}</span>
+                  {i < arr.length - 1 ? <span className="text-neutral-300" aria-hidden>→</span> : null}
+                </li>
+              ))}
+            </ol>
+          </div>
+
           <ModuleLegalBanner
             title="Regelverk for denne undersøkelsen"
             intro={
@@ -879,7 +1140,7 @@ export function SurveyDetailView({ supabase }: Props) {
           {survey.error ? <WarningBox>{survey.error}</WarningBox> : null}
 
           {tab === 'oversikt' && (
-            <OversiktTab key={s.id} survey={survey} s={s} onOpenAmuTab={() => setTab('amu')} />
+            <OversiktTab key={s.id} survey={survey} s={s} onOpenAmuTab={() => setTab('amu')} isOrgAdmin={isOrgAdmin} />
           )}
 
           {tab === 'bygger' && survey.canManage && s.status === 'draft' && !isLocked ? (
@@ -958,6 +1219,11 @@ export function SurveyDetailView({ supabase }: Props) {
             onOptionsLinesChange={setQOptionsLines}
             configJson={qConfigExtraJson}
             onConfigJsonChange={setQConfigExtraJson}
+            purposeSuggestions={purposeSuggestions}
+            onApplySuggestion={applyPurposeSuggestion}
+            conditionQuestionOptions={conditionQuestionOptions}
+            currentQuestionId={editingQ?.id ?? null}
+            showAdvancedJson={isOrgAdmin}
           />
 
           {editingQ && survey.canManage && !editingQ.is_mandatory ? (

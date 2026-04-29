@@ -46,12 +46,25 @@ export function buildAnalyticsByQuestionId(
     ) {
       bucket.numbers.push(Number(a.answer_value))
     } else if (
+      bucket.type === 'slider' &&
+      a.answer_value != null &&
+      Number.isFinite(Number(a.answer_value))
+    ) {
+      bucket.numbers.push(Number(a.answer_value))
+    } else if (bucket.type === 'slider' && a.answer_text?.trim()) {
+      const sn = Number(a.answer_text.trim())
+      if (!Number.isNaN(sn)) bucket.numbers.push(sn)
+    } else if (
+      bucket.type === 'number' &&
+      a.answer_value != null &&
+      Number.isFinite(Number(a.answer_value))
+    ) {
+      bucket.numbers.push(Number(a.answer_value))
+    } else if (
       (bucket.type === 'text' ||
         bucket.type === 'long_text' ||
         bucket.type === 'short_text' ||
         bucket.type === 'email' ||
-        bucket.type === 'number' ||
-        bucket.type === 'slider' ||
         bucket.type === 'datetime' ||
         bucket.type === 'signature' ||
         bucket.type === 'file_upload' ||

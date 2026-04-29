@@ -1,6 +1,6 @@
 # Survey-modul — oppsummering og implementasjonskø
 
-**Sist oppdatert:** 2026-04-29
+**Sist oppdatert:** 2026-04-30
 
 **Sti (main):** `Claude/Survey/` — med **stor S** (Linux skiller store og små bokstaver).
 
@@ -18,6 +18,10 @@
 | 2 | **Bygger — kolonne «Lovkrav»** for obligatoriske spørsmål (`mandatory_law`, f.eks. AML § 4-3) i seksjonstabellen | `modules/survey/SurveySectionBuilder.tsx` |
 | 3 | **Liste — GDPR-banner** (`ComplianceBanner`) under regelverksbanner på modulens hovedside | `modules/survey/SurveyPage.tsx` |
 | 4 | **Database:** kolonne `audience_location_ids` m.fl. — migrasjon `supabase/migrations/20260802120012_survey_distributions_columns_repair.sql` | drift |
+| 5 | **Formål + AMU-oppsummering** på undersøkelsen (`survey_purpose`, `survey_amu_summary`), ny undersøkelse + Oversikt | `20260802120013_*`, `types`, `useSurvey`, `SurveyDetailView`, `SurveyPage` |
+| 6 | **Bygger — spørsmålsveiviser** — typekort, forslag fra formål, betinget visning uten JSON, avansert JSON kun org-admin | `SurveyQuestionFormFields`, `SurveyQuestionConditionEditor`, `surveyPurposeSuggestions` |
+| 7 | **Analyse** — CSV-eksport, forklaring på andeler, numerikk for slider/tall | `surveyExportCsv`, `surveyAnalytics`, `SurveyDetailView` |
+| 8 | **Fremdrift + bekreftelser** — stripe øverst, dialog ved publiser/lukk, workflow-knapper kun admin | `SurveyDetailView` |
 
 ---
 
@@ -25,7 +29,7 @@
 
 Prioritet 1 — **Kritisk korrekthet og analyse**
 
-1. **R17** · Utvid `surveyAnalytics` til alle 22 spørsmålstyper.
+1. **R17** · Utvid `surveyAnalytics` ytterligere (matrise/rangering som egne visualiseringer — tall telles i dag).
 2. **R1 + R19** · Del opp `useSurvey`; batch `reorderSections` og `reorderQuestions`.
 3. **C2** · AMU-signatur koblet til `auth.uid()` (ikke fritekst-navn alene).
 4. **C8** · RLS: blokker protokoll etter første signatur.
@@ -47,7 +51,7 @@ Prioritet 3 — **Personvern og drift (tidligere «egen» kø)**
 
 Prioritet 4 — **Flyt, UX, STEP_10**
 
-14. **Ekte forgreining** utover `showIf`.
+14. **Ekte forgreining** utover `showIf` (hopp/spor — delvis dekket av visuell betinget visning).
 15. **Cron** · Verifiser `scheduled_initial_send_at` og påminnelser i prod.
 16. Kjør sjekkliste `Claude/Survey/STEP_10_REVIEW.md` (rå HTML, engelske strenger).
 
@@ -58,6 +62,7 @@ Prioritet 4 — **Flyt, UX, STEP_10**
 | Problem | Tiltak |
 |---------|--------|
 | `Could not find column 'audience_location_ids'` | Kjør migrasjoner (`supabase db push` eller bruk `20260802120012_*`). |
+| `Could not find column 'survey_purpose'` | Kjør migrasjon `20260802120013_survey_purpose_and_amu_summary.sql` / `supabase db push`. |
 | PostgREST schema cache | `select pg_notify('pgrst', 'reload schema');` eller restart API. |
 
 ---

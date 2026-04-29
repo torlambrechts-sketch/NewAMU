@@ -66,6 +66,7 @@ type CreateSurveyInput = {
   end_date?: string | null
   vendor_name?: string | null
   vendor_org_number?: string | null
+  survey_purpose?: string | null
 }
 
 type UpsertQuestionInput = {
@@ -102,7 +103,27 @@ export type UseSurveyState = {
   loadActiveSurveyForRespondent: (surveyId: string) => Promise<void>
   setSelectedSurveyId: (id: string | null) => void
   createSurvey: (input: CreateSurveyInput) => Promise<SurveyRow | null>
-  updateSurvey: (surveyId: string, patch: Partial<Pick<SurveyRow, 'title' | 'description' | 'is_anonymous' | 'status' | 'published_at' | 'closed_at'>>) => Promise<boolean>
+  updateSurvey: (
+    surveyId: string,
+    patch: Partial<
+      Pick<
+        SurveyRow,
+        | 'title'
+        | 'description'
+        | 'is_anonymous'
+        | 'status'
+        | 'published_at'
+        | 'closed_at'
+        | 'survey_type'
+        | 'start_date'
+        | 'end_date'
+        | 'vendor_name'
+        | 'vendor_org_number'
+        | 'survey_purpose'
+        | 'survey_amu_summary'
+      >
+    >,
+  ) => Promise<boolean>
   publishSurvey: (surveyId: string) => Promise<void>
   closeSurvey: (surveyId: string) => Promise<void>
   upsertQuestion: (input: UpsertQuestionInput) => Promise<OrgSurveyQuestionRow | null>
@@ -618,6 +639,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
             end_date: input.end_date ?? null,
             vendor_name: input.vendor_name ?? null,
             vendor_org_number: input.vendor_org_number ?? null,
+            survey_purpose: input.survey_purpose?.trim() || null,
           })
           .select()
           .single()
@@ -635,7 +657,27 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
   )
 
   const updateSurvey = useCallback(
-    async (surveyId: string, patch: Partial<Pick<SurveyRow, 'title' | 'description' | 'is_anonymous' | 'status' | 'published_at' | 'closed_at' | 'survey_type' | 'start_date' | 'end_date' | 'vendor_name' | 'vendor_org_number'>>) => {
+    async (
+      surveyId: string,
+      patch: Partial<
+        Pick<
+          SurveyRow,
+          | 'title'
+          | 'description'
+          | 'is_anonymous'
+          | 'status'
+          | 'published_at'
+          | 'closed_at'
+          | 'survey_type'
+          | 'start_date'
+          | 'end_date'
+          | 'vendor_name'
+          | 'vendor_org_number'
+          | 'survey_purpose'
+          | 'survey_amu_summary'
+        >
+      >,
+    ) => {
       if (!supabase) return false
       if (!requireManage()) return false
       const oid = assertOrg()

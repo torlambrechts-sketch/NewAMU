@@ -91,6 +91,10 @@ export type SurveyRow = {
   next_scheduled_at: string | null
   created_at: string
   updated_at: string
+  /** Hvorfor undersøkelsen kjøres — styrer forslag i byggeren */
+  survey_purpose: string | null
+  /** Kort oppsummering til AMU / rapport (valgfritt) */
+  survey_amu_summary: string | null
 }
 
 export const SurveyRowSchema = z.object({
@@ -114,13 +118,19 @@ export const SurveyRowSchema = z.object({
   next_scheduled_at: z.string().nullable().default(null),
   created_at: z.string(),
   updated_at: z.string(),
-})
+  survey_purpose: z.string().nullable().optional(),
+  survey_amu_summary: z.string().nullable().optional(),
+}).transform((row) => ({
+  ...row,
+  survey_purpose: row.survey_purpose ?? null,
+  survey_amu_summary: row.survey_amu_summary ?? null,
+}))
 
 export function parseSurveyRow(
   raw: unknown,
 ): { success: true; data: SurveyRow } | { success: false } {
   const r = SurveyRowSchema.safeParse(raw)
-  if (r.success) return { success: true, data: r.data }
+  if (r.success) return { success: true, data: r.data as SurveyRow }
   return { success: false }
 }
 
