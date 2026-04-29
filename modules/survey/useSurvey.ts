@@ -172,8 +172,8 @@ export type UseSurveyState = {
     surveyId: string,
     patch: Partial<Pick<SurveyAmuReviewRow, 'meeting_date' | 'agenda_item' | 'protocol_text'>>,
   ) => Promise<SurveyAmuReviewRow | null>
-  signAmuChair: (reviewId: string, name: string) => Promise<boolean>
-  signVo: (reviewId: string, name: string) => Promise<boolean>
+  signAmuChair: (reviewId: string) => Promise<boolean>
+  signVo: (reviewId: string) => Promise<boolean>
   loadActionPlans: (surveyId: string) => Promise<void>
   upsertActionPlan: (input: {
     id?: string
@@ -521,10 +521,13 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           if (aErr) throw aErr
           setAnswers(collect(aData, parseOrgSurveyAnswerRow))
         }
-        await loadAmuReview(surveyId)
-        await loadActionPlans(surveyId)
-        await loadDistributions(surveyId)
-        await loadInvitations(surveyId)
+
+        await Promise.all([
+          loadAmuReview(surveyId),
+          loadActionPlans(surveyId),
+          loadDistributions(surveyId),
+          loadInvitations(surveyId),
+        ])
         void maybeDispatchSurveyResponseThreshold(surveyId)
       } catch (err) {
         setError(getSupabaseErrorMessage(err))
@@ -839,14 +842,17 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
       }
       setError(null)
       try {
-        for (let i = 0; i < orderedQuestionIds.length; i++) {
-          const { error: e } = await supabase
+        const updates = orderedQuestionIds.map((id, i) =>
+          supabase
             .from('org_survey_questions')
             .update({ order_index: i })
-            .eq('id', orderedQuestionIds[i]!)
+            .eq('id', id)
             .eq('survey_id', surveyId)
-            .eq('organization_id', oid)
-          if (e) throw e
+            .eq('organization_id', oid),
+        )
+        const results = await Promise.all(updates.map((q) => q))
+        for (const res of results) {
+          if (res.error) throw res.error
         }
         setQuestions((prev) => {
           const pos = new Map(orderedQuestionIds.map((id, idx) => [id, idx]))
@@ -1056,14 +1062,17 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
       }
       setError(null)
       try {
-        for (let i = 0; i < orderedSectionIds.length; i++) {
-          const { error: e } = await supabase
+        const updates = orderedSectionIds.map((id, i) =>
+          supabase
             .from('survey_sections')
             .update({ order_index: i })
-            .eq('id', orderedSectionIds[i]!)
+            .eq('id', id)
             .eq('survey_id', surveyId)
-            .eq('organization_id', oid)
-          if (e) throw e
+            .eq('organization_id', oid),
+        )
+        const results = await Promise.all(updates.map((q) => q))
+        for (const res of results) {
+          if (res.error) throw res.error
         }
         setSurveySections((prev) => {
           const pos = new Map(orderedSectionIds.map((id, idx) => [id, idx]))
@@ -1227,24 +1236,18 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
   )
 
   const signAmuChair = useCallback(
-    async (reviewId: string, name: string): Promise<boolean> => {
+    async (reviewId: string): Promise<boolean> => {
       if (!supabase) return false
       const oid = assertOrg()
       if (!oid) return false
       setError(null)
       try {
-        const { data, error: e } = await supabase
-          .from('survey_amu_reviews')
-          .update({
-            amu_chair_name: name.trim(),
-            amu_chair_signed_at: new Date().toISOString(),
-          })
-          .eq('id', reviewId)
-          .eq('organization_id', oid)
-          .select()
-          .single()
+        const { data, error: e } = await supabase.rpc('survey_amu_review_sign_as_chair', {
+          p_review_id: reviewId,
+        })
         if (e) throw e
-        const p = parseSurveyAmuReviewRow(data)
+        const raw = Array.isArray(data) ? data[0] : data
+        const p = parseSurveyAmuReviewRow(raw)
         if (p.success) setAmuReview(p.data)
         return true
       } catch (err) {
@@ -1256,24 +1259,18 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
   )
 
   const signVo = useCallback(
-    async (reviewId: string, name: string): Promise<boolean> => {
+    async (reviewId: string): Promise<boolean> => {
       if (!supabase) return false
       const oid = assertOrg()
       if (!oid) return false
       setError(null)
       try {
-        const { data, error: e } = await supabase
-          .from('survey_amu_reviews')
-          .update({
-            vo_name: name.trim(),
-            vo_signed_at: new Date().toISOString(),
-          })
-          .eq('id', reviewId)
-          .eq('organization_id', oid)
-          .select()
-          .single()
+        const { data, error: e } = await supabase.rpc('survey_amu_review_sign_as_vo', {
+          p_review_id: reviewId,
+        })
         if (e) throw e
-        const p = parseSurveyAmuReviewRow(data)
+        const raw = Array.isArray(data) ? data[0] : data
+        const p = parseSurveyAmuReviewRow(raw)
         if (p.success) setAmuReview(p.data)
         return true
       } catch (err) {

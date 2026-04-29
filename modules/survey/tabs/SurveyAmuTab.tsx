@@ -6,6 +6,7 @@ import { StandardInput } from '../../../src/components/ui/Input'
 import { StandardTextarea } from '../../../src/components/ui/Textarea'
 import { Badge } from '../../../src/components/ui/Badge'
 import { InfoBox, WarningBox } from '../../../src/components/ui/AlertBox'
+import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
@@ -13,12 +14,12 @@ import {
 import type { SurveyDetailTab } from './types'
 
 export function SurveyAmuTab({ survey, s }: SurveyDetailTab) {
+  const { profile } = useOrgSetupContext()
+  const displayName = profile?.display_name?.trim() || profile?.email || 'Din bruker'
   const review = survey.amuReview
   const [meetingDate, setMeetingDate] = useState(review?.meeting_date ?? '')
   const [agendaItem, setAgendaItem] = useState(review?.agenda_item ?? '')
   const [protocol, setProtocol] = useState(review?.protocol_text ?? '')
-  const [chairName, setChairName] = useState('')
-  const [voName, setVoName] = useState('')
   const [saving, setSaving] = useState(false)
   const [signingChair, setSigningChair] = useState(false)
   const [signingVo, setSigningVo] = useState(false)
@@ -54,23 +55,21 @@ export function SurveyAmuTab({ survey, s }: SurveyDetailTab) {
     }
   }
 
-  const handleSignChair = async (name: string) => {
-    if (!review?.id || !name.trim()) return
+  const handleSignChair = async () => {
+    if (!review?.id) return
     setSigningChair(true)
     try {
-      await survey.signAmuChair(review.id, name)
-      setChairName('')
+      await survey.signAmuChair(review.id)
     } finally {
       setSigningChair(false)
     }
   }
 
-  const handleSignVo = async (name: string) => {
-    if (!review?.id || !name.trim()) return
+  const handleSignVo = async () => {
+    if (!review?.id) return
     setSigningVo(true)
     try {
-      await survey.signVo(review.id, name)
-      setVoName('')
+      await survey.signVo(review.id)
     } finally {
       setSigningVo(false)
     }
@@ -79,8 +78,8 @@ export function SurveyAmuTab({ survey, s }: SurveyDetailTab) {
   return (
     <div className="space-y-6">
       <InfoBox>
-        Protokoll signeres av AMU-leder og vernombud når undersøkelsen er ferdigstilt for AMU — se regelverksoversikten
-        øverst på siden.
+        Protokoll signeres med innlogget bruker (teksten hentes fra din profil). Etter første signatur kan ikke
+        protokolltekst endres — kontakt administrator ved feil.
       </InfoBox>
 
       {survey.error && <WarningBox>{survey.error}</WarningBox>}
@@ -189,23 +188,15 @@ export function SurveyAmuTab({ survey, s }: SurveyDetailTab) {
               </div>
             ) : (
               <div className="mt-3 space-y-3">
-                <div>
-                  <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="chair-name">
-                    Ditt fulle navn
-                  </label>
-                  <StandardInput
-                    id="chair-name"
-                    value={chairName}
-                    onChange={(e) => setChairName(e.target.value)}
-                    placeholder="Navn Navnesen"
-                    disabled={!survey.canManage}
-                  />
-                </div>
+                <p className="text-sm text-neutral-700">
+                  Du signerer som <span className="font-medium">{displayName}</span>. Navnet lagres fra organisasjonens
+                  brukerprofil.
+                </p>
                 <Button
                   type="button"
                   variant="primary"
-                  disabled={!survey.canManage || signingChair || !chairName.trim()}
-                  onClick={() => void handleSignChair(chairName)}
+                  disabled={!survey.canManage || signingChair}
+                  onClick={() => void handleSignChair()}
                 >
                   {signingChair ? 'Signerer…' : 'Signer som AMU-leder'}
                 </Button>
@@ -230,23 +221,14 @@ export function SurveyAmuTab({ survey, s }: SurveyDetailTab) {
               </div>
             ) : (
               <div className="mt-3 space-y-3">
-                <div>
-                  <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="vo-name">
-                    Ditt fulle navn
-                  </label>
-                  <StandardInput
-                    id="vo-name"
-                    value={voName}
-                    onChange={(e) => setVoName(e.target.value)}
-                    placeholder="Navn Navnesen"
-                    disabled={!survey.canManage}
-                  />
-                </div>
+                <p className="text-sm text-neutral-700">
+                  Du signerer som <span className="font-medium">{displayName}</span>.
+                </p>
                 <Button
                   type="button"
                   variant="primary"
-                  disabled={!survey.canManage || signingVo || !voName.trim()}
-                  onClick={() => void handleSignVo(voName)}
+                  disabled={!survey.canManage || signingVo}
+                  onClick={() => void handleSignVo()}
                 >
                   {signingVo ? 'Signerer…' : 'Signer som vernombud'}
                 </Button>

@@ -22,6 +22,9 @@
 | 6 | **Bygger — spørsmålsveiviser** — typekort, forslag fra formål, betinget visning uten JSON, avansert JSON kun org-admin | `SurveyQuestionFormFields`, `SurveyQuestionConditionEditor`, `surveyPurposeSuggestions` |
 | 7 | **Analyse** — CSV-eksport, forklaring på andeler, numerikk for slider/tall | `surveyExportCsv`, `surveyAnalytics`, `SurveyDetailView` |
 | 8 | **Fremdrift + bekreftelser** — stripe øverst, dialog ved publiser/lukk, workflow-knapper kun admin | `SurveyDetailView` |
+| 9 | **Prioritet 1 (del)** · **R20** — `loadSurveyDetail`: AMU, tiltak, distribusjoner og invitasjoner lastes parallelt etter kjernedata | `modules/survey/useSurvey.ts` |
+| 10 | **Prioritet 1 (del)** · **R1+R19** — `reorderQuestions` / `reorderSections` bruker parallelle oppdateringer (Promise.all) | `modules/survey/useSurvey.ts` |
+| 11 | **Prioritet 1 (del)** · **C2 + C8** — AMU-signatur via RPC (`survey_amu_review_sign_as_*`), navn fra `profiles`, kolonner `*_signed_by`; trigger låser protokoll etter første signatur | `20260802120014_*`, `types`, `useSurvey`, `SurveyAmuTab` |
 
 ---
 
@@ -29,31 +32,28 @@
 
 Prioritet 1 — **Kritisk korrekthet og analyse**
 
-1. **R17** · Utvid `surveyAnalytics` ytterligere (matrise/rangering som egne visualiseringer — tall telles i dag).
-2. **R1 + R19** · Del opp `useSurvey`; batch `reorderSections` og `reorderQuestions`.
-3. **C2** · AMU-signatur koblet til `auth.uid()` (ikke fritekst-navn alene).
-4. **C8** · RLS: blokker protokoll etter første signatur.
-5. **R20** · `loadSurveyDetail`: last `surveySections` og distribusjoner (parallelt der mulig).
+1. **R17** · Utvid `surveyAnalytics` og analyse-UI for matrise/rangering (aggregerte visninger — ikke bare «tekst»).
+2. **R1** · Fortsett å splitte `useSurvey` i mindre moduler / hooks der det gir vedlikeholdsgevinst.
 
 Prioritet 2 — **Etterlevelse og distribusjon**
 
-6. **C1 + R5** · Erstatt nøkkelord-deteksjon AML § 4-3 med mal-flagg; én sannhetskilde.
-7. **C3** · k-anonymitet håndhevet serverside (view/RPC).
-8. **C6** · Dedupe anonyme svar (token / constraint).
-9. **C10** · Skjul AMU/Tiltak-faner for eksterne/leverandørundersøkelser.
-10. **C4** · Full vendor-token-håndheving i flyten.
+3. **C1 + R5** · Erstatt nøkkelord-deteksjon AML § 4-3 med mal-flagg; én sannhetskilde.
+4. **C3** · k-anonymitet håndhevet serverside (view/RPC).
+5. **C6** · Dedupe anonyme svar (token / constraint).
+6. **C10** · Skjul AMU/Tiltak-faner for eksterne/leverandørundersøkelser.
+7. **C4** · Full vendor-token-håndheving i flyten.
 
 Prioritet 3 — **Personvern og drift (tidligere «egen» kø)**
 
-11. **Filopplasting → Supabase Storage** — ikke base64 i DB.
-12. **Malbibliotek / `orgQuestionToCatalogQuestion`** — bedre støtte alle typer ved eksport/import.
-13. **Signatur** · Valgfri tegnflate (canvas).
+8. **Filopplasting → Supabase Storage** — ikke base64 i DB.
+9. **Malbibliotek / `orgQuestionToCatalogQuestion`** — bedre støtte alle typer ved eksport/import.
+10. **Signatur** · Valgfri tegnflate (canvas).
 
 Prioritet 4 — **Flyt, UX, STEP_10**
 
-14. **Ekte forgreining** utover `showIf` (hopp/spor — delvis dekket av visuell betinget visning).
-15. **Cron** · Verifiser `scheduled_initial_send_at` og påminnelser i prod.
-16. Kjør sjekkliste `Claude/Survey/STEP_10_REVIEW.md` (rå HTML, engelske strenger).
+11. **Ekte forgreining** utover `showIf` (hopp/spor — delvis dekket av visuell betinget visning).
+12. **Cron** · Verifiser `scheduled_initial_send_at` og påminnelser i prod.
+13. Kjør sjekkliste `Claude/Survey/STEP_10_REVIEW.md` (rå HTML, engelske strenger).
 
 ---
 
@@ -63,6 +63,8 @@ Prioritet 4 — **Flyt, UX, STEP_10**
 |---------|--------|
 | `Could not find column 'audience_location_ids'` | Kjør migrasjoner (`supabase db push` eller bruk `20260802120012_*`). |
 | `Could not find column 'survey_purpose'` | Kjør migrasjon `20260802120013_survey_purpose_and_amu_summary.sql` / `supabase db push`. |
+| `Could not find function survey_amu_review_sign_as_chair` | Kjør migrasjon `20260802120014_survey_amu_sign_identity_and_protocol_lock.sql` / `supabase db push`. |
+| `Could not find column 'amu_chair_signed_by'` | Kjør migrasjon `20260802120014_survey_amu_sign_identity_and_protocol_lock.sql` / `supabase db push`. |
 | PostgREST schema cache | `select pg_notify('pgrst', 'reload schema');` eller restart API. |
 
 ---

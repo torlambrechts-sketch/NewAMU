@@ -306,6 +306,8 @@ export type SurveyAmuReviewRow = {
   amu_chair_signed_at: string | null
   vo_name: string | null
   vo_signed_at: string | null
+  amu_chair_signed_by: string | null
+  vo_signed_by: string | null
   created_at: string
   updated_at: string
   created_by: string | null
@@ -322,16 +324,22 @@ export const SurveyAmuReviewRowSchema = z.object({
   amu_chair_signed_at: z.string().nullable(),
   vo_name: z.string().nullable(),
   vo_signed_at: z.string().nullable(),
+  amu_chair_signed_by: z.string().uuid().nullable().optional(),
+  vo_signed_by: z.string().uuid().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
   created_by: z.string().uuid().nullable(),
-})
+}).transform((row) => ({
+  ...row,
+  amu_chair_signed_by: row.amu_chair_signed_by ?? null,
+  vo_signed_by: row.vo_signed_by ?? null,
+}))
 
 export function parseSurveyAmuReviewRow(
   raw: unknown,
 ): { success: true; data: SurveyAmuReviewRow } | { success: false } {
   const r = SurveyAmuReviewRowSchema.safeParse(raw)
-  if (r.success) return { success: true, data: r.data }
+  if (r.success) return { success: true, data: r.data as SurveyAmuReviewRow }
   return { success: false }
 }
 
