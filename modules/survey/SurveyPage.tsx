@@ -31,17 +31,11 @@ import { SurveyKampanjerTab } from './tabs/SurveyKampanjerTab'
 import { SurveyMalerTab } from './tabs/SurveyMalerTab'
 import { SurveyLeverandorerTab } from './tabs/SurveyLeverandorerTab'
 import { SURVEY_MODULE_LEGAL_REFERENCES } from './surveyLegalReferences'
+import { mandatoryFromCatalogQuestion } from './surveyMandatoryLaw'
 
 type Props = { supabase: SupabaseClient | null }
 
 type ModuleTab = 'oversikt' | 'kampanjer' | 'maler' | 'leverandorer'
-
-const AML_4_3_MANDATORY_KEYWORDS = ['trakassering', 'integritet', 'medvirkning', 'sikkerhet', 'psykososial'] as const
-
-function isMandatoryAml4_3(text: string): boolean {
-  const lower = text.toLowerCase()
-  return AML_4_3_MANDATORY_KEYWORDS.some((k) => lower.includes(k))
-}
 
 export function SurveyPage({ supabase }: Props) {
   const navigate = useNavigate()
@@ -168,15 +162,15 @@ export function SurveyPage({ supabase }: Props) {
                 : q.type === 'yes_no'
                   ? 'multiple_choice'
                   : 'text'
-            const mandatory = isMandatoryAml4_3(q.text)
+            const { isMandatory, mandatoryLaw } = mandatoryFromCatalogQuestion(q)
             await survey.upsertQuestion({
               surveyId: row.id,
               questionText: q.text,
               questionType: qType,
               orderIndex: i,
               isRequired: q.required,
-              isMandatory: mandatory,
-              mandatoryLaw: mandatory ? 'AML_4_3' : null,
+              isMandatory,
+              mandatoryLaw,
             })
           }
         } else {

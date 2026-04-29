@@ -1,6 +1,6 @@
 # Survey-modul — oppsummering og implementasjonskø
 
-**Sist oppdatert:** 2026-05-01
+**Sist oppdatert:** 2026-04-28
 
 **Sti (main):** `Claude/Survey/` — med **stor S** (Linux skiller store og små bokstaver).
 
@@ -28,21 +28,24 @@
 
 | 12 | **R17** · Matrise og rangering i **Analyse** — aggregerte bar-diagram per rad/element; CSV med korte oppsummeringer | `surveyAnalytics.ts`, `surveyExportCsv.ts`, `SurveyDetailView.tsx`, `surveyRespondValidation.ts` |
 
+| 13 | **C1 + R5** · Lovkrav fra mal uten nøkkelord — `mandatoryFromCatalogQuestion`, `SurveyPage` fallback ved legacy-mal, HMS-mal med `mandatory_law: AML_4_3` på kjernelikert-spørsmål | `surveyMandatoryLaw.ts`, `SurveyPage.tsx`, `surveyTemplates.ts`, `applyTemplateToSurvey` |
+
+| 14 | **R1 (del)** · Distribusjon og invitasjoner ut i `useSurveyDistribution`; ryddet ubrukte imports i `useSurvey` | `useSurveyDistribution.ts`, `useSurvey.ts` |
+
 ---
 
 ## Kø — neste anbefalte steg (samkjørt med review v2)
 
 Prioritet 1 — **Kritisk korrekthet og analyse**
 
-1. **R1** · Split `useSurvey` i mindre moduler eller dedikerte hooks (`useSurveyQuestions`, `useSurveyDistribution`, …) der det gir gevinst — filen er fortsatt stor.
+1. **R1** · Fortsett å splitte `useSurvey` (f.eks. `useSurveyQuestions`, AMU/tiltak) der det gir gevinst — filen er fortsatt stor.
 
 Prioritet 2 — **Etterlevelse og distribusjon**
 
-2. **C1 + R5** · Erstatt nøkkelord-deteksjon AML § 4-3 (`SurveyPage`, mal-import) med eksplisitt mal-flagg / databasefelt på spørsmål — én sannhetskilde.
-3. **C3** · k-anonymitet håndhevet serverside (view eller RPC som filtrerer før klient).
-4. **C6** · Dedupe anonyme svar (token mot `org_survey_responses` eller unik constraint der mulig).
-5. **C10** · Skjul AMU- og Tiltak-faner for eksterne/leverandørundersøkelser (`SurveyDetailView` `buildTabs`).
-6. **C4** · Full vendor-token-håndheving i invitasjons-/svarflyt (Edge + RLS).
+2. **C3** · k-anonymitet håndhevet serverside (view eller RPC som filtrerer før klient).
+3. **C6** · Dedupe anonyme svar (token mot `org_survey_responses` eller unik constraint der mulig).
+4. **C10** · Skjul AMU- og Tiltak-faner for eksterne/leverandørundersøkelser (`SurveyDetailView` `buildTabs`).
+5. **C4** · Full vendor-token-håndheving i invitasjons-/svarflyt (Edge + RLS).
 
 Prioritet 3 — **Personvern og drift**
 

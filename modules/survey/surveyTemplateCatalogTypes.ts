@@ -21,6 +21,9 @@ export const CatalogTemplateQuestionSchema = z.object({
   text: z.string(),
   type: CatalogQuestionTypeSchema,
   required: z.boolean().default(true),
+  /** Lovkrav — eksplisitt fra mal; erstatter tekstanalyse */
+  is_mandatory: z.boolean().optional(),
+  mandatory_law: z.enum(['AML_4_3', 'AML_4_4', 'AML_6_2']).optional(),
   subscale: z.string().optional(),
   anchors: z.object({ low: z.string(), high: z.string() }).optional(),
   options: z.array(z.string()).optional(),

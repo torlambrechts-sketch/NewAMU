@@ -14,11 +14,16 @@ export type TemplateQuestionType =
   | 'yes_no'     // Binary yes/no
   | 'text'       // Free-text open question
 
+export type MandatoryLawCode = 'AML_4_3' | 'AML_4_4' | 'AML_6_2'
+
 export type TemplateQuestion = {
   id: string
   text: string
   type: TemplateQuestionType
   required: boolean
+  /** Lovkrav fra mal — erstatter tekstanalyse ved import */
+  is_mandatory?: boolean
+  mandatory_law?: MandatoryLawCode
   /** Optional subscale grouping label */
   subscale?: string
   /** Scale anchor labels */
@@ -172,13 +177,69 @@ export const TEMPLATE_HMS_CLIMATE: SurveyTemplate = {
   category: 'safety',
   scoringNote: 'Skala 1–5. Gjennomsnitt under 3.5 på enkeltspørsmål bør prioriteres i handlingsplan. Resultater dokumenteres som del av årsgjennomgang (IK-f §5 nr. 5).',
   questions: [
-    { id: 'hc1', text: 'Ledelsen tar HMS-arbeid på alvor og prioriterer det aktivt.', type: 'likert_5', required: true, subscale: 'Ledelsesforpliktelse', anchors: { low: 'Svært uenig', high: 'Svært enig' } },
-    { id: 'hc2', text: 'Jeg vet hvem jeg skal kontakte hvis jeg observerer en sikkerhetsrisiko.', type: 'likert_5', required: true, subscale: 'Systemer og rutiner', anchors: { low: 'Svært uenig', high: 'Svært enig' } },
-    { id: 'hc3', text: 'Avvik og nestenulykker meldes alltid uten frykt for konsekvenser.', type: 'likert_5', required: true, subscale: 'Avvikskultur', anchors: { low: 'Svært uenig', high: 'Svært enig' } },
-    { id: 'hc4', text: 'Jeg har fått nødvendig HMS-opplæring for arbeidet jeg gjør.', type: 'likert_5', required: true, subscale: 'Opplæring', anchors: { low: 'Svært uenig', high: 'Svært enig' } },
-    { id: 'hc5', text: 'Verneombudet er synlig og lett tilgjengelig.', type: 'likert_5', required: true, subscale: 'Verneorganisasjon', anchors: { low: 'Svært uenig', high: 'Svært enig' } },
-    { id: 'hc6', text: 'Arbeidsmengden og tidspress skaper ikke uakseptable risikoer.', type: 'likert_5', required: true, subscale: 'Psykososialt', anchors: { low: 'Svært uenig', high: 'Svært enig' } },
-    { id: 'hc7', text: 'Utstyr og arbeidsplassen er i orden og trygg å bruke.', type: 'likert_5', required: true, subscale: 'Fysisk arbeidsmiljø', anchors: { low: 'Svært uenig', high: 'Svært enig' } },
+    {
+      id: 'hc1',
+      text: 'Ledelsen tar HMS-arbeid på alvor og prioriterer det aktivt.',
+      type: 'likert_5',
+      required: true,
+      mandatory_law: 'AML_4_3',
+      subscale: 'Ledelsesforpliktelse',
+      anchors: { low: 'Svært uenig', high: 'Svært enig' },
+    },
+    {
+      id: 'hc2',
+      text: 'Jeg vet hvem jeg skal kontakte hvis jeg observerer en sikkerhetsrisiko.',
+      type: 'likert_5',
+      required: true,
+      mandatory_law: 'AML_4_3',
+      subscale: 'Systemer og rutiner',
+      anchors: { low: 'Svært uenig', high: 'Svært enig' },
+    },
+    {
+      id: 'hc3',
+      text: 'Avvik og nestenulykker meldes alltid uten frykt for konsekvenser.',
+      type: 'likert_5',
+      required: true,
+      mandatory_law: 'AML_4_3',
+      subscale: 'Avvikskultur',
+      anchors: { low: 'Svært uenig', high: 'Svært enig' },
+    },
+    {
+      id: 'hc4',
+      text: 'Jeg har fått nødvendig HMS-opplæring for arbeidet jeg gjør.',
+      type: 'likert_5',
+      required: true,
+      mandatory_law: 'AML_4_3',
+      subscale: 'Opplæring',
+      anchors: { low: 'Svært uenig', high: 'Svært enig' },
+    },
+    {
+      id: 'hc5',
+      text: 'Verneombudet er synlig og lett tilgjengelig.',
+      type: 'likert_5',
+      required: true,
+      mandatory_law: 'AML_4_3',
+      subscale: 'Verneorganisasjon',
+      anchors: { low: 'Svært uenig', high: 'Svært enig' },
+    },
+    {
+      id: 'hc6',
+      text: 'Arbeidsmengden og tidspress skaper ikke uakseptable risikoer.',
+      type: 'likert_5',
+      required: true,
+      mandatory_law: 'AML_4_3',
+      subscale: 'Psykososialt',
+      anchors: { low: 'Svært uenig', high: 'Svært enig' },
+    },
+    {
+      id: 'hc7',
+      text: 'Utstyr og arbeidsplassen er i orden og trygg å bruke.',
+      type: 'likert_5',
+      required: true,
+      mandatory_law: 'AML_4_3',
+      subscale: 'Fysisk arbeidsmiljø',
+      anchors: { low: 'Svært uenig', high: 'Svært enig' },
+    },
     { id: 'hc8', text: 'Hva er det viktigste vi kan forbedre for å styrke HMS-kulturen?', type: 'text', required: false },
   ],
 }
