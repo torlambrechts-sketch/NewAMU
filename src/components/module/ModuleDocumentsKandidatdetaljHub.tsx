@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Archive, ChevronDown, ChevronRight, Eye, Folder, FolderPlus, Pencil, Plus, Search, Upload } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
@@ -6,6 +6,7 @@ import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { WikiPage, WikiSpace } from '../../types/documents'
 import { ModuleRecordsTableShell } from './ModuleRecordsTableShell'
 import { MODULE_TABLE_TD, MODULE_TABLE_TD_ACTION, MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from './moduleTableKit'
+import { BEIGE_NAV, WikiFolderNavRow, WIKI_FOLDER_ICON_CLASS } from './ModuleWikiFolderNavRow'
 import { ModuleSectionCard } from './ModuleSectionCard'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
@@ -36,12 +37,7 @@ import {
   type SpaceTreeNode,
 } from '../../lib/wikiSpaceTree'
 
-/** Beige nav — matches layout-reference `RefCandidateDetailPaneBlock`. */
-const BEIGE_NAV = '#EDE4D3'
-const FOREST = '#1a3d32'
 const SERIF = "'Libre Baskerville', Georgia, serif"
-
-const FOLDER_ICON_CLASS = 'size-3.5 shrink-0 text-neutral-500'
 
 const CATEGORY_LABELS: Record<WikiSpace['category'], string> = {
   hms_handbook: 'HMS-håndbok',
@@ -792,7 +788,7 @@ export function ModuleDocumentsKandidatdetaljHub({
             </div>
           </div>
           <nav className="max-h-[min(70vh,32rem)] overflow-y-auto p-2" aria-label="Dokumentmapper">
-            <NavFolderRow
+            <WikiFolderNavRow
               label={centerContent === 'templates' ? 'Alle malmapper' : 'Alle mapper'}
               sub={`${spacesForNavFiltered.length} aktive`}
               active={selectedSpaceId == null}
@@ -925,7 +921,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                         {selectedSpaceId == null ? (
                           <td className={`${MODULE_TABLE_TD} text-sm text-neutral-600`}>
                             <span className="inline-flex items-center gap-2">
-                              <Folder className={FOLDER_ICON_CLASS} aria-hidden />
+                              <Folder className={WIKI_FOLDER_ICON_CLASS} aria-hidden />
                               {space?.title ?? '—'}
                             </span>
                           </td>
@@ -937,7 +933,7 @@ export function ModuleDocumentsKandidatdetaljHub({
                             onClick={() => navigate(viewPath(page.id))}
                             disabled={busy}
                           >
-                            <Folder className={FOLDER_ICON_CLASS} aria-hidden />
+                            <Folder className={WIKI_FOLDER_ICON_CLASS} aria-hidden />
                             <span className="truncate font-medium">{page.title}</span>
                           </button>
                         </td>
@@ -1206,7 +1202,7 @@ function HubFolderTreeRows({
                 <span className="w-8 shrink-0" aria-hidden />
               )}
               <div className="min-w-0 flex-1">
-                <NavFolderRow
+                <WikiFolderNavRow
                   label={node.title}
                   sub={`${CATEGORY_LABELS[node.category]} · ${count} sider`}
                   active={selectedSpaceId === node.id}
@@ -1278,47 +1274,5 @@ function HubFolderTreeRows({
         )
       })}
     </>
-  )
-}
-
-function NavFolderRow({
-  label,
-  sub,
-  active,
-  highlightDrop,
-  onSelect,
-  onDragOver,
-  onDrop,
-  actions,
-}: {
-  label: string
-  sub: string
-  active: boolean
-  highlightDrop?: boolean
-  onSelect: () => void
-  onDragOver?: (e: DragEvent) => void
-  onDrop?: (e: DragEvent) => void
-  actions?: ReactNode
-}) {
-  return (
-    <div
-      className={`mb-0.5 flex w-full items-stretch gap-0.5 rounded-md transition ${
-        highlightDrop ? 'bg-emerald-50 ring-2 ring-[#1a3d32]/30' : active ? 'bg-white/70 text-neutral-900 shadow-sm' : 'text-neutral-600 hover:bg-white/40'
-      }`}
-      style={active && !highlightDrop ? { boxShadow: `inset 3px 0 0 ${FOREST}` } : undefined}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-    >
-      <button type="button" onClick={onSelect} className="min-w-0 flex-1 rounded-md px-3 py-2.5 text-left" aria-current={active ? 'true' : undefined}>
-        <span className="flex items-start gap-2">
-          <Folder className={`${FOLDER_ICON_CLASS} mt-0.5`} aria-hidden />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium">{label}</span>
-            <span className="mt-0.5 block truncate text-[11px] text-neutral-500">{sub}</span>
-          </span>
-        </span>
-      </button>
-      {actions ? <div className="flex shrink-0 flex-col justify-center gap-0.5 border-l border-neutral-200/50 py-1 pr-1">{actions}</div> : null}
-    </div>
   )
 }
