@@ -183,7 +183,7 @@ export function LearningLayout() {
   )
 
   return (
-    <div className="min-h-screen w-full" style={{ backgroundColor: SHELL_PAGE_BG }}>
+    <div className="min-h-screen w-full" style={{ backgroundColor: 'var(--bg)' }}>
       <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
         <WorkplacePageHeading1
           breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'E-læring' }, { label: section }]}

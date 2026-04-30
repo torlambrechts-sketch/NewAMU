@@ -12,15 +12,25 @@ function ProgressBar({ value, label }: { value: number; label?: string }) {
   const pct = Math.round(Math.min(100, Math.max(0, value * 100)))
   return (
     <div className="space-y-1">
-      {label ? <div className="text-xs font-medium text-neutral-600">{label}</div> : null}
-      <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-200">
-        <div
-          className="h-full rounded-full transition-all duration-300"
-          style={{ width: `${pct}%`, backgroundColor: PIN_GREEN }}
-        />
+      {label ? <div className="text-[11px] font-semibold uppercase tracking-[0.7px] text-[#6b6f68]">{label}</div> : null}
+      <div
+        role="progressbar"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={label ?? 'Fremdrift'}
+        className="h-[6px] w-full overflow-hidden rounded-sm border border-[#e3ddcc] bg-[#f7f5ee]"
+      >
+        <div className="h-full rounded-sm transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: '#1a3d32' }} />
       </div>
     </div>
   )
+}
+
+const KIND_LABELS: Record<string, string> = {
+  flashcard: 'Flashkort', quiz: 'Quiz', text: 'Lese', image: 'Bilde',
+  video: 'Video', checklist: 'Sjekkliste', tips: 'Tips',
+  on_job: 'I praksis', event: 'Arrangement', other: 'Annet',
 }
 
 export function LearningPlayer() {
@@ -139,13 +149,13 @@ export function LearningPlayer() {
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
           {course ? (
             <>
-              This course is not published.{' '}
+              Dette kurset er ikke publisert.{' '}
               <Link to={`/learning/courses/${course.id}`} className="underline">
-                Open builder
+                Åpne kursbygger
               </Link>
             </>
           ) : (
-            'Course not found.'
+            'Kurset ble ikke funnet.'
           )}
         </div>
       </div>
@@ -155,12 +165,12 @@ export function LearningPlayer() {
   if (!isCourseUnlocked(course.id)) {
     return (
       <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 text-sm text-neutral-800 shadow-sm">
-          <p className="font-medium text-[#2D403A]">Dette kurset er låst</p>
-          <p className="mt-2 text-neutral-600">
+        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6 text-sm text-[#1d1f1c]">
+          <p className="font-medium text-[#1d1f1c]">Dette kurset er låst</p>
+          <p className="mt-2 text-[#6b6f68]">
             Fullfør forutsetningskursene som er valgt for dette kurset, eller kontakt kursansvarlig.
           </p>
-          <Link to="/learning/courses" className="mt-4 inline-block text-emerald-800 underline">
+          <Link to="/learning/courses" className="mt-4 inline-block text-[#1a3d32] underline">
             Tilbake til kurslisten
           </Link>
         </div>
@@ -179,8 +189,8 @@ export function LearningPlayer() {
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
       <nav className="text-sm">
-        <Link to="/learning/courses" className="text-emerald-800 hover:underline">
-          ← Courses
+        <Link to="/learning/courses" className="text-[#1a3d32] hover:underline">
+          ← Kurs
         </Link>
       </nav>
 
@@ -188,21 +198,21 @@ export function LearningPlayer() {
         <aside className="space-y-4 lg:sticky lg:top-6">
           <div>
             <h1 className="font-serif text-xl font-semibold leading-snug text-[#2D403A]">{activeCourse.title}</h1>
-            <p className="mt-2 text-xs text-neutral-600 line-clamp-4">{activeCourse.description}</p>
+            <p className="mt-2 text-xs text-[#6b6f68] line-clamp-4">{activeCourse.description}</p>
             {totalDuration > 0 ? (
-              <p className="mt-2 text-xs text-neutral-500">~{totalDuration} min totalt</p>
+              <p className="mt-2 text-xs text-[#6b6f68]">~{totalDuration} min totalt</p>
             ) : null}
           </div>
 
-          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Fremdrift</p>
+          <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6f68]">Fremdrift</p>
             <div className="mt-3">
               <ProgressBar value={overallProgress} label="Hele kurset" />
             </div>
           </div>
 
-          <nav aria-label="Innhold" className="rounded-xl border border-neutral-200 bg-white p-3 shadow-sm">
-            <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Innhold</p>
+          <nav aria-label="Innhold" className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-3">
+            <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-[#6b6f68]">Innhold</p>
             <div className="max-h-[min(60vh,520px)] space-y-4 overflow-y-auto pr-1">
               {chapters.map((ch) => (
                 <div key={ch.title}>
@@ -256,16 +266,12 @@ export function LearningPlayer() {
         </aside>
 
         <div className="min-w-0 space-y-6">
-          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm md:p-5">
-            <ProgressBar value={overallProgress} label="Total fremdrift" />
-          </div>
-
           {current && (
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-lg md:p-8">
+            <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6 md:p-8">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="font-serif text-2xl font-semibold text-[#2D403A]">{current.title}</h2>
-                <span className="text-xs text-neutral-500">
-                  ~{current.durationMinutes} min · {current.kind}
+                <h2 className="font-serif text-2xl font-semibold text-[#1d1f1c]">{current.title}</h2>
+                <span className="text-xs text-[#6b6f68]">
+                  ~{current.durationMinutes} min · {KIND_LABELS[current.kind] ?? current.kind}
                 </span>
               </div>
               <div className="mt-3">
@@ -304,32 +310,31 @@ export function LearningPlayer() {
               type="button"
               disabled={idx <= 0}
               onClick={() => setIdx((i) => Math.max(0, i - 1))}
-              className="rounded-full border border-neutral-200 px-4 py-2 text-sm disabled:opacity-40"
+              className="rounded-md border border-[#e3ddcc] px-4 py-2 text-sm text-[#1d1f1c] disabled:opacity-40"
             >
-              Previous
+              Forrige
             </button>
             <button
               type="button"
               disabled={idx >= modules.length - 1}
               onClick={() => setIdx((i) => Math.min(modules.length - 1, i + 1))}
-              className="rounded-full border border-neutral-200 px-4 py-2 text-sm disabled:opacity-40"
+              className="rounded-md border border-[#e3ddcc] px-4 py-2 text-sm text-[#1d1f1c] disabled:opacity-40"
             >
-              Next module
+              Neste modul
             </button>
           </div>
 
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-5">
-            <h3 className="font-semibold text-[#2D403A]">Complete course & certificate</h3>
-            <p className="mt-1 text-sm text-neutral-600">
-              Mark each module complete with the button inside the module. When finished, enter your name for a demo
-              certificate.
+          <div className="rounded-xl border border-[#c5d3c8] bg-[#e7efe9] p-5">
+            <h3 className="font-semibold text-[#2D403A]">Kursbevis</h3>
+            <p className="mt-1 text-sm text-[#6b6f68]">
+              Fullfør hver modul med knappen inne i modulen. Når du er ferdig, skriv inn navnet ditt for å hente kursbeviset.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <input
                 value={learnerName}
                 onChange={(e) => setLearnerName(e.target.value)}
-                placeholder="Your full name"
-                className="min-w-[200px] flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                placeholder="Ditt fulle navn"
+                className="min-w-[200px] flex-1 rounded-lg border border-[#e3ddcc] px-3 py-2 text-sm"
               />
               <button
                 type="button"
@@ -344,15 +349,15 @@ export function LearningPlayer() {
                 className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
                 style={{ backgroundColor: PIN_GREEN }}
               >
-                {hasCert ? 'Certificate issued' : 'Issue certificate'}
+                {hasCert ? 'Kursbevis utstedt' : 'Hent kursbevis'}
               </button>
             </div>
-            <p className="mt-2 text-xs text-neutral-500">
+            <p className="mt-2 text-xs text-[#6b6f68]">
               {!modulesComplete
-                ? 'Complete every module to unlock certificate issuance.'
+                ? 'Fullfør alle moduler for å låse opp kursbeviset.'
                 : hasCert
-                  ? 'A certificate is already on file for this course in this browser.'
-                  : 'You can issue your demo certificate now.'}
+                  ? 'Du har allerede et kursbevis for dette kurset.'
+                  : 'Du kan nå hente kursbeviset ditt.'}
             </p>
           </div>
         </div>
@@ -412,7 +417,7 @@ function EventModuleSection({
       />
 
       {ev ? (
-        <div className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 text-sm">
+        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4 text-sm">
           <p className="font-semibold text-[#2D403A]">{ev.title}</p>
           <p className="mt-1 text-neutral-600">
             {new Date(ev.startsAt).toLocaleString()}
@@ -456,8 +461,8 @@ function EventModuleSection({
       )}
 
       {canManageLearning && ev && peerProfiles.length > 0 ? (
-        <div className="rounded-xl border border-neutral-200 bg-white p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Oppmøte (instruktør)</p>
+        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6f68]">Oppmøte (instruktør)</p>
           <ul className="mt-3 divide-y divide-neutral-100">
             {peerProfiles.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-2 py-2">
@@ -541,7 +546,7 @@ function ModulePlayer({
     return (
       <div className="space-y-4">
         <div className="text-center text-xs text-neutral-500">
-          Card {flashIdx + 1} / {c.slides.length}
+          Kort {flashIdx + 1} av {c.slides.length}
         </div>
         <button
           type="button"
@@ -555,12 +560,12 @@ function ModulePlayer({
         >
           <div className="flex h-full flex-col justify-between p-6 text-white">
             <div className="text-xs uppercase tracking-widest opacity-70">
-              {flashFlipped ? 'Answer' : 'Question'}
+              {flashFlipped ? 'Svar' : 'Spørsmål'}
             </div>
             <p className="text-center font-serif text-xl leading-snug">
               {flashFlipped ? slide.back : slide.front}
             </p>
-            <div className="text-center text-xs opacity-70">Tap to flip</div>
+            <div className="text-center text-xs opacity-70">Klikk for å snu</div>
           </div>
         </button>
         <div className="flex justify-center gap-2">
@@ -571,7 +576,7 @@ function ModulePlayer({
               setFlashIdx((i) => Math.max(0, i - 1))
               setFlashFlipped(false)
             }}
-            className="rounded-full border border-neutral-200 p-2 disabled:opacity-40"
+            className="rounded-md border border-[#e3ddcc] p-2 disabled:opacity-40"
           >
             <ChevronLeft className="size-4" />
           </button>
@@ -582,7 +587,7 @@ function ModulePlayer({
               setFlashIdx((i) => Math.min(c.slides.length - 1, i + 1))
               setFlashFlipped(false)
             }}
-            className="rounded-full border border-neutral-200 p-2 disabled:opacity-40"
+            className="rounded-md border border-[#e3ddcc] p-2 disabled:opacity-40"
           >
             <ChevronRight className="size-4" />
           </button>
@@ -593,7 +598,7 @@ function ModulePlayer({
           className="w-full rounded-full py-3 text-sm font-medium text-white"
           style={{ backgroundColor: PIN_GREEN }}
         >
-          Mark deck complete
+          Fullfør kortsett
         </button>
       </div>
     )
@@ -616,7 +621,7 @@ function ModulePlayer({
           const sel = quizAnswers[q.id]
           const ok = sel === q.correctIndex
           return (
-            <div key={q.id} className="rounded-xl border border-neutral-100 bg-neutral-50/80 p-4">
+            <div key={q.id} className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4">
               <p className="font-medium text-neutral-900">{q.question}</p>
               <ul className="mt-3 space-y-2">
                 {q.options.map((o, i) => (
@@ -625,7 +630,11 @@ function ModulePlayer({
                       type="button"
                       onClick={() => setQuizAnswers((s) => ({ ...s, [q.id]: i }))}
                       className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
-                        sel === i ? 'border-emerald-600 bg-emerald-50' : 'border-neutral-200 bg-white'
+                        sel === i
+                          ? sel === q.correctIndex
+                            ? 'border-emerald-600 bg-emerald-50'
+                            : 'border-red-400 bg-red-50'
+                          : 'border-[#e3ddcc] bg-[#fbf9f3]'
                       }`}
                     >
                       {o}
@@ -635,7 +644,7 @@ function ModulePlayer({
               </ul>
               {sel !== undefined && (
                 <p className={`mt-2 text-sm ${ok ? 'text-emerald-700' : 'text-red-700'}`}>
-                  {ok ? 'Correct' : 'Incorrect'}
+                  {ok ? 'Riktig ✓' : 'Feil ✗'}
                 </p>
               )}
             </div>
@@ -643,7 +652,7 @@ function ModulePlayer({
         })}
         {answered ? (
           <p className="text-sm font-medium text-[#2D403A]">
-            Score: {correctCount}/{c.questions.length} ({scorePct}%)
+            Resultat: {correctCount} av {c.questions.length} ({scorePct}%)
           </p>
         ) : null}
         <button
@@ -659,7 +668,7 @@ function ModulePlayer({
           className="w-full rounded-full py-3 text-sm font-medium text-white disabled:opacity-40"
           style={{ backgroundColor: PIN_GREEN }}
         >
-          Complete quiz
+          Fullfør quiz
         </button>
       </div>
     )
@@ -667,20 +676,8 @@ function ModulePlayer({
 
   if (c.kind === 'text') {
     const html = sanitizeLearningHtml(normalizeModuleHtml(c.body))
-    const longRead = mod.durationMinutes > 3
-    const backToBackText = moduleIndex > 0 && prevKind === 'text'
     return (
       <div>
-        {backToBackText ? (
-          <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-            Tips: Veksle tekst med quiz eller flashcards for bedre læring (ikke flere tekstbolker på rad).
-          </p>
-        ) : null}
-        {longRead ? (
-          <p className="mb-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700">
-            Mikrolæring: vurder å dele opp innhold over ~3 min i flere kortere moduler.
-          </p>
-        ) : null}
         <div
           className="prose prose-sm w-full max-w-none text-neutral-800 [&_a]:text-emerald-800 [&_a]:underline [&_li]:my-1"
           dangerouslySetInnerHTML={{ __html: html }}
@@ -691,7 +688,7 @@ function ModulePlayer({
           className="mt-6 w-full rounded-full py-3 text-sm font-medium text-white"
           style={{ backgroundColor: PIN_GREEN }}
         >
-          Continue
+          Fortsett
         </button>
       </div>
     )
@@ -700,7 +697,7 @@ function ModulePlayer({
   if (c.kind === 'image') {
     return (
       <div>
-        <img src={c.imageUrl} alt="" className="max-h-64 w-full rounded-xl object-cover" />
+        <img src={c.imageUrl} alt={c.caption || 'Kursbilde'} loading="lazy" className="max-h-64 w-full rounded-xl object-cover" />
         <p className="mt-2 text-sm text-neutral-600">{c.caption}</p>
         <button
           type="button"
@@ -708,7 +705,7 @@ function ModulePlayer({
           className="mt-4 w-full rounded-full py-3 text-sm font-medium text-white"
           style={{ backgroundColor: PIN_GREEN }}
         >
-          Continue
+          Fortsett
         </button>
       </div>
     )
@@ -745,7 +742,7 @@ function ModulePlayer({
           className="mt-4 w-full rounded-full py-3 text-sm font-medium text-white disabled:opacity-40"
           style={{ backgroundColor: PIN_GREEN }}
         >
-          Complete checklist
+          Fullfør sjekkliste
         </button>
       </ul>
     )
@@ -765,7 +762,7 @@ function ModulePlayer({
           className="mt-4 w-full rounded-full py-3 text-sm font-medium text-white"
           style={{ backgroundColor: PIN_GREEN }}
         >
-          Continue
+          Fortsett
         </button>
       </ul>
     )
@@ -791,7 +788,7 @@ function ModulePlayer({
     return (
       <div className="space-y-3">
         {c.tasks.map((t) => (
-          <div key={t.id} className="rounded-xl border border-neutral-100 bg-neutral-50 p-3">
+          <div key={t.id} className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-3">
             <div className="font-medium">{t.title}</div>
             <div className="text-sm text-neutral-600">{t.description}</div>
           </div>
@@ -802,7 +799,7 @@ function ModulePlayer({
           className="w-full rounded-full py-3 text-sm font-medium text-white"
           style={{ backgroundColor: PIN_GREEN }}
         >
-          Confirm on-the-job review
+          Bekreft gjennomført
         </button>
       </div>
     )
@@ -823,7 +820,7 @@ function ModulePlayer({
           className="mt-4 w-full rounded-full py-3 text-sm font-medium text-white"
           style={{ backgroundColor: PIN_GREEN }}
         >
-          Continue
+          Fortsett
         </button>
       </div>
     )
@@ -903,7 +900,7 @@ function VideoPlayer({
 
       {/* ── YouTube embed ──────────────────────────────────────────────── */}
       {kind === 'youtube' && (
-        <div className="overflow-hidden rounded-2xl shadow-lg">
+        <div className="overflow-hidden rounded-lg border border-[#e3ddcc]">
           <div className="relative aspect-video w-full bg-black">
             <iframe
               src={youtubeEmbedUrl(url)}
@@ -937,7 +934,7 @@ function VideoPlayer({
 
       {/* ── Vimeo embed ─────────────────────────────────────────────────── */}
       {kind === 'vimeo' && (
-        <div className="overflow-hidden rounded-2xl shadow-lg">
+        <div className="overflow-hidden rounded-lg border border-[#e3ddcc]">
           <div className="relative aspect-video w-full bg-black">
             <iframe
               src={vimeoEmbedUrl(url)}
@@ -969,7 +966,7 @@ function VideoPlayer({
 
       {/* ── Native MP4 — full progress tracking ─────────────────────────── */}
       {kind === 'mp4' && (
-        <div className="overflow-hidden rounded-2xl shadow-lg bg-black">
+        <div className="overflow-hidden rounded-lg border border-[#e3ddcc] bg-black">
           <video
             ref={videoRef}
             src={url}
@@ -1017,7 +1014,7 @@ function VideoPlayer({
 
       {/* ── External / unrecognised URL ──────────────────────────────────── */}
       {kind === 'external' && (
-        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-5">
+        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-5">
           <div className="flex items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-neutral-200">
               <Play className="size-5 text-neutral-600" />
@@ -1038,7 +1035,7 @@ function VideoPlayer({
             </div>
           </div>
           {started && (
-            <div className="mt-4 border-t border-neutral-200 pt-3">
+            <div className="mt-4 border-t border-[#e3ddcc] pt-3">
               <label className="flex cursor-pointer items-center gap-3 text-sm text-neutral-700">
                 <input
                   type="checkbox"

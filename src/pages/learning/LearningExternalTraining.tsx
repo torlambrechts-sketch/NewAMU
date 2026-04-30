@@ -3,6 +3,12 @@ import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Venter godkjenning',
+  approved: 'Godkjent',
+  rejected: 'Avslått',
+}
+
 export function LearningExternalTraining() {
   const { can } = useOrgSetupContext()
   const canManage = can('learning.manage')
@@ -19,6 +25,8 @@ export function LearningExternalTraining() {
   const [validUntil, setValidUntil] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [approveError, setApproveError] = useState<string | null>(null)
 
   const upload = () => {
     if (!title.trim() || !file) {
@@ -26,12 +34,14 @@ export function LearningExternalTraining() {
       return
     }
     void (async () => {
+      setUploading(true)
       const r = await submitExternalCertificate({
         title: title.trim(),
         issuer: issuer.trim() || undefined,
         validUntil: validUntil || null,
         file,
       })
+      setUploading(false)
       setMsg(r.ok ? 'Sendt til godkjenning.' : r.error)
       if (r.ok) {
         setTitle('')
@@ -56,7 +66,7 @@ export function LearningExternalTraining() {
       {learningLoading ? <p className="text-sm text-neutral-500">Laster…</p> : null}
 
       <div className="grid gap-8 lg:grid-cols-2">
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
           <h2 className="font-semibold text-[#2D403A]">Ny dokumentasjon</h2>
           <div className="mt-4 space-y-3">
             <label className="block text-xs font-medium text-neutral-600">
@@ -64,7 +74,7 @@ export function LearningExternalTraining() {
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[#e3ddcc] px-3 py-2 text-sm"
               />
             </label>
             <label className="block text-xs font-medium text-neutral-600">
@@ -72,7 +82,7 @@ export function LearningExternalTraining() {
               <input
                 value={issuer}
                 onChange={(e) => setIssuer(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[#e3ddcc] px-3 py-2 text-sm"
               />
             </label>
             <label className="block text-xs font-medium text-neutral-600">
@@ -81,7 +91,7 @@ export function LearningExternalTraining() {
                 type="date"
                 value={validUntil}
                 onChange={(e) => setValidUntil(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[#e3ddcc] px-3 py-2 text-sm"
               />
             </label>
             <label className="block text-xs font-medium text-neutral-600">
@@ -98,62 +108,75 @@ export function LearningExternalTraining() {
               className="rounded-lg px-4 py-2 text-sm font-medium text-white"
               style={{ backgroundColor: PIN_GREEN }}
               onClick={upload}
+              disabled={uploading}
             >
-              Send inn
+              {uploading ? 'Laster opp…' : 'Send inn'}
             </button>
             {msg ? <p className="text-xs text-neutral-700">{msg}</p> : null}
           </div>
         </div>
 
-        <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
-          <div className="border-b border-neutral-100 bg-neutral-50/80 px-4 py-3 text-sm font-medium text-[#2D403A]">
+        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3]">
+          <div className="border-b border-[#e3ddcc] bg-[#f7f5ee] px-4 py-3 text-sm font-medium text-[#1a3d32]">
             Innsendte ({externalCertificates.length})
           </div>
-          <ul className="divide-y divide-neutral-100">
-            {externalCertificates.map((x) => (
-              <li key={x.id} className="px-4 py-3 text-sm">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <div className="font-medium text-[#2D403A]">{x.title}</div>
-                    <div className="text-xs text-neutral-500">
-                      {x.issuer ?? '—'} · {x.validUntil ? `Gyldig til ${x.validUntil}` : 'Ingen utløpsdato'}
+          <ul className="divide-y divide-[#e3ddcc]">
+            {externalCertificates.map((x) => {
+              const statusColour = x.status === 'approved' ? 'text-[#2f7757]'
+                : x.status === 'rejected' ? 'text-[#b3382a]'
+                : 'text-[#c98a2b]'
+              return (
+                <li key={x.id} className="px-4 py-3 text-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <div className="font-medium text-[#2D403A]">{x.title}</div>
+                      <div className="text-xs text-neutral-500">
+                        {x.issuer ?? '—'} · {x.validUntil ? `Gyldig til ${x.validUntil}` : 'Ingen utløpsdato'}
+                      </div>
+                      <div className={`mt-1 text-xs font-medium ${statusColour}`}>
+                        {STATUS_LABELS[x.status] ?? x.status}
+                      </div>
                     </div>
-                    <div className="mt-1 text-xs uppercase text-neutral-400">{x.status}</div>
+                    {canManage && x.status === 'pending' ? (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="rounded border border-[#c5d3c8] bg-[#e7efe9] px-2 py-1 text-xs text-[#1a3d32]"
+                            onClick={() => {
+                              void (async () => {
+                                const r = await approveExternalCertificate(x.id, true)
+                                if (!r.ok) setApproveError(r.error)
+                              })()
+                            }}
+                          >
+                            Godkjenn
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded border border-[#f8e3df] bg-[#f8e3df] px-2 py-1 text-xs text-[#b3382a]"
+                            onClick={() => {
+                              void (async () => {
+                                const r = await approveExternalCertificate(x.id, false)
+                                if (!r.ok) setApproveError(r.error)
+                              })()
+                            }}
+                          >
+                            Avslå
+                          </button>
+                        </div>
+                        {approveError ? <p className="mt-2 text-xs text-[#b3382a]">{approveError}</p> : null}
+                      </div>
+                    ) : null}
                   </div>
-                  {canManage && x.status === 'pending' ? (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-900"
-                        onClick={() => {
-                          void (async () => {
-                            const r = await approveExternalCertificate(x.id, true)
-                            if (!r.ok) alert(r.error)
-                          })()
-                        }}
-                      >
-                        Godkjenn
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-900"
-                        onClick={() => {
-                          void (async () => {
-                            const r = await approveExternalCertificate(x.id, false)
-                            if (!r.ok) alert(r.error)
-                          })()
-                        }}
-                      >
-                        Avslå
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              </li>
-            ))}
+                </li>
+              )
+            })}
           </ul>
           {externalCertificates.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-neutral-500">Ingen dokumenter ennå.</p>
+            <div className="flex flex-col items-center gap-2 py-10 text-center">
+              <p className="text-sm text-[#6b6f68]">Ingen innsendte dokumenter ennå.</p>
+            </div>
           ) : null}
         </div>
       </div>

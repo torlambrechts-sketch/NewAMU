@@ -37,8 +37,11 @@ function courseTotalMinutes(c: Course): number {
 function ProgressBarMini({ value }: { value: number }) {
   const pct = Math.round(Math.min(100, Math.max(0, value * 100)))
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200">
-      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: PIN_GREEN }} />
+    <div
+      role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
+      className="h-[6px] w-full overflow-hidden rounded-sm border border-[#e3ddcc] bg-[#f7f5ee]"
+    >
+      <div className="h-full rounded-sm transition-all" style={{ width: `${pct}%`, backgroundColor: '#1a3d32' }} />
     </div>
   )
 }

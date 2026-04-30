@@ -1,6 +1,12 @@
 import { BarChart3 } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 
+const KIND_LABELS: Record<string, string> = {
+  flashcard: 'Flashkort', quiz: 'Quiz', text: 'Lese', image: 'Bilde',
+  video: 'Video', checklist: 'Sjekkliste', tips: 'Tips',
+  on_job: 'I praksis', event: 'Arrangement', other: 'Annet',
+}
+
 export function LearningInsights() {
   const { stats, courses } = useLearning()
   const moduleCount = courses.reduce((acc, c) => acc + c.modules.length, 0)
@@ -15,31 +21,31 @@ export function LearningInsights() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Insights</h1>
-        <p className="mt-2 text-sm text-neutral-600">High-level usage in this browser session.</p>
+        <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Innsikt</h1>
+        <p className="mt-2 text-sm text-[#6b6f68]">Aggregert oversikt over gjennomføring i organisasjonen.</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <InsightCard label="Courses" value={stats.totalCourses} />
-        <InsightCard label="Modules" value={moduleCount} />
-        <InsightCard label="Certificates" value={stats.certs} />
-        <InsightCard label="Enrolments" value={stats.enrolled} />
+        <InsightCard label="Kurs" value={stats.totalCourses} />
+        <InsightCard label="Moduler" value={moduleCount} />
+        <InsightCard label="Sertifikater" value={stats.certs} />
+        <InsightCard label="Påmeldinger" value={stats.enrolled} />
       </div>
-      <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
         <h2 className="flex items-center gap-2 font-semibold text-[#2D403A]">
           <BarChart3 className="size-5" />
-          Modules by type
+          Moduler etter type
         </h2>
         <ul className="mt-4 space-y-2 text-sm">
           {Object.entries(byKind)
             .sort((a, b) => b[1] - a[1])
             .map(([k, v]) => (
-              <li key={k} className="flex justify-between border-b border-neutral-100 py-2 last:border-0">
-                <span className="text-neutral-600">{k}</span>
+              <li key={k} className="flex justify-between border-b border-[#e3ddcc] py-2 last:border-0">
+                <span className="text-[#6b6f68]">{KIND_LABELS[k] ?? k}</span>
                 <span className="font-medium tabular-nums">{v}</span>
               </li>
             ))}
           {Object.keys(byKind).length === 0 ? (
-            <li className="text-neutral-500">No modules yet.</li>
+            <li className="text-[#6b6f68]">Ingen moduler ennå.</li>
           ) : null}
         </ul>
       </div>
@@ -49,9 +55,9 @@ export function LearningInsights() {
 
 function InsightCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-      <div className="text-2xl font-semibold tabular-nums text-[#2D403A]">{value}</div>
-      <div className="text-sm text-neutral-600">{label}</div>
+    <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.7px] text-[#6b6f68]">{label}</div>
+      <div className="mt-1 font-serif text-[28px] font-semibold leading-none text-[#1d1f1c]">{value}</div>
     </div>
   )
 }

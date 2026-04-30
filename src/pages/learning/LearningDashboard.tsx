@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, BookOpen, Flame } from 'lucide-react'
+import { ArrowRight, BookOpen, CheckCircle2, Flame } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { CREAM, PIN_GREEN } from '../../components/learning/LearningLayout'
 
 function CompletionRings({
@@ -79,6 +80,8 @@ export function LearningDashboard() {
     dismissReview,
     isCourseUnlocked,
   } = useLearning()
+  const { can } = useOrgSetupContext()
+  const canManage = can('learning.manage')
   const published = courses.filter((c) => c.status === 'published')
   const maxCourses = Math.max(1, stats.totalCourses || 1)
   const ringPublished = stats.published / maxCourses
@@ -93,10 +96,10 @@ export function LearningDashboard() {
             className="font-serif text-3xl font-semibold tracking-tight text-[#2D403A] md:text-4xl"
             style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
           >
-            Welcome back
+            God dag
           </h1>
           <p className="mt-2 text-sm text-neutral-600">
-            Courses, micro-learning modules, and certifications in one place.
+            Kurs, mikromoduler og sertifiseringer på ett sted.
           </p>
           {streakWeeks != null && streakWeeks > 0 ? (
             <p className="mt-2 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-sm font-medium text-orange-950">
@@ -105,23 +108,31 @@ export function LearningDashboard() {
             </p>
           ) : null}
         </div>
-        <Link
-          to="/learning/courses"
-          className="rounded-full border px-4 py-2 text-sm font-medium text-[#2D403A] hover:bg-white"
-          style={{ borderColor: `${PIN_GREEN}40`, backgroundColor: CREAM }}
-        >
-          Configure
-        </Link>
+        {canManage && (
+          <Link
+            to="/learning/courses"
+            className="rounded-full border px-4 py-2 text-sm font-medium text-[#2D403A] hover:bg-white"
+            style={{ borderColor: `${PIN_GREEN}40`, backgroundColor: CREAM }}
+          >
+            Administrer
+          </Link>
+        )}
+      </div>
+
+      <div className="rounded-sm border border-[#c5d3c8] border-l-[3px] border-l-[#1a3d32] bg-[#e7efe9] px-3 py-2 text-[12.5px] text-[#1a3d32] flex items-center gap-2">
+        <CheckCircle2 className="size-3.5 shrink-0" aria-hidden />
+        <span>AML § 3-1 · § 6-5 · IK-forskriften § 5 — opplæringsoversikt aktiv</span>
+        <Link to="/learning/compliance" className="ml-auto text-xs font-medium underline">Se samsvar</Link>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_200px]">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Published courses" value={stats.published} href="/learning/courses" />
-          <KpiCard label="Drafts" value={stats.drafts} href="/learning/courses" />
-          <KpiCard label="Certificates issued" value={stats.certs} href="/learning/certifications" />
-          <KpiCard label="Enrolments" value={stats.enrolled} href="/learning/participants" />
+          <KpiCard label="Publiserte kurs" value={stats.published} href="/learning/courses" accent="forest" />
+          <KpiCard label="Utkast" value={stats.drafts} href="/learning/courses" accent="warn" />
+          <KpiCard label="Utstedte sertifikater" value={stats.certs} href="/learning/certifications" accent="ok" />
+          <KpiCard label="Påmeldinger" value={stats.enrolled} href="/learning/participants" />
         </div>
-        <div className="flex items-center justify-center rounded-xl border border-neutral-200/80 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-center rounded-xl border border-[#e3ddcc] bg-[#fbf9f3] p-4">
           <CompletionRings publishedPct={ringPublished} enrolledPct={ringEnrolled} certPct={ringCert} />
         </div>
       </div>
@@ -166,7 +177,7 @@ export function LearningDashboard() {
       ) : null}
 
       {departmentLeaderboard.length > 0 ? (
-        <section className="rounded-xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+        <section className="rounded-xl border border-[#e3ddcc] bg-[#fbf9f3] p-5">
           <h2 className="font-serif text-lg font-semibold text-[#2D403A]">Avdelinger (aggregert)</h2>
           <p className="mt-1 text-sm text-neutral-600">
             Vi rangerer ikke enkeltpersoner — kun avdelingens gjennomsnittlige kursgjennomføring (publiserte kurs).
@@ -190,13 +201,15 @@ export function LearningDashboard() {
 
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-serif text-xl font-semibold text-[#2D403A]">Featured courses</h2>
-          <Link
-            to="/learning/courses"
-            className="text-sm font-medium text-emerald-800 hover:underline"
-          >
-            + Create course
-          </Link>
+          <h2 className="font-serif text-xl font-semibold text-[#2D403A]">{canManage ? 'Publiserte kurs' : 'Anbefalte kurs'}</h2>
+          {canManage && (
+            <Link
+              to="/learning/courses"
+              className="text-sm font-medium text-emerald-800 hover:underline"
+            >
+              + Opprett kurs
+            </Link>
+          )}
         </div>
         <div className="space-y-3">
           {published.slice(0, 5).map((c) => {
@@ -204,8 +217,8 @@ export function LearningDashboard() {
             return (
               <div
                 key={c.id}
-                className={`block rounded-xl border border-neutral-200/80 bg-white p-4 shadow-sm transition-shadow ${
-                  unlocked ? 'hover:shadow-md' : 'opacity-75'
+                className={`block rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4 transition-colors ${
+                  unlocked ? 'hover:bg-[#f7f5ee]' : 'opacity-75'
                 }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -240,7 +253,7 @@ export function LearningDashboard() {
                   <div className="flex flex-col items-end gap-2 text-sm text-neutral-500">
                     <span className="flex items-center gap-1">
                       <BookOpen className="size-4" />
-                      {c.modules.length} modules
+                      {`${c.modules.length} ${c.modules.length === 1 ? 'modul' : 'moduler'}`}
                     </span>
                     {unlocked ? (
                       <Link
@@ -256,8 +269,8 @@ export function LearningDashboard() {
             )
           })}
           {published.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-neutral-300 bg-white/60 p-8 text-center text-sm text-neutral-500">
-              No published courses yet. Open <Link to="/learning/courses" className="text-emerald-800 underline">Courses</Link> to create one.
+            <p className="rounded-lg border border-dashed border-[#e3ddcc] bg-[#fbf9f3]/60 p-8 text-center text-sm text-[#6b6f68]">
+              {canManage ? 'Ingen publiserte kurs ennå.' : 'Ingen kurs tilgjengelig ennå.'}
             </p>
           ) : null}
         </div>
@@ -266,17 +279,18 @@ export function LearningDashboard() {
   )
 }
 
-function KpiCard({ label, value, href }: { label: string; value: number; href: string }) {
+function KpiCard({ label, value, href, accent }: { label: string; value: number; href: string; accent?: 'forest'|'ok'|'warn'|'critical' }) {
+  const borderLeft = accent === 'ok' ? 'border-l-[3px] border-l-[#2f7757]'
+    : accent === 'warn' ? 'border-l-[3px] border-l-[#c98a2b]'
+    : accent === 'critical' ? 'border-l-[3px] border-l-[#b3382a]'
+    : 'border-l-[3px] border-l-[#1a3d32]'
   return (
     <Link
       to={href}
-      className="flex items-center justify-between rounded-xl border border-neutral-200/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+      className={`flex flex-col rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4 transition-colors hover:bg-[#f7f5ee] ${borderLeft}`}
     >
-      <div>
-        <div className="text-3xl font-semibold tabular-nums text-[#2D403A]">{value}</div>
-        <div className="mt-1 text-sm text-neutral-600">{label}</div>
-      </div>
-      <ArrowRight className="size-5 text-neutral-300" />
+      <div className="text-[11px] font-semibold uppercase tracking-[0.7px] text-[#6b6f68]">{label}</div>
+      <div className="mt-1 font-serif text-[28px] font-semibold leading-none text-[#1d1f1c]">{value}</div>
     </Link>
   )
 }

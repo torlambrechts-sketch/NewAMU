@@ -98,7 +98,7 @@ export function LearningSettings() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Settings</h1>
+        <h1 className="font-serif text-3xl font-semibold text-[#1a3d32]">Innstillinger</h1>
         <p className="mt-2 text-sm text-neutral-600">
           {supabaseConfigured && organization
             ? 'Kurs, fremdrift og sertifikater lagres i databasen for organisasjonen din.'
@@ -107,8 +107,8 @@ export function LearningSettings() {
       </div>
 
       {supabaseConfigured && organization && canManage && systemCourseSettings.length > 0 ? (
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-          <h2 className="font-semibold text-[#2D403A]">Systemkurs for organisasjonen</h2>
+        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
+          <h2 className="font-semibold text-[#1a3d32]">Systemkurs for organisasjonen</h2>
           <p className="mt-2 text-sm text-neutral-600">
             Slå av kurs du ikke vil tilby. «Kopier som mal» lager et eget utkast du kan redigere og publisere.
           </p>
@@ -116,10 +116,10 @@ export function LearningSettings() {
             {systemCourseSettings.map((s) => (
               <li
                 key={s.systemCourseId}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-100 bg-[#FCF8F0]/80 px-3 py-3"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] px-3 py-3"
               >
                 <div className="min-w-0">
-                  <p className="font-medium text-[#2D403A]">{s.title}</p>
+                  <p className="font-medium text-[#1a3d32]">{s.title}</p>
                   <p className="text-xs text-neutral-500">{s.slug}</p>
                   {s.forkedCourseId ? (
                     <Link
@@ -147,7 +147,7 @@ export function LearningSettings() {
                   </label>
                   <button
                     type="button"
-                    className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#2D403A] hover:bg-neutral-50"
+                    className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
                     onClick={() => {
                       void (async () => {
                         const r = await forkSystemCourse(s.systemCourseId)
@@ -175,8 +175,8 @@ export function LearningSettings() {
       ) : null}
 
       {supabaseConfigured && organization && canManage ? (
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-          <h2 className="font-semibold text-[#2D403A]">Flow-of-work & kanaler</h2>
+        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
+          <h2 className="font-semibold text-[#1a3d32]">Flow-of-work & kanaler</h2>
           <p className="mt-2 text-sm text-neutral-600">
             Legg inn innkommende webhooks for Microsoft Teams eller Slack. En planlagt jobb (eller Edge Function) kan
             sende ett mikromodul-utdrag i uken — URL lagres kryptert i produksjon anbefales.
@@ -188,7 +188,7 @@ export function LearningSettings() {
                 value={teamsDisplay}
                 onChange={(e) => setTeamsUrl(e.target.value)}
                 placeholder="https://..."
-                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 font-mono text-xs"
+                className="mt-1 w-full rounded-lg border border-[#e3ddcc] bg-white px-3 py-2 font-mono text-xs"
               />
             </div>
             <div>
@@ -197,7 +197,7 @@ export function LearningSettings() {
                 value={slackDisplay}
                 onChange={(e) => setSlackUrl(e.target.value)}
                 placeholder="https://hooks.slack.com/..."
-                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 font-mono text-xs"
+                className="mt-1 w-full rounded-lg border border-[#e3ddcc] bg-white px-3 py-2 font-mono text-xs"
               />
             </div>
             <div>
@@ -206,7 +206,7 @@ export function LearningSettings() {
                 value={genericDisplay}
                 onChange={(e) => setGenericUrl(e.target.value)}
                 placeholder="https://..."
-                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 font-mono text-xs"
+                className="mt-1 w-full rounded-lg border border-[#e3ddcc] bg-white px-3 py-2 font-mono text-xs"
               />
             </div>
           </div>
@@ -237,8 +237,8 @@ export function LearningSettings() {
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="font-semibold text-[#2D403A]">Export / import (JSON)</h2>
+      <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
+        <h2 className="font-semibold text-[#1a3d32]">Export / import (JSON)</h2>
         <p className="mt-2 text-sm text-neutral-600">
           Full sikkerhetskopi av alt, eller åpne detaljer for å eksportere/importere per kurs, fremdrift eller
           sertifikater.
@@ -256,7 +256,7 @@ export function LearningSettings() {
           <button
             type="button"
             onClick={() => fileRefFull.current?.click()}
-            className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-[#2D403A] hover:bg-neutral-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
           >
             <Upload className="size-4" />
             Import all (JSON)
@@ -270,26 +270,26 @@ export function LearningSettings() {
           />
         </div>
 
-        <details className="group mt-6 rounded-lg border border-neutral-200 bg-[#FCF8F0]/80">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium text-[#2D403A] marker:content-none [&::-webkit-details-marker]:hidden">
+        <details className="group mt-6 rounded-lg border border-[#e3ddcc] bg-[#fbf9f3]">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium text-[#1a3d32] marker:content-none [&::-webkit-details-marker]:hidden">
             <span>Per kurs og andre deler</span>
             <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" aria-hidden />
           </summary>
-          <div className="space-y-6 border-t border-neutral-200 px-4 pb-4 pt-2">
+          <div className="space-y-6 border-t border-[#e3ddcc] px-4 pb-4 pt-2">
             <p className="text-xs text-neutral-500">
               Delvise filer flettes inn: eksisterende kurs med samme ID erstattes; fremdrift og sertifikater merges på
               ID.
             </p>
 
             <div>
-              <h3 className="text-sm font-semibold text-[#2D403A]">Kurs</h3>
+              <h3 className="text-sm font-semibold text-[#1a3d32]">Kurs</h3>
               <ul className="mt-2 space-y-2">
                 {courses.map((c) => (
                   <li
                     key={c.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-100 bg-white px-3 py-2 text-sm"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] px-3 py-2 text-sm"
                   >
-                    <span className="min-w-0 font-medium text-neutral-800">{c.title}</span>
+                    <span className="min-w-0 font-medium text-[#1a3d32]">{c.title}</span>
                     <div className="flex shrink-0 gap-2">
                       <button
                         type="button"
@@ -301,7 +301,7 @@ export function LearningSettings() {
                             json,
                           )
                         }}
-                        className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-[#2D403A] hover:bg-neutral-50"
+                        className="inline-flex items-center gap-1 rounded-md border border-[#e3ddcc] bg-white px-2 py-1 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
                       >
                         <Download className="size-3.5" />
                         Export
@@ -309,7 +309,7 @@ export function LearningSettings() {
                       <button
                         type="button"
                         onClick={() => fileRefPartial.current?.click()}
-                        className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-[#2D403A] hover:bg-neutral-50"
+                        className="inline-flex items-center gap-1 rounded-md border border-[#e3ddcc] bg-white px-2 py-1 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
                       >
                         <Upload className="size-3.5" />
                         Import
@@ -323,8 +323,8 @@ export function LearningSettings() {
               ) : null}
             </div>
 
-            <div className="rounded-lg border border-neutral-100 bg-white p-3">
-              <h3 className="text-sm font-semibold text-[#2D403A]">Fremdrift (alle kurs)</h3>
+            <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-3">
+              <h3 className="text-sm font-semibold text-[#1a3d32]">Fremdrift (alle kurs)</h3>
               <p className="mt-1 text-xs text-neutral-600">Alle CourseProgress-rader i én fil.</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
@@ -344,7 +344,7 @@ export function LearningSettings() {
                 <button
                   type="button"
                   onClick={() => fileRefPartial.current?.click()}
-                  className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#2D403A] hover:bg-neutral-50"
+                  className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
                 >
                   <Upload className="size-3.5" />
                   Import fremdrift
@@ -352,8 +352,8 @@ export function LearningSettings() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-neutral-100 bg-white p-3">
-              <h3 className="text-sm font-semibold text-[#2D403A]">Sertifikater</h3>
+            <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-3">
+              <h3 className="text-sm font-semibold text-[#1a3d32]">Sertifikater</h3>
               <p className="mt-1 text-xs text-neutral-600">Alle utstedte sertifikater i én fil.</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
@@ -373,7 +373,7 @@ export function LearningSettings() {
                 <button
                   type="button"
                   onClick={() => fileRefPartial.current?.click()}
-                  className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#2D403A] hover:bg-neutral-50"
+                  className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
                 >
                   <Upload className="size-3.5" />
                   Import sertifikater
@@ -401,8 +401,8 @@ export function LearningSettings() {
         ) : null}
       </div>
 
-      <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="font-semibold text-[#2D403A]">Reset demo data</h2>
+      <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
+        <h2 className="font-semibold text-[#1a3d32]">Tilbakestill demodata</h2>
         <p className="mt-2 text-sm text-neutral-600">
           Clears courses, progress, and certificates and restores the seed &quot;Safety 101&quot; course.
         </p>
@@ -414,9 +414,21 @@ export function LearningSettings() {
           className="mt-4 rounded-lg px-4 py-2 text-sm font-medium text-white"
           style={{ backgroundColor: PIN_GREEN }}
         >
-          Reset learning data
+          Tilbakestill opplæringsdata
         </button>
       </div>
+
+      <details className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-[#1a3d32]">
+          Personvern og databehandling
+        </summary>
+        <div className="mt-3 space-y-2 text-xs leading-relaxed text-[#6b6f68]">
+          <p>Klarert e-læring samler inn og lagrer opplæringsdata (kursfremdrift, fullføringer, sertifikater og quizsvar) for å dokumentere opplæring i henhold til IK-forskriften § 5 og arbeidsmiljølovens krav.</p>
+          <p><strong className="text-[#1d1f1c]">Rettslig grunnlag:</strong> Berettiget interesse (GDPR art. 6(1)(f)) — dokumentasjon av lovpålagt opplæring.</p>
+          <p><strong className="text-[#1d1f1c]">Lagringstid:</strong> Opplæringsdata oppbevares så lenge arbeidsforholdet varer, og slettes på forespørsel.</p>
+          <p><strong className="text-[#1d1f1c]">Rettigheter:</strong> Du kan be om innsyn, retting eller sletting ved å kontakte dataansvarlig i din organisasjon.</p>
+        </div>
+      </details>
     </div>
   )
 }

@@ -21,16 +21,16 @@ export function LearningCertifications() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Certifications</h1>
-        <p className="mt-2 text-sm text-neutral-600">
-          Demo certificates stored locally. Not a legally binding credential.
+        <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Sertifiseringer</h1>
+        <p className="mt-2 text-sm text-[#6b6f68]">
+          Sertifikater utstedt ved fullført kurs. Gjelder som dokumentasjon på gjennomført opplæring.
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Kpi label="Issued (total)" value={certificates.length} accent="emerald" />
-        <Kpi label="Issued this year" value={issuedThisYear} accent="amber" />
-        <Kpi label="In progress (tracked)" value={inProgress} accent="neutral" />
+        <Kpi label="Utstedt totalt" value={certificates.length} accent="ok" />
+        <Kpi label="Utstedt i år" value={issuedThisYear} accent="warn" />
+        <Kpi label="Under gjennomføring" value={inProgress} accent="neutral" />
       </div>
 
       <div className="relative max-w-md">
@@ -38,68 +38,56 @@ export function LearningCertifications() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by name, course, or code…"
-          className="w-full rounded-full border border-neutral-200 bg-white py-2 pl-10 pr-4 text-sm"
+          placeholder="Søk på navn, kurs eller kode…"
+          className="w-full rounded-full border border-[#e3ddcc] bg-[#fbf9f3] py-2 pl-10 pr-4 text-sm"
         />
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-neutral-100 bg-neutral-50/80 text-neutral-600">
-              <th className="px-4 py-3 font-medium">Course</th>
-              <th className="px-4 py-3 font-medium">Learner</th>
-              <th className="px-4 py-3 font-medium">Issued</th>
-              <th className="px-4 py-3 font-medium">Versjon</th>
-              <th className="px-4 py-3 font-medium">Verify</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-neutral-100">
-            {filtered.map((c) => (
-              <tr key={c.id} className="hover:bg-neutral-50/50">
-                <td className="px-4 py-3 font-medium text-[#2D403A]">{c.courseTitle}</td>
-                <td className="px-4 py-3">{c.learnerName}</td>
-                <td className="px-4 py-3 text-xs text-neutral-500">
-                  {new Date(c.issuedAt).toLocaleString()}
-                </td>
-                <td className="px-4 py-3 text-xs text-neutral-600">{c.courseVersion ?? '—'}</td>
-                <td className="px-4 py-3 font-mono text-xs">{c.verifyCode}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="overflow-hidden rounded-lg border border-[#e3ddcc] bg-[#fbf9f3]">
         {filtered.length === 0 ? (
-          <p className="px-4 py-10 text-center text-sm text-neutral-500">
-            No certificates yet. Complete a published course in the learner view to issue one.
-          </p>
-        ) : null}
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
+            <Award className="size-8 text-[#e3ddcc]" aria-hidden />
+            <p className="text-sm text-[#6b6f68]">Ingen sertifikater ennå. Fullfør et publisert kurs for å få utstedt ett.</p>
+          </div>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-[#e3ddcc] bg-[#f7f5ee] text-[#6b6f68]">
+                <th className="px-4 py-3 font-medium">Kurs</th>
+                <th className="px-4 py-3 font-medium">Deltaker</th>
+                <th className="px-4 py-3 font-medium">Dato</th>
+                <th className="px-4 py-3 font-medium">Versjon</th>
+                <th className="px-4 py-3 font-medium">Verifiseringskode</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#e3ddcc]">
+              {filtered.map((c) => (
+                <tr key={c.id} className="hover:bg-[#f7f5ee]">
+                  <td className="px-4 py-3 font-medium text-[#1a3d32]">{c.courseTitle}</td>
+                  <td className="px-4 py-3">{c.learnerName}</td>
+                  <td className="px-4 py-3 text-xs text-[#6b6f68]">
+                    {new Date(c.issuedAt).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-[#6b6f68]">{c.courseVersion ?? '—'}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{c.verifyCode}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
 }
 
-function Kpi({
-  label,
-  value,
-  accent,
-}: {
-  label: string
-  value: number
-  accent: 'emerald' | 'amber' | 'neutral'
-}) {
-  const border =
-    accent === 'emerald'
-      ? 'border-emerald-200'
-      : accent === 'amber'
-        ? 'border-amber-200'
-        : 'border-neutral-200'
+function Kpi({ label, value, accent }: { label: string; value: number; accent: 'ok'|'warn'|'neutral' }) {
+  const bl = accent === 'ok' ? 'border-l-[3px] border-l-[#2f7757]'
+    : accent === 'warn' ? 'border-l-[3px] border-l-[#c98a2b]'
+    : 'border-l-[3px] border-l-[#6b6f68]'
   return (
-    <div className={`rounded-xl border ${border} bg-white p-5 shadow-sm`}>
-      <div className="text-3xl font-semibold tabular-nums text-[#2D403A]">{value}</div>
-      <div className="mt-1 flex items-center gap-2 text-sm text-neutral-600">
-        <Award className="size-4 text-emerald-700/70" />
-        {label}
-      </div>
+    <div className={`rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4 ${bl}`}>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.7px] text-[#6b6f68]">{label}</div>
+      <div className="mt-1 font-serif text-[28px] font-semibold leading-none text-[#1d1f1c]">{value}</div>
     </div>
   )
 }
