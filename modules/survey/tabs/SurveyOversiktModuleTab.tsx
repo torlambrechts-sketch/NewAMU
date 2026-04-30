@@ -94,11 +94,6 @@ export function SurveyOversiktModuleTab({ surveys, loading, onNewSurvey }: Props
           <h3 className="mb-3 text-sm font-semibold text-neutral-800">Lovkrav — status</h3>
           <div className="space-y-3">
             <ComplianceRow
-              ok={surveys.some((s) => s.status === 'active' || s.status === 'closed')}
-              title="Systematisk kartlegging"
-              desc="§ 3-1 (2)c — risiko og arbeidsmiljø skal kartlegges"
-            />
-            <ComplianceRow
               ok={surveys.some((s) => s.is_anonymous)}
               title="Anonymitet (5+ regelen)"
               desc="Resultater for grupper under 5 skjules automatisk"
