@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ArrowLeft, CheckCircle2, Eye, Ghost, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ChevronRight, Eye, Ghost, Save, Trash2 } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
@@ -835,6 +835,18 @@ export function SurveyDetailView({ supabase }: Props) {
   const panelTitleId = 'survey-question-panel-title'
   const responsePanelTitleId = 'survey-response-read-panel-title'
 
+  const fremdriftPhase = useMemo(() => {
+    if (!s) return null
+    const steps = surveyWorkflowSteps({
+      status: s.status,
+      responseCount: survey.responses.length,
+    })
+    const doneCount = steps.filter((x) => x.done).length
+    const activeIdx = steps.findIndex((x) => !x.done)
+    const currentIdx = activeIdx === -1 ? steps.length - 1 : activeIdx
+    return { steps, doneCount, currentIdx }
+  }, [s, survey.responses.length])
+
   const legalReferences = useMemo(
     () => [...SURVEY_MODULE_LEGAL_REFERENCES, ...SURVEY_DETAIL_EXTRA_LEGAL_REFERENCES],
     [],
@@ -909,37 +921,61 @@ export function SurveyDetailView({ supabase }: Props) {
             {s.is_anonymous ? <Badge variant="info">Anonym</Badge> : <Badge variant="neutral">Identifisert</Badge>}
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Fremdrift</p>
-              <span className="rounded-full bg-[#1a3d32] px-2 py-0.5 text-[10px] font-bold text-white">
-                {surveyWorkflowSteps({ status: s.status, responseCount: survey.responses.length }).filter((x) => x.done).length}
-                /5
-              </span>
+          {fremdriftPhase ? (
+            <div className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 px-4 py-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Fremdrift</p>
+                <span className="rounded-full bg-[#1a3d32] px-2 py-0.5 text-[10px] font-bold text-white">
+                  {fremdriftPhase.doneCount}/5
+                </span>
+              </div>
+              <div className="px-2 py-2.5 md:px-3">
+                <ol className="flex min-w-0 flex-nowrap items-center gap-0.5 overflow-x-auto pb-0.5 md:gap-1">
+                  {fremdriftPhase.steps.map((st, i) => {
+                    const isCurrent = i === fremdriftPhase.currentIdx && !st.done
+                    const isPast = st.done
+                    return (
+                      <li key={st.id} className="flex shrink-0 items-center">
+                        {i > 0 ? (
+                          <ChevronRight
+                            className="mx-0.5 h-3 w-3 shrink-0 text-neutral-300 md:mx-1"
+                            aria-hidden
+                          />
+                        ) : null}
+                        <div className="flex min-w-0 max-w-[7.5rem] flex-col items-center gap-1 px-0.5 sm:max-w-none sm:flex-row sm:gap-1.5 sm:px-1">
+                          <span
+                            className={[
+                              'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold leading-none md:h-6 md:w-6 md:text-[10px]',
+                              isPast
+                                ? 'bg-emerald-600 text-white'
+                                : isCurrent
+                                  ? 'border-2 border-[#1a3d32] bg-white text-[#1a3d32] ring-2 ring-[#1a3d32]/20'
+                                  : 'border border-neutral-300 bg-neutral-50 text-neutral-400',
+                            ].join(' ')}
+                            aria-hidden
+                          >
+                            {isPast ? <CheckCircle2 className="h-3 w-3 md:h-3.5 md:w-3.5" /> : i + 1}
+                          </span>
+                          <span
+                            className={[
+                              'max-w-full text-center text-[10px] leading-tight sm:text-left md:text-xs',
+                              isPast
+                                ? 'font-medium text-neutral-800'
+                                : isCurrent
+                                  ? 'font-semibold text-neutral-900'
+                                  : 'text-neutral-500',
+                            ].join(' ')}
+                          >
+                            {st.label}
+                          </span>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ol>
+              </div>
             </div>
-            <ul className="divide-y divide-neutral-100">
-              {surveyWorkflowSteps({
-                status: s.status,
-                responseCount: survey.responses.length,
-              }).map((st, i) => (
-                <li key={st.id} className="flex gap-3 px-4 py-3">
-                  <div
-                    className={[
-                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold',
-                      st.done ? 'bg-emerald-600 text-white' : 'border border-neutral-200 bg-neutral-50 text-neutral-500',
-                    ].join(' ')}
-                    aria-hidden
-                  >
-                    {st.done ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-sm ${st.done ? 'font-medium text-neutral-900' : 'text-neutral-700'}`}>{st.label}</p>
-                    <p className="mt-0.5 text-xs text-neutral-400">{st.done ? 'Fullført' : 'Venter'}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+          ) : null}
 
           <ModuleLegalBanner
             title="Regelverk for denne undersøkelsen"
