@@ -11,7 +11,6 @@ import {
   Truck,
 } from 'lucide-react'
 import { ModuleLegalBanner, ModulePageShell } from '../../src/components/module'
-import { ComplianceBanner } from '../../src/components/ui/ComplianceBanner'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { Button } from '../../src/components/ui/Button'
@@ -297,13 +296,6 @@ export function SurveyPage({ supabase }: Props) {
           }
           references={SURVEY_MODULE_LEGAL_REFERENCES}
         />
-
-        <ComplianceBanner title="Personvern (GDPR) og rapportering">
-          <p>
-            Svar brukes til aggregerte rapporter. Små grupper (færre enn terskel) vises ikke. Fritekst vises ikke per
-            spørsmål i analysen. Behandle resultater i tråd med formål og lagringstid.
-          </p>
-        </ComplianceBanner>
 
         {survey.error && <WarningBox>{survey.error}</WarningBox>}
 

@@ -283,8 +283,6 @@ export function LearningPlayer() {
               <div className="mt-6">
                 <ModulePlayer
                   mod={current}
-                  moduleIndex={idx}
-                  prevKind={idx > 0 ? modules[idx - 1]?.kind : undefined}
                   flashFlipped={flashFlipped}
                   setFlashFlipped={setFlashFlipped}
                   flashIdx={flashIdx}
@@ -500,8 +498,6 @@ function EventModuleSection({
 
 function ModulePlayer({
   mod,
-  moduleIndex,
-  prevKind,
   flashFlipped,
   setFlashFlipped,
   flashIdx,
@@ -519,8 +515,6 @@ function ModulePlayer({
   peerProfiles,
 }: {
   mod: CourseModule
-  moduleIndex: number
-  prevKind?: string
   flashFlipped: boolean
   setFlashFlipped: (v: boolean) => void
   flashIdx: number

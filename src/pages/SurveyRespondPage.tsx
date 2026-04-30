@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState, useRef, type PointerEvent as
 import { useParams, useSearchParams } from 'react-router-dom'
 import { CheckCircle, Loader2 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
-import { ComplianceBanner } from '../components/ui/ComplianceBanner'
 import { StandardTextarea } from '../components/ui/Textarea'
 import { InfoBox, WarningBox } from '../components/ui/AlertBox'
 import { Badge } from '../components/ui/Badge'
@@ -797,12 +796,6 @@ export function SurveyRespondPage() {
             <p className="mt-2 text-sm text-neutral-500">{survey.selectedSurvey.description}</p>
           )}
         </div>
-
-        <ComplianceBanner title="Personvern (GDPR) — AML § 4-3">
-          {survey.selectedSurvey.is_anonymous
-            ? 'Dine svar er helt anonyme — ingen bruker-ID lagres i databasen. Individuelle svar kan ikke knyttes til deg.'
-            : 'Dine svar er koblet til din bruker og er kun synlig for administrator. Du kan trekke tilbake svaret ditt ved å kontakte administrator innen 30 dager.'}
-        </ComplianceBanner>
 
         {survey.error && <WarningBox>{survey.error}</WarningBox>}
 
