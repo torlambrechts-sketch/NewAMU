@@ -99,11 +99,6 @@ export function SurveyOversiktModuleTab({ surveys, loading, onNewSurvey }: Props
               desc="§ 3-1 (2)c — risiko og arbeidsmiljø skal kartlegges"
             />
             <ComplianceRow
-              ok={surveys.some((s) => s.survey_type === 'internal' && (s.status === 'active' || s.status === 'closed'))}
-              title="Psykososialt arbeidsmiljø"
-              desc="§ 4-3 — krav vurderes via godkjent kartleggingsverktøy"
-            />
-            <ComplianceRow
               ok={surveys.some((s) => s.is_anonymous)}
               title="Anonymitet (5+ regelen)"
               desc="Resultater for grupper under 5 skjules automatisk"
@@ -114,11 +109,6 @@ export function SurveyOversiktModuleTab({ surveys, loading, onNewSurvey }: Props
               desc="§ 7-2 (2)e — resultater behandles av AMU"
               warn={closedNoAmu.length > 0}
               warnText={`${closedNoAmu.length} undersøkelse(r) mangler AMU-behandling`}
-            />
-            <ComplianceRow
-              ok={surveys.some((s) => s.survey_type === 'external')}
-              title="Leverandør-dokumentasjon"
-              desc="HMS-egenerklæring fra leverandører (Åpenhetsloven § 4)"
             />
           </div>
         </ModuleSectionCard>

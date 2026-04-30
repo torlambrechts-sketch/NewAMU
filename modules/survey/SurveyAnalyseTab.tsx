@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { Download, EyeOff } from 'lucide-react'
+import { BarChart3, Download, EyeOff, Filter } from 'lucide-react'
 import { InfoBox } from '../../src/components/ui/AlertBox'
 import { SURVEY_K_ANONYMITY_MIN } from '../../src/lib/orgSurveyKAnonymity'
 import type { UseSurveyState } from './useSurvey'
+import { LAYOUT_SCORE_STAT_CREAM } from '../../src/components/layout/platformLayoutKit'
 import { WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
 import { buildAnalyticsByQuestionId } from './surveyAnalytics'
 import { globalQuestionIdOrder } from './surveyQuestionGlobalOrder'
@@ -233,34 +234,73 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
   return (
     <div className="w-full space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-2">
-          <InfoBox>
-            {kAnonApplies ? (
-              <>
-                Denne undersøkelsen er <strong>anonym</strong>. For valg og tall gjelder minst {minResponses} svar per
-                spørsmål (k-anonymitet). Fritekst vises aldri ordrett. Under terskelen vises «Skjult». Aggregater kan
-                hentes via databasefunksjon slik at rå svar ikke må prosesseres i nettleseren når terskel er nådd.
-              </>
-            ) : (
-              <>
-                Denne undersøkelsen er <strong>identifisert</strong> (ikke anonym). Standard k-anonymitetsterskel for
-                analyse gjelder ikke; aggregater vises uten krav om minst fem svar per spørsmål. Fritekst vises fortsatt
-                ikke ordrett her (personvern).
-              </>
-            )}
-          </InfoBox>
-          {rpcWarn ? <p className="text-xs text-amber-800">{rpcWarn}</p> : null}
+        <div className="flex min-w-0 flex-1 items-start gap-2">
+          <BarChart3 className="mt-1 h-6 w-6 shrink-0 text-neutral-600" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-xs text-neutral-500">Undersøkelse</p>
+            <h2
+              className="text-2xl font-semibold tracking-tight text-neutral-900 md:text-3xl"
+              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+            >
+              Analyse
+            </h2>
+          </div>
         </div>
-        {csvBlobUrl ? (
-          <a
-            href={csvBlobUrl}
-            download={exportFileName}
-            className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-800 shadow-sm hover:bg-neutral-50"
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-600 hover:text-neutral-900"
           >
-            <Download className="h-4 w-4" aria-hidden />
-            Last ned CSV (aggregater)
-          </a>
-        ) : null}
+            <Filter className="h-3.5 w-3.5" aria-hidden />
+            Vis filtre
+          </button>
+          {csvBlobUrl ? (
+            <a
+              href={csvBlobUrl}
+              download={exportFileName}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-600 hover:text-neutral-900"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden />
+              Eksporter CSV
+            </a>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div
+          className="rounded-lg border border-neutral-200/80 px-5 py-4"
+          style={{ backgroundColor: LAYOUT_SCORE_STAT_CREAM }}
+        >
+          <p className="text-3xl font-bold tabular-nums text-neutral-900">{responseCount}</p>
+          <p className="mt-1 text-sm text-neutral-700">Mottatte besvarelser</p>
+        </div>
+        <div
+          className="rounded-lg border border-neutral-200/80 px-5 py-4"
+          style={{ backgroundColor: LAYOUT_SCORE_STAT_CREAM }}
+        >
+          <p className="text-3xl font-bold tabular-nums text-neutral-900">{survey.questions.length}</p>
+          <p className="mt-1 text-sm text-neutral-700">Spørsmål i undersøkelsen</p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <InfoBox>
+          {kAnonApplies ? (
+            <>
+              Denne undersøkelsen er <strong>anonym</strong>. For valg og tall gjelder minst {minResponses} svar per
+              spørsmål (k-anonymitet). Fritekst vises aldri ordrett. Under terskelen vises «Skjult». Aggregater kan hentes
+              via databasefunksjon slik at rå svar ikke må prosesseres i nettleseren når terskel er nådd.
+            </>
+          ) : (
+            <>
+              Denne undersøkelsen er <strong>identifisert</strong> (ikke anonym). Standard k-anonymitetsterskel for analyse
+              gjelder ikke; aggregater vises uten krav om minst fem svar per spørsmål. Fritekst vises fortsatt ikke ordrett
+              her (personvern).
+            </>
+          )}
+        </InfoBox>
+        {rpcWarn ? <p className="text-xs text-amber-800">{rpcWarn}</p> : null}
       </div>
 
       {survey.questions.length === 0 ? (

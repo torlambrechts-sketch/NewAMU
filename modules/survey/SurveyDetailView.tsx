@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ArrowLeft, CheckCircle2, Ghost, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Eye, Ghost, Save, Trash2 } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
@@ -23,13 +23,7 @@ import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useSurvey } from './useSurvey'
 import type { UseSurveyState } from './useSurvey'
-import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
-import {
-  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
-  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
-  LAYOUT_TABLE1_POSTINGS_TH,
-  LAYOUT_TABLE1_POSTINGS_TD,
-} from '../../src/components/layout/layoutTable1PostingsKit'
+import { SurveyResponseReadPanel } from './SurveyResponseReadPanel'
 import { surveyStatusBadgeVariant, surveyStatusLabel } from './surveyLabels'
 import { globalQuestionIdOrder } from './surveyQuestionGlobalOrder'
 import { SurveySectionBuilder } from './SurveySectionBuilder'
@@ -42,7 +36,7 @@ import { SURVEY_DETAIL_EXTRA_LEGAL_REFERENCES, SURVEY_MODULE_LEGAL_REFERENCES } 
 import { orgQuestionToCatalogQuestion } from './surveyTemplateCatalogHelpers'
 import { suggestionsForSurveyPurpose, type PurposeSuggestion } from './surveyPurposeSuggestions'
 import { SurveyAnalyseTab } from './SurveyAnalyseTab'
-import type { OrgSurveyQuestionRow, SurveyAmuReviewRow, SurveyQuestionType, SurveyRow } from './types'
+import type { OrgSurveyQuestionRow, OrgSurveyResponseRow, SurveyAmuReviewRow, SurveyQuestionType, SurveyRow } from './types'
 
 function mergeQuestionConfig(
   baseConfig: Record<string, unknown>,
@@ -482,55 +476,76 @@ function SvarTab({
   survey,
   s,
   nameByUserId,
+  onOpenResponse,
 }: {
   survey: UseSurveyState
   s: SurveyRow
   nameByUserId: Record<string, string>
+  onOpenResponse: (r: OrgSurveyResponseRow) => void
 }) {
+  const canViewIndividual = !s.is_anonymous
+
   return (
     <div>
       {survey.responses.length === 0 ? (
         <TabEmpty message="Ingen besvarelser mottatt ennå. Svar vises når deltakere har sendt inn." />
       ) : (
-        <LayoutTable1PostingsShell
-          wrap={false}
-          title="Mottatte besvarelser"
-          description="Anonyme undersøkelser viser ikke sammenheng med navn. Identifiserte svar kobles til bruker der det er krevet i databasen."
-          toolbar={<span className="text-xs text-neutral-500">{survey.responses.length} svar</span>}
-        >
-          <div className="overflow-x-auto w-full">
-            <table className="w-full text-left text-sm whitespace-nowrap">
+        <div className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold tracking-tight text-neutral-900">Mottatte besvarelser</h2>
+              <p className="mt-1 text-sm text-neutral-600">
+                {canViewIndividual
+                  ? 'Identifiserte undersøkelser: åpne en rad for å se alle svar i sidefeltet.'
+                  : 'Anonyme undersøkelser viser ikke sammenheng med navn eller enkeltvise svar.'}
+              </p>
+            </div>
+            <span className="text-xs text-neutral-500">{survey.responses.length} svar</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
-                <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-                  <th className={LAYOUT_TABLE1_POSTINGS_TH}>Rund</th>
-                  <th className={LAYOUT_TABLE1_POSTINGS_TH}>Innsendt</th>
-                  <th className={LAYOUT_TABLE1_POSTINGS_TH}>Deltaker</th>
-                  <th className={LAYOUT_TABLE1_POSTINGS_TH}>Nøkkel</th>
+                <tr className="border-b border-neutral-200 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+                  <th className="py-3 pl-5 pr-4">#</th>
+                  <th className="py-3 pr-4">Innsendt</th>
+                  <th className="py-3 pr-4">Deltaker</th>
+                  <th className="py-3 pr-5 text-right">Handling</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-neutral-100">
                 {survey.responses.map((r, idx) => (
-                  <tr key={r.id} className={LAYOUT_TABLE1_POSTINGS_BODY_ROW}>
-                    <td className={LAYOUT_TABLE1_POSTINGS_TD}>{idx + 1}</td>
-                    <td className={LAYOUT_TABLE1_POSTINGS_TD}>
+                  <tr key={r.id} className="hover:bg-neutral-50/80">
+                    <td className="py-3.5 pl-5 pr-4 tabular-nums text-neutral-600">{idx + 1}</td>
+                    <td className="py-3.5 pr-4 text-neutral-700">
                       {new Date(r.submitted_at).toLocaleString('nb-NO')}
                     </td>
-                    <td className={LAYOUT_TABLE1_POSTINGS_TD}>
+                    <td className="py-3.5 pr-4">
                       {s.is_anonymous || r.user_id == null ? (
                         <span className="text-neutral-500">Anonym besvarelse</span>
                       ) : (
-                        <span>{nameByUserId[r.user_id!] ?? 'Bruker'}</span>
+                        <span className="font-medium text-neutral-900">{nameByUserId[r.user_id!] ?? 'Bruker'}</span>
                       )}
                     </td>
-                    <td className={LAYOUT_TABLE1_POSTINGS_TD} title={r.id}>
-                      {r.id.slice(0, 8)}…
+                    <td className="py-3.5 pr-5 text-right">
+                      {canViewIndividual && r.user_id != null ? (
+                        <button
+                          type="button"
+                          onClick={() => onOpenResponse(r)}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-700 shadow-sm hover:bg-neutral-50"
+                        >
+                          <Eye className="h-3.5 w-3.5" aria-hidden />
+                          Se svar
+                        </button>
+                      ) : (
+                        <span className="text-xs text-neutral-400">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </LayoutTable1PostingsShell>
+        </div>
       )}
     </div>
   )
@@ -549,6 +564,8 @@ export function SurveyDetailView({ supabase }: Props) {
   const profileFetchId = useRef(0)
 
   const [panelOpen, setPanelOpen] = useState(false)
+  const [responsePanelOpen, setResponsePanelOpen] = useState(false)
+  const [viewingResponse, setViewingResponse] = useState<OrgSurveyResponseRow | null>(null)
   const [editingQ, setEditingQ] = useState<OrgSurveyQuestionRow | null>(null)
   const [questionDraft, setQuestionDraft] = useState<QuestionDraft>({
     questionText: '',
@@ -627,6 +644,12 @@ export function SurveyDetailView({ supabase }: Props) {
     })()
   }, [supabase, orgId, surveyId, survey.responses])
 
+  const responseParticipantLabel = useMemo(() => {
+    if (!viewingResponse) return ''
+    if (!s || s.is_anonymous || viewingResponse.user_id == null) return 'Anonym besvarelse'
+    return nameByUserId[viewingResponse.user_id] ?? 'Bruker'
+  }, [viewingResponse, s, nameByUserId])
+
   const sectionSelectOptions = useMemo(
     () => survey.surveySections.map((sec) => ({ value: sec.id, label: sec.title })),
     [survey.surveySections],
@@ -682,6 +705,16 @@ export function SurveyDetailView({ supabase }: Props) {
     setQOptionsLines(Array.isArray(opts) ? opts.join('\n') : '')
     setQConfigExtraJson(extraJsonFromStoredQuestionConfig(rawCfg))
     setPanelOpen(true)
+  }, [])
+
+  const closeResponsePanel = useCallback(() => {
+    setResponsePanelOpen(false)
+    setViewingResponse(null)
+  }, [])
+
+  const openResponsePanel = useCallback((r: OrgSurveyResponseRow) => {
+    setViewingResponse(r)
+    setResponsePanelOpen(true)
   }, [])
 
   const closePanel = useCallback(() => {
@@ -800,6 +833,7 @@ export function SurveyDetailView({ supabase }: Props) {
 
   const isLocked = !!(s && (s.status === 'active' || s.status === 'closed'))
   const panelTitleId = 'survey-question-panel-title'
+  const responsePanelTitleId = 'survey-response-read-panel-title'
 
   const legalReferences = useMemo(
     () => [...SURVEY_MODULE_LEGAL_REFERENCES, ...SURVEY_DETAIL_EXTRA_LEGAL_REFERENCES],
@@ -875,28 +909,36 @@ export function SurveyDetailView({ supabase }: Props) {
             {s.is_anonymous ? <Badge variant="info">Anonym</Badge> : <Badge variant="neutral">Identifisert</Badge>}
           </div>
 
-          <div className="rounded-xl border border-neutral-200/90 bg-[#faf9f6] p-4">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">Fremdrift</p>
-            <ol className="mt-3 flex flex-wrap gap-2">
+          <div className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Fremdrift</p>
+              <span className="rounded-full bg-[#1a3d32] px-2 py-0.5 text-[10px] font-bold text-white">
+                {surveyWorkflowSteps({ status: s.status, responseCount: survey.responses.length }).filter((x) => x.done).length}
+                /5
+              </span>
+            </div>
+            <ul className="divide-y divide-neutral-100">
               {surveyWorkflowSteps({
                 status: s.status,
                 responseCount: survey.responses.length,
-              }).map((st, i, arr) => (
-                <li key={st.id} className="flex items-center gap-2 text-xs text-neutral-700">
-                  <span
+              }).map((st, i) => (
+                <li key={st.id} className="flex gap-3 px-4 py-3">
+                  <div
                     className={[
-                      'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold',
-                      st.done ? 'bg-emerald-600 text-white' : 'border border-neutral-300 bg-white text-neutral-500',
+                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold',
+                      st.done ? 'bg-emerald-600 text-white' : 'border border-neutral-200 bg-neutral-50 text-neutral-500',
                     ].join(' ')}
                     aria-hidden
                   >
                     {st.done ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
-                  </span>
-                  <span className={st.done ? 'font-medium text-neutral-900' : ''}>{st.label}</span>
-                  {i < arr.length - 1 ? <span className="text-neutral-300" aria-hidden>→</span> : null}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-sm ${st.done ? 'font-medium text-neutral-900' : 'text-neutral-700'}`}>{st.label}</p>
+                    <p className="mt-0.5 text-xs text-neutral-400">{st.done ? 'Fullført' : 'Venter'}</p>
+                  </div>
                 </li>
               ))}
-            </ol>
+            </ul>
           </div>
 
           <ModuleLegalBanner
@@ -955,7 +997,9 @@ export function SurveyDetailView({ supabase }: Props) {
 
           {tab === 'distribusjon' && <SurveyDistribusjonTab survey={survey} s={s} />}
 
-          {tab === 'svar' && <SvarTab survey={survey} s={s} nameByUserId={nameByUserId} />}
+          {tab === 'svar' && (
+            <SvarTab survey={survey} s={s} nameByUserId={nameByUserId} onOpenResponse={openResponsePanel} />
+          )}
 
           {tab === 'analyse' && <SurveyAnalyseTab survey={survey} s={s} supabase={supabase} />}
 
@@ -1023,6 +1067,30 @@ export function SurveyDetailView({ supabase }: Props) {
             </div>
           ) : null}
         </div>
+      </SlidePanel>
+
+      <SlidePanel
+        open={responsePanelOpen && viewingResponse != null}
+        onClose={closeResponsePanel}
+        titleId={responsePanelTitleId}
+        title="Besvarelse"
+        footer={
+          <div className="flex w-full justify-end">
+            <Button type="button" variant="secondary" onClick={closeResponsePanel}>
+              Lukk
+            </Button>
+          </div>
+        }
+      >
+        {viewingResponse ? (
+          <SurveyResponseReadPanel
+            response={viewingResponse}
+            questions={survey.questions}
+            sections={survey.surveySections}
+            answers={survey.answers}
+            participantLabel={responseParticipantLabel}
+          />
+        ) : null}
       </SlidePanel>
     </>
   )
