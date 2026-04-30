@@ -80,6 +80,9 @@ export function LearningDashboard() {
     departmentLeaderboard,
     dismissReview,
     isCourseUnlocked,
+    certificates,
+    certificationRenewals,
+    learningPaths,
   } = useLearning()
   const { can } = useOrgSetupContext()
   const canManage = can('learning.manage')
@@ -93,6 +96,33 @@ export function LearningDashboard() {
     () => departmentLeaderboard.filter((d) => d.memberCount >= 5),
     [departmentLeaderboard],
   )
+
+  const complianceStrip = useMemo(() => {
+    const expiredCertIds = new Set(
+      certificationRenewals
+        .filter((r) => r.status === 'expired' && r.certificateId)
+        .map((r) => r.certificateId as string),
+    )
+    const totalCerts = certificates.length
+    const validCerts = certificates.filter((c) => !expiredCertIds.has(c.id)).length
+    const hasVerneombudTrack =
+      learningPaths.some((p) => p.slug.toLowerCase().includes('verneombud')) ||
+      courses.some((c) => c.tags.some((t) => t.toLowerCase().includes('verneombud')))
+    const verneombudLine = hasVerneombudTrack
+      ? 'Verneombud opplæring: spor konfigurert'
+      : 'Verneombud opplæring: Mangler rolledata'
+    let tone: 'green' | 'amber' | 'red' = 'green'
+    if (expiredCertIds.size > 0) tone = 'red'
+    else if (totalCerts === 0 || !hasVerneombudTrack) tone = 'amber'
+    const summary = `Sertifiseringer: ${validCerts} av ${totalCerts} gyldige · ${verneombudLine}`
+    const stripClass =
+      tone === 'red'
+        ? 'rounded-sm border border-red-200 border-l-4 border-l-red-600 bg-red-50 px-3 py-2 text-[12.5px] text-red-950 flex items-center gap-2'
+        : tone === 'amber'
+          ? 'rounded-sm border border-amber-200 border-l-4 border-l-amber-500 bg-amber-50/90 px-3 py-2 text-[12.5px] text-amber-950 flex items-center gap-2'
+          : 'rounded-sm border border-[#c5d3c8] border-l-4 border-l-[#1a3d32] bg-[#e7efe9] px-3 py-2 text-[12.5px] text-[#1a3d32] flex items-center gap-2'
+    return { stripClass, summary, tone }
+  }, [certificates, certificationRenewals, courses, learningPaths])
 
   return (
     <div className="space-y-8">
@@ -117,7 +147,7 @@ export function LearningDashboard() {
         {canManage && (
           <Link
             to="/learning/courses"
-            className="rounded-full border px-4 py-2 text-sm font-medium text-[#2D403A] hover:bg-white"
+            className="rounded-full border px-4 py-2 text-sm font-medium text-[#2D403A] hover:bg-[#fbf9f3]"
             style={{ borderColor: `${PIN_GREEN}40`, backgroundColor: CREAM }}
           >
             Administrer
@@ -125,10 +155,17 @@ export function LearningDashboard() {
         )}
       </div>
 
-      <div className="rounded-sm border border-[#c5d3c8] border-l-[3px] border-l-[#1a3d32] bg-[#e7efe9] px-3 py-2 text-[12.5px] text-[#1a3d32] flex items-center gap-2">
+      <div className={complianceStrip.stripClass}>
         <CheckCircle2 className="size-3.5 shrink-0" aria-hidden />
-        <span>AML § 3-1 · § 6-5 · IK-forskriften § 5 — opplæringsoversikt aktiv</span>
-        <Link to="/learning/compliance" className="ml-auto text-xs font-medium underline">Se samsvar</Link>
+        <span className="min-w-0 flex-1">
+          AML § 3-1 · § 6-5 · IK-forskriften § 5 — {complianceStrip.summary}
+        </span>
+        <Link to="/learning/compliance" className="shrink-0 text-xs font-medium underline">
+          Se detaljer
+        </Link>
+        <Link to="/learning/certifications" className="shrink-0 text-xs font-medium underline">
+          Sertifikater
+        </Link>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_200px]">
@@ -155,7 +192,7 @@ export function LearningDashboard() {
               return (
                 <li
                   key={r.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-100 bg-white px-3 py-2 text-sm"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-100 bg-[#fbf9f3] px-3 py-2 text-sm"
                 >
                   <span className="text-neutral-800">
                     {c?.title ?? r.courseId} — modul {r.moduleId.slice(0, 8)}…

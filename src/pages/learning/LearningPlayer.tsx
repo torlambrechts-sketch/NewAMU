@@ -36,7 +36,7 @@ const KIND_LABELS: Record<string, string> = {
 export function LearningPlayer() {
   const { courseId } = useParams<{ courseId: string }>()
   const [searchParams] = useSearchParams()
-  const { can, supabase, organization } = useOrgSetupContext()
+  const { can, supabase, organization, profile } = useOrgSetupContext()
   const canManageLearning = can('learning.manage')
   const {
     courses,
@@ -54,6 +54,7 @@ export function LearningPlayer() {
 
   const [idx, setIdx] = useState(0)
   const [learnerName, setLearnerName] = useState('')
+  const [certSuccess, setCertSuccess] = useState<{ verifyCode: string } | null>(null)
   const [flashFlipped, setFlashFlipped] = useState(false)
   const [flashIdx, setFlashIdx] = useState(0)
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({})
@@ -63,6 +64,15 @@ export function LearningPlayer() {
   useEffect(() => {
     if (courseId) ensureProgress(courseId)
   }, [courseId, ensureProgress])
+
+  useEffect(() => {
+    queueMicrotask(() => setCertSuccess(null))
+  }, [courseId])
+
+  useEffect(() => {
+    const dn = profile?.display_name?.trim()
+    if (dn) setLearnerName(dn)
+  }, [profile?.display_name])
 
   useEffect(() => {
     if (!canManageLearning || !supabase || !organization?.id) {
@@ -95,7 +105,7 @@ export function LearningPlayer() {
     for (let i = 0; i < modules.length; i += chunk) {
       const level = out.length + 1
       out.push({
-        title: `Level ${level}`,
+        title: `Nivå ${level}`,
         startIdx: i,
         endIdx: Math.min(i + chunk - 1, modules.length - 1),
       })
@@ -324,42 +334,60 @@ export function LearningPlayer() {
             </button>
           </div>
 
-          <div className="rounded-xl border border-[#c5d3c8] bg-[#e7efe9] p-5">
-            <h3 className="font-semibold text-[#2D403A]">Kursbevis</h3>
-            <p className="mt-1 text-sm text-[#6b6f68]">
-              Fullfør hver modul med knappen inne i modulen. Når du er ferdig, skriv inn navnet ditt for å hente kursbeviset.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <input
-                value={learnerName}
-                onChange={(e) => setLearnerName(e.target.value)}
-                placeholder="Ditt fulle navn"
-                className="min-w-[200px] flex-1 rounded-lg border border-[#e3ddcc] px-3 py-2 text-sm"
-              />
-              <button
-                type="button"
-                disabled={!modulesComplete || hasCert}
-                onClick={() => {
-                  if (!learnerName.trim()) return
-                  void (async () => {
-                    const cert = await issueCertificate(activeCourse.id, learnerName)
-                    if (cert !== null) alert(`Certificate issued! Code: ${cert.verifyCode}`)
-                  })()
-                }}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-                style={{ backgroundColor: PIN_GREEN }}
-              >
-                {hasCert ? 'Kursbevis utstedt' : 'Hent kursbevis'}
-              </button>
+          {overallProgress >= 0.5 ? (
+            <div className="rounded-xl border border-[#c5d3c8] bg-[#e7efe9] p-5">
+              <h3 className="font-semibold text-[#2D403A]">Kursbevis</h3>
+              <p className="mt-1 text-sm text-[#6b6f68]">
+                Fullfør hver modul med knappen inne i modulen. Når alt er fullført, kan du utstede kursbevis med navnet som står på beviset.
+              </p>
+              {profile?.display_name?.trim() ? (
+                <p className="mt-2 text-xs text-[#4a5c54]">Ditt navn er hentet fra profilen din.</p>
+              ) : null}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <input
+                  value={learnerName}
+                  readOnly={Boolean(profile?.display_name?.trim())}
+                  onChange={(e) => setLearnerName(e.target.value)}
+                  placeholder="Ditt fulle navn"
+                  aria-readonly={Boolean(profile?.display_name?.trim()) || undefined}
+                  className="min-w-[200px] flex-1 rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] px-3 py-2 text-sm read-only:bg-neutral-100 read-only:text-neutral-700"
+                />
+                <button
+                  type="button"
+                  disabled={!modulesComplete || hasCert || !learnerName.trim()}
+                  onClick={() => {
+                    if (!learnerName.trim()) return
+                    void (async () => {
+                      const cert = await issueCertificate(activeCourse.id, learnerName)
+                      if (cert !== null) setCertSuccess({ verifyCode: cert.verifyCode })
+                    })()
+                  }}
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+                  style={{ backgroundColor: PIN_GREEN }}
+                >
+                  {hasCert ? 'Kursbevis utstedt' : 'Utsted kursbevis'}
+                </button>
+              </div>
+              {certSuccess ? (
+                <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50/90 px-3 py-2 text-sm text-emerald-950">
+                  <p className="font-medium">Kursbevis utstedt ✓</p>
+                  <p className="mt-1 text-xs">
+                    Verifiseringskode: <span className="font-mono font-semibold">{certSuccess.verifyCode}</span>
+                  </p>
+                  <Link to="/learning/certifications" className="mt-2 inline-block text-xs font-medium text-emerald-900 underline">
+                    Se i sertifikatlista →
+                  </Link>
+                </div>
+              ) : null}
+              <p className="mt-2 text-xs text-[#6b6f68]">
+                {!modulesComplete
+                  ? 'Fullfør alle moduler for å låse opp kursbeviset.'
+                  : hasCert
+                    ? 'Du har allerede et kursbevis for dette kurset.'
+                    : 'Du kan nå utstede kursbeviset ditt.'}
+              </p>
             </div>
-            <p className="mt-2 text-xs text-[#6b6f68]">
-              {!modulesComplete
-                ? 'Fullfør alle moduler for å låse opp kursbeviset.'
-                : hasCert
-                  ? 'Du har allerede et kursbevis for dette kurset.'
-                  : 'Du kan nå hente kursbeviset ditt.'}
-            </p>
-          </div>
+          ) : null}
         </div>
       </div>
     </div>
