@@ -322,7 +322,7 @@ export function LearningPlayer() {
             </button>
           </div>
 
-          <div className="rounded-xl border border-[#c5d3c8] bg-[#e7efe9] p-5">
+          <div className="rounded-lg border border-[#c5d3c8] bg-[#e7efe9] p-5">
             <h3 className="font-semibold text-[#2D403A]">Kursbevis</h3>
             <p className="mt-1 text-sm text-[#6b6f68]">
               Fullfør hver modul med knappen inne i modulen. Når du er ferdig, skriv inn navnet ditt for å hente kursbeviset.
@@ -444,7 +444,7 @@ function EventModuleSection({
                     setRsvpMsg(r.ok ? (st === 'going' ? 'Du er påmeldt.' : 'Oppdatert.') : r.error)
                   })()
                 }}
-                className="rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-neutral-50"
+                className="rounded-md border border-[#e3ddcc] bg-[#fbf9f3] px-3 py-1.5 text-xs font-medium hover:bg-neutral-50"
               >
                 {st === 'going' ? 'Meld på' : st === 'declined' ? 'Avslå' : 'Venteliste'}
               </button>
