@@ -4,8 +4,9 @@ import { BarChart3, Download, EyeOff, Filter } from 'lucide-react'
 import { InfoBox } from '../../src/components/ui/AlertBox'
 import { SURVEY_K_ANONYMITY_MIN } from '../../src/lib/orgSurveyKAnonymity'
 import type { UseSurveyState } from './useSurvey'
-import { LAYOUT_SCORE_STAT_CREAM } from '../../src/components/layout/platformLayoutKit'
 import { WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
+import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
+import { ModuleDonutCard, type InsightSeg } from '../../src/components/insights/ModuleInsightCharts'
 import { buildAnalyticsByQuestionId } from './surveyAnalytics'
 import { globalQuestionIdOrder } from './surveyQuestionGlobalOrder'
 import { buildSurveyAnalyticsCsv } from './surveyExportCsv'
@@ -267,22 +268,34 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div
-          className="rounded-lg border border-neutral-200/80 px-5 py-4"
-          style={{ backgroundColor: LAYOUT_SCORE_STAT_CREAM }}
-        >
-          <p className="text-3xl font-bold tabular-nums text-neutral-900">{responseCount}</p>
-          <p className="mt-1 text-sm text-neutral-700">Mottatte besvarelser</p>
-        </div>
-        <div
-          className="rounded-lg border border-neutral-200/80 px-5 py-4"
-          style={{ backgroundColor: LAYOUT_SCORE_STAT_CREAM }}
-        >
-          <p className="text-3xl font-bold tabular-nums text-neutral-900">{survey.questions.length}</p>
-          <p className="mt-1 text-sm text-neutral-700">Spørsmål i undersøkelsen</p>
-        </div>
-      </div>
+      <LayoutScoreStatRow
+        columns={4}
+        variant="compact"
+        items={[
+          {
+            big: String(responseCount),
+            title: 'Besvarelser',
+            sub: 'Mottatt totalt',
+          },
+          {
+            big: String(survey.questions.length),
+            title: 'Spørsmål',
+            sub: 'I undersøkelsen',
+          },
+          {
+            big: survey.distributions.length > 0
+              ? `${Math.round((responseCount / Math.max(1, survey.distributions.reduce((s, d) => s + d.invite_count, 0))) * 100)}%`
+              : '—',
+            title: 'Svarprosent',
+            sub: survey.distributions.length > 0 ? 'Av utsendte invitasjoner' : 'Ingen distribusjon',
+          },
+          {
+            big: kAnonApplies ? 'Anonym' : 'Identifisert',
+            title: 'Personvern',
+            sub: kAnonApplies ? `Terskel: ${minResponses} svar` : 'Ingen k-anonymitet',
+          },
+        ]}
+      />
 
       <div className="space-y-2">
         <InfoBox>
@@ -605,17 +618,58 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
                     Gjennomsnitt av tall • skala {smin}–{smax} • n={nEff}
                     {rangeNote}
                   </p>
-                  {nEff === 0 ? (
+                          {nEff === 0 ? (
                     <p className="mt-3 text-sm text-neutral-500">Ingen numeriske svar for dette spørsmålet.</p>
-                  ) : null}
-                  {nEff > 0 ? (
-                    <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-neutral-100">
-                      <div
-                        className="h-full rounded-full bg-[#1a3d32]"
-                        style={{ width: `${Math.min(100, ((avg - smin) / span) * 100)}%` }}
-                      />
+                  ) : (
+                    <div className="mt-4 flex items-end gap-4">
+                      <div>
+                        <p className="text-4xl font-bold tabular-nums text-[#1a3d32]">{avg.toFixed(2)}</p>
+                        <p className="mt-0.5 text-xs text-neutral-400">gjennomsnitt · skala {smin}–{smax}</p>
+                      </div>
+                      <div className="mb-2 flex-1">
+                        <div className="h-2.5 w-full overflow-hidden rounded-full bg-neutral-100">
+                          <div
+                            className="h-full rounded-full bg-[#1a3d32] transition-[width]"
+                            style={{ width: `${Math.min(100, ((avg - smin) / span) * 100)}%` }}
+                          />
+                        </div>
+                        <div className="mt-1 flex justify-between text-[10px] text-neutral-400">
+                          <span>{smin}</span><span>{smax}</span>
+                        </div>
+                      </div>
                     </div>
-                  ) : null}
+                  )}
+                  {/* NPS bands: Detractors 0-6, Passives 7-8, Promoters 9-10 */}
+                  {q.question_type === 'nps' && nEff > 0 && (() => {
+                    const nums = a?.numbers ?? []
+                    const promoters  = nums.filter((v) => v >= 9).length
+                    const passives   = nums.filter((v) => v >= 7 && v <= 8).length
+                    const detractors = nums.filter((v) => v <= 6).length
+                    const total      = nums.length || 1
+                    const nps = Math.round((promoters / total - detractors / total) * 100)
+                    const segs: InsightSeg[] = [
+                      { label: 'Promotører (9–10)', value: promoters,  color: '#2f7757' },
+                      { label: 'Passive (7–8)',     value: passives,   color: '#ca8a04' },
+                      { label: 'Kritikere (0–6)',   value: detractors, color: '#b3382a' },
+                    ]
+                    return (
+                      <div className="mt-4 border-t border-neutral-100 pt-4">
+                        <div className="mb-3 flex items-baseline gap-3">
+                          <p className="text-2xl font-bold tabular-nums" style={{ color: nps >= 0 ? '#2f7757' : '#b3382a' }}>
+                            {nps >= 0 ? '+' : ''}{nps}
+                          </p>
+                          <p className="text-xs text-neutral-500">NPS-score (–100 til +100)</p>
+                        </div>
+                        <ModuleDonutCard
+                          title="NPS-fordeling"
+                          subtitle={`${promoters} promotører · ${passives} passive · ${detractors} kritikere`}
+                          segments={segs}
+                          total={total}
+                          emptyHint=""
+                        />
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
             )
@@ -649,24 +703,40 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
             )
           }
 
+          // Colour palette for donut slices
+          const CHOICE_COLORS = ['#1a3d32','#2f7757','#ca8a04','#2563eb','#c2410c','#7c3aed']
+          const sortedEntries = [...entries].sort((x, y) => y[1] - x[1])
+          const useDonut = entries.length >= 2 && entries.length <= 6
+
           return (
             <div key={q.id}>
               {sectionHeader}
               <div className="rounded-lg border border-neutral-200/90 bg-white p-5" style={WORKPLACE_MODULE_CARD_SHADOW}>
                 <h3 className="text-sm font-semibold text-neutral-900">{q.question_text}</h3>
                 <p className="mt-1 text-xs text-neutral-500">
-                  Andel av alle som besvarte dette spørsmålet (summerer til 100 %).
+                  Andel av alle som besvarte dette spørsmålet (summerer til 100 %). n={entries.reduce((s,[,v])=>s+v,0)}
                 </p>
                 {entries.length === 0 ? (
                   <p className="mt-3 text-sm text-neutral-500">Ingen valgsvar registrert.</p>
-                ) : null}
-                {entries.length > 0 ? (
-                  <div className="mt-4 space-y-3">
-                    {entries
-                      .sort((x, y) => y[1] - x[1])
-                      .map(([k, v]) => <AnalyseBar key={k} label={k} valuePct={(v / total) * 100} />)}
+                ) : useDonut ? (
+                  <div className="mt-4">
+                    <ModuleDonutCard
+                      title=""
+                      subtitle=""
+                      segments={sortedEntries.map(([k, v], i) => ({
+                        label: k,
+                        value: v,
+                        color: CHOICE_COLORS[i % CHOICE_COLORS.length] ?? '#94a3b8',
+                      }))}
+                      total={entries.reduce((s, [, v]) => s + v, 0)}
+                      emptyHint=""
+                    />
                   </div>
-                ) : null}
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    {sortedEntries.map(([k, v]) => <AnalyseBar key={k} label={k} valuePct={(v / total) * 100} />)}
+                  </div>
+                )}
               </div>
             </div>
           )

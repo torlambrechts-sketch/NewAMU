@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
+  BarChart3,
   ClipboardList,
   LayoutGrid,
   Loader2,
@@ -29,12 +30,13 @@ import { SurveyOversiktModuleTab } from './tabs/SurveyOversiktModuleTab'
 import { SurveyKampanjerTab } from './tabs/SurveyKampanjerTab'
 import { SurveyMalerTab } from './tabs/SurveyMalerTab'
 import { SurveyLeverandorerTab } from './tabs/SurveyLeverandorerTab'
+import { SurveyAnalyseOverviewTab } from './tabs/SurveyAnalyseOverviewTab'
 import { SURVEY_MODULE_LEGAL_REFERENCES } from './surveyLegalReferences'
 import { mandatoryFromCatalogQuestion } from './surveyMandatoryLaw'
 
 type Props = { supabase: SupabaseClient | null }
 
-type ModuleTab = 'oversikt' | 'kampanjer' | 'maler' | 'leverandorer'
+type ModuleTab = 'oversikt' | 'kampanjer' | 'maler' | 'leverandorer' | 'analyse'
 
 export function SurveyPage({ supabase }: Props) {
   const navigate = useNavigate()
@@ -101,7 +103,7 @@ export function SurveyPage({ supabase }: Props) {
 
   const tabFromUrl = searchParams.get('tab')
   useEffect(() => {
-    if (tabFromUrl === 'maler' || tabFromUrl === 'kampanjer' || tabFromUrl === 'leverandorer' || tabFromUrl === 'oversikt') {
+    if (tabFromUrl === 'maler' || tabFromUrl === 'kampanjer' || tabFromUrl === 'leverandorer' || tabFromUrl === 'oversikt' || tabFromUrl === 'analyse') {
       setTab(tabFromUrl)
     }
   }, [tabFromUrl])
@@ -229,6 +231,7 @@ export function SurveyPage({ supabase }: Props) {
         icon: Truck,
         badgeCount: survey.surveys.filter((s) => s.survey_type === 'external').length || undefined,
       },
+      { id: 'analyse', label: 'Analyse', icon: BarChart3 },
     ],
     [survey.surveys],
   )
@@ -344,6 +347,12 @@ export function SurveyPage({ supabase }: Props) {
                 loading={survey.loading}
                 canManage={survey.canManage}
                 onNewExternalSurvey={() => openPanel('external')}
+              />
+            )}
+            {tab === 'analyse' && (
+              <SurveyAnalyseOverviewTab
+                surveys={survey.surveys}
+                loading={survey.loading}
               />
             )}
           </>
