@@ -219,6 +219,11 @@ export function LearningParticipants() {
           </p>
         ) : null}
       </div>
+      {canManage && progress.length >= 500 ? (
+        <p className="mt-2 text-xs text-neutral-500">
+          Viser de 500 nyeste deltakerne. Eksporter for full oversikt.
+        </p>
+      ) : null}
     </div>
   )
 }
