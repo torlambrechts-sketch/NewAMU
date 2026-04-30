@@ -36,7 +36,7 @@ const KIND_LABELS: Record<string, string> = {
 export function LearningPlayer() {
   const { courseId } = useParams<{ courseId: string }>()
   const [searchParams] = useSearchParams()
-  const { can, supabase, organization } = useOrgSetupContext()
+  const { can, supabase, organization, profile } = useOrgSetupContext()
   const canManageLearning = can('learning.manage')
   const {
     courses,
@@ -54,6 +54,7 @@ export function LearningPlayer() {
 
   const [idx, setIdx] = useState(0)
   const [learnerName, setLearnerName] = useState('')
+  const [certIssued, setCertIssued] = useState<string | null>(null)
   const [flashFlipped, setFlashFlipped] = useState(false)
   const [flashIdx, setFlashIdx] = useState(0)
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({})
@@ -63,6 +64,15 @@ export function LearningPlayer() {
   useEffect(() => {
     if (courseId) ensureProgress(courseId)
   }, [courseId, ensureProgress])
+
+  useEffect(() => {
+    queueMicrotask(() => setCertIssued(null))
+  }, [courseId])
+
+  useEffect(() => {
+    const dn = profile?.display_name?.trim()
+    if (dn) setLearnerName(dn)
+  }, [profile?.display_name])
 
   useEffect(() => {
     if (!canManageLearning || !supabase || !organization?.id) {
@@ -95,7 +105,7 @@ export function LearningPlayer() {
     for (let i = 0; i < modules.length; i += chunk) {
       const level = out.length + 1
       out.push({
-        title: `Level ${level}`,
+        title: `Nivå ${level}`,
         startIdx: i,
         endIdx: Math.min(i + chunk - 1, modules.length - 1),
       })
@@ -197,7 +207,9 @@ export function LearningPlayer() {
       <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(220px,280px)_1fr] lg:items-start">
         <aside className="space-y-4 lg:sticky lg:top-6">
           <div>
-            <h1 className="font-serif text-xl font-semibold leading-snug text-[#2D403A]">{activeCourse.title}</h1>
+            <h1 className="font-serif text-xl font-semibold leading-snug" style={{ color: PIN_GREEN }}>
+              {activeCourse.title}
+            </h1>
             <p className="mt-2 text-xs text-[#6b6f68] line-clamp-4">{activeCourse.description}</p>
             {totalDuration > 0 ? (
               <p className="mt-2 text-xs text-[#6b6f68]">~{totalDuration} min totalt</p>
@@ -216,9 +228,9 @@ export function LearningPlayer() {
             <div className="max-h-[min(60vh,520px)] space-y-4 overflow-y-auto pr-1">
               {chapters.map((ch) => (
                 <div key={ch.title}>
-                  <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                  <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
                     {ch.title}{' '}
-                    <span className="font-normal text-neutral-400">
+                    <span className="font-normal text-neutral-500">
                       ({ch.startIdx + 1}–{ch.endIdx + 1})
                     </span>
                   </p>
@@ -233,11 +245,12 @@ export function LearningPlayer() {
                             type="button"
                             onClick={() => setIdx(i)}
                             className={`flex w-full flex-col gap-1 rounded-lg px-2 py-2 text-left text-sm transition-colors ${
-                              isActive ? 'bg-emerald-50 text-[#2D403A]' : 'text-neutral-700 hover:bg-neutral-50'
+                              isActive ? 'bg-emerald-50' : 'text-neutral-700 hover:bg-neutral-50'
                             }`}
+                            style={isActive ? { color: PIN_GREEN } : undefined}
                           >
                             <span className="flex items-start gap-2">
-                              <span className="mt-0.5 shrink-0 text-xs text-neutral-400">{i + 1}.</span>
+                              <span className="mt-0.5 shrink-0 text-xs text-neutral-500">{i + 1}.</span>
                               <span className="min-w-0 flex-1 font-medium leading-snug">{m.title}</span>
                               {done ? (
                                 <CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-label="Fullført" />
@@ -283,8 +296,6 @@ export function LearningPlayer() {
               <div className="mt-6">
                 <ModulePlayer
                   mod={current}
-                  moduleIndex={idx}
-                  prevKind={idx > 0 ? modules[idx - 1]?.kind : undefined}
                   flashFlipped={flashFlipped}
                   setFlashFlipped={setFlashFlipped}
                   flashIdx={flashIdx}
@@ -324,42 +335,73 @@ export function LearningPlayer() {
             </button>
           </div>
 
-          <div className="rounded-xl border border-[#c5d3c8] bg-[#e7efe9] p-5">
-            <h3 className="font-semibold text-[#2D403A]">Kursbevis</h3>
-            <p className="mt-1 text-sm text-[#6b6f68]">
-              Fullfør hver modul med knappen inne i modulen. Når du er ferdig, skriv inn navnet ditt for å hente kursbeviset.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <input
-                value={learnerName}
-                onChange={(e) => setLearnerName(e.target.value)}
-                placeholder="Ditt fulle navn"
-                className="min-w-[200px] flex-1 rounded-lg border border-[#e3ddcc] px-3 py-2 text-sm"
-              />
-              <button
-                type="button"
-                disabled={!modulesComplete || hasCert}
-                onClick={() => {
-                  if (!learnerName.trim()) return
-                  void (async () => {
-                    const cert = await issueCertificate(activeCourse.id, learnerName)
-                    if (cert !== null) alert(`Certificate issued! Code: ${cert.verifyCode}`)
-                  })()
-                }}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-                style={{ backgroundColor: PIN_GREEN }}
-              >
-                {hasCert ? 'Kursbevis utstedt' : 'Hent kursbevis'}
-              </button>
+          {modulesComplete && !hasCert ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center">
+              <CheckCircle2 className="mx-auto size-10 text-emerald-600" aria-hidden />
+              <h3 className="mt-3 font-serif text-xl font-semibold" style={{ color: PIN_GREEN }}>
+                Gratulerer! Du har fullført {activeCourse.title}
+              </h3>
+              <p className="mt-1 text-sm text-neutral-600">
+                Alle moduler er gjennomført. Hent kursbeviset ditt nedenfor.
+              </p>
             </div>
-            <p className="mt-2 text-xs text-[#6b6f68]">
-              {!modulesComplete
-                ? 'Fullfør alle moduler for å låse opp kursbeviset.'
-                : hasCert
-                  ? 'Du har allerede et kursbevis for dette kurset.'
-                  : 'Du kan nå hente kursbeviset ditt.'}
-            </p>
-          </div>
+          ) : null}
+
+          {modulesComplete ? (
+            <div className="rounded-xl border border-[#c5d3c8] bg-[#e7efe9] p-5">
+              <h3 className="font-semibold" style={{ color: PIN_GREEN }}>
+                Kursbevis
+              </h3>
+              <p className="mt-1 text-sm text-[#6b6f68]">
+                Alle moduler er fullført. Utsted kursbevis med navnet som skal stå på dokumentet.
+              </p>
+              {profile?.display_name?.trim() ? (
+                <p className="mt-2 text-xs text-neutral-500">Navn hentet fra profilen din.</p>
+              ) : null}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <input
+                  value={learnerName}
+                  readOnly={Boolean(profile?.display_name?.trim())}
+                  onChange={(e) => setLearnerName(e.target.value)}
+                  placeholder="Ditt fulle navn"
+                  aria-readonly={Boolean(profile?.display_name?.trim()) || undefined}
+                  className="min-w-[200px] flex-1 rounded-lg border border-[#e3ddcc] bg-white px-3 py-2 text-sm read-only:bg-neutral-100 read-only:text-neutral-700"
+                />
+                <button
+                  type="button"
+                  disabled={!learnerName.trim() || hasCert}
+                  onClick={() => {
+                    if (!learnerName.trim()) return
+                    void (async () => {
+                      const cert = await issueCertificate(activeCourse.id, learnerName)
+                      if (cert !== null) setCertIssued(cert.verifyCode)
+                    })()
+                  }}
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+                  style={{ backgroundColor: PIN_GREEN }}
+                >
+                  {hasCert ? 'Kursbevis utstedt' : 'Hent kursbevis'}
+                </button>
+              </div>
+              {certIssued ? (
+                <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                  <p className="flex items-center gap-2 text-sm font-medium text-emerald-800">
+                    <CheckCircle2 className="size-4 shrink-0" aria-hidden />
+                    Kursbevis utstedt
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-600">
+                    Verifiseringskode: <span className="font-mono font-medium">{certIssued}</span>
+                  </p>
+                  <Link to="/learning/certifications" className="mt-2 inline-block text-xs text-emerald-800 underline">
+                    Se alle sertifikater →
+                  </Link>
+                </div>
+              ) : null}
+              <p className="mt-2 text-xs text-[#6b6f68]">
+                {hasCert ? 'Du har allerede et kursbevis for dette kurset.' : 'Du kan nå hente kursbeviset ditt.'}
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -383,20 +425,21 @@ function EventModuleSection({
   peerProfiles: { id: string; display_name: string }[]
   onComplete: () => void
 }) {
-  const { supabase } = useOrgSetupContext()
+  const { supabase, organization } = useOrgSetupContext()
   const [attendance, setAttendance] = useState<Record<string, boolean>>({})
   const [rsvpMsg, setRsvpMsg] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!ev?.id || !supabase || !canManageLearning) {
+    if (!ev?.id || !supabase || !canManageLearning || !organization?.id) {
       queueMicrotask(() => setAttendance({}))
       return
     }
     void (async () => {
       const { data, error } = await supabase
         .from('learning_ilt_attendance')
-        .select('user_id, present')
+        .select('user_id, present, learning_ilt_events!inner(organization_id)')
         .eq('event_id', ev.id)
+        .eq('learning_ilt_events.organization_id', organization.id)
       if (error) {
         console.warn('ilt attendance', error.message)
         return
@@ -407,7 +450,7 @@ function EventModuleSection({
       }
       setAttendance(next)
     })()
-  }, [ev?.id, supabase, canManageLearning])
+  }, [ev?.id, supabase, canManageLearning, organization?.id])
 
   return (
     <div className="space-y-6">
@@ -418,7 +461,9 @@ function EventModuleSection({
 
       {ev ? (
         <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4 text-sm">
-          <p className="font-semibold text-[#2D403A]">{ev.title}</p>
+          <p className="font-semibold" style={{ color: PIN_GREEN }}>
+            {ev.title}
+          </p>
           <p className="mt-1 text-neutral-600">
             {new Date(ev.startsAt).toLocaleString()}
             {ev.endsAt ? ` – ${new Date(ev.endsAt).toLocaleString()}` : ''}
@@ -500,8 +545,6 @@ function EventModuleSection({
 
 function ModulePlayer({
   mod,
-  moduleIndex,
-  prevKind,
   flashFlipped,
   setFlashFlipped,
   flashIdx,
@@ -519,8 +562,6 @@ function ModulePlayer({
   peerProfiles,
 }: {
   mod: CourseModule
-  moduleIndex: number
-  prevKind?: string
   flashFlipped: boolean
   setFlashFlipped: (v: boolean) => void
   flashIdx: number
@@ -541,7 +582,7 @@ function ModulePlayer({
 
   if (c.kind === 'flashcard') {
     const slide = c.slides[Math.min(flashIdx, Math.max(0, c.slides.length - 1))]
-    if (!slide) return <p>No cards</p>
+    if (!slide) return <p>Ingen kort</p>
     const last = flashIdx >= c.slides.length - 1
     return (
       <div className="space-y-4">
@@ -551,21 +592,27 @@ function ModulePlayer({
         <button
           type="button"
           onClick={() => setFlashFlipped(!flashFlipped)}
-          className="relative mx-auto block aspect-[9/16] w-full max-w-sm overflow-hidden rounded-lg border border-[#e3ddcc]"
+          className="relative mx-auto block aspect-[4/3] w-full max-w-sm overflow-hidden rounded-2xl border border-[#e3ddcc] shadow-xl sm:aspect-[4/3]"
           style={{
             background: flashFlipped
-              ? 'linear-gradient(160deg, #1e3d35 0%, #2D403A 100%)'
-              : 'linear-gradient(160deg, #3d5a52 0%, #2D403A 100%)',
+              ? '#fbf9f3'
+              : `linear-gradient(160deg, #1a3d32 0%, ${PIN_GREEN} 100%)`,
           }}
         >
-          <div className="flex h-full flex-col justify-between p-6 text-white">
-            <div className="text-xs uppercase tracking-widest opacity-70">
+          <div
+            className={`flex h-full flex-col justify-between p-6 ${flashFlipped ? 'text-[#1a3d32]' : 'text-white'}`}
+          >
+            <div
+              className={`text-xs uppercase tracking-widest ${flashFlipped ? 'text-neutral-500 opacity-100' : 'opacity-70'}`}
+            >
               {flashFlipped ? 'Svar' : 'Spørsmål'}
             </div>
             <p className="text-center font-serif text-xl leading-snug">
               {flashFlipped ? slide.back : slide.front}
             </p>
-            <div className="text-center text-xs opacity-70">Klikk for å snu</div>
+            <div className={`text-center text-xs ${flashFlipped ? 'text-neutral-500' : 'opacity-70'}`}>
+              Klikk for å snu
+            </div>
           </div>
         </button>
         <div className="flex justify-center gap-2">
@@ -605,7 +652,7 @@ function ModulePlayer({
   }
 
   if (c.kind === 'quiz') {
-    if (c.questions.length === 0) return <p>No questions</p>
+    if (c.questions.length === 0) return <p>Ingen spørsmål</p>
     const answered = c.questions.every((q) => quizAnswers[q.id] !== undefined)
     let correctCount = 0
     for (const q of c.questions) {
@@ -624,23 +671,26 @@ function ModulePlayer({
             <div key={q.id} className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4">
               <p className="font-medium text-neutral-900">{q.question}</p>
               <ul className="mt-3 space-y-2">
-                {q.options.map((o, i) => (
-                  <li key={i}>
-                    <button
-                      type="button"
-                      onClick={() => setQuizAnswers((s) => ({ ...s, [q.id]: i }))}
-                      className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
-                        sel === i
-                          ? sel === q.correctIndex
-                            ? 'border-emerald-600 bg-emerald-50'
-                            : 'border-red-400 bg-red-50'
-                          : 'border-[#e3ddcc] bg-[#fbf9f3]'
-                      }`}
-                    >
-                      {o}
-                    </button>
-                  </li>
-                ))}
+                {q.options.map((o, i) => {
+                  const isSelected = sel === i
+                  const isCorrect = q.correctIndex === i
+                  const showResult = sel !== undefined
+                  let optClass = 'border-[#e3ddcc] bg-[#fbf9f3]'
+                  if (showResult && isSelected && isCorrect) optClass = 'border-emerald-600 bg-emerald-50'
+                  if (showResult && isSelected && !isCorrect) optClass = 'border-red-400 bg-red-50'
+                  if (showResult && !isSelected && isCorrect) optClass = 'border-emerald-300 bg-emerald-50/50'
+                  return (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        onClick={() => setQuizAnswers((s) => ({ ...s, [q.id]: i }))}
+                        className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors ${optClass}`}
+                      >
+                        {o}
+                      </button>
+                    </li>
+                  )
+                })}
               </ul>
               {sel !== undefined && (
                 <p className={`mt-2 text-sm ${ok ? 'text-emerald-700' : 'text-red-700'}`}>
@@ -651,7 +701,7 @@ function ModulePlayer({
           )
         })}
         {answered ? (
-          <p className="text-sm font-medium text-[#2D403A]">
+          <p className="text-sm font-medium" style={{ color: PIN_GREEN }}>
             Resultat: {correctCount} av {c.questions.length} ({scorePct}%)
           </p>
         ) : null}
@@ -924,7 +974,7 @@ function VideoPlayer({
               />
               <span>
                 Jeg har sett hele videoen{' '}
-                <span className="text-xs text-neutral-400">(bekreft etter visning)</span>
+                <span className="text-xs text-neutral-500">(bekreft etter visning)</span>
               </span>
               {manualOverride && <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />}
             </label>
@@ -956,7 +1006,7 @@ function VideoPlayer({
               />
               <span>
                 Jeg har sett hele videoen{' '}
-                <span className="text-xs text-neutral-400">(bekreft etter visning)</span>
+                <span className="text-xs text-neutral-500">(bekreft etter visning)</span>
               </span>
               {manualOverride && <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />}
             </label>
@@ -1002,7 +1052,7 @@ function VideoPlayer({
                   style={{ width: `${watchedPct}%`, backgroundColor: progressColour }}
                 />
               </div>
-              <p className="mt-1 text-xs text-neutral-400">
+              <p className="mt-1 text-xs text-neutral-500">
                 {watchedPct >= THRESHOLD
                   ? '✓ Tilstrekkelig sett — kan markeres fullført'
                   : `Se minst ${THRESHOLD}% for å låse opp fullføring (${watchedPct}% sett)`}
@@ -1026,7 +1076,8 @@ function VideoPlayer({
                 href={url}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#2D403A] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                style={{ backgroundColor: PIN_GREEN }}
                 onClick={() => setStarted(true)}
               >
                 <ExternalLink className="size-4" />

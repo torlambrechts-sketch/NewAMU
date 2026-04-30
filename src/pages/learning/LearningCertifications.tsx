@@ -1,6 +1,7 @@
 import { Award, Search } from 'lucide-react'
 import { useState } from 'react'
 import { useLearning } from '../../hooks/useLearning'
+import { PIN_GREEN } from '../../components/learning/LearningLayout'
 
 export function LearningCertifications() {
   const { certificates } = useLearning()
@@ -21,7 +22,9 @@ export function LearningCertifications() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Sertifiseringer</h1>
+        <h1 className="font-serif text-3xl font-semibold" style={{ color: PIN_GREEN }}>
+          Sertifiseringer
+        </h1>
         <p className="mt-2 text-sm text-[#6b6f68]">
           Sertifikater utstedt ved fullført kurs. Gjelder som dokumentasjon på gjennomført opplæring.
         </p>
@@ -43,13 +46,13 @@ export function LearningCertifications() {
         />
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-[#e3ddcc] bg-[#fbf9f3]">
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-12 text-center">
-            <Award className="size-8 text-[#e3ddcc]" aria-hidden />
-            <p className="text-sm text-[#6b6f68]">Ingen sertifikater ennå. Fullfør et publisert kurs for å få utstedt ett.</p>
-          </div>
-        ) : (
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-neutral-200 bg-[#fbf9f3] py-12 text-center">
+          <Award className="size-8 text-neutral-300" aria-hidden />
+          <p className="text-sm text-neutral-500">Ingen sertifikater ennå. Fullfør et publisert kurs for å få utstedt ett.</p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-[#e3ddcc] bg-[#fbf9f3]">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-[#e3ddcc] bg-[#f7f5ee] text-[#6b6f68]">
@@ -74,8 +77,8 @@ export function LearningCertifications() {
               ))}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, BookOpen, CheckCircle2, Flame } from 'lucide-react'
+import { useMemo } from 'react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { CREAM, PIN_GREEN } from '../../components/learning/LearningLayout'
@@ -74,11 +75,15 @@ export function LearningDashboard() {
   const {
     stats,
     courses,
+    progress,
     streakWeeks,
     pendingReviews,
     departmentLeaderboard,
     dismissReview,
     isCourseUnlocked,
+    certificates,
+    certificationRenewals,
+    learningPaths,
   } = useLearning()
   const { can } = useOrgSetupContext()
   const canManage = can('learning.manage')
@@ -88,13 +93,64 @@ export function LearningDashboard() {
   const ringEnrolled = Math.min(1, stats.enrolled / maxCourses)
   const ringCert = Math.min(1, stats.certs / Math.max(1, stats.enrolled || 1))
 
+  const learnerKpis = useMemo(() => {
+    const pub = courses.filter((c) => c.status === 'published')
+    const mine = pub.length
+    let påbegynte = 0
+    for (const p of progress) {
+      const crs = courses.find((c) => c.id === p.courseId)
+      if (!crs || crs.status !== 'published' || crs.modules.length === 0) continue
+      const done = crs.modules.filter((m) => p.moduleProgress[m.id]?.completed).length
+      const pct = done / crs.modules.length
+      if (pct > 0 && pct < 1) påbegynte += 1
+    }
+    return {
+      mine,
+      påbegynte,
+      fullførte: certificates.length,
+      streak: streakWeeks ?? 0,
+    }
+  }, [courses, progress, certificates, streakWeeks])
+
+  const departmentLeaderboardPublic = useMemo(
+    () => departmentLeaderboard.filter((d) => d.memberCount >= 5),
+    [departmentLeaderboard],
+  )
+
+  const complianceStrip = useMemo(() => {
+    const expiredCertIds = new Set(
+      certificationRenewals
+        .filter((r) => r.status === 'expired' && r.certificateId)
+        .map((r) => r.certificateId as string),
+    )
+    const totalCerts = certificates.length
+    const validCerts = certificates.filter((c) => !expiredCertIds.has(c.id)).length
+    const hasVerneombudTrack =
+      learningPaths.some((p) => p.slug.toLowerCase().includes('verneombud')) ||
+      courses.some((c) => c.tags.some((t) => t.toLowerCase().includes('verneombud')))
+    const verneombudLine = hasVerneombudTrack
+      ? 'Verneombud opplæring: spor konfigurert'
+      : 'Verneombud opplæring: Mangler rolledata'
+    let tone: 'green' | 'amber' | 'red' = 'green'
+    if (expiredCertIds.size > 0) tone = 'red'
+    else if (totalCerts === 0 || !hasVerneombudTrack) tone = 'amber'
+    const summary = `Sertifiseringer: ${validCerts} av ${totalCerts} gyldige · ${verneombudLine}`
+    const stripClass =
+      tone === 'red'
+        ? 'rounded-sm border border-red-200 border-l-4 border-l-red-600 bg-red-50 px-3 py-2 text-[12.5px] text-red-950 flex items-center gap-2'
+        : tone === 'amber'
+          ? 'rounded-sm border border-amber-200 border-l-4 border-l-amber-500 bg-amber-50/90 px-3 py-2 text-[12.5px] text-amber-950 flex items-center gap-2'
+          : 'rounded-sm border border-[#c5d3c8] border-l-4 border-l-[#1a3d32] bg-[#e7efe9] px-3 py-2 text-[12.5px] text-[#1a3d32] flex items-center gap-2'
+    return { stripClass, summary, tone }
+  }, [certificates, certificationRenewals, courses, learningPaths])
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1
-            className="font-serif text-3xl font-semibold tracking-tight text-[#2D403A] md:text-4xl"
-            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+            className="font-serif text-3xl font-semibold tracking-tight md:text-4xl"
+            style={{ fontFamily: "'Libre Baskerville', Georgia, serif", color: PIN_GREEN }}
           >
             God dag
           </h1>
@@ -111,26 +167,55 @@ export function LearningDashboard() {
         {canManage && (
           <Link
             to="/learning/courses"
-            className="rounded-full border px-4 py-2 text-sm font-medium text-[#2D403A] hover:bg-white"
-            style={{ borderColor: `${PIN_GREEN}40`, backgroundColor: CREAM }}
+            className="rounded-full border px-4 py-2 text-sm font-medium hover:bg-[#fbf9f3]"
+            style={{ color: PIN_GREEN, borderColor: `${PIN_GREEN}40`, backgroundColor: CREAM }}
           >
             Administrer
           </Link>
         )}
       </div>
 
-      <div className="rounded-sm border border-[#c5d3c8] border-l-[3px] border-l-[#1a3d32] bg-[#e7efe9] px-3 py-2 text-[12.5px] text-[#1a3d32] flex items-center gap-2">
+      <div className={complianceStrip.stripClass}>
         <CheckCircle2 className="size-3.5 shrink-0" aria-hidden />
-        <span>AML § 3-1 · § 6-5 · IK-forskriften § 5 — opplæringsoversikt aktiv</span>
-        <Link to="/learning/compliance" className="ml-auto text-xs font-medium underline">Se samsvar</Link>
+        <span className="min-w-0 flex-1">
+          AML § 3-1 · § 6-5 · IK-forskriften § 5 — {complianceStrip.summary}
+        </span>
+        <Link to="/learning/compliance" className="shrink-0 text-xs font-medium underline">
+          Se detaljer
+        </Link>
+        <Link to="/learning/certifications" className="shrink-0 text-xs font-medium underline">
+          Sertifikater
+        </Link>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_200px]">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Publiserte kurs" value={stats.published} href="/learning/courses" accent="forest" />
-          <KpiCard label="Utkast" value={stats.drafts} href="/learning/courses" accent="warn" />
-          <KpiCard label="Utstedte sertifikater" value={stats.certs} href="/learning/certifications" accent="ok" />
-          <KpiCard label="Påmeldinger" value={stats.enrolled} href="/learning/participants" />
+          {canManage ? (
+            <>
+              <KpiCard label="Publiserte kurs" value={stats.published} href="/learning/courses" accent="forest" />
+              <KpiCard label="Utkast" value={stats.drafts} href="/learning/courses" accent="warn" />
+              <KpiCard label="Utstedte sertifikater" value={stats.certs} href="/learning/certifications" accent="ok" />
+              <KpiCard label="Påmeldinger" value={stats.enrolled} href="/learning/participants" />
+            </>
+          ) : (
+            <>
+              <KpiCard label="Mine kurs" value={learnerKpis.mine} href="/learning/courses" accent="forest" />
+              <KpiCard label="Påbegynte" value={learnerKpis.påbegynte} href="/learning/courses" accent="warn" />
+              <KpiCard label="Fullførte" value={learnerKpis.fullførte} href="/learning/certifications" accent="ok" />
+              <Link
+                to="/learning/courses"
+                className="flex flex-col rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4 transition-colors hover:bg-[#f7f5ee] border-l-[3px] border-l-[#1a3d32]"
+              >
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.7px] text-[#6b6f68]">
+                  <Flame className="size-3.5 text-orange-600" aria-hidden />
+                  Streak
+                </div>
+                <div className="mt-1 font-serif text-[28px] font-semibold leading-none text-[#1d1f1c]">
+                  {learnerKpis.streak}
+                </div>
+              </Link>
+            </>
+          )}
         </div>
         <div className="flex items-center justify-center rounded-xl border border-[#e3ddcc] bg-[#fbf9f3] p-4">
           <CompletionRings publishedPct={ringPublished} enrolledPct={ringEnrolled} certPct={ringCert} />
@@ -139,20 +224,23 @@ export function LearningDashboard() {
 
       {pendingReviews.length > 0 ? (
         <section className="rounded-xl border border-amber-200 bg-amber-50/80 p-5">
-          <h2 className="font-serif text-lg font-semibold text-[#2D403A]">Gjentakelse (spaced repetition)</h2>
+          <h2 className="font-serif text-lg font-semibold" style={{ color: PIN_GREEN }}>
+            Gjentakelse (spaced repetition)
+          </h2>
           <p className="mt-1 text-sm text-neutral-700">
             Du svarte feil på disse spørsmålene tidligere. En kort repetisjon styrker hukommelsen.
           </p>
           <ul className="mt-3 space-y-2">
             {pendingReviews.slice(0, 5).map((r) => {
               const c = courses.find((x) => x.id === r.courseId)
+              const mod = c?.modules?.find((m) => m.id === r.moduleId)
               return (
                 <li
                   key={r.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-100 bg-white px-3 py-2 text-sm"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-100 bg-[#fbf9f3] px-3 py-2 text-sm"
                 >
                   <span className="text-neutral-800">
-                    {c?.title ?? r.courseId} — modul {r.moduleId.slice(0, 8)}…
+                    {c?.title ?? r.courseId} — {mod?.title ?? 'Ukjent modul'}
                   </span>
                   <div className="flex gap-2">
                     <Link
@@ -176,32 +264,41 @@ export function LearningDashboard() {
         </section>
       ) : null}
 
-      {departmentLeaderboard.length > 0 ? (
+      {departmentLeaderboardPublic.length > 0 ? (
         <section className="rounded-xl border border-[#e3ddcc] bg-[#fbf9f3] p-5">
-          <h2 className="font-serif text-lg font-semibold text-[#2D403A]">Avdelinger (aggregert)</h2>
+          <h2 className="font-serif text-lg font-semibold" style={{ color: PIN_GREEN }}>
+            Avdelinger (aggregert)
+          </h2>
           <p className="mt-1 text-sm text-neutral-600">
             Vi rangerer ikke enkeltpersoner — kun avdelingens gjennomsnittlige kursgjennomføring (publiserte kurs).
             Koble brukere til avdeling i profilen for full effekt.
           </p>
           <ul className="mt-4 space-y-2">
-            {departmentLeaderboard.map((d) => (
+            {departmentLeaderboardPublic.map((d) => (
               <li
                 key={d.departmentId}
                 className="flex items-center justify-between rounded-lg border border-neutral-100 px-3 py-2 text-sm"
               >
-                <span className="font-medium text-[#2D403A]">{d.departmentName}</span>
+                <span className="font-medium" style={{ color: PIN_GREEN }}>
+                  {d.departmentName}
+                </span>
                 <span className="tabular-nums text-neutral-700">
                   {d.avgCompletionPct}% <span className="text-xs text-neutral-500">({d.memberCount} brukere)</span>
                 </span>
               </li>
             ))}
           </ul>
+          <p className="mt-3 text-xs text-neutral-600">
+            Avdelinger med færre enn 5 medarbeidere vises ikke for å ivareta personvern (GDPR art. 5).
+          </p>
         </section>
       ) : null}
 
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-serif text-xl font-semibold text-[#2D403A]">{canManage ? 'Publiserte kurs' : 'Anbefalte kurs'}</h2>
+          <h2 className="font-serif text-xl font-semibold" style={{ color: PIN_GREEN }}>
+            {canManage ? 'Publiserte kurs' : 'Anbefalte kurs'}
+          </h2>
           {canManage && (
             <Link
               to="/learning/courses"
@@ -224,7 +321,11 @@ export function LearningDashboard() {
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     {unlocked ? (
-                      <Link to={`/learning/courses/${c.id}`} className="font-serif text-lg font-semibold text-[#2D403A] hover:underline">
+                      <Link
+                        to={`/learning/courses/${c.id}`}
+                        className="font-serif text-lg font-semibold hover:underline"
+                        style={{ color: PIN_GREEN }}
+                      >
                         {c.title}
                       </Link>
                     ) : (
@@ -270,7 +371,16 @@ export function LearningDashboard() {
           })}
           {published.length === 0 ? (
             <p className="rounded-lg border border-dashed border-[#e3ddcc] bg-[#fbf9f3]/60 p-8 text-center text-sm text-[#6b6f68]">
-              {canManage ? 'Ingen publiserte kurs ennå.' : 'Ingen kurs tilgjengelig ennå.'}
+              {canManage ? (
+                <>
+                  Ingen publiserte kurs ennå.{' '}
+                  <Link to="/learning/courses" className="font-medium text-emerald-800 underline">
+                    Gå til Kurs for å opprette ett.
+                  </Link>
+                </>
+              ) : (
+                'Ingen kurs tilgjengelig ennå.'
+              )}
             </p>
           ) : null}
         </div>

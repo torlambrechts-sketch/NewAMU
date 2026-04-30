@@ -2,6 +2,7 @@ import { ArrowDownUp, Search, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import type { CourseProgress } from '../../types/learning'
 
 type SortKey = 'learner' | 'course' | 'started' | 'days' | 'progress'
@@ -25,7 +26,7 @@ function SortHead({
       <button
         type="button"
         onClick={() => onSort(colKey)}
-        className="inline-flex items-center gap-1 text-neutral-700 hover:text-[#2D403A]"
+        className="inline-flex items-center gap-1 text-neutral-700 hover:text-[#1a3d32]"
       >
         {label}
         {activeKey === colKey ? <span className="text-[10px] font-normal text-[#6b6f68]">{dir === 'asc' ? '↑' : '↓'}</span> : null}
@@ -134,7 +135,9 @@ export function LearningParticipants() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Deltakere</h1>
+        <h1 className="font-serif text-3xl font-semibold" style={{ color: PIN_GREEN }}>
+          Deltakere
+        </h1>
         <p className="mt-2 text-sm text-neutral-600">
           {canManage
             ? 'Fremdrift for alle brukere i organisasjonen (synlig for kursansvarlige).'

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { PIN_GREEN } from '../../components/learning/LearningLayout'
 
 function cellColor(status: string) {
   if (status === 'complete') return 'bg-emerald-500'
@@ -40,7 +41,9 @@ export function LearningComplianceMatrix() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Team-heatmap</h1>
+        <h1 className="font-serif text-3xl font-semibold" style={{ color: PIN_GREEN }}>
+          Team-heatmap
+        </h1>
         <p className="mt-2 text-sm text-neutral-600">
           Publiserte kurs × medarbeidere. Grønn = fullført, gul = påbegynt, rød = ikke startet.
         </p>
@@ -50,7 +53,7 @@ export function LearningComplianceMatrix() {
       ) : null}
       {learningLoading ? <p className="text-sm text-neutral-500">Laster…</p> : null}
 
-      <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-[#fbf9f3] shadow-sm">
         <table className="min-w-full text-left text-xs">
           <thead>
             <tr className="border-b border-neutral-100 bg-neutral-50/80">
@@ -65,7 +68,9 @@ export function LearningComplianceMatrix() {
           <tbody>
             {users.map((u) => (
               <tr key={u.id} className="border-b border-neutral-50">
-                <td className="sticky left-0 z-10 bg-white px-3 py-2 text-sm font-medium text-[#2D403A]">{u.name}</td>
+                <td className="sticky left-0 z-10 bg-white px-3 py-2 text-sm font-medium" style={{ color: PIN_GREEN }}>
+                  {u.name}
+                </td>
                 {courses.map((c) => {
                   const cell = grid.get(`${u.id}:${c.id}`)
                   const st = cell?.cellStatus ?? 'not_started'

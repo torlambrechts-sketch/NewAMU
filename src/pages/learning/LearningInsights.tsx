@@ -1,5 +1,6 @@
 import { BarChart3 } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
+import { PIN_GREEN } from '../../components/learning/LearningLayout'
 
 const KIND_LABELS: Record<string, string> = {
   flashcard: 'Flashkort', quiz: 'Quiz', text: 'Lese', image: 'Bilde',
@@ -21,7 +22,9 @@ export function LearningInsights() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Innsikt</h1>
+        <h1 className="font-serif text-3xl font-semibold" style={{ color: PIN_GREEN }}>
+          Innsikt
+        </h1>
         <p className="mt-2 text-sm text-[#6b6f68]">Aggregert oversikt over gjennomføring i organisasjonen.</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -31,23 +34,27 @@ export function LearningInsights() {
         <InsightCard label="Påmeldinger" value={stats.enrolled} />
       </div>
       <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
-        <h2 className="flex items-center gap-2 font-semibold text-[#2D403A]">
+        <h2 className="flex items-center gap-2 font-semibold" style={{ color: PIN_GREEN }}>
           <BarChart3 className="size-5" />
           Moduler etter type
         </h2>
-        <ul className="mt-4 space-y-2 text-sm">
-          {Object.entries(byKind)
-            .sort((a, b) => b[1] - a[1])
-            .map(([k, v]) => (
-              <li key={k} className="flex justify-between border-b border-[#e3ddcc] py-2 last:border-0">
-                <span className="text-[#6b6f68]">{KIND_LABELS[k] ?? k}</span>
-                <span className="font-medium tabular-nums">{v}</span>
-              </li>
-            ))}
-          {Object.keys(byKind).length === 0 ? (
-            <li className="text-[#6b6f68]">Ingen moduler ennå.</li>
-          ) : null}
-        </ul>
+        {Object.keys(byKind).length === 0 ? (
+          <div className="mt-4 flex flex-col items-center gap-3 rounded-xl border border-dashed border-neutral-200 bg-[#fbf9f3] py-12 text-center">
+            <BarChart3 className="size-8 text-neutral-300" aria-hidden />
+            <p className="text-sm text-neutral-500">Ingen moduler ennå.</p>
+          </div>
+        ) : (
+          <ul className="mt-4 space-y-2 text-sm">
+            {Object.entries(byKind)
+              .sort((a, b) => b[1] - a[1])
+              .map(([k, v]) => (
+                <li key={k} className="flex justify-between border-b border-[#e3ddcc] py-2 last:border-0">
+                  <span className="text-[#6b6f68]">{KIND_LABELS[k] ?? k}</span>
+                  <span className="font-medium tabular-nums">{v}</span>
+                </li>
+              ))}
+          </ul>
+        )}
       </div>
     </div>
   )
