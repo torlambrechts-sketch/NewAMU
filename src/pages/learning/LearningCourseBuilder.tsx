@@ -44,16 +44,16 @@ const MODULE_KINDS: { id: ModuleKind | 'all'; label: string; icon: HubMenu1Item[
 ]
 
 const ADD_KINDS: { kind: ModuleKind; label: string }[] = [
-  { kind: 'flashcard', label: 'Flashcard story' },
+  { kind: 'flashcard', label: 'Flashkort' },
   { kind: 'quiz', label: 'Quiz' },
-  { kind: 'text', label: 'Text' },
-  { kind: 'image', label: 'Image' },
+  { kind: 'text', label: 'Tekst' },
+  { kind: 'image', label: 'Bilde' },
   { kind: 'video', label: 'Video' },
-  { kind: 'checklist', label: 'Checklist' },
-  { kind: 'tips', label: 'Practical tips' },
-  { kind: 'on_job', label: 'On-the-job' },
-  { kind: 'event', label: 'Event (ILT)' },
-  { kind: 'other', label: 'Other' },
+  { kind: 'checklist', label: 'Sjekkliste' },
+  { kind: 'tips', label: 'Praktiske tips' },
+  { kind: 'on_job', label: 'I jobben' },
+  { kind: 'event', label: 'Arrangement (ILT)' },
+  { kind: 'other', label: 'Annet' },
 ]
 
 type MainTab = 'info' | 'modules' | 'cert' | 'participants' | 'insights'
@@ -113,13 +113,13 @@ export function LearningCourseBuilder() {
   const selected = course?.modules.find((m) => m.id === selectedId) ?? null
 
   if (learningLoading && courseId && !course) {
-    return <p className="text-sm text-neutral-600">Laster kurs…</p>
+    return <p className="text-sm text-[#6b6f68]">Laster kurs…</p>
   }
 
   if (!course) {
     return (
-      <p className="text-neutral-600">
-        Course not found. <Link to="/learning/courses" className="text-emerald-800 underline">Back</Link>
+      <p className="text-[#6b6f68]">
+        Kurs ikke funnet. <Link to="/learning/courses" className="text-[#1a3d32] underline">Tilbake</Link>
       </p>
     )
   }
@@ -127,16 +127,16 @@ export function LearningCourseBuilder() {
   if (canManage && isSystemCatalog && course?.sourceSystemCourseId) {
     return (
       <div className="max-w-2xl space-y-6">
-        <nav className="text-sm text-neutral-600">
-          <Link to="/learning/courses" className="hover:text-[#2D403A]">
-            Courses
+        <nav className="text-sm text-[#6b6f68]">
+          <Link to="/learning/courses" className="hover:text-[#1a3d32]">
+            Kurs
           </Link>
           <span className="mx-2 text-neutral-300">›</span>
-          <span className="font-medium text-[#2D403A]">{course.title}</span>
+          <span className="font-medium text-[#1d1f1c]">{course.title}</span>
         </nav>
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-6">
-          <h1 className="font-serif text-2xl font-semibold text-[#2D403A]">Systemkurs</h1>
-          <p className="mt-2 text-sm text-neutral-700">
+        <div className="rounded-lg border border-[#c5d3c8] bg-[#e7efe9] p-6">
+          <h1 className="font-serif text-2xl font-semibold text-[#1a3d32]">Systemkurs</h1>
+          <p className="mt-2 text-sm text-[#1d1f1c]">
             Dette kurset leveres fra felles katalog og kan ikke redigeres direkte. Kopier det til din organisasjon for å
             tilpasse innhold, rekkefølge og publisering.
           </p>
@@ -160,7 +160,7 @@ export function LearningCourseBuilder() {
             </button>
             <Link
               to={`/learning/play/${course.id}`}
-              className="inline-flex items-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-[#2D403A] hover:bg-neutral-50"
+              className="inline-flex items-center rounded-md border border-[#e3ddcc] bg-[#fbf9f3] px-4 py-2 text-sm font-medium text-[#1d1f1c] hover:bg-[#f7f5ee]"
             >
               Forhåndsvisning
             </Link>
@@ -173,17 +173,17 @@ export function LearningCourseBuilder() {
   if (!canManage) {
     return (
       <div className="space-y-4">
-        <nav className="text-sm text-neutral-600">
-          <Link to="/learning/courses" className="hover:text-[#2D403A]">
-            Courses
+        <nav className="text-sm text-[#6b6f68]">
+          <Link to="/learning/courses" className="hover:text-[#1a3d32]">
+            Kurs
           </Link>
           <span className="mx-2 text-neutral-300">›</span>
-          <span className="font-medium text-[#2D403A]">{course.title}</span>
+          <span className="font-medium text-[#1d1f1c]">{course.title}</span>
         </nav>
-        <p className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-neutral-800">
-          Du har ikke tilgang til kursbyggeren. Bruk <Link to={`/learning/play/${course.id}`} className="font-medium text-emerald-800 underline">forhåndsvisning</Link> for å ta kurset, eller be om rettigheten «E-learning — opprette og redigere kurs».
+        <p className="rounded-lg border border-amber-200 bg-amber-50/80 p-4 text-sm text-[#1d1f1c]">
+          Du har ikke tilgang til kursbyggeren. Bruk <Link to={`/learning/play/${course.id}`} className="font-medium text-[#1a3d32] underline">forhåndsvisning</Link> for å ta kurset, eller be om rettigheten «E-learning — opprette og redigere kurs».
         </p>
-        <Link to="/learning/courses" className="text-sm font-medium text-[#2D403A] hover:underline">
+        <Link to="/learning/courses" className="text-sm font-medium text-[#1a3d32] hover:underline">
           ← Tilbake til kurslisten
         </Link>
       </div>
@@ -195,32 +195,32 @@ export function LearningCourseBuilder() {
       {learningError ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
       ) : null}
-      {learningLoading ? <p className="text-sm text-neutral-500">Laster…</p> : null}
-      <nav className="text-sm text-neutral-600">
-        <Link to="/learning/courses" className="hover:text-[#2D403A]">
+      {learningLoading ? <p className="text-sm text-[#6b6f68]">Laster…</p> : null}
+      <nav className="text-sm text-[#6b6f68]">
+        <Link to="/learning/courses" className="hover:text-[#1a3d32]">
           Courses
         </Link>
         <span className="mx-2 text-neutral-300">›</span>
-        <span className="font-medium text-[#2D403A]">{course.title}</span>
+        <span className="font-medium text-[#1d1f1c]">{course.title}</span>
       </nav>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">{course.title}</h1>
+            <h1 className="font-serif text-3xl font-semibold text-[#1d1f1c]">{course.title}</h1>
             <span
-              className={`rounded-full px-3 py-0.5 text-xs font-semibold uppercase ${
+              className={`rounded-full px-3 py-0.5 text-xs font-semibold uppercase tracking-wide ${
                 course.status === 'published'
-                  ? 'bg-emerald-100 text-emerald-900'
+                  ? 'bg-[#e7efe9] text-[#1a3d32]'
                   : course.status === 'draft'
                     ? 'bg-amber-100 text-amber-900'
-                    : 'bg-neutral-200 text-neutral-700'
+                    : 'bg-neutral-200 text-[#1d1f1c]'
               }`}
             >
-              {course.status}
+              {course.status === 'published' ? 'Publisert' : course.status === 'draft' ? 'Utkast' : 'Arkivert'}
             </span>
           </div>
-          <p className="mt-2 max-w-2xl text-sm text-neutral-600">{course.description}</p>
+          <p className="mt-2 max-w-2xl text-sm text-[#6b6f68]">{course.description}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <AddTaskLink
@@ -234,10 +234,10 @@ export function LearningCourseBuilder() {
           />
           <Link
             to={`/learning/play/${course.id}`}
-            className="rounded-full px-4 py-2 text-sm font-medium text-white"
+            className="rounded-md px-4 py-2 text-sm font-medium text-white"
             style={{ backgroundColor: PIN_GREEN }}
           >
-            Preview as learner
+            Forhåndsvisning
           </Link>
         </div>
       </div>
@@ -262,25 +262,25 @@ export function LearningCourseBuilder() {
       />
 
       {mainTab === 'info' && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-          <label className="text-xs font-medium text-neutral-500">Title</label>
+        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
+          <label className="text-xs font-medium text-[#6b6f68]">Tittel</label>
           <input
             value={course.title}
             onChange={(e) => updateCourse(course.id, { title: e.target.value })}
-            className="mt-1 w-full max-w-xl rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+            className="mt-1 w-full max-w-xl rounded-lg border border-[#e3ddcc] bg-white px-3 py-2 text-sm"
           />
-          <label className="mt-4 block text-xs font-medium text-neutral-500">Description</label>
+          <label className="mt-4 block text-xs font-medium text-[#6b6f68]">Beskrivelse</label>
           <textarea
             value={course.description}
             onChange={(e) => updateCourse(course.id, { description: e.target.value })}
             rows={4}
-            className="mt-1 w-full max-w-2xl rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+            className="mt-1 w-full max-w-2xl rounded-lg border border-[#e3ddcc] bg-white px-3 py-2 text-sm"
           />
           <div className="mt-4 flex flex-wrap gap-2">
             {course.tags.map((t) => (
               <span
                 key={t}
-                className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-xs"
+                className="inline-flex items-center gap-1 rounded-full bg-[#f7f5ee] px-2 py-0.5 text-xs"
               >
                 {t}
                 <button
@@ -288,7 +288,7 @@ export function LearningCourseBuilder() {
                   onClick={() =>
                     updateCourse(course.id, { tags: course.tags.filter((x) => x !== t) })
                   }
-                  className="text-neutral-500 hover:text-red-600"
+                  className="text-[#6b6f68] hover:text-red-600"
                 >
                   ×
                 </button>
@@ -306,14 +306,14 @@ export function LearningCourseBuilder() {
                   setTagInput('')
                 }
               }}
-              placeholder="+ Add tag"
-              className="w-32 rounded-full border border-dashed border-neutral-300 px-2 py-0.5 text-xs"
+              placeholder="+ Legg til etikett"
+              className="w-36 rounded-full border border-dashed border-[#e3ddcc] px-2 py-0.5 text-xs"
             />
           </div>
           {otherCourses.length > 0 ? (
-            <div className="mt-6 border-t border-neutral-100 pt-4">
-              <p className="text-xs font-medium text-neutral-500">Forutsetninger (lås opp dette kurset)</p>
-              <p className="mt-1 text-xs text-neutral-500">
+            <div className="mt-6 border-t border-[#e3ddcc] pt-4">
+              <p className="text-xs font-medium text-[#6b6f68]">Forutsetninger (lås opp dette kurset)</p>
+              <p className="mt-1 text-xs text-[#6b6f68]">
                 Velg kurs som må fullføres før dette blir tilgjengelig for deltakere.
               </p>
               <ul className="mt-3 max-h-40 space-y-2 overflow-y-auto">
@@ -332,11 +332,11 @@ export function LearningCourseBuilder() {
                               : cur.filter((x) => x !== oc.id)
                             updateCourse(course.id, { prerequisiteCourseIds: next })
                           }}
-                          className="mt-0.5 rounded border-neutral-300"
+                          className="mt-0.5 rounded border-[#e3ddcc]"
                         />
                         <span>
-                          <span className="font-medium text-[#2D403A]">{oc.title}</span>
-                          <span className="ml-2 text-xs text-neutral-500">({oc.status})</span>
+                          <span className="font-medium text-[#1d1f1c]">{oc.title}</span>
+                          <span className="ml-2 text-xs text-[#6b6f68]">({oc.status === 'published' ? 'Publisert' : oc.status === 'draft' ? 'Utkast' : 'Arkivert'})</span>
                         </span>
                       </label>
                     </li>
@@ -345,13 +345,13 @@ export function LearningCourseBuilder() {
               </ul>
             </div>
           ) : null}
-          <div className="mt-6 border-t border-neutral-100 pt-4">
-            <p className="text-xs font-medium text-neutral-500">Oppfriskning / sertifisering</p>
-            <p className="mt-1 text-xs text-neutral-500">
+          <div className="mt-6 border-t border-[#e3ddcc] pt-4">
+            <p className="text-xs font-medium text-[#6b6f68]">Oppfriskning / sertifisering</p>
+            <p className="mt-1 text-xs text-[#6b6f68]">
               Antall måneder til sertifikatet utløper og må fornyes (valgfritt). Brukes for påminnelser og status.
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <label className="text-sm text-neutral-700">
+              <label className="text-sm text-[#1d1f1c]">
                 Måneder til fornyelse
                 <input
                   type="number"
@@ -363,15 +363,15 @@ export function LearningCourseBuilder() {
                     updateCourse(course.id, { recertificationMonths: v })
                   }}
                   placeholder="—"
-                  className="ml-2 w-20 rounded-lg border border-neutral-200 px-2 py-1 text-sm"
+                  className="ml-2 w-20 rounded-lg border border-[#e3ddcc] px-2 py-1 text-sm"
                 />
               </label>
-              <span className="text-xs text-neutral-500">
+              <span className="text-xs text-[#6b6f68]">
                 Kursversjon: <strong>{course.courseVersion ?? 1}</strong> (økes ved innholdsendringer for revisjon)
               </span>
               <button
                 type="button"
-                className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#2D403A] hover:bg-neutral-50"
+                className="rounded-md border border-[#e3ddcc] bg-[#fbf9f3] px-3 py-1.5 text-xs font-medium text-[#1d1f1c] hover:bg-[#f7f5ee]"
                 onClick={() => {
                   if (!confirm('Øke kursversjon? Nye fullføringer får ny versjon på sertifikatet.')) return
                   void (async () => {
@@ -393,7 +393,7 @@ export function LearningCourseBuilder() {
           <HubMenu1Bar ariaLabel="Moduler — typefilter" items={moduleKindFilterItems} />
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-serif text-lg font-semibold text-[#2D403A]">Module builder</h2>
+            <h2 className="font-serif text-lg font-semibold text-[#1d1f1c]">Modulbygger</h2>
             <div className="flex flex-wrap gap-2">
               {ADD_KINDS.map((a) => (
                 <button
@@ -403,7 +403,7 @@ export function LearningCourseBuilder() {
                     const mod = addModule(course.id, a.kind, a.label)
                     if (mod) setSelectedId(mod.id)
                   }}
-                  className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-[#2D403A] hover:bg-neutral-50"
+                  className="inline-flex items-center gap-1 rounded-md border border-[#e3ddcc] bg-[#fbf9f3] px-3 py-1.5 text-xs font-medium text-[#1d1f1c] hover:bg-[#f7f5ee]"
                 >
                   <Plus className="size-3.5" />
                   {a.label}
@@ -413,24 +413,24 @@ export function LearningCourseBuilder() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-            <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
-              <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-2 text-xs font-medium text-neutral-500">
-                Modules
+            <div className="overflow-hidden rounded-lg border border-[#e3ddcc] bg-[#fbf9f3]">
+              <div className="border-b border-[#e3ddcc] bg-[#f7f5ee] px-4 py-2 text-xs font-medium text-[#6b6f68]">
+                Moduler
               </div>
-              <ul className="divide-y divide-neutral-100">
+              <ul className="divide-y divide-[#e3ddcc]">
                 {filteredModules.map((m) => (
                   <li key={m.id}>
                     <button
                       type="button"
                       onClick={() => setSelectedId(m.id)}
-                      className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-neutral-50 ${
-                        selectedId === m.id ? 'bg-emerald-50/50' : ''
+                      className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-[#f7f5ee] ${
+                        selectedId === m.id ? 'bg-[#e7efe9]' : ''
                       }`}
                     >
-                      <GripVertical className="size-4 shrink-0 text-neutral-300" />
+                      <GripVertical className="size-4 shrink-0 text-[#6b6f68]" />
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium text-[#2D403A]">{m.title}</div>
-                        <div className="text-xs text-neutral-500">
+                        <div className="font-medium text-[#1d1f1c]">{m.title}</div>
+                        <div className="text-xs text-[#6b6f68]">
                           {m.kind} · ~{m.durationMinutes} min
                         </div>
                       </div>
@@ -439,11 +439,11 @@ export function LearningCourseBuilder() {
                 ))}
               </ul>
               {filteredModules.length === 0 ? (
-                <p className="px-4 py-8 text-center text-sm text-neutral-500">No modules in this filter.</p>
+                <p className="px-4 py-8 text-center text-sm text-[#6b6f68]">Ingen moduler i dette filteret.</p>
               ) : null}
             </div>
 
-            <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+            <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-5">
               {selected ? (
                 <ModuleEditor
                   key={selected.id}
@@ -455,7 +455,7 @@ export function LearningCourseBuilder() {
                   onDeleted={() => setSelectedId(null)}
                 />
               ) : (
-                <p className="text-sm text-neutral-500">Select a module to edit content.</p>
+                <p className="text-sm text-[#6b6f68]">Velg en modul for å redigere innhold.</p>
               )}
             </div>
           </div>
@@ -463,30 +463,31 @@ export function LearningCourseBuilder() {
       )}
 
       {mainTab === 'cert' && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
-          Certificates are issued when a learner completes all modules from the{' '}
-          <Link to={`/learning/play/${course.id}`} className="text-emerald-800 underline">
-            learner view
+        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6 text-sm text-[#6b6f68]">
+          Kursbevis utstedes når en deltaker fullfører alle moduler i{' '}
+          <Link to={`/learning/play/${course.id}`} className="text-[#1a3d32] underline">
+            deltakervisten
           </Link>
-          . Manage all certificates under{' '}
-          <Link to="/learning/certifications" className="text-emerald-800 underline">
-            Certifications
+          . Administrer alle kursbevis under{' '}
+          <Link to="/learning/certifications" className="text-[#1a3d32] underline">
+            Sertifiseringer
           </Link>
           .
         </div>
       )}
 
       {mainTab === 'participants' && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
-          Track enrolments in a future LMS integration. For now, progress is stored per browser in localStorage when learners use Preview.
+        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6 text-sm text-[#6b6f68]">
+          Deltakeroversikt kobles til organisasjonens Supabase-profiler. Fremdrift for påmeldte vises i{' '}
+          <Link to="/learning/participants" className="text-[#1a3d32] underline">Deltakere</Link>.
         </div>
       )}
 
       {mainTab === 'insights' && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-neutral-600">
-            Module count: <strong>{course.modules.length}</strong>. Published:{' '}
-            <strong>{course.status === 'published' ? 'Yes' : 'No'}</strong>.
+        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
+          <p className="text-sm text-[#6b6f68]">
+            Antall moduler: <strong className="text-[#1d1f1c]">{course.modules.length}</strong> · Publisert:{' '}
+            <strong className="text-[#1d1f1c]">{course.status === 'published' ? 'Ja' : 'Nei'}</strong>.
           </p>
         </div>
       )}
@@ -516,20 +517,20 @@ function ModuleEditor({
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1">
-          <label className="text-xs font-medium text-neutral-500">Module title</label>
+          <label className="text-xs font-medium text-[#6b6f68]">Modultittel</label>
           <input
             value={title}
             onChange={(e) => {
               setTitle(e.target.value)
               updateModule(courseId, mod.id, { title: e.target.value })
             }}
-            className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium"
+            className="mt-1 w-full rounded-lg border border-[#e3ddcc] bg-white px-3 py-2 text-sm font-medium"
           />
         </div>
         <button
           type="button"
           onClick={() => {
-            if (confirm('Delete this module?')) {
+            if (confirm('Slett denne modulen?')) {
               deleteModule(courseId, mod.id)
               onDeleted()
             }
@@ -540,7 +541,7 @@ function ModuleEditor({
         </button>
       </div>
       <div>
-        <label className="text-xs font-medium text-neutral-500">Duration (minutes)</label>
+        <label className="text-xs font-medium text-[#6b6f68]">Varighet (minutter)</label>
         <input
           type="number"
           min={1}
@@ -551,15 +552,15 @@ function ModuleEditor({
             setDur(v)
             updateModule(courseId, mod.id, { durationMinutes: v })
           }}
-          className="mt-1 w-24 rounded-lg border border-neutral-200 px-2 py-1 text-sm"
+          className="mt-1 w-24 rounded-lg border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
         />
-        <p className="mt-1 text-[11px] text-neutral-500">Mikrolæring: anbefalt maks ~3 min lesing/seing per modul.</p>
+        <p className="mt-1 text-[11px] text-[#6b6f68]">Mikrolæring: anbefalt maks ~3 min lesing/seing per modul.</p>
       </div>
 
       {mod.kind === 'on_job' ? (
         <div className="rounded-lg border border-dashed border-emerald-300 bg-emerald-50/50 p-4">
-          <p className="text-xs font-semibold text-[#2D403A]">QR for stedet (flow-of-work)</p>
-          <p className="mt-1 text-xs text-neutral-600">
+          <p className="text-xs font-semibold text-[#1d1f1c]">QR for stedet (flow-of-work)</p>
+          <p className="mt-1 text-xs text-[#6b6f68]">
             Skriv ut og fest på f.eks. førstehjelpskasse eller truck. Skanning åpner modulen direkte uten å navigere i
             kursbiblioteket.
           </p>
@@ -570,14 +571,14 @@ function ModuleEditor({
               className="size-36 rounded-lg border border-white bg-white p-1 shadow"
             />
             <div className="min-w-0 flex-1 space-y-2">
-              <label className="text-[10px] font-medium uppercase text-neutral-500">Dypelenke (flow)</label>
+              <label className="text-[10px] font-medium uppercase text-[#6b6f68]">Dypelenke (flow)</label>
               <input
                 readOnly
                 value={`${typeof window !== 'undefined' ? window.location.origin : ''}/learning/flow?course=${encodeURIComponent(courseId)}&module=${encodeURIComponent(mod.id)}`}
-                className="w-full rounded border border-neutral-200 bg-white px-2 py-1.5 font-mono text-[11px]"
+                className="w-full rounded border border-[#e3ddcc] bg-white px-2 py-1.5 font-mono text-[11px]"
                 onFocus={(e) => e.target.select()}
               />
-              <p className="text-[10px] text-neutral-500">
+              <p className="text-[10px] text-[#6b6f68]">
                 Bruk denne i HMS-hendelser eller automasjon; tildeling lagres i <code>learning_module_assignments</code>.
               </p>
             </div>
@@ -620,59 +621,59 @@ function IltScheduleForm({
 
   return (
     <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
-      <p className="text-xs font-semibold text-[#2D403A]">Planlegg ILT / vILT-økt</p>
-      <p className="mt-1 text-xs text-neutral-600">
+      <p className="text-xs font-semibold text-[#1d1f1c]">Planlegg ILT / vILT-økt</p>
+      <p className="mt-1 text-xs text-[#6b6f68]">
         Én økt per modul. Deltakere kan RSVP og oppmøte registreres i spilleren.
       </p>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <label className="text-xs text-neutral-600">
+        <label className="text-xs text-[#6b6f68]">
           Tittel på økt
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
           />
         </label>
-        <label className="text-xs text-neutral-600">
+        <label className="text-xs text-[#6b6f68]">
           Start (lokal tid)
           <input
             type="datetime-local"
             value={startsAt}
             onChange={(e) => setStartsAt(e.target.value)}
-            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
           />
         </label>
-        <label className="text-xs text-neutral-600">
+        <label className="text-xs text-[#6b6f68]">
           Slutt (valgfritt)
           <input
             type="datetime-local"
             value={endsAt}
             onChange={(e) => setEndsAt(e.target.value)}
-            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
           />
         </label>
-        <label className="text-xs text-neutral-600">
+        <label className="text-xs text-[#6b6f68]">
           Sted / rom
           <input
             value={locationText}
             onChange={(e) => setLocationText(e.target.value)}
-            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
           />
         </label>
-        <label className="text-xs text-neutral-600 sm:col-span-2">
+        <label className="text-xs text-[#6b6f68] sm:col-span-2">
           Teams / Meet-lenke
           <input
             value={meetingUrl}
             onChange={(e) => setMeetingUrl(e.target.value)}
-            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
           />
         </label>
-        <label className="text-xs text-neutral-600 sm:col-span-2">
+        <label className="text-xs text-[#6b6f68] sm:col-span-2">
           Instruktør
           <input
             value={instructorName}
             onChange={(e) => setInstructorName(e.target.value)}
-            className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
           />
         </label>
       </div>
@@ -704,7 +705,7 @@ function IltScheduleForm({
       >
         Lagre økt
       </button>
-      {msg ? <p className="mt-2 text-xs text-neutral-700">{msg}</p> : null}
+      {msg ? <p className="mt-2 text-xs text-[#1d1f1c]">{msg}</p> : null}
     </div>
   )
 }
@@ -723,10 +724,10 @@ function ContentFields({
   if (c.kind === 'flashcard') {
     return (
       <div className="space-y-3">
-        <p className="text-xs text-neutral-500">Story-style cards (tap to flip in learner view).</p>
+        <p className="text-xs text-[#6b6f68]">Kortbasert (trykk for å snu i deltakervisten).</p>
         {c.slides.map((s, idx) => (
-          <div key={s.id} className="rounded-lg border border-neutral-100 bg-neutral-50 p-3">
-            <div className="text-xs font-medium text-neutral-500">Card {idx + 1}</div>
+          <div key={s.id} className="rounded-lg border border-[#e3ddcc] bg-[#f7f5ee] p-3">
+            <div className="text-xs font-medium text-[#6b6f68]">Kort {idx + 1}</div>
             <input
               value={s.front}
               onChange={(e) => {
@@ -735,8 +736,8 @@ function ContentFields({
                 )
                 updateModule(courseId, mod.id, { content: { ...c, slides } })
               }}
-              placeholder="Front"
-              className="mt-1 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+              placeholder="Forside"
+              className="mt-1 w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
             />
             <input
               value={s.back}
@@ -746,8 +747,8 @@ function ContentFields({
                 )
                 updateModule(courseId, mod.id, { content: { ...c, slides } })
               }}
-              placeholder="Back"
-              className="mt-2 w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+              placeholder="Bakside"
+              className="mt-2 w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
             />
           </div>
         ))}
@@ -756,13 +757,13 @@ function ContentFields({
           onClick={() => {
             const slides = [
               ...c.slides,
-              { id: crypto.randomUUID(), front: 'Front', back: 'Back' },
+              { id: crypto.randomUUID(), front: 'Forside', back: 'Bakside' },
             ]
             updateModule(courseId, mod.id, { content: { ...c, slides } })
           }}
-          className="text-sm font-medium text-emerald-800 hover:underline"
+          className="text-sm font-medium text-[#1a3d32] hover:underline"
         >
-          + Add card
+          + Legg til kort
         </button>
       </div>
     )
@@ -772,7 +773,7 @@ function ContentFields({
     return (
       <div className="space-y-4">
         {c.questions.map((q) => (
-          <div key={q.id} className="rounded-lg border border-neutral-100 p-3">
+          <div key={q.id} className="rounded-lg border border-[#e3ddcc] bg-[#f7f5ee] p-3">
             <input
               value={q.question}
               onChange={(e) => {
@@ -781,7 +782,7 @@ function ContentFields({
                 )
                 updateModule(courseId, mod.id, { content: { ...c, questions } })
               }}
-              className="w-full rounded border border-neutral-200 px-2 py-1 text-sm font-medium"
+              className="w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm font-medium"
             />
             {q.options.map((opt, i) => (
               <div key={i} className="mt-2 flex items-center gap-2">
@@ -795,7 +796,7 @@ function ContentFields({
                     )
                     updateModule(courseId, mod.id, { content: { ...c, questions } })
                   }}
-                  className="size-4 border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+                  className="size-4 border-[#e3ddcc] text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
                 />
                 <input
                   value={opt}
@@ -807,7 +808,7 @@ function ContentFields({
                     )
                     updateModule(courseId, mod.id, { content: { ...c, questions } })
                   }}
-                  className="flex-1 rounded border border-neutral-200 px-2 py-1 text-sm"
+                  className="flex-1 rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
                 />
               </div>
             ))}
@@ -820,16 +821,16 @@ function ContentFields({
               ...c.questions,
               {
                 id: crypto.randomUUID(),
-                question: 'New question',
+                question: 'Nytt spørsmål',
                 options: ['A', 'B', 'C'],
                 correctIndex: 0,
               },
             ]
             updateModule(courseId, mod.id, { content: { ...c, questions } })
           }}
-          className="text-sm text-emerald-800 hover:underline"
+          className="text-sm text-[#1a3d32] hover:underline"
         >
-          + Add question
+          + Legg til spørsmål
         </button>
       </div>
     )
@@ -856,8 +857,8 @@ function ContentFields({
               content: { ...c, imageUrl: e.target.value },
             })
           }
-          placeholder="Image URL"
-          className="w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          placeholder="Bilde-URL"
+          className="w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
         />
         <input
           value={c.caption}
@@ -866,8 +867,8 @@ function ContentFields({
               content: { ...c, caption: e.target.value },
             })
           }
-          placeholder="Caption"
-          className="w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          placeholder="Bildetekst"
+          className="w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
         />
         <img src={c.imageUrl} alt="" className="max-h-48 rounded-lg object-cover" />
       </div>
@@ -882,15 +883,16 @@ function ContentFields({
           onChange={(e) =>
             updateModule(courseId, mod.id, { content: { ...c, url: e.target.value } })
           }
-          placeholder="Video URL (MP4 or page)"
-          className="w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          placeholder="Video-URL (MP4 eller side)"
+          className="w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
         />
         <input
           value={c.caption}
           onChange={(e) =>
             updateModule(courseId, mod.id, { content: { ...c, caption: e.target.value } })
           }
-          className="w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+          placeholder="Bildetekst (valgfritt)"
+          className="w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
         />
       </div>
     )
@@ -909,19 +911,19 @@ function ContentFields({
                 )
                 updateModule(courseId, mod.id, { content: { ...c, items } })
               }}
-              className="flex-1 rounded border border-neutral-200 px-2 py-1 text-sm"
+              className="flex-1 rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
             />
           </li>
         ))}
         <button
           type="button"
           onClick={() => {
-            const items = [...c.items, { id: crypto.randomUUID(), label: 'New item' }]
+            const items = [...c.items, { id: crypto.randomUUID(), label: 'Nytt punkt' }]
             updateModule(courseId, mod.id, { content: { ...c, items } })
           }}
-          className="text-sm text-emerald-800 hover:underline"
+          className="text-sm text-[#1a3d32] hover:underline"
         >
-          + Item
+          + Punkt
         </button>
       </ul>
     )
@@ -939,7 +941,7 @@ function ContentFields({
                 items[i] = e.target.value
                 updateModule(courseId, mod.id, { content: { ...c, items } })
               }}
-              className="w-full rounded border border-neutral-200 px-2 py-1 text-sm"
+              className="w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
             />
           </li>
         ))}
@@ -947,12 +949,12 @@ function ContentFields({
           type="button"
           onClick={() =>
             updateModule(courseId, mod.id, {
-              content: { ...c, items: [...c.items, 'New tip'] },
+              content: { ...c, items: [...c.items, 'Nytt tips'] },
             })
           }
-          className="text-sm text-emerald-800 hover:underline"
+          className="text-sm text-[#1a3d32] hover:underline"
         >
-          + Tip
+          + Tips
         </button>
       </ul>
     )
@@ -971,7 +973,7 @@ function ContentFields({
     return (
       <div className="space-y-3">
         {c.tasks.map((t) => (
-          <div key={t.id} className="rounded-lg border p-2">
+          <div key={t.id} className="rounded-lg border border-[#e3ddcc] bg-[#f7f5ee] p-2">
             <input
               value={t.title}
               onChange={(e) => {
@@ -980,7 +982,7 @@ function ContentFields({
                 )
                 updateModule(courseId, mod.id, { content: { ...c, tasks } })
               }}
-              className="w-full font-medium"
+              className="w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm font-medium"
             />
             <textarea
               value={t.description}
@@ -991,7 +993,7 @@ function ContentFields({
                 updateModule(courseId, mod.id, { content: { ...c, tasks } })
               }}
               rows={2}
-              className="mt-1 w-full text-sm"
+              className="mt-1 w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
             />
           </div>
         ))}
@@ -1000,13 +1002,13 @@ function ContentFields({
           onClick={() => {
             const tasks = [
               ...c.tasks,
-              { id: crypto.randomUUID(), title: 'Task', description: '' },
+              { id: crypto.randomUUID(), title: 'Oppgave', description: '' },
             ]
             updateModule(courseId, mod.id, { content: { ...c, tasks } })
           }}
-          className="text-sm text-emerald-800 hover:underline"
+          className="text-sm text-[#1a3d32] hover:underline"
         >
-          + Task
+          + Oppgave
         </button>
       </div>
     )
@@ -1022,7 +1024,7 @@ function ContentFields({
               content: { ...c, title: e.target.value },
             })
           }
-          className="mb-2 w-full rounded border px-2 py-1 text-sm font-medium"
+          className="mb-2 w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm font-medium"
         />
         <RichTextEditor
           value={c.body}
