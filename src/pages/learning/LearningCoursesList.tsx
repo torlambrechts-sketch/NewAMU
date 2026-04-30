@@ -194,7 +194,7 @@ export function LearningCoursesList() {
             setDesc('')
             navigate(`/learning/courses/${c.id}`)
           }}
-          className="rounded-xl border border-neutral-200/90 bg-white p-4 shadow-sm"
+          className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4"
         >
           <h2 className="text-sm font-semibold" style={{ color: PIN_GREEN }}>
             Nytt kurs
@@ -224,7 +224,7 @@ export function LearningCoursesList() {
           </div>
         </form>
       ) : (
-        <p className="rounded-xl border border-neutral-200/90 bg-white p-4 text-sm text-neutral-600 shadow-sm">
+        <p className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4 text-sm text-[#6b6f68]">
           Du har ikke tilgang til å opprette kurs. Be om rettigheten «E-learning — opprette og redigere kurs» (
           <code className="rounded bg-neutral-100 px-1">learning.manage</code>).
         </p>
@@ -239,7 +239,7 @@ export function LearningCoursesList() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Søk i kurs…"
-            className="w-full rounded-full border border-neutral-200 bg-white py-2 pl-10 pr-4 text-sm"
+            className="w-full rounded-full border border-[#e3ddcc] bg-[#fbf9f3] py-2 pl-10 pr-4 text-sm"
           />
         </div>
       </div>
@@ -257,12 +257,12 @@ export function LearningCoursesList() {
           return (
             <article
               key={c.id}
-              className={`flex flex-col overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm transition-shadow ${
+              className={`flex flex-col overflow-hidden rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] transition-shadow ${
                 unlocked ? 'hover:shadow-md' : 'opacity-80'
               }`}
             >
               {/* Header image / gradient */}
-              <div className="relative h-36 shrink-0 bg-gradient-to-br from-[#1a3d32] via-[#234d3f] to-[#2f6b52]">
+              <div className="relative h-36 shrink-0 rounded-t-lg bg-gradient-to-br from-[#1a3d32] via-[#234d3f] to-[#2f6b52]">
                 <div className="absolute inset-0 bg-gradient-to-br from-[#1a3d32]/95 to-[#143528] opacity-95" />
                 <button
                   type="button"
@@ -289,9 +289,9 @@ export function LearningCoursesList() {
                   ) : (
                     <span className="font-serif text-lg font-semibold text-neutral-500">{c.title}</span>
                   )}
-                  <p className="mt-2 line-clamp-2 text-sm text-neutral-600">{c.description || 'Ingen beskrivelse.'}</p>
+                  <p className="mt-2 line-clamp-2 text-sm text-[#6b6f68]">{c.description || 'Ingen beskrivelse.'}</p>
 
-                  <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-neutral-600">
+                  <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-[#6b6f68]">
                     <span className="inline-flex items-center gap-1.5" title="Moduler">
                       <BookOpen className="size-3.5 shrink-0" style={{ color: PIN_GREEN }} />
                       {total} {total === 1 ? 'modul' : 'moduler'}
@@ -305,7 +305,7 @@ export function LearningCoursesList() {
                   {total > 0 ? (
                     <div className="mt-3">
                       <ProgressBarMini value={pct} />
-                      <p className="mt-1 text-[11px] text-neutral-500">
+                      <p className="mt-1 text-[11px] text-[#6b6f68]">
                         Fremdrift: {done}/{total} moduler
                       </p>
                     </div>
@@ -329,7 +329,7 @@ export function LearningCoursesList() {
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-xs font-medium text-[#1a3d32]">{creatorLabel}</p>
-                        <p className="text-[10px] text-neutral-500">Kursansvarlig</p>
+                        <p className="text-[11px] text-[#6b6f68]">Kursansvarlig</p>
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1 text-[11px]">

@@ -551,7 +551,7 @@ function ModulePlayer({
         <button
           type="button"
           onClick={() => setFlashFlipped(!flashFlipped)}
-          className="relative mx-auto block aspect-[9/16] w-full max-w-sm overflow-hidden rounded-2xl shadow-xl"
+          className="relative mx-auto block aspect-[9/16] w-full max-w-sm overflow-hidden rounded-lg border border-[#e3ddcc]"
           style={{
             background: flashFlipped
               ? 'linear-gradient(160deg, #1e3d35 0%, #2D403A 100%)'
