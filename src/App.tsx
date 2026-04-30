@@ -1,3 +1,4 @@
+import React, { Suspense, lazy } from 'react'
 import {
   createBrowserRouter,
   createRoutesFromElements,
@@ -53,19 +54,35 @@ import { ProjectDashboard } from './pages/ProjectDashboard'
 import { WelcomeDashboardPage } from './pages/WelcomeDashboardPage'
 import { TasksPage } from './pages/TasksPage'
 import { WorkspaceAuditLogPage } from './pages/WorkspaceAuditLogPage'
-import { LearningLayout } from './components/learning/LearningLayout'
-import { LearningDashboard } from './pages/learning/LearningDashboard'
-import { LearningCoursesList } from './pages/learning/LearningCoursesList'
-import { LearningCourseBuilder } from './pages/learning/LearningCourseBuilder'
-import { LearningPlayer } from './pages/learning/LearningPlayer'
-import { LearningCertifications } from './pages/learning/LearningCertifications'
-import { LearningInsights } from './pages/learning/LearningInsights'
-import { LearningParticipants } from './pages/learning/LearningParticipants'
-import { LearningSettings } from './pages/learning/LearningSettings'
-import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
-import { LearningComplianceMatrix } from './pages/learning/LearningComplianceMatrix'
-import { LearningPathsPage } from './pages/learning/LearningPathsPage'
-import { LearningExternalTraining } from './pages/learning/LearningExternalTraining'
+const LearningLayout = lazy(() => import('./components/learning/LearningLayout').then((m) => ({ default: m.LearningLayout })))
+const LearningDashboard = lazy(() => import('./pages/learning/LearningDashboard').then((m) => ({ default: m.LearningDashboard })))
+const LearningCoursesList = lazy(() =>
+  import('./pages/learning/LearningCoursesList').then((m) => ({ default: m.LearningCoursesList })),
+)
+const LearningCourseBuilder = lazy(() =>
+  import('./pages/learning/LearningCourseBuilder').then((m) => ({ default: m.LearningCourseBuilder })),
+)
+const LearningPlayer = lazy(() => import('./pages/learning/LearningPlayer').then((m) => ({ default: m.LearningPlayer })))
+const LearningCertifications = lazy(() =>
+  import('./pages/learning/LearningCertifications').then((m) => ({ default: m.LearningCertifications })),
+)
+const LearningInsights = lazy(() => import('./pages/learning/LearningInsights').then((m) => ({ default: m.LearningInsights })))
+const LearningParticipants = lazy(() =>
+  import('./pages/learning/LearningParticipants').then((m) => ({ default: m.LearningParticipants })),
+)
+const LearningSettings = lazy(() => import('./pages/learning/LearningSettings').then((m) => ({ default: m.LearningSettings })))
+const LearningFlowEntry = lazy(() =>
+  import('./pages/learning/LearningFlowEntry').then((m) => ({ default: m.LearningFlowEntry })),
+)
+const LearningComplianceMatrix = lazy(() =>
+  import('./pages/learning/LearningComplianceMatrix').then((m) => ({ default: m.LearningComplianceMatrix })),
+)
+const LearningPathsPage = lazy(() =>
+  import('./pages/learning/LearningPathsPage').then((m) => ({ default: m.LearningPathsPage })),
+)
+const LearningExternalTraining = lazy(() =>
+  import('./pages/learning/LearningExternalTraining').then((m) => ({ default: m.LearningExternalTraining })),
+)
 import { DocumentsHome } from './pages/documents/DocumentsHome'
 import { DocumentsMalbibliotekPage } from './pages/documents/DocumentsMalbibliotekPage'
 import { WikiSpaceView } from './pages/documents/WikiSpaceView'
@@ -275,9 +292,48 @@ const router = createBrowserRouter(
                       <Route path="modules/:module_slug" element={<ModuleSlugPage />} />
                       <Route path="admin" element={<Navigate to="/organisation/admin" replace />} />
                       <Route path="profile" element={<ProfilePage />} />
-                      <Route path="learning/play/:courseId" element={<LearningPlayer />} />
-                      <Route path="learning/flow" element={<LearningFlowEntry />} />
-                      <Route path="learning" element={<LearningLayout />}>
+                      <Route
+                        path="learning/play/:courseId"
+                        element={
+                          <Suspense
+                            fallback={
+                              <div className="flex min-h-[40vh] items-center justify-center text-neutral-400">
+                                Laster…
+                              </div>
+                            }
+                          >
+                            <LearningPlayer />
+                          </Suspense>
+                        }
+                      />
+                      <Route
+                        path="learning/flow"
+                        element={
+                          <Suspense
+                            fallback={
+                              <div className="flex min-h-[40vh] items-center justify-center text-neutral-400">
+                                Laster…
+                              </div>
+                            }
+                          >
+                            <LearningFlowEntry />
+                          </Suspense>
+                        }
+                      />
+                      <Route
+                        path="learning"
+                        element={
+                          <Suspense
+                            fallback={
+                              <div className="flex min-h-[40vh] items-center justify-center text-neutral-400">
+                                Laster…
+                              </div>
+                            }
+                          >
+                            <LearningLayout />
+                          </Suspense>
+                        }
+                      >
                         <Route index element={<LearningDashboard />} />
                         <Route path="courses" element={<LearningCoursesList />} />
                         <Route path="courses/:courseId" element={<LearningCourseBuilder />} />

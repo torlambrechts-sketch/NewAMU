@@ -1,5 +1,4 @@
-import { useMemo } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Suspense, lazy, useMemo } from 'react'
 import {
   Award,
   BarChart3,
@@ -192,7 +191,15 @@ export function LearningLayout() {
           menu={<HubMenu1Bar ariaLabel="E-læring — faner" items={learningHubItems} />}
         />
         <div className="mt-8">
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="flex min-h-[30vh] items-center justify-center text-sm text-neutral-400">
+                Laster…
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </div>
       </div>
     </div>

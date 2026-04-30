@@ -383,20 +383,21 @@ function EventModuleSection({
   peerProfiles: { id: string; display_name: string }[]
   onComplete: () => void
 }) {
-  const { supabase } = useOrgSetupContext()
+  const { supabase, organization } = useOrgSetupContext()
   const [attendance, setAttendance] = useState<Record<string, boolean>>({})
   const [rsvpMsg, setRsvpMsg] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!ev?.id || !supabase || !canManageLearning) {
+    if (!ev?.id || !supabase || !canManageLearning || !organization?.id) {
       queueMicrotask(() => setAttendance({}))
       return
     }
     void (async () => {
       const { data, error } = await supabase
         .from('learning_ilt_attendance')
-        .select('user_id, present')
+        .select('user_id, present, learning_ilt_events!inner(organization_id)')
         .eq('event_id', ev.id)
+        .eq('learning_ilt_events.organization_id', organization.id)
       if (error) {
         console.warn('ilt attendance', error.message)
         return
@@ -407,7 +408,7 @@ function EventModuleSection({
       }
       setAttendance(next)
     })()
-  }, [ev?.id, supabase, canManageLearning])
+  }, [ev?.id, supabase, canManageLearning, organization?.id])
 
   return (
     <div className="space-y-6">

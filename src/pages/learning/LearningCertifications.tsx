@@ -76,6 +76,9 @@ export function LearningCertifications() {
           </table>
         )}
       </div>
+      {certificates.length >= 200 ? (
+        <p className="mt-2 text-xs text-[#6b6f68]">Viser de 200 nyeste sertifikatene.</p>
+      ) : null}
     </div>
   )
 }
