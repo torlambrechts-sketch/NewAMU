@@ -128,14 +128,14 @@ export function LearningCourseBuilder() {
     return (
       <div className="max-w-2xl space-y-6">
         <nav className="text-sm text-neutral-600">
-          <Link to="/learning/courses" className="hover:text-[#2D403A]">
+          <Link to="/learning/courses" className="hover:opacity-90" style={{ color: PIN_GREEN }}>
             Courses
           </Link>
           <span className="mx-2 text-neutral-300">›</span>
-          <span className="font-medium text-[#2D403A]">{course.title}</span>
+          <span className="font-medium" style={{ color: PIN_GREEN }}>{course.title}</span>
         </nav>
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-6">
-          <h1 className="font-serif text-2xl font-semibold text-[#2D403A]">Systemkurs</h1>
+          <h1 className="font-serif text-2xl font-semibold" style={{ color: PIN_GREEN }}>Systemkurs</h1>
           <p className="mt-2 text-sm text-neutral-700">
             Dette kurset leveres fra felles katalog og kan ikke redigeres direkte. Kopier det til din organisasjon for å
             tilpasse innhold, rekkefølge og publisering.
@@ -160,7 +160,8 @@ export function LearningCourseBuilder() {
             </button>
             <Link
               to={`/learning/play/${course.id}`}
-              className="inline-flex items-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-[#2D403A] hover:bg-neutral-50"
+              className="inline-flex items-center rounded-lg border border-neutral-300 bg-[#fbf9f3] px-4 py-2 text-sm font-medium hover:bg-neutral-50"
+              style={{ color: PIN_GREEN }}
             >
               Forhåndsvisning
             </Link>
@@ -174,16 +175,16 @@ export function LearningCourseBuilder() {
     return (
       <div className="space-y-4">
         <nav className="text-sm text-neutral-600">
-          <Link to="/learning/courses" className="hover:text-[#2D403A]">
+          <Link to="/learning/courses" className="hover:opacity-90" style={{ color: PIN_GREEN }}>
             Courses
           </Link>
           <span className="mx-2 text-neutral-300">›</span>
-          <span className="font-medium text-[#2D403A]">{course.title}</span>
+          <span className="font-medium" style={{ color: PIN_GREEN }}>{course.title}</span>
         </nav>
         <p className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-neutral-800">
           Du har ikke tilgang til kursbyggeren. Bruk <Link to={`/learning/play/${course.id}`} className="font-medium text-emerald-800 underline">forhåndsvisning</Link> for å ta kurset, eller be om rettigheten «E-learning — opprette og redigere kurs».
         </p>
-        <Link to="/learning/courses" className="text-sm font-medium text-[#2D403A] hover:underline">
+        <Link to="/learning/courses" className="text-sm font-medium hover:underline" style={{ color: PIN_GREEN }}>
           ← Tilbake til kurslisten
         </Link>
       </div>
@@ -197,17 +198,17 @@ export function LearningCourseBuilder() {
       ) : null}
       {learningLoading ? <p className="text-sm text-neutral-500">Laster…</p> : null}
       <nav className="text-sm text-neutral-600">
-        <Link to="/learning/courses" className="hover:text-[#2D403A]">
+        <Link to="/learning/courses" className="hover:opacity-90" style={{ color: PIN_GREEN }}>
           Courses
         </Link>
         <span className="mx-2 text-neutral-300">›</span>
-        <span className="font-medium text-[#2D403A]">{course.title}</span>
+        <span className="font-medium" style={{ color: PIN_GREEN }}>{course.title}</span>
       </nav>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">{course.title}</h1>
+            <h1 className="font-serif text-3xl font-semibold" style={{ color: PIN_GREEN }}>{course.title}</h1>
             <span
               className={`rounded-full px-3 py-0.5 text-xs font-semibold uppercase ${
                 course.status === 'published'
@@ -262,7 +263,7 @@ export function LearningCourseBuilder() {
       />
 
       {mainTab === 'info' && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-neutral-200 bg-[#fbf9f3] p-6 shadow-sm">
           <label className="text-xs font-medium text-neutral-500">Title</label>
           <input
             value={course.title}
@@ -335,7 +336,7 @@ export function LearningCourseBuilder() {
                           className="mt-0.5 rounded border-neutral-300"
                         />
                         <span>
-                          <span className="font-medium text-[#2D403A]">{oc.title}</span>
+                          <span className="font-medium" style={{ color: PIN_GREEN }}>{oc.title}</span>
                           <span className="ml-2 text-xs text-neutral-500">({oc.status})</span>
                         </span>
                       </label>
@@ -371,7 +372,8 @@ export function LearningCourseBuilder() {
               </span>
               <button
                 type="button"
-                className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#2D403A] hover:bg-neutral-50"
+                className="rounded-lg border border-neutral-300 bg-[#fbf9f3] px-3 py-1.5 text-xs font-medium hover:bg-neutral-50"
+                style={{ color: PIN_GREEN }}
                 onClick={() => {
                   if (!confirm('Øke kursversjon? Nye fullføringer får ny versjon på sertifikatet.')) return
                   void (async () => {
@@ -393,7 +395,7 @@ export function LearningCourseBuilder() {
           <HubMenu1Bar ariaLabel="Moduler — typefilter" items={moduleKindFilterItems} />
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-serif text-lg font-semibold text-[#2D403A]">Module builder</h2>
+            <h2 className="font-serif text-lg font-semibold" style={{ color: PIN_GREEN }}>Module builder</h2>
             <div className="flex flex-wrap gap-2">
               {ADD_KINDS.map((a) => (
                 <button
@@ -403,7 +405,8 @@ export function LearningCourseBuilder() {
                     const mod = addModule(course.id, a.kind, a.label)
                     if (mod) setSelectedId(mod.id)
                   }}
-                  className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-[#2D403A] hover:bg-neutral-50"
+                  className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-[#fbf9f3] px-3 py-1.5 text-xs font-medium hover:bg-neutral-50"
+                  style={{ color: PIN_GREEN }}
                 >
                   <Plus className="size-3.5" />
                   {a.label}
@@ -413,7 +416,7 @@ export function LearningCourseBuilder() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-            <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+            <div className="overflow-hidden rounded-xl border border-neutral-200 bg-[#fbf9f3] shadow-sm">
               <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-2 text-xs font-medium text-neutral-500">
                 Modules
               </div>
@@ -429,7 +432,7 @@ export function LearningCourseBuilder() {
                     >
                       <GripVertical className="size-4 shrink-0 text-neutral-300" />
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium text-[#2D403A]">{m.title}</div>
+                        <div className="font-medium" style={{ color: PIN_GREEN }}>{m.title}</div>
                         <div className="text-xs text-neutral-500">
                           {m.kind} · ~{m.durationMinutes} min
                         </div>
@@ -443,7 +446,7 @@ export function LearningCourseBuilder() {
               ) : null}
             </div>
 
-            <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+            <div className="rounded-xl border border-neutral-200 bg-[#fbf9f3] p-5 shadow-sm">
               {selected ? (
                 <ModuleEditor
                   key={selected.id}
@@ -463,7 +466,7 @@ export function LearningCourseBuilder() {
       )}
 
       {mainTab === 'cert' && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+        <div className="rounded-xl border border-neutral-200 bg-[#fbf9f3] p-6 text-sm text-neutral-600 shadow-sm">
           Certificates are issued when a learner completes all modules from the{' '}
           <Link to={`/learning/play/${course.id}`} className="text-emerald-800 underline">
             learner view
@@ -477,13 +480,13 @@ export function LearningCourseBuilder() {
       )}
 
       {mainTab === 'participants' && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+        <div className="rounded-xl border border-neutral-200 bg-[#fbf9f3] p-6 text-sm text-neutral-600 shadow-sm">
           Track enrolments in a future LMS integration. For now, progress is stored per browser in localStorage when learners use Preview.
         </div>
       )}
 
       {mainTab === 'insights' && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-neutral-200 bg-[#fbf9f3] p-6 shadow-sm">
           <p className="text-sm text-neutral-600">
             Module count: <strong>{course.modules.length}</strong>. Published:{' '}
             <strong>{course.status === 'published' ? 'Yes' : 'No'}</strong>.
@@ -558,7 +561,7 @@ function ModuleEditor({
 
       {mod.kind === 'on_job' ? (
         <div className="rounded-lg border border-dashed border-emerald-300 bg-emerald-50/50 p-4">
-          <p className="text-xs font-semibold text-[#2D403A]">QR for stedet (flow-of-work)</p>
+          <p className="text-xs font-semibold" style={{ color: PIN_GREEN }}>QR for stedet (flow-of-work)</p>
           <p className="mt-1 text-xs text-neutral-600">
             Skriv ut og fest på f.eks. førstehjelpskasse eller truck. Skanning åpner modulen direkte uten å navigere i
             kursbiblioteket.
@@ -620,7 +623,7 @@ function IltScheduleForm({
 
   return (
     <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
-      <p className="text-xs font-semibold text-[#2D403A]">Planlegg ILT / vILT-økt</p>
+      <p className="text-xs font-semibold" style={{ color: PIN_GREEN }}>Planlegg ILT / vILT-økt</p>
       <p className="mt-1 text-xs text-neutral-600">
         Én økt per modul. Deltakere kan RSVP og oppmøte registreres i spilleren.
       </p>

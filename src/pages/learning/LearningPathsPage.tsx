@@ -60,7 +60,9 @@ export function LearningPathsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Læringsløp</h1>
+        <h1 className="font-serif text-3xl font-semibold" style={{ color: PIN_GREEN }}>
+          Læringsløp
+        </h1>
         <p className="mt-2 text-sm text-neutral-600">
           Grupper kurs og koble til profilflagg (f.eks. HMS-representant). Brukere meldes inn automatisk når flagget
           stemmer med regelen.
@@ -72,14 +74,18 @@ export function LearningPathsPage() {
       {learningLoading ? <p className="text-sm text-neutral-500">Laster…</p> : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-          <h2 className="font-semibold text-[#2D403A]">Dine løp</h2>
+        <div className="rounded-xl border border-neutral-200 bg-[#fbf9f3] p-6 shadow-sm">
+          <h2 className="font-semibold" style={{ color: PIN_GREEN }}>
+            Dine løp
+          </h2>
           <ul className="mt-4 space-y-3">
             {learningPaths.map((p) => (
               <li key={p.id} className="rounded-lg border border-neutral-100 p-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <div className="font-medium text-[#2D403A]">{p.name}</div>
+                    <div className="font-medium" style={{ color: PIN_GREEN }}>
+                      {p.name}
+                    </div>
                     <div className="text-xs text-neutral-500">{p.slug}</div>
                     {p.description ? <p className="mt-1 text-sm text-neutral-600">{p.description}</p> : null}
                     <p className="mt-2 text-xs text-neutral-500">
@@ -117,7 +123,9 @@ export function LearningPathsPage() {
 
         {canManage ? (
           <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-6">
-            <h2 className="font-semibold text-[#2D403A]">Nytt læringsløp</h2>
+            <h2 className="font-semibold" style={{ color: PIN_GREEN }}>
+              Nytt læringsløp
+            </h2>
             <div className="mt-4 space-y-3">
               <label className="block text-xs font-medium text-neutral-600">
                 Navn
@@ -147,7 +155,7 @@ export function LearningPathsPage() {
               </label>
               <div>
                 <p className="text-xs font-medium text-neutral-600">Kurs i rekkefølge</p>
-                <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-2">
+                <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-neutral-200 bg-[#fbf9f3] p-2">
                   {published.map((c) => (
                     <li key={c.id}>
                       <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -193,7 +201,7 @@ export function LearningPathsPage() {
             </div>
           </div>
         ) : (
-          <div className="rounded-xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600">
+          <div className="rounded-xl border border-neutral-200 bg-[#fbf9f3] p-6 text-sm text-neutral-600">
             Kun kursansvarlige kan opprette læringsløp. Du ser dine påmeldinger til venstre.
           </div>
         )}

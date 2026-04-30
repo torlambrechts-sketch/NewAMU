@@ -387,7 +387,7 @@ export function LearningCoursesList() {
       </div>
 
       {filteredCards.length === 0 && !learningLoading ? (
-        <p className="rounded-xl border border-dashed border-neutral-300 bg-white/80 p-10 text-center text-sm text-neutral-500">
+        <p className="rounded-xl border border-dashed border-neutral-300 bg-[#fbf9f3]/90 p-10 text-center text-sm text-neutral-500">
           Ingen kurs i dette filteret.
         </p>
       ) : null}
