@@ -1,5 +1,9 @@
 -- Extend survey analytics RPCs: multi_select token split, numeric stats for k-anonymity (C3).
 
+alter table public.surveys
+  add column if not exists anonymity_threshold int not null default 5
+    check (anonymity_threshold > 0);
+
 create or replace function public.survey_question_choice_counts_for_org(
   p_survey_id uuid,
   p_question_id uuid,

@@ -1,6 +1,11 @@
 -- Survey batch: private storage for response files, anonymous session dedupe,
 -- RPC for aggregation counts under k-anonymity, vendor/external invite gate helper.
 
+-- Idempotent: ensure columns before RPCs (safe if 20260801100000_survey_additions.sql was skipped).
+alter table public.surveys
+  add column if not exists anonymity_threshold int not null default 5
+    check (anonymity_threshold > 0);
+
 -- ── 1) Respondent session token (anonymous dedupe — C6) ───────────────────────
 
 alter table public.org_survey_responses
