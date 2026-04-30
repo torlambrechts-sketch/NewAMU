@@ -81,10 +81,25 @@ export type LearningFlowSettings = {
 
 export type CertificationRenewalRow = {
   id: string
+  userId: string
   courseId: string
   certificateId: string | null
   expiresAt: string
   status: 'compliant' | 'expiring_soon' | 'expired' | 'renewed'
+}
+
+export type LearningOrgProfileFlags = {
+  id: string
+  displayName: string
+  isSafetyRep: boolean
+  isAmuMember: boolean
+}
+
+export type SafetyRepComplianceRow = {
+  userId: string
+  displayName: string
+  minutesCompleted: number
+  requiredMinutes: number
 }
 
 export type ExternalCertificateRow = {
@@ -157,6 +172,7 @@ type LearningRemoteSnapshotV1 = {
   learningPaths: LearningPathRow[]
   pathEnrollments: PathEnrollmentRow[]
   complianceMatrix: ComplianceMatrixCell[]
+  orgLearningProfiles?: LearningOrgProfileFlags[]
 }
 
 const learningSnapshotMemory = new Map<string, LearningRemoteSnapshotV1>()
@@ -165,7 +181,13 @@ function learningSnapshotStorageKey(sessionKey: string) {
   return `atics-learning-snapshot-v1:${sessionKey}`
 }
 
-function parseLearningSnapshot(raw: string): LearningRemoteSnapshotV1 | null {
+function parseLearningMetaBool(meta: unknown, key: string): boolean {
+  if (!meta || typeof meta !== 'object') return false
+  const v = (meta as Record<string, unknown>)[key]
+  if (v === true) return true
+  if (typeof v === 'string' && v.toLowerCase() === 'true') return true
+  return false
+}
   try {
     const o = JSON.parse(raw) as LearningRemoteSnapshotV1
     if (o.v !== LEARNING_SNAPSHOT_VERSION) return null
@@ -452,6 +474,7 @@ type DbProgressRow = {
 
 type DbCertRow = {
   id: string
+  user_id: string
   course_id: string
   course_title: string
   learner_name: string
@@ -559,7 +582,7 @@ function mergeCatalogIntoCourses(
 }
 
 export function useLearning() {
-  const { supabase, organization, user, can, refreshPermissions } = useOrgSetupContext()
+  const { supabase, organization, user, can, refreshPermissions, orgProfiles } = useOrgSetupContext()
   const { locale: appLocale } = useI18n()
   const orgId = organization?.id
   const userId = user?.id
@@ -603,6 +626,9 @@ export function useLearning() {
   const [complianceMatrix, setComplianceMatrix] = useState<ComplianceMatrixCell[]>(
     () => initialSnap?.complianceMatrix ?? [],
   )
+  const [orgLearningProfiles, setOrgLearningProfiles] = useState<LearningOrgProfileFlags[]>(
+    () => initialSnap?.orgLearningProfiles ?? [],
+  )
   const [loading, setLoading] = useState(useSupabase)
   const [error, setError] = useState<string | null>(null)
 
@@ -613,6 +639,9 @@ export function useLearning() {
     if (!alreadyHydrated) setLoading(true)
     setError(null)
     try {
+      const { error: pathEnrollErr } = await supabase.rpc('learning_refresh_path_enrollments_for_user')
+      if (pathEnrollErr) console.warn('learning_refresh_path_enrollments_for_user', pathEnrollErr.message)
+
       const { error: rpcErr } = await supabase.rpc('learning_ensure_system_course_rows', {
         p_locale: catalogLocale,
       })
@@ -760,6 +789,7 @@ export function useLearning() {
       }))
       const certificates: Certificate[] = ((certRes.data ?? []) as DbCertRow[]).map((r) => ({
         id: r.id,
+        userId: r.user_id,
         courseId: r.course_id,
         courseTitle: r.course_title,
         learnerName: r.learner_name,
@@ -771,7 +801,7 @@ export function useLearning() {
 
       const renewQuery = supabase
         .from('learning_certification_renewals')
-        .select('id, course_id, certificate_id, expires_at, status')
+        .select('id, user_id, course_id, certificate_id, expires_at, status')
         .eq('organization_id', orgId)
       if (!canManage) renewQuery.eq('user_id', userId)
 
@@ -806,6 +836,9 @@ export function useLearning() {
         .eq('user_id', userId)
 
       const matrixPromise = canManage ? supabase.rpc('learning_compliance_matrix') : Promise.resolve({ data: null, error: null })
+      const profilesPromise = canManage
+        ? supabase.from('profiles').select('id, display_name, learning_metadata').eq('organization_id', orgId)
+        : Promise.resolve({ data: [] as { id: string; display_name: string; learning_metadata: unknown }[], error: null })
 
       const [
         { data: streakRow },
@@ -818,6 +851,7 @@ export function useLearning() {
         pathsRes,
         enRes,
         matrixRes,
+        profRes,
       ] = await Promise.all([
         supabase.from('learning_streaks').select('streak_weeks').eq('user_id', userId).eq('organization_id', orgId).maybeSingle(),
         supabase
@@ -837,6 +871,7 @@ export function useLearning() {
         pathsQuery,
         enrollQuery,
         matrixPromise,
+        profilesPromise,
       ])
       const nextStreakWeeks = typeof streakRow?.streak_weeks === 'number' ? streakRow.streak_weeks : null
       const nextPendingReviews = (
@@ -849,15 +884,25 @@ export function useLearning() {
         reviewAt: r.review_at,
       }))
       const nextDepartmentLeaderboard = !lbRes.error && Array.isArray(lbRes.data)
-        ? (lbRes.data as { department_id: string; department_name: string; member_count: number; avg_completion_pct: number }[]).map(
-            (r) => ({
+        ? (lbRes.data as { department_id: string; department_name: string; member_count: number; avg_completion_pct: number }[])
+            .map((r) => ({
               departmentId: r.department_id,
               departmentName: r.department_name,
               memberCount: r.member_count,
               avgCompletionPct: Number(r.avg_completion_pct),
-            }),
-          )
+            }))
+            .filter((r) => r.memberCount >= 5)
         : []
+
+      const nextOrgLearningProfiles =
+        canManage && !profRes.error && Array.isArray(profRes.data)
+          ? (profRes.data as { id: string; display_name: string; learning_metadata: unknown }[]).map((p) => ({
+              id: p.id,
+              displayName: p.display_name?.trim() || '—',
+              isSafetyRep: parseLearningMetaBool(p.learning_metadata, 'is_safety_rep'),
+              isAmuMember: parseLearningMetaBool(p.learning_metadata, 'is_amu_member'),
+            }))
+          : []
       const fs = fsRes.data as { teams_webhook_url?: string | null; slack_webhook_url?: string | null; generic_webhook_url?: string | null } | null
       const nextFlowSettings: LearningFlowSettings | null =
         !fsRes.error && fs
@@ -869,9 +914,10 @@ export function useLearning() {
           : null
 
       const nextCertificationRenewals = !renewRes.error && Array.isArray(renewRes.data)
-        ? (renewRes.data as { id: string; course_id: string; certificate_id: string | null; expires_at: string; status: string }[]).map(
+        ? (renewRes.data as { id: string; user_id: string; course_id: string; certificate_id: string | null; expires_at: string; status: string }[]).map(
             (r) => ({
               id: r.id,
+              userId: r.user_id,
               courseId: r.course_id,
               certificateId: r.certificate_id,
               expiresAt: r.expires_at,
@@ -980,6 +1026,7 @@ export function useLearning() {
         learningPaths: nextLearningPaths,
         pathEnrollments: nextPathEnrollments,
         complianceMatrix: nextComplianceMatrix,
+        orgLearningProfiles: nextOrgLearningProfiles,
       })
 
       setRemoteState(nextRemoteState)
@@ -993,6 +1040,7 @@ export function useLearning() {
       setLearningPaths(nextLearningPaths)
       setPathEnrollments(nextPathEnrollments)
       setComplianceMatrix(nextComplianceMatrix)
+      setOrgLearningProfiles(nextOrgLearningProfiles)
 
       learningSessionHydrated.set(sessionKey, true)
     } catch (e) {
@@ -1010,6 +1058,7 @@ export function useLearning() {
       setLearningPaths([])
       setPathEnrollments([])
       setComplianceMatrix([])
+      setOrgLearningProfiles([])
       setRemoteState({ courses: [], progress: [], certificates: [] })
     } finally {
       setLoading(false)
@@ -1454,12 +1503,13 @@ export function useLearning() {
         issuedAt: r.issued_at,
         verifyCode: r.verify_code,
         courseVersion: r.course_version ?? 1,
+        userId: userId ?? undefined,
       }
       await refreshLearning()
       void refreshPermissions()
       return out
     },
-    [useSupabase, supabase, setState, refreshLearning, refreshPermissions],
+    [useSupabase, supabase, userId, setState, refreshLearning, refreshPermissions],
   )
 
   const stats = useMemo(() => {
@@ -1469,6 +1519,32 @@ export function useLearning() {
     const enrolled = state.progress.length
     return { published, drafts, certs, enrolled, totalCourses: state.courses.length }
   }, [state])
+
+  const safetyRepComplianceRows = useMemo((): SafetyRepComplianceRow[] => {
+    const requiredMinutes = 2400
+    if (!useSupabase || !canManage) return []
+    const rows: SafetyRepComplianceRow[] = []
+    for (const prof of orgLearningProfiles) {
+      if (!prof.isSafetyRep) continue
+      let minutesCompleted = 0
+      for (const p of state.progress) {
+        if (p.userId !== prof.id) continue
+        const course = state.courses.find((x) => x.id === p.courseId)
+        if (!course?.tags.some((t) => t.toLowerCase().includes('verneombud'))) continue
+        if (!course.modules.length) continue
+        const allDone = course.modules.every((m) => p.moduleProgress[m.id]?.completed)
+        if (!allDone) continue
+        minutesCompleted += course.modules.reduce((acc, m) => acc + (m.durationMinutes || 0), 0)
+      }
+      rows.push({
+        userId: prof.id,
+        displayName: prof.displayName,
+        minutesCompleted,
+        requiredMinutes,
+      })
+    }
+    return rows.sort((a, b) => a.displayName.localeCompare(b.displayName, 'nb'))
+  }, [useSupabase, canManage, orgLearningProfiles, state.progress, state.courses])
 
   const isCourseUnlocked = useCallback(
     (courseId: string) => {
@@ -1636,10 +1712,24 @@ export function useLearning() {
       if (!useSupabase || !supabase || !canManage) return { ok: false as const, error: 'Krever tilgang.' }
       const { data, error: e } = await supabase.rpc('learning_bump_course_version', { p_course_id: courseId })
       if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      const { error: renewErr } = await supabase.rpc('learning_mark_certs_for_renewal', { p_course_id: courseId })
+      if (renewErr) return { ok: false as const, error: getSupabaseErrorMessage(renewErr) }
       await refreshLearning()
       return { ok: true as const, version: data as number }
     },
     [useSupabase, supabase, canManage, refreshLearning],
+  )
+
+  const deleteUserLearningData = useCallback(
+    async (targetUserId: string) => {
+      if (!useSupabase || !supabase || !userId) return { ok: false as const, error: 'Ikke innlogget.' }
+      if (!canManage && targetUserId !== userId) return { ok: false as const, error: 'Ikke tilgang.' }
+      const { error: e } = await supabase.rpc('learning_delete_user_data', { p_user_id: targetUserId })
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      await refreshLearning()
+      return { ok: true as const }
+    },
+    [useSupabase, supabase, userId, canManage, refreshLearning],
   )
 
   const upsertIltEvent = useCallback(
@@ -1922,7 +2012,10 @@ export function useLearning() {
     learningPaths: useSupabase ? learningPaths : [],
     pathEnrollments: useSupabase ? pathEnrollments : [],
     complianceMatrix: useSupabase && canManage ? complianceMatrix : [],
+    safetyRepComplianceRows: useSupabase && canManage ? safetyRepComplianceRows : [],
+    orgLearningProfiles: useSupabase && canManage ? orgLearningProfiles : [],
     bumpCourseVersion,
+    deleteUserLearningData,
     upsertIltEvent,
     setIltRsvp,
     setIltAttendance,

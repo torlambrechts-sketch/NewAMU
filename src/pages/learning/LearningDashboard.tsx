@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, BookOpen, Flame } from 'lucide-react'
+import { useMemo } from 'react'
 import { useLearning } from '../../hooks/useLearning'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { CREAM, PIN_GREEN } from '../../components/learning/LearningLayout'
 
 function CompletionRings({
@@ -78,7 +80,36 @@ export function LearningDashboard() {
     departmentLeaderboard,
     dismissReview,
     isCourseUnlocked,
+    pathEnrollments,
+    learningPaths,
   } = useLearning()
+  const { profile } = useOrgSetupContext()
+  const lm = (profile?.learning_metadata as Record<string, unknown> | null | undefined) ?? {}
+
+  const enrolledPathSlugSet = useMemo(() => {
+    const ids = new Set(pathEnrollments.map((e) => e.pathId))
+    const slugs = new Set<string>()
+    for (const p of learningPaths) {
+      if (ids.has(p.id)) slugs.add(p.slug.toLowerCase())
+    }
+    return slugs
+  }, [pathEnrollments, learningPaths])
+
+  const hasVerneombudEnrollment = useMemo(() => {
+    return [...enrolledPathSlugSet].some((s) => s.includes('verneombud'))
+  }, [enrolledPathSlugSet])
+
+  const hasAmuEnrollment = useMemo(() => {
+    return [...enrolledPathSlugSet].some((s) => s.includes('amu'))
+  }, [enrolledPathSlugSet])
+
+  const showSafetyBanner = lm.is_safety_rep === true && !hasVerneombudEnrollment
+  const showAmuBanner = lm.is_amu_member === true && !hasAmuEnrollment
+
+  const departmentLeaderboardPublic = useMemo(
+    () => departmentLeaderboard.filter((d) => d.memberCount >= 5),
+    [departmentLeaderboard],
+  )
   const published = courses.filter((c) => c.status === 'published')
   const maxCourses = Math.max(1, stats.totalCourses || 1)
   const ringPublished = stats.published / maxCourses
@@ -113,6 +144,32 @@ export function LearningDashboard() {
           Configure
         </Link>
       </div>
+
+      {showSafetyBanner ? (
+        <div className="rounded-xl border border-amber-300 bg-amber-50/90 px-4 py-3 text-sm text-neutral-900">
+          <p>
+            Du er valgt som verneombud og har lovpålagt grunnopplæring (AML § 6-5 — minst 40 timer).
+          </p>
+          <Link
+            to="/learning/paths"
+            className="mt-2 inline-flex items-center gap-1 font-medium text-amber-950 underline decoration-amber-700/40 hover:decoration-amber-950"
+          >
+            Start opplæring →
+          </Link>
+        </div>
+      ) : null}
+
+      {showAmuBanner ? (
+        <div className="rounded-xl border border-blue-200 bg-blue-50/90 px-4 py-3 text-sm text-neutral-900">
+          <p>Som AMU-medlem har du rett og plikt til opplæring (AML § 7-4).</p>
+          <Link
+            to="/learning/paths"
+            className="mt-2 inline-flex items-center gap-1 font-medium text-blue-950 underline decoration-blue-700/40 hover:decoration-blue-950"
+          >
+            Se læringsløp →
+          </Link>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_200px]">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -165,7 +222,7 @@ export function LearningDashboard() {
         </section>
       ) : null}
 
-      {departmentLeaderboard.length > 0 ? (
+      {departmentLeaderboardPublic.length > 0 ? (
         <section className="rounded-xl border border-neutral-200/80 bg-white p-5 shadow-sm">
           <h2 className="font-serif text-lg font-semibold text-[#2D403A]">Avdelinger (aggregert)</h2>
           <p className="mt-1 text-sm text-neutral-600">
@@ -173,7 +230,7 @@ export function LearningDashboard() {
             Koble brukere til avdeling i profilen for full effekt.
           </p>
           <ul className="mt-4 space-y-2">
-            {departmentLeaderboard.map((d) => (
+            {departmentLeaderboardPublic.map((d) => (
               <li
                 key={d.departmentId}
                 className="flex items-center justify-between rounded-lg border border-neutral-100 px-3 py-2 text-sm"
@@ -185,6 +242,9 @@ export function LearningDashboard() {
               </li>
             ))}
           </ul>
+          <p className="mt-3 text-xs text-neutral-600">
+            Avdelinger med færre enn 5 medarbeidere vises ikke for å ivareta personvern (GDPR art. 5).
+          </p>
         </section>
       ) : null}
 

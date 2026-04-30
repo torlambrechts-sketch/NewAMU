@@ -1,9 +1,25 @@
-import { Award, Search } from 'lucide-react'
-import { useState } from 'react'
+import { Award, ExternalLink, Search } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useLearning } from '../../hooks/useLearning'
 
 export function LearningCertifications() {
-  const { certificates } = useLearning()
+  const { certificates, certificationRenewals } = useLearning()
+
+  const renewalExpiredByCertId = useMemo(() => {
+    const m = new Map<string, boolean>()
+    for (const r of certificationRenewals) {
+      if (r.status !== 'expired') continue
+      if (r.certificateId) {
+        m.set(r.certificateId, true)
+        continue
+      }
+      for (const c of certificates) {
+        if (c.courseId === r.courseId) m.set(c.id, true)
+      }
+    }
+    return m
+  }, [certificationRenewals, certificates])
   const [q, setQ] = useState('')
 
   const filtered = certificates.filter(
@@ -51,7 +67,9 @@ export function LearningCertifications() {
               <th className="px-4 py-3 font-medium">Learner</th>
               <th className="px-4 py-3 font-medium">Issued</th>
               <th className="px-4 py-3 font-medium">Versjon</th>
+              <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Verify</th>
+              <th className="px-4 py-3 font-medium print:hidden">Bevis</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
@@ -63,7 +81,24 @@ export function LearningCertifications() {
                   {new Date(c.issuedAt).toLocaleString()}
                 </td>
                 <td className="px-4 py-3 text-xs text-neutral-600">{c.courseVersion ?? '—'}</td>
+                <td className="px-4 py-3 text-xs">
+                  {renewalExpiredByCertId.get(c.id) ? (
+                    <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-800">
+                      Fornyelse påkrevd
+                    </span>
+                  ) : (
+                    <span className="text-neutral-500">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-3 font-mono text-xs">{c.verifyCode}</td>
+                <td className="px-4 py-3 print:hidden">
+                  <Link
+                    to={`/learning/certificates/${c.id}/print`}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-emerald-800 hover:underline"
+                  >
+                    Utskrift <ExternalLink className="size-3" />
+                  </Link>
+                </td>
               </tr>
             ))}
           </tbody>

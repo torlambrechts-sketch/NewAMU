@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { VERNEOMBUD_REQUIRED_MINUTES, verneombudComplianceTone } from './learningVerneombud'
 
 function cellColor(status: string) {
   if (status === 'complete') return 'bg-emerald-500'
@@ -11,7 +12,15 @@ function cellColor(status: string) {
 export function LearningComplianceMatrix() {
   const { can } = useOrgSetupContext()
   const canManage = can('learning.manage')
-  const { complianceMatrix, learningLoading, learningError } = useLearning()
+  const { complianceMatrix, learningLoading, learningError, safetyRepComplianceRows } = useLearning()
+
+  const verneombudKpi = useMemo(() => {
+    const rows = safetyRepComplianceRows
+    if (rows.length === 0) return null
+    const sum = rows.reduce((a, r) => a + r.minutesCompleted, 0)
+    const avg = Math.round(sum / rows.length)
+    return { avg, count: rows.length }
+  }, [safetyRepComplianceRows])
 
   const { users, courses, grid } = useMemo(() => {
     const uids = [...new Set(complianceMatrix.map((c) => c.userId))]
@@ -49,6 +58,30 @@ export function LearningComplianceMatrix() {
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
       ) : null}
       {learningLoading ? <p className="text-sm text-neutral-500">Laster…</p> : null}
+
+      {verneombudKpi ? (
+        <div
+          className={`rounded-xl border p-5 shadow-sm ${
+            verneombudComplianceTone(verneombudKpi.avg) === 'green'
+              ? 'border-emerald-300 bg-emerald-50/90'
+              : verneombudComplianceTone(verneombudKpi.avg) === 'amber'
+                ? 'border-amber-300 bg-amber-50/90'
+                : 'border-red-300 bg-red-50/90'
+          }`}
+        >
+          <h2 className="font-serif text-lg font-semibold text-[#2D403A]">Verneombud 40 t — AML § 6-5</h2>
+          <p className="mt-2 text-sm text-neutral-700">
+            Snitt akkumulerte minutter (fullførte moduler i kurs med tag <code className="rounded bg-white/80 px-1">verneombud</code>)
+            blant {verneombudKpi.count} verneombud:
+          </p>
+          <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-[#2D403A]">
+            {verneombudKpi.avg} min / {VERNEOMBUD_REQUIRED_MINUTES} min (40 t)
+          </p>
+          <p className="mt-1 text-xs text-neutral-600">
+            Rød &lt; 1200 min, amber 1200–2399, grønn ≥ 2400 (per snitt).
+          </p>
+        </div>
+      ) : null}
 
       <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm">
         <table className="min-w-full text-left text-xs">

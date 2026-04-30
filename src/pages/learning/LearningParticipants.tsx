@@ -4,6 +4,7 @@ import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import type { CourseProgress } from '../../types/learning'
+import { VERNEOMBUD_REQUIRED_MINUTES, verneombudComplianceTone } from './learningVerneombud'
 
 type SortKey = 'learner' | 'course' | 'started' | 'days' | 'progress'
 type SortDir = 'asc' | 'desc'
@@ -60,7 +61,7 @@ function rowKey(p: CourseProgress): string {
 export function LearningParticipants() {
   const { can, profile } = useOrgSetupContext()
   const canManage = can('learning.manage')
-  const { progress, courses, learningLoading, learningError } = useLearning()
+  const { progress, courses, learningLoading, learningError, orgLearningProfiles } = useLearning()
 
   const [query, setQuery] = useState('')
   const [courseFilter, setCourseFilter] = useState<string>('all')
@@ -120,7 +121,24 @@ export function LearningParticipants() {
     return out
   }, [progress, courses, query, courseFilter, sortKey, sortDir, canManage, profile])
 
-  const toggleSort = (key: SortKey) => {
+  const verneombudByUser = useMemo(() => {
+    const m = new Map<string, { minutes: number; name: string }>()
+    for (const prof of orgLearningProfiles) {
+      if (!prof.isSafetyRep) continue
+      let minutes = 0
+      for (const p of progress) {
+        if (p.userId !== prof.id) continue
+        const c = courses.find((x) => x.id === p.courseId)
+        if (!c?.tags.some((t) => t.toLowerCase().includes('verneombud'))) continue
+        if (!c.modules.length) continue
+        const allDone = c.modules.every((mod) => p.moduleProgress[mod.id]?.completed)
+        if (!allDone) continue
+        minutes += c.modules.reduce((acc, mod) => acc + (mod.durationMinutes || 0), 0)
+      }
+      m.set(prof.id, { minutes, name: prof.displayName })
+    }
+    return m
+  }, [orgLearningProfiles, progress, courses])
     if (sortKey === key) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
     } else {
@@ -143,6 +161,34 @@ export function LearningParticipants() {
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
       ) : null}
       {learningLoading ? <p className="text-sm text-neutral-500">Laster…</p> : null}
+
+      {canManage && verneombudByUser.size > 0 ? (
+        <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <h2 className="font-serif text-lg font-semibold text-[#2D403A]">Verneombud — 40 t (AML § 6-5)</h2>
+          <p className="mt-1 text-sm text-neutral-600">
+            Oppsummert fra fullførte moduler i kurs merket med taggen <code className="rounded bg-neutral-100 px-1">verneombud</code>.
+          </p>
+          <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {[...verneombudByUser.entries()].map(([uid, { minutes, name }]) => {
+              const tone = verneombudComplianceTone(minutes)
+              const border =
+                tone === 'green'
+                  ? 'border-emerald-300 bg-emerald-50/80'
+                  : tone === 'amber'
+                    ? 'border-amber-300 bg-amber-50/80'
+                    : 'border-red-300 bg-red-50/80'
+              return (
+                <li key={uid} className={`rounded-lg border px-4 py-3 ${border}`}>
+                  <p className="text-sm font-medium text-[#2D403A]">{name}</p>
+                  <p className="mt-2 tabular-nums text-lg font-semibold text-neutral-900">
+                    {minutes} min / {VERNEOMBUD_REQUIRED_MINUTES} min (40 t)
+                  </p>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative max-w-md flex-1">

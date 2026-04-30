@@ -2,6 +2,8 @@
   nav,
   aside,
   header,
+  .topbar,
+  .page-tabs,
   [data-print-hide],
   .no-print {
     display: none !important;

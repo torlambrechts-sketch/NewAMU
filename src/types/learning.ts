@@ -123,4 +123,6 @@ export type Certificate = {
   verifyCode: string
   /** Snapshot of course law/content version at issue time */
   courseVersion?: number
+  /** Present when loaded from Supabase */
+  userId?: string
 }

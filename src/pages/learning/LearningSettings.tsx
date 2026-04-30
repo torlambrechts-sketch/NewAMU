@@ -15,6 +15,21 @@ function downloadJson(filename: string, json: string) {
   URL.revokeObjectURL(url)
 }
 
+function downloadCsv(filename: string, csv: string) {
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function csvEscapeCell(value: string): string {
+  if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`
+  return value
+}
+
 function slugTitle(title: string) {
   return title
     .slice(0, 40)
@@ -25,13 +40,15 @@ function slugTitle(title: string) {
 
 export function LearningSettings() {
   const navigate = useNavigate()
-  const { supabaseConfigured, organization, can } = useOrgSetupContext()
+  const { supabaseConfigured, organization, can, user, orgProfiles } = useOrgSetupContext()
   const canManage = can('learning.manage')
   const {
     resetDemo,
     exportJson,
     importFromJson,
     courses,
+    certificates,
+    certificationRenewals,
     exportCourseJson,
     exportProgressSliceJson,
     exportCertificatesSliceJson,
@@ -41,6 +58,7 @@ export function LearningSettings() {
     forkSystemCourse,
     flowSettings,
     saveFlowSettings,
+    deleteUserLearningData,
   } = useLearning()
   const fileRefFull = useRef<HTMLInputElement>(null)
   const fileRefPartial = useRef<HTMLInputElement>(null)
@@ -49,6 +67,8 @@ export function LearningSettings() {
   const [slackUrl, setSlackUrl] = useState<string | null>(null)
   const [genericUrl, setGenericUrl] = useState<string | null>(null)
   const [flowMsg, setFlowMsg] = useState<string | null>(null)
+  const [gdprTarget, setGdprTarget] = useState('')
+  const [gdprMsg, setGdprMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   const teamsDisplay = teamsUrl ?? flowSettings?.teamsWebhookUrl ?? ''
   const slackDisplay = slackUrl ?? flowSettings?.slackWebhookUrl ?? ''
@@ -75,6 +95,59 @@ export function LearningSettings() {
     }
     reader.readAsText(file)
     e.target.value = ''
+  }
+
+  function exportInspectionCsv() {
+    const rows: string[][] = [['employee', 'course', 'completed_at', 'course_version', 'expires_at', 'status']]
+    for (const cert of certificates) {
+      const r = certificationRenewals.find(
+        (x) =>
+          (x.certificateId && x.certificateId === cert.id) ||
+          (!x.certificateId && x.courseId === cert.courseId && x.userId === cert.userId),
+      )
+      let expiresAt = 'Ingen utløpsdato'
+      let status = 'Gyldig'
+      if (r) {
+        expiresAt = r.expiresAt
+        if (r.status === 'expired') status = 'Utløpt / fornyelse'
+        else if (r.status === 'expiring_soon') status = 'Utløper snart'
+        else if (r.status === 'compliant') status = 'Gyldig'
+        else if (r.status === 'renewed') status = 'Fornyet'
+      }
+      rows.push([
+        cert.learnerName,
+        cert.courseTitle,
+        cert.issuedAt,
+        String(cert.courseVersion ?? ''),
+        expiresAt,
+        status,
+      ])
+    }
+    const csv = rows.map((line) => line.map((c) => csvEscapeCell(String(c))).join(',')).join('\r\n')
+    downloadCsv(`klarert-tilsynseksport-${new Date().toISOString().slice(0, 10)}.csv`, csv)
+  }
+
+  function resolveGdprUserId(input: string): string | null {
+    const t = input.trim()
+    if (!t) return null
+    const uuidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    if (uuidRe.test(t)) return t
+    const low = t.toLowerCase()
+    const hit = orgProfiles.find(
+      (p) =>
+        p.email?.toLowerCase() === low ||
+        p.display_name?.toLowerCase().includes(low) ||
+        p.email?.toLowerCase().includes(low),
+    )
+    return hit?.id ?? null
+  }
+
+  async function runGdprDelete(targetUserId: string) {
+    setGdprMsg(null)
+    const r = await deleteUserLearningData(targetUserId)
+    if (r.ok) setGdprMsg({ type: 'ok', text: 'Opplæringsdata er slettet.' })
+    else setGdprMsg({ type: 'err', text: r.error })
   }
 
   function handleFilePartial(e: React.ChangeEvent<HTMLInputElement>) {
@@ -234,6 +307,101 @@ export function LearningSettings() {
             Automatiske tildelinger fra HMS bruker RPC <code className="rounded bg-neutral-100 px-1">learning_assign_module</code>{' '}
             og tabellen <code className="rounded bg-neutral-100 px-1">learning_module_assignments</code>.
           </p>
+        </div>
+      ) : null}
+
+      {supabaseConfigured && organization && canManage ? (
+        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+          <h2 className="font-semibold text-[#2D403A]">Arbeidstilsynet — tilsynseksport</h2>
+          <p className="mt-2 text-sm text-neutral-600">
+            Inneholder alle gjennomførte kurs, sertifikatversjon og utløpsstatus. Klar for Arbeidstilsynet-inspeksjon.
+          </p>
+          <button
+            type="button"
+            onClick={() => exportInspectionCsv()}
+            className="mt-4 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-[#2D403A] hover:bg-neutral-50"
+          >
+            Last ned tilsynseksport (CSV)
+          </button>
+        </div>
+      ) : null}
+
+      {supabaseConfigured && organization && canManage ? (
+        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+          <h2 className="font-semibold text-[#2D403A]">Slett brukerdata (GDPR)</h2>
+          <p className="mt-2 text-sm text-neutral-600">
+            Sletter for valgt bruker i denne organisasjonen: fremdrift, sertifikater, quiz-gjentakelser, ILT-RSVPer og
+            tilknyttede fornyelsesrader. Krever rettigheten «E-learning — administrere».
+          </p>
+          <label className="mt-3 block text-xs font-medium text-neutral-500">Bruker-ID eller e-post</label>
+          <input
+            value={gdprTarget}
+            onChange={(e) => setGdprTarget(e.target.value)}
+            placeholder="uuid eller e-post"
+            className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 font-mono text-sm"
+          />
+          <button
+            type="button"
+            className="mt-3 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-900 hover:bg-red-100"
+            onClick={() => {
+              const uid = resolveGdprUserId(gdprTarget)
+              if (!uid) {
+                setGdprMsg({ type: 'err', text: 'Fant ikke bruker. Kontroller ID eller e-post.' })
+                return
+              }
+              if (
+                !confirm(
+                  `Slett alle opplæringsdata for denne brukeren?\n\nDette fjerner fremdrift, sertifikater, quiz-gjentakelser og ILT-RSVPer for bruker ${uid}.`,
+                )
+              ) {
+                return
+              }
+              void runGdprDelete(uid)
+            }}
+          >
+            Slett alle opplæringsdata for denne brukeren
+          </button>
+          {gdprMsg ? (
+            <p className={`mt-2 text-sm ${gdprMsg.type === 'ok' ? 'text-emerald-800' : 'text-red-700'}`}>
+              {gdprMsg.text}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {supabaseConfigured && organization && !canManage && user?.id ? (
+        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+          <h2 className="font-semibold text-[#2D403A]">Mine opplæringsdata</h2>
+          <p className="mt-2 text-sm text-neutral-600">
+            Du kan be om sletting av dine egne opplæringsdata (fremdrift, sertifikater, quiz-gjentakelser, ILT-påmeldinger)
+            i denne organisasjonen.
+          </p>
+          <button
+            type="button"
+            className="mt-4 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-[#2D403A] hover:bg-neutral-50"
+            onClick={() => {
+              if (
+                !confirm(
+                  'Slette alle dine opplæringsdata i denne organisasjonen? Dette kan ikke angres.',
+                )
+              ) {
+                return
+              }
+              void (async () => {
+                setGdprMsg(null)
+                const r = await deleteUserLearningData(user.id)
+                if (r.ok) setGdprMsg({ type: 'ok', text: 'Dine opplæringsdata er slettet.' })
+                else setGdprMsg({ type: 'err', text: r.error })
+              })()
+            }}
+          >
+            Be om sletting av mine opplæringsdata
+          </button>
+          {gdprMsg ? (
+            <p className={`mt-2 text-sm ${gdprMsg.type === 'ok' ? 'text-emerald-800' : 'text-red-700'}`}>
+              {gdprMsg.text}
+            </p>
+          ) : null}
         </div>
       ) : null}
 

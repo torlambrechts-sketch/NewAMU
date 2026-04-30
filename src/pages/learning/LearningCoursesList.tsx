@@ -65,6 +65,22 @@ export function LearningCoursesList() {
   const [desc, setDesc] = useState('')
   const [tab, setTab] = useState<TabId>('all')
   const [favourites, setFavourites] = useState<Set<string>>(loadFavouriteIds)
+  const [privacyOpen, setPrivacyOpen] = useState(() => {
+    try {
+      return sessionStorage.getItem('learning-privacy-ack') !== '1'
+    } catch {
+      return true
+    }
+  })
+
+  const dismissPrivacy = () => {
+    try {
+      sessionStorage.setItem('learning-privacy-ack', '1')
+    } catch {
+      /* ignore */
+    }
+    setPrivacyOpen(false)
+  }
 
   const creatorLabel = organization?.name?.trim() || 'Organisasjon'
 
@@ -180,6 +196,28 @@ export function LearningCoursesList() {
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
       ) : null}
       {learningLoading ? <p className="text-sm text-neutral-500">Laster kurs…</p> : null}
+
+      {privacyOpen ? (
+        <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-4 py-3 text-sm text-neutral-800 shadow-sm">
+          <details open className="group">
+            <summary className="cursor-pointer list-none font-medium text-[#2D403A] marker:content-none [&::-webkit-details-marker]:hidden">
+              Personvern ved registrering av læringsdata
+            </summary>
+            <p className="mt-2 leading-relaxed">
+              Klarert lagrer din læringsfremdrift, kursresultater og sertifikater på vegne av din arbeidsgiver som ledd i
+              dokumentasjon av opplæring (AML § 3-1, IK-forskriften § 5). Grunnlaget er arbeidsavtalen (GDPR art.
+              6(1)(b)). Du kan be om innsyn i eller sletting av dine data under Innstillinger.
+            </p>
+            <button
+              type="button"
+              onClick={dismissPrivacy}
+              className="mt-3 rounded-lg bg-[#1a3d32] px-4 py-2 text-xs font-medium text-white hover:opacity-95"
+            >
+              Jeg forstår
+            </button>
+          </details>
+        </div>
+      ) : null}
 
       {canManage ? (
         <form

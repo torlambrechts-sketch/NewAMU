@@ -190,6 +190,7 @@ export function LearningLayout() {
           title="E-læring"
           description={description}
           menu={<HubMenu1Bar ariaLabel="E-læring — faner" items={learningHubItems} />}
+          className="print:hidden"
         />
         <div className="mt-8">
           <Outlet />
