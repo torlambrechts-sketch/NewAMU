@@ -1,3 +1,1 @@
--- Allow meetings keyed by scheduled_at; meeting_date remains for legacy rows
-alter table public.amu_meetings
-  alter column meeting_date drop not null;
+archive/20260801023000_amu_meetings_meeting_date_nullable.sql
