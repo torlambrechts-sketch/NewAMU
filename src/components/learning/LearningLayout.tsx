@@ -186,7 +186,7 @@ export function LearningLayout() {
     <div className="min-h-screen w-full" style={{ backgroundColor: 'var(--bg)' }}>
       <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
         <WorkplacePageHeading1
-          breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'E-læring' }, { label: section }]}
+          breadcrumb={[{ label: 'Arbeidsflate', to: '/' }, { label: 'E-læring' }, { label: section }]}
           title="E-læring"
           description={description}
           menu={<HubMenu1Bar ariaLabel="E-læring — faner" items={learningHubItems} />}

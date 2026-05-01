@@ -5,6 +5,9 @@ import { useLearning, type IltEventRow } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { CourseModule, ModuleCompleteMeta } from '../../types/learning'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
+import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
+import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
 import { normalizeModuleHtml } from '../../lib/richTextDisplay'
 
@@ -36,7 +39,7 @@ const KIND_LABELS: Record<string, string> = {
 export function LearningPlayer() {
   const { courseId } = useParams<{ courseId: string }>()
   const [searchParams] = useSearchParams()
-  const { can, supabase, organization } = useOrgSetupContext()
+  const { can, supabase, organization, profile } = useOrgSetupContext()
   const canManageLearning = can('learning.manage')
   const {
     courses,
@@ -59,6 +62,10 @@ export function LearningPlayer() {
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({})
   const [checkDone, setCheckDone] = useState<Record<string, boolean>>({})
   const [peerProfiles, setPeerProfiles] = useState<{ id: string; display_name: string }[]>([])
+  const [peerProfilesError, setPeerProfilesError] = useState<string | null>(null)
+  const [certFeedback, setCertFeedback] = useState<
+    null | { kind: 'success'; verifyCode: string } | { kind: 'error'; message: string }
+  >(null)
 
   useEffect(() => {
     if (courseId) ensureProgress(courseId)
@@ -66,23 +73,35 @@ export function LearningPlayer() {
 
   useEffect(() => {
     if (!canManageLearning || !supabase || !organization?.id) {
-      queueMicrotask(() => setPeerProfiles([]))
+      queueMicrotask(() => {
+        setPeerProfiles([])
+        setPeerProfilesError(null)
+      })
       return
     }
     void (async () => {
+      setPeerProfilesError(null)
       const { data, error } = await supabase
         .from('profiles')
         .select('id, display_name')
         .eq('organization_id', organization.id)
         .order('display_name')
       if (error) {
-        console.warn('profiles for attendance', error.message)
         setPeerProfiles([])
+        setPeerProfilesError('Kunne ikke laste deltakerliste for oppmøteregistrering.')
         return
       }
       setPeerProfiles((data ?? []) as { id: string; display_name: string }[])
     })()
   }, [canManageLearning, supabase, organization?.id])
+
+  useEffect(() => {
+    const name = profile?.display_name?.trim()
+    if (!name) return
+    queueMicrotask(() => {
+      setLearnerName((prev) => (prev.trim() === '' ? name : prev))
+    })
+  }, [profile?.display_name])
 
   const modules = useMemo(() => {
     if (!course) return []
@@ -95,7 +114,7 @@ export function LearningPlayer() {
     for (let i = 0; i < modules.length; i += chunk) {
       const level = out.length + 1
       out.push({
-        title: `Level ${level}`,
+        title: `Nivå ${level}`,
         startIdx: i,
         endIdx: Math.min(i + chunk - 1, modules.length - 1),
       })
@@ -131,6 +150,10 @@ export function LearningPlayer() {
   const hasCert = course
     ? certificates.some((c) => c.courseId === course.id)
     : false
+
+  useEffect(() => {
+    if (hasCert) queueMicrotask(() => setCertFeedback(null))
+  }, [hasCert])
 
   const totalDuration = useMemo(
     () => modules.reduce((acc, m) => acc + (m.durationMinutes || 0), 0),
@@ -298,6 +321,7 @@ export function LearningPlayer() {
                   setIltAttendance={setIltAttendance}
                   canManageLearning={canManageLearning}
                   peerProfiles={peerProfiles}
+                  peerProfilesError={peerProfilesError}
                 />
               </div>
             </div>
@@ -325,30 +349,55 @@ export function LearningPlayer() {
           <div className="rounded-lg border border-[#c5d3c8] bg-[#e7efe9] p-5">
             <h3 className="font-semibold text-[#2D403A]">Kursbevis</h3>
             <p className="mt-1 text-sm text-[#6b6f68]">
-              Fullfør hver modul med knappen inne i modulen. Når du er ferdig, skriv inn navnet ditt for å hente kursbeviset.
+              Fullfør hver modul med knappen inne i modulen. Når du er ferdig, kontroller navnet på kursbeviset (hentes
+              fra profilen din når du er innlogget) og trykk «Hent kursbevis».
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <input
-                value={learnerName}
-                onChange={(e) => setLearnerName(e.target.value)}
-                placeholder="Ditt fulle navn"
-                className="min-w-[200px] flex-1 rounded-lg border border-[#e3ddcc] px-3 py-2 text-sm"
-              />
-              <button
+            {certFeedback?.kind === 'success' ? (
+              <div className="mt-3">
+                <InfoBox>
+                  Kursbevis er utstedt. Verifiseringskode: <span className="font-mono font-semibold">{certFeedback.verifyCode}</span>
+                </InfoBox>
+              </div>
+            ) : null}
+            {certFeedback?.kind === 'error' ? (
+              <div className="mt-3">
+                <WarningBox>{certFeedback.message}</WarningBox>
+              </div>
+            ) : null}
+            <div className="mt-3 flex flex-wrap items-end gap-2">
+              <div className="min-w-[200px] flex-1">
+                <label htmlFor="learning-learner-name" className="sr-only">
+                  Navn på kursbevis
+                </label>
+                <StandardInput
+                  id="learning-learner-name"
+                  value={learnerName}
+                  onChange={(e) => {
+                    setLearnerName(e.target.value)
+                    setCertFeedback(null)
+                  }}
+                  placeholder="Fullt navn på kursbeviset"
+                  disabled={!modulesComplete || hasCert}
+                />
+              </div>
+              <Button
                 type="button"
+                variant="primary"
                 disabled={!modulesComplete || hasCert}
                 onClick={() => {
-                  if (!learnerName.trim()) return
                   void (async () => {
-                    const cert = await issueCertificate(activeCourse.id, learnerName)
-                    if (cert !== null) alert(`Certificate issued! Code: ${cert.verifyCode}`)
+                    setCertFeedback(null)
+                    const r = await issueCertificate(activeCourse.id, learnerName)
+                    if (r.ok) {
+                      setCertFeedback({ kind: 'success', verifyCode: r.certificate.verifyCode })
+                    } else {
+                      setCertFeedback({ kind: 'error', message: r.error })
+                    }
                   })()
                 }}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-                style={{ backgroundColor: PIN_GREEN }}
               >
                 {hasCert ? 'Kursbevis utstedt' : 'Hent kursbevis'}
-              </button>
+              </Button>
             </div>
             <p className="mt-2 text-xs text-[#6b6f68]">
               {!modulesComplete
@@ -371,6 +420,7 @@ function EventModuleSection({
   setIltAttendance,
   canManageLearning,
   peerProfiles,
+  peerProfilesError,
   onComplete,
 }: {
   ev: IltEventRow | undefined
@@ -379,15 +429,20 @@ function EventModuleSection({
   setIltAttendance: ReturnType<typeof useLearning>['setIltAttendance']
   canManageLearning: boolean
   peerProfiles: { id: string; display_name: string }[]
+  peerProfilesError: string | null
   onComplete: () => void
 }) {
   const { supabase } = useOrgSetupContext()
   const [attendance, setAttendance] = useState<Record<string, boolean>>({})
+  const [attendanceError, setAttendanceError] = useState<string | null>(null)
   const [rsvpMsg, setRsvpMsg] = useState<string | null>(null)
 
   useEffect(() => {
     if (!ev?.id || !supabase || !canManageLearning) {
-      queueMicrotask(() => setAttendance({}))
+      queueMicrotask(() => {
+        setAttendance({})
+        setAttendanceError(null)
+      })
       return
     }
     void (async () => {
@@ -396,9 +451,10 @@ function EventModuleSection({
         .select('user_id, present')
         .eq('event_id', ev.id)
       if (error) {
-        console.warn('ilt attendance', error.message)
+        setAttendanceError('Kunne ikke laste oppmøteregistrering.')
         return
       }
+      setAttendanceError(null)
       const next: Record<string, boolean> = {}
       for (const row of data ?? []) {
         next[(row as { user_id: string; present: boolean }).user_id] = (row as { present: boolean }).present
@@ -458,9 +514,20 @@ function EventModuleSection({
         </p>
       )}
 
+      {canManageLearning && ev && peerProfilesError ? (
+        <div className="mt-3">
+          <WarningBox>{peerProfilesError}</WarningBox>
+        </div>
+      ) : null}
+
       {canManageLearning && ev && peerProfiles.length > 0 ? (
         <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6f68]">Oppmøte (instruktør)</p>
+          {attendanceError ? (
+            <div className="mt-3">
+              <WarningBox>{attendanceError}</WarningBox>
+            </div>
+          ) : null}
           <ul className="mt-3 divide-y divide-neutral-100">
             {peerProfiles.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-2 py-2">
@@ -513,6 +580,7 @@ function ModulePlayer({
   setIltAttendance,
   canManageLearning,
   peerProfiles,
+  peerProfilesError,
 }: {
   mod: CourseModule
   flashFlipped: boolean
@@ -530,12 +598,13 @@ function ModulePlayer({
   setIltAttendance: ReturnType<typeof useLearning>['setIltAttendance']
   canManageLearning: boolean
   peerProfiles: { id: string; display_name: string }[]
+  peerProfilesError: string | null
 }) {
   const c = mod.content
 
   if (c.kind === 'flashcard') {
     const slide = c.slides[Math.min(flashIdx, Math.max(0, c.slides.length - 1))]
-    if (!slide) return <p>No cards</p>
+    if (!slide) return <p>Ingen kort i dette settet.</p>
     const last = flashIdx >= c.slides.length - 1
     return (
       <div className="space-y-4">
@@ -599,7 +668,7 @@ function ModulePlayer({
   }
 
   if (c.kind === 'quiz') {
-    if (c.questions.length === 0) return <p>No questions</p>
+    if (c.questions.length === 0) return <p>Ingen spørsmål i quizen.</p>
     const answered = c.questions.every((q) => quizAnswers[q.id] !== undefined)
     let correctCount = 0
     for (const q of c.questions) {
@@ -773,6 +842,7 @@ function ModulePlayer({
         setIltAttendance={setIltAttendance}
         canManageLearning={canManageLearning}
         peerProfiles={peerProfiles}
+        peerProfilesError={peerProfilesError}
         onComplete={onComplete}
       />
     )

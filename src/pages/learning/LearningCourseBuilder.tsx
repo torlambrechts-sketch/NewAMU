@@ -28,6 +28,7 @@ import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { RichTextEditor } from '../../components/learning/RichTextEditor'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
+import { WarningBox } from '../../components/ui/AlertBox'
 
 const MODULE_KINDS: { id: ModuleKind | 'all'; label: string; icon: HubMenu1Item['icon'] }[] = [
   { id: 'all', label: 'Alle moduler', icon: Layers },
@@ -84,6 +85,7 @@ export function LearningCourseBuilder() {
   const [typeFilter, setTypeFilter] = useState<ModuleKind | 'all'>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tagInput, setTagInput] = useState('')
+  const [builderActionError, setBuilderActionError] = useState<string | null>(null)
 
   const filteredModules = useMemo(() => {
     if (!course) return []
@@ -147,11 +149,12 @@ export function LearningCourseBuilder() {
               style={{ backgroundColor: PIN_GREEN }}
               onClick={() => {
                 void (async () => {
+                  setBuilderActionError(null)
                   const r = await forkSystemCourse(course.sourceSystemCourseId!)
                   if (r.ok && r.newCourseId) {
                     navigate(`/learning/courses/${r.newCourseId}`)
                   } else if (!r.ok) {
-                    alert(r.error)
+                    setBuilderActionError(r.error)
                   }
                 })()
               }}
@@ -195,10 +198,15 @@ export function LearningCourseBuilder() {
       {learningError ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
       ) : null}
+      {builderActionError ? (
+        <div className="mb-2">
+          <WarningBox>{builderActionError}</WarningBox>
+        </div>
+      ) : null}
       {learningLoading ? <p className="text-sm text-[#6b6f68]">Laster…</p> : null}
       <nav className="text-sm text-[#6b6f68]">
         <Link to="/learning/courses" className="hover:text-[#1a3d32]">
-          Courses
+          Kurs
         </Link>
         <span className="mx-2 text-neutral-300">›</span>
         <span className="font-medium text-[#1d1f1c]">{course.title}</span>
@@ -373,10 +381,11 @@ export function LearningCourseBuilder() {
                 type="button"
                 className="rounded-md border border-[#e3ddcc] bg-[#fbf9f3] px-3 py-1.5 text-xs font-medium text-[#1d1f1c] hover:bg-[#f7f5ee]"
                 onClick={() => {
-                  if (!confirm('Øke kursversjon? Nye fullføringer får ny versjon på sertifikatet.')) return
+                  if (!window.confirm('Øke kursversjon? Nye fullføringer får ny versjon på sertifikatet.')) return
                   void (async () => {
+                    setBuilderActionError(null)
                     const r = await bumpCourseVersion(course.id)
-                    if (!r.ok) alert(r.error)
+                    if (!r.ok) setBuilderActionError(r.error)
                   })()
                 }}
               >

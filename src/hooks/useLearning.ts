@@ -87,6 +87,10 @@ export type CertificationRenewalRow = {
   status: 'compliant' | 'expiring_soon' | 'expired' | 'renewed'
 }
 
+export type IssueCertificateResult =
+  | { ok: true; certificate: Certificate }
+  | { ok: false; error: string }
+
 export type ExternalCertificateRow = {
   id: string
   title: string
@@ -848,15 +852,17 @@ export function useLearning() {
         questionId: r.question_id,
         reviewAt: r.review_at,
       }))
+      /** GDPR data minimisation: suppress small departments (same threshold as survey k-anonymity). */
+      const DEPT_LEADERBOARD_MIN_MEMBERS = 5
       const nextDepartmentLeaderboard = !lbRes.error && Array.isArray(lbRes.data)
-        ? (lbRes.data as { department_id: string; department_name: string; member_count: number; avg_completion_pct: number }[]).map(
-            (r) => ({
+        ? (lbRes.data as { department_id: string; department_name: string; member_count: number; avg_completion_pct: number }[])
+            .filter((r) => Number(r.member_count) >= DEPT_LEADERBOARD_MIN_MEMBERS)
+            .map((r) => ({
               departmentId: r.department_id,
               departmentName: r.department_name,
               memberCount: r.member_count,
               avgCompletionPct: Number(r.avg_completion_pct),
-            }),
-          )
+            }))
         : []
       const fs = fsRes.data as { teams_webhook_url?: string | null; slack_webhook_url?: string | null; generic_webhook_url?: string | null } | null
       const nextFlowSettings: LearningFlowSettings | null =
@@ -1397,7 +1403,12 @@ export function useLearning() {
   )
 
   const issueCertificate = useCallback(
-    async (courseId: string, learnerName: string): Promise<Certificate | null> => {
+    async (courseId: string, learnerName: string): Promise<IssueCertificateResult> => {
+      const trimmed = learnerName.trim()
+      if (!trimmed) {
+        return { ok: false, error: 'Skriv inn navnet som skal stå på kursbeviset.' }
+      }
+
       if (!useSupabase || !supabase) {
         let issued: Certificate | null = null
         setState((s) => {
@@ -1413,7 +1424,7 @@ export function useLearning() {
             id: crypto.randomUUID(),
             courseId,
             courseTitle: course.title,
-            learnerName: learnerName.trim(),
+            learnerName: trimmed,
             issuedAt: new Date().toISOString(),
             verifyCode: crypto.randomUUID().slice(0, 8).toUpperCase(),
             courseVersion: course.courseVersion ?? 1,
@@ -1427,15 +1438,20 @@ export function useLearning() {
             ),
           }
         })
-        return issued
+        if (!issued) {
+          return {
+            ok: false,
+            error: 'Kunne ikke utstede kursbevis. Sjekk at alle moduler er fullført, og at du ikke allerede har et bevis for dette kurset.',
+          }
+        }
+        return { ok: true, certificate: issued }
       }
       const { data, error: e } = await supabase.rpc('learning_issue_certificate', {
         p_course_id: courseId,
-        p_learner_name: learnerName.trim() || null,
+        p_learner_name: trimmed || null,
       })
       if (e) {
-        setError(getSupabaseErrorMessage(e))
-        return null
+        return { ok: false, error: getSupabaseErrorMessage(e) }
       }
       const r = data as {
         id: string
@@ -1457,7 +1473,7 @@ export function useLearning() {
       }
       await refreshLearning()
       void refreshPermissions()
-      return out
+      return { ok: true, certificate: out }
     },
     [useSupabase, supabase, setState, refreshLearning, refreshPermissions],
   )

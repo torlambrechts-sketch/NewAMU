@@ -1,6 +1,6 @@
 # E-læring — UI-fornyelse og komponentgjenbruk
 
-**Status:** Spesifikasjon (ikke implementert i denne omgangen)  
+**Status:** Fase A implementert i app-kode; Fase B køet i `PHASE_B_QUEUE.md`.  
 **Referanser:** `DESIGN_SYSTEM.md`, `MODULE_LAYOUT_EVALUATION.md`, `src/components/ui/*`, `src/components/module/*`, `src/components/layout/*`, `eval/compliance/*.md`, `eval/ui/*.md`
 
 ---
@@ -62,7 +62,7 @@
 
 ## 3. Strukturert implementering (faser)
 
-### Fase A — Grunnmur (lav risiko, høy avkastning)
+### Fase A — Grunnmur (lav risiko, høy avkastning) ✅
 
 | # | Oppgave | Filer (hovedtrekk) |
 |---|---------|-------------------|
@@ -71,15 +71,11 @@
 | A3 | Sertifikatflyt: `StandardInput` + `Button`; suksess via `InfoBox` eller toast-mønster i appen | `LearningPlayer.tsx` |
 | A4 | K-anonymitet for avdelingsliste (k≥5) + forklarende hjelpetekst | `LearningDashboard.tsx` og/eller `useLearning.ts` (der leaderboard bygges) |
 
-### Fase B — Komponentinntog
+**Implementert:** `issueCertificate` returnerer nå `IssueCertificateResult` (ingen `setError` ved sertifikatfeil); avdelingsliste filtreres i `useLearning.ts` (k≥5); `LearningSettings` / kursbygger bruker `WarningBox`; kursbevis-seksjon bruker `StandardInput`, `Button`, `InfoBox`/`WarningBox`; profilnavn forhåndsutfylles; ILT-feil vises i UI uten `console.warn`.
 
-| # | Oppgave | Filer |
-|---|---------|-------|
-| B1 | Søkefelt: `StandardInput` + ikon-layout eller felles søkerad-komponent | `LearningCoursesList.tsx`, `LearningCertifications.tsx`, `LearningParticipants.tsx`, … |
-| B2 | Alle `<button>` → `Button` (variant: primary/secondary/ghost/danger) | Alle `Learning*.tsx` |
-| B3 | `<select>` → `SearchableSelect` med `options` | `LearningParticipants.tsx`, `LearningCoursesList.tsx`, … |
-| B4 | `<textarea>` → `StandardTextarea` | `LearningCourseBuilder.tsx`, `LearningPathsPage.tsx` |
-| B5 | Sjekkbokser som boolsk valg → `YesNoToggle` der det er semantisk riktig | `LearningPlayer.tsx`, `LearningCourseBuilder.tsx`, `LearningSettings.tsx`, `LearningPathsPage.tsx` |
+### Fase B — Komponentinntog (kø)
+
+Se **`eval/learning/PHASE_B_QUEUE.md`** for tabell og verifiseringsgrep.
 
 ### Fase C — Layout og gjenbruk
 

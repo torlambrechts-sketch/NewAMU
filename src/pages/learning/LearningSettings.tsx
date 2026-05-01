@@ -4,6 +4,7 @@ import { ChevronDown, Download, Upload } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
+import { WarningBox } from '../../components/ui/AlertBox'
 
 function downloadJson(filename: string, json: string) {
   const blob = new Blob([json], { type: 'application/json' })
@@ -49,6 +50,8 @@ export function LearningSettings() {
   const [slackUrl, setSlackUrl] = useState<string | null>(null)
   const [genericUrl, setGenericUrl] = useState<string | null>(null)
   const [flowMsg, setFlowMsg] = useState<string | null>(null)
+  const [systemCourseActionError, setSystemCourseActionError] = useState<string | null>(null)
+  const [flowSaveError, setFlowSaveError] = useState<string | null>(null)
 
   const teamsDisplay = teamsUrl ?? flowSettings?.teamsWebhookUrl ?? ''
   const slackDisplay = slackUrl ?? flowSettings?.slackWebhookUrl ?? ''
@@ -108,6 +111,11 @@ export function LearningSettings() {
 
       {supabaseConfigured && organization && canManage && systemCourseSettings.length > 0 ? (
         <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
+          {systemCourseActionError ? (
+            <div className="mb-4">
+              <WarningBox>{systemCourseActionError}</WarningBox>
+            </div>
+          ) : null}
           <h2 className="font-semibold text-[#1a3d32]">Systemkurs for organisasjonen</h2>
           <p className="mt-2 text-sm text-neutral-600">
             Slå av kurs du ikke vil tilby. «Kopier som mal» lager et eget utkast du kan redigere og publisere.
@@ -137,8 +145,9 @@ export function LearningSettings() {
                       checked={s.enabled}
                       onChange={(e) => {
                         void (async () => {
+                          setSystemCourseActionError(null)
                           const r = await setSystemCourseEnabled(s.systemCourseId, e.target.checked)
-                          if (!r.ok) alert(r.error)
+                          if (!r.ok) setSystemCourseActionError(r.error)
                         })()
                       }}
                       className="rounded border-neutral-300"
@@ -150,11 +159,12 @@ export function LearningSettings() {
                     className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
                     onClick={() => {
                       void (async () => {
+                        setSystemCourseActionError(null)
                         const r = await forkSystemCourse(s.systemCourseId)
                         if (r.ok && r.newCourseId) {
                           navigate(`/learning/courses/${r.newCourseId}`)
                         } else if (!r.ok) {
-                          alert(r.error)
+                          setSystemCourseActionError(r.error)
                         }
                       })()
                     }}
@@ -210,6 +220,11 @@ export function LearningSettings() {
               />
             </div>
           </div>
+          {flowSaveError ? (
+            <div className="mt-3">
+              <WarningBox>{flowSaveError}</WarningBox>
+            </div>
+          ) : null}
           {flowMsg ? <p className="mt-2 text-sm text-emerald-800">{flowMsg}</p> : null}
           <button
             type="button"
@@ -218,13 +233,14 @@ export function LearningSettings() {
             onClick={() => {
               void (async () => {
                 setFlowMsg(null)
+                setFlowSaveError(null)
                 const r = await saveFlowSettings({
                   teamsWebhookUrl: teamsDisplay.trim() || null,
                   slackWebhookUrl: slackDisplay.trim() || null,
                   genericWebhookUrl: genericDisplay.trim() || null,
                 })
                 if (r.ok) setFlowMsg('Lagret.')
-                else alert(r.error)
+                else setFlowSaveError(r.error)
               })()
             }}
           >
@@ -238,9 +254,9 @@ export function LearningSettings() {
       ) : null}
 
       <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
-        <h2 className="font-semibold text-[#1a3d32]">Export / import (JSON)</h2>
+        <h2 className="font-semibold text-[#1a3d32]">Eksport og import (JSON)</h2>
         <p className="mt-2 text-sm text-neutral-600">
-          Full sikkerhetskopi av alt, eller åpne detaljer for å eksportere/importere per kurs, fremdrift eller
+          Full sikkerhetskopi av alt, eller åpne detaljer for å eksportere eller importere per kurs, fremdrift eller
           sertifikater.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
@@ -251,7 +267,7 @@ export function LearningSettings() {
             style={{ backgroundColor: PIN_GREEN }}
           >
             <Download className="size-4" />
-            Export all (JSON)
+            Last ned alt (JSON)
           </button>
           <button
             type="button"
@@ -259,7 +275,7 @@ export function LearningSettings() {
             className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
           >
             <Upload className="size-4" />
-            Import all (JSON)
+            Importer alt (JSON)
           </button>
           <input
             ref={fileRefFull}
@@ -304,7 +320,7 @@ export function LearningSettings() {
                         className="inline-flex items-center gap-1 rounded-md border border-[#e3ddcc] bg-white px-2 py-1 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
                       >
                         <Download className="size-3.5" />
-                        Export
+                        Eksporter
                       </button>
                       <button
                         type="button"
@@ -312,7 +328,7 @@ export function LearningSettings() {
                         className="inline-flex items-center gap-1 rounded-md border border-[#e3ddcc] bg-white px-2 py-1 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
                       >
                         <Upload className="size-3.5" />
-                        Import
+                        Importer
                       </button>
                     </div>
                   </li>
@@ -404,12 +420,17 @@ export function LearningSettings() {
       <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
         <h2 className="font-semibold text-[#1a3d32]">Tilbakestill demodata</h2>
         <p className="mt-2 text-sm text-neutral-600">
-          Clears courses, progress, and certificates and restores the seed &quot;Safety 101&quot; course.
+          Sletter kurs, fremdrift og sertifikater i denne nettleseren og gjenoppretter demodata («Sikkerhet 101»).
         </p>
         <button
           type="button"
           onClick={() => {
-            if (confirm('Reset all learning data in this browser?')) resetDemo()
+            if (
+              window.confirm(
+                'Tilbakestille all e-læringsdata i denne nettleseren? Dette kan ikke angres.',
+              )
+            )
+              resetDemo()
           }}
           className="mt-4 rounded-lg px-4 py-2 text-sm font-medium text-white"
           style={{ backgroundColor: PIN_GREEN }}

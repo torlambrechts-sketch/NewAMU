@@ -139,7 +139,7 @@ export function LearningDashboard() {
 
       {pendingReviews.length > 0 ? (
         <section className="rounded-xl border border-amber-200 bg-amber-50/80 p-5">
-          <h2 className="font-serif text-lg font-semibold text-[#2D403A]">Gjentakelse (spaced repetition)</h2>
+          <h2 className="font-serif text-lg font-semibold text-[#2D403A]">Gjentakelse (intervalltrening)</h2>
           <p className="mt-1 text-sm text-neutral-700">
             Du svarte feil på disse spørsmålene tidligere. En kort repetisjon styrker hukommelsen.
           </p>
@@ -181,7 +181,8 @@ export function LearningDashboard() {
           <h2 className="font-serif text-lg font-semibold text-[#2D403A]">Avdelinger (aggregert)</h2>
           <p className="mt-1 text-sm text-neutral-600">
             Vi rangerer ikke enkeltpersoner — kun avdelingens gjennomsnittlige kursgjennomføring (publiserte kurs).
-            Koble brukere til avdeling i profilen for full effekt.
+            Koble brukere til avdeling i profilen for full effekt. Avdelinger med færre enn fem medarbeidere vises ikke
+            av personvernhensyn (GDPR art. 5).
           </p>
           <ul className="mt-4 space-y-2">
             {departmentLeaderboard.map((d) => (
