@@ -1807,7 +1807,7 @@ function SurveyCreator({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              placeholder={selectedTemplate?.useCase}
+              placeholder={selectedTemplate?.use_case}
               className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
             />
           </div>
@@ -1850,7 +1850,7 @@ function SurveyCreator({
               />
               Anonyme svar (ingen identitet lagret)
             </label>
-            {selectedTemplate?.recommendAnonymous && !anonymous && (
+            {selectedTemplate?.recommend_anonymous && !anonymous && (
               <p className="text-xs text-amber-700">⚠ Denne malen anbefaler anonyme svar for å sikre ærlige svar.</p>
             )}
           </div>
@@ -1860,7 +1860,7 @@ function SurveyCreator({
             className="flex w-full items-center justify-center gap-2 rounded-full bg-[#1a3d32] py-3 text-sm font-medium text-white hover:bg-[#142e26]"
           >
             <Plus className="size-4" />
-            {mode === 'template' ? `Opprett fra «${selectedTemplate?.shortName ?? 'mal'}»` : 'Opprett egendefinert'}
+            {mode === 'template' ? `Opprett fra «${selectedTemplate?.short_name ?? 'mal'}»` : 'Opprett egendefinert'}
           </button>
         </div>
       </form>

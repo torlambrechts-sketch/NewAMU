@@ -6,16 +6,12 @@ import {
   History,
   LayoutTemplate,
   Loader2,
-  Pencil,
-  Play,
   Plus,
   Settings,
-  Trash2,
   X,
   Zap,
 } from 'lucide-react'
 import { WorkflowFlowBuilder } from '../components/workflow/WorkflowFlowBuilder'
-import { flowDocumentFromLegacy } from '../lib/workflowFlowFromLegacy'
 import {
   compileWorkflowFlow,
   defaultWorkflowFlowDocument,
@@ -24,12 +20,9 @@ import {
 import { useWorkflows } from '../hooks/useWorkflows'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { WORKFLOW_SOURCE_MODULES } from '../types/workflow'
-import type { WorkflowAction, WorkflowCondition, WorkflowRuleRow, WorkflowXorActionsEnvelope } from '../types/workflow'
+import type { WorkflowAction, WorkflowCondition, WorkflowXorActionsEnvelope } from '../types/workflow'
 import {
   sourceModuleLabel,
-  summarizeRuleActions,
-  summarizeRuleCondition,
-  triggerLabel,
 } from '../lib/workflowRuleSummary'
 import { WF_FIELD_INPUT, WF_FIELD_LABEL, WF_LEAD, WF_PANEL_INSET } from '../components/workflow/workflowPanelStyles'
 import { WorkflowRulesTab } from '../components/workflow/WorkflowRulesTab'
@@ -162,23 +155,6 @@ export function WorkflowModulePage() {
     setTriggerOn('both')
     const doc = defaultWorkflowFlowDocument()
     setFlowDoc(doc); recompileFlow(doc); setDevJsonOpen(false)
-  }, [recompileFlow])
-
-  const openEditRule = useCallback((r: WorkflowRuleRow) => {
-    setFormErr(null); setCompileErr(null)
-    setEditingRuleId(r.id); setEditorOpen(true)
-    setName(r.name); setSlug(r.slug)
-    setSourceModule(r.source_module); setTriggerOn(r.trigger_on)
-    setConditionJson(r.condition_json); setActionsPayload(r.actions_json)
-    setConditionText(JSON.stringify(r.condition_json, null, 2))
-    setActionsText(actionsToJsonString(r.actions_json))
-    const fg = r.flow_graph_json
-    const doc =
-      fg && typeof fg === 'object' && (fg as { version?: number }).version === 1
-        ? (fg as WorkflowFlowDocument)
-        : flowDocumentFromLegacy(r.condition_json, r.actions_json)
-    setFlowDoc(doc); setDevJsonOpen(false)
-    queueMicrotask(() => recompileFlow(doc))
   }, [recompileFlow])
 
   const closeEditor = useCallback(() => {
