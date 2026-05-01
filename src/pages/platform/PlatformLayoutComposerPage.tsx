@@ -103,7 +103,8 @@ function shellStyle(): CSSProperties {
 /** Preview surface for platform layout hub: cream matches workplace chrome; white is full-bleed marketing-style. */
 export type PlatformLayoutPreviewSurface = 'cream' | 'white'
 
-function previewShellStyle(surface: PlatformLayoutPreviewSurface): CSSProperties {
+/** Shell for workplace previews — exported for layout element gallery and tooling. */
+export function previewShellStyle(surface: PlatformLayoutPreviewSurface): CSSProperties {
   if (surface === 'white') {
     return { fontFamily: SANS, backgroundColor: '#ffffff', color: '#171717' }
   }
@@ -1845,6 +1846,13 @@ const BLOCKS = [
     hint: 'Beige sidemeny og innholdsområde med faner (Application, Résumé, …).',
   },
 ] as const
+
+/** Stable catalog: all blocks from layout hub composer (labels and hints for documentation and gallery). */
+export const LAYOUT_COMPOSER_BLOCKS: ReadonlyArray<{
+  id: (typeof BLOCKS)[number]['id']
+  label: string
+  hint: string
+}> = BLOCKS
 
 export type LayoutComposerBlockId = (typeof BLOCKS)[number]['id']
 

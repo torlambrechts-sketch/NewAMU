@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PlatformGridComposer } from './PlatformGridComposer'
-import { PlatformLayoutComposerDemo, type PlatformLayoutPreviewSurface } from './PlatformLayoutComposerPage'
+import {
+  LAYOUT_COMPOSER_BLOCKS,
+  PlatformLayoutComposerDemo,
+  type PlatformLayoutPreviewSurface,
+} from './PlatformLayoutComposerPage'
 import {
   PlatformDashboardLayoutDemo,
   PlatformSplit7030LayoutDemo,
@@ -67,7 +71,11 @@ export function PlatformLayoutHubPage() {
             <Link to="/platform-admin/layout-reference" className="text-amber-400/90 hover:underline">
               Layout-referanse
             </Link>
-            . Velg krem (workplace) eller helhvit bakgrunn for alle demoer under.
+            . Se også{' '}
+            <Link to="/platform-admin/layout-elements" className="text-amber-400/90 hover:underline">
+              Layout-elementer (katalog)
+            </Link>{' '}
+            for alle {LAYOUT_COMPOSER_BLOCKS.length} blokkene én per kort. Velg krem (workplace) eller helhvit bakgrunn for alle demoer under.
           </p>
         </div>
         <SurfaceToggle value={surface} onChange={setSurface} />
