@@ -21,18 +21,17 @@ import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { YesNoToggle } from '../../src/components/ui/FormToggles'
 import { InfoBox, WarningBox } from '../../src/components/ui/AlertBox'
 import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
-import { ALL_SURVEY_TEMPLATES } from '../../src/data/surveyTemplates'
 import { useSurvey } from './useSurvey'
 import type { SurveyTemplateCatalogRow } from './surveyTemplateCatalogTypes'
 import { SURVEY_TYPE_OPTIONS } from './surveyLabels'
-import type { SurveyQuestionType, SurveyType } from './types'
+import type { SurveyType } from './types'
 import { SurveyOversiktModuleTab } from './tabs/SurveyOversiktModuleTab'
 import { SurveyKampanjerTab } from './tabs/SurveyKampanjerTab'
 import { SurveyMalerTab } from './tabs/SurveyMalerTab'
 import { SurveyLeverandorerTab } from './tabs/SurveyLeverandorerTab'
 import { SurveyAnalyseOverviewTab } from './tabs/SurveyAnalyseOverviewTab'
 import { SURVEY_MODULE_LEGAL_REFERENCES } from './surveyLegalReferences'
-import { mandatoryFromCatalogQuestion } from './surveyMandatoryLaw'
+
 
 type Props = { supabase: SupabaseClient | null }
 
@@ -63,37 +62,12 @@ export function SurveyPage({ supabase }: Props) {
       value: t.id,
       label: `${t.name} (~${t.estimated_minutes} min)`,
     }))
-    const ids = new Set(fromDb.map((o) => o.value))
-    const fallback = ALL_SURVEY_TEMPLATES.filter((t) => !ids.has(t.id)).map((t) => ({
-      value: t.id,
-      label: `${t.name} (${t.estimatedMinutes} min)`,
-    }))
-    return [{ value: '', label: 'Uten mal' }, ...fromDb, ...fallback]
+    return [{ value: '', label: 'Uten mal' }, ...fromDb]
   }, [survey.templateCatalog])
 
   const templateInfo = useMemo((): SurveyTemplateCatalogRow | undefined => {
     if (!selectedTemplate) return undefined
-    const fromCat = survey.templateCatalog.find((t) => t.id === selectedTemplate)
-    if (fromCat) return fromCat
-    const legacy = ALL_SURVEY_TEMPLATES.find((t) => t.id === selectedTemplate)
-    if (!legacy) return undefined
-    return {
-      id: legacy.id,
-      is_system: true,
-      name: legacy.name,
-      short_name: legacy.shortName,
-      description: legacy.description,
-      source: legacy.source,
-      use_case: legacy.useCase,
-      category: legacy.category,
-      audience: 'internal',
-      estimated_minutes: legacy.estimatedMinutes,
-      recommend_anonymous: legacy.recommendAnonymous,
-      scoring_note: legacy.scoringNote,
-      law_ref: null,
-      body: { version: 1, questions: [] },
-      is_active: true,
-    }
+    return survey.templateCatalog.find((t) => t.id === selectedTemplate)
   }, [selectedTemplate, survey.templateCatalog])
 
   const { loadSurveys, loadTemplateCatalog } = survey
@@ -151,34 +125,7 @@ export function SurveyPage({ supabase }: Props) {
     }
 
     if (selectedTemplate) {
-      const applied = await survey.applyTemplateToSurvey(row.id, selectedTemplate)
-      if (!applied) {
-        const tpl = ALL_SURVEY_TEMPLATES.find((t) => t.id === selectedTemplate)
-        if (tpl) {
-          for (let i = 0; i < tpl.questions.length; i++) {
-            const q = tpl.questions[i]
-            const qType: SurveyQuestionType =
-              q.type === 'likert_5' || q.type === 'likert_7' || q.type === 'scale_10'
-                ? 'rating_1_to_5'
-                : q.type === 'yes_no'
-                  ? 'multiple_choice'
-                  : 'text'
-            const { isMandatory, mandatoryLaw } = mandatoryFromCatalogQuestion(q)
-            await survey.upsertQuestion({
-              surveyId: row.id,
-              questionText: q.text,
-              questionType: qType,
-              orderIndex: i,
-              isRequired: q.required,
-              isMandatory,
-              mandatoryLaw,
-            })
-          }
-        } else {
-          setCreating(false)
-          return
-        }
-      }
+      await survey.applyTemplateToSurvey(row.id, selectedTemplate)
     }
 
     setCreating(false)
@@ -189,26 +136,17 @@ export function SurveyPage({ supabase }: Props) {
   const handleUseTemplate = useCallback(
     (templateId: string) => {
       const tpl = survey.templateCatalog.find((t) => t.id === templateId)
-      const legacy = ALL_SURVEY_TEMPLATES.find((t) => t.id === templateId)
       setSelectedTemplate(templateId)
       if (tpl) {
         setTitle(tpl.name)
         setDescription(tpl.description ?? '')
         setIsAnonymous(tpl.recommend_anonymous)
         setSurveyType(tpl.audience === 'external' ? 'external' : 'internal')
-        setTab('kampanjer')
         openPanel(tpl.audience === 'external' ? 'external' : 'internal')
-      } else if (legacy) {
-        setTitle(legacy.name)
-        setDescription(legacy.description ?? '')
-        setIsAnonymous(legacy.recommendAnonymous)
-        setSurveyType('internal')
-        setTab('kampanjer')
-        openPanel('internal')
       } else {
-        setTab('kampanjer')
         openPanel('internal')
       }
+      setTab('kampanjer')
     },
     [openPanel, survey.templateCatalog],
   )
