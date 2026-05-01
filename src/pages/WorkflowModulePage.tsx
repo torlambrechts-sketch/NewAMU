@@ -12,6 +12,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { WorkflowFlowBuilder } from '../components/workflow/WorkflowFlowBuilder'
+import { flowDocumentFromLegacy } from '../lib/workflowFlowFromLegacy'
 import {
   compileWorkflowFlow,
   defaultWorkflowFlowDocument,
