@@ -2,6 +2,10 @@ import { useMemo, useState } from 'react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
+import { Button } from '../../components/ui/Button'
+import { NumberSpinner, ToggleSwitch } from '../../components/ui/FormToggles'
+import { StandardInput } from '../../components/ui/Input'
+import { StandardTextarea } from '../../components/ui/Textarea'
 
 export function LearningPathsPage() {
   const { can } = useOrgSetupContext()
@@ -26,10 +30,6 @@ export function LearningPathsPage() {
 
   const published = useMemo(() => courses.filter((c) => c.status === 'published'), [courses])
   const enrolledSet = useMemo(() => new Set(pathEnrollments.map((e) => e.pathId)), [pathEnrollments])
-
-  const toggleCourse = (id: string) => {
-    setSelectedCourses((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
-  }
 
   const submit = () => {
     if (!name.trim() || !slug.trim()) {
@@ -95,11 +95,13 @@ export function LearningPathsPage() {
                   </span>
                 </div>
                 {canManage ? (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     className="mt-2 text-xs text-[#b3382a] hover:underline"
                     onClick={() => {
-                      if (!confirm('Slette dette læringsløpet?')) return
+                      if (!window.confirm('Slette dette læringsløpet?')) return
                       void (async () => {
                         const r = await deleteLearningPath(p.id)
                         setMsg(r.ok ? 'Slettet.' : r.error)
@@ -107,7 +109,7 @@ export function LearningPathsPage() {
                     }}
                   >
                     Slett
-                  </button>
+                  </Button>
                 ) : null}
               </li>
             ))}
@@ -123,44 +125,38 @@ export function LearningPathsPage() {
             <div className="mt-4 space-y-3">
               <label className="block text-xs font-medium text-[#6b6f68]">
                 Navn
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[#e3ddcc] bg-white px-3 py-2 text-sm"
-                />
+                <StandardInput value={name} onChange={(e) => setName(e.target.value)} className="mt-1" />
               </label>
               <label className="block text-xs font-medium text-[#6b6f68]">
                 Slug (kortnavn)
-                <input
+                <StandardInput
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
                   placeholder="f.eks. safety-rep"
-                  className="mt-1 w-full rounded-lg border border-[#e3ddcc] bg-white px-3 py-2 text-sm"
+                  className="mt-1"
                 />
               </label>
               <label className="block text-xs font-medium text-[#6b6f68]">
                 Beskrivelse
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                  className="mt-1 w-full rounded-lg border border-[#e3ddcc] bg-white px-3 py-2 text-sm"
-                />
+                <StandardTextarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="mt-1" />
               </label>
               <div>
                 <p className="text-xs font-medium text-[#6b6f68]">Kurs i rekkefølge</p>
                 <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-[#e3ddcc] bg-white p-2">
                   {published.map((c) => (
-                    <li key={c.id}>
-                      <label className="flex cursor-pointer items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={selectedCourses.includes(c.id)}
-                          onChange={() => toggleCourse(c.id)}
-                          className="rounded border-[#e3ddcc]"
-                        />
-                        {c.title}
-                      </label>
+                    <li key={c.id} className="flex items-center justify-between gap-2 py-1">
+                      <span className="min-w-0 flex-1 text-sm">{c.title}</span>
+                      <ToggleSwitch
+                        checked={selectedCourses.includes(c.id)}
+                        onChange={(on) => {
+                          if (on) {
+                            if (!selectedCourses.includes(c.id)) setSelectedCourses((prev) => [...prev, c.id])
+                          } else {
+                            setSelectedCourses((prev) => prev.filter((x) => x !== c.id))
+                          }
+                        }}
+                        label={`Velg kurs: ${c.title}`}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -168,29 +164,16 @@ export function LearningPathsPage() {
               <div className="grid gap-2 sm:grid-cols-2">
                 <label className="text-xs text-[#6b6f68]">
                   Metadata-nøkkel
-                  <input
-                    value={metaKey}
-                    onChange={(e) => setMetaKey(e.target.value)}
-                    className="mt-1 w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
-                  />
+                  <StandardInput value={metaKey} onChange={(e) => setMetaKey(e.target.value)} className="mt-1" />
                 </label>
                 <label className="text-xs text-[#6b6f68]">
                   Forventet verdi (true/false eller tekst)
-                  <input
-                    value={metaVal}
-                    onChange={(e) => setMetaVal(e.target.value)}
-                    className="mt-1 w-full rounded border border-[#e3ddcc] bg-white px-2 py-1 text-sm"
-                  />
+                  <StandardInput value={metaVal} onChange={(e) => setMetaVal(e.target.value)} className="mt-1" />
                 </label>
               </div>
-              <button
-                type="button"
-                className="rounded-md px-4 py-2 text-sm font-medium text-white"
-                style={{ backgroundColor: PIN_GREEN }}
-                onClick={submit}
-              >
+              <Button type="button" variant="primary" style={{ backgroundColor: PIN_GREEN }} onClick={submit}>
                 Opprett læringsløp
-              </button>
+              </Button>
               {msg ? <p className="text-xs text-[#1d1f1c]">{msg}</p> : null}
             </div>
           </div>

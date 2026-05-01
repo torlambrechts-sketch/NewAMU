@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
+import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
+import { WarningBox } from '../../components/ui/AlertBox'
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Venter godkjenning',
@@ -71,27 +74,19 @@ export function LearningExternalTraining() {
           <div className="mt-4 space-y-3">
             <label className="block text-xs font-medium text-neutral-600">
               Tittel / kursnavn
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[#e3ddcc] px-3 py-2 text-sm"
-              />
+              <StandardInput value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1" />
             </label>
             <label className="block text-xs font-medium text-neutral-600">
               Utsteder (valgfritt)
-              <input
-                value={issuer}
-                onChange={(e) => setIssuer(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[#e3ddcc] px-3 py-2 text-sm"
-              />
+              <StandardInput value={issuer} onChange={(e) => setIssuer(e.target.value)} className="mt-1" />
             </label>
             <label className="block text-xs font-medium text-neutral-600">
               Gyldig til (valgfritt)
-              <input
+              <StandardInput
                 type="date"
                 value={validUntil}
                 onChange={(e) => setValidUntil(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[#e3ddcc] px-3 py-2 text-sm"
+                className="mt-1"
               />
             </label>
             <label className="block text-xs font-medium text-neutral-600">
@@ -103,15 +98,9 @@ export function LearningExternalTraining() {
                 className="mt-1 w-full text-sm"
               />
             </label>
-            <button
-              type="button"
-              className="rounded-lg px-4 py-2 text-sm font-medium text-white"
-              style={{ backgroundColor: PIN_GREEN }}
-              onClick={upload}
-              disabled={uploading}
-            >
+            <Button type="button" variant="primary" style={{ backgroundColor: PIN_GREEN }} onClick={upload} disabled={uploading}>
               {uploading ? 'Laster opp…' : 'Send inn'}
-            </button>
+            </Button>
             {msg ? <p className="text-xs text-neutral-700">{msg}</p> : null}
           </div>
         </div>
@@ -140,9 +129,10 @@ export function LearningExternalTraining() {
                     {canManage && x.status === 'pending' ? (
                       <div className="flex flex-col gap-1">
                         <div className="flex gap-2">
-                          <button
+                          <Button
                             type="button"
-                            className="rounded border border-[#c5d3c8] bg-[#e7efe9] px-2 py-1 text-xs text-[#1a3d32]"
+                            variant="secondary"
+                            size="sm"
                             onClick={() => {
                               void (async () => {
                                 const r = await approveExternalCertificate(x.id, true)
@@ -151,10 +141,11 @@ export function LearningExternalTraining() {
                             }}
                           >
                             Godkjenn
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
-                            className="rounded border border-[#f8e3df] bg-[#f8e3df] px-2 py-1 text-xs text-[#b3382a]"
+                            variant="danger"
+                            size="sm"
                             onClick={() => {
                               void (async () => {
                                 const r = await approveExternalCertificate(x.id, false)
@@ -163,9 +154,13 @@ export function LearningExternalTraining() {
                             }}
                           >
                             Avslå
-                          </button>
+                          </Button>
                         </div>
-                        {approveError ? <p className="mt-2 text-xs text-[#b3382a]">{approveError}</p> : null}
+                        {approveError ? (
+                          <div className="mt-2">
+                            <WarningBox>{approveError}</WarningBox>
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>

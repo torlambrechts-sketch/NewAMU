@@ -5,6 +5,9 @@ import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { WarningBox } from '../../components/ui/AlertBox'
+import { Button } from '../../components/ui/Button'
+import { ToggleSwitch } from '../../components/ui/FormToggles'
+import { StandardInput } from '../../components/ui/Input'
 
 function downloadJson(filename: string, json: string) {
   const blob = new Blob([json], { type: 'application/json' })
@@ -139,24 +142,24 @@ export function LearningSettings() {
                   ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
-                    <input
-                      type="checkbox"
+                  <div className="flex items-center gap-2">
+                    <ToggleSwitch
                       checked={s.enabled}
-                      onChange={(e) => {
+                      onChange={(v) => {
                         void (async () => {
                           setSystemCourseActionError(null)
-                          const r = await setSystemCourseEnabled(s.systemCourseId, e.target.checked)
+                          const r = await setSystemCourseEnabled(s.systemCourseId, v)
                           if (!r.ok) setSystemCourseActionError(r.error)
                         })()
                       }}
-                      className="rounded border-neutral-300"
+                      label={`Aktiv: ${s.title}`}
                     />
-                    Aktiv
-                  </label>
-                  <button
+                    <span className="text-sm text-neutral-700">Aktiv</span>
+                  </div>
+                  <Button
                     type="button"
-                    className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
+                    variant="secondary"
+                    size="sm"
                     onClick={() => {
                       void (async () => {
                         setSystemCourseActionError(null)
@@ -170,7 +173,7 @@ export function LearningSettings() {
                     }}
                   >
                     Kopier som mal
-                  </button>
+                  </Button>
                   <Link
                     to={`/learning/courses/${s.systemCourseId}`}
                     className="text-xs font-medium text-emerald-800 underline"
@@ -194,29 +197,29 @@ export function LearningSettings() {
           <div className="mt-4 space-y-3">
             <div>
               <label className="text-xs font-medium text-neutral-500">Teams (incoming webhook)</label>
-              <input
+              <StandardInput
                 value={teamsDisplay}
                 onChange={(e) => setTeamsUrl(e.target.value)}
                 placeholder="https://..."
-                className="mt-1 w-full rounded-lg border border-[#e3ddcc] bg-white px-3 py-2 font-mono text-xs"
+                className="mt-1 font-mono text-xs"
               />
             </div>
             <div>
               <label className="text-xs font-medium text-neutral-500">Slack (incoming webhook)</label>
-              <input
+              <StandardInput
                 value={slackDisplay}
                 onChange={(e) => setSlackUrl(e.target.value)}
                 placeholder="https://hooks.slack.com/..."
-                className="mt-1 w-full rounded-lg border border-[#e3ddcc] bg-white px-3 py-2 font-mono text-xs"
+                className="mt-1 font-mono text-xs"
               />
             </div>
             <div>
               <label className="text-xs font-medium text-neutral-500">Generisk HTTPS-endpoint</label>
-              <input
+              <StandardInput
                 value={genericDisplay}
                 onChange={(e) => setGenericUrl(e.target.value)}
                 placeholder="https://..."
-                className="mt-1 w-full rounded-lg border border-[#e3ddcc] bg-white px-3 py-2 font-mono text-xs"
+                className="mt-1 font-mono text-xs"
               />
             </div>
           </div>
@@ -226,9 +229,10 @@ export function LearningSettings() {
             </div>
           ) : null}
           {flowMsg ? <p className="mt-2 text-sm text-emerald-800">{flowMsg}</p> : null}
-          <button
+          <Button
             type="button"
-            className="mt-4 rounded-lg px-4 py-2 text-sm font-medium text-white"
+            variant="primary"
+            className="mt-4"
             style={{ backgroundColor: PIN_GREEN }}
             onClick={() => {
               void (async () => {
@@ -245,7 +249,7 @@ export function LearningSettings() {
             }}
           >
             Lagre webhooks
-          </button>
+          </Button>
           <p className="mt-3 text-xs text-neutral-500">
             Automatiske tildelinger fra HMS bruker RPC <code className="rounded bg-neutral-100 px-1">learning_assign_module</code>{' '}
             og tabellen <code className="rounded bg-neutral-100 px-1">learning_module_assignments</code>.
@@ -260,23 +264,12 @@ export function LearningSettings() {
           sertifikater.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={handleExportFull}
-            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white"
-            style={{ backgroundColor: PIN_GREEN }}
-          >
-            <Download className="size-4" />
+          <Button type="button" variant="primary" icon={<Download className="size-4" />} onClick={handleExportFull}>
             Last ned alt (JSON)
-          </button>
-          <button
-            type="button"
-            onClick={() => fileRefFull.current?.click()}
-            className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-[#1a3d32] hover:bg-neutral-50"
-          >
-            <Upload className="size-4" />
+          </Button>
+          <Button type="button" variant="secondary" icon={<Upload className="size-4" />} onClick={() => fileRefFull.current?.click()}>
             Importer alt (JSON)
-          </button>
+          </Button>
           <input
             ref={fileRefFull}
             type="file"
@@ -307,29 +300,28 @@ export function LearningSettings() {
                   >
                     <span className="min-w-0 font-medium text-[#1a3d32]">{c.title}</span>
                     <div className="flex shrink-0 gap-2">
-                      <button
+                      <Button
                         type="button"
+                        variant="secondary"
+                        size="sm"
+                        icon={<Download className="size-3.5" />}
                         onClick={() => {
                           const json = exportCourseJson(c.id)
                           if (!json) return
-                          downloadJson(
-                            `atics-course-${slugTitle(c.title)}-${c.id.slice(0, 8)}.json`,
-                            json,
-                          )
+                          downloadJson(`atics-course-${slugTitle(c.title)}-${c.id.slice(0, 8)}.json`, json)
                         }}
-                        className="inline-flex items-center gap-1 rounded-md border border-[#e3ddcc] bg-white px-2 py-1 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
                       >
-                        <Download className="size-3.5" />
                         Eksporter
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
+                        variant="secondary"
+                        size="sm"
+                        icon={<Upload className="size-3.5" />}
                         onClick={() => fileRefPartial.current?.click()}
-                        className="inline-flex items-center gap-1 rounded-md border border-[#e3ddcc] bg-white px-2 py-1 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
                       >
-                        <Upload className="size-3.5" />
                         Importer
-                      </button>
+                      </Button>
                     </div>
                   </li>
                 ))}
@@ -343,28 +335,30 @@ export function LearningSettings() {
               <h3 className="text-sm font-semibold text-[#1a3d32]">Fremdrift (alle kurs)</h3>
               <p className="mt-1 text-xs text-neutral-600">Alle CourseProgress-rader i én fil.</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <button
+                <Button
                   type="button"
+                  variant="primary"
+                  size="sm"
+                  icon={<Download className="size-3.5" />}
+                  style={{ backgroundColor: PIN_GREEN }}
                   onClick={() =>
                     downloadJson(
                       `atics-learning-progress-${new Date().toISOString().slice(0, 10)}.json`,
                       exportProgressSliceJson(),
                     )
                   }
-                  className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium text-white"
-                  style={{ backgroundColor: PIN_GREEN }}
                 >
-                  <Download className="size-3.5" />
-                  Export fremdrift
-                </button>
-                <button
+                  Eksporter fremdrift
+                </Button>
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon={<Upload className="size-3.5" />}
                   onClick={() => fileRefPartial.current?.click()}
-                  className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
                 >
-                  <Upload className="size-3.5" />
-                  Import fremdrift
-                </button>
+                  Importer fremdrift
+                </Button>
               </div>
             </div>
 
@@ -372,28 +366,30 @@ export function LearningSettings() {
               <h3 className="text-sm font-semibold text-[#1a3d32]">Sertifikater</h3>
               <p className="mt-1 text-xs text-neutral-600">Alle utstedte sertifikater i én fil.</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <button
+                <Button
                   type="button"
+                  variant="primary"
+                  size="sm"
+                  icon={<Download className="size-3.5" />}
+                  style={{ backgroundColor: PIN_GREEN }}
                   onClick={() =>
                     downloadJson(
                       `atics-learning-certificates-${new Date().toISOString().slice(0, 10)}.json`,
                       exportCertificatesSliceJson(),
                     )
                   }
-                  className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium text-white"
-                  style={{ backgroundColor: PIN_GREEN }}
                 >
-                  <Download className="size-3.5" />
-                  Export sertifikater
-                </button>
-                <button
+                  Eksporter sertifikater
+                </Button>
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon={<Upload className="size-3.5" />}
                   onClick={() => fileRefPartial.current?.click()}
-                  className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
                 >
-                  <Upload className="size-3.5" />
-                  Import sertifikater
-                </button>
+                  Importer sertifikater
+                </Button>
               </div>
             </div>
 
@@ -422,8 +418,11 @@ export function LearningSettings() {
         <p className="mt-2 text-sm text-neutral-600">
           Sletter kurs, fremdrift og sertifikater i denne nettleseren og gjenoppretter demodata («Sikkerhet 101»).
         </p>
-        <button
+        <Button
           type="button"
+          variant="primary"
+          className="mt-4"
+          style={{ backgroundColor: PIN_GREEN }}
           onClick={() => {
             if (
               window.confirm(
@@ -432,11 +431,9 @@ export function LearningSettings() {
             )
               resetDemo()
           }}
-          className="mt-4 rounded-lg px-4 py-2 text-sm font-medium text-white"
-          style={{ backgroundColor: PIN_GREEN }}
         >
           Tilbakestill opplæringsdata
-        </button>
+        </Button>
       </div>
 
       <details className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4">

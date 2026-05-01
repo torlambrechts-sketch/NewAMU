@@ -1,6 +1,7 @@
-import { Award, Search } from 'lucide-react'
+import { Award } from 'lucide-react'
 import { useState } from 'react'
 import { useLearning } from '../../hooks/useLearning'
+import { StandardInput } from '../../components/ui/Input'
 
 export function LearningCertifications() {
   const { certificates } = useLearning()
@@ -33,13 +34,12 @@ export function LearningCertifications() {
         <Kpi label="Under gjennomføring" value={inProgress} accent="neutral" />
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-        <input
+      <div className="max-w-md">
+        <StandardInput
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Søk på navn, kurs eller kode…"
-          className="w-full rounded-full border border-[#e3ddcc] bg-[#fbf9f3] py-2 pl-10 pr-4 text-sm"
+          aria-label="Søk i sertifikater"
         />
       </div>
 

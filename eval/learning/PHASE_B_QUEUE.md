@@ -1,16 +1,23 @@
-# Fase B — kø (full komponentinntog, e-læring)
+# Fase B — full komponentinntog (e-læring) ✅
 
-**Forutsetning:** Fase A fullført i kode (varsler, språk, k-anonymitet, kursbevis-UX).
+**Status:** Implementert i `src/pages/learning/*` (mai 2026).
 
-Utfør i anbefalt rekkefølge; hver rad kan bli egen PR.
+## Utført
 
-| # | Oppgave | Filer (startliste) |
-|---|---------|---------------------|
-| B1 | Erstatt søkefelt med `StandardInput` (+ eventuelt felles søkerad) | `LearningCoursesList.tsx`, `LearningCertifications.tsx`, `LearningParticipants.tsx` |
-| B2 | Alle gjenværende `<button>` → `Button` | Alle `src/pages/learning/*.tsx`, ev. `LearningFlowEntry.tsx` |
-| B3 | `<select>` → `SearchableSelect` | `LearningParticipants.tsx`, `LearningCoursesList.tsx` |
-| B4 | `<textarea>` → `StandardTextarea` | `LearningCourseBuilder.tsx`, `LearningPathsPage.tsx`, `LearningExternalTraining.tsx` |
-| B5 | Sjekkbokser / boolsk → `YesNoToggle` der passende | `LearningPlayer.tsx` (ILT), `LearningCourseBuilder.tsx`, `LearningSettings.tsx`, `LearningPathsPage.tsx` |
-| B6 | Etter B2–B5: `rg '<button|<input |<textarea |<select '` i `src/pages/learning` skal være **0** treff (unntatt skjult file input der nødvendig) | — |
+| # | Oppgave | Merknad |
+|---|---------|--------|
+| B1 | Søkefelt → `StandardInput` | `LearningCoursesList`, `LearningCertifications`, `LearningParticipants` |
+| B2 | `<button>` → `Button` | Alle learning-sider inkl. `LearningPlayer`, `LearningCourseBuilder`, `LearningSettings`, … |
+| B3 | `<select>` → `SearchableSelect` | Kursfilter (`Participants`), kursstatus på kort (`CoursesList`) |
+| B4 | `<textarea>` → `StandardTextarea` | Kursbygger (beskrivelse, I praksis-oppgaver), læringsløp (beskrivelse) |
+| B5 | Sjekkbokser / boolsk → `ToggleSwitch` | Systemkurs aktiv (`Settings`), forutsetninger (`CourseBuilder`), kurs i løp (`PathsPage`), ILT-oppmøte + video bekreftelse (`Player`) |
+| B6 | Rå kontroller | Kun **skjulte** `<input type="file">` for JSON-import og filopplasting ekstern opplæring (nødvendig for nettleser-API) |
 
-**Verifisering etter B:** `rg "from ['\\\"].*components/ui" src/pages/learning` skal treffe alle relevante imports; ingen `alert(` i learning.
+## Verifisering
+
+```bash
+rg '<button|<textarea |<select' src/pages/learning   # 0 treff
+rg '<input' src/pages/learning                        # kun type=file (skjult)
+```
+
+`Button`/`StandardInput`/… er definert i `src/components/ui/` og brukes konsekvent for synlige kontroller.

@@ -8,6 +8,7 @@ import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
+import { ToggleSwitch } from '../../components/ui/FormToggles'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
 import { normalizeModuleHtml } from '../../lib/richTextDisplay'
 
@@ -252,10 +253,11 @@ export function LearningPlayer() {
                       const isActive = i === idx
                       return (
                         <li key={m.id}>
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
                             onClick={() => setIdx(i)}
-                            className={`flex w-full flex-col gap-1 rounded-lg px-2 py-2 text-left text-sm transition-colors ${
+                            className={`flex h-auto w-full flex-col gap-1 rounded-lg px-2 py-2 text-left text-sm font-normal transition-colors ${
                               isActive ? 'bg-emerald-50 text-[#2D403A]' : 'text-neutral-700 hover:bg-neutral-50'
                             }`}
                           >
@@ -277,7 +279,7 @@ export function LearningPlayer() {
                                 />
                               </div>
                             </div>
-                          </button>
+                          </Button>
                         </li>
                       )
                     })}
@@ -328,22 +330,22 @@ export function LearningPlayer() {
           )}
 
           <div className="flex justify-between">
-            <button
+            <Button
               type="button"
+              variant="secondary"
               disabled={idx <= 0}
               onClick={() => setIdx((i) => Math.max(0, i - 1))}
-              className="rounded-md border border-[#e3ddcc] px-4 py-2 text-sm text-[#1d1f1c] disabled:opacity-40"
             >
               Forrige
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
               disabled={idx >= modules.length - 1}
               onClick={() => setIdx((i) => Math.min(modules.length - 1, i + 1))}
-              className="rounded-md border border-[#e3ddcc] px-4 py-2 text-sm text-[#1d1f1c] disabled:opacity-40"
             >
               Neste modul
-            </button>
+            </Button>
           </div>
 
           <div className="rounded-lg border border-[#c5d3c8] bg-[#e7efe9] p-5">
@@ -491,19 +493,20 @@ function EventModuleSection({
           ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
             {(['going', 'declined', 'waitlist'] as const).map((st) => (
-              <button
+              <Button
                 key={st}
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => {
                   void (async () => {
                     const r = await setIltRsvp(ev.id, st)
                     setRsvpMsg(r.ok ? (st === 'going' ? 'Du er påmeldt.' : 'Oppdatert.') : r.error)
                   })()
                 }}
-                className="rounded-md border border-[#e3ddcc] bg-[#fbf9f3] px-3 py-1.5 text-xs font-medium hover:bg-neutral-50"
               >
                 {st === 'going' ? 'Meld på' : st === 'declined' ? 'Avslå' : 'Venteliste'}
-              </button>
+              </Button>
             ))}
           </div>
           {rsvpMsg ? <p className="mt-2 text-xs text-neutral-600">{rsvpMsg}</p> : null}
@@ -530,35 +533,34 @@ function EventModuleSection({
           ) : null}
           <ul className="mt-3 divide-y divide-neutral-100">
             {peerProfiles.map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-2 py-2">
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span className="text-sm">{p.display_name}</span>
-                <label className="flex items-center gap-2 text-xs text-neutral-600">
-                  <input
-                    type="checkbox"
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-neutral-600">Tilstede</span>
+                  <ToggleSwitch
                     checked={!!attendance[p.id]}
-                    onChange={(e) => {
-                      const v = e.target.checked
+                    onChange={(v) => {
                       setAttendance((s) => ({ ...s, [p.id]: v }))
                       void setIltAttendance(ev.id, p.id, v)
                     }}
-                    className="rounded border-neutral-300"
+                    label={`Tilstede: ${p.display_name}`}
                   />
-                  Tilstede
-                </label>
+                </div>
               </li>
             ))}
           </ul>
         </div>
       ) : null}
 
-      <button
+      <Button
         type="button"
-        onClick={() => onComplete()}
-        className="w-full rounded-full py-3 text-sm font-medium text-white"
+        variant="primary"
+        className="w-full rounded-full"
         style={{ backgroundColor: PIN_GREEN }}
+        onClick={() => onComplete()}
       >
         Fullfør modul
-      </button>
+      </Button>
     </div>
   )
 }
@@ -611,10 +613,11 @@ function ModulePlayer({
         <div className="text-center text-xs text-neutral-500">
           Kort {flashIdx + 1} av {c.slides.length}
         </div>
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => setFlashFlipped(!flashFlipped)}
-          className="relative mx-auto block aspect-[9/16] w-full max-w-sm overflow-hidden rounded-lg border border-[#e3ddcc]"
+          className="relative mx-auto block aspect-[9/16] w-full max-w-sm overflow-hidden rounded-lg border border-[#e3ddcc] p-0"
           style={{
             background: flashFlipped
               ? 'linear-gradient(160deg, #1e3d35 0%, #2D403A 100%)'
@@ -630,39 +633,44 @@ function ModulePlayer({
             </p>
             <div className="text-center text-xs opacity-70">Klikk for å snu</div>
           </div>
-        </button>
+        </Button>
         <div className="flex justify-center gap-2">
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="icon"
             disabled={flashIdx <= 0}
             onClick={() => {
               setFlashIdx((i) => Math.max(0, i - 1))
               setFlashFlipped(false)
             }}
-            className="rounded-md border border-[#e3ddcc] p-2 disabled:opacity-40"
+            aria-label="Forrige kort"
           >
             <ChevronLeft className="size-4" />
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="secondary"
+            size="icon"
             disabled={last}
             onClick={() => {
               setFlashIdx((i) => Math.min(c.slides.length - 1, i + 1))
               setFlashFlipped(false)
             }}
-            className="rounded-md border border-[#e3ddcc] p-2 disabled:opacity-40"
+            aria-label="Neste kort"
           >
             <ChevronRight className="size-4" />
-          </button>
+          </Button>
         </div>
-        <button
+        <Button
           type="button"
-          onClick={() => onComplete()}
-          className="w-full rounded-full py-3 text-sm font-medium text-white"
+          variant="primary"
+          className="w-full rounded-full"
           style={{ backgroundColor: PIN_GREEN }}
+          onClick={() => onComplete()}
         >
           Fullfør kortsett
-        </button>
+        </Button>
       </div>
     )
   }
@@ -689,10 +697,11 @@ function ModulePlayer({
               <ul className="mt-3 space-y-2">
                 {q.options.map((o, i) => (
                   <li key={i}>
-                    <button
+                    <Button
                       type="button"
+                      variant="secondary"
                       onClick={() => setQuizAnswers((s) => ({ ...s, [q.id]: i }))}
-                      className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
+                      className={`h-auto w-full justify-start whitespace-normal py-2 text-left text-sm font-normal ${
                         sel === i
                           ? sel === q.correctIndex
                             ? 'border-emerald-600 bg-emerald-50'
@@ -701,7 +710,7 @@ function ModulePlayer({
                       }`}
                     >
                       {o}
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -718,8 +727,11 @@ function ModulePlayer({
             Resultat: {correctCount} av {c.questions.length} ({scorePct}%)
           </p>
         ) : null}
-        <button
+        <Button
           type="button"
+          variant="primary"
+          className="w-full rounded-full"
+          style={{ backgroundColor: PIN_GREEN }}
           disabled={!answered}
           onClick={() =>
             onComplete({
@@ -728,11 +740,9 @@ function ModulePlayer({
               quizQuestions: c.questions.map((q) => ({ id: q.id, correctIndex: q.correctIndex })),
             })
           }
-          className="w-full rounded-full py-3 text-sm font-medium text-white disabled:opacity-40"
-          style={{ backgroundColor: PIN_GREEN }}
         >
           Fullfør quiz
-        </button>
+        </Button>
       </div>
     )
   }
@@ -745,14 +755,15 @@ function ModulePlayer({
           className="prose prose-sm w-full max-w-none text-neutral-800 [&_a]:text-emerald-800 [&_a]:underline [&_li]:my-1"
           dangerouslySetInnerHTML={{ __html: html }}
         />
-        <button
+        <Button
           type="button"
-          onClick={() => onComplete()}
-          className="mt-6 w-full rounded-full py-3 text-sm font-medium text-white"
+          variant="primary"
+          className="mt-6 w-full rounded-full"
           style={{ backgroundColor: PIN_GREEN }}
+          onClick={() => onComplete()}
         >
           Fortsett
-        </button>
+        </Button>
       </div>
     )
   }
@@ -762,14 +773,15 @@ function ModulePlayer({
       <div>
         <img src={c.imageUrl} alt={c.caption || 'Kursbilde'} loading="lazy" className="max-h-64 w-full rounded-xl object-cover" />
         <p className="mt-2 text-sm text-neutral-600">{c.caption}</p>
-        <button
+        <Button
           type="button"
-          onClick={() => onComplete()}
-          className="mt-4 w-full rounded-full py-3 text-sm font-medium text-white"
+          variant="primary"
+          className="mt-4 w-full rounded-full"
           style={{ backgroundColor: PIN_GREEN }}
+          onClick={() => onComplete()}
         >
           Fortsett
-        </button>
+        </Button>
       </div>
     )
   }
@@ -784,29 +796,31 @@ function ModulePlayer({
       <ul className="space-y-2">
         {c.items.map((it) => (
           <li key={it.id} className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
-              onClick={() =>
-                setCheckDone((s) => ({ ...s, [it.id]: !s[it.id] }))
-              }
-              className={`flex size-8 items-center justify-center rounded-full border-2 ${
+              variant={checkDone[it.id] ? 'primary' : 'secondary'}
+              size="icon"
+              onClick={() => setCheckDone((s) => ({ ...s, [it.id]: !s[it.id] }))}
+              className={`size-8 rounded-full border-2 p-0 ${
                 checkDone[it.id] ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-neutral-300'
               }`}
+              aria-label={checkDone[it.id] ? 'Fjern avkrysning' : 'Kryss av'}
             >
               {checkDone[it.id] ? <Check className="size-4" /> : null}
-            </button>
+            </Button>
             <span>{it.label}</span>
           </li>
         ))}
-        <button
+        <Button
           type="button"
+          variant="primary"
+          className="mt-4 w-full rounded-full"
+          style={{ backgroundColor: PIN_GREEN }}
           disabled={!allChecked}
           onClick={() => onComplete()}
-          className="mt-4 w-full rounded-full py-3 text-sm font-medium text-white disabled:opacity-40"
-          style={{ backgroundColor: PIN_GREEN }}
         >
           Fullfør sjekkliste
-        </button>
+        </Button>
       </ul>
     )
   }
@@ -819,14 +833,15 @@ function ModulePlayer({
             💡 {t}
           </li>
         ))}
-        <button
+        <Button
           type="button"
-          onClick={() => onComplete()}
-          className="mt-4 w-full rounded-full py-3 text-sm font-medium text-white"
+          variant="primary"
+          className="mt-4 w-full rounded-full"
           style={{ backgroundColor: PIN_GREEN }}
+          onClick={() => onComplete()}
         >
           Fortsett
-        </button>
+        </Button>
       </ul>
     )
   }
@@ -857,14 +872,15 @@ function ModulePlayer({
             <div className="text-sm text-neutral-600">{t.description}</div>
           </div>
         ))}
-        <button
+        <Button
           type="button"
-          onClick={() => onComplete()}
-          className="w-full rounded-full py-3 text-sm font-medium text-white"
+          variant="primary"
+          className="w-full rounded-full"
           style={{ backgroundColor: PIN_GREEN }}
+          onClick={() => onComplete()}
         >
           Bekreft gjennomført
-        </button>
+        </Button>
       </div>
     )
   }
@@ -878,14 +894,15 @@ function ModulePlayer({
           className="prose prose-sm mt-2 max-w-none text-neutral-700 [&_a]:text-emerald-800 [&_a]:underline"
           dangerouslySetInnerHTML={{ __html: otherHtml }}
         />
-        <button
+        <Button
           type="button"
-          onClick={() => onComplete()}
-          className="mt-4 w-full rounded-full py-3 text-sm font-medium text-white"
+          variant="primary"
+          className="mt-4 w-full rounded-full"
           style={{ backgroundColor: PIN_GREEN }}
+          onClick={() => onComplete()}
         >
           Fortsett
-        </button>
+        </Button>
       </div>
     )
   }
@@ -978,20 +995,18 @@ function VideoPlayer({
           {/* YouTube: can't track time via iframe without YT IFrame API + postMessage;
               show a self-report checkbox after the video has had time to load */}
           <div className="border-t border-neutral-100 bg-neutral-50 px-4 py-3">
-            <label className="flex cursor-pointer items-center gap-3 text-sm text-neutral-700">
-              <input
-                type="checkbox"
+            <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-700">
+              <ToggleSwitch
                 checked={manualOverride}
-                onChange={(e) => setManualOverride(e.target.checked)}
-                className="size-4 rounded border-neutral-300"
-                style={{ accentColor: PIN_GREEN }}
+                onChange={setManualOverride}
+                label="Bekreft at du har sett hele YouTube-videoen"
               />
               <span>
                 Jeg har sett hele videoen{' '}
                 <span className="text-xs text-neutral-400">(bekreft etter visning)</span>
               </span>
-              {manualOverride && <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />}
-            </label>
+              {manualOverride ? <CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-hidden /> : null}
+            </div>
           </div>
         </div>
       )}
@@ -1010,20 +1025,18 @@ function VideoPlayer({
             />
           </div>
           <div className="border-t border-neutral-100 bg-neutral-50 px-4 py-3">
-            <label className="flex cursor-pointer items-center gap-3 text-sm text-neutral-700">
-              <input
-                type="checkbox"
+            <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-700">
+              <ToggleSwitch
                 checked={manualOverride}
-                onChange={(e) => setManualOverride(e.target.checked)}
-                className="size-4 rounded border-neutral-300"
-                style={{ accentColor: PIN_GREEN }}
+                onChange={setManualOverride}
+                label="Bekreft at du har sett hele Vimeo-videoen"
               />
               <span>
                 Jeg har sett hele videoen{' '}
                 <span className="text-xs text-neutral-400">(bekreft etter visning)</span>
               </span>
-              {manualOverride && <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />}
-            </label>
+              {manualOverride ? <CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-hidden /> : null}
+            </div>
           </div>
         </div>
       )}
@@ -1100,29 +1113,28 @@ function VideoPlayer({
           </div>
           {started && (
             <div className="mt-4 border-t border-[#e3ddcc] pt-3">
-              <label className="flex cursor-pointer items-center gap-3 text-sm text-neutral-700">
-                <input
-                  type="checkbox"
+              <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-700">
+                <ToggleSwitch
                   checked={manualOverride}
-                  onChange={(e) => setManualOverride(e.target.checked)}
-                  className="size-4 rounded border-neutral-300"
-                  style={{ accentColor: PIN_GREEN }}
+                  onChange={setManualOverride}
+                  label="Bekreft at du har sett hele videoen"
                 />
-                Jeg har sett hele videoen
-                {manualOverride && <CheckCircle2 className="size-4 text-emerald-600" />}
-              </label>
+                <span>Jeg har sett hele videoen</span>
+                {manualOverride ? <CheckCircle2 className="size-4 text-emerald-600" aria-hidden /> : null}
+              </div>
             </div>
           )}
         </div>
       )}
 
       {/* ── Complete button ─────────────────────────────────────────────── */}
-      <button
+      <Button
         type="button"
+        variant="primary"
+        className="w-full rounded-full"
+        style={{ backgroundColor: PIN_GREEN }}
         disabled={!unlocked}
         onClick={() => onComplete()}
-        className="w-full rounded-full py-3 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
-        style={{ backgroundColor: PIN_GREEN }}
         title={unlocked ? undefined : `Se minst ${THRESHOLD}% av videoen for å gå videre`}
       >
         {unlocked ? (
@@ -1135,7 +1147,7 @@ function VideoPlayer({
             ? `Se ${THRESHOLD - watchedPct}% til for å fortsette`
             : 'Bekreft at du har sett videoen ovenfor'
         )}
-      </button>
+      </Button>
     </div>
   )
 }

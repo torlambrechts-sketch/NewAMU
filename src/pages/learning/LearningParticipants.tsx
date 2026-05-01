@@ -3,6 +3,9 @@ import { useMemo, useState } from 'react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { CourseProgress } from '../../types/learning'
+import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
+import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
 
 type SortKey = 'learner' | 'course' | 'started' | 'days' | 'progress'
 type SortDir = 'asc' | 'desc'
@@ -22,14 +25,16 @@ function SortHead({
 }) {
   return (
     <th className="px-4 py-3 font-medium">
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={() => onSort(colKey)}
-        className="inline-flex items-center gap-1 text-neutral-700 hover:text-[#2D403A]"
+        className="-ml-2 h-auto px-2 py-1 font-medium text-neutral-700 hover:bg-transparent hover:text-[#2D403A]"
       >
         {label}
         {activeKey === colKey ? <span className="text-[10px] font-normal text-[#6b6f68]">{dir === 'asc' ? '↑' : '↓'}</span> : null}
-      </button>
+      </Button>
     </th>
   )
 }
@@ -122,6 +127,11 @@ export function LearningParticipants() {
     return out
   }, [progress, courses, query, courseFilter, sortKey, sortDir, canManage, profile])
 
+  const courseFilterOptions: SelectOption[] = useMemo(
+    () => [{ value: 'all', label: 'Alle kurs' }, ...courses.map((c) => ({ value: c.id, label: c.title }))],
+    [courses],
+  )
+
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
@@ -148,30 +158,25 @@ export function LearningParticipants() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative max-w-md flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-          <input
+          <Search className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-neutral-400" />
+          <StandardInput
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Søk etter navn eller kurs…"
-            className="w-full rounded-full border border-[#e3ddcc] bg-[#fbf9f3] py-2 pl-10 pr-4 text-sm"
+            className="rounded-full border-[#e3ddcc] bg-[#fbf9f3] py-2 pl-10 pr-4"
             aria-label="Filtrer tabell"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <ArrowDownUp className="size-4 text-neutral-400" aria-hidden />
-          <select
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-xs">
+          <ArrowDownUp className="size-4 shrink-0 text-neutral-400" aria-hidden />
+          <SearchableSelect
             value={courseFilter}
-            onChange={(e) => setCourseFilter(e.target.value)}
-            className="rounded-full border border-[#e3ddcc] bg-[#fbf9f3] px-3 py-2 text-sm"
-            aria-label="Filtrer på kurs"
-          >
-            <option value="all">Alle kurs</option>
-            {courses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
+            options={courseFilterOptions}
+            onChange={setCourseFilter}
+            placeholder="Velg kurs"
+            className="mt-0 min-w-0 flex-1"
+            triggerClassName="rounded-full border-[#e3ddcc] bg-[#fbf9f3] py-2 text-sm"
+          />
         </div>
       </div>
 

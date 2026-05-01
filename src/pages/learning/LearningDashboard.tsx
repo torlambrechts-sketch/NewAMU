@@ -3,6 +3,7 @@ import { ArrowRight, BookOpen, CheckCircle2, Flame } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { CREAM, PIN_GREEN } from '../../components/learning/LearningLayout'
+import { Button } from '../../components/ui/Button'
 
 function CompletionRings({
   publishedPct,
@@ -161,13 +162,15 @@ export function LearningDashboard() {
                     >
                       Repeter
                     </Link>
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       className="text-xs text-neutral-500 hover:text-neutral-800"
                       onClick={() => void dismissReview(r.id)}
                     >
                       Avvis
-                    </button>
+                    </Button>
                   </div>
                 </li>
               )

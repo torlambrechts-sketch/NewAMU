@@ -73,9 +73,9 @@
 
 **Implementert:** `issueCertificate` returnerer nå `IssueCertificateResult` (ingen `setError` ved sertifikatfeil); avdelingsliste filtreres i `useLearning.ts` (k≥5); `LearningSettings` / kursbygger bruker `WarningBox`; kursbevis-seksjon bruker `StandardInput`, `Button`, `InfoBox`/`WarningBox`; profilnavn forhåndsutfylles; ILT-feil vises i UI uten `console.warn`.
 
-### Fase B — Komponentinntog (kø)
+### Fase B — Komponentinntog ✅
 
-Se **`eval/learning/PHASE_B_QUEUE.md`** for tabell og verifiseringsgrep.
+Fullført. Se **`eval/learning/PHASE_B_QUEUE.md`** for detaljer og grep for verifisering. Unntak: skjulte `input type="file"` for import/opplasting.
 
 ### Fase C — Layout og gjenbruk
 

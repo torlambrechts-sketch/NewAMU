@@ -7,6 +7,9 @@ import type { Course, CourseStatus } from '../../types/learning'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
+import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
+import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
 
 const FAV_KEY = 'atics-learning-favourite-course-ids'
 
@@ -47,6 +50,12 @@ function ProgressBarMini({ value }: { value: number }) {
 }
 
 type TabId = 'all' | 'active' | 'complete' | 'fav'
+
+const COURSE_STATUS_OPTIONS: SelectOption[] = [
+  { value: 'draft', label: 'Utkast' },
+  { value: 'published', label: 'Publisert' },
+  { value: 'archived', label: 'Arkivert' },
+]
 
 export function LearningCoursesList() {
   const navigate = useNavigate()
@@ -200,27 +209,22 @@ export function LearningCoursesList() {
             Nytt kurs
           </h2>
           <div className="mt-3 flex flex-wrap gap-3">
-            <input
+            <StandardInput
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Tittel"
-              className="min-w-[200px] flex-1 rounded-lg border border-[#e3ddcc] px-3 py-2 text-sm"
+              className="min-w-[200px] flex-1"
               required
             />
-            <input
+            <StandardInput
               value={desc}
               onChange={(e) => setDesc(e.target.value)}
               placeholder="Kort beskrivelse"
-              className="min-w-[200px] flex-1 rounded-lg border border-[#e3ddcc] px-3 py-2 text-sm"
+              className="min-w-[200px] flex-1"
             />
-            <button
-              type="submit"
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white"
-              style={{ backgroundColor: PIN_GREEN }}
-            >
-              <Plus className="size-4" />
+            <Button type="submit" variant="primary" icon={<Plus className="size-4" />}>
               Opprett
-            </button>
+            </Button>
           </div>
         </form>
       ) : (
@@ -234,12 +238,13 @@ export function LearningCoursesList() {
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[200px] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-          <input
+          <Search className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-neutral-400" />
+          <StandardInput
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Søk i kurs…"
-            className="w-full rounded-full border border-[#e3ddcc] bg-[#fbf9f3] py-2 pl-10 pr-4 text-sm"
+            className="rounded-full border-[#e3ddcc] bg-[#fbf9f3] py-2 pl-10 pr-4"
+            aria-label="Søk i kurs"
           />
         </div>
       </div>
@@ -264,14 +269,16 @@ export function LearningCoursesList() {
               {/* Header image / gradient */}
               <div className="relative h-36 shrink-0 rounded-t-lg bg-gradient-to-br from-[#1a3d32] via-[#234d3f] to-[#2f6b52]">
                 <div className="absolute inset-0 bg-gradient-to-br from-[#1a3d32]/95 to-[#143528] opacity-95" />
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => toggleFavourite(c.id)}
-                  className="absolute right-3 top-3 rounded-lg bg-black/25 p-2 text-white backdrop-blur-sm hover:bg-black/40"
+                  className="absolute right-3 top-3 rounded-lg bg-black/25 p-2 text-white backdrop-blur-sm hover:bg-black/40 hover:text-white"
                   aria-label={isFav ? 'Fjern fra favoritter' : 'Legg til favoritter'}
                 >
                   <Star className={`size-4 ${isFav ? 'fill-[#c9a227] text-[#c9a227]' : 'text-white'}`} />
-                </button>
+                </Button>
                 <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#1a3d32]">
                   {c.status === 'published' ? 'Publisert' : c.status === 'draft' ? 'Utkast' : 'Arkivert'}
                 </span>
@@ -344,16 +351,15 @@ export function LearningCoursesList() {
                         Oppgave
                       </AddTaskLink>
                       {canManage ? (
-                        <select
-                          value={c.status}
-                          onChange={(e) => updateCourse(c.id, { status: e.target.value as CourseStatus })}
-                          className="max-w-[7rem] rounded-md border border-[#e3ddcc] bg-[#fbf9f3] px-1.5 py-0.5 text-[10px]"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <option value="draft">Utkast</option>
-                          <option value="published">Publisert</option>
-                          <option value="archived">Arkivert</option>
-                        </select>
+                        <div className="max-w-[9rem]" onClick={(e) => e.stopPropagation()}>
+                          <SearchableSelect
+                            value={c.status}
+                            options={COURSE_STATUS_OPTIONS}
+                            onChange={(val) => updateCourse(c.id, { status: val as CourseStatus })}
+                            triggerClassName="max-w-[9rem] py-1.5 text-[10px]"
+                            className="mt-0"
+                          />
+                        </div>
                       ) : null}
                     </div>
                   </div>
