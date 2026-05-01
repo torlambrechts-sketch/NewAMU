@@ -1,6 +1,5 @@
 import { ModuleSectionCard } from '../../module'
 import { Button } from '../../ui/Button'
-import { StandardInput } from '../../ui/Input'
 import { YesNoToggle } from '../../ui/FormToggles'
 import { SearchableSelect, type SelectOption } from '../../ui/SearchableSelect'
 import { InfoBox } from '../../ui/AlertBox'
