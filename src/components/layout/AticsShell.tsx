@@ -29,6 +29,7 @@ import {
   PanelRight,
   Boxes,
   Layers,
+  Settings,
   Shield,
   ShieldAlert,
   ShieldCheck,
@@ -603,14 +604,6 @@ const navGroups: NavGroup[] = [
     icon: Briefcase,
     modules: [
       {
-        to: '/organisation',
-        label: 'Ansatte',
-        end: false,
-        icon: Building2,
-        subs: [],
-        perm: 'module.view.dashboard',
-      },
-      {
         to: '/organisation/admin',
         label: 'Roller & administrasjon',
         end: true,
@@ -638,6 +631,39 @@ const navGroups: NavGroup[] = [
     ],
   },
 
+  // ── 8. Administrasjon ────────────────────────────────────────────────────
+  // Central admin tools: org config, automation, and reporting.
+  {
+    id: 'administrasjon',
+    label: 'Administrasjon',
+    icon: Settings,
+    modules: [
+      {
+        to: '/organisation',
+        label: 'Organisasjon',
+        end: false,
+        icon: Building2,
+        subs: [],
+        perm: 'module.view.dashboard',
+      },
+      {
+        to: '/workflow',
+        label: 'Arbeidsflyt',
+        end: false,
+        icon: Workflow,
+        subs: [],
+      },
+      {
+        to: '/reports',
+        label: 'Rapporter',
+        end: false,
+        icon: BarChart3,
+        subs: [],
+        perm: 'module.view.reports',
+      },
+    ],
+  },
+
   // ── Gamle moduler (utility / legacy staging) ─────────────────────────────
   // Items that do not map cleanly to one of the seven canonical groups above.
   // Keep them reachable, but visibly quarantined until they are either
@@ -658,9 +684,7 @@ const navGroups: NavGroup[] = [
       },
       { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, subs: tasksSubs, perm: 'module.view.tasks', moduleSlug: 'tasks' },
       { to: '/action-board', label: 'Action Board', end: false, icon: Kanban, subs: [], perm: 'module.view.dashboard' },
-      { to: '/reports', label: 'Rapporter', end: false, icon: BarChart3, subs: [], perm: 'module.view.reports' },
       { to: '/hse', label: 'HSE / HMS (legacy)', end: false, icon: HardHat, subs: hseSubs, perm: 'module.view.hse', moduleSlug: 'hse' },
-      { to: '/workflow', label: 'Arbeidsflyt', end: false, icon: Workflow, subs: [] },
       { to: '/admin/modules', label: 'Moduloversikt', end: false, icon: Boxes, subs: [] },
     ],
   },
