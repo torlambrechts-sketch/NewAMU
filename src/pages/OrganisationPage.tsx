@@ -1655,7 +1655,6 @@ export function OrganisationPage() {
                           <Lock
                             className="size-3 shrink-0 text-neutral-400"
                             aria-label="Personopplysninger — synlig for administratorer"
-                            title="Personopplysninger — synlig for administratorer"
                           />
                         </span>
                       </th>
