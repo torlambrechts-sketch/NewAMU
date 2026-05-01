@@ -7,12 +7,15 @@ import {
   CheckCircle2,
   LayoutGrid,
   List,
+  Lock,
   Mail,
   Pencil,
   Phone,
   Plus,
+  RefreshCw,
   Search,
   Settings2,
+  Shield,
   Trash2,
   UserCheck,
   UserMinus,
@@ -20,7 +23,13 @@ import {
   PieChart,
   ChevronRight,
   ChevronDown,
+  FileText,
+  Calendar,
+  ExternalLink,
 } from 'lucide-react'
+import { Badge } from '../components/ui/Badge'
+import { InfoBox } from '../components/ui/AlertBox'
+import { ComplianceBanner } from '../components/ui/ComplianceBanner'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { OrganisationHeaderIllustration } from '../components/organisation/OrganisationHeaderIllustration'
@@ -52,7 +61,9 @@ import {
   WORKPLACE_LIST_LAYOUT_CTA,
   type WorkplaceListViewMode,
 } from '../components/layout/WorkplaceStandardListLayout'
-import type { EmploymentType, OrgEmployee, OrgUnit, OrgUnitKind, UserGroup } from '../types/organisation'
+import type { EmploymentType, OrgEmployee, OrgEmployeeMandate, OrgUnit, OrgUnitKind, UserGroup } from '../types/organisation'
+import { MANDATE_TYPE_LABELS, MANDATE_TYPE_LAW_REFS } from '../types/organisation'
+import { fetchEnhetByOrgnr } from '../lib/brreg'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -63,8 +74,16 @@ const KIND_COLORS: Record<OrgUnitKind, string> = {
   division: '#1a3d32', department: '#0284c7', team: '#059669', location: '#6b7280',
 }
 const EMPLOYMENT_LABELS: Record<EmploymentType, string> = {
-  permanent: 'Fast ansatt', temporary: 'Midlertidig', intern: 'Intern/lærling', contractor: 'Konsulent/innleid',
+  permanent:              'Fast ansatt',
+  temporary:              'Midlertidig (AML § 14-9)',
+  intern:                 'Intern/lærling',
+  agency_worker:          'Innleid (bemanningsbyrå) — teller i AML',
+  independent_contractor: 'Selvstendig oppdragstaker',
+  contractor:             'Konsulent/innleid (eldre)',
 }
+
+/** Employment types that count toward AML § 6-1 / § 7-1 thresholds */
+const AML_COUNTING_TYPES = new Set<EmploymentType>(['permanent', 'temporary', 'intern', 'agency_worker', 'contractor'])
 const ROLE_OPTIONS = ['Leder', 'Fagansvarlig', 'Fagmedarbeider', 'Saksbehandler', 'Verneombud', 'Tillitsvalgt', 'Konsulent', 'Annet']
 
 /** Layout-reference «Dashboard (kompakt)»: tan KPI uten handlingsknapp. */
@@ -131,6 +150,14 @@ const SETTINGS_FIELD_LABEL_ON_DARK = 'text-[10px] font-bold uppercase tracking-w
 const SETTINGS_INPUT_ON_DARK =
   'mt-1.5 w-full rounded-none border border-white/25 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-white focus:outline-none focus:ring-1 focus:ring-white'
 
+// ─── Mandate badge helper ─────────────────────────────────────────────────────
+// Returns a Badge for roles that carry a formal statutory mandate.
+const MANDATE_ROLES: Record<string, { label: string; variant: 'info' | 'warning' | 'success' }> = {
+  Verneombud:   { label: 'Verneombud',   variant: 'info' },
+  Tillitsvalgt: { label: 'Tillitsvalgt', variant: 'warning' },
+  'HMS-ansvarlig': { label: 'HMS-ansvarlig', variant: 'success' },
+}
+
 // ─── Avatar helper ────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = ['#1a3d32','#0284c7','#7c3aed','#d97706','#dc2626','#0d9488','#9333ea','#2563eb']
@@ -144,9 +171,9 @@ function initials(name: string) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-type Tab = 'employees' | 'units' | 'groups' | 'insights' | 'settings'
+type Tab = 'employees' | 'units' | 'groups' | 'insights' | 'mandates' | 'gdpr' | 'settings'
 
-const TAB_VALUES: Tab[] = ['insights', 'employees', 'units', 'groups', 'settings']
+const TAB_VALUES: Tab[] = ['insights', 'employees', 'units', 'groups', 'mandates', 'gdpr', 'settings']
 
 function tabFromSearch(raw: string | null): Tab {
   if (raw === 'orgchart') return 'insights'
@@ -215,6 +242,7 @@ export function OrganisationPage() {
     reportsToId: '',
     location: '',
     employmentType: 'permanent' as EmploymentType,
+    agencyName: '',
     startDate: '',
     active: true,
   })
@@ -312,6 +340,7 @@ export function OrganisationPage() {
       reportsToId: initial?.reportsToId ?? '',
       location: initial?.location ?? '',
       employmentType: initial?.employmentType ?? 'permanent',
+      agencyName: initial?.agencyName ?? '',
       startDate: initial?.startDate ?? '',
       active: initial?.active ?? true,
     })
@@ -388,6 +417,7 @@ export function OrganisationPage() {
       reportsToName: manager?.name,
       location: empFormPanel.location || undefined,
       employmentType: empFormPanel.employmentType,
+      agencyName: empFormPanel.employmentType === 'agency_worker' ? (empFormPanel.agencyName || undefined) : undefined,
       startDate: empFormPanel.startDate || undefined,
       active: empFormPanel.active,
     }
@@ -549,6 +579,67 @@ export function OrganisationPage() {
     })
   }, [])
 
+  // ─── Brreg sync state ───────────────────────────────────────────────────────
+  const [brregSyncing, setBrregSyncing] = useState(false)
+  const [brregError, setBrregError] = useState<string | null>(null)
+  const [brregSuccess, setBrregSuccess] = useState(false)
+
+  const handleBrregSync = useCallback(async () => {
+    const orgnr = org.settings.orgNumber?.replace(/\D/g, '')
+    if (!orgnr || orgnr.length !== 9) {
+      setBrregError('Fyll inn et gyldig 9-sifret organisasjonsnummer først.')
+      return
+    }
+    setBrregSyncing(true)
+    setBrregError(null)
+    setBrregSuccess(false)
+    try {
+      const enhet = await fetchEnhetByOrgnr(orgnr)
+      org.updateSettings({
+        orgName: enhet.navn ?? org.settings.orgName,
+        brregAntallAnsatte: enhet.antallAnsatte,
+        brregNaceKode: enhet.naeringskode1?.kode,
+        brregNaceBeskrivelse: enhet.naeringskode1?.beskrivelse,
+        brregOrgForm: enhet.organisasjonsform?.kode,
+        brregSyncedAt: new Date().toISOString(),
+        industrySector: enhet.naeringskode1?.beskrivelse ?? org.settings.industrySector,
+      })
+      setBrregSuccess(true)
+    } catch (err) {
+      setBrregError(err instanceof Error ? err.message : 'Ukjent feil fra Brreg.')
+    } finally {
+      setBrregSyncing(false)
+    }
+  }, [org])
+
+  // ─── DPIA checklist state ───────────────────────────────────────────────────
+  const [dpiaAnswers, setDpiaAnswers] = useState({ systematicMonitoring: false, profiling: false, sensitiveCategories: false })
+
+  // ─── Mandates derived list ──────────────────────────────────────────────────
+  const allMandates = useMemo(() => {
+    const rows: { employee: OrgEmployee; mandate: OrgEmployeeMandate }[] = []
+    for (const emp of org.displayEmployees) {
+      if (emp.mandates?.length) {
+        for (const m of emp.mandates) rows.push({ employee: emp, mandate: m })
+      } else if (emp.role && ['Verneombud', 'Tillitsvalgt', 'HMS-ansvarlig'].includes(emp.role)) {
+        const mandateType: OrgEmployeeMandate['mandateType'] =
+          emp.role === 'Verneombud' ? 'verneombud' :
+          emp.role === 'Tillitsvalgt' ? 'tillitsvalgt' : 'hms_ansvarlig'
+        rows.push({
+          employee: emp,
+          mandate: {
+            id: `derived-${emp.id}`,
+            mandateType,
+            startDate: emp.startDate ?? emp.createdAt,
+            lawRef: MANDATE_TYPE_LAW_REFS[mandateType],
+            scope: emp.unitName ?? 'Hele virksomheten',
+          },
+        })
+      }
+    }
+    return rows.sort((a, b) => a.employee.name.localeCompare(b.employee.name, 'nb'))
+  }, [org.displayEmployees])
+
   const insightStats = useMemo(() => {
     const byKind = org.units.reduce(
       (acc, u) => {
@@ -585,11 +676,13 @@ export function OrganisationPage() {
   }, [insightStats.byKind])
 
   const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: 'insights', label: 'Innsikt', icon: PieChart },
-    { id: 'employees', label: 'Ansatte', icon: Users },
-    { id: 'units', label: 'Enheter', icon: Building2 },
-    { id: 'groups', label: 'Brukergrupper', icon: UserCheck },
-    { id: 'settings', label: 'Innstillinger', icon: Settings2 },
+    { id: 'insights',   label: 'Oversikt',         icon: PieChart },
+    { id: 'employees',  label: 'Ansatte',           icon: Users },
+    { id: 'units',      label: 'Enheter',           icon: Building2 },
+    { id: 'groups',     label: 'Brukergrupper',     icon: UserCheck },
+    { id: 'mandates',   label: 'Roller & verv',     icon: Shield },
+    { id: 'gdpr',       label: 'GDPR & personvern', icon: Lock },
+    { id: 'settings',   label: 'Innstillinger',     icon: Settings2 },
   ]
 
   const orgTabItems = TABS.map((t) => ({
@@ -601,7 +694,7 @@ export function OrganisationPage() {
 
   const tabLabel = TABS.find((x) => x.id === tab)?.label ?? 'Organisasjon'
   const useStandardOrgList =
-    tab === 'insights' || tab === 'employees' || tab === 'units' || tab === 'groups'
+    tab === 'insights' || tab === 'employees' || tab === 'units' || tab === 'groups' || tab === 'mandates' || tab === 'gdpr'
 
   const orgHubMenuItems = useMemo((): HubMenu1Item[] => {
     return TABS.map((t) => ({
@@ -648,6 +741,10 @@ export function OrganisationPage() {
         }
       >
         <form id="org-emp-slide-form" onSubmit={submitEmpPanel} className="space-y-0">
+          <ComplianceBanner title="Personopplysninger (GDPR)">
+            Navn, e-post og telefon er personopplysninger behandlet med grunnlag i arbeidskontrakt (GDPR Art. 6 (1) b)
+            og arbeidsmiljøloven §§ 3-1, 6-1, 7-1. Ansatte har rett til innsyn, retting og sletting av egne data.
+          </ComplianceBanner>
           <div className={WPSTD_FORM_ROW_GRID}>
             <div>
               <h3 className="text-base font-semibold text-neutral-900">Grunnleggende</h3>
@@ -796,13 +893,32 @@ export function OrganisationPage() {
                     }
                     className={WPSTD_FORM_INPUT_ON_WHITE}
                   >
-                    {Object.entries(EMPLOYMENT_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
+                    {Object.entries(EMPLOYMENT_LABELS)
+                      .filter(([k]) => k !== 'contractor')
+                      .map(([k, v]) => (
+                        <option key={k} value={k}>{v}</option>
+                      ))}
                   </select>
+                  {AML_COUNTING_TYPES.has(empFormPanel.employmentType) ? (
+                    <p className="mt-1 text-[11px] text-emerald-700">Teller i AML-terskler (verneombud/AMU)</p>
+                  ) : (
+                    <p className="mt-1 text-[11px] text-neutral-500">Teller IKKE i AML-terskler</p>
+                  )}
                 </div>
+                {empFormPanel.employmentType === 'agency_worker' && (
+                  <div className="sm:col-span-2">
+                    <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-emp-agency">
+                      Bemanningsbyrå
+                    </label>
+                    <input
+                      id="org-emp-agency"
+                      value={empFormPanel.agencyName}
+                      onChange={(e) => setEmpFormPanel((f) => ({ ...f, agencyName: e.target.value }))}
+                      placeholder="Navn på bemanningsbyrå (AML § 14-12)"
+                      className={WPSTD_FORM_INPUT_ON_WHITE}
+                    />
+                  </div>
+                )}
                 <div>
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-emp-start">
                     Startdato
@@ -1249,8 +1365,8 @@ export function OrganisationPage() {
         {tab === 'insights' ? (
           <WorkplaceStandardListLayout
             className="!mt-0"
-            breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Organisasjon' }, { label: 'Innsikt' }]}
-            title="Innsikt"
+            breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Organisasjon' }, { label: 'Oversikt' }]}
+            title="Oversikt"
             description={
               <>
                 <p className="text-sm text-neutral-500">{memberHeadline}</p>
@@ -1266,6 +1382,14 @@ export function OrganisationPage() {
             contentClassName="!p-0"
           >
             <div className="space-y-6 p-4 md:p-6">
+              <InfoBox>
+                <span>
+                  <strong>Arbeidsmiljøloven (AML) — terskler:</strong> Verneombud er lovpålagt fra 5 ansatte (§ 6-1).
+                  AMU kan kreves av flertallet ved 10–29 ansatte, og er lovpålagt fra 30 ansatte (§ 7-1). Innleide
+                  fra bemanningsbyrå teller med. Beregningene nedenfor er veiledende — verifiser mot gjeldende lovdata.no
+                  og tariffavtale.
+                </span>
+              </InfoBox>
               <div className="grid gap-4 sm:grid-cols-2">
                 <OrgInsightTanStat
                   big={String(insightStats.members)}
@@ -1325,25 +1449,42 @@ export function OrganisationPage() {
                 <p className="text-sm font-semibold text-neutral-900">Samsvar (AML-terskler)</p>
                 <p className="text-[10px] font-bold uppercase text-neutral-500">Basert på antall ansatte i beregningen</p>
                 <p className="mt-1 text-sm text-neutral-600">Verneombud og AMU etter arbeidsmiljøloven.</p>
-                <div className="mt-5 space-y-3">
-                  {(
-                    [
-                      { label: 'Verneombud (§6-1)', v: ct.requiresVerneombud ? 1 : 0, c: ct.requiresVerneombud ? WORKPLACE_FOREST : '#d4d4d4' },
-                      { label: 'AMU kan kreves (10–29)', v: ct.mayRequestAmu ? 1 : 0, c: ct.mayRequestAmu ? '#ea580c' : '#d4d4d4' },
-                      { label: 'AMU lovpålagt (§7-1)', v: ct.requiresAmu ? 1 : 0, c: ct.requiresAmu ? '#2563eb' : '#d4d4d4' },
-                    ] as const
-                  ).map((row) => (
-                    <div key={row.label} className="flex items-center gap-3 text-sm">
-                      <span className="w-40 shrink-0 text-neutral-600 sm:w-44">{row.label}</span>
-                      <span className="w-6 tabular-nums font-semibold text-neutral-900">{row.v}</span>
-                      <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-neutral-100">
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: `${row.v * 100}%`, backgroundColor: row.c }}
-                        />
-                      </div>
+                <div className="mt-5 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-neutral-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-neutral-800">Verneombud (§ 6-1)</p>
+                      <p className="mt-0.5 text-xs text-neutral-500">Lovpålagt ved ≥ 5 ansatte</p>
                     </div>
-                  ))}
+                    {ct.requiresVerneombud ? (
+                      <Badge variant="success">Lovpålagt</Badge>
+                    ) : (
+                      <Badge variant="neutral">Under terskel</Badge>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-neutral-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-neutral-800">AMU kan kreves (§ 7-1)</p>
+                      <p className="mt-0.5 text-xs text-neutral-500">Flertallet kan kreve AMU ved 10–29 ansatte</p>
+                    </div>
+                    {ct.requiresAmu ? (
+                      <Badge variant="success">Lovpålagt</Badge>
+                    ) : ct.mayRequestAmu ? (
+                      <Badge variant="warning">Kan kreves</Badge>
+                    ) : (
+                      <Badge variant="neutral">Under terskel</Badge>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-neutral-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-neutral-800">AMU lovpålagt (§ 7-1)</p>
+                      <p className="mt-0.5 text-xs text-neutral-500">Automatisk krav ved ≥ 30 ansatte</p>
+                    </div>
+                    {ct.requiresAmu ? (
+                      <Badge variant="success">Lovpålagt</Badge>
+                    ) : (
+                      <Badge variant="neutral">Under terskel</Badge>
+                    )}
+                  </div>
                 </div>
               </OrgInsightWhiteCard>
             </div>
@@ -1446,6 +1587,30 @@ export function OrganisationPage() {
             overlay={orgStandardListOverlay}
             contentClassName="!p-0"
           >
+            {(() => {
+              const userEmail = (profile?.email ?? user?.email)?.trim().toLowerCase()
+              const myRecord = userEmail
+                ? org.displayEmployees.find((e) => e.email?.trim().toLowerCase() === userEmail)
+                : undefined
+              return myRecord ? (
+                <div className="border-b border-neutral-100 px-4 py-3 md:px-6">
+                  <InfoBox>
+                    Du er registrert som{' '}
+                    <strong>{myRecord.name}</strong>
+                    {myRecord.jobTitle ? ` — ${myRecord.jobTitle}` : ''}
+                    {myRecord.unitName ? ` · ${myRecord.unitName}` : ''}.{' '}
+                    <button
+                      type="button"
+                      onClick={() => setOrgSlidePanel({ kind: 'employee', mode: 'edit', emp: myRecord })}
+                      className="font-medium underline underline-offset-2 hover:no-underline"
+                    >
+                      Se dine opplysninger
+                    </button>
+                    {' '}— du kan be om retting ved å kontakte din administrator.
+                  </InfoBox>
+                </div>
+              ) : null
+            })()}
             {!hasAnyEmployees ? (
               <div className="flex flex-col items-center justify-center border border-dashed border-neutral-200 py-16 text-center">
                 <p className="text-sm text-neutral-500">Ingen ansatte ennå</p>
@@ -1484,7 +1649,16 @@ export function OrganisationPage() {
                       <th className={`${tableCell} font-medium`}>Ansatt</th>
                       <th className={`${tableCell} font-medium`}>Stilling / rolle</th>
                       <th className={`${tableCell} font-medium`}>Enhet</th>
-                      <th className={`${tableCell} font-medium`}>Kontakt</th>
+                      <th className={`${tableCell} font-medium`}>
+                        <span className="inline-flex items-center gap-1.5">
+                          Kontakt
+                          <Lock
+                            className="size-3 shrink-0 text-neutral-400"
+                            aria-label="Personopplysninger — synlig for administratorer"
+                            title="Personopplysninger — synlig for administratorer"
+                          />
+                        </span>
+                      </th>
                       <th className={`${tableCell} w-32 font-medium`}>Status</th>
                     </tr>
                   </thead>
@@ -1519,7 +1693,17 @@ export function OrganisationPage() {
                           </td>
                           <td className={tableCell}>
                             <div className="text-neutral-800">{emp.jobTitle ?? '—'}</div>
-                            {emp.role ? <div className="mt-0.5 text-xs text-neutral-500">{emp.role}</div> : null}
+                            {emp.role ? (
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                {MANDATE_ROLES[emp.role] ? (
+                                  <Badge variant={MANDATE_ROLES[emp.role].variant}>
+                                    {MANDATE_ROLES[emp.role].label}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-neutral-500">{emp.role}</span>
+                                )}
+                              </div>
+                            ) : null}
                           </td>
                           <td className={`${tableCell} text-neutral-700`}>{emp.unitName ?? '—'}</td>
                           <td className={`${tableCell} text-neutral-600`}>
@@ -1549,7 +1733,8 @@ export function OrganisationPage() {
               <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 md:p-6">
                 {sortedFilteredEmployees.map((emp) => {
                   const bg = avatarColor(emp.name)
-                  const roleLine = [emp.jobTitle, emp.role].filter(Boolean).join(' · ') || '—'
+                  const mandateDef = emp.role ? MANDATE_ROLES[emp.role] : undefined
+                  const roleLine = emp.jobTitle || (!mandateDef && emp.role) ? [emp.jobTitle, !mandateDef ? emp.role : undefined].filter(Boolean).join(' · ') : emp.jobTitle ?? '—'
                   return (
                     <button
                       key={emp.id}
@@ -1567,15 +1752,20 @@ export function OrganisationPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-neutral-900">{emp.name}</p>
-                          <p className="mt-1 text-sm text-neutral-600">{roleLine}</p>
+                          <p className="mt-1 text-sm text-neutral-600">{roleLine || '—'}</p>
                           <p className="mt-1 text-xs text-neutral-500">{emp.unitName ?? '—'}</p>
-                          <span
-                            className={`mt-2 inline-block rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                              emp.active ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-600'
-                            }`}
-                          >
-                            {emp.active ? 'Aktiv' : 'Inaktiv'}
-                          </span>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            <span
+                              className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                                emp.active ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-600'
+                              }`}
+                            >
+                              {emp.active ? 'Aktiv' : 'Inaktiv'}
+                            </span>
+                            {mandateDef ? (
+                              <Badge variant={mandateDef.variant}>{mandateDef.label}</Badge>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     </button>
@@ -1725,6 +1915,7 @@ export function OrganisationPage() {
                         <th className={`${tableCell} font-medium`}>Type</th>
                         <th className={`${tableCell} font-medium`}>Leder</th>
                         <th className={`${tableCell} w-28 font-medium`}>Ansatte</th>
+                        <th className={`${tableCell} w-12 font-medium`} />
                       </tr>
                     </thead>
                     <tbody>
@@ -1737,6 +1928,7 @@ export function OrganisationPage() {
                             key={unit.id}
                             role="button"
                             tabIndex={0}
+                            aria-label={`Rediger enhet ${unit.name}`}
                             onClick={() => openUnitPanel('edit', unit)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' || e.key === ' ') {
@@ -1744,7 +1936,7 @@ export function OrganisationPage() {
                                 openUnitPanel('edit', unit)
                               }
                             }}
-                            className={`${table1BodyRowClass(layout, rowIdx)} cursor-pointer hover:bg-neutral-50/50`}
+                            className={`group ${table1BodyRowClass(layout, rowIdx)} cursor-pointer hover:bg-neutral-50/50`}
                           >
                             <td className={tableCell}>
                               <div className="flex items-center gap-2" style={{ paddingLeft: pad }}>
@@ -1775,6 +1967,12 @@ export function OrganisationPage() {
                             <td className={`${tableCell} text-neutral-700`}>{KIND_LABELS[unit.kind]}</td>
                             <td className={`${tableCell} text-neutral-600`}>{unit.headName ?? unit.managerName ?? '—'}</td>
                             <td className={`${tableCell} tabular-nums text-neutral-700`}>{empHere}</td>
+                            <td className={`${tableCell} text-right`}>
+                              <Pencil
+                                className="size-3.5 text-neutral-300 opacity-0 transition group-hover:opacity-100"
+                                aria-hidden
+                              />
+                            </td>
                           </tr>
                         )
                       })}
@@ -1950,6 +2148,340 @@ export function OrganisationPage() {
         ) : null}
 
       <div className="mt-2 space-y-8">
+
+      {/* ── Roller & verv ────────────────────────────────────────────────────── */}
+      {tab === 'mandates' && (
+        <section className="w-full space-y-6">
+          <OrgInsightWhiteCard className="overflow-hidden p-0">
+            <div className="flex items-center gap-3 border-b border-neutral-100 px-5 py-4 md:px-6">
+              <Shield className="size-5 shrink-0 text-[#1a3d32]" />
+              <div>
+                <h2 className="text-lg font-semibold text-neutral-900">Formelle verv og mandater</h2>
+                <p className="mt-0.5 text-sm text-neutral-500">
+                  Lovpålagte representasjonsroller og valgperioder. Avledet fra ansattlisten — legg til formelle mandater per ansatt.
+                </p>
+              </div>
+            </div>
+            {allMandates.length === 0 ? (
+              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                <Shield className="mb-3 size-10 text-neutral-200" />
+                <p className="text-sm font-medium text-neutral-600">Ingen formelle verv registrert</p>
+                <p className="mt-1 text-xs text-neutral-400">
+                  Sett rolle til «Verneombud», «Tillitsvalgt» eller «HMS-ansvarlig» på ansatte for automatisk oppføring.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-neutral-100 bg-neutral-50/70 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                      <th className="px-5 py-3">Ansatt</th>
+                      <th className="px-4 py-3">Verv / mandat</th>
+                      <th className="px-4 py-3">Lovhjemmel</th>
+                      <th className="px-4 py-3">Omfang</th>
+                      <th className="px-4 py-3">Periode</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100">
+                    {allMandates.map(({ employee: emp, mandate: m }) => (
+                      <tr key={`${emp.id}-${m.id}`} className="hover:bg-neutral-50/60">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                              style={{ backgroundColor: avatarColor(emp.name) }}
+                            >
+                              {initials(emp.name)}
+                            </div>
+                            <div>
+                              <p className="font-medium text-neutral-900">{emp.name}</p>
+                              {emp.jobTitle ? (
+                                <p className="text-xs text-neutral-500">{emp.jobTitle}</p>
+                              ) : null}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            variant={
+                              m.mandateType === 'verneombud' || m.mandateType === 'hoved_verneombud' ? 'info' :
+                              m.mandateType === 'tillitsvalgt' ? 'warning' :
+                              m.mandateType === 'amu_arbeidstaker' || m.mandateType === 'amu_arbeidsgiver' || m.mandateType === 'amu_chair' ? 'success' :
+                              'neutral'
+                            }
+                          >
+                            {MANDATE_TYPE_LABELS[m.mandateType]}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-neutral-500">{m.lawRef}</td>
+                        <td className="px-4 py-3 text-xs text-neutral-700">{m.scope ?? '—'}</td>
+                        <td className="px-4 py-3 text-xs text-neutral-500">
+                          {m.startDate ? m.startDate.slice(0, 7) : '—'}
+                          {m.endDate ? ` → ${m.endDate.slice(0, 7)}` : ' →'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </OrgInsightWhiteCard>
+
+          <OrgInsightWhiteCard className="overflow-hidden p-0">
+            <div className="border-b border-neutral-100 px-5 py-4 md:px-6">
+              <h3 className="text-base font-semibold text-neutral-900">AML-oppsummering</h3>
+              <p className="mt-1 text-sm text-neutral-500">Oversikt over lovpålagte krav basert på antall ansatte.</p>
+            </div>
+            <div className="divide-y divide-neutral-100">
+              {[
+                {
+                  label: 'Verneombud',
+                  lawRef: 'AML § 6-1',
+                  required: org.complianceThresholds.requiresVerneombud,
+                  present: allMandates.some((r) => r.mandate.mandateType === 'verneombud' || r.mandate.mandateType === 'hoved_verneombud'),
+                  threshold: '≥ 5 ansatte',
+                },
+                {
+                  label: 'AMU (arbeidsmiljøutvalg)',
+                  lawRef: 'AML § 7-1',
+                  required: org.complianceThresholds.requiresAmu,
+                  present: allMandates.some((r) => r.mandate.mandateType === 'amu_arbeidstaker' || r.mandate.mandateType === 'amu_arbeidsgiver'),
+                  threshold: '≥ 30 ansatte (kan kreves fra 10)',
+                },
+                {
+                  label: 'HMS-ansvarlig / daglig leder',
+                  lawRef: 'AML § 3-1',
+                  required: true,
+                  present: allMandates.some((r) => r.mandate.mandateType === 'hms_ansvarlig'),
+                  threshold: 'Alle virksomheter',
+                },
+              ].map((row) => (
+                <div key={row.label} className="flex items-center justify-between px-5 py-3.5">
+                  <div>
+                    <p className="text-sm font-medium text-neutral-900">{row.label}</p>
+                    <p className="text-xs text-neutral-500">{row.lawRef} · {row.threshold}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {row.required ? (
+                      <Badge variant="warning">Lovpålagt</Badge>
+                    ) : (
+                      <Badge variant="neutral">Ikke krav</Badge>
+                    )}
+                    {row.present ? (
+                      <Badge variant="success">Registrert</Badge>
+                    ) : (
+                      <Badge variant="draft">Mangler</Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </OrgInsightWhiteCard>
+        </section>
+      )}
+
+      {/* ── GDPR & personvern ────────────────────────────────────────────────── */}
+      {tab === 'gdpr' && (
+        <section className="w-full space-y-6">
+          <ComplianceBanner title="Art. 30 — Behandlingsprotokoll">
+            GDPR Art. 30 krever at behandlingsansvarlig fører en protokoll over alle behandlingsaktiviteter. Dokumentet
+            nedenfor viser de viktigste behandlingene i organisasjonsmodulen. Last ned som PDF for å oppfylle krav fra
+            Datatilsynet ved tilsyn.
+          </ComplianceBanner>
+
+          {/* Art. 30 register */}
+          <OrgInsightWhiteCard className="overflow-hidden p-0">
+            <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4 md:px-6">
+              <div className="flex items-center gap-2.5">
+                <FileText className="size-4 text-neutral-500" />
+                <h2 className="text-base font-semibold text-neutral-900">Behandlingsprotokoll (Art. 30)</h2>
+              </div>
+              <Badge variant="info">Veiledende</Badge>
+            </div>
+            {[
+              {
+                name: 'Ansattregister',
+                purpose: 'Administrasjon av arbeidsforhold',
+                basis: 'GDPR Art. 6(1)(b) — nødvendig for arbeidskontrakt',
+                lawRef: 'AML §§ 3-1, 6-1, 7-1',
+                categories: 'Navn, e-post, telefon, stillingstittel, enhet, ansettelsestype, start-/sluttdato',
+                recipients: 'Arbeidstilsynet (ved tilsyn), intern HMS',
+                retention: '3 år etter ansettelsesslutt (HMS-data: 10 år)',
+                thirdCountry: false,
+              },
+              {
+                name: 'Brukergrupper',
+                purpose: 'Målretting av undersøkelser, opplæring og rapporter',
+                basis: 'GDPR Art. 6(1)(b) — nødvendig for arbeidsforholdets administrasjon',
+                lawRef: 'Intern prosess',
+                categories: 'Ansatt-ID, enhetstilknytning',
+                recipients: 'Interne moduler',
+                retention: 'Så lenge gruppen er aktiv + 1 år',
+                thirdCountry: false,
+              },
+              {
+                name: 'Verv og mandater',
+                purpose: 'Dokumentasjon av lovpålagte representasjonsroller',
+                basis: 'GDPR Art. 6(1)(c) — rettslig forpliktelse',
+                lawRef: 'AML § 6-1, § 7-1',
+                categories: 'Navn, rolle, valgperiode',
+                recipients: 'Arbeidstilsynet (ved tilsyn), AMU-protokoll',
+                retention: '5 år etter valgperiodens utløp',
+                thirdCountry: false,
+              },
+            ].map((row) => (
+              <div key={row.name} className="border-b border-neutral-100 px-5 py-4 last:border-b-0 md:px-6">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <h3 className="font-semibold text-neutral-900">{row.name}</h3>
+                  {row.thirdCountry ? (
+                    <Badge variant="warning">Tredjelandsoverføring</Badge>
+                  ) : (
+                    <Badge variant="success">Ingen tredjeland</Badge>
+                  )}
+                </div>
+                <div className="mt-3 grid gap-y-2 text-sm sm:grid-cols-2">
+                  <div><span className="text-[10px] font-bold uppercase text-neutral-400">Formål</span><p className="text-neutral-700">{row.purpose}</p></div>
+                  <div><span className="text-[10px] font-bold uppercase text-neutral-400">Behandlingsgrunnlag</span><p className="text-neutral-700">{row.basis}</p></div>
+                  <div><span className="text-[10px] font-bold uppercase text-neutral-400">Datakategorier</span><p className="text-neutral-700">{row.categories}</p></div>
+                  <div><span className="text-[10px] font-bold uppercase text-neutral-400">Mottakere</span><p className="text-neutral-700">{row.recipients}</p></div>
+                  <div><span className="text-[10px] font-bold uppercase text-neutral-400">Oppbevaringstid</span><p className="text-neutral-700">{row.retention}</p></div>
+                  <div><span className="text-[10px] font-bold uppercase text-neutral-400">Lovgrunnlag</span><p className="text-neutral-700">{row.lawRef}</p></div>
+                </div>
+              </div>
+            ))}
+          </OrgInsightWhiteCard>
+
+          {/* DPIA checklist */}
+          <OrgInsightWhiteCard className="overflow-hidden p-0">
+            <div className="border-b border-neutral-100 px-5 py-4 md:px-6">
+              <h2 className="text-base font-semibold text-neutral-900">DPIA-sjekkliste (Art. 35)</h2>
+              <p className="mt-1 text-sm text-neutral-500">
+                Dersom ≥ 2 av følgende gjelder, kan behandlingen kreve en konsekvensutredning (DPIA).
+              </p>
+            </div>
+            <div className="divide-y divide-neutral-100">
+              {[
+                { key: 'systematicMonitoring' as const, label: 'Systematisk overvåkning av ansatte', lawRef: 'GDPR Art. 35(3)(c)' },
+                { key: 'profiling' as const, label: 'Profilering eller automatiserte beslutninger', lawRef: 'GDPR Art. 35(3)(a)' },
+                { key: 'sensitiveCategories' as const, label: 'Behandling av særlige kategorier (fagforeningsmedlemskap, helse)', lawRef: 'GDPR Art. 35(3)(b)' },
+              ].map((item) => (
+                <label key={item.key} className="flex cursor-pointer items-start gap-3 px-5 py-4">
+                  <input
+                    type="checkbox"
+                    checked={dpiaAnswers[item.key]}
+                    onChange={(e) => setDpiaAnswers((prev) => ({ ...prev, [item.key]: e.target.checked }))}
+                    className="mt-0.5 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-neutral-900">{item.label}</p>
+                    <p className="text-xs text-neutral-500">{item.lawRef}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+            {Object.values(dpiaAnswers).filter(Boolean).length >= 2 ? (
+              <div className="border-t border-amber-200 bg-amber-50 px-5 py-4">
+                <p className="text-sm font-semibold text-amber-900">DPIA kan være påkrevd</p>
+                <p className="mt-1 text-sm text-amber-800">
+                  To eller flere faktorer er til stede. Gjennomfør en konsekvensutredning og dokumenter funnene i
+                  internkontrollmodulen (IK-ROS). Kontakt Datatilsynet ved tvil.
+                </p>
+                <a
+                  href="https://www.datatilsynet.no/rettigheter-og-plikter/virksomhetenes-plikter/vurdere-personvernkonsekvenser-dpia/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-amber-800 underline"
+                >
+                  Datatilsynets DPIA-veiledning <ExternalLink className="size-3" />
+                </a>
+              </div>
+            ) : (
+              <div className="border-t border-neutral-100 px-5 py-3">
+                <p className="text-xs text-neutral-500">Ingen DPIA-plikt avdekket basert på valgte faktorer.</p>
+              </div>
+            )}
+          </OrgInsightWhiteCard>
+
+          {/* Data retention policy */}
+          <OrgInsightWhiteCard className="overflow-hidden p-0">
+            <div className="border-b border-neutral-100 px-5 py-4 md:px-6">
+              <h2 className="text-base font-semibold text-neutral-900">Oppbevaringsregler (GDPR Art. 5(1)(e))</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[540px] border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-neutral-100 bg-neutral-50/70 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                    <th className="px-5 py-3">Datakategori</th>
+                    <th className="px-4 py-3">Oppbevaringstid</th>
+                    <th className="px-4 py-3">Lovgrunnlag</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {[
+                    { cat: 'Ansattregister (aktiv)', retention: 'Hele ansettelsesperioden', law: 'AML, GDPR Art. 6(1)(b)' },
+                    { cat: 'Ansattregister (inaktiv)', retention: `${org.settings.dataRetentionInactiveMonths ?? 36} mnd. etter sluttdato`, law: 'Reklamasjonsfrist, AML kap. 17' },
+                    { cat: 'Lønnsdata / A-ordning', retention: '10 år', law: 'Regnskapsloven § 13' },
+                    { cat: 'HMS-registre', retention: '10 år (yrkesskade: 30 år)', law: 'Arbeidsskadetrygdloven' },
+                    { cat: 'Auditlogg', retention: `${org.settings.dataRetentionAuditYears ?? 5} år`, law: 'Datatilsynets praksis' },
+                    { cat: 'Sykefravær', retention: '5 år', law: 'GDPR Art. 9, AML § 4-6' },
+                  ].map((row) => (
+                    <tr key={row.cat} className="hover:bg-neutral-50/60">
+                      <td className="px-5 py-3 font-medium text-neutral-900">{row.cat}</td>
+                      <td className="px-4 py-3 text-neutral-700">{row.retention}</td>
+                      <td className="px-4 py-3 text-xs text-neutral-500">{row.law}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </OrgInsightWhiteCard>
+
+          {/* Data subject rights */}
+          <OrgInsightWhiteCard className="overflow-hidden p-0">
+            <div className="border-b border-neutral-100 px-5 py-4 md:px-6">
+              <h2 className="text-base font-semibold text-neutral-900">Registrertes rettigheter (Art. 15–21)</h2>
+              <p className="mt-1 text-sm text-neutral-500">Ansatte kan utøve disse rettighetene. Send forespørsler til personvernombudet.</p>
+            </div>
+            <div className="divide-y divide-neutral-100">
+              {[
+                { art: 'Art. 15', right: 'Innsyn', desc: 'Ansatte har rett til å se hvilke opplysninger som er lagret om dem.' },
+                { art: 'Art. 16', right: 'Retting', desc: 'Ansatte kan kreve at feil opplysninger korrigeres.' },
+                { art: 'Art. 17', right: 'Sletting', desc: 'Ansatte kan be om sletting. Gjelder ikke data som oppbevares etter lovkrav.' },
+                { art: 'Art. 18', right: 'Begrensning', desc: 'Behandlingen kan begrenses mens en tvist pågår.' },
+                { art: 'Art. 20', right: 'Dataportabilitet', desc: 'Ansatte kan be om en maskinlesbar kopi av egne opplysninger.' },
+                { art: 'Art. 21', right: 'Innsigelse', desc: 'Ansatte kan protestere mot behandling basert på berettiget interesse.' },
+              ].map((row) => (
+                <div key={row.art} className="flex items-start gap-4 px-5 py-3.5">
+                  <span className="mt-0.5 shrink-0 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">{row.art}</span>
+                  <div>
+                    <p className="font-medium text-neutral-900">{row.right}</p>
+                    <p className="text-sm text-neutral-600">{row.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-neutral-100 bg-neutral-50/60 px-5 py-4">
+              <p className="text-sm text-neutral-600">
+                Personvernombud:{' '}
+                {org.settings.privacyOfficerEmail ? (
+                  <a href={`mailto:${org.settings.privacyOfficerEmail}`} className="font-medium text-[#1a3d32] underline">
+                    {org.settings.privacyOfficerEmail}
+                  </a>
+                ) : (
+                  <span className="italic text-neutral-400">Ikke konfigurert — fyll inn under Innstillinger</span>
+                )}
+              </p>
+            </div>
+          </OrgInsightWhiteCard>
+
+          {/* Disclaimer */}
+          <p className="text-xs text-neutral-400">
+            Informasjonen ovenfor er veiledende og ikke rettslig rådgivning. Verifiser mot gjeldende lovdata.no og
+            eventuelle avvik fra Datatilsynet. Sist oppdatert: 2026-05-01.
+          </p>
+        </section>
+      )}
+
       {/* ── Employees — legacy (standard layout brukes på Ansatte-fanen) ─────── */}
       {tab === 'employees' && !useStandardOrgList && (
         <section className="space-y-4">
@@ -2642,21 +3174,74 @@ export function OrganisationPage() {
               </div>
 
               <div className={SETTINGS_ROW_GRID}>
-                <p className={SETTINGS_LEAD}>Offisielt organisasjonsnummer (Brønnøysund) brukes ved behov i dokumenter og referanser.</p>
+                <div>
+                  <p className={SETTINGS_LEAD}>Offisielt organisasjonsnummer (Brønnøysund) brukes ved behov i dokumenter og referanser.</p>
+                  <p className="mt-2 text-xs text-neutral-400">Klikk «Hent fra Brreg» for å synkronisere navn, NACE og ansattall.</p>
+                </div>
                 <div>
                   <label className={SETTINGS_FIELD_LABEL} htmlFor="org-settings-orgnr">
                     Organisasjonsnummer
                   </label>
-                  <input
-                    id="org-settings-orgnr"
-                    value={org.settings.orgNumber ?? ''}
-                    onChange={(e) => org.updateSettings({ orgNumber: e.target.value || undefined })}
-                    placeholder="9 siffer"
-                    className={ORG_SETTINGS_INPUT}
-                    inputMode="numeric"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      id="org-settings-orgnr"
+                      value={org.settings.orgNumber ?? ''}
+                      onChange={(e) => org.updateSettings({ orgNumber: e.target.value || undefined })}
+                      placeholder="9 siffer"
+                      className={`${ORG_SETTINGS_INPUT} flex-1`}
+                      inputMode="numeric"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleBrregSync}
+                      disabled={brregSyncing || !org.settings.orgNumber}
+                      className="mt-1.5 flex shrink-0 items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <RefreshCw className={`size-3.5 ${brregSyncing ? 'animate-spin' : ''}`} />
+                      Hent fra Brreg
+                    </button>
+                  </div>
+                  {brregError && <p className="mt-1.5 text-xs text-red-600">{brregError}</p>}
+                  {brregSuccess && <p className="mt-1.5 text-xs text-emerald-700">Synkronisert fra Brønnøysundregistrene.</p>}
+                  {org.settings.brregSyncedAt && (
+                    <p className="mt-1 text-xs text-neutral-400">
+                      Sist synkronisert: {new Date(org.settings.brregSyncedAt).toLocaleDateString('nb-NO')}
+                    </p>
+                  )}
                 </div>
               </div>
+
+              {/* Brreg status panel — shown when we have synced data */}
+              {(org.settings.brregOrgForm || org.settings.brregNaceKode) && (
+                <div className={SETTINGS_ROW_GRID}>
+                  <p className={SETTINGS_LEAD}>Data hentet fra Brønnøysundregistrene (Enhetsregisteret).</p>
+                  <div className="rounded-md border border-neutral-200 bg-neutral-50/70 p-4 text-sm">
+                    <div className="grid grid-cols-2 gap-3">
+                      {org.settings.brregOrgForm && (
+                        <div>
+                          <p className={SETTINGS_FIELD_LABEL}>Selskapsform</p>
+                          <p className="mt-0.5 font-medium text-neutral-900">{org.settings.brregOrgForm}</p>
+                        </div>
+                      )}
+                      {org.settings.brregAntallAnsatte !== undefined && (
+                        <div>
+                          <p className={SETTINGS_FIELD_LABEL}>Ansatte (Brreg)</p>
+                          <p className="mt-0.5 font-medium text-neutral-900">{org.settings.brregAntallAnsatte}</p>
+                          {Math.abs((org.settings.brregAntallAnsatte ?? 0) - org.activeEmployees.length) > Math.ceil((org.settings.brregAntallAnsatte ?? 1) * 0.2) && (
+                            <p className="mt-0.5 text-[11px] text-amber-700">Avviker &gt;20% fra ansattlisten</p>
+                          )}
+                        </div>
+                      )}
+                      {org.settings.brregNaceKode && (
+                        <div className="col-span-2">
+                          <p className={SETTINGS_FIELD_LABEL}>Bransje (NACE)</p>
+                          <p className="mt-0.5 text-neutral-900">{org.settings.brregNaceKode} — {org.settings.brregNaceBeskrivelse}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className={SETTINGS_ROW_GRID}>
                 <p className={SETTINGS_LEAD}>
@@ -2780,6 +3365,109 @@ export function OrganisationPage() {
                   ) : null}
                 </div>
               </div>
+                </div>
+              </div>
+            </div>
+          </OrgInsightWhiteCard>
+
+          {/* A-ordning + GDPR admin settings */}
+          <OrgInsightWhiteCard className="overflow-hidden p-0">
+            <div className="border-b border-neutral-100 px-5 py-4 md:px-6">
+              <h2 className="text-lg font-semibold text-neutral-900">A-ordning og GDPR-innstillinger</h2>
+              <p className="mt-2 text-sm text-neutral-600">
+                Supplerende data for terskler og personvernhåndtering.
+              </p>
+            </div>
+            <div className="p-4 md:p-6">
+              <div className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white shadow-sm">
+                <div className="divide-y divide-neutral-200">
+
+                  <div className={SETTINGS_ROW_GRID}>
+                    <div>
+                      <p className={SETTINGS_LEAD}>Antall ansatte fra siste A-melding til Skatteetaten/NAV/SSB (manuell oppdatering).</p>
+                      <a
+                        href="https://www.altinn.no"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 text-xs text-[#1a3d32] underline"
+                      >
+                        Åpne Altinn <ExternalLink className="size-3" />
+                      </a>
+                    </div>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="org-aordning-count">
+                        A-ordning ansattall
+                      </label>
+                      <input
+                        id="org-aordning-count"
+                        type="number"
+                        min={0}
+                        value={org.settings.aOrdningAntallAnsatte ?? ''}
+                        onChange={(e) => org.updateSettings({ aOrdningAntallAnsatte: e.target.value ? Number(e.target.value) : undefined, aOrdningUpdatedAt: new Date().toISOString() })}
+                        placeholder="Antall"
+                        className={ORG_SETTINGS_INPUT}
+                      />
+                      {org.settings.aOrdningUpdatedAt && (
+                        <p className="mt-1 flex items-center gap-1 text-xs text-neutral-400">
+                          <Calendar className="size-3" />
+                          Oppdatert: {new Date(org.settings.aOrdningUpdatedAt).toLocaleDateString('nb-NO')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={SETTINGS_ROW_GRID}>
+                    <p className={SETTINGS_LEAD}>E-post til personvernombudet (DPO) eller ansvarlig for GDPR-forespørsler i virksomheten.</p>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="org-dpo-email">
+                        Personvernombud (e-post)
+                      </label>
+                      <input
+                        id="org-dpo-email"
+                        type="email"
+                        value={org.settings.privacyOfficerEmail ?? ''}
+                        onChange={(e) => org.updateSettings({ privacyOfficerEmail: e.target.value || undefined })}
+                        placeholder="personvern@virksomheten.no"
+                        className={ORG_SETTINGS_INPUT}
+                      />
+                    </div>
+                  </div>
+
+                  <div className={SETTINGS_ROW_GRID}>
+                    <p className={SETTINGS_LEAD}>Hvor lenge skal inaktive ansattoppføringer bevares etter sluttdato? GDPR Art. 5(1)(e) krever begrensning.</p>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="org-retention-inactive">
+                        Oppbevaringstid inaktive ansatte (måneder)
+                      </label>
+                      <input
+                        id="org-retention-inactive"
+                        type="number"
+                        min={0}
+                        max={120}
+                        value={org.settings.dataRetentionInactiveMonths ?? 36}
+                        onChange={(e) => org.updateSettings({ dataRetentionInactiveMonths: Number(e.target.value) || 36 })}
+                        className={ORG_SETTINGS_INPUT}
+                      />
+                      <p className="mt-1 text-xs text-neutral-400">Standard: 36 måneder (3 år) — reklamasjonsfrist</p>
+                    </div>
+                  </div>
+
+                  <div className={SETTINGS_ROW_GRID}>
+                    <p className={SETTINGS_LEAD}>Referanse til databehandleravtale (DPA) med eventuelle databehandlere (leverandører, HR-system).</p>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="org-dpa-ref">
+                        DPA-referanse
+                      </label>
+                      <input
+                        id="org-dpa-ref"
+                        value={org.settings.dpaDocumentRef ?? ''}
+                        onChange={(e) => org.updateSettings({ dpaDocumentRef: e.target.value || undefined })}
+                        placeholder="f.eks. DPA-2026-001 eller lenke til dokument"
+                        className={ORG_SETTINGS_INPUT}
+                      />
+                    </div>
+                  </div>
+
                 </div>
               </div>
             </div>

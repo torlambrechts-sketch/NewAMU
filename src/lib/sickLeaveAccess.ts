@@ -26,8 +26,10 @@ export function canViewSickLeaveCase(
 
   if (ctx.viewerJobHint && VO_HINTS.test(ctx.viewerJobHint)) return false
 
+  // Legacy records (no employeeId or managerEmployeeId) were previously open to all users.
+  // Sick leave is GDPR Art. 9 health data — legacy records are now admin-only pending migration.
   const legacy = !sc.managerEmployeeId && !sc.employeeId
-  if (legacy) return true
+  if (legacy) return false
 
   if (!ctx.viewerEmployeeId) return false
 

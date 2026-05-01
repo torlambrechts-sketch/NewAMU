@@ -130,18 +130,18 @@ export function useWhistleblowing() {
 
   const updateStatus = useCallback(
     async (caseId: string, status: WhistleblowingCaseStatus) => {
-      if (!supabase) return
+      if (!supabase || !canAccessVault) return
       setError(null)
       const { error: u } = await supabase.from('whistleblowing_cases').update({ status }).eq('id', caseId)
       if (u) setError(getSupabaseErrorMessage(u))
       else await refresh()
     },
-    [supabase, refresh],
+    [supabase, canAccessVault, refresh],
   )
 
   const closeCase = useCallback(
     async (caseId: string, closingSummary: string) => {
-      if (!supabase) return
+      if (!supabase || !canAccessVault) return
       setError(null)
       const { error: u } = await supabase
         .from('whistleblowing_cases')
@@ -154,7 +154,7 @@ export function useWhistleblowing() {
       if (u) setError(getSupabaseErrorMessage(u))
       else await refresh()
     },
-    [supabase, refresh],
+    [supabase, canAccessVault, refresh],
   )
 
   const appendNote = useCallback(

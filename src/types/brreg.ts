@@ -18,4 +18,18 @@ export type BrregEnhet = {
   epostadresse?: string
   konkurs?: boolean
   underAvvikling?: boolean
+  /** Official employee count as registered in Enhetsregisteret */
+  antallAnsatte?: number
+  /** Primary NACE industry code */
+  naeringskode1?: { kode?: string; beskrivelse?: string }
+  /** Secondary NACE industry code */
+  naeringskode2?: { kode?: string; beskrivelse?: string }
+  /** Institutional sector code */
+  institusjonellSektorkode?: { kode?: string; beskrivelse?: string }
+  /** Date of incorporation / founding */
+  stiftelsesdato?: string
+  /** Date first registered in Enhetsregisteret */
+  registreringsdatoEnhetsregisteret?: string
+  registrertIForetaksregisteret?: boolean
+  registrertIMvaRegisteret?: boolean
 }
