@@ -7,6 +7,7 @@ import type { Course, CourseStatus } from '../../types/learning'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
+import { LearningPrivacyNotice } from '../../components/learning/LearningPrivacyNotice'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
@@ -192,6 +193,8 @@ export function LearningCoursesList() {
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
       ) : null}
       {learningLoading ? <p className="text-sm text-neutral-500">Laster kurs…</p> : null}
+
+      {!learningError ? <LearningPrivacyNotice /> : null}
 
       {canManage ? (
         <form

@@ -66,6 +66,7 @@ import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
 import { LearningComplianceMatrix } from './pages/learning/LearningComplianceMatrix'
 import { LearningPathsPage } from './pages/learning/LearningPathsPage'
 import { LearningExternalTraining } from './pages/learning/LearningExternalTraining'
+import { LearningCertificatePrintPage } from './pages/learning/LearningCertificatePrintPage'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
 import { DocumentsMalbibliotekPage } from './pages/documents/DocumentsMalbibliotekPage'
 import { WikiSpaceView } from './pages/documents/WikiSpaceView'
@@ -276,6 +277,7 @@ const router = createBrowserRouter(
                       <Route path="admin" element={<Navigate to="/organisation/admin" replace />} />
                       <Route path="profile" element={<ProfilePage />} />
                       <Route path="learning/play/:courseId" element={<LearningPlayer />} />
+                      <Route path="learning/certificates/:certId/print" element={<LearningCertificatePrintPage />} />
                       <Route path="learning/flow" element={<LearningFlowEntry />} />
                       <Route path="learning" element={<LearningLayout />}>
                         <Route index element={<LearningDashboard />} />

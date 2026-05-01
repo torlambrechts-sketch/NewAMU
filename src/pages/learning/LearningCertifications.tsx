@@ -1,5 +1,6 @@
 import { Award } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useLearning } from '../../hooks/useLearning'
 import { StandardInput } from '../../components/ui/Input'
 import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
@@ -80,6 +81,7 @@ export function LearningCertifications() {
                 <th className={LAYOUT_TABLE1_POSTINGS_TH}>Dato</th>
                 <th className={LAYOUT_TABLE1_POSTINGS_TH}>Versjon</th>
                 <th className={LAYOUT_TABLE1_POSTINGS_TH}>Verifiseringskode</th>
+                <th className={LAYOUT_TABLE1_POSTINGS_TH} />
               </tr>
             </thead>
             <tbody>
@@ -92,6 +94,14 @@ export function LearningCertifications() {
                   </td>
                   <td className={`${LAYOUT_TABLE1_POSTINGS_TD} text-xs text-neutral-500`}>{c.courseVersion ?? '—'}</td>
                   <td className={`${LAYOUT_TABLE1_POSTINGS_TD} font-mono text-xs`}>{c.verifyCode}</td>
+                  <td className={LAYOUT_TABLE1_POSTINGS_TD}>
+                    <Link
+                      to={`/learning/certificates/${c.id}/print`}
+                      className="text-xs font-medium text-emerald-800 underline"
+                    >
+                      Skriv ut
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>

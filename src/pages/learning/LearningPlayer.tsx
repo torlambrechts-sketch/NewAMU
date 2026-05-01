@@ -11,6 +11,7 @@ import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
 import { ToggleSwitch } from '../../components/ui/FormToggles'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
 import { normalizeModuleHtml } from '../../lib/richTextDisplay'
+import { LearningPrivacyNotice } from '../../components/learning/LearningPrivacyNotice'
 
 function ProgressBar({ value, label }: { value: number; label?: string }) {
   const pct = Math.round(Math.min(100, Math.max(0, value * 100)))
@@ -40,7 +41,7 @@ const KIND_LABELS: Record<string, string> = {
 export function LearningPlayer() {
   const { courseId } = useParams<{ courseId: string }>()
   const [searchParams] = useSearchParams()
-  const { can, supabase, organization, profile } = useOrgSetupContext()
+  const { can, supabase, organization, profile, supabaseConfigured } = useOrgSetupContext()
   const canManageLearning = can('learning.manage')
   const {
     courses,
@@ -152,6 +153,8 @@ export function LearningPlayer() {
     ? certificates.some((c) => c.courseId === course.id)
     : false
 
+  const certNameLocked = Boolean(supabaseConfigured && profile?.display_name?.trim())
+
   useEffect(() => {
     if (hasCert) queueMicrotask(() => setCertFeedback(null))
   }, [hasCert])
@@ -211,8 +214,9 @@ export function LearningPlayer() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-      <nav className="text-sm">
+      <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
+        <LearningPrivacyNotice />
+        <nav className="text-sm">
         <Link to="/learning/courses" className="text-[#1a3d32] hover:underline">
           ← Kurs
         </Link>
@@ -351,8 +355,9 @@ export function LearningPlayer() {
           <div className="rounded-lg border border-[#c5d3c8] bg-[#e7efe9] p-5">
             <h3 className="font-semibold text-[#2D403A]">Kursbevis</h3>
             <p className="mt-1 text-sm text-[#6b6f68]">
-              Fullfør hver modul med knappen inne i modulen. Når du er ferdig, kontroller navnet på kursbeviset (hentes
-              fra profilen din når du er innlogget) og trykk «Hent kursbevis».
+              {certNameLocked
+                ? 'Fullfør hver modul med knappen inne i modulen. Navn på kursbeviset hentes fra profilen din og kan ikke endres her.'
+                : 'Fullfør hver modul med knappen inne i modulen. Når du er ferdig, skriv inn navnet som skal stå på kursbeviset (demo / uten organisasjon).'}
             </p>
             {certFeedback?.kind === 'success' ? (
               <div className="mt-3">
@@ -379,7 +384,7 @@ export function LearningPlayer() {
                     setCertFeedback(null)
                   }}
                   placeholder="Fullt navn på kursbeviset"
-                  disabled={!modulesComplete || hasCert}
+                  disabled={!modulesComplete || hasCert || certNameLocked}
                 />
               </div>
               <Button

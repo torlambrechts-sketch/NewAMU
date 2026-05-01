@@ -88,14 +88,16 @@ Fullført. Se **`eval/learning/PHASE_B_QUEUE.md`** for detaljer og grep for veri
 
 Se **`eval/learning/PHASE_C_QUEUE.md`**.
 
-### Fase D — Samsvar og pedagogikk (UI + backend der nødvendig)
+### Fase D — Samsvar og pedagogikk (UI + backend der nødvendig) ✅
 
-| # | Oppgave | Kilde |
+| # | Oppgave | Status |
 |---|---------|--------|
-| D1 | Personvernboks første besøk (sessionStorage) | `eval/compliance/05_gaps_and_actions.md` GAP-C08 |
-| D2 | `ComplianceBanner` på relevant admin-/oversiktsside | `DESIGN_SYSTEM.md` |
-| D3 | Autoutfyll navn fra profil + begrens fritekst i prod | `eval/compliance/03_data_privacy.md` |
-| D4 | Utskriftsvennlig kursbevis / eksport (UI-kroker) | `eval/compliance/04`, `05` |
+| D1 | Personvernmerknad (sessionStorage) | `LearningPrivacyNotice` + `learningPrivacyAck.ts` |
+| D2 | `ComplianceBanner` | Dashboard (fase C) |
+| D3 | Navn på kursbevis låst i prod | `LearningPlayer` + `supabaseConfigured` |
+| D4 | Utskriftsvisning kursbevis | `/learning/certificates/:certId/print` |
+
+Se **`eval/learning/PHASE_D_QUEUE.md`**.
 
 ---
 
@@ -106,7 +108,7 @@ Se **`eval/learning/PHASE_C_QUEUE.md`**.
 - [x] `grep` på `components/ui` i learning: **0 treff**.
 - [x] `grep` på rå `<button|<input|<textarea|<select` i learning: **telling dokumentert**.
 - [x] `grep` på `alert`, `Certificate issued`, `Workspace`, `spaced repetition` i learning: **avvik bekreftet**.
-- [x] `useLearning.ts`: `departmentLeaderboard` bygges uten k-filter — samsvar med compliance-gap.
+- [x] Fase D: personvernmerknad, utskriftsbevis, låst navn i prod-spiller
 
 ---
 
