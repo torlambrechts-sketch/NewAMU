@@ -1807,7 +1807,7 @@ function SurveyCreator({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              placeholder={selectedTemplate?.use_case}
+              placeholder={selectedTemplate?.use_case ?? undefined}
               className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
             />
           </div>
