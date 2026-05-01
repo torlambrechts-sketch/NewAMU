@@ -3,7 +3,7 @@ import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { Button } from '../../components/ui/Button'
-import { NumberSpinner, ToggleSwitch } from '../../components/ui/FormToggles'
+import { ToggleSwitch } from '../../components/ui/FormToggles'
 import { StandardInput } from '../../components/ui/Input'
 import { StandardTextarea } from '../../components/ui/Textarea'
 
