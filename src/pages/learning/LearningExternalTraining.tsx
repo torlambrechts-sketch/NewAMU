@@ -33,6 +33,11 @@ export function LearningExternalTraining() {
       setMsg('Tittel og fil er påkrevd.')
       return
     }
+    const ALLOWED_MIME = ['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp']
+    if (!ALLOWED_MIME.includes(file.type)) {
+      setMsg('Kun PDF og bildefiler er tillatt.')
+      return
+    }
     void (async () => {
       setUploading(true)
       const r = await submitExternalCertificate({

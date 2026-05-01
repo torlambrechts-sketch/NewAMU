@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, BookOpen, CheckCircle2, Flame } from 'lucide-react'
+import { useMemo } from 'react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { CREAM, PIN_GREEN } from '../../components/learning/LearningLayout'
@@ -87,6 +88,11 @@ export function LearningDashboard() {
   const ringPublished = stats.published / maxCourses
   const ringEnrolled = Math.min(1, stats.enrolled / maxCourses)
   const ringCert = Math.min(1, stats.certs / Math.max(1, stats.enrolled || 1))
+
+  const departmentLeaderboardPublic = useMemo(
+    () => departmentLeaderboard.filter((d) => d.memberCount >= 5),
+    [departmentLeaderboard],
+  )
 
   return (
     <div className="space-y-8">
@@ -176,7 +182,7 @@ export function LearningDashboard() {
         </section>
       ) : null}
 
-      {departmentLeaderboard.length > 0 ? (
+      {departmentLeaderboardPublic.length > 0 ? (
         <section className="rounded-xl border border-[#e3ddcc] bg-[#fbf9f3] p-5">
           <h2 className="font-serif text-lg font-semibold text-[#2D403A]">Avdelinger (aggregert)</h2>
           <p className="mt-1 text-sm text-neutral-600">
@@ -184,7 +190,7 @@ export function LearningDashboard() {
             Koble brukere til avdeling i profilen for full effekt.
           </p>
           <ul className="mt-4 space-y-2">
-            {departmentLeaderboard.map((d) => (
+            {departmentLeaderboardPublic.map((d) => (
               <li
                 key={d.departmentId}
                 className="flex items-center justify-between rounded-lg border border-neutral-100 px-3 py-2 text-sm"
@@ -196,6 +202,9 @@ export function LearningDashboard() {
               </li>
             ))}
           </ul>
+          <p className="mt-3 text-xs text-neutral-600">
+            Avdelinger med færre enn 5 medarbeidere vises ikke for å ivareta personvern (GDPR art. 5).
+          </p>
         </section>
       ) : null}
 
