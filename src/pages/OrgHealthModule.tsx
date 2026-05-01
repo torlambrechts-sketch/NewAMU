@@ -21,7 +21,10 @@ import { Table1Shell } from '../components/layout/Table1Shell'
 import { Table1Toolbar } from '../components/layout/Table1Toolbar'
 import { AML_REPORT_KINDS, labelForAmlReportKind } from '../data/amlAnonymousReporting'
 import { definitionForKey } from '../data/orgHealthMetrics'
-import { ALL_SURVEY_TEMPLATES, TEMPLATE_CATEGORIES } from '../data/surveyTemplates'
+import {
+  TEMPLATE_CATEGORIES,
+  type SurveyTemplateCatalogRow,
+} from '../../modules/survey/surveyTemplateCatalogTypes'
 import { useDocuments } from '../hooks/useDocuments'
 import { useOrgHealth, type SurveyCloseSideEffect } from '../hooks/useOrgHealth'
 import { useWorkplaceReportingCases } from '../hooks/useWorkplaceReportingCases'
@@ -1649,20 +1652,36 @@ function SurveyCreator({
   onCreated?: (id: string) => void
 }) {
   const org = useOrganisation()
+  const { supabase } = useOrgSetupContext()
+
+  const [dbTemplates, setDbTemplates] = useState<SurveyTemplateCatalogRow[]>([])
+  useEffect(() => {
+    if (!supabase) return
+    void supabase
+      .from('survey_template_catalog')
+      .select('id,name,short_name,description,source,category,audience,estimated_minutes,recommend_anonymous,scoring_note,body,is_system,is_active')
+      .eq('is_system', true)
+      .eq('is_active', true)
+      .then(({ data }) => { if (data) setDbTemplates(data as SurveyTemplateCatalogRow[]) })
+  }, [supabase])
 
   const [mode, setMode] = useState<'template' | 'custom'>('template')
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(ALL_SURVEY_TEMPLATES[0].id)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [anonymous, setAnonymous] = useState(true)
   const [targetGroupId, setTargetGroupId] = useState(org.groups[0]?.id ?? '')
 
-  const filteredTemplates = categoryFilter === 'all'
-    ? ALL_SURVEY_TEMPLATES
-    : ALL_SURVEY_TEMPLATES.filter((t) => t.category === categoryFilter)
+  useEffect(() => {
+    if (dbTemplates.length > 0 && !selectedTemplateId) setSelectedTemplateId(dbTemplates[0].id)
+  }, [dbTemplates, selectedTemplateId])
 
-  const selectedTemplate = ALL_SURVEY_TEMPLATES.find((t) => t.id === selectedTemplateId)
+  const filteredTemplates = categoryFilter === 'all'
+    ? dbTemplates
+    : dbTemplates.filter((t) => t.category === categoryFilter)
+
+  const selectedTemplate = dbTemplates.find((t) => t.id === selectedTemplateId)
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -1670,11 +1689,21 @@ function SurveyCreator({
     const group = org.groups.find((g) => g.id === targetGroupId)
 
     if (mode === 'template' && selectedTemplate) {
+      const qs: SurveyQuestion[] = selectedTemplate.body.questions.map((q) => ({
+        id: q.id,
+        text: q.text,
+        type: (['likert_5', 'likert_7', 'scale_10', 'yes_no', 'text'] as const).includes(q.type as never)
+          ? (q.type as SurveyQuestion['type'])
+          : 'text',
+        required: q.required,
+        ...(q.subscale ? { subscale: q.subscale } : {}),
+        ...(q.anchors ? { anchors: q.anchors } : {}),
+      }))
       const s = oh.createSurveyFromTemplate(
         selectedTemplate.id,
-        selectedTemplate.questions as SurveyQuestion[],
+        qs,
         displayTitle,
-        description || selectedTemplate.description,
+        description || (selectedTemplate.description ?? ''),
         anonymous,
         targetGroupId || undefined,
         group ? org.getGroupLabel(group) : undefined,
@@ -1733,17 +1762,17 @@ function SurveyCreator({
                   <button
                     key={tpl.id}
                     type="button"
-                    onClick={() => { setSelectedTemplateId(tpl.id); setAnonymous(tpl.recommendAnonymous) }}
+                    onClick={() => { setSelectedTemplateId(tpl.id); setAnonymous(tpl.recommend_anonymous) }}
                     className={`rounded-xl border p-4 text-left transition-all ${selectedTemplateId === tpl.id ? 'border-[#1a3d32] bg-[#1a3d32]/5 ring-1 ring-[#1a3d32]' : 'border-neutral-200 hover:border-neutral-300'}`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <span className="font-semibold text-sm text-neutral-900">{tpl.shortName}</span>
-                      <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] text-neutral-500">~{tpl.estimatedMinutes} min</span>
+                      <span className="font-semibold text-sm text-neutral-900">{tpl.short_name ?? tpl.name}</span>
+                      <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] text-neutral-500">~{tpl.estimated_minutes} min</span>
                     </div>
                     <p className="mt-1 text-xs text-neutral-600 line-clamp-2">{tpl.description}</p>
                     <div className="mt-2 flex flex-wrap gap-1">
-                      <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-500">{tpl.questions.length} spørsmål</span>
-                      {tpl.recommendAnonymous && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">Anbefalt anonym</span>}
+                      <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-500">{tpl.body.questions.length} spørsmål</span>
+                      {tpl.recommend_anonymous && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">Anbefalt anonym</span>}
                     </div>
                     <p className="mt-1.5 text-[10px] text-neutral-400 italic">{tpl.source}</p>
                   </button>
@@ -1751,9 +1780,9 @@ function SurveyCreator({
               </div>
 
               {/* Selected template scoring info */}
-              {selectedTemplate && (
+              {selectedTemplate?.scoring_note && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-                  <strong>Scoringveiledning:</strong> {selectedTemplate.scoringNote}
+                  <strong>Scoringveiledning:</strong> {selectedTemplate.scoring_note}
                 </div>
               )}
             </>
