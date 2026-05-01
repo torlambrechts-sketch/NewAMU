@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   LayoutGrid,
   List,
+  Lock,
   Mail,
   Pencil,
   Phone,
@@ -21,6 +22,9 @@ import {
   ChevronRight,
   ChevronDown,
 } from 'lucide-react'
+import { Badge } from '../components/ui/Badge'
+import { InfoBox } from '../components/ui/AlertBox'
+import { ComplianceBanner } from '../components/ui/ComplianceBanner'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { OrganisationHeaderIllustration } from '../components/organisation/OrganisationHeaderIllustration'
@@ -130,6 +134,14 @@ const SETTINGS_FIELD_LABEL_ON_DARK = 'text-[10px] font-bold uppercase tracking-w
 /** Inndata på mørk bakgrunn — hvitt felt */
 const SETTINGS_INPUT_ON_DARK =
   'mt-1.5 w-full rounded-none border border-white/25 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-white focus:outline-none focus:ring-1 focus:ring-white'
+
+// ─── Mandate badge helper ─────────────────────────────────────────────────────
+// Returns a Badge for roles that carry a formal statutory mandate.
+const MANDATE_ROLES: Record<string, { label: string; variant: 'info' | 'warning' | 'success' }> = {
+  Verneombud:   { label: 'Verneombud',   variant: 'info' },
+  Tillitsvalgt: { label: 'Tillitsvalgt', variant: 'warning' },
+  'HMS-ansvarlig': { label: 'HMS-ansvarlig', variant: 'success' },
+}
 
 // ─── Avatar helper ────────────────────────────────────────────────────────────
 
@@ -585,7 +597,7 @@ export function OrganisationPage() {
   }, [insightStats.byKind])
 
   const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: 'insights', label: 'Innsikt', icon: PieChart },
+    { id: 'insights', label: 'Oversikt', icon: PieChart },
     { id: 'employees', label: 'Ansatte', icon: Users },
     { id: 'units', label: 'Enheter', icon: Building2 },
     { id: 'groups', label: 'Brukergrupper', icon: UserCheck },
@@ -648,6 +660,10 @@ export function OrganisationPage() {
         }
       >
         <form id="org-emp-slide-form" onSubmit={submitEmpPanel} className="space-y-0">
+          <ComplianceBanner title="Personopplysninger (GDPR)">
+            Navn, e-post og telefon er personopplysninger behandlet med grunnlag i arbeidskontrakt (GDPR Art. 6 (1) b)
+            og arbeidsmiljøloven §§ 3-1, 6-1, 7-1. Ansatte har rett til innsyn, retting og sletting av egne data.
+          </ComplianceBanner>
           <div className={WPSTD_FORM_ROW_GRID}>
             <div>
               <h3 className="text-base font-semibold text-neutral-900">Grunnleggende</h3>
@@ -1249,8 +1265,8 @@ export function OrganisationPage() {
         {tab === 'insights' ? (
           <WorkplaceStandardListLayout
             className="!mt-0"
-            breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Organisasjon' }, { label: 'Innsikt' }]}
-            title="Innsikt"
+            breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Organisasjon' }, { label: 'Oversikt' }]}
+            title="Oversikt"
             description={
               <>
                 <p className="text-sm text-neutral-500">{memberHeadline}</p>
@@ -1266,6 +1282,14 @@ export function OrganisationPage() {
             contentClassName="!p-0"
           >
             <div className="space-y-6 p-4 md:p-6">
+              <InfoBox>
+                <span>
+                  <strong>Arbeidsmiljøloven (AML) — terskler:</strong> Verneombud er lovpålagt fra 5 ansatte (§ 6-1).
+                  AMU kan kreves av flertallet ved 10–29 ansatte, og er lovpålagt fra 30 ansatte (§ 7-1). Innleide
+                  fra bemanningsbyrå teller med. Beregningene nedenfor er veiledende — verifiser mot gjeldende lovdata.no
+                  og tariffavtale.
+                </span>
+              </InfoBox>
               <div className="grid gap-4 sm:grid-cols-2">
                 <OrgInsightTanStat
                   big={String(insightStats.members)}
@@ -1325,25 +1349,42 @@ export function OrganisationPage() {
                 <p className="text-sm font-semibold text-neutral-900">Samsvar (AML-terskler)</p>
                 <p className="text-[10px] font-bold uppercase text-neutral-500">Basert på antall ansatte i beregningen</p>
                 <p className="mt-1 text-sm text-neutral-600">Verneombud og AMU etter arbeidsmiljøloven.</p>
-                <div className="mt-5 space-y-3">
-                  {(
-                    [
-                      { label: 'Verneombud (§6-1)', v: ct.requiresVerneombud ? 1 : 0, c: ct.requiresVerneombud ? WORKPLACE_FOREST : '#d4d4d4' },
-                      { label: 'AMU kan kreves (10–29)', v: ct.mayRequestAmu ? 1 : 0, c: ct.mayRequestAmu ? '#ea580c' : '#d4d4d4' },
-                      { label: 'AMU lovpålagt (§7-1)', v: ct.requiresAmu ? 1 : 0, c: ct.requiresAmu ? '#2563eb' : '#d4d4d4' },
-                    ] as const
-                  ).map((row) => (
-                    <div key={row.label} className="flex items-center gap-3 text-sm">
-                      <span className="w-40 shrink-0 text-neutral-600 sm:w-44">{row.label}</span>
-                      <span className="w-6 tabular-nums font-semibold text-neutral-900">{row.v}</span>
-                      <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-neutral-100">
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: `${row.v * 100}%`, backgroundColor: row.c }}
-                        />
-                      </div>
+                <div className="mt-5 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-neutral-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-neutral-800">Verneombud (§ 6-1)</p>
+                      <p className="mt-0.5 text-xs text-neutral-500">Lovpålagt ved ≥ 5 ansatte</p>
                     </div>
-                  ))}
+                    {ct.requiresVerneombud ? (
+                      <Badge variant="success">Lovpålagt</Badge>
+                    ) : (
+                      <Badge variant="neutral">Under terskel</Badge>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-neutral-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-neutral-800">AMU kan kreves (§ 7-1)</p>
+                      <p className="mt-0.5 text-xs text-neutral-500">Flertallet kan kreve AMU ved 10–29 ansatte</p>
+                    </div>
+                    {ct.requiresAmu ? (
+                      <Badge variant="success">Lovpålagt</Badge>
+                    ) : ct.mayRequestAmu ? (
+                      <Badge variant="warning">Kan kreves</Badge>
+                    ) : (
+                      <Badge variant="neutral">Under terskel</Badge>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-neutral-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-neutral-800">AMU lovpålagt (§ 7-1)</p>
+                      <p className="mt-0.5 text-xs text-neutral-500">Automatisk krav ved ≥ 30 ansatte</p>
+                    </div>
+                    {ct.requiresAmu ? (
+                      <Badge variant="success">Lovpålagt</Badge>
+                    ) : (
+                      <Badge variant="neutral">Under terskel</Badge>
+                    )}
+                  </div>
                 </div>
               </OrgInsightWhiteCard>
             </div>
@@ -1446,6 +1487,30 @@ export function OrganisationPage() {
             overlay={orgStandardListOverlay}
             contentClassName="!p-0"
           >
+            {(() => {
+              const userEmail = (profile?.email ?? user?.email)?.trim().toLowerCase()
+              const myRecord = userEmail
+                ? org.displayEmployees.find((e) => e.email?.trim().toLowerCase() === userEmail)
+                : undefined
+              return myRecord ? (
+                <div className="border-b border-neutral-100 px-4 py-3 md:px-6">
+                  <InfoBox>
+                    Du er registrert som{' '}
+                    <strong>{myRecord.name}</strong>
+                    {myRecord.jobTitle ? ` — ${myRecord.jobTitle}` : ''}
+                    {myRecord.unitName ? ` · ${myRecord.unitName}` : ''}.{' '}
+                    <button
+                      type="button"
+                      onClick={() => setOrgSlidePanel({ kind: 'employee', mode: 'edit', emp: myRecord })}
+                      className="font-medium underline underline-offset-2 hover:no-underline"
+                    >
+                      Se dine opplysninger
+                    </button>
+                    {' '}— du kan be om retting ved å kontakte din administrator.
+                  </InfoBox>
+                </div>
+              ) : null
+            })()}
             {!hasAnyEmployees ? (
               <div className="flex flex-col items-center justify-center border border-dashed border-neutral-200 py-16 text-center">
                 <p className="text-sm text-neutral-500">Ingen ansatte ennå</p>
@@ -1484,7 +1549,16 @@ export function OrganisationPage() {
                       <th className={`${tableCell} font-medium`}>Ansatt</th>
                       <th className={`${tableCell} font-medium`}>Stilling / rolle</th>
                       <th className={`${tableCell} font-medium`}>Enhet</th>
-                      <th className={`${tableCell} font-medium`}>Kontakt</th>
+                      <th className={`${tableCell} font-medium`}>
+                        <span className="inline-flex items-center gap-1.5">
+                          Kontakt
+                          <Lock
+                            className="size-3 shrink-0 text-neutral-400"
+                            aria-label="Personopplysninger — synlig for administratorer"
+                            title="Personopplysninger — synlig for administratorer"
+                          />
+                        </span>
+                      </th>
                       <th className={`${tableCell} w-32 font-medium`}>Status</th>
                     </tr>
                   </thead>
@@ -1519,7 +1593,17 @@ export function OrganisationPage() {
                           </td>
                           <td className={tableCell}>
                             <div className="text-neutral-800">{emp.jobTitle ?? '—'}</div>
-                            {emp.role ? <div className="mt-0.5 text-xs text-neutral-500">{emp.role}</div> : null}
+                            {emp.role ? (
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                {MANDATE_ROLES[emp.role] ? (
+                                  <Badge variant={MANDATE_ROLES[emp.role].variant}>
+                                    {MANDATE_ROLES[emp.role].label}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-neutral-500">{emp.role}</span>
+                                )}
+                              </div>
+                            ) : null}
                           </td>
                           <td className={`${tableCell} text-neutral-700`}>{emp.unitName ?? '—'}</td>
                           <td className={`${tableCell} text-neutral-600`}>
@@ -1549,7 +1633,8 @@ export function OrganisationPage() {
               <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 md:p-6">
                 {sortedFilteredEmployees.map((emp) => {
                   const bg = avatarColor(emp.name)
-                  const roleLine = [emp.jobTitle, emp.role].filter(Boolean).join(' · ') || '—'
+                  const mandateDef = emp.role ? MANDATE_ROLES[emp.role] : undefined
+                  const roleLine = emp.jobTitle || (!mandateDef && emp.role) ? [emp.jobTitle, !mandateDef ? emp.role : undefined].filter(Boolean).join(' · ') : emp.jobTitle ?? '—'
                   return (
                     <button
                       key={emp.id}
@@ -1567,15 +1652,20 @@ export function OrganisationPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-neutral-900">{emp.name}</p>
-                          <p className="mt-1 text-sm text-neutral-600">{roleLine}</p>
+                          <p className="mt-1 text-sm text-neutral-600">{roleLine || '—'}</p>
                           <p className="mt-1 text-xs text-neutral-500">{emp.unitName ?? '—'}</p>
-                          <span
-                            className={`mt-2 inline-block rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                              emp.active ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-600'
-                            }`}
-                          >
-                            {emp.active ? 'Aktiv' : 'Inaktiv'}
-                          </span>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            <span
+                              className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                                emp.active ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-600'
+                              }`}
+                            >
+                              {emp.active ? 'Aktiv' : 'Inaktiv'}
+                            </span>
+                            {mandateDef ? (
+                              <Badge variant={mandateDef.variant}>{mandateDef.label}</Badge>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     </button>
@@ -1725,6 +1815,7 @@ export function OrganisationPage() {
                         <th className={`${tableCell} font-medium`}>Type</th>
                         <th className={`${tableCell} font-medium`}>Leder</th>
                         <th className={`${tableCell} w-28 font-medium`}>Ansatte</th>
+                        <th className={`${tableCell} w-12 font-medium`} />
                       </tr>
                     </thead>
                     <tbody>
@@ -1737,6 +1828,7 @@ export function OrganisationPage() {
                             key={unit.id}
                             role="button"
                             tabIndex={0}
+                            aria-label={`Rediger enhet ${unit.name}`}
                             onClick={() => openUnitPanel('edit', unit)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' || e.key === ' ') {
@@ -1744,7 +1836,7 @@ export function OrganisationPage() {
                                 openUnitPanel('edit', unit)
                               }
                             }}
-                            className={`${table1BodyRowClass(layout, rowIdx)} cursor-pointer hover:bg-neutral-50/50`}
+                            className={`group ${table1BodyRowClass(layout, rowIdx)} cursor-pointer hover:bg-neutral-50/50`}
                           >
                             <td className={tableCell}>
                               <div className="flex items-center gap-2" style={{ paddingLeft: pad }}>
@@ -1775,6 +1867,12 @@ export function OrganisationPage() {
                             <td className={`${tableCell} text-neutral-700`}>{KIND_LABELS[unit.kind]}</td>
                             <td className={`${tableCell} text-neutral-600`}>{unit.headName ?? unit.managerName ?? '—'}</td>
                             <td className={`${tableCell} tabular-nums text-neutral-700`}>{empHere}</td>
+                            <td className={`${tableCell} text-right`}>
+                              <Pencil
+                                className="size-3.5 text-neutral-300 opacity-0 transition group-hover:opacity-100"
+                                aria-hidden
+                              />
+                            </td>
                           </tr>
                         )
                       })}
