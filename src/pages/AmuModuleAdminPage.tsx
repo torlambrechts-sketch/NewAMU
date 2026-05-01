@@ -1,6 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ClipboardList, GitBranch, Loader2, Plus, Save, SlidersHorizontal, Trash2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Bell,
+  Calendar,
+  ClipboardList,
+  FileText,
+  GitBranch,
+  Globe,
+  Loader2,
+  Plus,
+  Save,
+  SlidersHorizontal,
+  Trash2,
+  Vote,
+} from 'lucide-react'
 import { ModulePageShell } from '../components/module/ModulePageShell'
 import {
   WPSTD_FORM_FIELD_LABEL,
@@ -11,6 +25,17 @@ import { WorkflowRulesTab } from '../components/workflow/WorkflowRulesTab'
 import { AMU_WORKFLOW_TRIGGER_EVENTS } from '../components/workflow/workflowTriggerRegistry'
 import { useAmu } from '../../modules/amu/useAmu'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { fetchOrgModulePayload, upsertOrgModulePayload } from '../lib/orgModulePayload'
+import { getSupabaseErrorMessage } from '../lib/supabaseError'
+import {
+  parseAmuModuleSettings,
+  type AmuModuleSettings,
+} from '../../modules/amu/amuModuleSettingsSchema'
+import { AmuSettingsGenerelt } from '../components/amu/settings/AmuSettingsGenerelt'
+import { AmuSettingsMoete } from '../components/amu/settings/AmuSettingsMoete'
+import { AmuSettingsVarsler } from '../components/amu/settings/AmuSettingsVarsler'
+import { AmuSettingsAarsrapport } from '../components/amu/settings/AmuSettingsAarsrapport'
+import { AmuSettingsIntegrasjoner } from '../components/amu/settings/AmuSettingsIntegrasjoner'
 import { Button } from '../components/ui/Button'
 import { StandardInput } from '../components/ui/Input'
 import { StandardTextarea } from '../components/ui/Textarea'
@@ -21,6 +46,7 @@ import { InfoBox } from '../components/ui/AlertBox'
 import type { AmuDefaultAgendaItem } from '../../modules/amu/types'
 
 const AMU_PATH = '/council/amu'
+const SETTINGS_KEY = 'amu_settings' as const
 
 const SOURCE_OPTIONS: { value: string; label: string }[] = [
   { value: '', label: 'Ingen kilde' },
@@ -29,25 +55,69 @@ const SOURCE_OPTIONS: { value: string; label: string }[] = [
   { value: 'whistleblowing', label: 'Varsling' },
 ]
 
-type AdminTab = 'generelt' | 'standard_saksliste' | 'arbeidsflyt'
+type AdminTab =
+  | 'generelt'
+  | 'moete'
+  | 'varsler'
+  | 'aarsrapport'
+  | 'integrasjoner'
+  | 'standard_saksliste'
+  | 'arbeidsflyt'
 
-const shellTabs = [
-  { key: 'generelt' as const, label: 'Generelt', icon: <SlidersHorizontal className="h-4 w-4" /> },
-  { key: 'standard_saksliste' as const, label: 'Standard saksliste', icon: <ClipboardList className="h-4 w-4" /> },
-  { key: 'arbeidsflyt' as const, label: 'Arbeidsflyt', icon: <GitBranch className="h-4 w-4" /> },
+const ADMIN_TABS: TabItem[] = [
+  { id: 'generelt',          label: 'Generelt',          icon: SlidersHorizontal },
+  { id: 'moete',             label: 'Møteinnstillinger', icon: Vote },
+  { id: 'varsler',           label: 'Varsler',           icon: Bell },
+  { id: 'aarsrapport',       label: 'Årsrapport',        icon: FileText },
+  { id: 'integrasjoner',     label: 'Integrasjoner',     icon: Globe },
+  { id: 'standard_saksliste', label: 'Standard saksliste', icon: ClipboardList },
+  { id: 'arbeidsflyt',       label: 'Arbeidsflyt',       icon: GitBranch },
 ]
 
 type AmuModuleAdminPageProps = { embedded?: boolean }
 
-export function AmuModuleAdminPage({
-  embedded = false,
-}: AmuModuleAdminPageProps = {}) {
+export function AmuModuleAdminPage({ embedded = false }: AmuModuleAdminPageProps = {}) {
   const navigate = useNavigate()
-  const { supabase, can, isAdmin } = useOrgSetupContext()
+  const { supabase, can, isAdmin, organization } = useOrgSetupContext()
+  const orgId = organization?.id
   const canManage = isAdmin || can('amu.manage')
   const amu = useAmu()
 
   const [tab, setTab] = useState<AdminTab>('generelt')
+
+  // ── Module settings ────────────────────────────────────────────────────
+  const [settings, setSettings] = useState<AmuModuleSettings>(() => parseAmuModuleSettings({}))
+  const [settingsLoading, setSettingsLoading] = useState(true)
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [settingsError, setSettingsError] = useState<string | null>(null)
+
+  const loadSettings = useCallback(async () => {
+    if (!supabase || !orgId) return
+    setSettingsError(null)
+    try {
+      const raw = await fetchOrgModulePayload<Record<string, unknown>>(supabase, orgId, SETTINGS_KEY)
+      setSettings(parseAmuModuleSettings(raw))
+    } catch (e) {
+      setSettingsError(getSupabaseErrorMessage(e))
+    } finally {
+      setSettingsLoading(false)
+    }
+  }, [supabase, orgId])
+
+  const saveSettings = useCallback(async () => {
+    if (!supabase || !orgId) return
+    setSavingSettings(true)
+    setSettingsError(null)
+    try {
+      await upsertOrgModulePayload(supabase, orgId, SETTINGS_KEY, settings)
+    } catch (e) {
+      setSettingsError(getSupabaseErrorMessage(e))
+    } finally {
+      setSavingSettings(false)
+    }
+  }, [supabase, orgId, settings])
+
+  // ── Default agenda list ────────────────────────────────────────────────
   const [rows, setRows] = useState<AmuDefaultAgendaItem[]>([])
   const [loadingList, setLoadingList] = useState(true)
   const [savingId, setSavingId] = useState<string | null>(null)
@@ -66,21 +136,15 @@ export function AmuModuleAdminPage({
   }, [amu, canManage])
 
   useEffect(() => {
+    if (!canManage || !orgId) return
+    void loadSettings()
     const t = window.setTimeout(() => {
       void loadRows()
     }, 0)
     return () => window.clearTimeout(t)
-  }, [loadRows])
+  }, [canManage, orgId, loadSettings, loadRows])
 
-  const tabStripItems = useMemo<TabItem[]>(
-    () =>
-      shellTabs.map((t) => ({
-        id: t.key,
-        label: t.label,
-        icon: t.key === 'generelt' ? SlidersHorizontal : t.key === 'standard_saksliste' ? ClipboardList : GitBranch,
-      })),
-    [],
-  )
+  const tabStripItems = useMemo<TabItem[]>(() => ADMIN_TABS, [])
 
   const saveRow = useCallback(
     async (r: AmuDefaultAgendaItem) => {
@@ -94,7 +158,9 @@ export function AmuModuleAdminPage({
         source_id: null,
       })
       if (updated) {
-        setRows((list) => list.map((x) => (x.id === updated.id ? updated : x)).sort((a, b) => a.order_index - b.order_index))
+        setRows((list) =>
+          list.map((x) => (x.id === updated.id ? updated : x)).sort((a, b) => a.order_index - b.order_index),
+        )
       }
       setSavingId(null)
     },
@@ -133,10 +199,12 @@ export function AmuModuleAdminPage({
     [amu],
   )
 
+  // ── Access guard ───────────────────────────────────────────────────────
   if (!canManage) {
     const accessBody = (
       <WarningBox>
-        Du har ikke tilgang til AMU-innstillinger. Krever rollen <strong>amu.manage</strong> eller administrator.
+        Du har ikke tilgang til AMU-innstillinger. Krever rollen <strong>amu.manage</strong> eller
+        administrator.
       </WarningBox>
     )
     if (embedded) return accessBody
@@ -160,6 +228,14 @@ export function AmuModuleAdminPage({
     )
   }
 
+  // ── Shared save props ──────────────────────────────────────────────────
+  const saveProps = {
+    settings,
+    setSettings,
+    saving: savingSettings,
+    onSave: () => void saveSettings(),
+  }
+
   const tabsNode = (
     <Tabs
       items={tabStripItems}
@@ -171,150 +247,203 @@ export function AmuModuleAdminPage({
 
   const body = (
     <>
-      {amu.error ? <WarningBox>{amu.error}</WarningBox> : null}
+      {(amu.error || settingsError) && (
+        <WarningBox>{settingsError ?? amu.error}</WarningBox>
+      )}
 
-      {tab === 'generelt' && (
-          <div className="space-y-4">
-            <InfoBox>
-              Under «Standard saksliste» definerer du hvilke punkter som fylles inn når bruker klikker «Generer standard
-              saksliste» i et møte. Uten rader i tabellen får brukeren beskjed om å konfigurere listen her først.
-            </InfoBox>
-            <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
-              <h3 className="text-sm font-semibold text-neutral-900">Møtelederrotasjon (AML §7-5)</h3>
-              <p className="mt-1 text-sm text-neutral-600">
-                Ledervervet skal veksle mellom arbeidsgiver- og arbeidstakersiden for ett år om gangen. Registrer hvilken
-                side som leder hvert møte i signeringsfanen. Systemet varsler ikke automatisk om rotasjonsplikten — dette
-                er organisasjonens ansvar å overholde.
-              </p>
-            </div>
-            <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
-              <h3 className="text-sm font-semibold text-neutral-900">Rettigheter</h3>
-              <p className="mt-1 text-sm text-neutral-600">
-                Kun brukere med <strong>amu.manage</strong> (eller org-administrator) kan endre disse innstillingene.
-              </p>
-            </div>
-          </div>
-        )}
+      {/* ── Settings loading state ─────────────────────────────────── */}
+      {settingsLoading && (tab === 'generelt' || tab === 'moete' || tab === 'varsler' || tab === 'aarsrapport' || tab === 'integrasjoner') && (
+        <p className="flex items-center gap-2 text-sm text-neutral-500">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Laster innstillinger…
+        </p>
+      )}
 
-        {tab === 'standard_saksliste' && (
-          <div className="space-y-6">
-            {loadingList ? (
-              <p className="flex items-center gap-2 text-sm text-neutral-500">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                Laster…
-              </p>
-            ) : null}
+      {/* ── Generelt ──────────────────────────────────────────────────── */}
+      {tab === 'generelt' && !settingsLoading && <AmuSettingsGenerelt {...saveProps} />}
 
-            <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
-              <h3 className="text-sm font-semibold text-neutral-900">Legg til punkt</h3>
-              <p className="mt-1 text-xs text-neutral-500">Nye rader lagres når du klikker «Legg til».</p>
-              <div className="mt-4 space-y-4">
-                <div className={WPSTD_FORM_ROW_GRID}>
-                  <div>
-                    <div className={WPSTD_FORM_FIELD_LABEL}>Sakstittel</div>
-                    <p className="text-sm text-neutral-600">Kort navn som vises i sakslisten.</p>
-                  </div>
-                  <div>
-                    <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-def-title">Tittel</label>
-                    <StandardInput id="amu-def-title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
-                  </div>
+      {/* ── Møteinnstillinger ─────────────────────────────────────────── */}
+      {tab === 'moete' && !settingsLoading && <AmuSettingsMoete {...saveProps} />}
+
+      {/* ── Varsler ───────────────────────────────────────────────────── */}
+      {tab === 'varsler' && !settingsLoading && <AmuSettingsVarsler {...saveProps} />}
+
+      {/* ── Årsrapport ────────────────────────────────────────────────── */}
+      {tab === 'aarsrapport' && !settingsLoading && <AmuSettingsAarsrapport {...saveProps} />}
+
+      {/* ── Integrasjoner ─────────────────────────────────────────────── */}
+      {tab === 'integrasjoner' && !settingsLoading && <AmuSettingsIntegrasjoner {...saveProps} />}
+
+      {/* ── Standard saksliste ────────────────────────────────────────── */}
+      {tab === 'standard_saksliste' && (
+        <div className="space-y-6">
+          <InfoBox>
+            Under «Standard saksliste» definerer du hvilke punkter som fylles inn når bruker klikker
+            «Generer standard saksliste» i et møte. Uten rader i tabellen får brukeren beskjed om å
+            konfigurere listen her først.
+          </InfoBox>
+
+          {loadingList ? (
+            <p className="flex items-center gap-2 text-sm text-neutral-500">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              Laster…
+            </p>
+          ) : null}
+
+          <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-neutral-900">Legg til punkt</h3>
+            <p className="mt-1 text-xs text-neutral-500">Nye rader lagres når du klikker «Legg til».</p>
+            <div className="mt-4 space-y-4">
+              <div className={WPSTD_FORM_ROW_GRID}>
+                <div>
+                  <div className={WPSTD_FORM_FIELD_LABEL}>Sakstittel</div>
+                  <p className="text-sm text-neutral-600">Kort navn som vises i sakslisten.</p>
                 </div>
-                <div className={WPSTD_FORM_ROW_GRID}>
-                  <div>
-                    <div className={WPSTD_FORM_FIELD_LABEL}>Beskrivelse</div>
-                  </div>
-                  <div>
-                    <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-def-desc">Beskrivelse</label>
-                    <StandardTextarea id="amu-def-desc" className="min-h-[80px] w-full" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
-                  </div>
-                </div>
-                <div className={WPSTD_FORM_ROW_GRID}>
-                  <div>
-                    <div className={WPSTD_FORM_FIELD_LABEL}>Sekvens</div>
-                  </div>
-                  <div>
-                    <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-def-ord">Rekkefølge (0 = først)</label>
-                    <StandardInput id="amu-def-ord" type="number" value={newOrder} onChange={(e) => setNewOrder(e.target.value)} />
-                  </div>
-                </div>
-                <div className={WPSTD_FORM_ROW_GRID}>
-                  <div>
-                    <div className={WPSTD_FORM_FIELD_LABEL}>Kildepunkt (valgfritt)</div>
-                    <p className="text-sm text-neutral-600">Angir hvilken modul saken dreier seg om. Konkrete avvik kobles i møtevisningen, ikke her.</p>
-                  </div>
-                  <div>
-                    <SearchableSelect value={newSource} options={SOURCE_OPTIONS} onChange={setNewSource} />
-                  </div>
+                <div>
+                  <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-def-title">
+                    Tittel
+                  </label>
+                  <StandardInput
+                    id="amu-def-title"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                  />
                 </div>
               </div>
-              <div className="mt-4 flex justify-end">
-                <Button type="button" variant="primary" onClick={() => void addRow()} icon={<Plus className="h-4 w-4" />}>
-                  Legg til
-                </Button>
+              <div className={WPSTD_FORM_ROW_GRID}>
+                <div>
+                  <div className={WPSTD_FORM_FIELD_LABEL}>Beskrivelse</div>
+                </div>
+                <div>
+                  <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-def-desc">
+                    Beskrivelse
+                  </label>
+                  <StandardTextarea
+                    id="amu-def-desc"
+                    className="min-h-[80px] w-full"
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className={WPSTD_FORM_ROW_GRID}>
+                <div>
+                  <div className={WPSTD_FORM_FIELD_LABEL}>Sekvens</div>
+                </div>
+                <div>
+                  <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="amu-def-ord">
+                    Rekkefølge (0 = først)
+                  </label>
+                  <StandardInput
+                    id="amu-def-ord"
+                    type="number"
+                    value={newOrder}
+                    onChange={(e) => setNewOrder(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className={WPSTD_FORM_ROW_GRID}>
+                <div>
+                  <div className={WPSTD_FORM_FIELD_LABEL}>Kildepunkt (valgfritt)</div>
+                  <p className="text-sm text-neutral-600">
+                    Angir hvilken modul saken dreier seg om. Konkrete avvik kobles i møtevisningen, ikke
+                    her.
+                  </p>
+                </div>
+                <div>
+                  <SearchableSelect
+                    value={newSource}
+                    options={SOURCE_OPTIONS}
+                    onChange={setNewSource}
+                  />
+                </div>
               </div>
             </div>
-
-            <LayoutTable1PostingsShell
-              wrap
-              title="Definert standard saksliste"
-              description="Endre rader under og klikk «Lagre» per rad. Dette brukes når møtet genererer sakslisten."
-              toolbar={
-                <span className="text-xs text-neutral-500">
-                  {rows.length === 0
-                    ? 'Ingen rader — legg inn minst én for å bruke generering i møtevisningen.'
-                    : `${rows.length} punkt${rows.length === 1 ? '' : 'er'}.`}
-                </span>
-              }
-            >
-              {rows.length === 0 && !loadingList ? (
-                <p className="px-5 py-10 text-center text-sm text-neutral-600">Ingen punkt. Legg inn standard saker over.</p>
-              ) : (
-                <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead>
-                    <tr>
-                      <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500 w-20">#</th>
-                      <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">Sak</th>
-                      <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500 w-32">Kilde</th>
-                      <th className="bg-neutral-50 px-5 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-neutral-500" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r) => (
-                      <DefaultAgendaEditRow
-                        key={r.id}
-                        row={r}
-                        saving={savingId === r.id}
-                        onChange={(path, val) => {
-                          setRows((list) => list.map((x) => (x.id === r.id ? { ...x, [path]: val } : x)))
-                        }}
-                        onSourceModuleChange={(v) => {
-                          setRows((list) =>
-                            list.map((x) =>
-                              x.id === r.id ? { ...x, source_module: v || null, source_id: null } : x,
-                            ),
-                          )
-                        }}
-                        onSave={() => void saveRow(r)}
-                        onDelete={() => void removeRow(r.id)}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </LayoutTable1PostingsShell>
+            <div className="mt-4 flex justify-end">
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => void addRow()}
+                icon={<Plus className="h-4 w-4" />}
+              >
+                Legg til
+              </Button>
+            </div>
           </div>
-        )}
 
+          <LayoutTable1PostingsShell
+            wrap
+            title="Definert standard saksliste"
+            description="Endre rader under og klikk «Lagre» per rad. Dette brukes når møtet genererer sakslisten."
+            toolbar={
+              <span className="text-xs text-neutral-500">
+                {rows.length === 0
+                  ? 'Ingen rader — legg inn minst én for å bruke generering i møtevisningen.'
+                  : `${rows.length} punkt${rows.length === 1 ? '' : 'er'}.`}
+              </span>
+            }
+          >
+            {rows.length === 0 && !loadingList ? (
+              <p className="px-5 py-10 text-center text-sm text-neutral-600">
+                Ingen punkt. Legg inn standard saker over.
+              </p>
+            ) : (
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead>
+                  <tr>
+                    <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500 w-20">
+                      #
+                    </th>
+                    <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                      Sak
+                    </th>
+                    <th className="bg-neutral-50 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500 w-32">
+                      Kilde
+                    </th>
+                    <th className="bg-neutral-50 px-5 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-neutral-500" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <DefaultAgendaEditRow
+                      key={r.id}
+                      row={r}
+                      saving={savingId === r.id}
+                      onChange={(path, val) => {
+                        setRows((list) => list.map((x) => (x.id === r.id ? { ...x, [path]: val } : x)))
+                      }}
+                      onSourceModuleChange={(v) => {
+                        setRows((list) =>
+                          list.map((x) =>
+                            x.id === r.id ? { ...x, source_module: v || null, source_id: null } : x,
+                          ),
+                        )
+                      }}
+                      onSave={() => void saveRow(r)}
+                      onDelete={() => void removeRow(r.id)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </LayoutTable1PostingsShell>
+        </div>
+      )}
+
+      {/* ── Arbeidsflyt ───────────────────────────────────────────────── */}
       {tab === 'arbeidsflyt' && (
         <div className="max-w-4xl space-y-3">
           <InfoBox>
-            <strong>AML §7-2(6) — Distribusjonsplikten:</strong> Signerte referater skal gjøres tilgjengelige for alle
-            arbeidstakere. Sett opp en arbeidsflyt for <strong>ON_AMU_MEETING_SIGNED</strong> for å sende e-post
-            automatisk til AMU-deltakere og/eller publisere en lenke på intranett.
+            <strong>AML §7-2(6) — Distribusjonsplikten:</strong> Signerte referater skal gjøres
+            tilgjengelige for alle arbeidstakere. Sett opp en arbeidsflyt for{' '}
+            <strong>ON_AMU_MEETING_SIGNED</strong> for å sende e-post automatisk til AMU-deltakere
+            og/eller publisere en lenke på intranett.
           </InfoBox>
           <p className="text-sm text-neutral-600">
-            <strong>ON_AMU_MEETING_SCHEDULED</strong> utløses når møtet har status planlagt (f.eks. e-post/Teams til deltakere).{' '}
-            <strong>ON_AMU_MEETING_SIGNED</strong> utløses når referat er signert (f.eks. distribuere minutter).
+            <strong>ON_AMU_MEETING_SCHEDULED</strong> utløses når møtet har status planlagt (f.eks.
+            e-post/Teams til deltakere).{' '}
+            <strong>ON_AMU_MEETING_SIGNED</strong> utløses når referat er signert (f.eks. distribuere
+            minutter).
           </p>
           <WorkflowRulesTab
             supabase={supabase}
@@ -339,7 +468,7 @@ export function AmuModuleAdminPage({
     <ModulePageShell
       breadcrumb={[{ label: 'Council' }, { label: 'AMU', to: AMU_PATH }, { label: 'Administrasjon' }]}
       title="AMU — administrasjon"
-      description="Standard saksliste gjelder hele virksomheten når brukere genererer agenda for nye møter. Arbeidsflyt utløses når møtet settes som planlagt (innkalling) og når referat signeres."
+      description="Konfigurer standard saksliste, møteregler, varsler og integrasjoner for AMU-modulen."
       headerActions={
         <Button
           type="button"
@@ -385,7 +514,11 @@ function DefaultAgendaEditRow({
       <td className="align-top px-5 py-3">
         <div className="min-w-0 max-w-md space-y-2">
           <StandardInput value={row.title} onChange={(e) => onChange('title', e.target.value)} />
-          <StandardTextarea className="min-h-[72px] w-full" value={row.description} onChange={(e) => onChange('description', e.target.value)} />
+          <StandardTextarea
+            className="min-h-[72px] w-full"
+            value={row.description}
+            onChange={(e) => onChange('description', e.target.value)}
+          />
         </div>
       </td>
       <td className="align-top px-5 py-3">
@@ -397,10 +530,24 @@ function DefaultAgendaEditRow({
       </td>
       <td className="align-top px-5 py-3 text-right">
         <div className="inline-flex items-center justify-end gap-0.5">
-          <Button type="button" variant="secondary" size="sm" disabled={saving} onClick={onSave} icon={<Save className="h-3.5 w-3.5" />}>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={saving}
+            onClick={onSave}
+            icon={<Save className="h-3.5 w-3.5" />}
+          >
             {saving ? 'Lagrer' : 'Lagre'}
           </Button>
-          <Button type="button" variant="ghost" size="icon" onClick={onDelete} icon={<Trash2 className="h-4 w-4" />} aria-label="Slett" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onDelete}
+            icon={<Trash2 className="h-4 w-4" />}
+            aria-label="Slett"
+          />
         </div>
       </td>
     </tr>
