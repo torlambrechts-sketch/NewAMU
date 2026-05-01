@@ -65,6 +65,48 @@ export const PERMISSION_KEYS = [
   /** Documents & wiki — lese mapper og sider (ikke redigere eller publisere) */
   'documents.view',
   'module.view.admin',
+
+  // ─── Employee data ────────────────────────────────────────────────────────
+  /** Se kontaktinfo (e-post, telefon, startdato) for andre ansatte enn seg selv */
+  'employee.pii.read',
+  /** Se sensitiv ansattinfo (ansettelsestype, lønnsband, kontraktsdetaljer) */
+  'employee.sensitive.read',
+  /** Opprette/oppdatere/deaktivere ansattoppføringer */
+  'employee.manage',
+
+  // ─── Sick leave ───────────────────────────────────────────────────────────
+  /** Se sykefravær for egne direkte rapporterende (aggregat for VO) */
+  'sick_leave.view',
+  /** Opprette/oppdatere/slette sykefraværssaker */
+  'sick_leave.manage',
+
+  // ─── Incidents ────────────────────────────────────────────────────────────
+  /** Se hendelser scoped etter involvering */
+  'incident.view',
+  /** Opprette/oppdatere/lukke hendelser og tildele saksbehandler */
+  'incident.manage',
+
+  // ─── HR discussions ───────────────────────────────────────────────────────
+  /** Se møter der du er deltaker (§ 15-1 drøftelsessamtaler) */
+  'hr.discussion.view',
+  /** Se alle møter i organisasjonen (HR-direktør-tilgang) */
+  'hr.discussion.admin',
+
+  // ─── Whistleblowing ───────────────────────────────────────────────────────
+  /** Se saksliste (status, ingen detaljer) – komité-lite */
+  'whistleblowing.view',
+  /** Tildele/omfordele saksbehandlere */
+  'whistleblowing.assign',
+
+  // ─── Survey ───────────────────────────────────────────────────────────────
+  /** Se undersøkelsesresultater (gated av k-anonymitet) */
+  'survey.results.view',
+  /** Last ned rådata/aggregerte undersøkelsesdata */
+  'survey.results.export',
+
+  // ─── Organisation ─────────────────────────────────────────────────────────
+  /** Eksporter ansatt/org-data (GDPR Art. 20 forespørsler) */
+  'org.export',
 ] as const
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number]
@@ -112,6 +154,20 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'documents.edit': 'Documents & wiki — redigere og publisere dokumenter',
   'documents.view': 'Documents & wiki — lese innhold (visning)',
   'module.view.admin': 'Admin (brukere & roller)',
+  'employee.pii.read': 'Ansatte — lese kontaktopplysninger (e-post, telefon)',
+  'employee.sensitive.read': 'Ansatte — lese sensitiv informasjon (ansettelsestype, kontrakt)',
+  'employee.manage': 'Ansatte — administrere ansattoppføringer',
+  'sick_leave.view': 'Sykefravær — innsyn for egne direkte rapporterende',
+  'sick_leave.manage': 'Sykefravær — administrere alle saker',
+  'incident.view': 'Hendelser — se hendelser (scoped etter involvering)',
+  'incident.manage': 'Hendelser — administrere og lukke saker',
+  'hr.discussion.view': 'HR — se egne drøftelsesmøter (§ 15-1)',
+  'hr.discussion.admin': 'HR — full innsyn i alle drøftelsesmøter',
+  'whistleblowing.view': 'Varsling — se saksstatus (ingen persondetaljer)',
+  'whistleblowing.assign': 'Varsling — tildele saksbehandlere',
+  'survey.results.view': 'Undersøkelse — se resultater (k-anonymitet)',
+  'survey.results.export': 'Undersøkelse — eksportere data',
+  'org.export': 'Organisasjon — eksportere ansatt- og org-data (GDPR Art. 20)',
 }
 
 /** Route prefix → permission (primary nav). Index route checked separately. */

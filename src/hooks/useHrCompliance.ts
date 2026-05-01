@@ -15,6 +15,7 @@ export function useHrCompliance() {
   const orgId = organization?.id
 
   const canDiscussion = can('hr.discussion.manage')
+  const canDiscussionAdmin = can('hr.discussion.admin')
   const canConsultation = can('hr.consultation.manage')
   const canORosManage = can('hr.o_ros.manage')
   const canORosView = can('hr.o_ros.view')
@@ -32,12 +33,22 @@ export function useHrCompliance() {
     setLoading(true)
     setError(null)
     try {
-      const { data, error: e } = await supabase
+      let query = supabase
         .from('hr_discussion_meetings')
         .select('*')
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false })
         .limit(100)
+
+      // hr.discussion.admin and hr.discussion.manage see all meetings.
+      // All other users see only meetings where they are the employee, manager, or union rep.
+      if (!canDiscussionAdmin && !canDiscussion && user?.id) {
+        query = query.or(
+          `employee_user_id.eq.${user.id},manager_user_id.eq.${user.id},union_rep_user_id.eq.${user.id}`,
+        )
+      }
+
+      const { data, error: e } = await query
       if (e) throw e
       setMeetings((data ?? []) as HrDiscussionMeetingRow[])
     } catch (err) {
@@ -45,7 +56,7 @@ export function useHrCompliance() {
     } finally {
       setLoading(false)
     }
-  }, [supabase, orgId])
+  }, [supabase, orgId, canDiscussion, canDiscussionAdmin, user?.id])
 
   const refreshCases = useCallback(async () => {
     if (!supabase || !orgId) return
