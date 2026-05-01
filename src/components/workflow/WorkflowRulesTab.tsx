@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   AlertTriangle,
+  ArrowRight,
   ChevronDown,
   ChevronRight,
   GripVertical,
@@ -14,6 +15,7 @@ import {
   Webhook,
   Zap,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { WF_FIELD_INPUT, WF_FIELD_LABEL } from './workflowPanelStyles'
 import { getWorkflowTriggerEventsForModule } from './workflowTriggerRegistry'
 
@@ -670,6 +672,13 @@ export function WorkflowRulesTab({ supabase, triggerModule, module, triggerEvent
             <Plus className="h-3.5 w-3.5" /> Ny
           </button>
         </div>
+        <Link
+          to="/workflow"
+          className="flex items-center gap-1 text-[10px] font-medium text-[#1a3d32] hover:underline"
+        >
+          <ArrowRight className="h-3 w-3" />
+          Se alle regler i Arbeidsflyt
+        </Link>
 
         {loading && (
           <div className="flex items-center justify-center py-8">

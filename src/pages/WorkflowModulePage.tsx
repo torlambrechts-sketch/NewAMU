@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronDown, GitBranch, Loader2, Pencil, Play, Plus, Settings, Trash2, X, Zap } from 'lucide-react'
+import { BarChart2, ChevronDown, GitBranch, Loader2, Pencil, Play, Plus, Settings, Trash2, X, Zap } from 'lucide-react'
 import { WorkflowFlowBuilder } from '../components/workflow/WorkflowFlowBuilder'
 import { flowDocumentFromLegacy } from '../lib/workflowFlowFromLegacy'
 import {
@@ -55,7 +55,8 @@ function actionsToJsonString(actions: WorkflowAction[] | WorkflowXorActionsEnvel
 
 export function WorkflowModulePage() {
   const wf = useWorkflows()
-  const [tab, setTab] = useState<'design' | 'runs' | 'settings' | 'module-rules'>('design')
+  const [tab, setTab] = useState<'overview' | 'design' | 'runs' | 'settings' | 'module-rules'>('overview')
+  const [sourceFilter, setSourceFilter] = useState<string>('all')
   const [devJsonOpen, setDevJsonOpen] = useState(false)
 
   const [editorOpen, setEditorOpen] = useState(false)
@@ -75,8 +76,30 @@ export function WorkflowModulePage() {
 
   const templatesCount = useMemo(() => wf.rules.filter((r) => r.is_template).length, [wf.rules])
 
+  const filteredRules = useMemo(
+    () => (sourceFilter === 'all' ? wf.rules : wf.rules.filter((r) => r.source_module === sourceFilter)),
+    [wf.rules, sourceFilter],
+  )
+
+  const rulesByModule = useMemo(() => {
+    const map = new Map<string, WorkflowRuleRow[]>()
+    for (const r of wf.rules) {
+      const list = map.get(r.source_module) ?? []
+      list.push(r)
+      map.set(r.source_module, list)
+    }
+    return map
+  }, [wf.rules])
+
   const workflowHubItems: HubMenu1Item[] = useMemo(
     () => [
+      {
+        key: 'overview',
+        label: 'Oversikt',
+        icon: BarChart2,
+        active: tab === 'overview',
+        onClick: () => setTab('overview'),
+      },
       {
         key: 'design',
         label: 'Design & regler',
@@ -86,14 +109,14 @@ export function WorkflowModulePage() {
       },
       {
         key: 'runs',
-        label: 'Kjøringer',
+        label: 'Historikk',
         icon: Play,
         active: tab === 'runs',
         onClick: () => setTab('runs'),
       },
       {
         key: 'settings',
-        label: 'Innstillinger',
+        label: 'Maler',
         icon: Settings,
         active: tab === 'settings',
         badgeCount: templatesCount,
@@ -111,7 +134,11 @@ export function WorkflowModulePage() {
   )
 
   const workflowSectionLabel =
-    tab === 'design' ? 'Design & regler' : tab === 'runs' ? 'Kjøringer' : tab === 'module-rules' ? 'Modul-regler' : 'Innstillinger'
+    tab === 'overview' ? 'Oversikt'
+    : tab === 'design' ? 'Design & regler'
+    : tab === 'runs' ? 'Historikk'
+    : tab === 'module-rules' ? 'Modul-regler'
+    : 'Maler'
 
   const recompileFlow = useCallback((doc: WorkflowFlowDocument) => {
     const out = compileWorkflowFlow(doc)
@@ -296,13 +323,100 @@ export function WorkflowModulePage() {
         <p className="mt-4 rounded-none border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{wf.error}</p>
       )}
 
+      {tab === 'overview' && (
+        <div className="mt-8 space-y-6">
+          {/* Summary bar */}
+          <div className={`${CARD} flex flex-wrap items-center gap-6 py-4`}>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-[#1a3d32]">{wf.rules.length}</p>
+              <p className="mt-0.5 text-xs text-neutral-500">Totalt</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-emerald-700">{wf.rules.filter((r) => r.is_active).length}</p>
+              <p className="mt-0.5 text-xs text-neutral-500">Aktive</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-neutral-400">{wf.rules.filter((r) => !r.is_active).length}</p>
+              <p className="mt-0.5 text-xs text-neutral-500">Inaktive</p>
+            </div>
+          </div>
+
+          {/* Per-module cards */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {WORKFLOW_SOURCE_MODULES.map((mod) => {
+              const moduleRules = rulesByModule.get(mod.value) ?? []
+              const activeCount = moduleRules.filter((r) => r.is_active).length
+              return (
+                <div key={mod.value} className={`${CARD} space-y-3 p-4`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-neutral-900">{mod.label.split(' (')[0]}</p>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${activeCount > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-100 text-neutral-400'}`}>
+                      {activeCount}/{moduleRules.length} aktive
+                    </span>
+                  </div>
+                  {moduleRules.length === 0 ? (
+                    <p className="text-xs text-neutral-400">Ingen regler ennå</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {moduleRules.slice(0, 4).map((r) => (
+                        <li key={r.id} className="flex items-center justify-between gap-2 text-xs text-neutral-700">
+                          <span className="truncate">{r.name}</span>
+                          <span className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-medium ${r.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-400'}`}>
+                            {r.is_active ? 'På' : 'Av'}
+                          </span>
+                        </li>
+                      ))}
+                      {moduleRules.length > 4 && (
+                        <li className="text-[11px] text-neutral-400">+{moduleRules.length - 4} til</li>
+                      )}
+                    </ul>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setSourceFilter(mod.value); setTab('design') }}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-[#1a3d32] hover:underline"
+                  >
+                    <GitBranch className="size-3" />
+                    Rediger regler
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {tab === 'design' && (
         <div className="mt-8 space-y-6">
+          {/* Module filter pills */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-neutral-500">Filtrer:</span>
+            <button
+              type="button"
+              onClick={() => setSourceFilter('all')}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${sourceFilter === 'all' ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}
+            >
+              Alle moduler
+            </button>
+            {WORKFLOW_SOURCE_MODULES.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => setSourceFilter(m.value)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition ${sourceFilter === m.value ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}
+              >
+                {m.label.split(' (')[0]}
+              </button>
+            ))}
+          </div>
+
           <div className={`${CARD} flex flex-wrap items-center justify-between gap-4`}>
             <div>
               <h2 className="text-lg font-semibold text-neutral-900">Regler</h2>
               <p className="mt-1 text-sm text-neutral-600">
-                Tabellen viser kilde, utløser, hva som skjer og status. Rediger i sidevinduet med den visuelle byggeren.
+                {sourceFilter === 'all'
+                  ? 'Alle moduler · klikk en modul-filter over for å snevre inn.'
+                  : `Viser regler for: ${WORKFLOW_SOURCE_MODULES.find((m) => m.value === sourceFilter)?.label.split(' (')[0] ?? sourceFilter}`}
               </p>
             </div>
             {wf.canManage ? (
@@ -533,14 +647,16 @@ export function WorkflowModulePage() {
                       <Loader2 className="mx-auto size-6 animate-spin" /> Laster…
                     </td>
                   </tr>
-                ) : wf.rules.length === 0 ? (
+                ) : filteredRules.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-4 py-8 text-center text-neutral-500">
-                      Ingen regler ennå. Legg til maler under Innstillinger eller opprett egen regel.
+                      {wf.rules.length === 0
+                        ? 'Ingen regler ennå. Legg til maler under Maler eller opprett egen regel.'
+                        : 'Ingen regler for valgt modul.'}
                     </td>
                   </tr>
                 ) : (
-                  wf.rules.map((r) => (
+                  filteredRules.map((r) => (
                     <tr key={r.id} className="border-b border-neutral-100 hover:bg-neutral-50/50">
                       <td className="px-4 py-3">
                         {wf.canManage ? (
