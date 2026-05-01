@@ -77,14 +77,16 @@
 
 Fullført. Se **`eval/learning/PHASE_B_QUEUE.md`** for detaljer og grep for verifisering. Unntak: skjulte `input type="file"` for import/opplasting.
 
-### Fase C — Layout og gjenbruk
+### Fase C — Layout og gjenbruk ✅
 
-| # | Oppgave | Filer |
-|---|---------|-------|
-| C1 | Innfør `ModuleSectionCard` som ytre ramme for hovedpaneler (erstatt dupliserte border/bg-klasser) | Side for side i `src/pages/learning/` |
-| C2 | Vurder `ModulePageShell` for learning-routes (breadcrumb/tabs fra hook) | `LearningLayout.tsx`, `App.tsx` (rute-struktur) |
-| C3 | Tabell-sider: migrer til `LayoutTable1PostingsShell` der kolonner matcher | `LearningCertifications.tsx`, `LearningParticipants.tsx`, deler av `LearningCoursesList.tsx` |
-| C4 | Dashboard-KPI: vurder `LayoutScoreStatRow` i stedet for duplikat `KpiCard` | `LearningDashboard.tsx` |
+| # | Oppgave | Status |
+|---|---------|--------|
+| C1 | `ModulePageShell` for learning-ruter | `LearningLayout.tsx` |
+| C2 | `ModuleSectionCard` for hovedpaneler | `LearningDashboard`, `LearningCertifications`, `LearningParticipants` (intro / KPI) |
+| C3 | `LayoutTable1PostingsShell` + kit for tabeller | `LearningCertifications`, `LearningParticipants` |
+| C4 | `LayoutScoreStatRow` for KPI | `LearningDashboard`, `LearningCertifications` |
+
+Se **`eval/learning/PHASE_C_QUEUE.md`**.
 
 ### Fase D — Samsvar og pedagogikk (UI + backend der nødvendig)
 

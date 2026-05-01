@@ -6,6 +6,14 @@ import type { CourseProgress } from '../../types/learning'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
+import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
+import {
+  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
+  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
+  LAYOUT_TABLE1_POSTINGS_TD,
+  LAYOUT_TABLE1_POSTINGS_TH,
+} from '../../components/layout/layoutTable1PostingsKit'
+import { ModuleSectionCard } from '../../components/module'
 
 type SortKey = 'learner' | 'course' | 'started' | 'days' | 'progress'
 type SortDir = 'asc' | 'desc'
@@ -24,7 +32,7 @@ function SortHead({
   onSort: (k: SortKey) => void
 }) {
   return (
-    <th className="px-4 py-3 font-medium">
+    <th className={LAYOUT_TABLE1_POSTINGS_TH}>
       <Button
         type="button"
         variant="ghost"
@@ -33,7 +41,7 @@ function SortHead({
         className="-ml-2 h-auto px-2 py-1 font-medium text-neutral-700 hover:bg-transparent hover:text-[#2D403A]"
       >
         {label}
-        {activeKey === colKey ? <span className="text-[10px] font-normal text-[#6b6f68]">{dir === 'asc' ? '↑' : '↓'}</span> : null}
+        {activeKey === colKey ? <span className="text-[10px] font-normal text-neutral-500">{dir === 'asc' ? '↑' : '↓'}</span> : null}
       </Button>
     </th>
   )
@@ -143,48 +151,58 @@ export function LearningParticipants() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <ModuleSectionCard>
         <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Deltakere</h1>
         <p className="mt-2 text-sm text-neutral-600">
           {canManage
             ? 'Fremdrift for alle brukere i organisasjonen (synlig for kursansvarlige).'
             : 'Din egen fremdrift på tvers av kurs.'}
         </p>
-      </div>
+      </ModuleSectionCard>
       {learningError ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
       ) : null}
-      {learningLoading ? <p className="text-sm text-[#6b6f68]">Laster…</p> : null}
+      {learningLoading ? <p className="text-sm text-neutral-600">Laster…</p> : null}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative max-w-md flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-neutral-400" />
-          <StandardInput
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Søk etter navn eller kurs…"
-            className="rounded-full border-[#e3ddcc] bg-[#fbf9f3] py-2 pl-10 pr-4"
-            aria-label="Filtrer tabell"
-          />
-        </div>
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-xs">
-          <ArrowDownUp className="size-4 shrink-0 text-neutral-400" aria-hidden />
-          <SearchableSelect
-            value={courseFilter}
-            options={courseFilterOptions}
-            onChange={setCourseFilter}
-            placeholder="Velg kurs"
-            className="mt-0 min-w-0 flex-1"
-            triggerClassName="rounded-full border-[#e3ddcc] bg-[#fbf9f3] py-2 text-sm"
-          />
-        </div>
-      </div>
-
-      <div className="overflow-hidden rounded-lg border border-[#e3ddcc] bg-[#fbf9f3]">
-        <div className="overflow-x-auto">
+      <LayoutTable1PostingsShell
+        title="Fremdrift"
+        titleTypography="sans"
+        description="Sorter kolonner eller filtrer på kurs."
+        toolbar={
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="relative max-w-md flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-neutral-400" />
+              <StandardInput
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Søk etter navn eller kurs…"
+                className="pl-10"
+                aria-label="Filtrer tabell"
+              />
+            </div>
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-xs">
+              <ArrowDownUp className="size-4 shrink-0 text-neutral-400" aria-hidden />
+              <SearchableSelect
+                value={courseFilter}
+                options={courseFilterOptions}
+                onChange={setCourseFilter}
+                placeholder="Velg kurs"
+                className="mt-0 min-w-0 flex-1"
+                triggerClassName="text-sm"
+              />
+            </div>
+          </div>
+        }
+      >
+        {rows.length === 0 ? (
+          <p className="flex items-center justify-center gap-2 px-5 py-12 text-sm text-neutral-600">
+            <Users className="size-4" />
+            Ingen treff — juster filter eller åpne et kurs for å starte fremdrift.
+          </p>
+        ) : (
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead>
-              <tr className="border-b border-[#e3ddcc] bg-[#f7f5ee] text-[#6b6f68]">
+              <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
                 <SortHead colKey="learner" label="Medarbeider" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
                 <SortHead colKey="course" label="Kurs" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
                 <SortHead colKey="started" label="Startet" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
@@ -192,38 +210,30 @@ export function LearningParticipants() {
                 <SortHead colKey="progress" label="Fremdrift" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#e3ddcc]">
+            <tbody>
               {rows.map(({ p, total, done, pct, days, name, courseTitle }) => (
-                <tr key={rowKey(p)}>
-                  <td className="px-4 py-3 font-medium text-[#1a3d32]">{name}</td>
-                  <td className="px-4 py-3">{courseTitle}</td>
-                  <td className="px-4 py-3 text-xs text-[#6b6f68]">{new Date(p.startedAt).toLocaleString()}</td>
+                <tr key={rowKey(p)} className={LAYOUT_TABLE1_POSTINGS_BODY_ROW}>
+                  <td className={`${LAYOUT_TABLE1_POSTINGS_TD} font-medium text-[#1a3d32]`}>{name}</td>
+                  <td className={LAYOUT_TABLE1_POSTINGS_TD}>{courseTitle}</td>
+                  <td className={`${LAYOUT_TABLE1_POSTINGS_TD} text-xs text-neutral-500`}>{new Date(p.startedAt).toLocaleString()}</td>
                   <td
-                    className={`px-4 py-3 tabular-nums ${days > 20 ? 'font-medium text-[#b3382a]' : 'text-neutral-700'}`}
+                    className={`${LAYOUT_TABLE1_POSTINGS_TD} tabular-nums ${days > 20 ? 'font-medium text-red-700' : 'text-neutral-700'}`}
                   >
                     {days}
-                    {days > 20 ? <span className="ml-1 text-[10px] font-normal text-[#b3382a]">(over 20 d.)</span> : null}
+                    {days > 20 ? <span className="ml-1 text-[10px] font-normal text-red-700">(over 20 d.)</span> : null}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={LAYOUT_TABLE1_POSTINGS_TD}>
                     <div className="space-y-1">
                       <ProgressBarMini value={pct} />
-                      <span className="text-xs text-neutral-500">
-                        {total ? `${done}/${total} moduler` : '—'}
-                      </span>
+                      <span className="text-xs text-neutral-500">{total ? `${done}/${total} moduler` : '—'}</span>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-        {rows.length === 0 ? (
-          <p className="flex items-center justify-center gap-2 px-4 py-12 text-sm text-[#6b6f68]">
-            <Users className="size-4" />
-            Ingen treff — juster filter eller åpne et kurs for å starte fremdrift.
-          </p>
-        ) : null}
-      </div>
+        )}
+      </LayoutTable1PostingsShell>
     </div>
   )
 }

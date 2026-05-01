@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { WORKPLACE_CREAM } from '../layout/WorkplaceChrome'
 import { HubMenu1Bar, type HubMenu1Item } from '../layout/HubMenu1Bar'
-import { WorkplacePageHeading1 } from '../layout/WorkplacePageHeading1'
+import { ModulePageShell } from '../module'
 
 /** Workplace content canvas (aligned with Action Board). */
 export const SHELL_PAGE_BG = WORKPLACE_CREAM
@@ -183,18 +183,13 @@ export function LearningLayout() {
   )
 
   return (
-    <div className="min-h-screen w-full" style={{ backgroundColor: 'var(--bg)' }}>
-      <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-        <WorkplacePageHeading1
-          breadcrumb={[{ label: 'Arbeidsflate', to: '/' }, { label: 'E-læring' }, { label: section }]}
-          title="E-læring"
-          description={description}
-          menu={<HubMenu1Bar ariaLabel="E-læring — faner" items={learningHubItems} />}
-        />
-        <div className="mt-8">
-          <Outlet />
-        </div>
-      </div>
-    </div>
+    <ModulePageShell
+      breadcrumb={[{ label: 'Arbeidsflate', to: '/' }, { label: 'E-læring' }, { label: section }]}
+      title="E-læring"
+      description={description}
+      tabs={<HubMenu1Bar ariaLabel="E-læring — faner" items={learningHubItems} />}
+    >
+      <Outlet />
+    </ModulePageShell>
   )
 }
