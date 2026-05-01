@@ -14,6 +14,7 @@ export type OrgModulePayloadKey =
   | 'workplace_dashboard'
   | 'internkontroll_settings'
   | 'amu_election'
+  | 'amu_settings'
   | 'survey_settings'
 
 export function orgModuleSnapKey(moduleKey: OrgModulePayloadKey, orgId: string, userId: string) {
