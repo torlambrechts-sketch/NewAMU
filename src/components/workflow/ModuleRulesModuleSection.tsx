@@ -1,23 +1,15 @@
 import { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
+import type { LucideIcon } from 'lucide-react'
 import { ListTodo, Loader2, Mail, Plus, Save, Zap } from 'lucide-react'
 import { useModuleTemplate } from '../../hooks/useModuleTemplate'
 import type { WorkflowRule } from '../../types/moduleTemplate'
 import { ModuleTemplateWorkflowRulesEditor } from './ModuleTemplateWorkflowRulesEditor'
-import {
-  WMR_BTN_CTA_FOREST,
-  WMR_BTN_PRIMARY,
-  WMR_BTN_SECONDARY,
-  WMR_EMPTY_STATE,
-  WMR_ERROR_BOX,
-  WMR_MODULE_HEADER_CARD,
-  WMR_MODULE_HEADER_CARD_SHADOW,
-  WMR_RULE_CARD,
-  WMR_RULE_CARD_MUTED,
-  WMR_SECTION_LABEL,
-  wmrCtaForestStyle,
-} from './workflowModuleRulesLayoutKit'
 import { createNewWorkflowRule } from './workflowRuleFactory'
+import { ModuleSectionCard } from '../../components/module'
+import { Button } from '../../components/ui/Button'
+import { Badge } from '../../components/ui/Badge'
+import { WarningBox } from '../../components/ui/AlertBox'
 
 function triggerLabel(rule: WorkflowRule): string {
   const t = rule.trigger
@@ -65,19 +57,19 @@ function ActionChip({ action }: { action: WorkflowRule['actions'][number] }) {
 export type ModuleRulesModuleSectionProps = {
   moduleKey: string
   label: string
-  color: string
+  icon: LucideIcon
   path: string
   canManage: boolean
-  activityFilter: 'all' | 'active' | 'inactive'
+  activityFilter?: 'all' | 'active' | 'inactive'
 }
 
 export function ModuleRulesModuleSection({
   moduleKey,
   label,
-  color,
+  icon: Icon,
   path,
   canManage,
-  activityFilter,
+  activityFilter = 'all',
 }: ModuleRulesModuleSectionProps) {
   const { template, loading, error, save, publish, unpublish, refresh } = useModuleTemplate(moduleKey)
   const [editing, setEditing] = useState(false)
@@ -88,7 +80,11 @@ export function ModuleRulesModuleSection({
   const rules = template.workflowRules ?? []
 
   const filteredForCards =
-    activityFilter === 'active' ? rules.filter((r) => r.active) : activityFilter === 'inactive' ? rules.filter((r) => !r.active) : rules
+    activityFilter === 'active'
+      ? rules.filter((r) => r.active)
+      : activityFilter === 'inactive'
+        ? rules.filter((r) => !r.active)
+        : rules
 
   const startEdit = useCallback(() => {
     setDraftRules(rules)
@@ -156,104 +152,102 @@ export function ModuleRulesModuleSection({
 
   if (loading) {
     return (
-      <div className="col-span-full flex items-center gap-2 text-sm text-neutral-500">
+      <ModuleSectionCard className="flex items-center gap-2 p-5 text-sm text-neutral-500">
         <Loader2 className="size-4 animate-spin" aria-hidden />
         Laster {label}…
-      </div>
+      </ModuleSectionCard>
     )
   }
 
   const errMsg = localErr || error
 
   return (
-    <div className="col-span-full space-y-4">
-      <div className={WMR_MODULE_HEADER_CARD} style={WMR_MODULE_HEADER_CARD_SHADOW}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <span
-              className="flex size-9 shrink-0 items-center justify-center rounded-lg"
-              style={{ backgroundColor: `${color}18` }}
-            >
-              <Zap className="size-4" style={{ color }} aria-hidden />
-            </span>
-            <div>
-              <p className={WMR_SECTION_LABEL}>Modul</p>
-              <h2 className="text-base font-semibold text-neutral-900">{label}</h2>
-              <p className="mt-0.5 text-xs text-neutral-500">
-                {rules.length} regel{rules.length === 1 ? '' : 'er'}
-                {template.published ? ' · Publisert' : ' · Utkast'}
-              </p>
-            </div>
+    <ModuleSectionCard clip="visible" className="space-y-4 p-5 md:p-6">
+      {/* Section header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#1a3d32]/10">
+            <Icon className="size-4 text-[#1a3d32]" aria-hidden />
+          </span>
+          <div>
+            <h3 className="text-base font-semibold text-neutral-900">{label}</h3>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              {rules.length} regel{rules.length === 1 ? '' : 'er'}
+            </p>
           </div>
-          {canManage && (
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={addNewRule}
-                disabled={saving}
-                className={WMR_BTN_CTA_FOREST}
-                style={wmrCtaForestStyle()}
-              >
-                <Plus className="size-4 shrink-0" strokeWidth={2.5} />
-                Ny regel
-              </button>
-              {!editing ? (
-                <button type="button" onClick={startEdit} className={`${WMR_BTN_SECONDARY} px-4 py-2 text-sm font-medium`}>
-                  Rediger alle
-                </button>
-              ) : (
-                <>
-                  <button type="button" className={WMR_BTN_PRIMARY} disabled={saving} onClick={() => void handleSave()}>
-                    <Save className="size-3.5" />
-                    {saving ? 'Lagrer…' : 'Lagre'}
-                  </button>
-                  {template.published ? (
-                    <button type="button" className={WMR_BTN_SECONDARY} disabled={saving} onClick={() => void handleUnpublish()}>
-                      Avpubliser
-                    </button>
-                  ) : (
-                    <button type="button" className={WMR_BTN_SECONDARY} disabled={saving} onClick={() => void handlePublish()}>
-                      Publiser
-                    </button>
-                  )}
-                  <button type="button" className={WMR_BTN_SECONDARY} disabled={saving} onClick={cancelEdit}>
-                    Avbryt
-                  </button>
-                </>
-              )}
-            </div>
-          )}
+          <Badge variant={template.published ? 'success' : 'draft'} className="mt-0.5">
+            {template.published ? 'Publisert' : 'Utkast'}
+          </Badge>
         </div>
 
-        {editing && canManage && draftRules && (
-          <div className="mt-4 border-t border-neutral-200/80 pt-4">
-            {errMsg && <p className={`mb-3 ${WMR_ERROR_BOX}`}>{errMsg}</p>}
-            <p className="mb-3 text-xs text-neutral-600">
-              Lagre endringene, deretter <strong>publiser</strong> slik at alle i organisasjonen får oppdatert modulmal.
-            </p>
-            <ModuleTemplateWorkflowRulesEditor rules={draftRules} onChange={setDraftRules} disabled={saving} />
+        {canManage && (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button size="sm" variant="primary" onClick={addNewRule} disabled={saving}>
+              <Plus className="size-3.5" strokeWidth={2.5} />
+              Ny regel
+            </Button>
+            {!editing ? (
+              <Button size="sm" variant="secondary" onClick={startEdit}>
+                Rediger alle
+              </Button>
+            ) : (
+              <>
+                <Button size="sm" variant="primary" disabled={saving} onClick={() => void handleSave()}>
+                  <Save className="size-3.5" />
+                  {saving ? 'Lagrer…' : 'Lagre'}
+                </Button>
+                {template.published ? (
+                  <Button size="sm" variant="secondary" disabled={saving} onClick={() => void handleUnpublish()}>
+                    Avpubliser
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="secondary" disabled={saving} onClick={() => void handlePublish()}>
+                    Publiser
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" disabled={saving} onClick={cancelEdit}>
+                  Avbryt
+                </Button>
+              </>
+            )}
           </div>
         )}
       </div>
 
+      {/* Editor panel */}
+      {editing && canManage && draftRules && (
+        <div className="border-t border-neutral-200 pt-4">
+          {errMsg && (
+            <div className="mb-3">
+              <WarningBox>{errMsg}</WarningBox>
+            </div>
+          )}
+          <p className="mb-3 text-xs text-neutral-600">
+            Lagre endringene, deretter <strong>publiser</strong> slik at alle i organisasjonen får oppdatert modulmal.
+          </p>
+          <ModuleTemplateWorkflowRulesEditor rules={draftRules} onChange={setDraftRules} disabled={saving} />
+        </div>
+      )}
+
+      {/* Rule cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {filteredForCards.map((rule) => (
           <div
             key={rule.id}
-            className={rule.active ? WMR_RULE_CARD : WMR_RULE_CARD_MUTED}
+            className={`rounded-lg border p-4 shadow-sm transition ${
+              rule.active
+                ? 'border-neutral-200 bg-white hover:border-neutral-300'
+                : 'border-neutral-100 bg-white/90 opacity-80'
+            }`}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-neutral-900">{rule.name}</p>
                 <p className="text-[11px] text-neutral-400">{label}</p>
               </div>
-              <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                  rule.active ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-100 text-neutral-500'
-                }`}
-              >
+              <Badge variant={rule.active ? 'success' : 'neutral'}>
                 {rule.active ? 'Aktiv' : 'Inaktiv'}
-              </span>
+              </Badge>
             </div>
             <div className="mt-3 rounded-lg border border-neutral-100 bg-neutral-50/90 px-3 py-2">
               <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Utløser</p>
@@ -272,23 +266,17 @@ export function ModuleRulesModuleSection({
           </div>
         ))}
         {filteredForCards.length === 0 && (
-          <div className={`${WMR_EMPTY_STATE} flex flex-col items-center gap-4 sm:col-span-2 lg:col-span-3`}>
+          <div className="flex flex-col items-center gap-4 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/90 p-8 text-center text-sm text-neutral-500 sm:col-span-2 lg:col-span-3">
             <p>Ingen regler i dette filteret for {label}.</p>
             {canManage && (
-              <button
-                type="button"
-                onClick={addNewRule}
-                disabled={saving}
-                className={WMR_BTN_CTA_FOREST}
-                style={wmrCtaForestStyle()}
-              >
-                <Plus className="size-4 shrink-0" strokeWidth={2.5} />
+              <Button size="sm" variant="primary" onClick={addNewRule} disabled={saving}>
+                <Plus className="size-3.5" strokeWidth={2.5} />
                 Opprett første regel
-              </button>
+              </Button>
             )}
           </div>
         )}
       </div>
-    </div>
+    </ModuleSectionCard>
   )
 }
