@@ -20,12 +20,13 @@ import {
   defaultTaskAction,
   summarizeAction,
 } from './workflowActionDefaults'
-import { WF_FIELD_INPUT, WF_FIELD_LABEL, WF_LEAD, WF_PANEL_INSET, WF_PANEL_ROW_GRID } from './workflowPanelStyles'
+import { Button } from '../ui/Button'
+import { StandardInput } from '../ui/Input'
+import { SearchableSelect } from '../ui/SearchableSelect'
 
-const R = 'rounded-none'
-const BTN =
-  'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-none border px-3 text-sm font-medium leading-none'
-const STEP_CARD = `${R} border border-neutral-200/90 bg-white p-3 text-sm`
+const FIELD_LABEL = 'mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500'
+const WF_LEAD = 'text-sm leading-relaxed text-neutral-600'
+const STEP_CARD = 'rounded-lg border border-neutral-200/90 bg-white p-3 text-sm'
 
 type ReorderPayload = { kind: 'reorder'; stepId: string; branchId?: string }
 
@@ -131,9 +132,9 @@ function StepRow({
       <button
         type="button"
         onClick={onSelect}
-        className="flex min-w-0 flex-1 items-start gap-3 rounded-none py-0.5 text-left"
+        className="flex min-w-0 flex-1 items-start gap-3 rounded-lg py-0.5 text-left"
       >
-        <span className={`flex size-10 shrink-0 items-center justify-center rounded-none ${stepAccent(step)}`}>
+        <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${stepAccent(step)}`}>
           {IconBox}
         </span>
         <span className="min-w-0 flex-1">
@@ -151,7 +152,7 @@ function StepRow({
             e.stopPropagation()
             onSelect()
           }}
-          className={`${R} p-2 text-neutral-500 hover:bg-neutral-100 hover:text-[#1a3d32]`}
+          className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 hover:text-[#1a3d32]"
           aria-label="Rediger"
         >
           <Pencil className="size-4" />
@@ -162,7 +163,7 @@ function StepRow({
             e.stopPropagation()
             onDelete()
           }}
-          className={`${R} p-2 text-neutral-400 hover:bg-red-50 hover:text-red-700`}
+          className="rounded-lg p-2 text-neutral-400 hover:bg-red-50 hover:text-red-700"
           aria-label="Slett"
         >
           <Trash2 className="size-4" />
@@ -179,6 +180,8 @@ const ACTION_OPTIONS: { value: ActionTemplate; label: string }[] = [
   { value: 'webhook', label: 'Webhook' },
   { value: 'log', label: 'Kun logg' },
 ]
+
+const ACTION_SELECT_OPTIONS = [{ value: '', label: 'Velg…' }, ...ACTION_OPTIONS]
 
 function FlowStepsBlock({
   branchId,
@@ -239,64 +242,41 @@ function FlowStepsBlock({
     setActPick('')
   }
 
-  const whenSelectId = branchId ? `wf-when-${branchId}` : 'wf-when-linear'
-  const actSelectId = branchId ? `wf-act-${branchId}` : 'wf-act-linear'
+  const whenPresetOptions = [{ value: '', label: 'Velg…' }, ...inputPresets.map((pr) => ({ value: pr.id, label: pr.label }))]
 
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1">
-          <label className={WF_FIELD_LABEL} htmlFor={whenSelectId}>
-            Legg til inndata (når)
-          </label>
-          <select
-            id={whenSelectId}
+          <p className={FIELD_LABEL}>Legg til inndata (når)</p>
+          <SearchableSelect
             value={whenPick}
-            onChange={(e) => {
-              const v = e.target.value
+            options={whenPresetOptions}
+            onChange={(v) => {
               setWhenPick(v)
               addWhenPreset(v)
             }}
-            className={WF_FIELD_INPUT}
-          >
-            <option value="">Velg…</option>
-            {inputPresets.map((pr) => (
-              <option key={pr.id} value={pr.id}>
-                {pr.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
         <div className="min-w-0 flex-1">
-          <label className={WF_FIELD_LABEL} htmlFor={actSelectId}>
-            Legg til handling (så)
-          </label>
-          <select
-            id={actSelectId}
+          <p className={FIELD_LABEL}>Legg til handling (så)</p>
+          <SearchableSelect
             value={actPick}
-            onChange={(e) => {
-              const v = e.target.value
+            options={ACTION_SELECT_OPTIONS}
+            onChange={(v) => {
               setActPick(v)
               addActionTemplate(v)
             }}
-            className={WF_FIELD_INPUT}
-          >
-            <option value="">Velg…</option>
-            {ACTION_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </div>
 
       <div
-        className={`${R} min-h-[140px] border border-neutral-200/90 bg-white p-3`}
+        className="min-h-[140px] rounded-lg border border-neutral-200/90 bg-white p-3"
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => handleDropOnList(e, steps.length)}
       >
-        <p className={`${WF_FIELD_LABEL} mb-2 text-neutral-500`}>Rekkefølge</p>
+        <p className={`${FIELD_LABEL} mb-2 text-neutral-500`}>Rekkefølge</p>
         <div className="space-y-0">
           {steps.length === 0 ? (
             <p className={`${WF_LEAD} py-6 text-center text-neutral-500`}>
@@ -335,6 +315,12 @@ function FlowStepsBlock({
     </div>
   )
 }
+
+const CONDITION_MATCH_OPTIONS = [
+  { value: 'always', label: 'Alltid' },
+  { value: 'array_any', label: 'Når data i en liste matcher…' },
+  { value: 'field_equals', label: 'Når ett felt er lik en verdi' },
+]
 
 type Props = {
   value: WorkflowFlowDocument
@@ -436,40 +422,40 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
 
   return (
     <div className="w-full space-y-0">
-      <div className={WF_PANEL_ROW_GRID}>
+      <div className="grid grid-cols-1 gap-4 border-b border-neutral-200 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-5 md:py-5">
         <div className="min-w-0 space-y-4">
           <div>
-            <p className={WF_FIELD_LABEL}>Flyt</p>
+            <p className={FIELD_LABEL}>Flyt</p>
             <p className={`${WF_LEAD} mt-2`}>
               Legg til steg med menyene under. Juster detaljer til høyre. Du kan dra steg for å endre rekkefølge.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`${WF_FIELD_LABEL} mr-1 text-neutral-600`}>Modus</span>
-            <button
-              type="button"
+            <span className={`${FIELD_LABEL} mr-1 text-neutral-600`}>Modus</span>
+            <Button
+              variant={value.mode === 'linear' ? 'primary' : 'secondary'}
+              size="sm"
               onClick={() => {
                 const d = { ...value, mode: 'linear' as const }
                 if (d.linearSteps.length === 0) d.linearSteps = defaultWorkflowFlowDocument().linearSteps
                 updateDoc(d)
               }}
-              className={`${BTN} ${value.mode === 'linear' ? 'border-[#1a3d32] bg-[#1a3d32] text-white' : 'border-neutral-300 bg-white'}`}
             >
               Lineær
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant={value.mode === 'xor' ? 'primary' : 'secondary'}
+              size="sm"
               onClick={() => updateDoc({ ...value, mode: 'xor' })}
-              className={`${BTN} ${value.mode === 'xor' ? 'border-[#1a3d32] bg-[#1a3d32] text-white' : 'border-neutral-300 bg-white'}`}
             >
               <Split className="size-4" />
               XOR
-            </button>
+            </Button>
           </div>
 
           {value.mode === 'xor' ? (
-            <p className={`${WF_LEAD} text-amber-950`}>
+            <p className={`${WF_LEAD} text-neutral-700`}>
               <strong className="font-semibold">XOR:</strong> nøyaktig én gren skal matche.
             </p>
           ) : (
@@ -491,8 +477,9 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
             />
           ) : (
             <div className="space-y-4">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() =>
                   updateDoc({
                     ...value,
@@ -502,16 +489,15 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
                     ],
                   })
                 }
-                className={`${BTN} border-neutral-300 bg-white text-neutral-800`}
               >
                 <Plus className="size-4" />
                 Ny gren
-              </button>
+              </Button>
               <div className="space-y-4">
                 {value.xorBranches.map((branch) => (
-                  <div key={branch.id} className={`${R} border border-neutral-200/90 bg-white p-4`}>
-                    <label className={WF_FIELD_LABEL}>Grenenavn</label>
-                    <input
+                  <div key={branch.id} className="rounded-lg border border-neutral-200/90 bg-white p-4">
+                    <label className={FIELD_LABEL}>Grenenavn</label>
+                    <StandardInput
                       value={branch.label}
                       onChange={(e) =>
                         updateDoc({
@@ -521,7 +507,7 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
                           ),
                         })
                       }
-                      className={`${WF_FIELD_INPUT} mt-1.5 font-semibold`}
+                      className="mt-1.5 font-semibold"
                     />
                     {value.xorBranches.length > 2 ? (
                       <button
@@ -556,49 +542,42 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
           )}
 
           {compileError ? (
-            <p className={`${R} border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800`}>{compileError}</p>
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{compileError}</p>
           ) : null}
         </div>
 
-        <div className={`${WF_PANEL_INSET} min-h-[min(70vh,36rem)]`}>
-          <h4 className={WF_FIELD_LABEL}>Spesifikasjon</h4>
+        <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6 min-h-[min(70vh,36rem)]">
+          <h4 className={FIELD_LABEL}>Spesifikasjon</h4>
           {!selectedStep ? (
             <p className={`${WF_LEAD} mt-10 text-center`}>Velg et steg i listen for å redigere.</p>
           ) : selectedStep.kind === 'condition' ? (
             <div className="mt-5 space-y-5">
               <div>
-                <label className={WF_FIELD_LABEL} htmlFor="wf-step-label-cond">
+                <label className={FIELD_LABEL} htmlFor="wf-step-label-cond">
                   Visningsnavn
                 </label>
-                <input
+                <StandardInput
                   id="wf-step-label-cond"
                   value={selectedStep.label ?? ''}
                   onChange={(e) => patchSelectedStep({ ...selectedStep, label: e.target.value })}
-                  className={WF_FIELD_INPUT}
                   placeholder="Valgfritt kort navn"
                 />
               </div>
               <div>
-                <label className={WF_FIELD_LABEL} htmlFor="wf-cond-match">
+                <label className={FIELD_LABEL} htmlFor="wf-cond-match">
                   Når skal dette gjelde?
                 </label>
-                <select
-                  id="wf-cond-match"
+                <SearchableSelect
                   value={selectedStep.condition.match}
-                  onChange={(e) => {
-                    const v = e.target.value
+                  options={CONDITION_MATCH_OPTIONS}
+                  onChange={(v) => {
                     if (v === 'always') patchSelectedStep({ ...selectedStep, condition: { match: 'always' } })
                     if (v === 'field_equals')
                       patchSelectedStep({ ...selectedStep, condition: { match: 'field_equals', path: '', value: '' } })
                     if (v === 'array_any')
                       patchSelectedStep({ ...selectedStep, condition: { match: 'array_any', path: '', where: {} } })
                   }}
-                  className={WF_FIELD_INPUT}
-                >
-                  <option value="always">Alltid</option>
-                  <option value="array_any">Når data i en liste matcher…</option>
-                  <option value="field_equals">Når ett felt er lik en verdi</option>
-                </select>
+                />
               </div>
               <WorkflowConditionForm
                 value={selectedStep.condition}
@@ -609,14 +588,13 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
           ) : (
             <div className="mt-5 space-y-5">
               <div>
-                <label className={WF_FIELD_LABEL} htmlFor="wf-step-label-act">
+                <label className={FIELD_LABEL} htmlFor="wf-step-label-act">
                   Visningsnavn
                 </label>
-                <input
+                <StandardInput
                   id="wf-step-label-act"
                   value={selectedStep.label ?? ''}
                   onChange={(e) => patchSelectedStep({ ...selectedStep, label: e.target.value })}
-                  className={WF_FIELD_INPUT}
                 />
               </div>
               <WorkflowActionsEditor
