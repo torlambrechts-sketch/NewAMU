@@ -26,6 +26,7 @@ import {
   FileText,
   Calendar,
   ExternalLink,
+  type LucideIcon,
 } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { InfoBox } from '../components/ui/AlertBox'
@@ -50,14 +51,14 @@ import {
   WPSTD_FORM_INSET,
   WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
+  WPSTD_FORM_INPUT_ON_WHITE,
 } from '../components/layout/WorkplaceStandardFormPanel'
 import {
   WorkplaceStandardListLayout,
+  WORKPLACE_LIST_LAYOUT_CTA,
   type WorkplaceListViewMode,
 } from '../components/layout/WorkplaceStandardListLayout'
 import { Tabs } from '../components/ui/Tabs'
-import { Button } from '../components/ui/Button'
-import { StandardInput } from '../components/ui/Input'
 import type { EmploymentType, OrgEmployee, OrgEmployeeMandate, OrgUnit, OrgUnitKind, UserGroup } from '../types/organisation'
 import { MANDATE_TYPE_LABELS, MANDATE_TYPE_LAW_REFS } from '../types/organisation'
 import { fetchEnhetByOrgnr } from '../lib/brreg'
@@ -671,7 +672,7 @@ export function OrganisationPage() {
     return rows.map((r, i) => ({ ...r, color: colors[i % colors.length], max }))
   }, [insightStats.byKind])
 
-  const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
     { id: 'insights',   label: 'Oversikt',         icon: PieChart },
     { id: 'employees',  label: 'Ansatte',           icon: Users },
     { id: 'units',      label: 'Enheter',           icon: Building2 },
