@@ -36,7 +36,6 @@ import { OrganisationHeaderIllustration } from '../components/organisation/Organ
 import { Mainbox1 } from '../components/layout/Mainbox1'
 import { Table1Shell } from '../components/layout/Table1Shell'
 import { Table1Toolbar } from '../components/layout/Table1Toolbar'
-import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import {
   table1BodyRowClass,
   table1CellPadding,
@@ -693,11 +692,11 @@ export function OrganisationPage() {
   const useStandardOrgList =
     tab === 'insights' || tab === 'employees' || tab === 'units' || tab === 'groups' || tab === 'mandates' || tab === 'gdpr'
 
-  const orgHubMenuItems = useMemo((): HubMenu1Item[] => {
+  const orgHubMenuItems = useMemo(() => {
     return TABS.map((t) => ({
       key: t.id,
       label: t.label,
-      icon: t.icon as HubMenu1Item['icon'],
+      icon: t.icon,
       active: tab === t.id,
       onClick: () => setTab(t.id),
       badgeCount: t.id === 'employees' ? org.activeEmployees.length : undefined,
